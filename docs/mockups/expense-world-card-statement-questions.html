@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Card statement questions</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>A card's statement on one screen · the questions to pick</h1>
+  <p>The engine keeps a card's monthly statement as <b>one</b> thing for the whole card: one name, one set of days, one status, and a starting and ending balance for each of its accounts, one per currency. Its lines come in the paper's order, both currencies in one numbering. Today's screens still show one account at a time. These screens show the card's statement whole, as the bank's paper prints it.</p>
+  <p>Each question below is drawn with one pane per option, lettered as in the spec <code>catch-up-cards-statements-4-statement-screen.md</code>; the recommended one is tagged. Questions 1 (the screen's name) and 8 (a transaction moved to its card's other account) are about words and are not drawn; the screens keep today's word, Reconciliations.</p>
+  <p>The cards, lines and amounts are invented: <b>Visa Signature</b> holds Visa Signature PEN and Visa Signature USD, statement code SIG; <b>Interbank Visa</b> holds a PEN and a USD account, no statement code; <b>BCP Ahorros</b> holds one account, Sueldo Soles; <b>BBVA Digital</b> holds one, Cuenta Digital Dólares. Card balances are signed as the paper shows them: negative is what you owe. The button at the top right switches to a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">2 · What the list of statements opens on <span>— the Reconciliations browse, ⏎ on the Visa</span></div><p class="blurb">Today the browse lists accounts, and <code>⏎</code> on an account opens its reconciliations. A statement now belongs to the whole card, one row per month, with a difference per currency and one status; the card's own name is the one you give it. <b>Status</b> is the statement's one status, so <code>half completed</code> is gone.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>one row per card, with its name and its currencies, then that card's statements</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick a card
+
+<span class="d">    Card                        Currencies         Balances</span>
+    <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="a">▸</span> Visa Signature              PEN + USD       <span class="n">-512.30 PEN</span>   <span class="n">-61.40 USD</span>
+    Interbank Visa              PEN + USD       <span class="n">-348.60 PEN</span>   <span class="n">-45.00 USD</span>
+    BCP Ahorros                 PEN           12,450.00 PEN
+    BBVA Digital                USD              820.15 USD
+
+  Reconciliations · Visa Signature · PEN + USD · SIG   ·   <span class="d">oldest → newest</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    Name             Period                     Diff PEN   Diff USD   Status</span>
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    SIG-202608       2026-07-26 → 2026-08-25           —          —   completed</span>
+<span class="d">    SIG-202609       2026-08-26 → 2026-09-25           —          —   completed</span>
+<span class="d">    SIG-202610       2026-09-26 → 2026-10-25           —          —   completed</span>
+<span class="rev">    Noviembre 2026   2026-10-26 → 2026-11-25                          draft     </span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">Each card is one row, named as you name it, its currencies and a balance per account beside it. <code>⏎</code> opens its statements under it. A card with one account is one row too (BCP Ahorros holds Sueldo Soles).</p></div><div class="var"><div class="oh">B · <span>one row per account, as today; a card's two accounts open the same statements</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature PEN</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+<span class="d">    Account                     Cur         Balance</span>
+    <span class="d">───────────────────────────────────────────────</span>
+  <span class="a">▸</span> Visa Signature PEN          PEN         <span class="n">-512.30</span>
+  <span class="a">▸</span> Visa Signature USD          USD          <span class="n">-61.40</span>
+    Interbank Visa PEN          PEN         <span class="n">-348.60</span>
+    Interbank Visa USD          USD          <span class="n">-45.00</span>
+    Sueldo Soles                PEN       12,450.00
+    Cuenta Digital Dólares      USD          820.15
+
+  Reconciliations · Visa Signature PEN + Visa Signature USD · SIG   ·   <span class="d">oldest → newest</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    Name             Period                     Diff PEN   Diff USD   Status</span>
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    SIG-202608       2026-07-26 → 2026-08-25           —          —   completed</span>
+<span class="d">    SIG-202609       2026-08-26 → 2026-09-25           —          —   completed</span>
+<span class="d">    SIG-202610       2026-09-26 → 2026-10-25           —          —   completed</span>
+<span class="rev">    Noviembre 2026   2026-10-26 → 2026-11-25                          draft     </span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">The list stays as it is. <code>⏎</code> on either Visa account opens the same statements, and both carry the <code>▸</code>. The panel's title names both accounts.</p></div></div></div>
+
+<div class="pane"><div class="lbl">3 · A two-currency card's statement screen <span>— screen 4 of the PDF mockup, drawn again</span></div><p class="blurb">The Visa's first statement, <code>SIG-202610</code>, closed from its PDF: seven lines in soles and two in dollars, numbered as the paper numbers them. It is the card's first statement, so each account's opening balance is a line of it and each begins at 0.00; the opening balances hold no place on the paper and are listed apart. The footer is question 9's B.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>one list in the paper's order, both currencies mixed, numbered 1, 2, 3 … with no gaps</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+     4   2026-10-14   NETFLIX.COM               004977      PEN       <span class="n">-44.90</span>
+     5   2026-10-20   PAGO TARJETA              005102      PEN      <span class="p">+800.00</span>
+     6   2026-10-05   AMAZON MKTPLACE           004890      USD       <span class="n">-24.99</span>
+     7   2026-10-24   SPOTIFY P2F3              <span class="d">—</span>           USD        <span class="n">-5.99</span>
+     8   2026-10-25   INTERESES                 <span class="d">—</span>           PEN       <span class="n">-12.40</span>
+     9   2026-10-25   SEGURO DE DESGRAVAMEN     <span class="d">—</span>           PEN        <span class="n">-6.90</span>
+
+<span class="d">      Not on the paper</span>
+     <span class="d">—</span>   2026-09-26   Opening balance           <span class="d">—</span>           PEN    <span class="n">-1,204.10</span>
+     <span class="d">—</span>   2026-09-26   Opening balance           <span class="d">—</span>           USD       <span class="n">-36.42</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Read top to bottom against the paper. A <code>Cur</code> column says each line's currency, and each currency's begin, end and diff show once at the top.</p></div><div class="var"><div class="oh">B · <span>one section per currency, each with its balances; the numbers keep the other currency's gaps</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+
+  <span class="b">PEN</span>   begin 0.00   end <span class="n">-602.10</span>   diff <span class="d">—</span>
+<span class="d">     #   Date         Title                     Operation        Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —                 -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812           <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>                <span class="n">-42.00</span>
+     4   2026-10-14   NETFLIX.COM               004977           <span class="n">-44.90</span>
+     5   2026-10-20   PAGO TARJETA              005102          <span class="p">+800.00</span>
+     8   2026-10-25   INTERESES                 <span class="d">—</span>                <span class="n">-12.40</span>
+     9   2026-10-25   SEGURO DE DESGRAVAMEN     <span class="d">—</span>                 <span class="n">-6.90</span>
+     <span class="d">—</span>   2026-09-26   Opening balance           <span class="d">—</span>             <span class="n">-1,204.10</span>   <span class="d">not on the paper</span>
+
+  <span class="b">USD</span>   begin 0.00   end <span class="n">-67.40</span>   diff <span class="d">—</span>
+<span class="d">     #   Date         Title                     Operation        Amount</span>
+     6   2026-10-05   AMAZON MKTPLACE           004890           <span class="n">-24.99</span>
+     7   2026-10-24   SPOTIFY P2F3              <span class="d">—</span>                 <span class="n">-5.99</span>
+     <span class="d">—</span>   2026-09-26   Opening balance           <span class="d">—</span>                <span class="n">-36.42</span>   <span class="d">not on the paper</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Soles first, then dollars, each in the accounts' order, its balances on its own head line. The soles skip 6 and 7, the dollars' numbers.</p></div><div class="var"><div class="oh">C · <span>one currency at a time, switched with a key, as today's halves are</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+  <span class="ab">[ PEN ]</span>  <span class="d">USD</span>   begin 0.00   end <span class="n">-602.10</span>   diff <span class="d">—</span>
+
+<span class="d">     #   Date         Title                     Operation        Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —                 -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812           <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>                <span class="n">-42.00</span>
+     4   2026-10-14   NETFLIX.COM               004977           <span class="n">-44.90</span>
+     5   2026-10-20   PAGO TARJETA              005102          <span class="p">+800.00</span>
+     8   2026-10-25   INTERESES                 <span class="d">—</span>                <span class="n">-12.40</span>
+     9   2026-10-25   SEGURO DE DESGRAVAMEN     <span class="d">—</span>                 <span class="n">-6.90</span>
+
+<span class="d">      Not on the paper</span>
+     <span class="d">—</span>   2026-09-26   Opening balance           <span class="d">—</span>             <span class="n">-1,204.10</span>
+
+ <span class="d">esc Back  ⇥ USD  r Refresh  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap"><code>⇥</code> shows the dollars, with their own balances and lines (6 and 7), and <code>⇥</code> again the soles. The numbers keep the other currency's gaps.</p></div></div></div>
+
+<div class="pane"><div class="lbl">4 · Closing a currency with no movement by hand <span>— c on a card with no statement code</span></div><p class="blurb">Interbank Visa has no statement code, so its statement closes by hand (tick, end balances, <code>c</code>). In October it has four lines in soles and none in dollars. The soles' end is typed and adds up; <code>c</code> asks for the dollars' end first. The engine completes the dollar account when its begin and end are equal (-45.00 both), and refuses an unequal end in its own words, <code>DIFFERENCE_NOT_ZERO</code> on that account.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>you type its ending balance as for any account; the box starts empty</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  Octubre 2026  ·  Interbank Visa  ·  2026-09-26 → 2026-10-25  ·  status draft
+<span class="d">           begin          end      diff</span>
+  PEN    <span class="n">-820.00</span>      <span class="n">-348.60</span>         <span class="d">—</span>
+  USD     <span class="n">-45.00</span>                       
+
+<span class="d">        Date         Title                     Operation   Cur       Amount</span>
+   [x]  2026-10-04   WONG BENAVIDES            003301      PEN       <span class="n">-63.10</span>
+   [x]  2026-10-12   CINEPLANET                <span class="d">—</span>           PEN       <span class="n">-38.00</span>
+   [x]  2026-10-18   PAGO TARJETA              003355      PEN      <span class="p">+600.00</span>
+   [x]  2026-10-22   RAPPI                     003372      PEN       <span class="n">-27.50</span>
+
+  <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    <span class="b">Ending balance first</span>
+
+    The statement's closing figure for Interbank Visa USD, in USD · signed · e.g. 13,853.20
+
+    <span class="b">END BALANCE USD</span>   ▍
+
+
+    <span class="d">[enter] save    [esc] cancel</span>
+  <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+
+ <span class="d">enter Save  esc Cancel</span></pre></div></div><p class="cap">The same box as any account's. Typing -45.00 lets <code>c</code> go on to its question; any other figure is refused by the engine.</p></div><div class="var"><div class="oh">B · <span>the box starts holding the starting balance, for you to confirm or change</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  Octubre 2026  ·  Interbank Visa  ·  2026-09-26 → 2026-10-25  ·  status draft
+<span class="d">           begin          end      diff</span>
+  PEN    <span class="n">-820.00</span>      <span class="n">-348.60</span>         <span class="d">—</span>
+  USD     <span class="n">-45.00</span>                       
+
+<span class="d">        Date         Title                     Operation   Cur       Amount</span>
+   [x]  2026-10-04   WONG BENAVIDES            003301      PEN       <span class="n">-63.10</span>
+   [x]  2026-10-12   CINEPLANET                <span class="d">—</span>           PEN       <span class="n">-38.00</span>
+   [x]  2026-10-18   PAGO TARJETA              003355      PEN      <span class="p">+600.00</span>
+   [x]  2026-10-22   RAPPI                     003372      PEN       <span class="n">-27.50</span>
+
+  <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    <span class="b">Ending balance first</span>
+
+    The statement's closing figure for Interbank Visa USD, in USD · signed · e.g. 13,853.20
+
+    <span class="b">END BALANCE USD</span>   -45.00▍
+    <span class="d">starts at its begin balance · change it or press enter</span>
+
+    <span class="d">[enter] save    [esc] cancel</span>
+  <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+
+ <span class="d">enter Save  esc Cancel</span></pre></div></div><p class="cap">The box holds -45.00 already; <code>enter</code> saves it as typed. The dim line under it is new words.</p></div></div></div>
+
+<div class="pane"><div class="lbl">5 · The form that opens a statement <span>— n on a card</span></div><p class="blurb">It asks for the name and days once, then a starting balance, and optionally an ending one, for every account of the card. Each option drawn on the Interbank Visa (two accounts) and on BCP Ahorros (one account, Sueldo Soles).</p><div class="opt wide"><div class="var"><div class="oh">A · <span>as today's forms: a two-account card's form</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Interbank Visa  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE USD</span>   -45.00▍
+
+   <span class="d">signed decimal · the dollar half's opening balance</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name                Noviembre 2026
+   accounts            Interbank Visa PEN + Interbank Visa USD
+   date start          2026-10-26
+   date end            2026-11-25
+   begin balance PEN   -348.60
+   end balance PEN     <span class="d">optional</span>
+   begin balance USD   <span class="d">*</span>
+   end balance USD     <span class="d">optional</span>
+
+ <span class="d">esc Cancel  ^s Create both  ⇥ Field</span></pre></div></div><p class="cap">Today's card form, now for every card with two accounts: each balance's line ends with its currency.</p></div><div class="var"><div class="oh">A · <span>as today's forms: a one-account card's form, unchanged</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  BCP Ahorros  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE</span>   12,450.00▍
+
+   <span class="d">signed decimal · your statement's opening balance</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name                Noviembre 2026
+   date start          2026-11-01
+   date end            2026-11-30
+   begin balance       <span class="d">*</span>
+   end balance         <span class="d">optional</span>
+
+ <span class="d">esc Cancel  ^s Create  ⇥ Field</span></pre></div></div><p class="cap">A one-account card keeps today's form, with no currency named.</p></div></div><div class="opt wide"><div class="var"><div class="oh">B · <span>one line per balance, its currency named on it: a two-account card</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Interbank Visa  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">USD BEGIN</span>   -45.00▍
+
+   <span class="d">signed decimal · the starting balance in USD</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name                Noviembre 2026
+   card                Interbank Visa
+   date start          2026-10-26
+   date end            2026-11-25
+   PEN begin           -348.60
+   PEN end             <span class="d">optional</span>
+   USD begin           <span class="d">*</span>
+   USD end             <span class="d">optional</span>
+
+ <span class="d">esc Cancel  ^s Create  ⇥ Field</span></pre></div></div><p class="cap">Every balance line starts with its currency; the card is named on its own line.</p></div><div class="var"><div class="oh">B · <span>one line per balance, its currency named on it: a one-account card</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  BCP Ahorros  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">PEN BEGIN</span>   12,450.00▍
+
+   <span class="d">signed decimal · the starting balance in PEN</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name                Noviembre 2026
+   card                BCP Ahorros
+   date start          2026-11-01
+   date end            2026-11-30
+   PEN begin           <span class="d">*</span>
+   PEN end             <span class="d">optional</span>
+
+ <span class="d">esc Cancel  ^s Create  ⇥ Field</span></pre></div></div><p class="cap">The same shape on a one-account card: its one currency named on both balances.</p></div></div></div>
+
+<div class="pane"><div class="lbl">6 · When the flagged lines show <span>— the statement opened two days after its close</span></div><p class="blurb">A close flags lines in no statement dated up to the statement's last day (UBER *TRIP, one day off the paper's row 3, and KFC JOCKEY PLAZA). The engine can now list them at any time, with their count. Either way <code>f</code> lists them in the statement's order, both currencies together.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>⚑ and f whenever a statement has flagged lines, counted when the screen opens: a completed statement</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+  <span class="w">⚑ 2 lines flagged for review: in no statement, dated up to this one's last day</span>  <span class="d">· f shows them</span>
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+     4   2026-10-14   NETFLIX.COM               004977      PEN       <span class="n">-44.90</span>
+<span class="d">     … 5 more · pgdn</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  f Flagged  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Opened any day after the close, the <code>⚑</code> line and <code>f</code> are there while a flagged line is left; dealt with, they go.</p></div><div class="var"><div class="oh">A · <span>the same on an open statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Noviembre 2026</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  Noviembre 2026  ·  Interbank Visa  ·  2026-10-26 → 2026-11-25  ·  status draft
+<span class="d">           begin          end      diff</span>
+  PEN    <span class="n">-348.60</span>                       
+  USD     <span class="n">-45.00</span>                       
+  <span class="w">⚑ 1 line flagged for review: in no statement, dated up to this one's last day</span>  <span class="d">· f shows it</span>
+
+<span class="d">        Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">   [x]  2026-11-02   METRO SURCO               003410      PEN       -91.20 </span>
+   [x]  2026-11-09   SPOTIFY                   <span class="d">—</span>           USD        <span class="n">-5.99</span>
+   [ ]  2026-11-14   TOTTUS LA MOLINA          003466      PEN       <span class="n">-56.80</span>
+
+ <span class="d">esc Back  r Refresh  space Tick  c Complete  d Delete  f Flagged  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">A draft shows them too, before its close, counted the same way when the screen opens.</p></div></div><div class="opt wide"><div class="var"><div class="oh">B · <span>as today: only right after a close; opened later, nothing shows</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+     4   2026-10-14   NETFLIX.COM               004977      PEN       <span class="n">-44.90</span>
+<span class="d">     … 5 more · pgdn</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Once you leave the statement after its close, no screen lists its flagged lines again; they stay in no statement, under <code>u No batch</code>.</p></div></div></div>
+
+<div class="pane"><div class="lbl">7 · How a card is named in the upload's and the download's list of accounts <span>— after a file is dropped on the LOG bar</span></div><p class="blurb">The cards: Visa Signature (PEN + USD, statement code SIG), Interbank Visa (PEN + USD, no code), BCP Ahorros (one account, Sueldo Soles, code AHO) and BBVA Digital (one account, Cuenta Digital Dólares, no code). Drawn on the PDF upload; the bank download's list, <code>Which account is this file?</code>, is named the same way.</p><p class="blurb" style="margin-top:22px"><b>Which name a card shows.</b></p><div class="opt"><div class="var"><div class="oh">A · <span>the card's own name and its currencies; a one-account card shows its card's name</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+
+<span class="rev">    Visa Signature              PEN + USD     </span>
+    Interbank Visa              PEN + USD
+    BCP Ahorros                 PEN
+    BBVA Digital                USD
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">One name per card, the one you give it. BCP Ahorros and BBVA Digital show their card's name, not Sueldo Soles or Cuenta Digital Dólares.</p></div><div class="var"><div class="oh">B · <span>as A, but a one-account card shows its account's name</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+
+<span class="rev">    Visa Signature              PEN + USD     </span>
+    Interbank Visa              PEN + USD
+    Sueldo Soles                PEN
+    Cuenta Digital Dólares      USD
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">A two-account card is named as in A; a one-account card shows the name you know it by, its account's.</p></div><div class="var"><div class="oh">C · <span>one line per account</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+
+<span class="rev">    Visa Signature PEN          PEN           </span>
+    Visa Signature USD          USD
+    Interbank Visa PEN          PEN
+    Interbank Visa USD          USD
+    Sueldo Soles                PEN
+    Cuenta Digital Dólares      USD
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">Every account its own line. On the upload, picking either Visa account closes the whole card's statement; on the download, each currency's file goes to its account.</p></div></div><p class="blurb" style="margin-top:22px"><b>Which cards the PDF upload lists.</b> Drawn with the names of A.</p><div class="opt"><div class="var"><div class="oh">A · <span>every card, the same list as the download; picked: the Interbank Visa</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+
+    Visa Signature              PEN + USD
+<span class="rev">    Interbank Visa              PEN + USD     </span>
+    BCP Ahorros                 PEN
+    BBVA Digital                USD
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">The same four cards as the download's list. The cursor is on Interbank Visa, which has no statement code.</p></div><div class="var"><div class="oh">A · <span>⏎ on it: refused in the engine's words</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Upload  ▸  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Interbank Visa
+
+  <span class="n">NO_STATEMENT_CODE — The holder has no statement code: its statement has no order</span>
+  <span class="n">to read, and no bank statement can be uploaded to it.</span>
+  <span class="d">Nothing was written.</span>
+
+ <span class="d">esc Back</span></pre></div></div><p class="cap">The engine refuses it, nothing written; the words are the engine's for <code>NO_STATEMENT_CODE</code>, and the screen shows whatever it sends.</p></div><div class="var"><div class="oh">B · <span>only cards with a statement code</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="b">BCP Visa 1492 2026-10.pdf</span>
+
+<span class="rev">    Visa Signature              PEN + USD     </span>
+    BCP Ahorros                 PEN
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">Interbank Visa and BBVA Digital are left out, so a PDF cannot be sent to a card that cannot take it.</p></div></div></div>
+
+<div class="pane"><div class="lbl">9 · A completed statement's footer <span>— the keys at the foot of a completed statement</span></div><p class="blurb">On a completed statement, <code>c Complete</code> only says <code>Already completed.</code>, and <code>d Delete</code> asks, then shows the engine's refusal: a completed statement is reverted before it is deleted.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>show neither c nor d</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+<span class="d">     … 6 more · pgdn</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Only the keys that act. To delete a completed statement you press <code>u</code> first; nothing on screen says so.</p></div><div class="var"><div class="oh">B · <span>drop c only; d stays, and the engine's refusal says to revert first</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+
+  <span class="n">Couldn't delete</span>
+  <span class="n">RECONCILIATION_NOT_DRAFT — Must be a draft statement.</span>
+  Press u to revert it, then d again.
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+<span class="d">     … 6 more · pgdn</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap">Drawn after <code>d</code> and <code>y</code>: the engine's words, then the app's line under them, as today.</p></div><div class="var"><div class="oh">C · <span>keep the footer as it is</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  Visa Signature  ·  2026-09-26 → 2026-10-25  ·  status <span class="p">completed</span>
+<span class="d">           begin          end      diff</span>
+  PEN       0.00      <span class="n">-602.10</span>         <span class="d">—</span>
+  USD       0.00       <span class="n">-67.40</span>         <span class="d">—</span>
+
+<span class="d">     #   Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">     1   2026-09-24   TAMBO MIRAFLORES          —           PEN        -7.50 </span>
+     2   2026-09-27   PLAZA VEA SURCO           004812      PEN       <span class="n">-84.30</span>
+     3   2026-10-02   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+<span class="d">     … 6 more · pgdn</span>
+
+ <span class="d">esc Back  r Refresh  c Complete  u Revert  d Delete  ⏎ Open  ? Keys</span></pre></div></div><p class="cap"><code>c</code> says <code>Already completed.</code>; <code>d</code> leads to the engine's refusal, as in B.</p></div></div></div>
+
+<div class="pane"><div class="lbl">10 · The list of lines in no statement <span>— u on the Reconciliations browse</span></div><p class="blurb">Today <code>u</code> swaps the panel to one account's lines in no statement, newest first. The engine now lists a card's lines in no statement in one read, both currencies together, with their count. The <code>!</code> marks a line dated inside a statement the screen holds.</p><p class="blurb" style="margin-top:22px"><b>Whose lines.</b></p><div class="opt wide"><div class="var"><div class="oh">A · <span>one account's, as today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature PEN</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+<span class="d">    Account                     Cur         Balance</span>
+    <span class="d">───────────────────────────────────────────────</span>
+  <span class="a">▸</span> Visa Signature PEN          PEN         <span class="n">-512.30</span>
+    Visa Signature USD          USD          <span class="n">-61.40</span>
+    Sueldo Soles                PEN       12,450.00
+
+  In no batch · Visa Signature PEN   ·   4 of 4 loaded · <span class="d">newest first</span>   ·   <span class="w">!</span><span class="d"> dated inside a statement</span>
+
+<span class="d">    Date         Title                     Operation        Amount</span>
+<span class="rev">    2026-11-11   TOTTUS LA MOLINA          005266          -118.70 </span>
+  <span class="w"> </span> 2026-11-03   UBER EATS                 <span class="d">—</span>                <span class="n">-36.40</span>
+  <span class="w">!</span> 2026-10-18   KFC JOCKEY PLAZA          <span class="d">—</span>                <span class="n">-31.90</span>
+  <span class="w">!</span> 2026-10-03   UBER *TRIP                <span class="d">—</span>                <span class="n">-42.00</span>
+
+ <span class="d">esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys</span></pre></div></div><p class="cap">The Visa's soles only; its dollar lines are under Visa Signature USD's own <code>u</code>.</p></div><div class="var"><div class="oh">B · <span>the whole card's, both currencies together</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick a card
+
+<span class="d">    Card                        Currencies         Balances</span>
+    <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="a">▸</span> Visa Signature              PEN + USD       <span class="n">-512.30 PEN</span>   <span class="n">-61.40 USD</span>
+    Interbank Visa              PEN + USD       <span class="n">-348.60 PEN</span>   <span class="n">-45.00 USD</span>
+    BCP Ahorros                 PEN           12,450.00 PEN
+    BBVA Digital                USD              820.15 USD
+
+  In no batch · Visa Signature   ·   6 of 6 loaded · <span class="d">oldest first</span>   ·   <span class="w">!</span><span class="d"> dated inside a statement</span>
+
+<span class="d">    Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">  ! 2026-10-03   UBER *TRIP                —           PEN       -42.00 </span>
+  <span class="w">!</span> 2026-10-18   KFC JOCKEY PLAZA          <span class="d">—</span>           PEN       <span class="n">-31.90</span>
+  <span class="w"> </span> 2026-10-30   STEAM PURCHASE            004903      USD       <span class="n">-19.99</span>
+  <span class="w"> </span> 2026-11-03   UBER EATS                 <span class="d">—</span>           PEN       <span class="n">-36.40</span>
+  <span class="w"> </span> 2026-11-06   APPLE.COM/BILL            004951      USD        <span class="n">-2.99</span>
+  <span class="w"> </span> 2026-11-11   TOTTUS LA MOLINA          005266      PEN      <span class="n">-118.70</span>
+
+ <span class="d">esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys</span></pre></div></div><p class="cap">A statement is the card's, so its leftovers are too: one list, a <code>Cur</code> column, one count. Drawn oldest first, the recommended order.</p></div></div><p class="blurb" style="margin-top:22px"><b>In what order.</b> Drawn on the whole card's list.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>newest first: the lines bought last on top</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  In no batch · Visa Signature   ·   6 of 6 loaded · <span class="d">newest first</span>   ·   <span class="w">!</span><span class="d"> dated inside a statement</span>
+
+<span class="d">    Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">    2026-11-11   TOTTUS LA MOLINA          005266      PEN      -118.70 </span>
+  <span class="w"> </span> 2026-11-06   APPLE.COM/BILL            004951      USD        <span class="n">-2.99</span>
+  <span class="w"> </span> 2026-11-03   UBER EATS                 <span class="d">—</span>           PEN       <span class="n">-36.40</span>
+  <span class="w"> </span> 2026-10-30   STEAM PURCHASE            004903      USD       <span class="n">-19.99</span>
+  <span class="w">!</span> 2026-10-18   KFC JOCKEY PLAZA          <span class="d">—</span>           PEN       <span class="n">-31.90</span>
+  <span class="w">!</span> 2026-10-03   UBER *TRIP                <span class="d">—</span>           PEN       <span class="n">-42.00</span>
+
+ <span class="d">esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys</span></pre></div></div><p class="cap">Today's order. The two lines the close flagged sit at the bottom.</p></div><div class="var"><div class="oh">B · <span>oldest first, as a bank statement and the flagged lines read</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Visa Signature</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  In no batch · Visa Signature   ·   6 of 6 loaded · <span class="d">oldest first</span>   ·   <span class="w">!</span><span class="d"> dated inside a statement</span>
+
+<span class="d">    Date         Title                     Operation   Cur       Amount</span>
+<span class="rev">  ! 2026-10-03   UBER *TRIP                —           PEN       -42.00 </span>
+  <span class="w">!</span> 2026-10-18   KFC JOCKEY PLAZA          <span class="d">—</span>           PEN       <span class="n">-31.90</span>
+  <span class="w"> </span> 2026-10-30   STEAM PURCHASE            004903      USD       <span class="n">-19.99</span>
+  <span class="w"> </span> 2026-11-03   UBER EATS                 <span class="d">—</span>           PEN       <span class="n">-36.40</span>
+  <span class="w"> </span> 2026-11-06   APPLE.COM/BILL            004951      USD        <span class="n">-2.99</span>
+  <span class="w"> </span> 2026-11-11   TOTTUS LA MOLINA          005266      PEN      <span class="n">-118.70</span>
+
+ <span class="d">esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys</span></pre></div></div><p class="cap">The oldest leftovers, the ones most likely forgotten, on top.</p></div></div></div>
+
+<div class="pane"><div class="lbl">11 · What the flagged lines screen offers on a card with a statement code <span>— now that the engine states both paths</span></div><p class="blurb">On the Visa, the PDF upload created the paper's row 3, UBER *TRIP on 2026-10-02, as a new line, and the close flagged your own UBER *TRIP, dated a day later: two lines for one movement, the second its twin. The engine's advice now says how to keep one: <b>the bank's</b> (delete yours; the statement stays completed) or <b>yours</b> (revert, delete the twin, move your line to the paper's day, upload the same PDF again, which completes the statement). KFC JOCKEY PLAZA is not on the paper, so neither applies to it.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>two keys on a flagged line: b keeps the bank's, m keeps mine</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  SIG-202610 is completed. <span class="w">2 lines dated up to its last day are in no statement.</span>
+  <span class="d">When the paper prints the line, the upload made the paper's row a line of its own: its twin.</span>
+  <span class="d">Keep one: b keeps the bank's, m keeps yours.</span>
+  <span class="d">When the paper does not print it: leave it for a later statement, or open it to fix it,</span>
+  <span class="d">or delete it.</span>
+
+<span class="d">   Date          Account               Title                      Amount</span>
+<span class="rev">   2026-10-03    Visa Signature PEN    UBER *TRIP                 -42.00   </span>
+                 <span class="d">the paper's row 3 · 2026-10-02 · UBER *TRIP · -42.00 · one day off</span>
+   2026-10-18    Visa Signature PEN    KFC JOCKEY PLAZA           <span class="n">-31.90</span>
+                 <span class="d">not on the paper</span>
+
+ <span class="d">esc Back to the statement  b Keep the bank's  m Keep mine  ⏎ Open  d Delete  ↑↓ Move</span></pre></div></div><p class="cap">Under each line, the paper's row it twins with, as the engine names it, or <code>not on the paper</code>. <code>b</code> and <code>m</code> show only on a line with a twin.</p></div><div class="var"><div class="oh">A · <span>b: the question, then the delete</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="b">Keep the bank's line?</span>
+
+    UBER *TRIP · -42.00 · 2026-10-03 · Visa Signature PEN
+    Deletes your line, with its category, hashtags and note. The bank's line, 2026-10-02,
+    stays in SIG-202610, which stays completed. No screen can bring yours back.
+
+    <span class="d">[y] keep the bank's    [any other key] cancel</span>
+  <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+ <span class="d">y Yes  n No</span></pre></div></div><p class="cap">Only <code>y</code> deletes your line; the statement stays completed and the list reads again.</p></div></div><div class="opt wide"><div class="var"><div class="oh">A · <span>m: the question names each step the app does</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="b">Keep your line?</span>
+
+    UBER *TRIP · -42.00 · 2026-10-03 · Visa Signature PEN
+    The app does, in order:
+      1  reverts SIG-202610 to draft
+      2  deletes the bank's line, row 3 of the paper, which the upload created
+      3  moves your line to 2026-10-02, the paper's day
+      4  asks you for the PDF again: uploading it completes SIG-202610
+    <span class="d">Your line keeps its category, hashtags and note, and takes row 3.</span>
+
+    <span class="d">[y] keep mine    [any other key] cancel</span>
+  <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+ <span class="d">y Yes  n No</span></pre></div></div><p class="cap">Only <code>y</code> starts. Where your line's total differs from the row's, step 3 sets the row's total too, and says so.</p></div><div class="var"><div class="oh">A · <span>after y: the three steps done, then the PDF asked for</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Keep mine</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="p">✓</span> SIG-202610 reverted to draft
+  <span class="p">✓</span> the bank's line deleted: UBER *TRIP · -42.00 · 2026-10-02
+  <span class="p">✓</span> your line moved to 2026-10-02: UBER *TRIP · -42.00
+
+  Now upload the paper again: it completes SIG-202610 with your line as row 3.
+
+  <span class="b">FILE</span>   /Users/me/Downloads/BCP\ Visa\ 1492\ 2026-10.pdf▍
+         <span class="d">drop the PDF here, or type its path</span>
+
+ <span class="d">esc Later  ⏎ Upload</span></pre></div></div><p class="cap"><code>⏎</code> goes to the preview, as a PDF dropped on the LOG bar does, and its close completes SIG-202610. <code>esc</code> leaves it a draft waiting for its PDF. A refused step stops the run there, with the engine's words and the steps already done.</p></div></div><div class="opt wide"><div class="var"><div class="oh">B · <span>the engine's advice as words under the list; you do each step by hand</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  SIG-202610 is completed. <span class="w">2 lines dated up to its last day are in no statement.</span>
+  <span class="d">On a card with a statement code, when the paper prints the line, the upload created the</span>
+  <span class="d">paper's row as a second line, its twin. Keep one:</span>
+  <span class="d">  the bank's: delete your line. The statement stays completed.</span>
+  <span class="d">  yours: revert, delete the twin, set your line's day to the row's day, upload the PDF again.</span>
+  <span class="d">When the paper does not print it: leave it for a later statement, or fix it, or delete it.</span>
+
+<span class="d">   Date          Account               Title                      Amount</span>
+<span class="rev">   2026-10-03    Visa Signature PEN    UBER *TRIP                 -42.00   </span>
+                 <span class="d">the paper's row 3 · 2026-10-02 · UBER *TRIP · -42.00 · one day off</span>
+   2026-10-18    Visa Signature PEN    KFC JOCKEY PLAZA           <span class="n">-31.90</span>
+                 <span class="d">not on the paper</span>
+
+ <span class="d">esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move</span></pre></div></div><p class="cap">The engine's two ways shown as words; you do the steps on other screens: <code>u</code> on the statement, <code>d</code> on the twin, the Edit form for the day, the PDF dropped on the LOG bar.</p></div><div class="var"><div class="oh">C · <span>as today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  SIG-202610 is completed. <span class="w">2 lines dated up to its last day are in no statement.</span>
+  <span class="d">For each: if it belongs to this statement, revert, tick it, complete again.</span>
+  <span class="d">If it belongs to a later statement, leave it: tick it there when it comes.</span>
+  <span class="d">If it is a mistake, open it to fix it, or delete it.</span>
+
+<span class="d">   Date          Account               Title                      Amount</span>
+<span class="rev">   2026-10-03    Visa Signature PEN    UBER *TRIP                 -42.00   </span>
+   2026-10-18    Visa Signature PEN    KFC JOCKEY PLAZA           <span class="n">-31.90</span>
+
+ <span class="d">esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move</span></pre></div></div><p class="cap">Today's words. On this card there is no ticking (5 A), and the engine refuses to complete until the PDF is uploaded again, which leaves the twin as a second line: it cannot work.</p></div></div></div>
+
+<div class="pick"><b>Pick one letter per question</b>
+<ul>
+<li><b>2</b> · A one row per card · B one row per account</li>
+<li><b>3</b> · A one list, one numbering · B one section per currency · C one currency at a time</li>
+<li><b>4</b> · A the box starts empty · B the box starts at the begin balance</li>
+<li><b>5</b> · A today's forms · B one line per balance, its currency first</li>
+<li><b>6</b> · A whenever a statement has flagged lines · B only right after a close</li>
+<li><b>7</b> · which name: A the card's · B the account's on a one-account card · C one line per account; which cards the upload lists: A every card · B only cards with a statement code</li>
+<li><b>9</b> · A neither c nor d · B drop c, keep d · C as today</li>
+<li><b>10</b> · whose: A one account's · B the whole card's; order: A newest first · B oldest first</li>
+<li><b>11</b> · A b and m keys · B the engine's advice as words · C as today</li>
+</ul></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

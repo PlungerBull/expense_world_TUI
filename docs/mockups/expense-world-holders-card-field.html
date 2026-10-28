@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Card on the account</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .lbl .new{color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:1px 6px;margin-left:8px;
+            font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>A card on the account's own screens</h1>
+  <p>Your idea: no Cards screen. <b>Manage ▸ Accounts</b> gets a <b>Card</b> column, and a bank account's <b>Edit</b> form gets a <b>card</b> line where you pick the card it sits on. Picking another card is pairing; picking a new card of its own is unpairing. <code>n</code> New makes a card with its accounts in one form (your pick, question 2 C). A person is on no card, so a person's form has no card line.</p>
+  <p>The example is the Visa: its dollar account <b>Visa Signature USD</b> sits on a card of its own, and goes onto <b>Visa Signature</b>, which holds the soles account. The words in the engine's refusal are its real ones; the names and amounts are invented. Three things are left to pick, at the bottom.</p>
+</div>
+<div class="pane">
+<div class="lbl">1 · Manage ▸ Accounts, with the Card column</div>
+<p class="blurb">The column replaces today's Code column. Every bank account shows the card it sits on; a person shows <code>—</code>.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Card                    Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active
+ <span class="a">▸</span> <span class="ab">Visa Signature USD      bank    USD  Visa Signature USD      <span class="d">—</span>      <span class="n">    -185.20</span>  active</span>
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>      <span class="">  12,450.00</span>  active
+   Cuenta Digital Dólares  bank    USD  Cuenta Digital Dólares  <span class="s1">██</span>     <span class="">     820.15</span>  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>      <span class="">     350.00</span>  active
+   Eliana                  person  PEN  —                       <span class="d">—</span>      <span class="n">    -150.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The Visa's dollar account is on a card of its own, named after it. <code>e</code> opens its Edit form.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">2 · e on Visa Signature USD, on its card line</div>
+<p class="blurb">The list holds every card with no account in this one's currency (USD), and last, a new card of its own.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Visa Signature USD  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CARD            </span>Visa▍
+   <span class="rev"> Visa Signature            holds PEN                      </span>
+     Sueldo Soles              holds PEN
+     Efectivo                  holds PEN
+     <span class="a">a new card of its own, named Visa Signature USD</span>
+
+   <span class="d">pick a card holding no USD account, or a new one · ↑↓ highlight · enter select</span>
+
+   <span class="d">type            bank  read-only</span>
+   name            Visa Signature USD
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">card            </span>Visa Signature USD
+   statement code  —  (optional)  <span class="d">the card's</span>
+   color           <span class="d">—  (optional)</span>
+   opening         <span class="n">-185.20</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Typing narrows the list as every picker does. Nothing is sent until <code>^s</code>.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">3 · saved: the account is on the Visa's card</div>
+<p class="blurb"><code>^s</code> moves the account in one write. The card it left held nothing more, so the engine deleted it with the move.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Card                    Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active
+ <span class="a">▸</span> <span class="ab">Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active</span>
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>      <span class="">  12,450.00</span>  active
+   Cuenta Digital Dólares  bank    USD  Cuenta Digital Dólares  <span class="s1">██</span>     <span class="">     820.15</span>  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>      <span class="">     350.00</span>  active
+   Eliana                  person  PEN  —                       <span class="d">—</span>      <span class="n">    -150.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+ <span class="p">▌</span> Account saved.
+
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The account keeps its name, balance and transactions. Both Visa accounts now read <b>Visa Signature</b> in the Card column, and its statements take both currencies.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">4 · refused: the account has been in a statement</div>
+<p class="blurb">After the Visa's first statement, its accounts stay on their card for good. The engine refuses the move in its own words, under the card line, and nothing is saved.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Visa Signature USD  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CARD            </span>a new card of its own
+
+   <span class="d"></span>
+
+   <span class="n">▌ Failed</span>
+   <span class="n">▌ CONFLICT — Must be an account in no statement, live or deleted: a statement keeps</span>
+   <span class="n">▌ its accounts on their holder.</span>
+   <span class="n">▌   account_id: Must be an account in no statement, live or deleted: a statement</span>
+   <span class="n">▌   keeps its accounts on their holder.</span>
+
+   <span class="d">type            bank  read-only</span>
+   name            Visa Signature USD
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">card            </span>a new card of its own
+   statement code  —  (optional)  <span class="d">the card's</span>
+   color           <span class="d">—  (optional)</span>
+   opening         <span class="n">-185.20</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Here unpairing was tried: the Visa's dollar account back onto a card of its own. The same refusal comes for an archived account.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">5 · question a · what “a new card of its own” does</div>
+<p class="blurb"><b>A (recommended)</b>: picking it makes the card at once on <code>^s</code>, named after the account, with no code; you rename it on this same form (question c). <b>B</b>: picking it opens the New card form for its name and code, then comes back here.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Visa Signature USD  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CARD            </span>a new card of its own▍
+
+   <span class="d">enter to go on · the new card is named Visa Signature USD, with no code</span>
+
+   <span class="d">type            bank  read-only</span>
+   name            Visa Signature USD
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">card            </span>a new card, named Visa Signature USD
+   statement code  —  (optional)  <span class="d">the card's</span>
+   color           <span class="d">—  (optional)</span>
+   opening         <span class="n">-185.20</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">A keeps it to one form; B is the form you'd see on <code>n</code>, without its currencies, since the account is already made.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">6 · question b · renaming a card and changing its code</div>
+<p class="blurb">With no Cards screen, a card is renamed and its code changed from any of its accounts' Edit forms. <b>Recommended</b>: two lines under the card line, marked <i>the card's</i>, which change it for every account on it.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Visa Signature PEN  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CARD NAME       </span>Visa Signature▍
+
+
+   <span class="d">the card's name · changes it for Visa Signature PEN and Visa Signature USD</span>
+
+   <span class="d">type            bank  read-only</span>
+   name            Visa Signature PEN
+   <span class="d">currency        PEN  read-only</span>
+   card            Visa Signature
+   <span class="b">card name       </span>Visa Signature  <span class="d">the card's</span>
+   statement code  SIG  <span class="d">the card's</span>
+   color           <span class="s1">██</span> blue
+   opening         <span class="n">-2,340.50</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The hint names every account the change reaches. The other choice is a card that is never renamed after New; its code too.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">7 · question c · the app's word</div>
+<p class="blurb">The engine calls this a <b>holder</b>: a credit card is one, and so is a savings account of one currency. You have been saying <b>card</b>. The word shows in the Card column, the card line and every note.</p>
+<div class="var">
+
+<p class="cap"><b>A</b>: card, as these screens say. <b>B</b>: holder, the engine's word, shared by every app.</p></div>
+</div>
+
+<div class="pick">
+  <b>To pick:</b> <b>a</b> · a new card of its own made at once (A, recommended) or through the New card form (B).
+  <b>b</b> · a card's name and code changed on its accounts' Edit forms (recommended), or never after New.
+  <b>c</b> · the word: card (A) or holder (B).
+</div>
+
+</body>
+</html>

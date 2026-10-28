@@ -3,7 +3,7 @@
 Two small things the catch-up on a person's opening balance turned up (contract
 `4ac20e42cf8566ee`, done on 2026-10-28).
 
-**Status: draft, for the owner to rewrite or approve; question 1 waits on the owner.** Its tasks
+**Status: draft, for the owner to rewrite or approve; question 1's parts a and b wait on the owner.** Its tasks
 are drafted when the owner approves it. Point 2's live test runs after the cards and statements
 catch-up's live tests
 ([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)
@@ -44,12 +44,15 @@ account and people are turned into people afterwards, but an import run again af
 
 ## Questions for the owner
 
-1. **The words under a person's `opening` line** (drawn in
+1. **The words of a person's `opening` line** (drawn in
    [expense-world-person-opening-hint.html](../mockups/expense-world-person-opening-hint.html)).
-   - **A.** The bank account's words: `350.00 is money you have · -350.00 is money you owe`.
-   - **B.** A person's own: `150.00 is money they owe you · -150.00 is money you owe them`.
-
-   **Recommended:** B: on a person, the balance is a debt, and the words say whose.
+   The owner's design, 2026-10-28: no line under it; on the right of the `OPENING` line, `debt`
+   when the amount is negative and `credit` when positive, then the currency (`debt · PEN`).
+   Two parts wait on the owner:
+   - **a.** The line empty or `0.00`: the currency alone, or nothing.
+     **Recommended:** the currency alone, so it is always there.
+   - **b.** A bank account's opening line: the same word, or today's line under it.
+     **Recommended:** the same word on every account, so one sign reads one way everywhere.
 
 ---
 

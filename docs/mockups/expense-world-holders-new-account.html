@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>New account on a card</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>How a new bank account gets its card</h1>
+  <p>Every bank account sits on a card, and a card holds at most one account per currency. So making a bank account now also means saying which card it is on. The example is the Visa: its soles account <b>Visa Signature PEN</b> exists, on the card <b>Visa Signature</b> (code <code>SIG</code>), and its dollar account is being made. Option C also shows the Visa made from nothing.</p><p>A person is on no card and is made as today. The screens are drawn as if Manage ▸ Accounts' Code column has become Card (question 1 A). The accounts and amounts are invented. Use the button at the top right for a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">2 · A new bank account and its card <span>— n on Manage ▸ Accounts · pick A, B or C</span></div><div class="opt wide"><div class="var"><div class="oh">A · <span>New always makes a card of its own, named after the account</span></div><div class="opt"><div class="var"><div class="oh"><span>the form: no card line</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">COLOR           </span><span class="a">▍</span>
+   <span class="d">optional · type to narrow · enter creates the account</span>
+
+   type            bank
+   name            Visa Signature USD
+   currency        USD
+   <span class="b">color           </span><span class="d">—  (optional)</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The form is today's, without the statement code line. Creating sends one write: a new card named <code>Visa Signature USD</code>, holding the new account.</p></div><div class="var"><div class="oh"><span>after it: two cards, one per Visa account</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name                      Type     Cur   Card                    Color     Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Visa Signature PEN        bank     PEN   Visa Signature          ██      -2,340.50   active  </span>
+    Visa Signature USD        bank     USD   Visa Signature USD      —            0.00   active
+    Sueldo Soles              bank     PEN   Sueldo Soles            —       <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares    bank     USD   Cuenta Digital Dólares  <span class="p">██</span>         <span class="p">820.15</span>   active
+    Efectivo                  bank     PEN   Efectivo                —          <span class="p">350.00</span>   active
+    Eliana                    person   PEN   <span class="d">—</span>                       —         <span class="n">-150.00</span>   active
+  <span class="d">balances are native currency</span>
+                                                            <span class="a">▌</span> Account created.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">The dollar account sits on its own card. Putting it on the Visa's card is pairing, a second step (<code>expense-world-holders-card-field.html</code>). An account named the same in both currencies, <code>Alejo</code> and <code>Alejo</code>, is refused the second time: two cards cannot share a name.</p></div></div></div></div></div>
+<div class="pane"><div class="opt wide"><div class="var"><div class="oh">B · <span>New has a CARD line: an existing card, or a new one</span></div><div class="opt"><div class="var"><div class="oh"><span>the form: the card line after the currency</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CARD            </span><span class="a">▍</span>
+     <span class="rev">Visa Signature                              </span>
+     Sueldo Soles
+     Efectivo
+     a new card, named Visa Signature USD
+   <span class="d">pick a card holding no USD account, or a new one · ↑↓ highlight · enter select</span>
+
+   type            bank
+   name            Visa Signature USD
+   currency        USD
+   <span class="b">card            </span><span class="d">—  *</span>
+   color           <span class="d">—  (optional)</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The list holds every card with no account in the form's currency, in the engine's order, and last <code>a new card, named …</code> after the account. Changing the currency empties the line. A person's form has no card line.</p></div><div class="var"><div class="oh"><span>after it: the Visa holds both accounts</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name                      Type     Cur   Card                    Color     Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Visa Signature PEN        bank     PEN   Visa Signature          ██      -2,340.50   active  </span>
+    Visa Signature USD        bank     USD   Visa Signature          —            0.00   active
+    Sueldo Soles              bank     PEN   Sueldo Soles            —       <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares    bank     USD   Cuenta Digital Dólares  <span class="p">██</span>         <span class="p">820.15</span>   active
+    Efectivo                  bank     PEN   Efectivo                —          <span class="p">350.00</span>   active
+    Eliana                    person   PEN   <span class="d">—</span>                       —         <span class="n">-150.00</span>   active
+  <span class="d">balances are native currency</span>
+                                                            <span class="a">▌</span> Account created.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">One write, and the dollar account is on the Visa's card at once. The Visa itself, made from nothing, is two trips through the form: the soles account on a new card, then the dollar account picking it. Pairing afterwards is for an account put on the wrong card.</p></div></div></div></div></div>
+<div class="pane"><div class="opt wide"><div class="var"><div class="oh">C · <span>New makes a card with one or more currencies, in one form</span><span class="rec">recommended</span></div><div class="opt"><div class="var"><div class="oh"><span>the Visa, both currencies at once</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CURRENCIES      </span>PEN USD<span class="a">▍</span>
+   <span class="d">PEN, USD or both · one account each · enter to go on</span>
+
+   type            bank
+   name            Visa Signature
+   statement code  SIG
+   <span class="b">currencies      </span><span class="d">PEN + USD</span>
+   color           <span class="d">—  (optional)</span>
+
+   <span class="d">creates the card Visa Signature, code SIG, holding</span>
+     Visa Signature PEN    PEN
+     Visa Signature USD    USD
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The name is the card's; each account takes it with its currency after it. The statement code is typed once, for the card. One write makes the card and both accounts, or nothing at all. A savings account is the same form with one currency: <code>Sueldo Soles</code>, <code>PEN</code>, one account named <code>Sueldo Soles</code>.</p></div><div class="var"><div class="oh"><span>after it</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name                      Type     Cur   Card                    Color     Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Visa Signature PEN        bank     PEN   Visa Signature          —            0.00   active  </span>
+    Visa Signature USD        bank     USD   Visa Signature          —            0.00   active
+    Sueldo Soles              bank     PEN   Sueldo Soles            —       <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares    bank     USD   Cuenta Digital Dólares  <span class="p">██</span>         <span class="p">820.15</span>   active
+    Efectivo                  bank     PEN   Efectivo                —          <span class="p">350.00</span>   active
+    Eliana                    person   PEN   <span class="d">—</span>                       —         <span class="n">-150.00</span>   active
+  <span class="d">balances are native currency</span>
+                                            <span class="a">▌</span> Card created: Visa Signature PEN, Visa Signature USD.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">Both accounts on one card, nothing to pair. <code>e</code> renames either account.</p></div></div><div class="opt" style="margin-top:14px"><div class="var"><div class="oh"><span>type person: the card lines leave the form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
+   <span class="d">free text · enter to go on</span>
+
+   type            person
+   <span class="b">name            </span><span class="d">—  *</span>
+   currency        <span class="d">—  *</span>
+   color           <span class="d">—  (optional)</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">A person is on no card: no statement code, one currency, as today.</p></div><div class="var"><div class="oh"><span>a refused account: nothing is created</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CURRENCIES      </span>PEN USD<span class="a">▍</span>
+   <span class="d">PEN, USD or both · one account each · enter to go on</span>
+
+   type            bank
+   name            Visa Signature
+   statement code  SIG
+   <span class="b">currencies      </span>PEN + USD
+   color           <span class="d">—  (optional)</span>
+
+   <span class="n">▌</span> <span class="b">Failed</span>
+   <span class="n">▌</span> CONFLICT — Must be unique among your accounts
+   <span class="n">▌</span> in this currency.
+   <span class="n">▌</span>   accounts.1.name: Must be unique among your
+   <span class="n">▌</span> accounts in this currency.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">A refusal names the account it is about, the engine's way (<code>accounts.1</code> is the second, the dollar one), and nothing is created. The words here are invented; the screen shows the engine's.</p></div></div></div></div></div>
+<div class="pick"><b>Pick A, B or C.</b> <b>Recommended C:</b> a card of two currencies is one form and one write, and its code is typed once; nothing to pair afterwards. An account added later to a card that exists, as the Visa gaining a third currency, is made on a card of its own and paired onto it.</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

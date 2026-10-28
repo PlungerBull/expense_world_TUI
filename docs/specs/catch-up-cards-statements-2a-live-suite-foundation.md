@@ -17,7 +17,9 @@ balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`,
 
 It runs after 1b, whose app helpers the live tests call.
 
-**Status: approved by the owner on 2026-10-28; it runs after part 1b.** When done, the why moves to
+**Status: approved by the owner on 2026-10-28; it runs after part 1b. Task 1 changed for the
+engine's hand-off "An account moves between holders, a holder is made and unmade with its
+accounts, and a holder's bank lines list in one read" and waits on the owner's approval again.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Built on the holder names.** The engine's rename of card to holder is in the live contract
@@ -79,10 +81,13 @@ orchestrator starts before the task and stops after it. Each fixes the `(contrac
 citations of the files it touches.
 
 1. **The shared helpers (builder).** In [conftest.py](../../tests/contract/conftest.py): a
-   holder and its accounts made through `Scratch` (`POST /holders`, then `POST /accounts` with
-   `holder_id`), a statement's body on `POST /statements` with `holder_id` and each account's
-   balances, `Scratch`'s cleanup deleting statements and then holders, `leaves_nothing` counting
-   holders; `send_order` and `reconciliation_body` go.
+   holder and its accounts made through `Scratch` in one write (`POST /holders` with `accounts`;
+   contract: POST /v1/holders), a statement's body on `POST /statements` with `holder_id` and each
+   account's balances, `Scratch`'s cleanup reverting and deleting statements before accounts, an
+   account that a live statement holds being refused (`IN_LIVE_STATEMENT`), then deleting the
+   accounts, each holder going with its last account (contract: DELETE /v1/accounts/{account_id}),
+   and deleting only the holders it made with no account; `leaves_nothing` counting holders;
+   `send_order` and `reconciliation_body` go.
    *Passes if:* a test making a holder of two accounts and a statement on it leaves nothing, one
    that leaves a holder fails naming it, and conftest.py names no `/cards` or `card_id`.
 2. **The first half of the tests onto the shared helpers (builder).** These files stop posting

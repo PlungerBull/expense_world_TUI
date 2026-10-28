@@ -17,7 +17,11 @@ seven specs, run in this order:
 
 It runs after 2a, whose shared helpers its tests use.
 
-**Status: approved by the owner on 2026-10-28; it runs after part 2a.** When done, the why moves to
+**Status: approved by the owner on 2026-10-28; it runs after part 2a. Task 6 changed for the
+engine's hand-off "An account moves between holders, a holder is made and unmade with its
+accounts, and a holder's bank lines list in one read" and waits on the owner's approval again;
+that hand-off's own live tests are
+[catch-up-cards-statements-2c-live-suite-holder-move.md](catch-up-cards-statements-2c-live-suite-holder-move.md)'s.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Waits on the engine's next change** (the engine coders' answer of 2026-10-27, "Which of the
@@ -156,7 +160,8 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
 6. **The cleaner (builder).**
    [clean_practice_user.py](../../scripts/clean_practice_user.py) on `/statements` and `/holders`
    (unarchive the holder, revert and delete each statement, delete the transactions on every
-   page, then the accounts and their holders), with
+   page, then the accounts, each holder going with its last account, and no
+   `DELETE /holders/{id}` after it; contract: DELETE /v1/accounts/{account_id}), with
    [test_clean_practice_user.py](../../tests/contract/test_clean_practice_user.py);
    [runtime.md](../runtime.md) "Leftovers" saying a leftover on the reserved-names practice user
    is cleaned by passing that user's key as `EXPENSE_PAT`.

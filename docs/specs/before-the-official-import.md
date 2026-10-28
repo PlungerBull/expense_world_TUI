@@ -8,8 +8,8 @@ the app ([catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-card
 pairing in the app with the engine's move of an account onto another holder (decided 10). The
 engine's rename of card to holder is in (contract `e7393dd869963db1`, the hand-off "A person
 carries an opening balance, and a card is now called a holder everywhere", shipped 2026-10-28).
-The move is in the live contract since `3e472b3256dcdc69` (contract: POST /v1/accounts/{account_id}/move);
-its hand-off is still to come. Question 2 waits on the owner.** Turning sheet accounts into people is built ([decisions.md](../decisions.md) "An account
+The move is in the live contract (contract: POST /v1/accounts/{account_id}/move), with its
+hand-off of 2026-10-28. Question 2 waits on the owner.** Turning sheet accounts into people is built ([decisions.md](../decisions.md) "An account
 becomes a person, and back, with one key"); the split purchases' grouping is built
 ([decisions.md](../decisions.md) "The sheet import brings a split purchase in as one split
 transaction"); the sheet import goes through the engine (done on 2026-10-27). When the import is

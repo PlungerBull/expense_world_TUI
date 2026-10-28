@@ -57,22 +57,21 @@
 
 <div class="head">
   <h1>A person's opening hint</h1>
-  <p>A person's Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) has an <b>opening</b> line, as a bank account's does. While you type on it, the line under it explains the sign. Today it is the bank account's words, which speak of money you <i>have</i>; on a person, a positive balance is money they owe you. This page draws the two choices. The names and amounts are invented.</p>
+  <p>A person's Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) has an <b>opening</b> line, as a bank account's does. Today a long line under it explains the sign while you type. This page draws your idea: no line under it, and on the right of the <b>OPENING</b> line one word, <b>debt</b> or <b>credit</b>, that follows the sign as you type, then the currency. The names and amounts are invented.</p>
+  <p>On a person, <code>-150.00</code> is money you owe them (your <b>debt</b>), <code>150.00</code> money they owe you (your <b>credit</b>). Two small things are left to pick, at the bottom.</p>
 </div>
-
 <div class="pane">
-<div class="lbl">A · Keep the bank account's words <span></span></div>
-<p class="blurb">The same hint on every account, a person included.</p>
+<div class="lbl">1 · typing a negative amount on a person <span>— your idea</span></div>
+<p class="blurb">The word on the right says debt; the line under it is gone.</p>
 <div class="var">
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">OPENING         </span>-150.00<span class="a">▍</span>
+   <span class="b">OPENING         </span>-150.00<span class="a">▍</span>                                               <span class="n">debt · PEN</span>
 
 
-   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional</span>
 
 
 
@@ -84,21 +83,20 @@
    as of     <span class="d">—  (optional)</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">One sentence for every account. On a person, “money you have” stands for money they owe you.</p></div>
+<p class="cap">The word changes the moment the sign does. Nothing else on the form moves.</p></div>
 </div>
 <div class="pane">
-<div class="lbl">B · A person's own words <span>— recommended</span></div>
-<p class="blurb">A person's opening line says who owes whom; a bank account's stays as it is.</p>
+<div class="lbl">2 · the same line, the sign flipped <span>— your idea</span></div>
+<p class="blurb">Typing <code>150.00</code>: the word turns to credit.</p>
 <div class="var">
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">OPENING         </span>-150.00<span class="a">▍</span>
+   <span class="b">OPENING         </span>150.00<span class="a">▍</span>                                              <span class="p">credit · PEN</span>
 
 
-   <span class="d">signed · 150.00 is money they owe you · -150.00 is money you owe them · in PEN · optional</span>
 
 
 
@@ -106,15 +104,66 @@
    name      Eliana
    <span class="d">currency  PEN  read-only</span>
    color     <span class="d">—  (optional)</span>
-   <span class="b">opening   </span><span class="n">-150.00</span>
+   <span class="b">opening   </span><span class="p">150.00</span>
    as of     <span class="d">—  (optional)</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">Read on a person, the sign says whose debt it is. A bank account keeps “money you have · money you owe”.</p></div>
+<p class="cap">Credit is money they owe you.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">3 · question a · the line empty, or 0.00</div>
+<p class="blurb">Before you type, or at zero, there is no debt or credit. <b>Recommended:</b> the currency alone, so it is always there.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">OPENING         </span><span class="a">▍</span>                                                             <span class="d">PEN</span>
+
+
+
+
+
+   <span class="d">type      person  read-only</span>
+   name      Eliana
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   <span class="b">opening   </span><span class="d">—  (optional)</span>
+   as of     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The other choice is nothing on the right until a non-zero amount is typed.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">4 · question b · a bank account's opening line</div>
+<p class="blurb">A card's opening balance is negative when you owe the bank. <b>Recommended:</b> the same word on every account, so one sign reads one way everywhere; here, the Visa's soles account.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Visa Signature PEN  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">OPENING         </span>-2,340.50<span class="a">▍</span>                                             <span class="n">debt · PEN</span>
+
+
+
+
+
+   <span class="d">type      bank  read-only</span>
+   name      Visa Signature PEN
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   <span class="b">opening   </span><span class="n">-2,340.50</span>
+   as of     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The other choice keeps today's line under it on a bank account, and the word only on a person. A savings account's positive balance would read credit.</p></div>
 </div>
 
 <div class="pick">
-  <b>To pick:</b> <b>A</b> or <b>B</b> (recommended: on a person, the balance is a debt, and the words say whose).
+  <b>To pick:</b> <b>a</b> · when the line is empty or 0.00: the currency alone (recommended), or nothing.
+  <b>b</b> · on a bank account too (recommended), or on a person only.
 </div>
 
 </body>

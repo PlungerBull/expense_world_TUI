@@ -28,41 +28,43 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the spec for what part 1a turned up, and pick a holder's line
+### Approve the spec for what part 1a turned up
 Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1a-leftovers.md](specs/catch-up-cards-statements-1a-leftovers.md)
 
 Part 1a of the cards and statements catch-up is done. It turned up three small things: how the
 import door's account list names a holder of three currencies or more whose accounts share no
-name, the practice-user cleaning script printing a code accounts no longer carry, and the drift
-check missing keys a test passes by name. Its question 1 picks the line's name: panes A and B
-of [mockups/expense-world-holder-pick-line.html](mockups/expense-world-holder-pick-line.html).
+name (you picked B, the holder's own name), the practice-user cleaning script printing a code
+accounts no longer carry, and the drift check missing keys a test passes by name.
 
-**Recommended:** approve it with 1 A.
+**Recommended:** approve it.
 
-### Approve the spec for a person's opening hint, and pick its words
+### Pick the two details of a person's opening line, and approve its spec
 Asked 2026-10-28 · Blocks: [specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)
 
-The catch-up on a person's opening balance is done. It turned up two small things: the words
-under a person's `opening` line speak of money you *have*, where on a person it is money they owe
-you; and nothing proves live that the sheet import gives a person its opening balance. Its
-question 1 picks the words: panes A and B of
-[mockups/expense-world-person-opening-hint.html](mockups/expense-world-person-opening-hint.html).
+Your design, drawn in
+[mockups/expense-world-person-opening-hint.html](mockups/expense-world-person-opening-hint.html):
+no line under `opening`; `debt` or `credit` on the right of the line, by the sign, then the
+currency. Left to pick: (a) with the line empty or `0.00`, the currency alone or nothing; (b) a
+bank account's opening line the same, or as today.
 
-**Recommended:** approve it with 1 B.
+**Recommended:** a, the currency alone; b, the same on every account; then approve it.
 
-### Read the specs for cards and for the statement screen
-Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
+### Answer the cards and statement screen questions, and approve the live tests' changed tasks
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md)
 
-The catch-up's last two specs change what you see: where cards live in the app, how a new bank
-account gets its card, pairing and unpairing, archiving a whole card, the statement screen for
-a two-currency card, closing a currency with no movement by hand, and when flagged lines show.
-Their questions are in each spec; the ones about screens come with mockups. The engine now calls
-a card a holder; the cards spec's question 1 asks which word the app shows, and the statement
-screen follows it.
+The engine's hand-off on the account move is planned in: pairing, a holder made with its
+accounts, an account's delete refused while a statement holds it, a card's lines in one read and a
+flagged line's two paths. Answered on 2026-10-28: cards 1 B, 2 C, 4 B, 5 B, 10 A, and pairing
+as your design (a Card column, and a card line on the account's Edit form); statement screen 2 A.
+Still open: cards 6, 8 and 9, and questions a to c of
+[mockups/expense-world-holders-card-field.html](mockups/expense-world-holders-card-field.html);
+statement screen 1 and 3 to 11, drawn in
+[mockups/expense-world-card-statement-questions.html](mockups/expense-world-card-statement-questions.html). Task 1 of 2a and task 6 of 2b changed so a test run cleans up as the engine now deletes;
+the new 2c holds the hand-off's live tests.
 
-**Recommended:** read the statement screen spec now and say if anything is missing; its mockups
-are drawn while the first four specs run. The cards spec is rewritten around holders when
-people become holders and the move's hand-off comes, so read it then.
+**Recommended:** approve the changed tasks of 2a and 2b and the new 2c now, so the live tests
+are ready after 1b; answer the two specs' questions as each spec's recommendations say, or
+change any.
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
@@ -203,19 +205,19 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27, cards and statements** (to `e7393dd869963db1`, the
-  rename of card to holder of 2026-10-28 included): seven
+- **The engine catch-up of 2026-10-27, cards and statements** (to `f00534abdde7fa82`: the
+  rename of card to holder and the account move of 2026-10-28 included): eight
   specs, run in order:
   part 1a (done on 2026-10-28),
   [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
   [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
   [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
+  [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md),
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  The counts line's last task, its live tests, waits on 2a; the first four wait on the owner's
-  approval; 2b also waits on people becoming holders,
-  and the cards spec on that and on the move's hand-off.
+  1b runs now. The counts line's last task, its live tests, waits on 2a; 2b also waits on people
+  becoming holders, and the cards spec on that.
 - **A person's opening balance: its hint and the sheet import's test**: a draft spec waiting for
   the owner's approval and a pick
   ([specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)).

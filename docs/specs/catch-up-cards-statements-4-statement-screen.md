@@ -3,7 +3,10 @@
 Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the engine's hand-off of
 2026-10-27, "A card is its own object, its statement is one object for the whole card, and a
 closed statement's review list is readable in full", the part about what the statement screens
-show. The routes, the live suite, the sheet import's counts and cards themselves are the other
+show; then the engine's hand-off of 2026-10-28, "An account moves between holders, a holder is
+made and unmade with its accounts, and a holder's bank lines list in one read", its parts on a
+holder's bank lines in one read (`903200521b7c116a`) and what a client does with a flagged line
+(`3e3bd0b766c709fc`). The routes, the live suite, the sheet import's counts and cards themselves are the other
 specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
@@ -12,9 +15,10 @@ specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28)
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
 **Status: draft, for the owner to rewrite or approve; its questions wait on the owner. It runs
-after the catch-up's other specs, since it names cards by their own names. Each
-question about a screen is drawn as a mockup, and its tasks are drafted, when the owner names it
-the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is
+after the catch-up's other specs, since it names cards by their own names. Its questions about
+screens are drawn in
+[expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html);
+its tasks are drafted when the owner names it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
 **Built on the holder names.** The engine calls a card a holder since contract
@@ -50,6 +54,12 @@ The engine also changed what the screens can do:
   the lines with no place, oldest first (contract: "Statements", "A statement's order").
 - **A transaction moved to the card's other account can stay in its open statement,** where
   today every move takes it out.
+- **A card's lines in no statement come in one read,** both currencies together, with their
+  count (contract: GET /v1/bank-lines).
+- **The engine says what to do with a flagged line on a card with a statement code:** keep the
+  bank's, by deleting the flagged line; or keep your own, by reverting the statement, deleting
+  the line the PDF upload made from the paper's row, moving your line to that row's day and
+  uploading the PDF again (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line").
 
 ## What it must do
 
@@ -86,6 +96,9 @@ The engine also changed what the screens can do:
     [mockups/](../mockups/), once the new screens' mockups are picked. They are linked from
     tui.md, decisions.md, todo.md, `reconciliations.py` and the tests of the card statement, the
     statement list and the flagged lines.
+12. **A statement refused because one of its accounts was deleted while it was written** is sent
+    again with the card's remaining accounts, as the engine asks
+    (contract: DELETE /v1/accounts/{account_id}).
 
 ## How the owner knows it is done
 
@@ -128,6 +141,8 @@ word these screens use for a card, "card" or "holder", is question 1 of
    - **B.** One row per account, as today; a card's two accounts open the same statements.
 
    **Recommended:** A: a statement belongs to a card, so the card is what you pick.
+
+   **Answered 2026-10-28:** A.
 3. **A two-currency card's statement screen** (screen 4 of the PDF mockup, drawn again).
    - **A.** One list in the paper's order, both currencies mixed and numbered 1, 2, 3 … with no
      gaps, a currency column, and each currency's starting, ending and difference once at the
@@ -188,29 +203,35 @@ word these screens use for a card, "card" or "holder", is question 1 of
    what to do.
 10. **The list of lines in no statement** (today `u`, newest first, one account at a time).
     - **Whose lines:** **A.** One account's, as today. **B.** The whole card's, both currencies
-      together, which needs the engine ask
-      "List a card's bank lines in no statement in one read" (handed over) to read in one list.
+      together, in one read with its count (contract: GET /v1/bank-lines).
 
-      **Recommended:** B, with the ask: a statement is the card's, so its leftovers are too.
+      **Recommended:** B: a statement is the card's, so its leftovers are too.
     - **In what order:** **A.** Newest first: the lines bought last on top. **B.** Oldest
       first, as a bank statement and the flagged lines read: the oldest leftovers, most likely
       forgotten, on top.
 
       **Recommended:** B.
-11. **What the flagged lines screen says to do with a line on a card with a statement code.** It
-    says "revert, tick it, complete again", as the engine's advice does. On such a card that
-    cannot work: a line added to a statement by hand holds no place on the paper, so the engine
-    refuses to complete until the PDF is uploaded again (contract: POST /v1/statements/{statement_id}/complete, "On a holder with a statement code, the statement must be fully ordered").
-    What does work is fixing the line (usually its day), reverting, and uploading the PDF again.
-    - **A.** The app says that on such a card, in its own words.
-    - **B.** Ask the engine to state that path in its advice
-      ("Say what a client does with a flagged line on a card with a statement code", handed
-      over), and
-      show its words.
-    - **C.** Leave it as it is.
+11. **What the flagged lines screen offers on a card with a statement code.** The engine states
+    both ways to settle a flagged line there (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line"):
+    keep the bank's, by deleting the flagged line, the statement staying completed; or keep your
+    own, its category, hashtags and text, by reverting the statement, deleting the line the
+    upload made from the paper's row, moving your line to that row's day (and its total), and
+    uploading the same PDF again, which completes the statement. Ticking the line in by hand does
+    not work on such a card.
+    - **A.** Two keys on a flagged line: `b` keeps the bank's (asks, then deletes the line), and
+      `m` keeps yours (asks, then reverts, deletes the bank's line, moves yours to the paper's
+      day, and asks for the PDF again).
+    - **B.** The engine's two ways shown as words under the line; you do each step yourself on
+      the other screens.
+    - **C.** As today: "revert, tick it, complete again", which cannot work on such a card.
 
-    **Recommended:** B, with A until the engine's words land: every app would otherwise work the
-    path out for itself.
+    **Recommended:** A, once the engine names each flagged line's twin where the flagged lines
+    are read (the ask "Name a flagged line's twin wherever the flagged lines are read"): today
+    only the upload's answer names it, so A would leave the app matching lines itself. B until it
+    lands. With A, the app does each step the engine names, in its order, and you only choose
+    which line to keep. Moving your line to the paper's day sends that day at 00:00 in the
+    time zone the engine knows you by (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line"); the app today
+    sends days in the computer's own zone, which is the same while both say Lima.
 
 ---
 
@@ -226,11 +247,17 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   `e7393dd869963db1` (the rename), reaching `e7393dd869963db1`, shared with the other specs of
   this catch-up; `d34fc8d06ff652c4` and `4ac20e42cf8566ee` are
   answered by the catch-up on a person's opening balance, done on 2026-10-28.
+  Then `903200521b7c116a` and `3e3bd0b766c709fc` of the hand-off "An account moves between
+  holders, a holder is made and unmade with its accounts, and a holder's bank lines list in one
+  read".
 - **The engine's "Done when" checks to report on:** "Every statement screen uses /statements,
-  one object per card, with balances per account."
-- **The asks it closes:** none. It raises "List a card's bank lines in no statement in one read"
-  and "Say what a client does with a flagged line on a card with a statement code", if the owner
-  picks them.
+  one object per card, with balances per account." From the hand-off "An account moves between
+  holders…": a holder's lines in no statement show in one list, both currencies together, with
+  their count; the flagged-line screen offers both paths on a holder with a statement code, and
+  "keep mine" completes the statement with no twin.
+- **The asks it closes:** "List a card's bank lines in no statement in one read" and "Say what a
+  client does with a flagged line on a card with a statement code"; and "Name a flagged line's twin
+  wherever the flagged lines are read", if the owner picks question 11 A.
 
 ## Found along the way
 

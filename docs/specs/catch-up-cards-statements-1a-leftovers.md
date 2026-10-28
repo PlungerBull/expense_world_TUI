@@ -3,7 +3,7 @@
 Three small things part 1a of the cards and statements catch-up turned up: the app's reads and
 writes on the engine's holders, done on 2026-10-28 at contract `f00534abdde7fa82`.
 
-**Status: draft, for the owner to rewrite or approve; question 1 waits on the owner.** Its tasks
+**Status: draft, for the owner to rewrite or approve; question 1 is answered (B); the spec waits on the owner's approval.** Its tasks
 are drafted when the owner approves it. It runs after
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 which removes the old reconciliation fixtures the drift check still names. When done, the why moves to
@@ -49,6 +49,8 @@ which removes the old reconciliation fixtures the drift check still names. When 
 
    **Recommended:** A: it needs no second read, and part 6, "Cards in the app", decides how
    holders are named and shown across the app; B can follow from there.
+
+   **Answered 2026-10-28:** B, the holder's own name.
 
 ---
 
