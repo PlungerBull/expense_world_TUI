@@ -5,10 +5,11 @@ hand-off of 2026-10-26, the statement upload (`9063fab000b2e3d6`, worded again i
 `9537a3f6276d7d85`). Showing the lines a close flags was built first, in
 the catch-up of the bank download and closing a statement (done on 2026-10-26). Its words
 follow contract `e06456a20aca6e4c`, where a card holds its accounts and its statement is one
-statement for the whole card.
+statement for the whole card; since contract `e7393dd869963db1` the engine calls that card a
+holder.
 
 **Status: approved and named the current spec by the owner on 2026-10-27, every question
-answered; paused on 2026-10-27 until the catch-up to `e06456a20aca6e4c` lands.** The upload is
+answered; paused on 2026-10-27 until the catch-up to `e7393dd869963db1` lands.** The upload is
 built; moving it to the new routes is in
 [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md), its live tests
 and the card's in
@@ -28,10 +29,10 @@ the PDF already holds everything a reconciliation needs: each currency's startin
 balance, every line, and the lines' order on the paper. On a card, one PDF holds both
 currencies, and it closes the card's one statement, both currencies together.
 
-No statement holding lines on a card with a statement code can be completed by hand: the
+No statement holding lines on a holder with a statement code can be completed by hand: the
 engine completes it only once every line has its place on the paper, and no route sets the
 places by hand; the paper sets them
-(contract: POST /v1/statements/{statement_id}/complete, "On a card with a statement code, the statement must be fully ordered").
+(contract: POST /v1/statements/{statement_id}/complete, "On a holder with a statement code, the statement must be fully ordered").
 
 So a month's statement is opened with no paper and stays open; when the PDF arrives,
 uploading it closes the month. The engine does the work (contract: POST /v1/statements/import),
@@ -124,7 +125,7 @@ difference of zero, on 2026-10-26.
 - **The upload creates the lines the ledger lacks and flags the lines the PDF lacks** (owner,
   2026-10-25).
 - **One PDF closes one card's statement** (owner, 2026-10-25): every currency on it, together
-  (contract: "Statements", "A statement covers its whole card").
+  (contract: "Statements", "A statement covers its whole holder").
 - **No ticking lines into the month by date** while it is open (owner, 2026-10-25): with no
   ending balance before the PDF, there is nothing to compare against.
 - **Editing goes to the ledger's Edit form** (owner, 2026-10-25): the reconciliation screens
@@ -156,18 +157,18 @@ difference of zero, on 2026-10-26.
 
 From the live contract (contract: POST /v1/statements/import):
 
-- **You name an account of the card; the engine never picks it** by the card or account number
-  the paper prints. Its card needs a statement code
+- **You name an account of the holder; the engine never picks it** by the card or account number
+  the paper prints. Its holder needs a statement code
   (contract: POST /v1/statements/import, "Accounts").
 - **A line the upload creates** is filed under `@Pendiente` and the pending hashtag, the paper's
   text as its title, for you to classify later.
 - **A ledger line one day off a PDF line is never paired**: the PDF line is created, and the
   preview names the near miss.
-- **A card's account with no row still closes,** with no line, inside the card's statement
+- **A card's account with no row still closes,** with no line, inside the holder's statement
   (contract: POST /v1/statements/import, "A card's account with no row still closes").
-- **Every account of the card is on the paper**: a savings account's paper sent for a card
-  that also holds another currency is refused
-  (contract: POST /v1/statements/import, "Every account of the card is on the paper").
+- **Every account of the holder is on the paper**: a savings account's paper sent for a holder
+  that also holds another account is refused (`HOLDER_ACCOUNT_NOT_ON_PAPER`)
+  (contract: POST /v1/statements/import, "Every account of the holder is on the paper").
 - **A completed month is refused**: revert it first, then upload again; the same PDF then
   matches every line the first upload created.
 
@@ -182,7 +183,7 @@ None open.
 Approved by the owner on 2026-10-27. The screens are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
 screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and the upload in
-the app, are built; their move to contract `e06456a20aca6e4c` is in
+the app, are built; their move to contract `e7393dd869963db1` is in
 [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md). Task 4,
 the statement screen after a close, is in
@@ -205,7 +206,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 
 - **Range:** item 5 of the hand-off (`9063fab000b2e3d6`, `9537a3f6276d7d85`); the range as a
   whole is confirmed in the reply "Caught up with contract 592f2467fa3df75a: the terminal app sends a
-  bank download whole, …". The upload's move to `e06456a20aca6e4c` is reported in the replies
+  bank download whole, …". The upload's move to `e7393dd869963db1` is reported in the replies
   of the catch-up specs above.
 - **The engine's "Done when" checks to report on:** no code reads a PDF itself; the contract
   tests upload a made-up statement PDF with a dry run and an apply.
@@ -229,6 +230,6 @@ Not built in this spec; drafted into a new spec when it is done.
   - Its open questions: a card's two accounts share one number (the currency joins the name, or
     an alias each); a replaced card's name (follows the new card, or keeps the first); accounts
     with no bank number, such as people and cash (keep a typed name, or must have one).
-  - A new open question, since the engine holds a card as its own thing with its accounts
-    (contract: "Cards"): the number, the bank and the name may now belong on the card, which
-    both its accounts share, rather than on each account.
+  - A new open question, since the engine holds a holder as its own thing with its accounts
+    (contract: "Holders"): the number, the bank and the name may now belong on the holder,
+    which both its accounts share, rather than on each account.

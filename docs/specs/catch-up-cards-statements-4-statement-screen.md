@@ -17,12 +17,15 @@ question about a screen is drawn as a mockup, and its tasks are drafted, when th
 the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
-**Waits on the engine's rename** (the engine coders' answer of 2026-10-27, "Which of the
-terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
-next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
-`holder_id` everywhere, and every card-named reason and message says holder, with nothing
-behaving differently; once people become holders, only a bank holder takes a statement. This
-spec is built on the holder names.
+**Built on the holder names.** The engine calls a card a holder since contract
+`e7393dd869963db1` (its hand-off of 2026-10-28, "A person carries an opening balance, and a card
+is now called a holder everywhere"): `/holders`, `holder_id` everywhere,
+`GET /statements?holder_id=`, and every reason and message says holder, with nothing behaving
+differently. "Card" stays for the bank's product: a credit card, its paper and its download. This
+spec uses the holder names for everything the engine names. People become holders in a later
+engine change, still to come (the engine coders' answer of 2026-10-27, "Which of the terminal
+app's seven card and statement specs the engine's coming changes touch"); from then on only a
+bank holder takes a statement.
 
 ---
 
@@ -30,7 +33,7 @@ spec is built on the holder names.
 
 The engine now keeps a card's statement as one thing: one name, one set of days, one status for
 the whole card, and a starting and ending balance for each of its accounts, one per currency
-(contract: "Statements", "A statement covers its whole card"). A Visa card's soles and dollars
+(contract: "Statements", "A statement covers its whole holder"). A Visa card's soles and dollars
 can no longer be half closed. The first spec of this catch-up moves the statement screens onto
 the new routes but keeps showing one account at a time, as today. This spec makes the screens
 show the card's statement the way the engine now holds it, and the way the bank's paper prints
@@ -110,7 +113,9 @@ The engine also changed what the screens can do:
 ## Questions for the owner
 
 Questions 2 to 7, 9 and 10 are about screens: each is drawn as a mockup, every option as its own
-pane, when this spec is named the current one. Questions 1, 8 and 11 are about words.
+pane, when this spec is named the current one. Questions 1, 8 and 11 are about words. Which
+word these screens use for a card, "card" or "holder", is question 1 of
+[catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md), and they follow it.
 
 1. **The screen's name.** Home and its screens say "Reconciliations"; the engine, the bank's
    paper and the PDF upload say "statement".
@@ -195,7 +200,7 @@ pane, when this spec is named the current one. Questions 1, 8 and 11 are about w
 11. **What the flagged lines screen says to do with a line on a card with a statement code.** It
     says "revert, tick it, complete again", as the engine's advice does. On such a card that
     cannot work: a line added to a statement by hand holds no place on the paper, so the engine
-    refuses to complete until the PDF is uploaded again (contract: POST /v1/statements/{statement_id}/complete, "On a card with a statement code, the statement must be fully ordered").
+    refuses to complete until the PDF is uploaded again (contract: POST /v1/statements/{statement_id}/complete, "On a holder with a statement code, the statement must be fully ordered").
     What does work is fixing the line (usually its day), reverting, and uploading the PDF again.
     - **A.** The app says that on such a card, in its own words.
     - **B.** Ask the engine to state that path in its advice
@@ -217,8 +222,10 @@ Drafted when the owner names this the current spec.
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
 
-- **Range:** `46e2fdf6e11d7548` → `e06456a20aca6e4c`, shared with the other specs of this
-  catch-up.
+- **Range:** `46e2fdf6e11d7548` → `e06456a20aca6e4c`, then `2cec1b59048f50dc` and
+  `e7393dd869963db1` (the rename), reaching `e7393dd869963db1`, shared with the other specs of
+  this catch-up; `d34fc8d06ff652c4` and `4ac20e42cf8566ee` are
+  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
 - **The engine's "Done when" checks to report on:** "Every statement screen uses /statements,
   one object per card, with balances per account."
 - **The asks it closes:** none. It raises "List a card's bank lines in no statement in one read"

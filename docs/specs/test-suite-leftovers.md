@@ -2,7 +2,7 @@
 
 **Status: draft, for the owner to rewrite or approve; on 2026-10-27 the owner brought in the
 test-only items of todo.md's backlog. It runs after the catch-up to contract
-`e06456a20aca6e4c` (the catch-up's specs named below), which rewrites many of the same files. Its tasks
+`e7393dd869963db1` (the catch-up's specs named below), which rewrites many of the same files. Its tasks
 are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -16,7 +16,7 @@ whole (2026-10-27), not fixed there; and the backlog's items that live only in t
 their tools, brought in by the owner on 2026-10-27. All of them are inside the test suites and
 their tools: nothing you see changes, and no engine change is needed.
 
-The points on code the catch-up to `e06456a20aca6e4c` rewrites moved into it: one account-record
+The points on code the catch-up to `e7393dd869963db1` rewrites moved into it: one account-record
 builder for the unit suite, the coverage-gap warning fixture, the sealed line's delete words and
 two test comments on statements and people into
 [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
@@ -32,7 +32,7 @@ statement head shown whole into
 The points on things the engine no longer has are dropped: a card statement's create answer
 built by hand, a card's other half checked against its own schema, a reconciliation create's
 builders, a test docstring on the one-account create form, and the browse leaving out an
-archived account with no code (a card's accounts are archived together now).
+archived account with no code (a holder's accounts are archived together now).
 
 ## What it must do
 

@@ -1,19 +1,21 @@
 # A person carries an opening balance
 
-Catches up to contract `4ac20e42cf8566ee`, from `e06456a20aca6e4c`: the engine's hand-off of
-2026-10-27, "A person account carries an opening balance like any account" (`d34fc8d06ff652c4`
-and `4ac20e42cf8566ee`). It answers no ask: the owner ruled on 2026-10-27 that refusing an
-opening balance on a person was a mistake.
+Catches up to contract `4ac20e42cf8566ee`, from `e06456a20aca6e4c`: part 1 of the engine's
+hand-off of 2026-10-28, "A person carries an opening balance, and a card is now called a holder
+everywhere" (`d34fc8d06ff652c4` and `4ac20e42cf8566ee`). Its rename of card to holder
+(`2cec1b59048f50dc`, `e7393dd869963db1`) belongs to the cards and statements catch-up. It answers
+no ask: the owner ruled on 2026-10-27 that refusing an opening balance on a person was a mistake.
 
-**Status: draft, for the owner to rewrite or approve; question 1 waits on the owner, and so do
-its tasks.** It stands apart from the cards and statements catch-up and can run before
+**Status: approved by the owner on 2026-10-28, with pane A of its mockup; the current spec.** This
+client records contract `3e472b3256dcdc69` (the owner, 2026-10-28), which holds this change, the
+rename, and the account move whose hand-off is still to come. It stands apart from the cards and statements catch-up and can run before
 [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md).
 Its live checks of `make-person` need accounts on cards, so they are in
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md);
 a person's own opening balance is tested live here, through `POST /people`, which still exists.
 Its acceptance check runs on its own: the unit suite and the person tests of
 [test_opening_balance.py](../../tests/contract/test_opening_balance.py), which need no card. The
-orchestrator records `4ac20e42cf8566ee` in the commit acting on the owner's answer. When done,
+When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -34,7 +36,7 @@ So the app stops hiding the opening balance on people, and stops telling you to 
 ## What it must do
 
 1. **A person's Edit form offers its opening balance** as a bank account's does, the `opening`
-   and `as of` lines after the colour, as question 1 decides. Today the form leaves them off a
+   and `as of` lines after the colour, as the owner settled. Today the form leaves them off a
    person ([create_forms.py](../../expense/tui/screens/create_forms.py), the account Edit form's
    `_has_opening`).
 2. **`t` turns an account with an opening balance into a person, keeping it.** The app's line for
@@ -67,31 +69,28 @@ So the app stops hiding the opening balance on people, and stops telling you to 
 
 ## How the owner knows it is done
 
-1. On a person's Edit form you add an opening balance, and the person's balance includes it, as
-   question 1 decides.
+1. On a person's Edit form you add an opening balance, and the person's balance includes it.
 2. `t` on a bank account with an opening balance makes it a person with the same balance, and
    the opening balance is still there. The app cannot create a bank account until
    [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md), so the tester
-   uses a practice-engine account made by the live suite's helpers.
+   makes one on the practice engine itself: a holder (`POST /holders`), a bank account on it with
+   an opening balance, then `t` on it in the app.
 3. The unit suite passes, the live test of a person's opening balance passes, and the version
-   check reads `4ac20e42cf8566ee`.
+   check reads `3e472b3256dcdc69`.
 
-## Questions for the owner
+## What the owner settled
 
-1. **A person's Edit form** (drawn in
-   [expense-world-person-opening-balance.html](../mockups/expense-world-person-opening-balance.html)).
-   - **A.** It shows `opening` and `as of`, as a bank account's does.
-   - **B.** It stays as it is: a person gets an opening balance only from the sheet import, or by
-     being turned into a person after it was set.
-
-   **Recommended:** A: the engine takes a person's opening balance like any account's, and a
-   person's starting debt is a balance like any other.
+- **A person's Edit form shows `opening` and `as of`, as a bank account's does** (owner,
+  2026-10-28, pane A of
+  [expense-world-person-opening-balance.html](../mockups/expense-world-person-opening-balance.html)):
+  the engine takes a person's opening balance like any account's, and a person's starting debt is
+  a balance like any other.
 
 ---
 
 ## Tasks
 
-Drafted on 2026-10-27; they wait on the owner's approval and question 1.
+Drafted on 2026-10-27; approved by the owner on 2026-10-28.
 
 1. **A person's Edit form takes an opening balance (builder).** The account Edit form shows and
    saves `opening` and `as of` on a person as on a bank account, and the statement code line
@@ -129,7 +128,7 @@ Drafted on 2026-10-27; they wait on the owner's approval and question 1.
    [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) are 2b's, which
    rebuilds them on cards; the clause of [runtime.md](../runtime.md)'s paragraph on this test
    follows, and its people clauses stay for 2b.
-   *Passes if:* those live tests pass against the practice engine on `4ac20e42cf8566ee`.
+   *Passes if:* those live tests pass against the practice engine on `3e472b3256dcdc69`.
 
 ## Reply to the engine
 
@@ -137,11 +136,9 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 
 - **Range:** `e06456a20aca6e4c` → `4ac20e42cf8566ee` (`d34fc8d06ff652c4`, `4ac20e42cf8566ee`).
 - **The engine's "Done when" checks to report on:** the TUI has recorded contract
-  `4ac20e42cf8566ee`; a person's opening balance can be added from the app, and make-person on
-  an account with one succeeds.
+  `e7393dd869963db1` (it records `3e472b3256dcdc69`, which follows it); a person's opening
+  balance can be added from the app, and make-person on an account with one succeeds.
 - **The asks it closes:** none.
-- **If question 1 is B,** the check "a person's opening balance can be added from the app" is
-  reported as declined by the owner, with the reason.
 
 ## Found along the way
 

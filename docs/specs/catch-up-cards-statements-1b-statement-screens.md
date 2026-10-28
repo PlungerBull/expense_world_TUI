@@ -1,9 +1,13 @@
 # The statement screens on the engine's new routes
 
-Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the engine's hand-off of
+Catches up to contract `e7393dd869963db1`, from `46e2fdf6e11d7548`: the engine's hand-off of
 2026-10-27, "A card is its own object, its statement is one object for the whole card, and a
-closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`).
-This is part 1b of seven specs that share that range, run in this order:
+closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`),
+and the rename of card to holder in its hand-off of 2026-10-28, "A person carries an opening
+balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc` and
+`e7393dd869963db1`; that hand-off's opening balance on a person is
+[catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s). This is part 1b of
+seven specs that share that range, run in this order:
 
 1. [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md):
    the app's reads and writes on the engine's new routes and names, the statement PDF upload
@@ -11,9 +15,9 @@ This is part 1b of seven specs that share that range, run in this order:
 2. this one: the statement screens on the engine's new routes, with nothing you see changing
    but the order of the flagged lines (question 1);
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md):
-   the live tests' shared helpers, and a statement's life, on cards;
+   the live tests' shared helpers, and a statement's life, on holders;
 4. [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md):
-   the live tests of the upload on the published sample PDFs, bank lines, cards and people;
+   the live tests of the upload on the published sample PDFs, bank lines, holders and people;
 5. [catch-up-split-rows.md](catch-up-split-rows.md): the sheet import's counts line;
 6. [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md): cards in the
    app;
@@ -26,18 +30,19 @@ It runs after part 1a, whose answer builders, account record and reads it uses.
 on the owner, and so do its tasks.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
-**Waits on the engine's rename** (the engine coders' answer of 2026-10-27, "Which of the
-terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
-next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
-`holder_id` everywhere, and every card-named reason and message says holder, with nothing
-behaving differently: a statement carries `holder_id`, and `CARD_ACCOUNTS_MISSING` becomes
-`HOLDER_ACCOUNTS_MISSING`. This spec is built on the holder names once that hand-off lands.
+**Built on the holder names.** The engine's rename of card to holder is in the live contract
+since `e7393dd869963db1` (shipped 2026-10-28): the routes are `/holders`, the field is
+`holder_id` everywhere, and the reasons and messages say holder, with nothing behaving
+differently: a statement carries `holder_id` (contract: "Statements"), the statements of a
+holder are read with `GET /statements?holder_id=` (contract: GET /v1/statements), and a
+statement missing an account of its holder is `HOLDER_ACCOUNTS_MISSING`
+(contract: POST /v1/statements). "Card" stays the bank's product, a credit card and its paper.
 
 ---
 
 ## Why
 
-On 2026-10-27 the engine made a card's monthly statement one record for the whole card
+On 2026-10-27 the engine made a holder's monthly statement one record for the whole holder
 (contract: "Statements"). The routes the Reconciliations screens called are gone, so today these
 break:
 
@@ -47,17 +52,17 @@ break:
 
 This spec puts them back on the engine's new routes, **with the screens as they are today**: the
 same keys, the same words, the same layout, each statement screen showing the account it is
-opened on. The screens that change for whole-card statements come in part 7, from mockups you
+opened on. The screens that change for whole-holder statements come in part 7, from mockups you
 pick. It also brings every sentence of the engine's the app quotes up to the engine's words.
 
 ## What it must do
 
 1. **Every statement read and write goes to the engine's statement routes.** One statement
-   holds a balance per account of its card, and each screen shows the account it is opened
+   holds a balance per account of its holder, and each screen shows the account it is opened
    on, as it does today (contract: "Statements").
 2. **The lines a close flags are read in full**, page by page, as the engine lists them, with
    no list of ids sent. The engine lists them in the statement's order, both currencies of a
-   card together (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); question 1.
+   holder together (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); question 1.
 3. **The app quotes the engine's current words.** Every sentence of the engine's that the app's
    tests, docs and mockups quote says "statement" where the engine does, among them the
    sealed-period sentence (contract: "Transactions (Ledger)", "Sealed periods") and the refusal
@@ -78,7 +83,7 @@ pick. It also brings every sentence of the engine's the app quotes up to the eng
 ## Questions for the owner
 
 1. **The order of the lines a close flags.** Today they are listed oldest first. The engine
-   now lists them only in the statement's order, both currencies of a card together, and
+   now lists them only in the statement's order, both currencies of a holder together, and
    refuses any other order (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
    - **A.** Show them in the engine's order now.
    - **B.** Keep oldest first, by reading the lines by their ids, which the engine asks clients
@@ -106,9 +111,9 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 
 1. **The browse and the new-statement forms on the new routes (builder).** In
    [reconciliations.py](../../expense/tui/screens/reconciliations.py): the browse reads
-   `GET /statements?card_id=`, each row's balances from its account's entry in `balances`; the
-   create forms send `POST /statements` with the card and every account's balances; the "no
-   batch" `!` mark matches a statement by its card's accounts, its helper named for what it
+   `GET /statements?holder_id=`, each row's balances from its account's entry in `balances`; the
+   create forms send `POST /statements` with the holder (`holder_id`) and every account's
+   balances; the "no batch" `!` mark matches a statement by its holder's accounts, its helper named for what it
    marks (today `blocking_windows`), and the `unfiled_rows` docstring and the comment over
    `UNFILED_FILTER` say what is true (catch-up leftovers).
    *Passes if:* the browse and create tests pass on the new answers, a refusal keyed
@@ -122,9 +127,14 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 3. **A statement's actions on the new routes (builder).** The detail screen ticks with
    `statement_id`, saves the ending balance in `balances`, and completes, reverts and deletes
    under `/statements`; the close's `warnings` and `coverage_gap` are read per balance, the
-   `GAP` fixture quoting the engine's current sentence (moved from test-suite-leftovers).
+   `GAP` fixture quoting the engine's current sentence (moved from test-suite-leftovers); a
+   complete with no transaction is refused as `NO_TRANSACTIONS_ASSIGNED` keyed
+   `balances.<account_id>.transactions`, `"At least one transaction must be assigned."`, once
+   per account, under the top-level `"Cannot complete a statement with no transaction on any of
+   its accounts."` (the engine's hand-off of 2026-10-28, its section 4).
    *Passes if:* the detail screen's tick, balance, complete, revert and delete tests pass on the
-   new answers, the `GAP` fixture's last uncovered day falls before the statement's first, and
+   new answers, the `NO_TRANSACTIONS_ASSIGNED` refusal lands under the opened account's
+   transactions, the `GAP` fixture's last uncovered day falls before the statement's first, and
    no reconciliation builder is left.
 4. **The flagged lines from the review list (builder).** The flagged-lines screen pages
    `GET /bank-lines?unassigned_in_period_of=<id>&sort=statement` with its count, as question 1
@@ -150,11 +160,13 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
 
-- **Range:** `46e2fdf6e11d7548` → `e06456a20aca6e4c` (`f91a1e0ae626c712`, `f0ee03d6faa96af1`,
+- **Range:** `46e2fdf6e11d7548` → `e7393dd869963db1` (`f91a1e0ae626c712`, `f0ee03d6faa96af1`,
   `29228c5191b6669b`, `c3caf28dd580253d`, `e767584fd1b13108`, `dc990e964df6b627`,
-  `743f76692347e6a4`, `e06456a20aca6e4c`), shared with the six other parts.
+  `743f76692347e6a4`, `e06456a20aca6e4c`, `2cec1b59048f50dc`, `e7393dd869963db1`), shared with
+  the six other parts; `d34fc8d06ff652c4` and `4ac20e42cf8566ee`, between them, are
+  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
 - **The engine's "Done when" checks to report on:** every statement call uses `/statements`,
-  at the level of the routes (one object per card on screen is part 7's); a closed statement's
+  at the level of the routes (one object per holder on screen is part 7's); a closed statement's
   review list pages in full through the review list route, with no ids sent.
 - **The asks it closes:** a close's flagged lines past 200 ids.
 

@@ -1,7 +1,7 @@
 # Leftovers of the bank download and closing catch-up
 
 **Status: draft, for the owner to rewrite or approve; no question open. It runs after the
-catch-up to contract `e06456a20aca6e4c` (the catch-up's specs named below), which touches the same
+catch-up to contract `e7393dd869963db1` (the catch-up's specs named below), which touches the same
 files. Its tasks are drafted when the owner names it the current spec.** When done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -14,7 +14,7 @@ what a statement's close flags and took a card's other account from the engine (
 2026-10-26), and while the sheet import went through the engine (2026-10-27), not fixed there.
 None of it changes what you see; it is code, tests and drawings that say old things.
 
-The rest of what this spec held on 2026-10-26 moved into the catch-up to `e06456a20aca6e4c`,
+The rest of what this spec held on 2026-10-26 moved into the catch-up to `e7393dd869963db1`,
 which rewrites the same code: the engine's old words, the "no batch" helper's names and comment,
 and the grouped refusals' drawing into
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md); the practice-data

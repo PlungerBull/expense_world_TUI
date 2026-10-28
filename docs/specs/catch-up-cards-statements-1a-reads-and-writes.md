@@ -2,17 +2,21 @@
 
 Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the engine's hand-off of
 2026-10-27, "A card is its own object, its statement is one object for the whole card, and a
-closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`).
-This is part 1a of seven specs that share that range, run in this order:
+closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`);
+then to `e7393dd869963db1`: the holder part of the engine's hand-off of 2026-10-28, "A person
+carries an opening balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`
+and `e7393dd869963db1`).
+This is part 1a of seven specs that share the range of the hand-off of 2026-10-27, run in this
+order:
 
 1. this one: the app's reads and writes on the engine's new routes and names, the statement
    PDF upload among them, with nothing you see changing;
 2. [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md):
    the statement screens on the engine's new routes, with nothing you see changing;
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md):
-   the live tests' shared helpers, and a statement's life, on cards;
+   the live tests' shared helpers, and a statement's life, on holders;
 4. [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md):
-   the live tests of the upload on the published sample PDFs, bank lines, cards and people;
+   the live tests of the upload on the published sample PDFs, bank lines, holders and people;
 5. [catch-up-split-rows.md](catch-up-split-rows.md): the sheet import's counts line;
 6. [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md): cards in the
    app;
@@ -23,20 +27,23 @@ This is part 1a of seven specs that share that range, run in this order:
 and wait on the owner's approval.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
-**Waits on the engine's rename** (the engine coders' answer of 2026-10-27, "Which of the
-terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
-next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
-`holder_id` everywhere, and every card-named reason and message says holder, with nothing
-behaving differently; this spec is built on the holder names once that hand-off lands, so
-nothing is renamed twice. People become holders in a later change, so the bank download's
-account list is built only from holders that are not people.
+**Built on the holder names.** The engine calls a card a holder since contract
+`e7393dd869963db1` (its hand-off of 2026-10-28, "A person carries an opening balance, and a card
+is now called a holder everywhere"): `/holders`, `holder_id` everywhere, `GET
+/statements?holder_id=`, and every reason and message says holder, with nothing behaving
+differently (contract: "Holders"). "Card" stays for the bank's product: a credit card, its paper
+and its download. This spec uses the holder names, so no request names `/cards` or `card_id`.
+People become holders in a later engine change, the one the engine coders named in their answer
+of 2026-10-27, "Which of the terminal app's seven card and statement specs the engine's coming
+changes touch", so the bank download's account list is built only from holders that are not
+people.
 
 ---
 
 ## Why
 
-On 2026-10-27 the engine made a card its own thing, holding its accounts, one per currency, and
-made a card's monthly statement one record for the whole card (contract: "Cards")
+On 2026-10-27 the engine made a holder its own thing, holding its accounts, one per currency,
+and made a holder's monthly statement one record for the whole holder (contract: "Holders")
 (contract: "Statements"). The routes the app called for reconciliations are gone, and several
 names the app sends and reads were renamed. The engine on your computer already runs this
 version, so today these break:
@@ -47,34 +54,34 @@ version, so today these break:
 
 This spec puts the app's reads and writes, and the statement PDF upload, back on the engine's
 new routes, **with the screens as they are today**: the same keys, the same words, the same
-layout. The Reconciliations screens follow in part 1b; the screens that change for cards and
-whole-card statements come in parts 6 and 7, from mockups you pick.
+layout. The Reconciliations screens follow in part 1b; the screens that change for holders and
+whole-holder statements come in parts 6 and 7, from mockups you pick.
 
 **Still broken after this spec, until part 6 ("Cards in the app"):** creating a bank account,
 `t` turning a person back into a bank account, `a` archiving a bank account, and the sheet
-import's `--create-names`. Each needs a card, and how the app gives an account its card is your
-pick in part 6. Until then, each shows the engine's refusal.
+import's `--create-names`. Each needs a holder, and how the app gives an account its holder is
+your pick in part 6. Until then, each shows the engine's refusal.
 
 ## What it must do
 
 1. **The fake engine the unit tests run against answers as the engine does now**: statements
-   and cards on their own routes, and an account carrying its card (contract: "Cards").
+   and holders on their own routes, and an account carrying its holder (contract: "Holders").
 2. **A transaction's statement is named as the engine names it now.** A move to another
    account takes the transaction out of its statement, as today, under the new name
    (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment").
-3. **A card's accounts are found through the card.** The bank download's and the PDF upload's
-   account list pairs a card's two accounts from the card, with the line's words as today
-   (contract: "Cards").
+3. **A holder's accounts are found through the holder.** The bank download's and the PDF
+   upload's account list pairs a holder's two accounts from the holder, with the line's words as
+   today (contract: "Holders").
 4. **The statement PDF upload works again on the engine's new route and answer**, with its
-   screens as built. A savings PDF sent for a card that holds another currency is refused in
-   the engine's words (contract: POST /v1/statements/import, "Every account of the card is on the paper").
+   screens as built. A savings PDF sent for a holder that holds another currency is refused in
+   the engine's words (contract: POST /v1/statements/import, "Every account of the holder is on the paper").
 
 ## How the owner knows it is done
 
 1. Moving a transaction to another account saves, and says it left its reconciliation, as
    today.
 2. A statement PDF upload previews and closes its month, as built.
-3. The bank download's list of accounts shows a card's two accounts as one line, as today.
+3. The bank download's list of accounts shows a holder's two accounts as one line, as today.
 4. The unit suite and the drift check pass, on the version this client last recorded. The
    live suite passes once parts 2a and 2b are done.
 
@@ -91,14 +98,14 @@ Drafted 2026-10-27; they wait on the owner's approval. Each leaves `pytest tests
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-1. **The fake engine answers on the statement and card routes (builder).** In
+1. **The fake engine answers on the statement and holder routes (builder).** In
    [helpers.py](../../tests/unit/helpers.py): answer builders for the statement routes and the
-   card routes, marked `@answer_of`. The old reconciliation builders stay until their last user
+   holder routes, marked `@answer_of`. The old reconciliation builders stay until their last user
    moves, in part 1b.
    *Passes if:* the drift check names none of the new builders, and each is used by at least one
    unit test.
 2. **One account record for every unit test (builder).** One account-record builder in
-   helpers.py carrying `card_id` and no statement code or partner; the ten unit test files that
+   helpers.py carrying `holder_id` and no statement code or partner; the ten unit test files that
    build their own `_account` switch to it (moved from test-suite-leftovers).
    *Passes if:* no unit test file defines its own `_account`, and no account fixture carries
    `statement_code` or `statement_partner_id`.
@@ -110,22 +117,23 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
    the words on screen stay.
    *Passes if:* unit tests pin a move sending `statement_id: null` and reading `left_statement`,
    and the drift check no longer names either old field.
-4. **Cards and statements read through the engine (builder).** In reads.py: the statement
-   list by card, one statement by id, and the cards list, and a helper that finds a card's
-   accounts, replacing `card_partners`. [flow.py](../../expense/bank_import/flow.py)'s
-   `account_picks` pairs a card's accounts from the card, keeping its words, and
-   `reconciliation_names` reads `GET /statements/{id}`.
-   *Passes if:* unit tests pin a card's two accounts as one line and an account alone on its
-   card as its own, and the bank import's stopping statement is named through the new read.
+4. **Holders and statements read through the engine (builder).** In reads.py: the statement
+   list by holder (`GET /statements?holder_id=`), one statement by id, and the holders list
+   (`GET /holders`), and a helper that finds a holder's accounts, replacing `card_partners`.
+   [flow.py](../../expense/bank_import/flow.py)'s `account_picks` pairs a holder's accounts
+   from the holder, keeping its words, and `reconciliation_names` reads `GET /statements/{id}`.
+   *Passes if:* unit tests pin a holder's two accounts as one line and an account alone on its
+   holder as its own, the bank import's stopping statement is named through the new read, and
+   no request in [expense/](../../expense/) names `/cards` or `card_id`.
 5. **The statement upload on the new route (builder).**
    [statement.py](../../expense/bank_import/statement.py),
    [statement_upload.py](../../expense/tui/screens/statement_upload.py) and flow.py's
    `statement_call` use `POST /statements/import` and read its answer's `balances`,
    `creates`, `statement_id` and `statement`; the flagged lines come from each balance's
-   `review_lines`; `CARD_ACCOUNT_NOT_ON_PAPER` shows in the engine's words. The screens stay
+   `review_lines`; `HOLDER_ACCOUNT_NOT_ON_PAPER` shows in the engine's words. The screens stay
    as built.
    *Passes if:* the 26 tests of test_tui_statement_upload.py pass on the new answer, a new one
-   pins `CARD_ACCOUNT_NOT_ON_PAPER`, and the old upload builder is gone.
+   pins `HOLDER_ACCOUNT_NOT_ON_PAPER`, and the old upload builder is gone.
 
 ## Reply to the engine
 
@@ -133,9 +141,14 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 
 - **Range:** `46e2fdf6e11d7548` → `e06456a20aca6e4c` (`f91a1e0ae626c712`, `f0ee03d6faa96af1`,
   `29228c5191b6669b`, `c3caf28dd580253d`, `e767584fd1b13108`, `dc990e964df6b627`,
-  `743f76692347e6a4`, `e06456a20aca6e4c`), shared with the six other parts.
+  `743f76692347e6a4`, `e06456a20aca6e4c`), then `2cec1b59048f50dc` and `e7393dd869963db1`
+  (the rename), reaching `e7393dd869963db1`, shared with the six other parts;
+  `d34fc8d06ff652c4` and `4ac20e42cf8566ee` are
+  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
 - **The engine's "Done when" checks to report on:** this client's contract snapshot is at
-  `e06456a20aca6e4c` (recorded in commit `ab67440`), and it reports having read up to it.
+  `e06456a20aca6e4c` (recorded in commit `ab67440`), and it reports having read up to it; and
+  "Every holder screen works against /holders with holder_id, and no request names /cards or
+  card_id".
 - **The asks it closes:** none.
 
 ## Found along the way

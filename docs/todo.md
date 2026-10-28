@@ -28,18 +28,16 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the spec for a person's opening balance, and pick its form
-Asked 2026-10-27 · Blocks: [specs/catch-up-person-opening-balance.md](specs/catch-up-person-opening-balance.md)
+### Ask the engine coders for their hand-off on moving an account
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
 
-The engine's hand-off of 2026-10-27, "A person account carries an opening balance like any
-account" (contract `e06456a20aca6e4c` to `4ac20e42cf8566ee`), lets a person carry an opening
-balance and lets `t` turn an account with one into a person, keeping it. The spec catches up with
-it on its own, before 1a, since nothing in it touches cards. Its question 1 is whether a person's
-Edit form shows `opening` and `as of`, as a bank account's does: panes A and B of
-[mockups/expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html).
-The new version is recorded in the commit acting on your answer; until then no task starts.
+The engine already serves moving an account onto another holder (contract `3e472b3256dcdc69`,
+`POST /accounts/{id}/move`), the change their answer of 2026-10-27 planned, and this client
+records that version (you, 2026-10-28). Its hand-off file has not come yet. It goes into the
+cards spec, which plans pairing and unpairing on it, with the move's live tests.
 
-**Recommended:** approve it with 1 A, and run it next.
+**Recommended:** ask them for the hand-off from `e7393dd869963db1` to `3e472b3256dcdc69`, and
+copy it into [from-engine/](from-engine/) when it comes.
 
 ### Approve the first four specs of the cards and statements catch-up, and their tasks
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
@@ -54,11 +52,10 @@ change nothing you see: 1a puts the app's reads and writes on the engine's new r
 holds two small questions: the order of the lines a close flags, and the app's line when `t` is
 refused for an account that has been in a statement.
 
-**Recommended:** approve all four, with 1 A and 2 A in 1b. They start once the engine's rename
-of card to holder lands, its next breaking change (the engine coders' answer of 2026-10-27,
-"Which of the terminal app's seven card and statement specs the engine's coming changes touch"),
-so they are built on the holder names and nothing is renamed twice; 2b also waits on people
-becoming holders. Creating a bank account,
+**Recommended:** approve all four, with 1 A and 2 A in 1b. The engine's rename of card to
+holder is in since contract `e7393dd869963db1` (its hand-off of 2026-10-28), and each spec is
+written on the holder names, so 1a, 1b and 2a can run once the person's opening balance spec is
+done; 2b also waits on people becoming holders. Creating a bank account,
 `t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
 the catch-up's "Cards in the app".
 
@@ -68,11 +65,13 @@ Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/c
 The catch-up's last two specs change what you see: where cards live in the app, how a new bank
 account gets its card, pairing and unpairing, archiving a whole card, the statement screen for
 a two-currency card, closing a currency with no movement by hand, and when flagged lines show.
-Their questions are in each spec; the ones about screens come with mockups.
+Their questions are in each spec; the ones about screens come with mockups. The engine now calls
+a card a holder; the cards spec's question 1 asks which word the app shows, and the statement
+screen follows it.
 
 **Recommended:** read the statement screen spec now and say if anything is missing; its mockups
-are drawn while the first four specs run. The cards spec is rewritten around holders when the
-engine's next changes land, so read it then.
+are drawn while the first four specs run. The cards spec is rewritten around holders when
+people become holders and the move's hand-off comes, so read it then.
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
@@ -213,7 +212,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27, cards and statements** (to `e06456a20aca6e4c`): seven
+- **The engine catch-up of 2026-10-27, cards and statements** (to `e7393dd869963db1`, the
+  rename of card to holder of 2026-10-28 included): seven
   specs, run in order:
   [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md),
   [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
@@ -222,11 +222,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  The counts line is the current spec (owner, 2026-10-27), its live tests waiting on 2a; the
-  others wait on the engine's rename of card to holder, and the cards spec and 2b also on its two
-  changes after it.
-- **The engine catch-up of 2026-10-27, a person's opening balance** (to `4ac20e42cf8566ee`): a
-  draft spec waiting for the owner's approval
+  The counts line's last task, its live tests, waits on 2a; the first four wait on the owner's
+  approval and run after the person's opening balance; 2b also waits on people becoming holders,
+  and the cards spec on that and on the move's hand-off.
+- **The engine catch-up of 2026-10-28, a person's opening balance** (to `4ac20e42cf8566ee`): the
+  current spec, approved by the owner on 2026-10-28
   ([specs/catch-up-person-opening-balance.md](specs/catch-up-person-opening-balance.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
@@ -237,9 +237,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   catch-up is done ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import):
   [specs/before-the-official-import.md](specs/before-the-official-import.md), after the catch-up's
-  "Cards in the app". The engine's next changes reshape it (a person carries an opening balance,
-  an account moves between holders, people become holders), so it is rewritten and its questions
-  asked again when those hand-offs land.
+  "Cards in the app". A person carries an opening balance and an account moves between holders
+  in the live contract; people becoming holders reshapes it again, so it is rewritten and its
+  questions asked again when that hand-off lands.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).
