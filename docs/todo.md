@@ -28,6 +28,37 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The contract moved to 4ac20e42cf8566ee: a person carries an opening balance
+Asked 2026-10-27 · Blocks: every new task (the loop stops on a moved version)
+
+This client has caught up to `e06456a20aca6e4c`. The version check of 2026-10-27 prints:
+
+```
+  4ac20e42cf8566ee  2026-10-27
+    changed: `POST /transactions/import-sheet` makes a person's first `SALDO INICIAL` row of a
+    non-zero amount (no earlier row of the same account) its opening balance, exactly as a real
+    account's.
+  d34fc8d06ff652c4  2026-10-27
+    changed: `POST /accounts/{id}/opening-balance` takes a person account, judged exactly as a
+    real account (before: refused `PERSON_ACCOUNT`).
+    changed: `POST /accounts/{id}/make-person` turns an account with an active opening balance
+    into a person and keeps it (before: refused `HAS_OPENING_BALANCE`).
+    changed: `opening_balance_transaction_id` on a person account names its opening balance.
+    changed: wording, the descriptions of `PERSON_ACCOUNT` and `HAS_OPENING_BALANCE`, now sent
+    by no operation, and *People / Person Accounts*.
+```
+
+It is change A of the engine coders' answer of 2026-10-27, whose hand-off they send when it is
+done. Ask them for one hand-off file from `e06456a20aca6e4c` to their current version, and
+decide whether catching up with it joins the cards and statements catch-up.
+- **A.** Ask for the hand-off now; its catch-up joins the cards and statements catch-up, ahead of
+  1a, since it is small (the app's lines for the two retired refusals, and the live tests of
+  people's opening balances).
+- **B.** Wait for the rename of card to holder too, and catch up with both in one hand-off.
+
+**Recommended:** B: the rename ships next and every waiting spec waits for it anyway, so one
+hand-off covering both means one catch-up instead of two.
+
 ### Approve the first four specs of the cards and statements catch-up, and their tasks
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
 
