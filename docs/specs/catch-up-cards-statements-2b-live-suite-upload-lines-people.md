@@ -17,8 +17,7 @@ seven specs, run in this order:
 
 It runs after 2a, whose shared helpers its tests use.
 
-**Status: draft, for the owner to rewrite or approve; no question waits on the owner. Its tasks
-are drafted and wait on the owner's approval.** When done, the why moves to
+**Status: approved by the owner on 2026-10-28; it runs after part 2a.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Waits on the engine's next change** (the engine coders' answer of 2026-10-27, "Which of the
@@ -101,7 +100,7 @@ None.
 
 ## Tasks
 
-Drafted 2026-10-27; they wait on the owner's approval. Each needs the practice engine, which the
+Drafted 2026-10-27; approved by the owner on 2026-10-28. Each needs the practice engine, which the
 orchestrator starts before the task and stops after it. Each fixes the `(contract: …)`
 citations of the files it touches, and moves them onto 2a's shared helpers.
 

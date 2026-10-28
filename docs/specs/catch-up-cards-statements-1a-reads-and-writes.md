@@ -23,8 +23,7 @@ order:
 7. [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md):
    a card's statement on one screen.
 
-**Status: draft, written 2026-10-27 for the owner to rewrite or approve; its tasks are drafted
-and wait on the owner's approval.** When done, the why moves to [decisions.md](../decisions.md)
+**Status: approved by the owner on 2026-10-28; the current spec.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
 **Built on the holder names.** The engine calls a card a holder since contract
@@ -94,7 +93,7 @@ line on `t` are in part 1b.
 
 ## Tasks
 
-Drafted 2026-10-27; they wait on the owner's approval. Each leaves `pytest tests/unit` green.
+Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tests/unit` green.
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 

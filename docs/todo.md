@@ -52,26 +52,6 @@ question 1 picks the words: panes A and B of
 
 **Recommended:** approve it with 1 B.
 
-### Approve the first four specs of the cards and statements catch-up, and their tasks
-Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
-
-The engine's hand-off of 2026-10-27 (contract `46e2fdf6e11d7548` to `e06456a20aca6e4c`) makes a
-card its own thing in the engine and a month's statement one record for the whole card. Much of
-the app stops working against it: the statement screens, creating and archiving accounts, moving
-a transaction to another account, and the PDF upload. On 2026-10-27 you said to catch up, and to
-keep each spec small; the hand-off is planned into seven specs, run in order. The first four
-change nothing you see: 1a puts the app's reads and writes on the engine's new routes and names,
-1b the statement screens, 2a and 2b the live tests; their tasks are drafted in each spec. 1b
-holds two small questions: the order of the lines a close flags, and the app's line when `t` is
-refused for an account that has been in a statement.
-
-**Recommended:** approve all four, with 1 A and 2 A in 1b. The engine's rename of card to
-holder is in since contract `e7393dd869963db1` (its hand-off of 2026-10-28), and each spec is
-written on the holder names, so 1a, 1b and 2a can run once you approve them; 2b also waits on
-people becoming holders. Creating a bank account,
-`t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
-the catch-up's "Cards in the app".
-
 ### Read the specs for cards and for the statement screen
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
 

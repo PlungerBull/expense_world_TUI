@@ -17,8 +17,7 @@ balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`,
 
 It runs after 1b, whose app helpers the live tests call.
 
-**Status: draft, for the owner to rewrite or approve; no question waits on the owner. Its tasks
-are drafted and wait on the owner's approval.** When done, the why moves to
+**Status: approved by the owner on 2026-10-28; it runs after part 1b.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Built on the holder names.** The engine's rename of card to holder is in the live contract
@@ -75,7 +74,7 @@ None.
 
 ## Tasks
 
-Drafted 2026-10-27; they wait on the owner's approval. Each needs the practice engine, which the
+Drafted 2026-10-27; approved by the owner on 2026-10-28. Each needs the practice engine, which the
 orchestrator starts before the task and stops after it. Each fixes the `(contract: …)`
 citations of the files it touches.
 

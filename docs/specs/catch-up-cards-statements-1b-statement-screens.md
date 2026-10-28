@@ -13,7 +13,7 @@ seven specs that share that range, run in this order:
    the app's reads and writes on the engine's new routes and names, the statement PDF upload
    among them;
 2. this one: the statement screens on the engine's new routes, with nothing you see changing
-   but the order of the flagged lines (question 1);
+   but the order of the flagged lines, now the statement's;
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md):
    the live tests' shared helpers, and a statement's life, on holders;
 4. [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md):
@@ -26,8 +26,7 @@ seven specs that share that range, run in this order:
 
 It runs after part 1a, whose answer builders, account record and reads it uses.
 
-**Status: draft, written 2026-10-27 for the owner to rewrite or approve; questions 1 and 2 wait
-on the owner, and so do its tasks.** When done, the why moves to [decisions.md](../decisions.md)
+**Status: approved by the owner on 2026-10-28, with 1 A and 2 A; it runs after part 1a.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
 **Built on the holder names.** The engine's rename of card to holder is in the live contract
@@ -62,14 +61,14 @@ pick. It also brings every sentence of the engine's the app quotes up to the eng
    on, as it does today (contract: "Statements").
 2. **The lines a close flags are read in full**, page by page, as the engine lists them, with
    no list of ids sent. The engine lists them in the statement's order, both currencies of a
-   holder together (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); question 1.
+   holder together (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"), as the owner settled.
 3. **The app quotes the engine's current words.** Every sentence of the engine's that the app's
    tests, docs and mockups quote says "statement" where the engine does, among them the
    sealed-period sentence (contract: "Transactions (Ledger)", "Sealed periods") and the refusal
    to delete a line in a completed statement.
 4. **The app's own lines fit the engine's refusals.** A line for a refusal the engine no longer
-   sends goes; the line on `t` for an account that has been in a statement goes as question 2
-   decides.
+   sends goes; the line on `t` for an account that has been in a statement goes, as the
+   owner settled.
 
 ## How the owner knows it is done
 
@@ -77,35 +76,25 @@ pick. It also brings every sentence of the engine's the app quotes up to the eng
    delete a statement, on an account with no statement code and on a card's account, as they
    do today.
 2. After a close that flags lines, `f` lists every flagged line, more than one page of them
-   included, in the order question 1 decides.
+   included, in the statement's order.
 3. The unit suite and the drift check pass. The live suite passes once parts 2a and 2b are done.
 
-## Questions for the owner
+## What the owner settled
 
-1. **The order of the lines a close flags.** Today they are listed oldest first. The engine
-   now lists them only in the statement's order, both currencies of a holder together, and
-   refuses any other order (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
-   - **A.** Show them in the engine's order now.
-   - **B.** Keep oldest first, by reading the lines by their ids, which the engine asks clients
-     to stop doing, and which again stops at 200 lines.
-
-   **Recommended:** A: it is the only order the engine gives this list, and it reads as the
-   paper does. Part 7 redraws that screen anyway.
-
-2. **The app's line when `t` is refused for an account that has been in a statement.** Today
-   it says "On Reconciliations, press d on each of its reconciliations; a completed one needs u
-   first." That is no longer true: the engine refuses an account that was ever in a statement,
-   a deleted one included (contract: POST /v1/accounts/{account_id}/make-person).
-   - **A.** Drop the app's line; the engine's own words show alone.
-   - **B.** New words of the app's, drawn in a mockup first.
-
-   **Recommended:** A: following the old line would delete statements and still be refused.
+- **The lines a close flags show in the engine's order** (owner, 2026-10-28, 1 A): the statement's
+  order, both currencies of a holder together, is the only order the engine gives this list
+  (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"), and it reads
+  as the paper does. Part 7 redraws that screen.
+- **When `t` is refused for an account that has been in a statement, the engine's words show
+  alone** (owner, 2026-10-28, 2 A): the app's line about deleting reconciliations goes, since the
+  engine refuses an account that was ever in a statement, a deleted one included
+  (contract: POST /v1/accounts/{account_id}/make-person).
 
 ---
 
 ## Tasks
 
-Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. Each leaves
+Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
@@ -137,8 +126,8 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
    transactions, the `GAP` fixture's last uncovered day falls before the statement's first, and
    no reconciliation builder is left.
 4. **The flagged lines from the review list (builder).** The flagged-lines screen pages
-   `GET /bank-lines?unassigned_in_period_of=<id>&sort=statement` with its count, as question 1
-   decides, instead of reading by ids.
+   `GET /bank-lines?unassigned_in_period_of=<id>&sort=statement` with its count, in the statement's
+   order as the owner settled, instead of reading by ids.
    *Passes if:* a unit test pages more than one page of flagged lines with no `ids` sent, and the
    count is the engine's.
 5. **The engine's current words in the unit tests (builder).** Every quote of the engine's
@@ -152,7 +141,7 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
    `HAS_OPENING_BALANCE`, and `PERSON_ACCOUNT` on the opening-balance route, which
    are gone ([decisions.md](../decisions.md) "A person carries an opening balance"); this spec
    drops `PERSON_ACCOUNT`'s lines on the statement routes), and
-   `HAS_RECONCILIATION`'s as question 2 decides; the comment heading test_errors.py's
+   `HAS_RECONCILIATION`'s goes too, as the owner settled; the comment heading test_errors.py's
    archived-account rows says what the rows prove (moved from test-suite-leftovers).
    *Passes if:* no doc or mockup quotes a sentence the engine no longer sends, and no app line
    names a reason the contract lacks.
