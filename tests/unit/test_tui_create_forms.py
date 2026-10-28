@@ -374,8 +374,9 @@ def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
         await pilot.press("down")  # from green, one on: red
         await pilot.pause()
         assert _highlighted(screen) == ["██ red"]
-        await pilot.press("enter")  # COLOR is the last line: it saves
-        await wait_for(pilot, lambda: fake_client.puts)
+        # `enter` takes red; a category saves there, a person goes on through
+        # its empty OPENING and AS OF and saves on the last line
+        await _enter_until_saved(pilot, screen)
 
     run_app(scenario)
     assert fake_client.puts == [
@@ -676,7 +677,8 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
         assert screen.is_attached
         assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
 
-    _run_refused(fake_client, monkeypatch, screen, ["Eliana Vega", ""], check, verb="PUT")
+    # name, colour, opening, as of: the last line's `enter` saves
+    _run_refused(fake_client, monkeypatch, screen, ["Eliana Vega", "", "", ""], check, verb="PUT")
 
 
 def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
@@ -703,7 +705,7 @@ def _eliana() -> EditAccountScreen:
     [
         (
             _eliana,
-            ["Eliana Vega", ""],
+            ["Eliana Vega", "", "", ""],  # name, colour, opening, as of
             "PUT",
             _keyed("CONFLICT", "name", "NAME_EXISTS", "Name already exists."),
             "That name is taken: pick another.",
@@ -879,8 +881,8 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
 #
 # EditAccountScreen is the form with read-only fields: TYPE and CURRENCY are
 # locked, so the editable sequence is NAME (a plain text field, no list), a bank
-# account's STATEMENT CODE (plain text), COLOR (a palette list), then a bank
-# account's OPENING and AS OF (plain text). Every bar form takes the same keymap
+# account's STATEMENT CODE (plain text), COLOR (a palette list), then OPENING
+# and AS OF (plain text), on a bank account and a person alike. Every bar form takes the same keymap
 # from FormScreen.
 
 _ACCOUNT = {

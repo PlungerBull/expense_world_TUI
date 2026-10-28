@@ -1167,10 +1167,13 @@ such line.
   the engine says no").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
-in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank
-account's form ends with two optional lines after `color`: **`opening`**, the amount, and
+in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html), and a
+person's in pane A of
+[expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html)).
+The form ends with two optional lines after `color`: **`opening`**, the amount, and
 **`as of`**, its day. There is no title line; the engine names the row. A person's form has
-neither line: what you owe each other comes only from the rows you record.
+both lines, as a bank account's does, and no statement code line; its opening balance is
+written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
 
 - **The amount is signed and taken as typed**, in the account's currency. The hint reads
   `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the

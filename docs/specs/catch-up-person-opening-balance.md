@@ -92,19 +92,6 @@ So the app stops hiding the opening balance on people, and stops telling you to 
 
 Drafted on 2026-10-27; approved by the owner on 2026-10-28.
 
-1. **A person's Edit form takes an opening balance (builder).** The account Edit form shows and
-   saves `opening` and `as of` on a person as on a bank account, and the statement code line
-   stays off ([create_forms.py](../../expense/tui/screens/create_forms.py)); the tests that pin
-   today's form, `ELIANA` and the person cases in
-   [test_tui_opening_balance.py](../../tests/unit/test_tui_opening_balance.py), follow;
-   [tui.md](../tui.md)'s "An account's opening balance lives on its Edit form" says so and cites
-   pane A of
-   [expense-world-person-opening-balance.html](../mockups/expense-world-person-opening-balance.html)
-   in place of pane 5 of
-   [expense-world-opening-balance.html](../mockups/expense-world-opening-balance.html), whose pane
-   5 goes.
-   *Passes if:* unit tests pin a person's form adding, changing and emptying its opening balance,
-   and the screens match pane A of the mockup.
 2. **`t` keeps the opening balance (builder).** `HAS_OPENING_BALANCE`'s app line and the
    opening-balance route's `PERSON_ACCOUNT` handling go from [errors.py](../../expense/errors.py)
    and [tui.md](../tui.md) ("`t` turns an account into a person and back", which drops its
@@ -143,6 +130,14 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **A person's `opening` hint could say who owes whom.** A person's `opening` line shares the bank
+  account's hint, `signed · 350.00 is money you have · -350.00 is money you owe · in PEN ·
+  optional` ([create_forms.py](../../expense/tui/screens/create_forms.py)); on a person, "money
+  you have" means money they owe you. Pane A of
+  [expense-world-person-opening-balance.html](../mockups/expense-world-person-opening-balance.html)
+  draws no hint. A question for the owner, with a mockup line: keep the shared hint, or give a
+  person its own (`150.00 is money they owe you · -150.00 is money you owe them`).
 
 - **A live test of the sheet import giving a person its opening balance:** the import making an
   existing person's first `SALDO INICIAL` row its opening balance. The owner's import path does

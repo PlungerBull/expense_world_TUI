@@ -408,12 +408,12 @@ _REFUSED_LINES = {
 
 
 class EditAccountScreen(NewAccountScreen):
-    """Edit an account — and, on a bank account, its opening balance.
+    """Edit an account — a bank account or a person — and its opening balance.
 
-    A bank account's form ends with two optional lines after COLOR: OPENING
-    (the signed amount, in the account's currency, taken as typed) and AS OF
-    (its day). A person has neither: what you owe each other comes only from
-    the rows you record.
+    The form ends with two optional lines after COLOR: OPENING (the signed
+    amount, in the account's currency, taken as typed) and AS OF (its day). A
+    person's form has them as a bank account's does, and its opening balance is
+    written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
 
     A bank account's STATEMENT CODE opens holding its code. The save sends it
     only when it changed, and `null` when the line was emptied, which clears
@@ -472,27 +472,24 @@ class EditAccountScreen(NewAccountScreen):
         # the opening balance.
         self._account_sent = self._payload()
         self._account_saved = False
-        self._has_opening = not record.get("is_person")
         self._opening_id: str | None = record.get("opening_balance_transaction_id")
         self._opening_original: dict = {}  # {"opening": cents, "as_of": day} once read
-        self._opening_loading = False
+        self._opening_loading = self._opening_id is not None
         self._refused_line: str | None = None
         self._refusal_says_next = False  # the last refusal carried its own next step
-        if self._has_opening:
-            currency = record.get("currency_code") or "?"
-            self.FIELDS = [
-                *EditAccountScreen.FIELDS,
-                Field(
-                    "opening",
-                    "OPENING",
-                    hint=(
-                        "signed · 350.00 is money you have · -350.00 is money you owe"
-                        f" · in {currency} · optional"
-                    ),
+        currency = record.get("currency_code") or "?"
+        self.FIELDS = [
+            *EditAccountScreen.FIELDS,
+            Field(
+                "opening",
+                "OPENING",
+                hint=(
+                    "signed · 350.00 is money you have · -350.00 is money you owe"
+                    f" · in {currency} · optional"
                 ),
-                Field("as_of", "AS OF", hint="YYYY-MM-DD · the day the account held this"),
-            ]
-            self._opening_loading = self._opening_id is not None
+            ),
+            Field("as_of", "AS OF", hint="YYYY-MM-DD · the day the account held this"),
+        ]
 
     # ---- the opening balance's two lines ---------------------------------
     def _field_required(self, f: Field) -> bool:
@@ -581,7 +578,7 @@ class EditAccountScreen(NewAccountScreen):
 
     def _opening_write(self) -> tuple[str, str, dict | None] | None:
         """The opening balance's one write for this save, or None."""
-        if not self._has_opening or "opening" in self._locked:
+        if "opening" in self._locked:
             return None
         cents = self._values.get("opening")
         day = self._values.get("as_of")

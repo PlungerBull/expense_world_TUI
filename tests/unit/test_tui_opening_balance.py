@@ -1,6 +1,7 @@
 """The account Edit form's opening balance — the two lines OPENING and AS OF.
 
-The screens are docs/mockups/expense-world-opening-balance.html, 1 to 8. The
+The screens are docs/mockups/expense-world-opening-balance.html's; a person's
+form is pane A of docs/mockups/expense-world-person-opening-balance.html. The
 account names its opening balance by id
 (contract: "Bank Accounts", "Opening balance"); the form reads that row signed
 with one `GET /transactions/{id}`
@@ -41,6 +42,18 @@ SUELDO = {
     "opening_balance_transaction_id": "tx-open",
 }
 ELIANA = {**EFECTIVO, "id": "acc-eli", "name": "Eliana", "is_person": True}
+#: A person who has an opening balance, and that row as the engine returns it.
+ELIANA_OPENED = {**ELIANA, "opening_balance_transaction_id": "tx-eli"}
+ELIANA_ROW = {
+    "id": "tx-eli",
+    "account_id": "acc-eli",
+    "amount_cents": -15000,
+    "transaction_type": 1,
+    "date": "2025-12-31T00:00:00-05:00",
+    "line_code": "#000002",
+    "statement_line": None,
+    "statement_place": None,
+}
 #: The opening-balance row as `GET /transactions/{id}?debit_as_negative=true`
 #: returns it. `transaction_type` says inflow while the signed amount is
 #: negative: the form must show the signed amount, never a sign read off the type.
@@ -107,11 +120,13 @@ def _form(record, body, *, opening_row=None):
 
 @pytest.fixture
 def reads_log(monkeypatch):
-    """`reads.fetch_transaction` answering OPENING_ROW; logs each id it is asked
-    for. Set `reads_log.error` to make it raise instead."""
+    """`reads.fetch_transaction` answering `reads_log.row` (OPENING_ROW unless
+    set); logs each id it is asked for. Set `reads_log.error` to make it raise
+    instead."""
 
     class Log(list):
         error: Exception | None = None
+        row: dict = OPENING_ROW
 
     log = Log()
 
@@ -119,7 +134,7 @@ def reads_log(monkeypatch):
         log.append(transaction_id)
         if log.error is not None:
             raise log.error
-        return OPENING_ROW
+        return log.row
 
     monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
     return log
@@ -342,7 +357,7 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
     [
         (EFECTIVO, ["name", "statement_code", "color", "opening", "as_of"]),
         (SUELDO, ["name", "statement_code", "color", "opening", "as_of"]),
-        (ELIANA, ["name", "color"]),
+        (ELIANA, ["name", "color", "opening", "as_of"]),
     ],
     ids=["no-opening", "read-opening", "person"],
 )
@@ -389,7 +404,7 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
 # ---- 4 · emptying the amount and saving -----------------------------------------------
 
 
-def _empty_and_save(fake_client, answer):
+def _empty_and_save(fake_client, answer, record=SUELDO):
     asked: dict = {}
 
     async def body(pilot, app, screen):
@@ -406,7 +421,7 @@ def _empty_and_save(fake_client, answer):
             assert app.screen is screen  # back on the form
             await pilot.pause()
 
-    _form(SUELDO, body)
+    _form(record, body)
     return asked
 
 
@@ -433,17 +448,88 @@ def test_screen_4_any_other_answer_saves_nothing(fake_client, reads_log, answer)
     assert fake_client.requests == []
 
 
-# ---- 5 · a person ----------------------------------------------------------------------
+# ---- a person: pane A of expense-world-person-opening-balance.html ----------------------
 
 
-def test_screen_5_a_person_has_no_opening_lines(fake_client):
+def test_pane_a1_a_person_has_both_lines_after_colour_and_no_code_line(fake_client):
     async def body(pilot, app, screen):
-        assert screen._sequence() == ["type", "name", "currency", "color"]
-        assert "opening" not in _summary(screen)
-        assert screen._opening_write() is None
+        assert screen._sequence() == ["type", "name", "currency", "color", "opening", "as_of"]
+        assert [line for line in _summary(screen).splitlines() if line] == [
+            "type person read-only",
+            "name Eliana",
+            "currency PEN read-only",
+            "color — (optional)",
+            "opening — (optional)",
+            "as of — (optional)",
+        ]
 
     _form(ELIANA, body)
+    assert fake_client.calls == []  # null id: nothing to read
+
+
+def test_pane_a1_a_person_adds_an_opening_balance(fake_client, notes):
+    async def body(pilot, app, screen):
+        _type(screen, "color", "green")
+        _type(screen, "opening", "-150.00")
+        _type(screen, "as_of", "2025-12-31")  # last line: enter saves
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(ELIANA, body)
+    assert fake_client.requests == [
+        ("PUT", "/accounts/acc-eli"),
+        ("POST", "/accounts/acc-eli/opening-balance"),
+    ]
+    assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
+    (_path, sent) = fake_client.posts[0]
+    assert set(sent) == {"transaction_id", "amount_cents", "date"}
+    assert sent["amount_cents"] == -15000
+    assert sent["date"] == to_canonical_aware("2025-12-31")
+    assert ("Saved.", {}) in notes
+
+
+def test_pane_a2_a_person_who_has_one_opens_with_both_lines_filled(fake_client, reads_log):
+    reads_log.row = ELIANA_ROW
+
+    async def body(pilot, app, screen):
+        assert [line for line in _summary(screen).splitlines() if line] == [
+            "type person read-only",
+            "name Eliana",
+            "currency PEN read-only",
+            "color — (optional)",
+            "opening -150.00",
+            "as of 2025-12-31",
+        ]
+
+    _form(ELIANA_OPENED, body)
+    assert reads_log == ["tx-eli"]
     assert fake_client.calls == []
+
+
+def test_pane_a2_a_person_changes_its_opening_balance(fake_client, reads_log):
+    reads_log.row = ELIANA_ROW
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening", "-200.00")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(ELIANA_OPENED, body)
+    assert fake_client.puts == [("/transactions/tx-eli", {"amount_cents": -20000})]
+
+
+def test_pane_a2_a_person_empties_its_opening_balance(fake_client, reads_log):
+    reads_log.row = ELIANA_ROW
+    asked = _empty_and_save(fake_client, "y", ELIANA_OPENED)
+    assert asked == {
+        "title": "Delete this opening balance?",
+        "message": "Eliana · -150.00 · 2025-12-31\n"
+        "It leaves the account's balance, and no screen can bring it back.",
+    }
+    assert fake_client.requests == [
+        ("PUT", "/accounts/acc-eli"),
+        ("DELETE", "/transactions/tx-eli"),
+    ]
+    assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
 
 
 # ---- 6 · the account saves, the opening balance is refused -----------------------------
