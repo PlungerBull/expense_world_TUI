@@ -17,6 +17,13 @@ question about a screen is drawn as a mockup, and its tasks are drafted, when th
 the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
+**Waits on the engine's rename** (the engine coders' answer of 2026-10-27, "Which of the
+terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
+next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
+`holder_id` everywhere, and every card-named reason and message says holder, with nothing
+behaving differently; once people become holders, only a bank holder takes a statement. This
+spec is built on the holder names.
+
 ---
 
 ## Why

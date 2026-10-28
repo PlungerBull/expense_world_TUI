@@ -11,6 +11,13 @@ becomes a person, and back, with one key"); the split purchases' grouping is bui
 transaction"); the sheet import goes through the engine (done on 2026-10-27). When the import is
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
+**Reshaped by the engine's next changes** (the engine coders' answer of 2026-10-27, "Which of
+the terminal app's seven card and statement specs the engine's coming changes touch"). A person
+carries an opening balance, so question 3 goes away; an account moves between holders; and
+people become holders, so the import creates every sheet name as a bank account on a holder of
+its own, and you then turn the people into people and pair the Visa in the app before
+reconciling. This spec is rewritten when those hand-offs land; its questions wait until then.
+
 ---
 
 ## What it is

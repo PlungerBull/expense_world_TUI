@@ -41,48 +41,30 @@ change nothing you see: 1a puts the app's reads and writes on the engine's new r
 holds two small questions: the order of the lines a close flags, and the app's line when `t` is
 refused for an account that has been in a statement.
 
-**Recommended:** approve all four, with 1 A and 2 A in 1b, and start with 1a now. Creating a
-bank account, `t` from person to bank account, `a` on a bank account and `--create-names` stay
-broken until the catch-up's "Cards in the app".
+**Recommended:** approve all four, with 1 A and 2 A in 1b. They start once the engine's rename
+of card to holder lands, its next breaking change (the engine coders' answer of 2026-10-27,
+"Which of the terminal app's seven card and statement specs the engine's coming changes touch"),
+so they are built on the holder names and nothing is renamed twice. Creating a bank account,
+`t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
+the catch-up's "Cards in the app".
 
-### Approve the sheet import's counts line spec
-Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
+### Hand over the five files the engine has not received
+Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/before-the-official-import.md](specs/before-the-official-import.md)
 
-The catch-up's fifth spec: the sheet import says how many sheet rows its split transactions come
-from. Its question 1 is the words, `split transactions 3 (8 rows)` or `split transactions 3 ·
-rows in them 8`, and whether `(0 rows)` shows when there are none. Two tasks are drafted.
-
-**Recommended:** approve it with 1 A, `(0 rows)` shown, to run after the live tests' specs, 2a and 2b.
-
-### Hand over the answer on moving an account to another card
-Asked 2026-10-27 · Blocks: question 1 of [specs/before-the-official-import.md](specs/before-the-official-import.md), and pairing in [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
-
-The engine coders proposed on 2026-10-27 one action, "move this account to that card", allowed
-only while the account has never been in a statement. The answer
-[to-engine/move-an-account-to-another-card.md](to-engine/move-an-account-to-another-card.md)
-says yes to it with their limits, and no to their optional extra, the sheet import refusing a
-name used in both currencies whose accounts sit on different cards: your four people with both
-currencies must each be alone on a card, so that refusal would be a guess. Copy it into the
-engine repo's `docs/from-tui/` and say when it is done.
-
-**Recommended:** hand it over as written.
-
-### Hand over four more asks to the engine
-Asked 2026-10-27 · Blocks: questions of [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
-
-Four things every app would otherwise work out on its own, each its own file in
+The engine coders' answer of 2026-10-27 says only the note asking which specs their changes touch
+has reached them, and that their coming changes (an account moving between holders, and people
+becoming holders) may change once they read these. Each is its own file in
 [to-engine/](to-engine/):
+- "Yes to moving an account to another card, with the limits you proposed; no to the sheet
+  import refusing a name used in two currencies";
 - "Create a bank account and its own card in one write";
 - "Delete a card with its last account, so no client leaves an empty card behind";
 - "List a card's bank lines in no statement in one read";
 - "Say what a client does with a flagged line on a card with a statement code".
 
-Each is an option in a question of "Cards in the app" or "A card's statement on one screen", so
-handing them over now lets the engine coders work while the first four specs run.
-- **A.** Hand over all four now.
-- **B.** Wait until you answer those specs' questions.
+Copy all five into the engine repo's `docs/from-tui/` and say when it is done.
 
-**Recommended:** A, since each is the complete fix and the app works around none of them.
+**Recommended:** hand them over now.
 
 ### Read the specs for cards and for the statement screen
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
@@ -92,21 +74,9 @@ account gets its card, pairing and unpairing, archiving a whole card, the statem
 a two-currency card, closing a currency with no movement by hand, and when flagged lines show.
 Their questions are in each spec; the ones about screens come with mockups.
 
-**Recommended:** read them now and say if anything is missing; the mockups are drawn while the
-first four specs run, and you pick from them then.
-
-### Answer the official import's three questions
-Asked 2026-10-27 · Blocks: [specs/before-the-official-import.md](specs/before-the-official-import.md)
-
-The import now needs every bank account on a card, and an account never changes card today. The
-spec answers your question of 2026-10-27, whether the import or the PDF upload could work out
-which accounts share a card (neither can), and asks: (1) how the Visa's two accounts end up on
-one card, (2) whether the old Oro card and the two Interbank accounts are one card each, and (3)
-what happens to a future person whose first row is an opening balance.
-
-**Recommended:** 1 A (every account gets its own card, then you pair the Visa in the app before
-importing, once the engine's move lands), 2 A (one card per bank product), 3 A (the balance stays
-the sheet's). The import runs after the catch-up's "Cards in the app".
+**Recommended:** read the statement screen spec now and say if anything is missing; its mockups
+are drawn while the first four specs run. The cards spec is rewritten around holders when the
+engine's next changes land, so read it then.
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
@@ -256,6 +226,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
+  The counts line is the current spec (owner, 2026-10-27); the others wait on the engine's rename
+  of card to holder, and the cards spec on its next two changes after it.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
@@ -265,7 +237,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   catch-up is done ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import):
   [specs/before-the-official-import.md](specs/before-the-official-import.md), after the catch-up's
-  "Cards in the app" and the engine's move of an account to another card.
+  "Cards in the app". The engine's next changes reshape it (a person carries an opening balance,
+  an account moves between holders, people become holders), so it is rewritten and its questions
+  asked again when those hand-offs land.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

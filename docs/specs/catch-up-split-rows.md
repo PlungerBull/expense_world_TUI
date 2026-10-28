@@ -12,8 +12,11 @@ caught up in
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
-**Status: draft, for the owner to rewrite or approve; question 1 waits on the owner. Its tasks
-are drafted and wait on the owner's approval.** When done, the why moves to
+**Status: approved and named the current spec by the owner on 2026-10-27, its question
+answered and its tasks approved. Task 2 waits on the live suite's shared helpers, which create
+accounts on cards
+([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)).**
+The engine coders' answer of 2026-10-27 confirms nothing they are changing touches it. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -54,26 +57,25 @@ see.
    accounts on cards
    ([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)).
 
+## What the owner settled
+
+- **The counts line** (owner, 2026-10-27, question 1, A): `Opening balances 0 · split
+  transactions 3 (8 rows)`, as
+  [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
+  draws it; a sheet with none reads `split transactions 0 (0 rows)`.
+
 ## Questions for the owner
 
-1. **How the counts line says it.** Today: `Opening balances 0 · split transactions 3`.
-   - **A.** `Opening balances 0 · split transactions 3 (8 rows)`, the engine coders'
-     suggestion, as
-     [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
-     draws it. A sheet with none reads `split transactions 0 (0 rows)`.
-   - **B.** `Opening balances 0 · split transactions 3 · rows in them 8`.
-
-   **Recommended:** A, with the rows shown at zero too: the rows read as a detail of the
-   splits, beside them, and every count shows on every run.
+None open.
 
 ---
 
 ## Tasks
 
-Drafted on 2026-10-27; they wait on the owner's approval and question 1.
+Approved by the owner on 2026-10-27.
 
 1. **The counts line shows the split rows (builder).** The sheet import reads
-   `counts.split_rows` with the other counts and prints it in the words question 1 picks, on the
+   `counts.split_rows` with the other counts and prints it in the words the owner picked, on the
    dry run and the apply ([import_cmd.py](../../expense/commands/import_cmd.py) `_counts_lines`,
    [engine.py](../../expense/import_/engine.py) `SheetCounts`); the fake engine's sheet answer
    carries it ([helpers.py](../../tests/unit/helpers.py) `sheet_counts`); the sample output in

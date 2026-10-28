@@ -19,6 +19,14 @@ It runs after 1b, whose app helpers the live tests call.
 are drafted and wait on the owner's approval.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
+**Waits on the engine's rename** (the engine coders' answer of 2026-10-27, "Which of the
+terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
+next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
+`holder_id` everywhere, and every card-named reason and message says holder, with nothing
+behaving differently; the tests make a holder, then its accounts, and set codes on the holder.
+Once people become holders, a statement code on a person's holder is refused. This spec is built
+on the holder names once that hand-off lands.
+
 ---
 
 ## Why

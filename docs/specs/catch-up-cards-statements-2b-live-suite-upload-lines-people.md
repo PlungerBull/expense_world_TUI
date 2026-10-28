@@ -19,6 +19,16 @@ It runs after 2a, whose shared helpers its tests use.
 are drafted and wait on the owner's approval.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
+**Waits on the engine's next changes** (the engine coders' answer of 2026-10-27, "Which of the
+terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
+next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
+`holder_id` everywhere, and every card-named reason and message says holder, with nothing
+behaving differently. Before it, a person carries an opening balance, so turning an account into
+a person no longer refuses one that has it. After it, people become holders: turning an account
+into a person or back, and archiving, act on the holder, and the people route and the accounts'
+archive routes go. The upload, the samples, the review list and the moves are unchanged. This
+spec is built once those hand-offs land.
+
 ---
 
 ## Why

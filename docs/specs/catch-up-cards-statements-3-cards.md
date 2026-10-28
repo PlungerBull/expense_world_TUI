@@ -17,6 +17,13 @@ tasks are drafted when the owner names it the current spec.** It runs after
 [before-the-official-import.md](before-the-official-import.md) runs after it. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
+**Reshaped by the engine's next changes** (the engine coders' answer of 2026-10-27, "Which of
+the terminal app's seven card and statement specs the engine's coming changes touch"): card
+becomes holder; an account moves between holders, which is how pairing and unpairing work; and
+people become holders too, so creating, converting and archiving a person happen on its holder,
+and the people route goes. Two holders cannot share a name. This spec is rewritten around
+holders when those hand-offs land; its questions wait until then.
+
 ---
 
 ## Why
