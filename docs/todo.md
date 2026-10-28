@@ -28,70 +28,103 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Approve the first two specs of the cards and statements catch-up, and their tasks
+Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1-routes.md](specs/catch-up-cards-statements-1-routes.md), [specs/catch-up-cards-statements-2-live-suite.md](specs/catch-up-cards-statements-2-live-suite.md)
+
+The engine's hand-off of 2026-10-27 (contract `46e2fdf6e11d7548` to `e06456a20aca6e4c`) makes a
+card its own thing in the engine and a month's statement one record for the whole card. Much of
+the app stops working against it: the statement screens, creating and archiving accounts, moving
+a transaction to another account, and the PDF upload. On 2026-10-27 you said to catch up, and the
+hand-off is planned into five specs, run in order. The first two change nothing you see: spec 1
+puts the app on the engine's new routes and names, spec 2 the live tests (8 tasks each, drafted
+in each spec). Spec 1 holds two small questions: the order of the lines a close flags, and the
+app's line when `t` is refused for an account that has been in a statement.
+
+**Recommended:** approve both, with 1 A and 2 A in spec 1, and run them now. Creating a bank
+account, `t` from person to bank account, `a` on a bank account and `--create-names` stay broken
+until the catch-up's "Cards in the app".
+
+### Approve the sheet import's counts line spec
+Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
+
+Part 3 of the catch-up: the sheet import says how many sheet rows its split transactions come
+from. Its question 1 is the words, `split transactions 3 (8 rows)` or `split transactions 3 ·
+rows in them 8`, and whether `(0 rows)` shows when there are none. Two tasks are drafted.
+
+**Recommended:** approve it with 1 A, `(0 rows)` shown, to run after spec 2.
+
+### Hand over the answer on moving an account to another card
+Asked 2026-10-27 · Blocks: question 1 of [specs/before-the-official-import.md](specs/before-the-official-import.md), and pairing in [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
+
+The engine coders proposed on 2026-10-27 one action, "move this account to that card", allowed
+only while the account has never been in a statement. The answer
+[to-engine/move-an-account-to-another-card.md](to-engine/move-an-account-to-another-card.md)
+says yes to it with their limits, and no to their optional extra, the sheet import refusing a
+name used in both currencies whose accounts sit on different cards: your four people with both
+currencies must each be alone on a card, so that refusal would be a guess. Copy it into the
+engine repo's `docs/from-tui/` and say when it is done.
+
+**Recommended:** hand it over as written.
+
+### Hand over four more asks to the engine
+Asked 2026-10-27 · Blocks: questions of [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
+
+Four things every app would otherwise work out on its own, each its own file in
+[to-engine/](to-engine/):
+- "Create a bank account and its own card in one write";
+- "Delete a card with its last account, so no client leaves an empty card behind";
+- "List a card's bank lines in no statement in one read";
+- "Say what a client does with a flagged line on a card with a statement code".
+
+Each is an option in a question of "Cards in the app" or "A card's statement on one screen", so
+handing them over now lets the engine coders work while specs 1 and 2 run.
+- **A.** Hand over all four now.
+- **B.** Wait until you answer those specs' questions.
+
+**Recommended:** A, since each is the complete fix and the app works around none of them.
+
+### Read the specs for cards and for the statement screen
+Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
+
+The catch-up's last two specs change what you see: where cards live in the app, how a new bank
+account gets its card, pairing and unpairing, archiving a whole card, the statement screen for
+a two-currency card, closing a currency with no movement by hand, and when flagged lines show.
+Their questions are in each spec; the ones about screens come with mockups.
+
+**Recommended:** read them now and say if anything is missing; the mockups are drawn while specs
+1 and 2 run, and you pick from them then.
+
+### Answer the official import's three questions
+Asked 2026-10-27 · Blocks: [specs/before-the-official-import.md](specs/before-the-official-import.md)
+
+The import now needs every bank account on a card, and an account never changes card today. The
+spec answers your question of 2026-10-27, whether the import or the PDF upload could work out
+which accounts share a card (neither can), and asks: (1) how the Visa's two accounts end up on
+one card, (2) whether the old Oro card and the two Interbank accounts are one card each, and (3)
+what happens to a future person whose first row is an opening balance.
+
+**Recommended:** 1 A (every account gets its own card, then you pair the Visa in the app before
+importing, once the engine's move lands), 2 A (one card per bank product), 3 A (the balance stays
+the sheet's). The import runs after the catch-up's "Cards in the app".
+
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
-Small things the bank download and closing catch-up turned up: old engine words still quoted in
-tests and docs, six mockups drawing old screens, and a completed statement's footer still
-offering `c Complete` and `d Delete`; and, from the catch-up of 2026-10-27, whether the "no
-batch" list now lists oldest first, as the engine can since 2026-10-26. The footer and that order
-are the two things you see change, and their questions are in the spec. Approve it or rewrite it,
-and answer them there.
+Four small things the bank download and closing catch-up turned up, none of which you see except
+four mockups redrawn with the app's current words. Its questions and everything about statements
+moved into the cards and statements catch-up on 2026-10-27.
 
-**Recommended:** approve it with 1 B (drop `c` only) and 2 B (oldest first), after the sheet
-import and the PDF specs.
-
-### The engine is reworking cards and statements: wait with task 4?
-Asked 2026-10-27 · Blocks: task 4 of [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
-
-The engine's hand-off of 2026-10-27 says its next change makes a card one thing holding its two
-accounts, and its statement one thing for the whole card, reworking the statement routes and
-the statement upload. Task 4 builds the statement screen on today's routes: lines in the paper's
-order, and no ticking on card and BCP accounts.
-- **A.** Wait: build task 4 once the rework lands, on its routes.
-- **B.** Build it now, and redo what the rework changes.
-
-**Recommended:** A, because task 4 is exactly what the rework changes; tasks 3's upload
-screens are built and stay.
-
-### The contract moved to f0ee03d6faa96af1: approve its catch-up spec
-Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
-
-This client has caught up to `46e2fdf6e11d7548`. The engine's hand-off of 2026-10-27 covers
-`f91a1e0ae626c712` and `f0ee03d6faa96af1`: the sheet import counts the rows its split
-transactions come from (`counts.split_rows`), two refusals' descriptions name the sheet's
-`COD_EECC`, and a malformed cursor is always refused. The version check could not run: the
-practice engine does not start while the engine checkout is mid-edit, at 2026-10-27. The draft
-spec holds one question, the words of the sheet import's counts line. Approve it or rewrite it,
-and answer it there.
-
-**Recommended:** approve it with 1 A, and run it next, once the practice engine starts again.
-
-### Hand over the ask for sample statement PDFs
-Asked 2026-10-27 · Blocks: task 6 of [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
-
-The live tests can make up a savings statement the engine reads, but not a card's: the engine
-needs one exact line of column headings that its published rules never print. The ask
-[to-engine/sample-statement-pdfs.md](to-engine/sample-statement-pdfs.md) asks the engine coders
-for one made-up sample PDF per kind of statement, and for the exact layout. Copy it into the
-engine repo's `docs/from-tui/` and say when it is done. The engine's hand-off of 2026-10-27
-already names it as planned for its next change; if you have handed it over, say so and it
-leaves the outbox.
-
-**Recommended:** hand it over, or confirm you did.
+**Recommended:** approve it, to run after the catch-up.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
-Eighteen small things, all inside the tests and their tools: copies to merge, stale test
-sentences and comments, tests that check less than they say or fail at random in CI, the drift
-check covering more of the engine's answers, the practice-data cleaner reading every page, the
-guard checking a test-engine start whole, and two heads pinned showing a bracketed name whole.
-Nothing you see changes. On 2026-10-27 you moved the future-dated line's live test into
-the PDF spec and brought in the backlog's test-only items. Approve it; it runs after
-the PDF spec, the current one.
+Eleven small things, all inside the tests and their tools: copies to merge, stale comments, tests
+that check less than they say or fail at random in CI, the drift check covering more of the
+engine's answers, and the guard checking a test-engine start whole. Nothing you see changes. On
+2026-10-27 the points about cards and statements moved into the catch-up.
 
-**Recommended:** approve it.
+**Recommended:** approve it, to run after the catch-up.
 
 ---
 
@@ -148,12 +181,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   needs no exemption for comments.
 - **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
   most in [mockups/](mockups/) back screens already built, among them
-  `expense-world-statement-screen.html` and `expense-world-statement-order.html` (screens the owner
-  dropped on 2026-10-25 for the PDF statement; they link only each other and the card-statement
-  mockup), the panes of `expense-world-card-statement.html` that draw them (screen 3, its
-  `o Order` footer and `shift+↑↓`, and the `e` form of "Three more things"; its panes 1 A, 2 A
-  and question 3 B back what is built, linked from tui.md, decisions.md, reconciliations.py and
-  two unit tests),
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not), `expense-world-screen-map.html` (linked from nowhere; its `#sheet` pane draws the
   app reading the `.xlsx` itself), `expense-world-sheet-import-engine.html` (backs the sheet
@@ -186,8 +213,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
   line 104) has a two-field version. One shared copy, with tests.
-- **The reconciliation detail's `r` reads the account's whole list to refresh one record.**
-  The engine reads one reconciliation by its id (contract: GET /v1/reconciliations/{reconciliation_id});
+- **The statement detail's `r` reads the account's whole list to refresh one record.**
+  The engine reads one statement by its id (contract: GET /v1/statements/{statement_id});
   `r` should read it that way and treat a `404` as gone. Its comment and the docstring of
   `test_r_refreshes_record_from_its_account_list_and_never_writes` still say there is no read by
   id ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 1077,
@@ -219,18 +246,23 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27** (to `f0ee03d6faa96af1`): a draft spec waiting for the
-  owner's approval ([specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)).
+- **The engine catch-up of 2026-10-27, cards and statements** (to `e06456a20aca6e4c`): five
+  specs, run in order:
+  [specs/catch-up-cards-statements-1-routes.md](specs/catch-up-cards-statements-1-routes.md),
+  [specs/catch-up-cards-statements-2-live-suite.md](specs/catch-up-cards-statements-2-live-suite.md),
+  [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
+  [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
+  [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: the current spec
-  ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
-- **Move the official data into the app** (a wipe and one fresh sheet import), every question
-  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). The
-  sheet import through the engine it waited on is done (2026-10-27).
+- **A month's statement closes from the bank's PDF**: paused until the cards and statements
+  catch-up is done ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
+- **Move the official data into the app** (a wipe and one fresh sheet import):
+  [specs/before-the-official-import.md](specs/before-the-official-import.md), after the catch-up's
+  "Cards in the app" and the engine's move of an account to another card.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

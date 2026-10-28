@@ -3,10 +3,19 @@
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 5 of the engine's
 hand-off of 2026-10-26, the statement upload (`9063fab000b2e3d6`, worded again in
 `9537a3f6276d7d85`). Showing the lines a close flags was built first, in
-the catch-up of the bank download and closing a statement (done on 2026-10-26).
+the catch-up of the bank download and closing a statement (done on 2026-10-26). Its words
+follow contract `e06456a20aca6e4c`, where a card holds its accounts and its statement is one
+statement for the whole card.
 
 **Status: approved and named the current spec by the owner on 2026-10-27, every question
-answered; its tasks wait on the owner's approval.** When done, the why moves to
+answered; paused on 2026-10-27 until the catch-up to `e06456a20aca6e4c` lands.** The upload is
+built; moving it to the new routes is in
+[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md), its live tests
+and the card's in
+[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md), and the
+statement screen after a close in
+[catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
+Every pick the owner made here stands. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -17,14 +26,15 @@ Reconciling today means ticking each line into the month and putting the lines i
 order by hand. That is not how a statement is checked: the bank sends the month as a PDF, and
 the PDF already holds everything a reconciliation needs: each currency's starting and ending
 balance, every line, and the lines' order on the paper. On a card, one PDF holds both
-currencies, so it is also what joins the card's soles and dollar halves into one statement.
+currencies, and it closes the card's one statement, both currencies together.
 
-Until this lands, no reconciliation holding lines on an account with a statement code can be
-completed from the app: the engine completes it only once every line has its place on the
-paper, and no screen sets the places.
+No statement holding lines on a card with a statement code can be completed by hand: the
+engine completes it only once every line has its place on the paper, and no route sets the
+places by hand; the paper sets them
+(contract: POST /v1/statements/{statement_id}/complete, "On a card with a statement code, the statement must be fully ordered").
 
-So a month's reconciliation is opened with no statement and stays open; when the PDF arrives,
-uploading it closes the month. The engine does the work (contract: POST /v1/reconciliations/import),
+So a month's statement is opened with no paper and stays open; when the PDF arrives,
+uploading it closes the month. The engine does the work (contract: POST /v1/statements/import),
 so the web and iPhone apps get it for free; the app sends the file and shows the answer.
 
 What the bank's PDFs hold (read from every statement the owner has, 2026-10-25; every one adds
@@ -47,26 +57,28 @@ difference of zero, on 2026-10-26.
 
 ## What it must do
 
-1. **Upload a month's PDF statement** from the app, on any account that holds a statement: a
-   card's or a bank account's. You drop the PDF on the LOG bar, as a bank download is dropped,
-   and pick its account (for a card, its one line): screens A1 and A2 of
+1. **Upload a month's PDF statement** from the app, for any card with a statement code: a Visa
+   card holding a soles and a dollar account, or a savings account, which is a card of one
+   account. You drop the PDF on the LOG bar, as a bank download is dropped, and pick its card
+   from the same list (a card is one line): screens A1 and A2 of
    [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html).
-2. **The engine closes the month from it** in one write: it creates the month's statement if
-   none is open (on a card, both halves, joined) or fills the open one, sets each half's
-   starting and ending balance from the PDF, matches each PDF line to a ledger line, creates the
-   lines the ledger lacks, puts every line in the PDF's order, and completes the statement.
+2. **The engine closes the month from it** in one write: it creates the card's statement if none
+   is open, or fills the open one, sets each currency's starting and ending balance from the
+   PDF, matches each PDF line to a ledger line, creates the lines the ledger lacks, puts every
+   line in the PDF's order, and completes the statement, the whole card at once.
 3. **Lines in the ledger that the PDF does not hold are never changed or deleted.** A line in
    the month's open statement that the PDF does not print is taken out of it; a line on a day
    the PDF covers that is in no statement is flagged by the close, and shows as a close's
-   flagged lines show (built in the catch-up spec).
+   flagged lines show (built in the catch-up spec), before and after the close.
 4. **Before anything is written, the app shows what the upload would do**: each PDF line,
    matched, to be created, or an empty `0.00` line; the ledger lines one day off a created line
    with the same amount, which the engine never pairs, so a likely wrong date shows; the lines
-   it would take out; and each half's balances. You confirm and it is written, or nothing is.
-   The screens are picked from a mockup before they are built.
+   it would take out; and each currency's balances. You confirm and it is written, or nothing
+   is. The screens are picked from a mockup before they are built.
 5. **A refused upload says why in the engine's words** (a PDF the engine cannot read, one whose
-   lines don't add up to its own totals, a month already completed, an account with no
-   statement code) and writes nothing.
+   lines don't add up to its own totals, a month already completed, a card with no statement
+   code, a savings account's paper sent for a card that also holds another currency) and
+   writes nothing.
 6. **The reconciliation screens do only reconciliation work.** Editing a line from them opens the
    ledger's Edit form, as `⏎` on a "no batch" row does today.
 7. **A live test closes a statement from a made-up PDF**, dry run and apply, and proves each
@@ -76,10 +88,10 @@ difference of zero, on 2026-10-26.
 
 ## How the owner knows it is done
 
-1. The owner uploads a card's PDF for a month with no statement yet: both halves are created
-   with the PDF's balances, every line is in the statement in the PDF's order, and the
-   statement is completed; each line's statement line (read through the engine, never shown)
-   matches its row on the paper.
+1. The owner uploads a card's PDF for a month with no statement yet: the card's statement is
+   created with each currency's balances from the PDF, every line is in the statement in the
+   PDF's order, and the statement is completed; each line's statement line (read through the
+   engine, never shown) matches its row on the paper, both currencies in one numbering.
 2. The same with a month opened beforehand and left open: the upload closes that one.
 3. A PDF line the ledger lacks is created by the upload, under `@Pendiente` and the pending
    hashtag, and lands in the statement.
@@ -87,9 +99,9 @@ difference of zero, on 2026-10-26.
    the upload, unchanged and outside the statement.
 5. The preview shows all of it before anything is written, and leaving the preview writes
    nothing.
-6. An account statement (one currency) closes the same way.
-7. The reconciliation screen of a closed statement lists its lines in the PDF's order, its
-   opening balance apart.
+6. An account statement (one currency, a card of one account) closes the same way.
+7. The reconciliation screen of a closed statement lists its lines in the PDF's order, its opening
+   balance apart.
 8. Uploading the PDF of a month already completed is refused with the engine's words and writes
    nothing.
 9. A card's bottom charges (interest, insurance, the membership fee, the mailing fee) each land
@@ -98,18 +110,21 @@ difference of zero, on 2026-10-26.
     match both; two on the PDF and one in the ledger create one; one on the PDF and two in the
     ledger flag one.
 11. A ledger line dated inside the month that the PDF does not hold does not stop the close.
-12. A card month with no dollar line still closes its dollar half, empty.
+12. A card month with no dollar line still closes its dollar account, with equal starting and
+    ending balances and no line.
 13. The live contract suite proves the upload, each of its refusals (a future-dated line's
-    words among them), and that a replay writes once.
+    words and a savings account's paper sent for a card of two currencies among them), and
+    that a replay writes once, on the engine's published sample PDFs and on papers drawn to
+    its stated layout.
 
 ## What the owner settled
 
-- **The upload closes the month** (owner, 2026-10-25): the month's reconciliation can be opened
-  with no statement and stays open until the PDF arrives.
+- **The upload closes the month** (owner, 2026-10-25): the month's statement can be opened
+  with no paper and stays open until the PDF arrives.
 - **The upload creates the lines the ledger lacks and flags the lines the PDF lacks** (owner,
   2026-10-25).
-- **The PDF joins a card's halves** (owner, 2026-10-25): one PDF is one statement, every currency
-  on it.
+- **One PDF closes one card's statement** (owner, 2026-10-25): every currency on it, together
+  (contract: "Statements", "A statement covers its whole card").
 - **No ticking lines into the month by date** while it is open (owner, 2026-10-25): with no
   ending balance before the PDF, there is nothing to compare against.
 - **Editing goes to the ledger's Edit form** (owner, 2026-10-25): the reconciliation screens
@@ -121,14 +136,14 @@ difference of zero, on 2026-10-26.
   bills it (owner, 2026-10-25, question 2, A), so every statement adds up.
 - **A flagged line never stops the close** (owner, 2026-10-25, question 3, A), wherever in the
   month it falls: the engine completes the statement and flags the line
-  (contract: POST /v1/reconciliations/{reconciliation_id}/complete).
+  (contract: POST /v1/statements/{statement_id}/complete, "A line in no statement is not a refusal").
 - **Matching counts duplicates** (owner, 2026-10-25, question 4): equal lines on one day are all
   accounted for, matched one to one up to the smaller count, the PDF's extra ones created, the
   ledger's extra ones flagged.
 - **A month can be opened before its PDF** (owner, 2026-10-25, question 6, A): the upload closes
   the open one, or creates it.
 - **The upload starts from the LOG bar** (owner, 2026-10-27, question 7, A): the PDF is
-  dropped as a bank download is, and its account picked from the same list; screens A1 and A2
+  dropped as a bank download is, and its card picked from the same list; screens A1 and A2
   of [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html)
   are approved.
 - **The preview is the check against a wrong account's PDF** (owner, 2026-10-27, question 8,
@@ -139,16 +154,20 @@ difference of zero, on 2026-10-26.
 
 ## What the engine settled
 
-From the live contract (contract: POST /v1/reconciliations/import), shipped 2026-10-26:
+From the live contract (contract: POST /v1/statements/import):
 
-- **You name the account; the engine never picks it** by the card or account number the paper
-  prints. That account needs a statement code.
+- **You name an account of the card; the engine never picks it** by the card or account number
+  the paper prints. Its card needs a statement code
+  (contract: POST /v1/statements/import, "Accounts").
 - **A line the upload creates** is filed under `@Pendiente` and the pending hashtag, the paper's
   text as its title, for you to classify later.
 - **A ledger line one day off a PDF line is never paired**: the PDF line is created, and the
   preview names the near miss.
-- **A card half with no line closes empty**, the one statement that completes with no
-  transaction.
+- **A card's account with no row still closes,** with no line, inside the card's statement
+  (contract: POST /v1/statements/import, "A card's account with no row still closes").
+- **Every account of the card is on the paper**: a savings account's paper sent for a card
+  that also holds another currency is refused
+  (contract: POST /v1/statements/import, "Every account of the card is on the paper").
 - **A completed month is refused**: revert it first, then upload again; the same PDF then
   matches every line the first upload created.
 
@@ -160,30 +179,25 @@ None open.
 
 ## Tasks
 
-Approved by the owner on 2026-10-27. The screens of tasks 3 and 4 are picked in
+Approved by the owner on 2026-10-27. The screens are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
-screens 1 to 4 as drawn, 5 A and 6 A.
+screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and the upload in
+the app, are built; their move to contract `e06456a20aca6e4c` is in
+[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md) and
+[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md). Task 4,
+the statement screen after a close, is in
+[catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md),
+with screen 4 redrawn for a statement of the whole card. Task 6, the card's live tests, is in
+[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md), built
+on the engine's sample PDFs. The one task left runs after those three specs.
 
-4. **The statement screen after a close (builder).** A statement's lines in
-   the paper's order (contract: GET /v1/bank-lines, "Ordering"), its opening balance apart;
-   editing a line opens the ledger's Edit form; and an open statement on an account with a
-   statement code waiting for its PDF, with no ticking and no `c` (5 A); screen 4.
-   *Passes if:* unit tests pin the order, the place-less lines listed apart, the Edit form
-   opening and the keys of 5 A, and an account with no statement code keeping its tick-list;
-   tui.md says so.
-5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) no
-   longer says "no PDF"; [commands.md](../commands.md) and [runtime.md](../runtime.md) follow if
-   they name the bank files the app takes.
-   *Passes if:* no doc says the app takes no PDF, and each fact has one home.
-6. **The card's live tests (builder), waiting on the engine ask "Publish one made-up sample
-   statement PDF per paper, so every client can test the statement upload".** The savings
-   paper's live tests are done; a made-up card paper is refused, since the contract does not
-   print its column header. Once the samples land: a card's two halves closed by one paper,
-   the empty dollar half, the undated fee lines, `NO_ACCOUNT_FOR_CURRENCY` for the card's
-   other currency, and the suite's own probed copy of the savings layout replaced by the
-   published sample or layout.
-   *Passes if:* those live tests run green against the practice engine, built from what the
-   engine publishes, with no real statement in the repo.
+5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) says
+   the PDF closes a card's month in its statement, with no "draft spec" and no "reconciliation"
+   left in that line; no doc speaks of a card statement's halves or calls the PDF's statement a
+   reconciliation; [commands.md](../commands.md) and [runtime.md](../runtime.md) follow if they
+   name the bank files the app takes.
+   *Passes if:* no doc says the app takes no PDF, none speaks of a statement's halves, and
+   each fact has one home.
 
 ## Reply to the engine
 
@@ -191,7 +205,8 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 
 - **Range:** item 5 of the hand-off (`9063fab000b2e3d6`, `9537a3f6276d7d85`); the range as a
   whole is confirmed in the reply "Caught up with contract 592f2467fa3df75a: the terminal app sends a
-  bank download whole, …".
+  bank download whole, …". The upload's move to `e06456a20aca6e4c` is reported in the replies
+  of the catch-up specs above.
 - **The engine's "Done when" checks to report on:** no code reads a PDF itself; the contract
   tests upload a made-up statement PDF with a dry run and an apply.
 - **The asks it closes:** none; the engine built the upload ahead of this client's ask.
@@ -214,3 +229,6 @@ Not built in this spec; drafted into a new spec when it is done.
   - Its open questions: a card's two accounts share one number (the currency joins the name, or
     an alias each); a replaced card's name (follows the new card, or keeps the first); accounts
     with no bank number, such as people and cash (keep a typed name, or must have one).
+  - A new open question, since the engine holds a card as its own thing with its accounts
+    (contract: "Cards"): the number, the bank and the name may now belong on the card, which
+    both its accounts share, rather than on each account.
