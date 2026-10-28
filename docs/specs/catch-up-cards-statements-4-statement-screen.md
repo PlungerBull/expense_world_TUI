@@ -12,7 +12,7 @@ specs of this catch-up: [catch-up-cards-statements-1a-reads-and-writes.md](catch
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
 **Status: draft, for the owner to rewrite or approve; its questions wait on the owner. It runs
-after the other four specs of this catch-up, since it names cards by their own names. Each
+after the catch-up's other specs, since it names cards by their own names. Each
 question about a screen is drawn as a mockup, and its tasks are drafted, when the owner names it
 the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.

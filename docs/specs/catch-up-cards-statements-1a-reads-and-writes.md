@@ -75,7 +75,7 @@ pick in part 6. Until then, each shows the engine's refusal.
    today.
 2. A statement PDF upload previews and closes its month, as built.
 3. The bank download's list of accounts shows a card's two accounts as one line, as today.
-4. The unit suite and the drift check pass, the drift check reading `e06456a20aca6e4c`. The
+4. The unit suite and the drift check pass, on the version this client last recorded. The
    live suite passes once parts 2a and 2b are done.
 
 ## Questions for the owner
@@ -99,7 +99,7 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
    unit test.
 2. **One account record for every unit test (builder).** One account-record builder in
    helpers.py carrying `card_id` and no statement code or partner; the ten unit test files that
-   build their own `_account` switch to it (test-suite leftovers point 1).
+   build their own `_account` switch to it (moved from test-suite-leftovers).
    *Passes if:* no unit test file defines its own `_account`, and no account fixture carries
    `statement_code` or `statement_partner_id`.
 3. **The new names on transactions and bank lines (builder).** `reconciliation_id` becomes

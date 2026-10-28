@@ -2,7 +2,7 @@
 
 **Status: draft, for the owner to rewrite or approve; on 2026-10-27 the owner brought in the
 test-only items of todo.md's backlog. It runs after the catch-up to contract
-`e06456a20aca6e4c` (the four specs named below), which rewrites many of the same files. Its tasks
+`e06456a20aca6e4c` (the catch-up's specs named below), which rewrites many of the same files. Its tasks
 are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 

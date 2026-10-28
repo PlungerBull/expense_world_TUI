@@ -122,7 +122,7 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 3. **A statement's actions on the new routes (builder).** The detail screen ticks with
    `statement_id`, saves the ending balance in `balances`, and completes, reverts and deletes
    under `/statements`; the close's `warnings` and `coverage_gap` are read per balance, the
-   `GAP` fixture quoting the engine's current sentence (test-suite leftovers point 4).
+   `GAP` fixture quoting the engine's current sentence (moved from test-suite-leftovers).
    *Passes if:* the detail screen's tick, balance, complete, revert and delete tests pass on the
    new answers, the `GAP` fixture's last uncovered day falls before the statement's first, and
    no reconciliation builder is left.
@@ -134,14 +134,15 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 5. **The engine's current words in the unit tests (builder).** Every quote of the engine's
    "completed reconciliation" words in tests/unit and helpers.py's `LOCK_MESSAGES` says what
    the engine sends now, the sealed-line delete's sentence read from the practice engine
-   (test-suite leftovers point 15; the contract does not print it).
+   (moved from test-suite-leftovers; the contract does not print it).
    *Passes if:* no unit test quotes a sentence the engine no longer sends.
 6. **The engine's current words in the docs, and the app's lines for its refusals (builder).**
    The same words in tui.md and the grouped-refusals mockup;
-   [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go, and
-   `HAS_RECONCILIATION`'s as question 2 decides; the comments heading test_errors.py's
-   archived-account and account-to-person rows say what the rows prove (test-suite leftovers
-   point 9).
+   [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go (but
+   `HAS_OPENING_BALANCE` and `PERSON_ACCOUNT`, in errors.py, tui.md and test_errors.py, which
+   [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md) removes), and
+   `HAS_RECONCILIATION`'s as question 2 decides; the comment heading test_errors.py's
+   archived-account rows says what the rows prove (moved from test-suite-leftovers).
    *Passes if:* no doc or mockup quotes a sentence the engine no longer sends, and no app line
    names a reason the contract lacks.
 

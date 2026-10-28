@@ -4,7 +4,7 @@
 ([catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)) and cards in
 the app ([catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md)), and on
-the engine's move of an account to another card (question 1). Questions 1 to 3 wait on the
+the engine's move of an account to another card (decided 10). Question 2 waits on the
 owner.** Turning sheet accounts into people is built ([decisions.md](../decisions.md) "An account
 becomes a person, and back, with one key"); the split purchases' grouping is built
 ([decisions.md](../decisions.md) "The sheet import brings a split purchase in as one split
@@ -13,7 +13,8 @@ done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 **Reshaped by the engine's next changes** (the engine coders' answer of 2026-10-27, "Which of
 the terminal app's seven card and statement specs the engine's coming changes touch"). A person
-carries an opening balance, so question 3 goes away; an account moves between holders; and
+carries an opening balance (shipped as contract `4ac20e42cf8566ee` on 2026-10-27, settled
+below); an account moves between holders; and
 people become holders, so the import creates every sheet name as a bank account on a holder of
 its own, and you then turn the people into people and pair the Visa in the app before
 reconciling. This spec is rewritten when those hand-offs land; its questions wait until then.
@@ -66,15 +67,23 @@ holds the statement code its PDFs print, and one PDF closes one card's month.
 | 7 | Archive the closed accounts (both Interbank accounts, Alcancía)? | Yes, done by the owner in the app after the import (2026-10-21): each closed account's card is archived, which archives every account on it. |
 | 8 | Is the sheet frozen after the import? | The app is the record; the sheet is not imported again (2026-10-21). |
 | 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
+| 10 | How do the Visa's two accounts end up on one card? | By the engine coders' move of an account to another card, allowed while the account has never been in a statement: `--create-names` gives every account a card of its own, and the Visa's two accounts are put on one card in the app before the import (step 5), so no account is made by hand. Neither the import nor the statement upload can tell which accounts share a card: the sheet holds only a name and a currency per account. The answer saying yes, "Yes to moving an account to another card, with the limits you proposed; no to the sheet import refusing a name used in two currencies", is handed over (2026-10-27). |
 | — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account") (2026-10-17). The Visa's two accounts keep their two names on one card; the card has a name of its own. |
 | — | People | Imported as bank accounts, each on a card of its own, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21); turning an account into a person deletes its card with it (contract: POST /v1/accounts/{account_id}/make-person). |
 
+## What the engine settled
+
+- **A future person keeps its opening balance** (the engine's hand-off of 2026-10-27, "A person
+  account carries an opening balance like any account", contract `4ac20e42cf8566ee`): the import
+  makes a person's first `SALDO INICIAL` row its opening balance, and turning the account into a
+  person keeps it, so the balance stays the sheet's.
+
 ## Steps
 
-The steps follow question 1's recommended path.
+The steps follow decided 10.
 
-1. The app works with cards and can move an account to another card (the two catch-up specs named
-   in the status, and the engine's move from question 1).
+1. The app works with cards and can move an account to another card (the catch-up's specs named
+   in the status, and the engine's move from decided 10).
 2. The owner wipes the live database.
 3. The import's dry run, with the four `--account-name` renames: every name listed as missing,
    the four bank names among them.
@@ -87,8 +96,8 @@ The steps follow question 1's recommended path.
    - the statement codes their PDFs print are set on the Visa's card and on both BCP savings
      cards.
 6. The dry run again: no row skipped but the two zero rows; the 9 split purchases counted as 9
-   split transactions, with the rows they hold; and no opening balance on any of the twelve
-   person accounts (question 3).
+   split transactions, with the rows they hold; a future person's first `SALDO INICIAL` row
+   counted as its opening balance, which it keeps when it becomes a person.
 7. The import with `--apply`, refused by nothing.
 8. In the app: the twelve person accounts turned into people (each one's card deleted with it),
    and the closed accounts' cards archived.
@@ -103,33 +112,6 @@ The steps follow question 1's recommended path.
 
 ## Questions for the owner
 
-1. **How do the Visa's two accounts end up on one card?** You asked (2026-10-27) whether the
-   import can't figure it out, or the statement upload. Neither can, safely:
-   - **The import:** the sheet holds only a name and a currency per account, and names that look
-     alike mean different things. The Visa's soles and dollar accounts are one card; each of the
-     four people in two currencies must be alone on a card to become a person; each BCP savings
-     account is a card of its own, since its PDF holds one currency. Guessing which is which is a
-     business rule the app may not make, and a wrong guess sticks.
-   - **The statement upload:** the card's PDF does show both currencies on one card, but by then
-     the accounts exist, and the engine never lets an account change card: "An account never
-     changes card" (contract: PUT /v1/accounts/{account_id}).
-
-   The engine coders propose changing that rule: one action, "move this account to that card",
-   allowed only while the account has never been in a statement. Then a card is put together in
-   the app at any time before its first statement, and a mistake is undone the same way.
-   - **A.** Say yes to the engine coders' move. `--create-names` gives every account a card of its
-     own; you put the Visa's two accounts on one card in the app (step 5), then import. No account
-     is created by hand.
-   - **B.** No move: right after the wipe you create the Visa's card and its two accounts by hand
-     in the app, typing its statement code, and `--create-names` gives every other account a card
-     of its own.
-
-   **Recommended:** A: it needs no hand-made accounts, every client gets the same way to fix a
-   card, and the answer saying yes to the engine coders' move ("Yes to moving an account to
-   another card, with the limits you proposed; no to the sheet import refusing a name used in two
-   currencies") is handed over.
-   B stays the way through if you decline the move.
-
 2. **The old Oro card and the two Interbank accounts: one card each, or a card per account?** Oro
    holds soles and dollars; the two Interbank accounts are closed.
    - **A.** One card for each bank product: Oro's two currencies on one card, and the Interbank
@@ -138,20 +120,6 @@ The steps follow question 1's recommended path.
 
    **Recommended:** A: a card is one bank product, so the ledger shows them as they were; for
    closed accounts the only effect is that archiving the card archives both together.
-
-3. **A future person with an opening balance.** A person is imported as a bank account, so a row
-   of `SALDO INICIAL` that is its account's first row comes in as an opening balance
-   (contract: POST /v1/transactions/import-sheet, "Opening balances"), and a person cannot carry
-   one: `t` is then refused (`HAS_OPENING_BALANCE`,
-   contract: POST /v1/accounts/{account_id}/make-person). The dry run shows it: each row says
-   whether it is an opening balance, and the count line counts them. If one of the twelve shows
-   one in step 6:
-   - **A.** Create that person in the app as a person before the apply; the import then puts the
-     row on the person as an ordinary row, under the category the sheet gives it.
-   - **B.** Import it, then delete its opening balance in the app before `t`. Its amount leaves
-     the person's balance, so the balance no longer equals the sheet.
-
-   **Recommended:** A: the balance stays the sheet's.
 
 The name each card gets when one name is used in two currencies (the four people in both
 currencies) is a question of

@@ -28,36 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The contract moved to 4ac20e42cf8566ee: a person carries an opening balance
-Asked 2026-10-27 · Blocks: every new task (the loop stops on a moved version)
+### Approve the spec for a person's opening balance, and pick its form
+Asked 2026-10-27 · Blocks: [specs/catch-up-person-opening-balance.md](specs/catch-up-person-opening-balance.md)
 
-This client has caught up to `e06456a20aca6e4c`. The version check of 2026-10-27 prints:
+The engine's hand-off of 2026-10-27, "A person account carries an opening balance like any
+account" (contract `e06456a20aca6e4c` to `4ac20e42cf8566ee`), lets a person carry an opening
+balance and lets `t` turn an account with one into a person, keeping it. The spec catches up with
+it on its own, before 1a, since nothing in it touches cards. Its question 1 is whether a person's
+Edit form shows `opening` and `as of`, as a bank account's does: panes A and B of
+[mockups/expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html).
+The new version is recorded in the commit acting on your answer; until then no task starts.
 
-```
-  4ac20e42cf8566ee  2026-10-27
-    changed: `POST /transactions/import-sheet` makes a person's first `SALDO INICIAL` row of a
-    non-zero amount (no earlier row of the same account) its opening balance, exactly as a real
-    account's.
-  d34fc8d06ff652c4  2026-10-27
-    changed: `POST /accounts/{id}/opening-balance` takes a person account, judged exactly as a
-    real account (before: refused `PERSON_ACCOUNT`).
-    changed: `POST /accounts/{id}/make-person` turns an account with an active opening balance
-    into a person and keeps it (before: refused `HAS_OPENING_BALANCE`).
-    changed: `opening_balance_transaction_id` on a person account names its opening balance.
-    changed: wording, the descriptions of `PERSON_ACCOUNT` and `HAS_OPENING_BALANCE`, now sent
-    by no operation, and *People / Person Accounts*.
-```
-
-It is change A of the engine coders' answer of 2026-10-27, whose hand-off they send when it is
-done. Ask them for one hand-off file from `e06456a20aca6e4c` to their current version, and
-decide whether catching up with it joins the cards and statements catch-up.
-- **A.** Ask for the hand-off now; its catch-up joins the cards and statements catch-up, ahead of
-  1a, since it is small (the app's lines for the two retired refusals, and the live tests of
-  people's opening balances).
-- **B.** Wait for the rename of card to holder too, and catch up with both in one hand-off.
-
-**Recommended:** B: the rename ships next and every waiting spec waits for it anyway, so one
-hand-off covering both means one catch-up instead of two.
+**Recommended:** approve it with 1 A, and run it next.
 
 ### Approve the first four specs of the cards and statements catch-up, and their tasks
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
@@ -75,7 +57,8 @@ refused for an account that has been in a statement.
 **Recommended:** approve all four, with 1 A and 2 A in 1b. They start once the engine's rename
 of card to holder lands, its next breaking change (the engine coders' answer of 2026-10-27,
 "Which of the terminal app's seven card and statement specs the engine's coming changes touch"),
-so they are built on the holder names and nothing is renamed twice. Creating a bank account,
+so they are built on the holder names and nothing is renamed twice; 2b also waits on people
+becoming holders. Creating a bank account,
 `t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
 the catch-up's "Cards in the app".
 
@@ -239,8 +222,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  The counts line is the current spec (owner, 2026-10-27); the others wait on the engine's rename
-  of card to holder, and the cards spec on its next two changes after it.
+  The counts line is the current spec (owner, 2026-10-27), its live tests waiting on 2a; the
+  others wait on the engine's rename of card to holder, and the cards spec and 2b also on its two
+  changes after it.
+- **The engine catch-up of 2026-10-27, a person's opening balance** (to `4ac20e42cf8566ee`): a
+  draft spec waiting for the owner's approval
+  ([specs/catch-up-person-opening-balance.md](specs/catch-up-person-opening-balance.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).

@@ -23,8 +23,10 @@ are drafted and wait on the owner's approval.** When done, the why moves to
 terminal app's seven card and statement specs the engine's coming changes touch"). The engine's
 next breaking change renames card to holder: `/cards` becomes `/holders`, `card_id` becomes
 `holder_id` everywhere, and every card-named reason and message says holder, with nothing
-behaving differently. Before it, a person carries an opening balance, so turning an account into
-a person no longer refuses one that has it. After it, people become holders: turning an account
+behaving differently. A person carries an opening balance since contract `4ac20e42cf8566ee` (its own catch-up:
+[catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)), so this spec's live
+tests of turning an account into a person read its refusals without `HAS_OPENING_BALANCE` and
+check the opening balance is kept. After it, people become holders: turning an account
 into a person or back, and archiving, act on the holder, and the people route and the accounts'
 archive routes go. The upload, the samples, the review list and the moves are unchanged. This
 spec is built once those hand-offs land.
@@ -132,7 +134,20 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
    onto a card and `make-person`'s new refusals (`CARD_HAS_OTHER_ACCOUNTS`,
    `HAS_RECONCILIATION` for a deleted statement too, `CARD_HAS_STATEMENT`) and its card deleted;
    archiving through the card, and `ARCHIVE_THE_CARD` on a bank account's own route.
-   *Passes if:* those tests pass live, each refusal writing nothing.
+   `make-person`'s refusals are read in the engine's order (`ACCOUNT_ARCHIVED`,
+   `KIND_UNCHANGED`, `HAS_RECONCILIATION`, `CARD_HAS_OTHER_ACCOUNTS`, `CARD_HAS_STATEMENT`)
+   (contract: POST /v1/accounts/{account_id}/make-person). A person keeps its opening balance
+   ([catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)): test_account_kind.py
+   drops `HAS_OPENING_BALANCE` (its case, its place in the order and its docstrings'
+   mentions); test_people_lifecycle.py's point that a person refuses an opening balance is turned
+   round; and a live check proves `make-person`, then `make-account`, keep the same opening-balance
+   transaction and balance. Once people become holders,
+   [test_opening_balance.py](../../tests/contract/test_opening_balance.py)'s person test moves to
+   the route that makes a person. [runtime.md](../runtime.md)'s clauses on people ("no opening
+   balance", "`HAS_OPENING_BALANCE` (before `HAS_RECONCILIATION`)") follow.
+   *Passes if:* those tests pass live, each refusal writing nothing, `make-person`'s refusals in
+   the engine's order with no `HAS_OPENING_BALANCE`, and an account's opening balance unchanged
+   through `make-person` and `make-account`.
 6. **The cleaner (builder).**
    [clean_practice_user.py](../../scripts/clean_practice_user.py) on `/statements` and cards
    (unarchive the card, revert and delete each statement, delete the transactions on every page,

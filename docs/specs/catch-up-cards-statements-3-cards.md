@@ -37,8 +37,8 @@ card, every currency at once (contract: "Cards").
 An account never moves between cards today: it gets its card when it is created and keeps it
 (contract: "Cards", "An account never moves between cards"). The engine coders propose an action
 that moves an account to another card while it has never been in a statement; this client said
-yes in its answer "Yes to moving an account to another card, with the limits you proposed; no to the sheet import refusing a name used in two currencies",
-in [to-engine/](../to-engine/). Until it lands, a card's accounts are put together when they are
+yes in its answer "Yes to moving an account to another card, with the limits you proposed; no to the sheet import refusing a name used in two currencies"
+(handed over). Until it lands, a card's accounts are put together when they are
 created, or never.
 
 Until this spec lands, these break against the engine (the practice engine, and the live one,
@@ -68,7 +68,11 @@ both serve `e06456a20aca6e4c` on 2026-10-27):
    one picked that holds no account in its currency (contract: POST /v1/accounts). A person is
    created as before, on no card.
 3. **The statement code is the card's,** set, changed and cleared where question 3 decides
-   (contract: "Cards", "Statement code"); the account's New and Edit forms lose their code line.
+   (contract: "Cards", "Statement code"); the account's New and Edit forms lose their code line,
+   and a person's Edit form keeps its `opening` and `as of` lines
+   ([catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)). The app's line for
+   `HAS_STATEMENT_CODE`, which `make-person` no longer sends now that the code is the card's, goes
+   with the code line, in errors.py, tui.md and test_errors.py.
 4. **`a` on a bank account archives its card, every account on it,** and unarchives it the same
    way, as question 4 decides (contract: POST /v1/cards/{card_id}/archive). A person's `a` stays
    as it is.
@@ -154,13 +158,13 @@ this the current spec.
    - **B.** `t` asks which card: one holding no account in its currency, or a new one.
 
    **Recommended:** B, as question 2 B; A collides on card names for a person in two currencies.
-6. **`t` on a bank account: what its refusals say.** The engine now refuses an account that has
-   been in any statement, even a deleted one, so the app's line "On Reconciliations, press d on
-   each of its reconciliations; a completed one needs u first." gives advice that no longer
-   works (contract: POST /v1/accounts/{account_id}/make-person). It also refuses an account
-   sharing its card (`CARD_HAS_OTHER_ACCOUNTS`) and a card with a statement
-   (`CARD_HAS_STATEMENT`).
-   - **A.** The engine's words alone, for all three.
+6. **`t` on a bank account: what its card refusals say.** The engine refuses an account sharing
+   its card (`CARD_HAS_OTHER_ACCOUNTS`) and a card with a statement (`CARD_HAS_STATEMENT`)
+   (contract: POST /v1/accounts/{account_id}/make-person). The line for an account that has been
+   in any statement (`HAS_RECONCILIATION`) is as
+   [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)
+   question 2 decides.
+   - **A.** The engine's words alone, for both.
    - **B.** A line of the app's under each.
 
    **Recommended:** A: the engine's words already say what is wrong, and the app guesses no rule.
@@ -168,7 +172,7 @@ this the current spec.
    - **A.** It stays, and you delete it where cards live (question 1 A).
    - **B.** The engine deletes the card with its last account, as it does when an account
      becomes a person: the ask "Delete a card with its last account, so no client leaves an
-     empty card behind" in [to-engine/](../to-engine/).
+     empty card behind" (handed over).
 
    **Recommended:** B, with A until it lands.
 8. **`--create-names`: a card's name when one name is used in two currencies.** Each account it
@@ -181,8 +185,8 @@ this the current spec.
    **Recommended:** A: most cards read as their account, and a person's card goes when `t` turns
    it into a person. Also: the line `Created 4 accounts, 3 categories, 2 hashtags.` says
    nothing of cards; should it count them? **Recommended:** no: a card per account is how
-   accounts are made. The ask "Create a bank account and its own card in one write" in
-   [to-engine/](../to-engine/) makes each of these one write instead of two.
+   accounts are made. The ask "Create a bank account and its own card in one write"
+   (handed over) makes each of these one write instead of two.
 9. **`STATEMENT_CODE_EXISTS`: the app's line.** It says "Another account in this currency has
    this code: pick another, or clear it there first.", which is no longer true: a code is held by
    one card, whatever the currency (contract: "Cards", "One card per code").
