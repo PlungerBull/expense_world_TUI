@@ -17,7 +17,9 @@ What it pins, in the order the form meets it:
 4. A second opening balance is `409` `OPENING_BALANCE_EXISTS` on `account_id`
    (contract: POST /v1/accounts/{account_id}/opening-balance).
 5. Deleting it leaves the account naming none (`null`) again.
-6. A person account always names none.
+6. A person from `POST /people` takes one too, under `@Opening` and named by its
+   `opening_balance_transaction_id`, and a second is `409` `OPENING_BALANCE_EXISTS` on
+   `account_id`, as on a bank account (contract: POST /v1/accounts/{account_id}/opening-balance).
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -165,8 +167,9 @@ def test_opening_balance_lifecycle(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
-def test_a_person_names_no_opening_balance(client):
+def test_a_person_takes_one_opening_balance(client, statuses):
     person_id = str(uuid4())
+    tx_id = str(uuid4())
     created = client.post(
         "/people",
         json_body={
@@ -176,8 +179,38 @@ def test_a_person_names_no_opening_balance(client):
         },
     )
     try:
-        assert "opening_balance_transaction_id" in created
+        assert created["is_person"] is True
         assert created["opening_balance_transaction_id"] is None
-        assert client.get(f"/accounts/{person_id}")["opening_balance_transaction_id"] is None
+
+        seeded = client.post(
+            f"/accounts/{person_id}/opening-balance",
+            json_body={
+                "transaction_id": tx_id,
+                "amount_cents": -42000,
+                "date": "2026-01-01T00:00:00Z",
+            },
+        )
+        assert statuses[-1] == 201
+        assert seeded["id"] == tx_id
+        assert seeded["account_id"] == person_id
+        assert client.get(f"/categories/{seeded['category_id']}")["system_key"] == (
+            "opening_balance"
+        )
+        assert client.get(f"/accounts/{person_id}")["opening_balance_transaction_id"] == tx_id
+
+        err = _refused(
+            lambda: client.post(
+                f"/accounts/{person_id}/opening-balance",
+                json_body={
+                    "transaction_id": str(uuid4()),
+                    "amount_cents": 1000,
+                    "date": "2026-01-01T00:00:00Z",
+                },
+            )
+        )
+        assert (err.status, err.code) == (409, "CONFLICT")
+        assert err.reasons == {"account_id": "OPENING_BALANCE_EXISTS"}
+        assert client.get(f"/accounts/{person_id}")["opening_balance_transaction_id"] == tx_id
     finally:
+        _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/accounts/{person_id}")

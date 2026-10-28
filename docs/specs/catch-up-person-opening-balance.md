@@ -92,16 +92,7 @@ So the app stops hiding the opening balance on people, and stops telling you to 
 
 Drafted on 2026-10-27; approved by the owner on 2026-10-28.
 
-3. **The live test of a person's opening balance (builder).**
-   [test_opening_balance.py](../../tests/contract/test_opening_balance.py) proves a person from
-   `POST /people` takes an opening balance (`201`, under `@Opening`, named by its
-   `opening_balance_transaction_id`) and refuses a second (`409 OPENING_BALANCE_EXISTS`), where
-   `test_a_person_names_no_opening_balance` pins the old rule; the `make-person` cases of
-   [test_account_kind.py](../../tests/contract/test_account_kind.py) and the person rule in
-   [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) are 2b's, which
-   rebuilds them on cards; the clause of [runtime.md](../runtime.md)'s paragraph on this test
-   follows, and its people clauses stay for 2b.
-   *Passes if:* those live tests pass against the practice engine on `3e472b3256dcdc69`.
+None left: the tester's acceptance check comes next.
 
 ## Reply to the engine
 
