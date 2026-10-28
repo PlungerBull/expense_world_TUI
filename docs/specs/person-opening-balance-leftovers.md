@@ -3,7 +3,7 @@
 Two small things the catch-up on a person's opening balance turned up (contract
 `4ac20e42cf8566ee`, done on 2026-10-28).
 
-**Status: draft, for the owner to rewrite or approve; question 1's parts a and b wait on the owner.** Its tasks
+**Status: approved by the owner on 2026-10-28, question 1 answered.** Its tasks
 are drafted when the owner approves it. Point 2's live test runs after the cards and statements
 catch-up's live tests
 ([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)
@@ -53,6 +53,9 @@ account and people are turned into people afterwards, but an import run again af
      **Recommended:** the currency alone, so it is always there.
    - **b.** A bank account's opening line: the same word, or today's line under it.
      **Recommended:** the same word on every account, so one sign reads one way everywhere.
+
+   **Answered 2026-10-28:** a, nothing on the right while the line is empty or `0.00`; b, the same word on
+   every account.
 
 ---
 

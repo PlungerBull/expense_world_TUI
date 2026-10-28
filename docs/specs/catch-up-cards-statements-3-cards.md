@@ -19,9 +19,8 @@ part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
-**Status: draft, for the owner to rewrite or approve; questions 1, 2, 4, 5 and 10 are answered;
-6, 8 and 9 and the card-field mockup's questions a to c wait on the owner. Its
-tasks are drafted when the owner names it the current spec.** It runs after
+**Status: draft; every question answered by the owner on 2026-10-28 (question 3 folded into the
+card-field mockup's question b). Its tasks are drafted when the owner names it the current spec.** It runs after
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md), and
 [before-the-official-import.md](before-the-official-import.md) runs after it. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -186,7 +185,11 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    bank account's Edit form a card line that picks the card it sits on, and New makes a card
    (question 2 C); drawn in `expense-world-holders-card-field.html`, whose questions a (what "a
    new card of its own" does), b (a card renamed and its code changed on its accounts' Edit
-   forms) and c (the app's word) wait on the owner.
+   forms) and c (the app's word), answered 2026-10-28: a, "a new card of its own" makes the
+   holder at once on save, named after the account with no code; b, a holder's name and code
+   are changed on any of its accounts' Edit forms, two lines marked as the holder's; c,
+   **holder**, the engine's word: the screens and lines the mockups quote say "holder" where they
+   say "card" (the Holder column, the holder line, "Archived with its holder: …").
 2. **How a new bank account gets its holder, and how pairing looks** (mockup).
    - **A.** New always makes a holder of its own, named after the account; putting it with
      another holder's account is pairing, afterwards (point 6).
@@ -241,6 +244,8 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    - **B.** A line of the app's under each.
 
    **Recommended:** A: the engine's words already say what is wrong, and the app guesses no rule.
+
+   **Answered 2026-10-28:** A.
 7. **Answered by the engine:** a holder goes with its last account (point 7), so no empty
    holder is left to delete. Nothing to pick.
 8. **`--create-names`: a holder's name when one name is used in two currencies.** Each account it
@@ -255,6 +260,8 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    turns it into a person. Also: the line `Created 4 accounts, 3 categories, 2 hashtags.` says
    nothing of holders; should it count them? **Recommended:** no: a holder per account is how
    accounts are made. Each account and its holder are one write (contract: POST /v1/holders).
+
+   **Answered 2026-10-28:** A, and the line does not count holders.
 9. **`STATEMENT_CODE_EXISTS`: the app's line.** It says "Another account in this currency has
    this code: pick another, or clear it there first.", which is no longer true: a code is held by
    one holder, whatever the currency (contract: "Holders", "One holder per code").
@@ -262,6 +269,8 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    - **B.** A new line: "Another card has this code: pick another, or clear it there first."
 
    **Recommended:** A: the engine names the clash itself.
+
+   **Answered 2026-10-28:** A.
 10. **`d` on an account a live statement holds** (mockup). The engine refuses it,
     `IN_LIVE_STATEMENT`: "Must be an account no live statement holds, draft or completed: delete
     the statement first." (contract: DELETE /v1/accounts/{account_id}).

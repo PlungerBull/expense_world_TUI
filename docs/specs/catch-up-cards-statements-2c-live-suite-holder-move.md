@@ -9,8 +9,7 @@ made with its accounts, a delete refused while a statement holds the account) an
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md)
 (a holder's lines in one read, a flagged line's two paths); this spec is their live tests.
 
-**Status: draft, written 2026-10-28 for the owner to rewrite or approve; no question waits on the
-owner. Its tasks are drafted and wait on the owner's approval.** It runs after
+**Status: approved by the owner on 2026-10-28, with its tasks.** It runs after
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 whose shared helpers its tests use, and waits on nothing else. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.

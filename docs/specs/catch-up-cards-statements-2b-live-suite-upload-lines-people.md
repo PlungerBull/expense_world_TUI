@@ -17,9 +17,9 @@ seven specs, run in this order:
 
 It runs after 2a, whose shared helpers its tests use.
 
-**Status: approved by the owner on 2026-10-28; it runs after part 2a. Task 6 changed for the
+**Status: approved by the owner on 2026-10-28; it runs after part 2a. Task 6, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
-accounts, and a holder's bank lines list in one read" and waits on the owner's approval again;
+accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28;
 that hand-off's own live tests are
 [catch-up-cards-statements-2c-live-suite-holder-move.md](catch-up-cards-statements-2c-live-suite-holder-move.md)'s.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.

@@ -17,9 +17,9 @@ balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`,
 
 It runs after 1b, whose app helpers the live tests call.
 
-**Status: approved by the owner on 2026-10-28; it runs after part 1b. Task 1 changed for the
+**Status: approved by the owner on 2026-10-28; it runs after part 1b. Task 1, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
-accounts, and a holder's bank lines list in one read" and waits on the owner's approval again.** When done, the why moves to
+accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Built on the holder names.** The engine's rename of card to holder is in the live contract

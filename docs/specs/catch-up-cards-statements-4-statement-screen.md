@@ -14,7 +14,8 @@ specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28)
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
-**Status: draft, for the owner to rewrite or approve; its questions wait on the owner. It runs
+**Status: draft; every question answered by the owner on 2026-10-28, each as recommended (2 A
+picked from its mockup), and these screens say "holder" (question 1 of the cards spec). It runs
 after the catch-up's other specs, since it names cards by their own names. Its questions about
 screens are drawn in
 [expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html);

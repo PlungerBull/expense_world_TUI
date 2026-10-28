@@ -28,62 +28,7 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the spec for what part 1a turned up
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1a-leftovers.md](specs/catch-up-cards-statements-1a-leftovers.md)
-
-Part 1a of the cards and statements catch-up is done. It turned up three small things: how the
-import door's account list names a holder of three currencies or more whose accounts share no
-name (you picked B, the holder's own name), the practice-user cleaning script printing a code
-accounts no longer carry, and the drift check missing keys a test passes by name.
-
-**Recommended:** approve it.
-
-### Pick the two details of a person's opening line, and approve its spec
-Asked 2026-10-28 · Blocks: [specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)
-
-Your design, drawn in
-[mockups/expense-world-person-opening-hint.html](mockups/expense-world-person-opening-hint.html):
-no line under `opening`; `debt` or `credit` on the right of the line, by the sign, then the
-currency. Left to pick: (a) with the line empty or `0.00`, the currency alone or nothing; (b) a
-bank account's opening line the same, or as today.
-
-**Recommended:** a, the currency alone; b, the same on every account; then approve it.
-
-### Answer the cards and statement screen questions, and approve the live tests' changed tasks
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md)
-
-The engine's hand-off on the account move is planned in: pairing, a holder made with its
-accounts, an account's delete refused while a statement holds it, a card's lines in one read and a
-flagged line's two paths. Answered on 2026-10-28: cards 1 B, 2 C, 4 B, 5 B, 10 A, and pairing
-as your design (a Card column, and a card line on the account's Edit form); statement screen 2 A.
-Still open: cards 6, 8 and 9, and questions a to c of
-[mockups/expense-world-holders-card-field.html](mockups/expense-world-holders-card-field.html);
-statement screen 1 and 3 to 11, drawn in
-[mockups/expense-world-card-statement-questions.html](mockups/expense-world-card-statement-questions.html). Task 1 of 2a and task 6 of 2b changed so a test run cleans up as the engine now deletes;
-the new 2c holds the hand-off's live tests.
-
-**Recommended:** approve the changed tasks of 2a and 2b and the new 2c now, so the live tests
-are ready after 1b; answer the two specs' questions as each spec's recommendations say, or
-change any.
-
-### Approve the spec for the catch-up's leftovers
-Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
-
-Four small things the bank download and closing catch-up turned up, none of which you see except
-four mockups redrawn with the app's current words. Its questions and everything about statements
-moved into the cards and statements catch-up on 2026-10-27.
-
-**Recommended:** approve it, to run after the catch-up.
-
-### Approve the spec for the test suites' leftovers
-Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
-
-Eleven small things, all inside the tests and their tools: copies to merge, stale comments, tests
-that check less than they say or fail at random in CI, the drift check covering more of the
-engine's answers, and the guard checking a test-engine start whole. Nothing you see changes. On
-2026-10-27 the points about cards and statements moved into the catch-up.
-
-**Recommended:** approve it, to run after the catch-up.
+Nothing waits on the owner as of 2026-10-28.
 
 ---
 

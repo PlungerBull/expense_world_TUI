@@ -1,6 +1,6 @@
 # Leftovers of the bank download and closing catch-up
 
-**Status: draft, for the owner to rewrite or approve; no question open. It runs after the
+**Status: approved by the owner on 2026-10-28; no question open. It runs after the
 catch-up to contract `e7393dd869963db1` (the catch-up's specs named below), which touches the same
 files. Its tasks are drafted when the owner names it the current spec.** When done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
