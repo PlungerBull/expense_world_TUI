@@ -524,22 +524,7 @@ APP_FAULT = (
         ("CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "ending_balance_cents", "ACCOUNT_ARCHIVED", True, None),
-        # account-to-person 4 B: an opening balance stops `t`, the same line on and
-        # off a list; the other two refusals of `t` keep the engine's words alone
-        (
-            "CONFLICT",
-            "account_id",
-            "HAS_OPENING_BALANCE",
-            True,
-            "Press e and empty its opening balance first.",
-        ),
-        (
-            "CONFLICT",
-            "account_id",
-            "HAS_OPENING_BALANCE",
-            False,
-            "Press e and empty its opening balance first.",
-        ),
+        # `t` on an account already of that kind, or archived: the engine's words alone
         ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
         ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
         # person-reconciliations 1 A: a reconciliation stops `t`, with the line on
@@ -555,8 +540,9 @@ APP_FAULT = (
         ("VALIDATION_ERROR", "account_id", "PERSON_ACCOUNT", False, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
-        # statement-code-field 3·2 B: a code another account in this currency has;
-        # 3·3, 3·4 and a person given a code keep the engine's words alone
+        # a statement code another account in this currency has gets the app's line;
+        # a code clashing with a reconciliation, a person given a code and a code
+        # that is not three capital letters keep the engine's words alone
         (
             "CONFLICT",
             "statement_code",
@@ -742,7 +728,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "CONCURRENT_CHANGE",
         "RESERVED_NAME_HELD",
         "OPENING_BALANCE_EXISTS",
-        "HAS_OPENING_BALANCE",
         "HAS_RECONCILIATION",
         "RECONCILIATION_NOT_DRAFT",
         "ID_EXISTS",

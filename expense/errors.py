@@ -245,10 +245,6 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "OPENING_BALANCE_EXISTS"): NextStep(
         "It got one meanwhile: close the form and open it again to change it."
     ),
-    # A person carries no opening balance, so `t` on Manage ▸ Accounts cannot
-    # turn an account that has one (contract: POST /v1/accounts/{account_id}/make-person);
-    # emptying its opening line on the Edit form deletes it.
-    ("CONFLICT", "HAS_OPENING_BALANCE"): NextStep("Press e and empty its opening balance first."),
     # A person never has reconciliations, so `t` cannot turn an account with
     # one, draft or completed, until each is deleted, a completed one after its
     # revert (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").

@@ -695,19 +695,6 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
             ),
         ),
         (
-            EFECTIVO,
-            [("opening", "350.00"), ("as_of", "2026-01-01")],
-            "POST",
-            EngineError(
-                "VALIDATION_ERROR",
-                "Validation failed",
-                {"account_id": "A person account has no opening balance."},
-                422,
-                {},
-                {"account_id": "PERSON_ACCOUNT"},
-            ),
-        ),
-        (
             SUELDO,
             [("opening", "-3000")],
             "PUT",
@@ -726,7 +713,6 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         "ZERO_AMOUNT",
         "SEALED_PERIOD",
         "OPENING_BALANCE_EXISTS",
-        "PERSON_ACCOUNT",
         "LOCKED",
     ],
 )

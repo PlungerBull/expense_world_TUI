@@ -92,20 +92,6 @@ So the app stops hiding the opening balance on people, and stops telling you to 
 
 Drafted on 2026-10-27; approved by the owner on 2026-10-28.
 
-2. **`t` keeps the opening balance (builder).** `HAS_OPENING_BALANCE`'s app line and the
-   opening-balance route's `PERSON_ACCOUNT` handling go from [errors.py](../../expense/errors.py)
-   and [tui.md](../tui.md) ("`t` turns an account into a person and back", which drops its
-   citation of screen 4 B, and the table in "When the engine says no");
-   [test_errors.py](../../tests/unit/test_errors.py)'s rows for both go, and the comments heading
-   those rows ("account-to-person 4 B" and "statement-code-field 3·2 B") say what the remaining
-   rows prove; [test_tui_account_kind.py](../../tests/unit/test_tui_account_kind.py) loses its
-   `HAS_OPENING_BALANCE` case and gains `t` on an account with an opening balance answering
-   `Now a person.` The mockups `expense-world-account-to-person.html` and
-   `expense-world-person-reconciliations.html`, which still draw the old refusal, are redrawn by
-   [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
-   *Passes if:* no code or doc names an app line for `HAS_OPENING_BALANCE`, or for
-   `PERSON_ACCOUNT` on the opening-balance route, and the unit tests pin `t` turning an account
-   with an opening balance.
 3. **The live test of a person's opening balance (builder).**
    [test_opening_balance.py](../../tests/contract/test_opening_balance.py) proves a person from
    `POST /people` takes an opening balance (`201`, under `@Opening`, named by its

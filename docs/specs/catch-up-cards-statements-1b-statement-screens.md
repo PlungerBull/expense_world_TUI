@@ -149,8 +149,9 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
 6. **The engine's current words in the docs, and the app's lines for its refusals (builder).**
    The same words in tui.md and the grouped-refusals mockup;
    [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go (but
-   `HAS_OPENING_BALANCE` and `PERSON_ACCOUNT`, in errors.py, tui.md and test_errors.py, which
-   [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md) removes), and
+   `HAS_OPENING_BALANCE`, and `PERSON_ACCOUNT` on the opening-balance route, which
+   [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md) removes; this spec
+   drops `PERSON_ACCOUNT`'s lines on the statement routes), and
    `HAS_RECONCILIATION`'s as question 2 decides; the comment heading test_errors.py's
    archived-account rows says what the rows prove (moved from test-suite-leftovers).
    *Passes if:* no doc or mockup quotes a sentence the engine no longer sends, and no app line

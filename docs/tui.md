@@ -884,7 +884,7 @@ person never has one); it is where both accounts of one card show the same code.
 one right-aligned column (`account_rows` in
 [accounts.py](../expense/tui/screens/accounts.py)).
 
-**`t` turns an account into a person and back** (screens 1 A, 2 A, 3, 4 B and 5 B in
+**`t` turns an account into a person and back** (screens 1 A, 2 A, 3 and 5 B in
 [expense-world-account-to-person.html](mockups/expense-world-account-to-person.html)). On
 Manage ▸ Accounts the footer reads `t Make person` on a bank account's row and
 `t Make bank` on a person's, following the cursor, between `a Archive` and `d Delete`.
@@ -893,11 +893,12 @@ with no body and no question, through `run_write` as `a` does
 (contract: POST /v1/accounts/{account_id}/make-person)
 (contract: POST /v1/accounts/{account_id}/make-account). The list reads again with the
 cursor on the account in its new place, among the people or the bank accounts, and the
-note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. While
+note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. An
+account with an opening balance keeps it as a person, the same transaction under `@Opening`,
+so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). While
 one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the footer and does
 nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
-as it was and `t` works again; the "Failed" note is the engine's words whole, and
-`HAS_OPENING_BALANCE` adds `Press e and empty its opening balance first.` (the table in
+as it was and `t` works again; the "Failed" note is the engine's words whole (the table in
 "When the engine says no"). A person never has reconciliations, so `t Make person` on an
 account with one, draft or completed, is refused with `HAS_RECONCILIATION` until each is
 deleted (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"), and the note adds
@@ -991,7 +992,6 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
-| `HAS_OPENING_BALANCE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with an opening balance | `Press e and empty its opening balance first.` |
 | `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a reconciliation, draft or completed | `On Reconciliations, press d on each of its reconciliations; a completed one needs u first.` |
 | `PERSON_ACCOUNT` (a `VALIDATION_ERROR`) on `account_id` | a new reconciliation started from a screen read before its account became a person (contract: POST /v1/reconciliations, "A person account never has reconciliations") | none: the engine's words already say a person cannot have reconciliations, and the form stays open with what was typed |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |

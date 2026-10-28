@@ -1,6 +1,6 @@
 """`t` on Manage ▸ Accounts turns an account into a person and back.
 
-Screens 1 A, 2 A, 3, 4 B and 5 B of docs/mockups/expense-world-account-to-person.html.
+Screens 1 A, 2 A, 3 and 5 B of docs/mockups/expense-world-account-to-person.html.
 `t Make person` on a bank account's row sends `POST /accounts/{id}/make-person`,
 `t Make bank` on a person's sends `POST /accounts/{id}/make-account`, each with no
 body and no question (contract: POST /v1/accounts/{account_id}/make-person)
@@ -123,6 +123,9 @@ async def _open(pilot, app, monkeypatch, cursor: str):
 TURNS = [
     # cursor row, route, the row's kind after, the note, its index after, the label after
     ("a-alejo", "make-person", True, "Now a person.", 5, "t Make bank"),
+    # an account with an opening balance turns too, keeping it
+    # (contract: POST /v1/accounts/{account_id}/make-person)
+    ("a-efectivo", "make-person", True, "Now a person.", 5, "t Make bank"),
     ("a-juan", "make-account", False, "Now a bank account.", 4, "t Make person"),
 ]
 
@@ -133,8 +136,10 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
 ):
     """`t` sends the one route with no body and an idempotency key, asks
     nothing, and the reload keeps the cursor on the turned account in its new
-    place, the note saying what it is now and the footer offering the way back."""
+    place, the note saying what it is now and the footer offering the way back,
+    its opening balance, if any, still on it."""
     rows = _rows()
+    opening = next(r for r in rows if r["id"] == ident)["opening_balance_transaction_id"]
     _stub_list(monkeypatch, rows)
     seen: dict = {}
 
@@ -150,6 +155,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         seen.update(before=before, after=listing.cursor_index, key=listing.cursor_key)
         seen["footer"] = _footer(screen)
         seen["kind"] = screen.selected_record()["is_person"]
+        seen["opening"] = screen.selected_record()["opening_balance_transaction_id"]
 
     with respx.mock() as engine:
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
@@ -163,6 +169,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
     assert seen["key"] == ident
     assert seen["after"] == index != seen["before"]
     assert seen["kind"] is person
+    assert seen["opening"] == opening
     assert label in seen["footer"]
 
 
@@ -277,13 +284,8 @@ def test_a_second_t_while_one_is_in_flight_does_nothing(configured, monkeypatch)
     assert not other.called
 
 
-# ---- 4 B · the engine's refusals --------------------------------------------
+# ---- the engine's refusals --------------------------------------------------
 
-_OPENING_WORDS = (
-    "The account has an opening balance, which a person account cannot carry. "
-    "Delete the opening-balance transaction first."
-)
-_OPENING_FIELD = "Must be an account without an opening balance: a person cannot carry one."
 _ARCHIVED_WORDS = "The account is archived. Unarchive it first."
 _RECON_WORDS = (
     "The account has a reconciliation, which a person account cannot have. "
@@ -301,17 +303,6 @@ _CODE_FIELD = "Must be an account without a statement code: a person cannot carr
 
 REFUSALS = [
     # cursor row, route, the engine's message, field words, reason, the whole note
-    (
-        "a-efectivo",
-        "make-person",
-        _OPENING_WORDS,
-        _OPENING_FIELD,
-        "HAS_OPENING_BALANCE",
-        f"CONFLICT — {_OPENING_WORDS}\n"
-        f"  account_id: {_OPENING_FIELD}\n"
-        "\n"
-        "Press e and empty its opening balance first.",
-    ),
     (
         "a-alejo",
         "make-person",
@@ -361,7 +352,6 @@ REFUSALS = [
     ("ident", "route", "message", "field", "reason", "shown"),
     REFUSALS,
     ids=[
-        "opening-balance",
         "reconciliation",
         "already-person",
         "already-bank",
@@ -372,8 +362,8 @@ REFUSALS = [
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
-    """The "Failed" note is the engine's words whole; only `HAS_OPENING_BALANCE`
-    and `HAS_RECONCILIATION` add the app's line, chosen by the reason; the rest,
+    """The "Failed" note is the engine's words whole; only `HAS_RECONCILIATION`
+    adds the app's line, chosen by the reason; the rest,
     `HAS_STATEMENT_CODE` among them, show the engine's words alone
     (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). Nothing
     changes: the account keeps its kind (`_by_id` holds `is_person`) and the list
