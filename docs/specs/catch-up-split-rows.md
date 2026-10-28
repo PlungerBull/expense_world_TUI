@@ -74,15 +74,6 @@ None open.
 
 Approved by the owner on 2026-10-27.
 
-1. **The counts line shows the split rows (builder).** The sheet import reads
-   `counts.split_rows` with the other counts and prints it in the words the owner picked, on the
-   dry run and the apply ([import_cmd.py](../../expense/commands/import_cmd.py) `_counts_lines`,
-   [engine.py](../../expense/import_/engine.py) `SheetCounts`); the fake engine's sheet answer
-   carries it ([helpers.py](../../tests/unit/helpers.py) `sheet_counts`); the sample output in
-   [commands.md](../commands.md) "`expense import sheet`" follows.
-   *Passes if:* unit tests pin the line with splits and with none, on the dry run and the
-   apply; the drift check no longer names `counts.split_rows`; commands.md shows the picked
-   words.
 2. **The live suite proves the count and the cursor refusal (builder), after the live suite's
    shared helpers create accounts on cards.** The live sheet import checks `split_rows` beside
    `split_lines` ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)); a cursor

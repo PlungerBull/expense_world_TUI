@@ -97,14 +97,15 @@ def _print_tables(result: SheetImport) -> None:
 def _counts_lines(result: SheetImport, head: str) -> list[str]:
     """The engine's counts: `head` (`Rows: 1,961` on the dry run, `Written:`
     on the apply) and each outcome, then the opening balances and the split
-    transactions."""
+    transactions with the rows they hold."""
     c = result.counts
     outcomes = (
         f"new {c.new:,} · matched {c.matched:,} · sealed {c.sealed:,} · skipped {c.skipped:,}"
     )
+    splits = f"split transactions {c.split_lines:,} ({c.split_rows:,} rows)"
     return [
         f"{head} {outcomes}",
-        f"Opening balances {c.opening_balances:,} · split transactions {c.split_lines:,}",
+        f"Opening balances {c.opening_balances:,} · {splits}",
     ]
 
 

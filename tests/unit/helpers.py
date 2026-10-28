@@ -573,7 +573,7 @@ def sheet_row(
 
 def sheet_counts(rows: list[dict]) -> dict:
     """An import-sheet answer's `counts` for `rows`, the rows of each outcome and
-    the opening balances; no split line."""
+    the opening balances; no split line, so no row in one."""
     outcomes = [r["outcome"] for r in rows]
     return {
         "new": outcomes.count("new"),
@@ -582,6 +582,7 @@ def sheet_counts(rows: list[dict]) -> dict:
         "skipped": outcomes.count("skipped"),
         "opening_balances": sum(1 for r in rows if r["is_opening_balance"]),
         "split_lines": 0,
+        "split_rows": 0,
     }
 
 

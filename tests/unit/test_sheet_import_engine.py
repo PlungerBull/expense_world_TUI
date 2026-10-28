@@ -410,7 +410,7 @@ def test_a_dry_run_with_every_name_yours_asks_again_with_the_table_for_the_count
     assert bodies[1]["names"] == table_body(result.table)
     assert result.counted and result.missing == []
     assert result.answer == _answered(bodies[1])
-    assert result.counts == SheetCounts(5, 0, 0, 0, 0, 0)
+    assert result.counts == SheetCounts(5, 0, 0, 0, 0, 0, 0)
     assert [w.url.path for w in _writes()] == ["/v1/transactions/import-sheet"] * 2
 
 

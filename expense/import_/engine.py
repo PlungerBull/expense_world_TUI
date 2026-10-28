@@ -336,6 +336,7 @@ class SheetCounts:
     skipped: int
     opening_balances: int
     split_lines: int
+    split_rows: int  # the rows holding the split lines, as the engine counts them
 
 
 def answer_counts(answer: dict) -> SheetCounts:

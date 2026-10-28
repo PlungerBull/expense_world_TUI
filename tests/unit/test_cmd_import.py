@@ -101,6 +101,7 @@ COUNTS = {
     "skipped": 7,
     "opening_balances": 4,
     "split_lines": 3,
+    "split_rows": 8,
 }
 
 
@@ -362,7 +363,7 @@ Hashtags (2)
   Trabajo        239   yours
 
 Rows: 1,961 · new 1,954 · matched 0 · sealed 0 · skipped 7
-Opening balances 4 · split transactions 3
+Opening balances 4 · split transactions 3 (8 rows)
 
 Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
 
@@ -401,7 +402,7 @@ def test_rows_on_a_closed_statements_day_are_listed_under_the_zero_rows(sheet):
     result = _run()
     assert result.exit_code == 0, _out(result)
     assert (
-        "Opening balances 4 · split transactions 3\n\n"
+        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
         "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
         "Sealed, on a closed statement's day: rows 40, 41\n\n"
         "Dry run — nothing written. Run again with --apply to import.\n"
@@ -415,7 +416,7 @@ def test_a_dry_run_with_no_zero_or_closed_rows_lists_none(sheet):
     result = _run()
     assert result.stdout.endswith(
         "Rows: 1 · new 1 · matched 0 · sealed 0 · skipped 0\n"
-        "Opening balances 0 · split transactions 0\n\n"
+        "Opening balances 0 · split transactions 0 (0 rows)\n\n"
         "Dry run — nothing written. Run again with --apply to import.\n"
     )
 
@@ -467,7 +468,7 @@ def test_the_apply_writes_and_says_what_was_written(sheet):
     assert result.exit_code == 0, _out(result)
     assert result.stdout == (
         "Written: new 1,954 · matched 0 · sealed 0 · skipped 7\n"
-        "Opening balances 4 · split transactions 3\n\n"
+        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
         "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
     )
     assert _sent() == [
@@ -487,7 +488,7 @@ def test_the_same_sheet_applied_again_matches_every_row_and_writes_nothing_new(s
     assert result.exit_code == 0, _out(result)
     assert result.stdout == (
         "Written: new 0 · matched 1,954 · sealed 0 · skipped 7\n"
-        "Opening balances 4 · split transactions 3\n\n"
+        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
         "Nothing new: every row is already in the ledger.\n"
     )
 
@@ -500,7 +501,7 @@ def test_a_sheet_of_zero_rows_only_applied_lists_them_and_never_says_nothing_new
     assert result.exit_code == 0, _out(result)
     assert result.stdout == (
         "Written: new 0 · matched 0 · sealed 0 · skipped 2\n"
-        "Opening balances 0 · split transactions 0\n\n"
+        "Opening balances 0 · split transactions 0 (0 rows)\n\n"
         "Skipped, amount zero: rows 2, 3\n"
     )
 

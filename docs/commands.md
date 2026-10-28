@@ -52,11 +52,11 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
      Dry run — nothing written.
      ```
 
-     Once every name exists, it sends the sheet again as a dry run with the table and prints the engine's counts under the tables, then the rows of zero and the rows on a closed statement's day, each line only when there are any:
+     Once every name exists, it sends the sheet again as a dry run with the table and prints the engine's counts under the tables (the split transactions with the sheet rows they hold, `split transactions 0 (0 rows)` when there are none), then the rows of zero and the rows on a closed statement's day, each line only when there are any:
 
      ```
      Rows: 1,961 · new 1,954 · matched 0 · sealed 0 · skipped 7
-     Opening balances 4 · split transactions 3
+     Opening balances 4 · split transactions 3 (8 rows)
 
      Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
      Sealed, on a closed statement's day: rows 40, 41
@@ -74,7 +74,7 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
      then run the dry run to see the counts.
      ```
 
-     Otherwise it prints `Written: new 1,954 · matched 0 · sealed 0 · skipped 7`, the opening balances and split transactions line, and the rows of zero and on a closed day as the dry run lists them. The same sheet sent again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching"); when rows matched and none is new or sealed it prints `Nothing new: every row is already in the ledger.` in place of the lists; a sheet whose rows are all zero gets its list instead.
+     Otherwise it prints `Written: new 1,954 · matched 0 · sealed 0 · skipped 7`, the opening balances and split transactions line as the dry run prints it (`Opening balances 4 · split transactions 3 (8 rows)`), and the rows of zero and on a closed day as the dry run lists them. The same sheet sent again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching"); when rows matched and none is new or sealed it prints `Nothing new: every row is already in the ledger.` in place of the lists; a sheet whose rows are all zero gets its list instead.
 - **A sheet with bad rows** is refused whole, on any of the three steps, and nothing is written or created (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The `422` `VALIDATION_ERROR` whose every key is a row's (`rows.<row>…`), the refusal the sheet itself causes, prints every refused row in the engine's words, rows refused alike sharing one line through the same grouping as the LOG bar's ([runtime.md](runtime.md) "How refused rows read"): words that begin with their row (`Row 77: …`) read whole for one row, and once, without the row, before every row refused alike; any other row key reads `field: words`, then its rows. `N` counts the rows:
 
   ```
