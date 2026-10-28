@@ -62,7 +62,7 @@ from expense.bank_import.flow import (
     ImportRefused,
     account_picks,
     read_file,
-    reconciliation_names,
+    statement_names,
 )
 from expense.errors import (
     EngineError,
@@ -822,8 +822,8 @@ class ImportPreviewScreen(PreviewScreen):
                 rows = answer_rows(response)
                 mismatches = day_mismatches(response, self._pick.account_names)
                 # The one read the preview adds: the names of the
-                # reconciliations that stop a move to the bank's day.
-                names, names_error = reconciliation_names(cfg, rows, verbose=self.app._verbose)
+                # statements that stop a move to the bank's day.
+                names, names_error = statement_names(cfg, rows, verbose=self.app._verbose)
                 lines = [preview_line(r, names) for r in rows]
         except Exception as err:  # every failure is shown, none swallowed
             self.app.call_from_thread(self._failed, err)

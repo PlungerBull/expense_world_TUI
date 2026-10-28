@@ -209,7 +209,7 @@ def row_verdict(row: ImportedRow) -> Verdict:
 
 def preview_line(row: ImportedRow, names: dict[str, str]) -> PreviewLine:
     """The row with its verdict and reason; a stopped move names its
-    reconciliation from `names` (reconciliation id → name)."""
+    statement from `names` (statement id → name)."""
     verdict = row_verdict(row)
     if verdict is Verdict.NOT_MOVED:
         name = names.get(str(row.redate_blocked_by), UNNAMED_RECONCILIATION)
@@ -224,8 +224,8 @@ def preview_line(row: ImportedRow, names: dict[str, str]) -> PreviewLine:
     return PreviewLine(row, verdict, reasons[verdict])
 
 
-def blocking_reconciliations(rows: list[ImportedRow]) -> list[str]:
-    """The distinct ids of the reconciliations that stop a row's move to the
+def blocking_statements(rows: list[ImportedRow]) -> list[str]:
+    """The distinct ids of the statements that stop a row's move to the
     bank's day, in the rows' order: the ones that need naming."""
     seen: list[str] = []
     for r in rows:

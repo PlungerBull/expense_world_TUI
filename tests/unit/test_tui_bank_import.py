@@ -44,22 +44,19 @@ from tests.unit.helpers import (
     import_row,
     render_text,
     run_app,
+    statement_record,
     stub_home_month,
     unclaimed_line,
     wait_for,
     whole,
 )
 
-#: The card's dollar account first, so its line stands there and still sends the
-#: soles one; then a current account, and an archived one the list leaves out.
+#: The card's two accounts on one holder, its dollar account first, so its line stands
+#: there and still sends the soles one; then a current account, and an archived one
+#: the list leaves out.
 ACCOUNTS = [
-    account_record(
-        id="sig-usd",
-        name="BCP Signature USD",
-        currency_code="USD",
-        statement_partner_id="sig-pen",
-    ),
-    account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
+    account_record(id="sig-usd", name="BCP Signature USD", currency_code="USD", holder_id="h-sig"),
+    account_record(id="sig-pen", name="BCP Signature PEN", holder_id="h-sig"),
     account_record(id="bcp-pen", name="BCP PEN", holder_id="h2"),
     account_record(id="old", name="Retired PEN", holder_id="h3", is_archived=True),
 ]
@@ -575,7 +572,7 @@ EVERY_REASON_ROWS = [
         account_id="bcp-pen",
         outcome="matched",
         rule="operation_code",
-        redate_blocked_by="r-sep",
+        redate_blocked_by="st-sep",
     ),
     import_row(
         8,
@@ -584,7 +581,7 @@ EVERY_REASON_ROWS = [
         title="SHELL SAN ISIDRO",
         account_id="bcp-pen",
         outcome="sealed",
-        sealed_by="r-aug",
+        sealed_by="st-aug",
     ),
     import_row(9, -1540, day="2026-10-15", title=None, account_id="bcp-pen"),
 ]
@@ -597,42 +594,42 @@ EVERY_REASON_COUNTS = {
     "retitled": 1,
     "redated": 1,
 }
-RECONCILIATIONS = {
-    "r-aug": {"id": "r-aug", "name": "Agosto 2026"},
-    "r-sep": {"id": "r-sep", "name": "Septiembre 2026"},
+STATEMENTS = {
+    "st-aug": statement_record({"id": "st-aug", "name": "Agosto 2026", "status": 2}),
+    "st-sep": statement_record({"id": "st-sep", "name": "Septiembre 2026", "status": 2}),
 }
 
 
-def _reconciliations(monkeypatch, answer=None) -> list:
-    """`GET /reconciliations/{id}`, recorded: each call's id, answered from
-    RECONCILIATIONS, or `answer` raised when it is an exception. The account's
+def _statements(monkeypatch, answer=None) -> list:
+    """`GET /statements/{id}`, recorded: each call's id, answered from
+    STATEMENTS, or `answer` raised when it is an exception. The holder's
     list is never read: a read of it fails the test."""
     asked: list = []
 
-    def fetch(cfg, reconciliation_id, *, verbose=False):
-        asked.append(reconciliation_id)
+    def fetch(cfg, statement_id, *, verbose=False):
+        asked.append(statement_id)
         if isinstance(answer, Exception):
             raise answer
-        return RECONCILIATIONS[reconciliation_id]
+        return STATEMENTS[statement_id]
 
     def listed(*a, **k):
-        raise AssertionError("the account's reconciliation list is read")
+        raise AssertionError("the holder's statement list is read")
 
-    monkeypatch.setattr("expense.reads.fetch_reconciliation", fetch)
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", listed)
+    monkeypatch.setattr("expense.reads.fetch_statement", fetch)
+    monkeypatch.setattr("expense.reads.fetch_statements", listed)
     return asked
 
 
 def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_path):
     """One table of the rows the engine read, numbered by the spreadsheet,
     each with its mark and reason alone: a row of 0 a dim `·` and `Skipped:
-    amount 0` (2 B). A move a completed reconciliation stops names that
-    reconciliation, read once by its id in the worker; the counts add the
+    amount 0` (2 B). A move a completed statement stops names that
+    statement, read once by its id in the worker; the counts add the
     engine's moved count, and the closed and skipped counts go on a line of
     their own."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
-    asked = _reconciliations(monkeypatch)
+    asked = _statements(monkeypatch)
     _engine(fake_client, {path.read_bytes(): EVERY_REASON_ROWS}, counts=EVERY_REASON_COUNTS)
 
     async def scenario(pilot, app):
@@ -671,24 +668,24 @@ def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_p
         assert raw[-1].index("1 closed") == raw[-2].index("2 new")
         body = _body(preview)
         assert "2026" not in lines[-1] and "unreadable" not in body and "Couldn't" not in body
-        # the reconciliation is named by one read of it by its id, in the worker
-        assert asked == ["r-sep"]
+        # the statement is named by one read of it by its id, in the worker
+        assert asked == ["st-sep"]
         preview._repaint()
         await pilot.resize_terminal(130, 40)
         await pilot.pause()
-        assert asked == ["r-sep"]  # drawing the screen again reads nothing
+        assert asked == ["st-sep"]  # drawing the screen again reads nothing
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
 
     run_app(scenario, size=(120, 40))
 
 
-def test_no_reconciliation_is_read_when_no_move_is_stopped(fake_client, monkeypatch, tmp_path):
+def test_no_statement_is_read_when_no_move_is_stopped(fake_client, monkeypatch, tmp_path):
     """A closed period's row says `Closed period` alone, so nothing is read to
     name it; and with no move, the counts say nothing of the bank's day."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
-    asked = _reconciliations(monkeypatch)
-    rows = [{**CARD_ROWS[0], "outcome": "sealed", "sealed_by": "r-aug"}, *CARD_ROWS[1:]]
+    asked = _statements(monkeypatch)
+    rows = [{**CARD_ROWS[0], "outcome": "sealed", "sealed_by": "st-aug"}, *CARD_ROWS[1:]]
     _engine(fake_client, {path.read_bytes(): rows})
 
     async def scenario(pilot, app):
@@ -706,16 +703,16 @@ def test_no_reconciliation_is_read_when_no_move_is_stopped(fake_client, monkeypa
     run_app(scenario, size=(120, 40))
 
 
-def test_a_reconciliation_that_cannot_be_read_leaves_the_move_unnamed(
+def test_a_statement_that_cannot_be_read_leaves_the_move_unnamed(
     fake_client, monkeypatch, tmp_path
 ):
     """A failed read never hides the preview: the row stays ✗, its
-    reconciliation unnamed, and why is one dim line under the counts."""
+    statement unnamed, and why is one dim line under the counts."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     refusal = EngineError("INTERNAL_ERROR", "The engine failed.", None, 500, {})
-    asked = _reconciliations(monkeypatch, refusal)
-    stopped = {**CARD_ROWS[0], "outcome": "matched", "redate_blocked_by": "r-sep"}
+    asked = _statements(monkeypatch, refusal)
+    stopped = {**CARD_ROWS[0], "outcome": "matched", "redate_blocked_by": "st-sep"}
     _engine(fake_client, {path.read_bytes(): [stopped, *CARD_ROWS[1:]]})
 
     async def scenario(pilot, app):
@@ -729,7 +726,7 @@ def test_a_reconciliation_that_cannot_be_read_leaves_the_move_unnamed(
         assert any(
             line.startswith("! could not read the reconciliations' names:") for line in lines
         )
-        assert asked == ["r-sep"]
+        assert asked == ["st-sep"]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 3 rows"}
 
     run_app(scenario, size=(120, 40))

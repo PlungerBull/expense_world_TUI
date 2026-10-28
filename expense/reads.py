@@ -465,18 +465,41 @@ def fetch_reconciliations(
     )
 
 
-def fetch_reconciliation(cfg, reconciliation_id: str, *, verbose: bool = False) -> dict:
-    """GET /v1/reconciliations/{reconciliation_id} → the raw engine body.
+def fetch_holders(cfg, *, verbose: bool = False) -> dict:
+    """GET /v1/holders → the raw engine body. Pure data.
 
-    One reconciliation, the same fields and values as its item in its
-    account's list; a deleted one, or an id that names none of the user's, is
-    a 404 (contract: GET /v1/reconciliations/{reconciliation_id}). Read by the
-    bank import's preview, to name a reconciliation an import row knows by
-    its id only.
+    Every holder of the user's, archived ones included, whole and unpaged as
+    `{items}`, sorted `sort_order` ascending, then creation time, oldest first
+    (contract: GET /v1/holders, "Ordering"). Each names its live accounts by id
+    in `account_ids`, in the accounts' own order (contract: "Holders", "Its accounts").
+    """
+    return fetch_body(cfg, path="/holders", params=None, verbose=verbose)
+
+
+def fetch_statements(cfg, holder_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/statements?holder_id= → the raw engine body. Pure data.
+
+    One holder's live statements, whole and unpaged as `{items}`, sorted
+    `date_start` ascending, then creation time, oldest first; each item reads
+    exactly as `GET /statements/{id}` reads it. The holder is the list's only
+    filter and is required; an id naming no holder of the user's lists none
+    (contract: GET /v1/statements).
     """
     return fetch_body(
-        cfg, path=f"/reconciliations/{reconciliation_id}", params=None, verbose=verbose
+        cfg, path="/statements", params=query_params(holder_id=holder_id), verbose=verbose
     )
+
+
+def fetch_statement(cfg, statement_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/statements/{statement_id} → the raw engine body.
+
+    One statement, the same fields and values as its item in its holder's
+    list; a deleted one, or an id that names none of the user's, is a 404
+    (contract: GET /v1/statements/{statement_id}). Read by the bank import's
+    preview, to name the statement an import row knows by its id only
+    (`redate_blocked_by`).
+    """
+    return fetch_body(cfg, path=f"/statements/{statement_id}", params=None, verbose=verbose)
 
 
 def fetch_dashboard(cfg, *, verbose: bool = False) -> dict:
@@ -821,6 +844,25 @@ def card_partners(items: list) -> dict[str, tuple[str, str, str]]:
                 other.get("currency_code") or "?",
             )
     return partners
+
+
+def holder_accounts(items: list) -> dict[str, list[dict]]:
+    """holder id → its accounts among `items`, in the order given.
+
+    Each real account names the one holder it is on as `holder_id`; a person
+    is on none (contract: "Bank Accounts", "Holder"), so it has no entry, and
+    neither has a row with no id. Grouped from one accounts read, this is the
+    holder's `account_ids` among the accounts read, with no read of the
+    holder itself: the holder lists exactly its live accounts, archived ones
+    included, in the accounts' own order, and archives them all at once
+    (contract: "Holders", "Its accounts") (contract: "Holders", "A holder is archived whole").
+    """
+    held: dict[str, list[dict]] = {}
+    for row in items:
+        holder = row.get("holder_id")
+        if row.get("id") and holder:
+            held.setdefault(str(holder), []).append(row)
+    return held
 
 
 @dataclass(frozen=True)

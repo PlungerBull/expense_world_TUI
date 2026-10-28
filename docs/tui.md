@@ -620,7 +620,7 @@ statement upload's own three ("A statement PDF closes its month" below):
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this file?** | the file's name dim beside the question; every live, non-person account once, in the engine's order, except a card's two accounts, which are one line (`BCP Signature   PEN + USD`), paired only by the engine's `statement_partner_id` (contract: GET /v1/accounts) — `account_picks` in [flow.py](../expense/bank_import/flow.py), archived accounts left out. Two accounts that share a name but not a card are two lines. A card's line is the name its two accounts share once each drops its currency code at the end, or both names joined by ` / ` when they share none. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Which account is this file?** | the file's name dim beside the question; every live, non-person account once, in the engine's order, except a holder's accounts, such as a card's two, which are one line (`BCP Signature   PEN + USD`), grouped only by the engine's `holder_id` on the one accounts read (contract: "Holders") — `account_picks` in [flow.py](../expense/bank_import/flow.py) through `holder_accounts` in [reads.py](../expense/reads.py), archived accounts left out. An account alone on its holder is its own line, and two accounts that share a name but not a holder are two lines. A holder's line is the name its accounts share once each drops its currency code at the end, or their names joined by ` / ` when they share none. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | the engine's dry run as one table, `#  date  title  amount  ✓  reason` (the mark's column has no heading), one row per row the engine read, numbered by its spreadsheet row (the first data row is 2), the amount signed by `signed_cents`, a row with no title showing `—`; on a card, `cur` after the amount: the currency of the account the engine put the row on. Each row's mark and reason (below); `… N more · pgdn` when the rows outrun the screen; then the counts (below), and under them the days where the file and the ledger disagree (below) | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line, then the counts in the past tense (below): no table and no days | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
@@ -640,15 +640,15 @@ that it is left out, `·` (dim) a row of `0`:
 | ✓ | `New` (success colour) | the engine's `new`: created on `⏎` |
 | ✓ | `Already in the ledger` (dim) | `matched`, and the apply writes nothing onto its line |
 | ✓ | `Modified existing transaction` | `matched`, and the apply writes the file's operation number onto the line (`backfill_code`), the bank's title (`retitled`), or moves the line to the bank's day (`redated`) |
-| ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
+| ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed statement stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
 | ✗ | `Closed period` | the engine's `sealed`: on a sealed day, never created |
 | · | `Skipped: amount 0` (dim) | the engine's `skipped`: a row of `0`, never matched or created |
 
 Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
-reconciliation's id only, so the preview's worker reads each distinct one once by its id
-(`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)), never the account's list
+statement's id only, so the preview's worker reads each distinct one once by its id
+(`statement_names` in [flow.py](../expense/bank_import/flow.py)), never the holder's list
 and never while drawing
-(contract: GET /v1/reconciliations/{reconciliation_id}).
+(contract: GET /v1/statements/{statement_id}).
 When a read fails, its rows read `Not moved: a reconciliation is reconciled`, the other ids are
 still read, and a dim `! could not read the reconciliations' names: <why>` sits under the
 counts with the first failure's reason.

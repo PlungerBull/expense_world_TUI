@@ -97,17 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tes
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-4. **Holders and statements read through the engine (builder).** In reads.py: the statement
-   list by holder (`GET /statements?holder_id=`), one statement by id, and the holders list
-   (`GET /holders`), and a helper that finds a holder's accounts, replacing `card_partners`.
-   [flow.py](../../expense/bank_import/flow.py)'s `account_picks` pairs a holder's accounts
-   from the holder, keeping its words, and `reconciliation_names` reads `GET /statements/{id}`.
-   The test fixtures that archive one account of a holder while the other stays live, which the
-   contract no longer allows (contract: "Holders"), go with `card_partners` (`HALF_ARCHIVED` in
-   test_tui_card_statement.py); those that pin the Reconciliations screens go in part 1b.
-   *Passes if:* unit tests pin a holder's two accounts as one line and an account alone on its
-   holder as its own, the bank import's stopping statement is named through the new read, and
-   no request in [expense/](../../expense/) names `/cards` or `card_id`.
 5. **The statement upload on the new route (builder).**
    [statement.py](../../expense/bank_import/statement.py),
    [statement_upload.py](../../expense/tui/screens/statement_upload.py) and flow.py's
@@ -145,3 +134,7 @@ Not built in this spec; drafted into a new spec when it is done.
   from quoted `"key":` dict literals, so a key a test passes to a builder as a keyword argument
   (`account_record(statement_partner_id=…)`) is never checked against the contract. Found by
   task 2's review.
+- **A question for the owner:** a holder may hold an account in each of three currencies or more
+  (contract: "Holders"). The import door's account list names such a holder's line by the rule
+  it uses for two: their shared name, or every name joined by ` / `. No such holder exists in the
+  owner's data. Found by task 4.

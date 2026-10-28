@@ -58,13 +58,8 @@ from tests.unit.helpers import (
 #: The card's dollar account first, so its line stands there and still sends the
 #: soles one; then a savings account and cash, each alone on its holder.
 ACCOUNTS = [
-    account_record(
-        id="sig-usd",
-        name="BCP Signature USD",
-        currency_code="USD",
-        statement_partner_id="sig-pen",
-    ),
-    account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
+    account_record(id="sig-usd", name="BCP Signature USD", currency_code="USD", holder_id="h-sig"),
+    account_record(id="sig-pen", name="BCP Signature PEN", holder_id="h-sig"),
     account_record(id="aho-pen", name="Sueldo Soles", holder_id="h2"),
     account_record(id="cash", name="Efectivo", holder_id="h3"),
 ]

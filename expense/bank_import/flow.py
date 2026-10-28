@@ -1,5 +1,5 @@
 """The steps of a bank import: read the dropped file's bytes, list the accounts
-as picks, make the one call, and name the reconciliations that stop a move.
+as picks, make the one call, and name the statements that stop a move.
 A statement PDF takes the same read and the same picks, then its own call
 (`statement_call`) and the one read of the ledger lines its answer names by id
 (`statement_lines`).
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from expense import reads
-from expense.bank_import.engine import ImportedRow, blocking_reconciliations, request_body
+from expense.bank_import.engine import ImportedRow, blocking_statements, request_body
 from expense.errors import EngineConnectionError, EngineError, format_error
 
 #: The card's account sent as `account_id`: the engine puts each currency's
@@ -25,8 +25,8 @@ SENT_CURRENCY = "PEN"
 class AccountPick:
     """One answer to "which account": an account, or a card's two accounts.
 
-    `accounts` are `(id, name, currency)`, in the engine's order: one, or a
-    card's two, paired by the engine's `statement_partner_id`."""
+    `accounts` are `(id, name, currency)`, in the engine's order: the accounts
+    of one holder, the engine's `holder_id` (contract: "Holders")."""
 
     name: str
     accounts: tuple[tuple[str, str, str], ...]
@@ -62,47 +62,48 @@ class AccountPick:
         return "?"
 
 
-def card_name(first: tuple[str, str, str], second: tuple[str, str, str]) -> str:
-    """What a card's line is called: the name its two accounts share once each
+def card_name(*accounts: tuple[str, str, str]) -> str:
+    """What a card's line is called: the name its accounts share once each
     drops its own currency code at the end (`BCP Signature PEN` and `BCP
-    Signature USD` → `BCP Signature`). Two names that share none show both,
+    Signature USD` → `BCP Signature`). Names that share none show them all,
     joined by ` / `."""
     bases = []
-    for _id, name, currency in (first, second):
+    for _id, name, currency in accounts:
         words = name.split()
         if len(words) > 1 and words[-1].upper() == currency.upper():
             words = words[:-1]
         bases.append(" ".join(words))
-    if bases[0] == bases[1]:
+    if len(set(bases)) == 1:
         return bases[0]
-    return f"{first[1]} / {second[1]}"
+    return " / ".join(name for _id, name, _currency in accounts)
 
 
 def account_picks(accounts: list[dict]) -> list[AccountPick]:
     """Every live, non-person account once, in the order given (the engine's:
-    `sort_order` ascending, then creation time, oldest first —
-    contract: GET /v1/accounts, "Ordering"), except a card's two accounts,
-    which are one pick where the first of them stands. Two accounts are a card
-    only when the engine names one as the other's `statement_partner_id`
-    (`reads.card_partners`); a shared name pairs nothing."""
+    every real account first, `sort_order` ascending, then creation time,
+    oldest first — contract: GET /v1/accounts, "Ordering"), except a holder's
+    accounts, which are one pick where the first of them stands. Accounts are
+    one pick only when the engine puts them on one holder (`holder_id`,
+    grouped by `reads.holder_accounts`); a shared name pairs nothing. A holder
+    is archived whole, so leaving out archived accounts leaves out whole
+    holders (contract: "Holders", "A holder is archived whole")."""
     live = [
         a for a in accounts if a.get("id") and not a.get("is_archived") and not a.get("is_person")
     ]
-    partners = reads.card_partners(live)
+    held = reads.holder_accounts(live)
     taken: set[str] = set()
     picks: list[AccountPick] = []
     for a in live:
-        ident = str(a["id"])
-        if ident in taken:
+        if str(a["id"]) in taken:
             continue
-        own = (ident, str(a.get("name") or "(unnamed)"), str(a.get("currency_code") or "?"))
-        taken.add(ident)
-        partner = partners.get(ident)
-        if partner is None or partner[0] in taken:
-            picks.append(AccountPick(own[1], (own,)))
-            continue
-        taken.add(partner[0])
-        picks.append(AccountPick(card_name(own, partner), (own, partner)))
+        rows = held.get(str(a.get("holder_id") or ""), [a])
+        group = tuple(
+            (str(r["id"]), str(r.get("name") or "(unnamed)"), str(r.get("currency_code") or "?"))
+            for r in rows
+        )
+        taken.update(ident for ident, _name, _currency in group)
+        name = group[0][1] if len(group) == 1 else card_name(*group)
+        picks.append(AccountPick(name, group))
     return picks
 
 
@@ -168,22 +169,23 @@ def statement_lines(cfg, ids: list[str], *, verbose: bool) -> tuple[dict[str, di
     return {str(line.get("id")): line for line in lines}, None
 
 
-def reconciliation_names(
+def statement_names(
     cfg, rows: list[ImportedRow], *, verbose: bool
 ) -> tuple[dict[str, str], str | None]:
-    """reconciliation id → name, for the reconciliations that stop a row's
-    move to the bank's day (the response carries their id only). Each distinct
-    id is read once, by its id (contract: GET /v1/reconciliations/{reconciliation_id}).
-    A failed read never hides what the import does: its rows still show, the
-    reconciliation unnamed, the other ids are still read, and the first
-    failure's reason is returned for one line under the table."""
+    """statement id → name, for the completed statements that stop a row's
+    move to the bank's day (the answer's `redate_blocked_by` carries their id
+    only). Each distinct id is read once, by its id
+    (contract: GET /v1/statements/{statement_id}). A failed read never hides
+    what the import does: its rows still show, the statement unnamed, the
+    other ids are still read, and the first failure's reason is returned for
+    one line under the table."""
     names: dict[str, str] = {}
     failure: str | None = None
-    for reconciliation_id in blocking_reconciliations(rows):
+    for statement_id in blocking_statements(rows):
         try:
-            body = reads.fetch_reconciliation(cfg, reconciliation_id, verbose=verbose)
+            body = reads.fetch_statement(cfg, statement_id, verbose=verbose)
         except (EngineError, EngineConnectionError) as err:
             failure = failure or format_error(err)
             continue
-        names[reconciliation_id] = str(body.get("name") or reconciliation_id)
+        names[statement_id] = str(body.get("name") or statement_id)
     return names, failure

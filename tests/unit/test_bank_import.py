@@ -20,7 +20,7 @@ from expense.bank_import.engine import (
     Verdict,
     answer_counts,
     answer_rows,
-    blocking_reconciliations,
+    blocking_statements,
     day_mismatches,
     preview_line,
     request_body,
@@ -31,17 +31,18 @@ from expense.bank_import.flow import (
     account_picks,
     card_name,
     read_file,
-    reconciliation_names,
+    statement_names,
 )
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
-    ORDERED_ALONE,
     account_record,
     error_response,
     import_answer,
     import_day,
     import_part,
     import_row,
+    statement_list,
+    statement_record,
     unclaimed_line,
 )
 
@@ -115,20 +116,17 @@ def test_a_file_that_cannot_be_opened_is_refused_with_why(tmp_path):
 
 
 # ---- the account picks ------------------------------------------------------------
-def test_a_card_is_one_pick_paired_by_the_engine():
-    """Two accounts the engine pairs through `statement_partner_id` are one
-    pick, where the first of them stands; it names its soles account, whichever
-    comes first (contract: GET /v1/accounts)."""
+def test_a_holders_two_accounts_are_one_pick():
+    """Two accounts the engine puts on one holder are one pick, where the
+    first of them stands, however far apart the list has them; it names its
+    soles account, whichever comes first (contract: "Holders")."""
     picks = account_picks(
         [
             account_record(
-                id="sig-usd",
-                name="BCP Signature USD",
-                currency_code="USD",
-                statement_partner_id="sig-pen",
+                id="sig-usd", name="BCP Signature USD", currency_code="USD", holder_id="h-sig"
             ),
-            account_record(id="bcp-pen", name="BCP PEN", holder_id="h2"),
-            account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
+            account_record(id="bcp-pen", name="BCP PEN", holder_id="h-bcp"),
+            account_record(id="sig-pen", name="BCP Signature PEN", holder_id="h-sig"),
         ]
     )
     assert [(p.name, p.currencies, p.account_id) for p in picks] == [
@@ -142,44 +140,58 @@ def test_a_card_is_one_pick_paired_by_the_engine():
     assert card.currency_of("someone-else") == "?"
 
 
-def test_accounts_sharing_a_name_are_not_folded_without_the_engines_pairing():
+def test_an_account_alone_on_its_holder_is_its_own_pick():
     """A current account's download holds one currency: two accounts whose
-    names differ only by their currency are two picks unless the engine pairs
-    them."""
+    names differ only by their currency, each alone on its holder, are two
+    picks, each under its own name; a shared name pairs nothing
+    (contract: "Holders")."""
     picks = account_picks(
         [
-            account_record(id="ia-pen", name="Interbank Ahorros PEN"),
+            account_record(id="ia-pen", name="Interbank Ahorros PEN", holder_id="h-pen"),
             account_record(
-                id="ia-usd", name="Interbank Ahorros USD", currency_code="USD", holder_id="h2"
+                id="ia-usd", name="Interbank Ahorros USD", currency_code="USD", holder_id="h-usd"
             ),
         ]
     )
-    assert [(p.name, p.currencies) for p in picks] == [
-        ("Interbank Ahorros PEN", "PEN"),
-        ("Interbank Ahorros USD", "USD"),
+    assert [(p.name, p.accounts) for p in picks] == [
+        ("Interbank Ahorros PEN", (("ia-pen", "Interbank Ahorros PEN", "PEN"),)),
+        ("Interbank Ahorros USD", (("ia-usd", "Interbank Ahorros USD", "USD"),)),
     ]
+    assert [(p.currencies, p.is_card) for p in picks] == [("PEN", False), ("USD", False)]
 
 
-def test_archived_accounts_people_and_a_partner_not_listed_are_left_out():
+def test_an_archived_holder_people_and_id_less_rows_are_left_out():
+    """A holder is archived whole, both its accounts with it
+    (contract: "Holders", "A holder is archived whole"); a person is on no holder."""
     picks = account_picks(
         [
-            account_record(id="old", name="Retired PEN", holder_id="h2", is_archived=True),
+            account_record(id="old-pen", name="Retired PEN", holder_id="h-old", is_archived=True),
+            account_record(
+                id="old-usd",
+                name="Retired USD",
+                currency_code="USD",
+                holder_id="h-old",
+                is_archived=True,
+            ),
             account_record(id="ana", name="Ana", is_person=True, holder_id=None),
-            # its partner is archived, so not read here: the account stands alone
-            account_record(id="half", name="Visa PEN", statement_partner_id="other-half"),
+            account_record(id="visa", name="Visa PEN", holder_id="h-visa"),
             {"name": "no id"},
         ]
     )
-    assert [(p.name, p.accounts) for p in picks] == [("Visa PEN", (("half", "Visa PEN", "PEN"),))]
+    assert [(p.name, p.accounts) for p in picks] == [("Visa PEN", (("visa", "Visa PEN", "PEN"),))]
 
 
-def test_a_cards_line_is_the_name_its_two_accounts_share():
+def test_a_cards_line_is_the_name_its_accounts_share():
     assert card_name(("a", "BCP Signature PEN", "PEN"), ("b", "BCP Signature USD", "USD")) == (
         "BCP Signature"
     )
     assert card_name(("a", "Visa", "PEN"), ("b", "Visa", "USD")) == "Visa"
     # names that share nothing: both, as the engine pairs them
     assert card_name(("a", "Visa Oro", "PEN"), ("b", "Dolares", "USD")) == "Visa Oro / Dolares"
+    # a holder of three currencies reads the same way
+    three = (("a", "Visa PEN", "PEN"), ("b", "Visa USD", "USD"), ("c", "Visa EUR", "EUR"))
+    assert card_name(*three) == "Visa"
+    assert card_name(*three[:2], ("c", "Euro", "EUR")) == "Visa PEN / Visa USD / Euro"
 
 
 def test_a_pick_with_no_soles_account_sends_its_first():
@@ -318,7 +330,7 @@ def test_the_engines_counts_and_its_rows():
     )
 
 
-# ---- the reconciliations that stop a move -------------------------------------------
+# ---- the statements that stop a move ------------------------------------------------
 def _stopped(*blocked_by) -> list:
     return answer_rows(
         import_answer(
@@ -330,36 +342,33 @@ def _stopped(*blocked_by) -> list:
     )
 
 
-SEP = {"id": "r-sep", "account_id": "sig-pen", "name": "Septiembre 2026", "status": 2}
-SEP.update(ORDERED_ALONE)
-OCT = {"id": "r-oct", "account_id": "sig-usd", "name": "Octubre 2026", "status": 2, **ORDERED_ALONE}
+SEP = statement_record({"id": "st-sep", "name": "Septiembre 2026", "status": 2})
+OCT = statement_record({"id": "st-oct", "name": "Octubre 2026", "status": 2})
 
 
-def test_the_distinct_stopping_reconciliations_in_the_rows_order():
-    assert blocking_reconciliations(_stopped("r-sep", None, "r-oct", "r-sep")) == [
-        "r-sep",
-        "r-oct",
+def test_the_distinct_stopping_statements_in_the_rows_order():
+    assert blocking_statements(_stopped("st-sep", None, "st-oct", "st-sep")) == [
+        "st-sep",
+        "st-oct",
     ]
-    assert blocking_reconciliations(_stopped(None, None)) == []
+    assert blocking_statements(_stopped(None, None)) == []
 
 
 @respx.mock
-def test_each_stopping_reconciliation_is_named_by_one_read_of_it_by_its_id(configured):
-    """One `GET /reconciliations/{id}` per distinct id, however many rows it
-    stops, and no account's list is read
-    (contract: GET /v1/reconciliations/{reconciliation_id})."""
-    listed = respx.get(f"{BASE}/v1/reconciliations").mock(
-        return_value=httpx.Response(200, json={"items": []})
+def test_each_stopping_statement_is_named_by_one_read_of_it_by_its_id(configured):
+    """One `GET /statements/{id}` per distinct id the answer's
+    `redate_blocked_by` names, however many rows it stops, and no holder's
+    list is read (contract: GET /v1/statements/{statement_id})."""
+    listed = respx.get(f"{BASE}/v1/statements").mock(
+        return_value=httpx.Response(200, json=statement_list([]))
     )
-    sep = respx.get(f"{BASE}/v1/reconciliations/r-sep").mock(
-        return_value=httpx.Response(200, json=SEP)
-    )
-    oct_ = respx.get(f"{BASE}/v1/reconciliations/r-oct").mock(
+    sep = respx.get(f"{BASE}/v1/statements/st-sep").mock(return_value=httpx.Response(200, json=SEP))
+    oct_ = respx.get(f"{BASE}/v1/statements/st-oct").mock(
         return_value=httpx.Response(200, json=OCT)
     )
-    rows = _stopped("r-sep", "r-oct", "r-sep", None, "r-sep")
-    names, error = reconciliation_names(config_module.ensure_loaded(), rows, verbose=False)
-    assert names == {"r-sep": "Septiembre 2026", "r-oct": "Octubre 2026"}
+    rows = _stopped("st-sep", "st-oct", "st-sep", None, "st-sep")
+    names, error = statement_names(config_module.ensure_loaded(), rows, verbose=False)
+    assert names == {"st-sep": "Septiembre 2026", "st-oct": "Octubre 2026"}
     assert error is None
     assert (sep.call_count, oct_.call_count, listed.call_count) == (1, 1, 0)
     assert [preview_line(r, names).reason for r in rows[:2]] == [
@@ -369,10 +378,11 @@ def test_each_stopping_reconciliation_is_named_by_one_read_of_it_by_its_id(confi
 
 
 @respx.mock
-def test_no_reconciliation_is_read_when_no_move_is_stopped(configured):
-    assert reconciliation_names(
-        config_module.ensure_loaded(), _stopped(None, None), verbose=False
-    ) == ({}, None)
+def test_no_statement_is_read_when_no_move_is_stopped(configured):
+    assert statement_names(config_module.ensure_loaded(), _stopped(None, None), verbose=False) == (
+        {},
+        None,
+    )
 
 
 @pytest.mark.parametrize(
@@ -385,23 +395,21 @@ def test_no_reconciliation_is_read_when_no_move_is_stopped(configured):
     ids=["deleted", "engine-failed", "unreachable"],
 )
 @respx.mock
-def test_a_failed_read_leaves_its_reconciliation_unnamed_and_the_rest_are_read(
-    configured, failure, why
-):
+def test_a_failed_read_leaves_its_statement_unnamed_and_the_rest_are_read(configured, failure, why):
     """A read that fails leaves that id out, so its rows read `a
     reconciliation`; the ids after it are still read and named, and the
     failure's reason comes back for the line under the table."""
-    route = respx.get(f"{BASE}/v1/reconciliations/r-sep")
+    route = respx.get(f"{BASE}/v1/statements/st-sep")
     if isinstance(failure, Exception):
         route.mock(side_effect=failure)
     else:
         route.mock(return_value=failure)
-    oct_ = respx.get(f"{BASE}/v1/reconciliations/r-oct").mock(
+    oct_ = respx.get(f"{BASE}/v1/statements/st-oct").mock(
         return_value=httpx.Response(200, json=OCT)
     )
-    rows = _stopped("r-sep", "r-oct")
-    names, error = reconciliation_names(config_module.ensure_loaded(), rows, verbose=False)
-    assert names == {"r-oct": "Octubre 2026"}
+    rows = _stopped("st-sep", "st-oct")
+    names, error = statement_names(config_module.ensure_loaded(), rows, verbose=False)
+    assert names == {"st-oct": "Octubre 2026"}
     assert oct_.call_count == 1
     assert error is not None and why in error
     assert [preview_line(r, names).reason for r in rows] == [
