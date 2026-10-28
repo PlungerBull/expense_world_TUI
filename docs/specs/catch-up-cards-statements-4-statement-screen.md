@@ -184,7 +184,7 @@ pane, when this spec is named the current one. Questions 1, 8 and 11 are about w
 10. **The list of lines in no statement** (today `u`, newest first, one account at a time).
     - **Whose lines:** **A.** One account's, as today. **B.** The whole card's, both currencies
       together, which needs the engine ask
-      [bank-lines-card-filter.md](../to-engine/bank-lines-card-filter.md) to read in one list.
+      "List a card's bank lines in no statement in one read" (handed over) to read in one list.
 
       **Recommended:** B, with the ask: a statement is the card's, so its leftovers are too.
     - **In what order:** **A.** Newest first: the lines bought last on top. **B.** Oldest
@@ -199,7 +199,8 @@ pane, when this spec is named the current one. Questions 1, 8 and 11 are about w
     What does work is fixing the line (usually its day), reverting, and uploading the PDF again.
     - **A.** The app says that on such a card, in its own words.
     - **B.** Ask the engine to state that path in its advice
-      ([flagged-line-on-a-coded-card.md](../to-engine/flagged-line-on-a-coded-card.md)), and
+      ("Say what a client does with a flagged line on a card with a statement code", handed
+      over), and
       show its words.
     - **C.** Leave it as it is.
 

@@ -79,24 +79,6 @@ so they are built on the holder names and nothing is renamed twice. Creating a b
 `t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
 the catch-up's "Cards in the app".
 
-### Hand over the five files the engine has not received
-Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/before-the-official-import.md](specs/before-the-official-import.md)
-
-The engine coders' answer of 2026-10-27 says only the note asking which specs their changes touch
-has reached them, and that their coming changes (an account moving between holders, and people
-becoming holders) may change once they read these. Each is its own file in
-[to-engine/](to-engine/):
-- "Yes to moving an account to another card, with the limits you proposed; no to the sheet
-  import refusing a name used in two currencies";
-- "Create a bank account and its own card in one write";
-- "Delete a card with its last account, so no client leaves an empty card behind";
-- "List a card's bank lines in no statement in one read";
-- "Say what a client does with a flagged line on a card with a statement code".
-
-Copy all five into the engine repo's `docs/from-tui/` and say when it is done.
-
-**Recommended:** hand them over now.
-
 ### Read the specs for cards and for the statement screen
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
 

@@ -125,8 +125,9 @@ The steps follow question 1's recommended path.
      of its own.
 
    **Recommended:** A: it needs no hand-made accounts, every client gets the same way to fix a
-   card, and the answer to the engine coders is ready to hand over,
-   [to-engine/move-an-account-to-another-card.md](../to-engine/move-an-account-to-another-card.md).
+   card, and the answer saying yes to the engine coders' move ("Yes to moving an account to
+   another card, with the limits you proposed; no to the sheet import refusing a name used in two
+   currencies") is handed over.
    B stays the way through if you decline the move.
 
 2. **The old Oro card and the two Interbank accounts: one card each, or a card per account?** Oro
