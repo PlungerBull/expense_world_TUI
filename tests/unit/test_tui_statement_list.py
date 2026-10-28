@@ -556,18 +556,7 @@ def test_an_archived_holders_accounts_are_not_listed(monkeypatch):
     assert [params for _m, path, params in client.calls if path == "/accounts"][0] == {}
 
 
-# ---- the shared read and the accounts a code labels ---------------------------------
-
-
-@pytest.mark.parametrize(
-    "kw", [{}, {"account_id": "a", "statement_of": "a"}], ids=["neither", "both"]
-)
-def test_the_list_read_takes_exactly_one_of_its_two_parameters(kw):
-    """The engine refuses neither and both (contract: GET /v1/reconciliations)."""
-    from expense.reads import fetch_reconciliations
-
-    with pytest.raises(ValueError):
-        fetch_reconciliations(object(), **kw)
+# ---- the accounts a code labels ------------------------------------------------------
 
 
 def test_a_statement_list_shows_every_account_of_the_holder_titled_by_its_code():

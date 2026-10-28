@@ -31,7 +31,6 @@ from tests.unit.helpers import (
     render_text,
     run_app,
     wait_for,
-    whole,
 )
 
 NAMES = {"sig-pen": "Signature PEN", "sig-usd": "Signature USD", "acc1": "BCP PEN"}
@@ -137,12 +136,8 @@ def _by_id(fake_client) -> list[str]:
     return [path for verb, path, _ in fake_client.calls if verb == "GET" and path.count("/") > 1]
 
 
-def _patch(monkeypatch, record: dict) -> None:
-    """The statement's own reads: its reconciliation, completed by the close."""
-    monkeypatch.setattr(
-        "expense.reads.fetch_reconciliations",
-        lambda cfg, **k: whole([{**record, "status": 2}]),
-    )
+def _patch(monkeypatch) -> None:
+    """The accounts' names the screens show."""
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: dict(NAMES)
     )
@@ -195,7 +190,7 @@ def _listed(screen: FlaggedLinesScreen) -> list:
 
 
 def test_a_close_that_flags_nothing_opens_no_screen_and_adds_nothing(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client)
     _flags(fake_client, SOLES, [], [])
 
@@ -222,7 +217,7 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
     their ids, oldest first, with a `limit` covering them, and no line read by its
     id; the rows in the engine's order, not the close's; the screen's words, its
     columns and its footer as pane 1A draws them."""
-    _patch(monkeypatch, PLAIN)
+    _patch(monkeypatch)
     lines = [{**line, "account_id": "acc1"} for line in (TAMBO, UBER)]
     engine = Lines(monkeypatch, fake_client, *lines)
     _flags(fake_client, PLAIN, ["l-uber", "l-tambo"])
@@ -261,7 +256,7 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
 def test_a_card_shows_both_halves_lines_oldest_first(fake_client, monkeypatch):
     """The named half's `review_lines`, then the twin's, in one read, listed oldest
     first as the engine orders them, each row naming its account."""
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], ["l-spotify"])
 
@@ -279,7 +274,7 @@ def test_a_card_shows_both_halves_lines_oldest_first(fake_client, monkeypatch):
 
 
 def test_the_twins_lines_merge_by_day_whichever_half_is_named(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
     _flags(fake_client, SOLES, ["l-spotify"], ["l-tambo", "l-uber"])
 
@@ -292,7 +287,7 @@ def test_the_twins_lines_merge_by_day_whichever_half_is_named(fake_client, monke
 
 
 def test_one_line_reads_in_the_singular(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     Lines(monkeypatch, fake_client, UBER)
     _flags(fake_client, SOLES, ["l-uber"], [])
 
@@ -318,7 +313,7 @@ def test_one_line_reads_in_the_singular(fake_client, monkeypatch):
 def test_enter_opens_the_line_in_the_ledgers_edit_form(fake_client, monkeypatch):
     """`⏎` opens the ledger's Edit form on the line, which reads it by its id; a
     save reads the flagged lines again, by their ids, `esc` reads nothing."""
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
 
@@ -348,7 +343,7 @@ def test_enter_opens_the_line_in_the_ledgers_edit_form(fake_client, monkeypatch)
 def test_d_asks_and_y_deletes_and_the_list_drops_the_line(fake_client, monkeypatch):
     """Deleted, the line is gone from the engine: the same ids read again leave it
     out, so it drops from the list, and the next read sends only the line left."""
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
 
@@ -376,7 +371,7 @@ def test_d_asks_and_y_deletes_and_the_list_drops_the_line(fake_client, monkeypat
 
 
 def test_a_split_line_goes_whole_after_the_question_naming_its_parts(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, FARMACIA, UBER)
     _flags(fake_client, SOLES, ["l-farmacia", "l-uber"], [])
 
@@ -397,7 +392,7 @@ def test_a_split_line_goes_whole_after_the_question_naming_its_parts(fake_client
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
 def test_anything_but_y_keeps_the_line(fake_client, monkeypatch, answer):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
 
@@ -416,7 +411,7 @@ def test_anything_but_y_keeps_the_line(fake_client, monkeypatch, answer):
 
 
 def test_the_last_line_gone_goes_back_to_the_statement_and_clears_it(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, UBER)
     _flags(fake_client, SOLES, ["l-uber"], [])
 
@@ -439,7 +434,7 @@ def test_the_last_line_gone_goes_back_to_the_statement_and_clears_it(fake_client
 
 
 def test_esc_back_shows_the_warning_line_and_f_opens_the_list_again(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], ["l-spotify"])
 
@@ -468,7 +463,7 @@ def test_esc_back_shows_the_warning_line_and_f_opens_the_list_again(fake_client,
 
 
 def test_revert_clears_the_line_and_f(fake_client, monkeypatch):
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     Lines(monkeypatch, fake_client, UBER)
     _flags(fake_client, SOLES, ["l-uber"], [])
 
@@ -498,7 +493,7 @@ def test_revert_clears_the_line_and_f(fake_client, monkeypatch):
 def test_a_refused_read_shows_the_engines_words(fake_client, monkeypatch):
     """A read the engine refuses: the toast holds the engine's words as every read
     failure shows them (`format_error`), nothing is listed, and `r` reads again."""
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
     engine = Lines(monkeypatch, fake_client, UBER, TAMBO)
     engine.refusal = refusal
@@ -529,7 +524,7 @@ def test_a_refused_read_shows_the_engines_words(fake_client, monkeypatch):
 def test_a_refused_read_again_keeps_what_is_listed(fake_client, monkeypatch):
     """Listed, then a read the engine refuses: its words as a toast, the rows as
     they were, the cursor where it was."""
-    _patch(monkeypatch, SOLES)
+    _patch(monkeypatch)
     refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
@@ -562,7 +557,7 @@ def test_more_than_200_ids_are_read_200_at_a_time_in_the_closes_order(fake_clien
     """A close names 250 lines: two reads, its first 200 ids then the last 50, each
     with a `limit` of its own ids; the rows are each read's answer in turn, oldest
     first within each read only (contract: GET /v1/bank-lines, "At most 200 ids")."""
-    _patch(monkeypatch, PLAIN)
+    _patch(monkeypatch)
     days = [f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}" for i in range(250)]
     many = [
         _line(f"l-{i:03d}", -100, day, f"LINE {i}", account="acc1") for i, day in enumerate(days)

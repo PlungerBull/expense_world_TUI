@@ -12,31 +12,35 @@ import pytest
 import respx
 from textual.widgets import Static
 
-from expense.errors import EngineError
+from expense.errors import EngineError, format_error
 from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import ReconciliationDetailScreen, line_rows
+from expense.tui.screens.reconciliations import (
+    ReconciliationDetailScreen,
+    account_view,
+    line_rows,
+)
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ARCHIVED_PUT_WORDS,
     ARCHIVED_RECONCILIATION_PUT_WORDS,
     ENGINE_URL,
-    NO_STATEMENT,
     archived_refusal,
     archived_words,
     bank_line_row,
     complete_answer,
     cursor_page,
     edit_limits,
+    error_response,
     import_part,
     put_answer,
     reconciliation_answer,
     refusal_text,
     render_text,
     run_app,
+    statement_record,
     wait_for,
-    whole,
 )
 
 
@@ -173,24 +177,29 @@ def test_status_span_maps_completed_and_draft():
     assert _status_span("draft", palette) == ("draft", palette.warning)
 
 
-DRAFT = {
-    "id": "r1",
-    "account_id": "acc1",
-    "name": "April 2026",
-    "date_start": "2026-04-01",
-    "date_end": "2026-04-30",
-    "beginning_balance_cents": 958000,
-    "ending_balance_cents": 946000,
-    "difference_cents": -3500,
-    "status": 1,
-    **NO_STATEMENT,
-}
+def _statement(**balance) -> dict:
+    """Statement r1 as `GET /statements/{id}` reads it: April 2026, a draft of a holder
+    of acc1 alone, acc1's balances a begin of 9,580.00, an end of 9,460.00 and a
+    difference of -35.00, `balance` spread over them."""
+    acc1 = {
+        "account_id": "acc1",
+        "beginning_balance_cents": 958000,
+        "ending_balance_cents": 946000,
+        "difference_cents": -3500,
+    }
+    return statement_record({"id": "r1", "balances": [{**acc1, **balance}]})
 
 
-def _patch(monkeypatch, record: dict = DRAFT):
+#: The statement as the engine holds it, and as the browse opens it on acc1: its own
+#: fields with acc1's entry in `balances` over them (`account_view`).
+STATEMENT = _statement()
+DRAFT = account_view(STATEMENT, "acc1")
+
+
+def _patch(monkeypatch):
     """Screen-specific patches; the client/config seams come from fake_client.
-    Returns the log of `GET /reconciliations` reads (the header's re-read)."""
-    month_reads: list = []
+    Returns the log of `GET /statements/{id}` reads (the header's re-read), by id."""
+    statement_reads: list = []
 
     def fake_fetch(cfg, **k):
         if k.get("reconciliation") == "r1":
@@ -199,16 +208,16 @@ def _patch(monkeypatch, record: dict = DRAFT):
             return cursor_page(AVAILABLE)
         return cursor_page([])
 
-    def fake_month(cfg, *, account_id, **k):
-        month_reads.append(account_id)
-        return whole([dict(record)])
+    def fake_statement(cfg, statement_id, **k):
+        statement_reads.append(statement_id)
+        return dict(STATEMENT)
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", fake_month)
+    monkeypatch.setattr("expense.reads.fetch_statement", fake_statement)
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
-    return month_reads
+    return statement_reads
 
 
 async def _wait_list(screen, pilot):
@@ -218,7 +227,9 @@ async def _wait_list(screen, pilot):
 def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
     """The tick-list's in-range read asks for the account's lines in no batch,
     with the period's own days in the engine's day filters, unconverted: a bare
-    `date_to` is the whole last day (contract: GET /v1/bank-lines)."""
+    `date_to` is the whole last day (contract: GET /v1/bank-lines). The statement's
+    own lines are read on the opened account alone, any day: a statement's lines are
+    every account's of its holder (contract: GET /v1/bank-lines, "Filters")."""
     _patch(monkeypatch)
     calls: list = []
     from expense import reads
@@ -236,13 +247,14 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        in_range = [k for k in calls if k.get("account") == "acc1"]
+        in_range = [k for k in calls if k.get("unreconciled")]
         assert len(in_range) == 1
-        assert in_range[0]["unreconciled"] is True
+        assert in_range[0]["account"] == "acc1"
         assert in_range[0]["date_from"] == "2026-04-01"
         assert in_range[0]["date_to"] == "2026-04-30"
         batch = [k for k in calls if k.get("reconciliation") == "r1"]
-        assert len(batch) == 1 and "account" not in batch[0]
+        assert len(batch) == 1 and batch[0]["account"] == "acc1"
+        assert "date_from" not in batch[0] and "date_to" not in batch[0]
 
     run_app(scenario)
 
@@ -284,7 +296,7 @@ def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
 def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, monkeypatch):
     """`space` on a split purchase: one `PUT` on one of its parts, then the
     month and its lines are read again, and the cursor stays on that row."""
-    month_reads = _patch(monkeypatch)
+    statement_reads = _patch(monkeypatch)
     ticked = {**FARMACIA, "parts": [{**p, "reconciliation_id": "r1"} for p in FARMACIA["parts"]]}
 
     async def scenario(pilot, app):
@@ -302,7 +314,7 @@ def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, m
         await wait_for(pilot, lambda: fake_client.puts)
         await wait_for(pilot, lambda: screen._list is not first)
         assert fake_client.puts == [("/transactions/t2a", {"reconciliation_id": "r1"})]
-        assert month_reads == ["acc1"]  # the header's figures, read again
+        assert statement_reads == ["r1"]  # the header's figures, read again
         assert [r[0] for r in screen._list._rows] == ["l1", "l2", "l3"]  # ticked rows first
         assert screen._list.checked == {"l1", "l2"}
         assert screen._list.cursor_key == "l2"  # the cursor stays on the purchase
@@ -311,7 +323,7 @@ def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, m
 
 
 def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch):
-    month_reads = _patch(monkeypatch)
+    statement_reads = _patch(monkeypatch)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -321,7 +333,7 @@ def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch
         await pilot.press("space")  # the cursor starts on NETFLIX, ticked
         await wait_for(pilot, lambda: screen._list is not first)
         assert fake_client.puts == [("/transactions/t1", {"reconciliation_id": None})]
-        assert month_reads == ["acc1"]
+        assert statement_reads == ["r1"]
         assert screen._list.cursor_key == "l1"
 
     run_app(scenario)
@@ -350,17 +362,18 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
                 json=cursor_page(ASSIGNED if "statement_id" in request.url.params else AVAILABLE),
             )
         )
-        mock.get(f"{ENGINE_URL}/v1/reconciliations").mock(httpx.Response(200, json=whole([DRAFT])))
+        read = mock.get(f"{ENGINE_URL}/v1/statements/r1").mock(httpx.Response(200, json=STATEMENT))
         ticked = [{**p, "reconciliation_id": "r1", "version": 2} for p in FARMACIA["parts"]]
         answer = put_answer(ticked[0], ticked)
         route = mock.put(f"{ENGINE_URL}/v1/transactions/t2a").mock(httpx.Response(200, json=answer))
         run_app(scenario)
     assert route.call_count == 1
+    assert read.call_count == 1  # the statement, read again by its id after the tick
     request = route.calls.last.request
     assert request.headers["X-Idempotency-Key"]
     assert request.read() == b'{"reconciliation_id":"r1"}'
     sent = [dict(call.request.url.params) for call in lines.calls]
-    assert {"statement_id": "r1", "limit": "200"} in sent
+    assert {"statement_id": "r1", "account_id": "acc1", "limit": "200"} in sent
     assert {
         "account_id": "acc1",
         "unreconciled": "true",
@@ -555,7 +568,7 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
     and the cursor goes back to row 1."""
     import threading
 
-    month_reads = _patch(monkeypatch)
+    statement_reads = _patch(monkeypatch)
     from expense import reads as reads_module
 
     fake = reads_module.fetch_bank_lines
@@ -608,7 +621,7 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
             ("/transactions/t1", {"reconciliation_id": None}),
             ("/transactions/t2a", {"reconciliation_id": "r1"}),
         ]
-        assert month_reads == ["acc1"]  # the header's figures, read again once
+        assert statement_reads == ["r1"]  # the header's figures, read again once
         assert len(line_reads) - loaded == 2  # the batch's lines and the rest, once
         assert screen._list.cursor_key == "l1"
 
@@ -684,7 +697,7 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
     cursor on row 1 — and `r` keeps drawing after it."""
     import threading
 
-    month_reads = _patch(monkeypatch)
+    statement_reads = _patch(monkeypatch)
     release = threading.Event()
     refusal = EngineError("CONFLICT", "Reconciliation changed elsewhere.", None, 409, {})
 
@@ -718,7 +731,7 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
         await wait_for(pilot, lambda: screen._list is not first)
         assert notices[0][0] == "Couldn't revert"
         assert fake_client.puts == []  # the tick was never sent
-        assert month_reads == ["acc1"]
+        assert statement_reads == ["r1"]
         assert screen._list.checked == {"l1"}  # the engine's ticks
         assert screen._list.cursor_key == "l1"
         assert not screen._ticks_unanswered()
@@ -1041,7 +1054,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     `Couldn't <verb>` carries the engine's words and its `reconciliation_id`
     words, no line of the app's; the batch stays open as a draft."""
     _patch(monkeypatch)
-    _fresh_read(monkeypatch, DRAFT)  # a refused complete reads the batch fresh
+    _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the batch fresh
     err = archived_refusal(409, archived_words(verb, "reconciliation"), "reconciliation_id")
     fake_client.errors[method] = err
     notices = _notes(monkeypatch)
@@ -1078,7 +1091,7 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
     _patch(monkeypatch)
 
     def fake_fetch(cfg, **k):  # nothing assigned to r1
-        if k.get("account") == "acc1":
+        if k.get("account") == "acc1" and k.get("unreconciled"):
             return cursor_page(AVAILABLE)
         return cursor_page([])
 
@@ -1267,45 +1280,89 @@ def test_revert_key_is_u(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_r_refreshes_record_from_its_account_list_and_never_writes(fake_client, monkeypatch):
-    """`r` re-reads the batch (header + status gate) and the checklist; no
-    write, no dismiss. There is no read by id, so it reads
-    the account's list — whole, so the row is in it — and picks the row out."""
-    completed = {**DRAFT, "status": 2}
-    _patch(monkeypatch)
-    fresh = {**completed, "ending_balance_cents": 999999}
-    other = {**completed, "id": "r0", "name": "February 2026"}
-    reads: list = []
+#: Statement r1 completed, read fresh on a holder of two accounts: acc2's balances
+#: first, then acc1's, its end moved to 9,999.99 and its difference to 0.
+CARD_FRESH = statement_record(
+    {
+        "id": "r1",
+        "status": 2,
+        "balances": [
+            {
+                "account_id": "acc2",
+                "beginning_balance_cents": 5000,
+                "ending_balance_cents": 7000,
+                "difference_cents": 120,
+            },
+            {
+                "account_id": "acc1",
+                "beginning_balance_cents": 958000,
+                "ending_balance_cents": 999999,
+                "difference_cents": 0,
+            },
+        ],
+    }
+)
 
-    def listed(cfg, *, account_id, **k):
-        assert "limit" not in k and "offset" not in k, "the list is whole"
-        reads.append(account_id)
-        return whole([dict(other), dict(fresh)])
 
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", listed)
+def _detail_lines(mock) -> None:
+    """The checklist's reads on the mocked engine: the statement's line on acc1, and
+    none in no statement."""
+    mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(
+        side_effect=lambda request: httpx.Response(
+            200, json=cursor_page(ASSIGNED if "statement_id" in request.url.params else [])
+        )
+    )
+
+
+def test_r_reads_the_statement_by_its_id_and_shows_the_opened_accounts_balances(
+    configured, monkeypatch
+):
+    """`r` reads the statement again by its id, `GET /statements/{id}`, through the
+    real HTTP client (contract: GET /v1/statements/{statement_id}), and the
+    checklist; the header shows the opened account's entry in `balances`, never
+    another account's, and the status read. No write, no dismiss."""
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+    seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("r")
         await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") == 999999)
-        await pilot.pause()  # let the refresh settle, then assert a non-event
-        assert reads == [DRAFT["account_id"]]  # this batch's account, once
-        assert screen._record["id"] == "r1"  # the right row, not its neighbour
-        assert app.screen is screen  # not dismissed
-        assert not fake_client.posts and not fake_client.deletes
+        await wait_for(pilot, lambda: screen._list._read_only)
+        seen["head"] = str(screen.query_one("#rhead", Static).visual)
+        seen["record"] = dict(screen._record)
+        seen["screen"] = app.screen is screen
 
-    run_app(scenario)
+    with respx.mock() as mock:
+        _detail_lines(mock)
+        read = mock.get(f"{ENGINE_URL}/v1/statements/r1").mock(httpx.Response(200, json=CARD_FRESH))
+        run_app(scenario)
+        writes = [call.request for call in mock.calls if call.request.method != "GET"]
+    assert read.call_count == 1
+    assert writes == []
+    assert seen["screen"]  # not dismissed
+    assert (seen["record"]["id"], seen["record"]["account_id"]) == ("r1", "acc1")
+    assert "begin 9,580.00    end 9,999.99" in seen["head"]
+    assert "70.00" not in seen["head"] and "1.20" not in seen["head"]  # acc2's figures
+    assert seen["head"].endswith("status completed")
 
 
-def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
-    """Batch deleted elsewhere → absent from its account's whole list → notify
-    and pop. Absent is reliable now: the list is never a page of it."""
-    _patch(monkeypatch)
+def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch):
+    """The statement deleted elsewhere: its read by id is a `404`, which is how the
+    screen learns it (contract: GET /v1/statements/{statement_id}); it says so and
+    goes back."""
     monkeypatch.setattr(
-        "expense.reads.fetch_reconciliations",
-        lambda cfg, *, account_id, **k: whole([{**DRAFT, "id": "someone-else"}]),
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen,
+        "notify",
+        lambda self, message, **kw: notices.append((message, kw.get("severity"))),
     )
 
     async def scenario(pilot, app):
@@ -1314,6 +1371,41 @@ def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
         await _wait_list(screen, pilot)
         await pilot.press("r")
         await wait_for(pilot, lambda: app.screen is not screen)
+
+    with respx.mock() as mock:
+        _detail_lines(mock)
+        read = mock.get(f"{ENGINE_URL}/v1/statements/r1").mock(
+            error_response(404, "NOT_FOUND", "Statement not found.")
+        )
+        run_app(scenario)
+    assert read.call_count == 1
+    assert notices == [("This reconciliation no longer exists.", "error")]
+
+
+def test_r_refused_otherwise_shows_the_engines_words_and_stays(fake_client, monkeypatch):
+    """Any other refusal of the read is no sign of a delete: its words show, as every
+    read failure shows them, and the screen stays."""
+    _patch(monkeypatch)
+    refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
+
+    def refused(cfg, statement_id, **k):
+        raise refusal
+
+    monkeypatch.setattr("expense.reads.fetch_statement", refused)
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("r")
+        await wait_for(pilot, lambda: notices)
+        await pilot.pause()
+        assert notices == [format_error(refusal)]
+        assert app.screen is screen
 
     run_app(scenario)
 
@@ -1390,8 +1482,10 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 # The engine refuses to complete without it (contract: POST
 # /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 
-NO_END = {**DRAFT, "ending_balance_cents": None, "difference_cents": None}
-SAVED = {**NO_END, "ending_balance_cents": 1385320, "difference_cents": 0}
+NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
+NO_END = account_view(NO_END_STATEMENT, "acc1")
+SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
+SAVED = account_view(SAVED_STATEMENT, "acc1")
 PUT_PATH = "/reconciliations/r1"
 COMPLETE_PATH = "/reconciliations/r1/complete"
 
@@ -1407,11 +1501,9 @@ def _notes(monkeypatch) -> list:
     return notices
 
 
-def _fresh_read(monkeypatch, record: dict) -> None:
-    """What `GET /reconciliations?account_id=` answers when the screen reads it fresh."""
-    monkeypatch.setattr(
-        "expense.reads.fetch_reconciliations", lambda cfg, **k: {"items": [dict(record)]}
-    )
+def _fresh_read(monkeypatch, statement: dict) -> None:
+    """What `GET /statements/{id}` answers when the screen reads the statement fresh."""
+    monkeypatch.setattr("expense.reads.fetch_statement", lambda cfg, *a, **k: dict(statement))
 
 
 async def _open_box(pilot, app, record=NO_END, currency="PEN"):
@@ -1649,7 +1741,7 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
         {},
         {"transactions": "NO_TRANSACTIONS_ASSIGNED"},
     )
-    _fresh_read(monkeypatch, SAVED)
+    _fresh_read(monkeypatch, SAVED_STATEMENT)
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1695,7 +1787,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
         {},
         {"ending_balance_cents": "ENDING_BALANCE_REQUIRED"},
     )
-    _fresh_read(monkeypatch, NO_END)
+    _fresh_read(monkeypatch, NO_END_STATEMENT)
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):

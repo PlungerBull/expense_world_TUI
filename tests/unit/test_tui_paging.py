@@ -26,7 +26,6 @@ from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 from tests.unit.helpers import (
-    NO_STATEMENT,
     bank_line_row,
     cursor_page,
     fake_ledger,
@@ -34,6 +33,7 @@ from tests.unit.helpers import (
     list_ready,
     render_text,
     run_app,
+    statement_record,
     wait_for,
     wait_for_list,
     wait_for_loaded,
@@ -717,20 +717,24 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
     Asserted against the container rather than against a number, so it stays
     true if the frame changes shape again.
     """
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen, account_view
 
-    record = {
-        "id": "r1",
+    balance = {
         "account_id": "acc1",
-        "name": "August 2026",
-        "status": 1,
-        **NO_STATEMENT,
-        "date_start": "2026-07-24",
-        "date_end": "2026-08-25",
         "beginning_balance_cents": 1248000,
         "ending_balance_cents": 921540,
         "difference_cents": -1250,
     }
+    statement = statement_record(
+        {
+            "id": "r1",
+            "name": "August 2026",
+            "date_start": "2026-07-24",
+            "date_end": "2026-08-25",
+            "balances": [balance],
+        }
+    )
+    record = account_view(statement, "acc1")
     lines = [
         bank_line_row(
             f"l{i}",

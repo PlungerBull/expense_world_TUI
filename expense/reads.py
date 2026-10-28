@@ -432,38 +432,6 @@ def count_transactions(
     return _count_of(body, "GET /transactions/count")
 
 
-def fetch_reconciliations(
-    cfg,
-    *,
-    account_id: str | None = None,
-    statement_of: str | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/reconciliations → the raw engine body. Pure data.
-
-    Exactly one of the two is sent (contract: GET /v1/reconciliations):
-    `account_id` lists that account's reconciliations alone; `statement_of`
-    lists those of every live account holding that account's statement code,
-    archived ones included: for a card, both halves of every month in one
-    answer, the same from either card account, every non-null `twin_id`
-    naming an item of the same answer. On an account with no code it lists
-    that account's own, as `account_id` does. The list comes back whole as
-    `{items}`, no `limit`, no `offset`, no `total`, sorted `date_start`
-    ascending, then by account in the accounts' order, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"). Read by the
-    reconciliation batch screen, which reads `account_id` to read itself
-    again. A row not in its account's list has been deleted.
-    """
-    if (account_id is None) == (statement_of is None):
-        raise ValueError("fetch_reconciliations takes exactly one of account_id, statement_of")
-    return fetch_body(
-        cfg,
-        path="/reconciliations",
-        params=query_params(account_id=account_id, statement_of=statement_of),
-        verbose=verbose,
-    )
-
-
 def fetch_holders(cfg, *, verbose: bool = False) -> dict:
     """GET /v1/holders → the raw engine body. Pure data.
 
@@ -496,7 +464,8 @@ def fetch_statement(cfg, statement_id: str, *, verbose: bool = False) -> dict:
     list; a deleted one, or an id that names none of the user's, is a 404
     (contract: GET /v1/statements/{statement_id}). Read by the bank import's
     preview, to name the statement an import row knows by its id only
-    (`redate_blocked_by`).
+    (`redate_blocked_by`), and by the statement screen to read itself again,
+    where the 404 tells it the statement was deleted.
     """
     return fetch_body(cfg, path=f"/statements/{statement_id}", params=None, verbose=verbose)
 

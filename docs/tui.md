@@ -1460,14 +1460,21 @@ typed. Saved, it says `Statement created.` and, as the one-account form does, th
 on the open account's statements, the cursor on the new one.
 
 **A reconciliation's batch screen** (`⏎` on one in the panel; screens 2a–2c in
-[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is its
-header — name, account, period, then `begin`, `end`, `diff` and `status` — over a list of
+[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is a
+statement opened on the account whose panel it came from. Its header — name, account,
+period, then `begin`, `end`, `diff` and `status` — is the statement's own fields with that
+account's entry in `balances` over them (`account_view`), never another account's of its
+holder; reading it again is `GET /statements/{id}` (contract: GET /v1/statements/{statement_id}),
+through `fetch_statement` in [reads.py](../expense/reads.py). Under it is a list of
 **bank lines**, read from `GET /bank-lines` (contract: GET /v1/bank-lines) through
 `fetch_bank_lines` in [reads.py](../expense/reads.py), every page of each read. On a draft
-it is a tick-list: the batch's lines (`statement_id=`) ticked and first, then the
+it is a tick-list: the statement's lines on the account (`statement_id=` and `account_id`,
+since a statement's lines are every account's of its holder
+(contract: GET /v1/bank-lines, "Filters")) ticked and first, then the
 account's lines in no batch inside the period (`account_id`, `unreconciled=true`, and the
 period's own days as `date_from` / `date_to`), each read in the engine's order, newest
-first. Once completed it is the batch's lines alone, read-only, with no tick box. A
+first. Once completed it is the statement's lines on the account alone, read-only, with no
+tick box. A
 transaction split into parts is **one row with its total**, never half of it, and nothing on
 the row says it is split. Every row is one line of the bank's own columns, `Date ·
 Title · Operation · Amount`, made by `bank_line_columns` in
@@ -1477,21 +1484,24 @@ Title · Operation · Amount`, made by `bank_line_columns` in
 **Keys**: `space` puts the line under the cursor in or out of the batch with one
 `PUT /transactions/{id}` of `reconciliation_id` (or `null`) on one of its parts, which
 moves every part (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment");
-once every tick sent is answered, the screen reads the reconciliation and its lines again,
+once every tick sent is answered, the screen reads the statement and its lines again,
 so the header's `diff` is the engine's, and the cursor stays on the line ticked last, now
 among the ticked ones; a read that lands while a tick is still unanswered is not drawn, so
 ticking down a statement (`space`, `↓`, `space`…) never lands on another row. A refused
 tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
-reads the reconciliation and its lines again, the cursor on row 1; so does a refused
+reads the statement and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
 `Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks the
 amount, date, title, account, operation number and reconciliation of the N ticked rows.` (N
 the rows ticked, and `1 ticked row` for one): completing makes those six read-only on each
 ticked row, an empty title or operation number staying fillable
 (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
-`u` reverts, `d` deletes the reconciliation, `r` reads it again, `esc` goes back.
-**On a half of a card statement** the screen shows that half alone, its own lines and figures,
-while `c`, `u` and `d` act on both halves in one write, from either half
+`u` reverts, `d` deletes the reconciliation, `r` reads the statement again by its id and its
+lines, `esc` goes back. A statement deleted elsewhere reads as a `404`
+(contract: GET /v1/statements/{statement_id}), so the screen says `This reconciliation no
+longer exists.` and goes back; any other refused read shows the engine's words and stays.
+**Opened on one account of a card's statement** the screen shows that account alone, its
+own lines and figures, while `c`, `u` and `d` act on both halves in one write, from either half
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete)
 (contract: DELETE /v1/reconciliations/{reconciliation_id}).
 On an account with a statement code the engine completes nothing until every line of the
@@ -1513,7 +1523,7 @@ to the question too. A refused save shows `Couldn't save` with the engine's word
 for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try again.`. A
 refused complete shows `Couldn't complete` with the engine's words — after a save in the
 same `c`, under the line `The ending balance is saved. The reconciliation is not
-completed:` — and the screen reads the reconciliation fresh, so the header and the next
+completed:` — and the screen reads the statement fresh, so the header and the next
 `c` go by what the engine holds.
 
 **The lines a complete flagged for review** (pick 1A of

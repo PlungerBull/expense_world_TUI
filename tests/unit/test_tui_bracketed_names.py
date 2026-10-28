@@ -183,10 +183,9 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
     )
 
     def fetch(cfg, **k):
-        return cursor_page([line] if k.get("account") == "acc1" else [])
+        return cursor_page([line] if k.get("unreconciled") else [])
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fetch)
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", lambda *a, **k: whole([DRAFT]))
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )

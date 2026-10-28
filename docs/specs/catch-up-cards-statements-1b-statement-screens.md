@@ -97,11 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-2. **A statement's screen read and shown from the new routes (builder).** reconciliations.py's
-   detail screen reads `GET /statements/{id}` and shows the opened account's balances from its
-   entry in `balances`, its header and lines as today.
-   *Passes if:* the detail screen's reading and drawing tests pass on the new answers, and its
-   refresh reads the statement by its id.
 3. **A statement's actions on the new routes (builder).** The detail screen ticks with
    `statement_id`, saves the ending balance in `balances`, and completes, reverts and deletes
    under `/statements`; the close's `warnings` and `coverage_gap` are read per balance, the

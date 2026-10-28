@@ -40,13 +40,16 @@ end › the other account's begin › end, the two accounts stated on a line of
 their own. One POST /statements with the holder and both accounts' balances
 creates the statement (contract: POST /v1/statements).
 
-Working screen (ReconciliationDetailScreen): a checklist of bank lines — the
-batch's, then the account's in its period that are in no batch (draft) — or a
-read-only list of the batch's lines (completed), read from `GET /bank-lines`
-so a purchase split into parts is one row with its total. `space` toggles
-membership (PUT `reconciliation_id` on one part, which moves the whole line)
-and reads the batch and its list again; `c`/`u`/`d` complete/revert/delete;
-`r` refetches the batch + checklist. Complete
+Working screen (ReconciliationDetailScreen): a statement opened on one
+account, its header that account's entry in the statement's `balances`
+(`account_view`), over a checklist of bank lines — the statement's on that
+account, then the account's in its period that are in no batch (draft) — or a
+read-only list of the statement's lines on it (completed), read from
+`GET /bank-lines` so a purchase split into parts is one row with its total.
+`space` toggles membership (PUT `reconciliation_id` on one part, which moves
+the whole line) and reads the statement and its list again;
+`c`/`u`/`d` complete/revert/delete; `r` reads the statement again by its id,
+`GET /statements/{id}`, and the checklist. Complete
 needs ≥1 transaction and locks the amount, date, title, account, operation
 number and reconciliation of each, an empty title or operation number staying
 fillable (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
@@ -76,7 +79,7 @@ from textual.worker import get_current_worker
 
 from expense import formatting, reads
 from expense.dates import is_calendar_day
-from expense.errors import format_error
+from expense.errors import EngineError, format_error
 from expense.formatting import (
     bank_line_columns,
     bank_line_part_count,
@@ -1453,21 +1456,28 @@ class ReconciliationDetailScreen(
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
             if refresh_record:
-                # refetch the batch itself too — a stale header/status would
-                # misrepresent balances and the read-only gate. There is no
-                # read by id: the account's list is whole,
-                # so a row missing from it is a row that was deleted.
-                listed = reads.fetch_reconciliations(cfg, account_id=self._account_id, **kw)
-                fresh = next((r for r in items_of(listed) if r.get("id") == self._id), None)
+                # read the statement itself too, by its id — a stale header or
+                # status would misrepresent balances and the read-only gate. A
+                # deleted one is a 404 (contract: GET /v1/statements/{statement_id}).
+                try:
+                    statement = reads.fetch_statement(cfg, self._id, **kw)
+                except EngineError as exc:
+                    if exc.status != 404:
+                        raise
+                    if not worker.is_cancelled:
+                        call_while_attached(self, self._record_gone)
+                    return
                 if worker.is_cancelled:
                     return
-                if fresh is None:
-                    call_while_attached(self, self._record_gone)
-                    return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
+                fresh = account_view(statement, self._account_id)
                 call_while_attached(self, self._apply_fresh_record, fresh)
-            # the batch's lines (always; any date)
-            assigned = _fetch_all_lines(cfg, reconciliation=self._id, **kw)
+            # the statement's lines on the opened account (always; any date): a
+            # statement's lines are every account's of its holder
+            # (contract: GET /v1/bank-lines, "Filters")
+            assigned = _fetch_all_lines(
+                cfg, reconciliation=self._id, account=self._account_id, **kw
+            )
             available = []
             if not self._completed:  # a draft also offers the account's lines in no batch
                 available = _fetch_all_lines(
