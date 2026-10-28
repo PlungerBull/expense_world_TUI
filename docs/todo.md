@@ -48,7 +48,7 @@ broken until the catch-up's "Cards in the app".
 ### Approve the sheet import's counts line spec
 Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
 
-Part 3 of the catch-up: the sheet import says how many sheet rows its split transactions come
+The catch-up's fifth spec: the sheet import says how many sheet rows its split transactions come
 from. Its question 1 is the words, `split transactions 3 (8 rows)` or `split transactions 3 ·
 rows in them 8`, and whether `(0 rows)` shows when there are none. Two tasks are drafted.
 
