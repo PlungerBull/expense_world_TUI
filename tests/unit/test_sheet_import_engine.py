@@ -44,6 +44,7 @@ from expense.import_.engine import (
 )
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
+    account_record,
     error_body,
     sheet_import_answer,
     sheet_name_use,
@@ -95,10 +96,6 @@ def _cfg():
 
 def _body(request: httpx.Request) -> dict:
     return json.loads(request.content)
-
-
-def _account(ident: str, name: str, currency: str = "PEN", **extra) -> dict:
-    return {"id": ident, "name": name, "currency_code": currency, "is_archived": False, **extra}
 
 
 #: A sheet using one account in two currencies, one you have; a category you have
@@ -293,8 +290,8 @@ def test_a_renamed_account_goes_to_yours_of_that_name_and_currency_over_the_prop
     trimmed and in any letter case, in the entry's own currency."""
     renames = {rename_key(" bcp oro ", "pen"): "Sueldo Soles"}
     accounts = [
-        _account("acc-sueldo-usd", "Sueldo Soles", "USD"),
-        _account("acc-sueldo-pen", " sueldo soles ", "PEN"),
+        account_record(id="acc-sueldo-usd", name="Sueldo Soles", currency_code="USD"),
+        account_record(id="acc-sueldo-pen", name=" sueldo soles ", holder_id="h2"),
     ]
     (pen, usd, *_rest) = names_table(DRY, renames, accounts)
     assert (pen.goes, pen.target_id, pen.renamed_to) == (
@@ -307,7 +304,7 @@ def test_a_renamed_account_goes_to_yours_of_that_name_and_currency_over_the_prop
 
 def test_a_renamed_account_you_lack_in_its_currency_is_missing_under_the_rename():
     renames = {rename_key("BCP Oro", "USD"): "Dolares"}
-    accounts = [_account("acc-dolares-pen", "Dolares", "PEN")]
+    accounts = [account_record(id="acc-dolares-pen", name="Dolares")]
     usd = names_table(DRY, renames, accounts)[1]
     assert (usd.goes, usd.target_id, usd.renamed_to, usd.ledger_name) == (
         Goes.MISSING,
@@ -419,7 +416,7 @@ def test_a_rename_reads_your_accounts_people_and_archived_included(configured):
     _engine()
     accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
-            200, json={"items": [_account("acc-sueldo", "Sueldo Soles", "PEN")]}
+            200, json={"items": [account_record(id="acc-sueldo", name="Sueldo Soles")]}
         )
     )
     renames = {rename_key("BCP Oro", "PEN"): "Sueldo Soles"}

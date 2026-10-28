@@ -12,7 +12,7 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from tests.unit.helpers import render_text, run_app, wait_for
+from tests.unit.helpers import account_record, render_text, run_app, wait_for
 
 
 def _enter(screen, text):
@@ -287,17 +287,16 @@ def _green_category() -> EditCategoryScreen:
     return EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#5ab87a"})
 
 
-def _account(color, *, is_person=False) -> EditAccountScreen:
+def _edit_account(color, *, is_person=False) -> EditAccountScreen:
+    """The edit form of Sueldo, a soles account or person of `color`."""
     return EditAccountScreen(
-        {
-            "id": "abc",
-            "name": "Sueldo",
-            "currency_code": "PEN",
-            "color": color,
-            "statement_code": None,
-            "is_person": is_person,
-            "opening_balance_transaction_id": None,
-        }
+        account_record(
+            id="abc",
+            name="Sueldo",
+            color=color,
+            is_person=is_person,
+            holder_id=None if is_person else "h1",
+        )
     )
 
 
@@ -340,7 +339,11 @@ _PATHS = {EditCategoryScreen: "/categories/c1", EditAccountScreen: "/accounts/ab
 
 @pytest.mark.parametrize(
     "make",
-    [_green_category, lambda: _account("#5ab87a"), lambda: _account("#5ab87a", is_person=True)],
+    [
+        _green_category,
+        lambda: _edit_account("#5ab87a"),
+        lambda: _edit_account("#5ab87a", is_person=True),
+    ],
     ids=["category", "bank-account", "person"],
 )
 def test_enter_down_every_line_keeps_the_rows_colour_and_never_sends_it(fake_client, make):
@@ -362,7 +365,7 @@ def test_enter_down_every_line_keeps_the_rows_colour_and_never_sends_it(fake_cli
 
 @pytest.mark.parametrize(
     "make",
-    [_green_category, lambda: _account("#5ab87a", is_person=True)],
+    [_green_category, lambda: _edit_account("#5ab87a", is_person=True)],
     ids=["category", "person"],
 )
 def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
@@ -385,7 +388,7 @@ def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
 
 
 def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_client):
-    screen = _account(None)
+    screen = _edit_account(None)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -405,7 +408,7 @@ def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_cli
     "make",
     [
         lambda: EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#123456"}),
-        lambda: _account("#123456"),
+        lambda: _edit_account("#123456"),
     ],
     ids=["category", "account"],
 )
@@ -432,7 +435,7 @@ def test_after_the_account_half_saves_the_old_colour_picked_again_is_sent(fake_c
     """green → red: the account's PUT lands, the opening balance is refused and
     the form stays open. Red is now the account's own, so picking green again is
     a change: the next save sends it, with the opening balance."""
-    screen = _account("#5ab87a")
+    screen = _edit_account("#5ab87a")
     monkeypatch.setattr(EditAccountScreen, "notify", lambda self, message, **kw: None)
     fake_client.errors["POST"] = EngineError("CONFLICT", "it got one meanwhile", None, 409, {})
 
@@ -541,7 +544,6 @@ def test_edit_account_locks_type_and_currency(fake_client):
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
-            "statement_code": None,
         }
     )
     assert screen._locked == {"currency", "type"}
@@ -666,7 +668,6 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
-            "statement_code": None,
         }
     )
 
@@ -695,7 +696,6 @@ def _eliana() -> EditAccountScreen:
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
-            "statement_code": None,
         }
     )
 
@@ -891,7 +891,6 @@ _ACCOUNT = {
     "currency_code": "PEN",
     "is_person": False,
     "opening_balance_transaction_id": None,
-    "statement_code": None,
 }
 
 

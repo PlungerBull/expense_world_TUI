@@ -37,6 +37,7 @@ from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    account_record,
     import_answer,
     import_day,
     import_part,
@@ -49,28 +50,18 @@ from tests.unit.helpers import (
     whole,
 )
 
-
-def _account(ident, name, currency="PEN", *, partner=None, **extra) -> dict:
-    return {
-        "id": ident,
-        "name": name,
-        "currency_code": currency,
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-        "statement_code": "SIG" if partner else None,
-        "statement_partner_id": partner,
-        **extra,
-    }
-
-
 #: The card's dollar account first, so its line stands there and still sends the
 #: soles one; then a current account, and an archived one the list leaves out.
 ACCOUNTS = [
-    _account("sig-usd", "BCP Signature USD", "USD", partner="sig-pen"),
-    _account("sig-pen", "BCP Signature PEN", partner="sig-usd"),
-    _account("bcp-pen", "BCP PEN"),
-    _account("old", "Retired PEN", is_archived=True),
+    account_record(
+        id="sig-usd",
+        name="BCP Signature USD",
+        currency_code="USD",
+        statement_partner_id="sig-pen",
+    ),
+    account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
+    account_record(id="bcp-pen", name="BCP PEN", holder_id="h2"),
+    account_record(id="old", name="Retired PEN", holder_id="h3", is_archived=True),
 ]
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN"
 
@@ -406,8 +397,10 @@ def test_the_account_list_names_the_file_and_pairs_a_card_by_the_engine(
     path = _bank_file(tmp_path)
     accounts = [
         *ACCOUNTS,
-        _account("ia-pen", "Interbank Ahorros PEN"),
-        _account("ia-usd", "Interbank Ahorros USD", "USD"),
+        account_record(id="ia-pen", name="Interbank Ahorros PEN", holder_id="h4"),
+        account_record(
+            id="ia-usd", name="Interbank Ahorros USD", currency_code="USD", holder_id="h5"
+        ),
     ]
     _patch(monkeypatch, accounts)
     _engine(fake_client, {})

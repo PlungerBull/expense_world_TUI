@@ -41,6 +41,7 @@ from expense.tui.screens.statement_upload import (
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
+    account_record,
     bank_line_row,
     import_answer,
     import_part,
@@ -54,28 +55,18 @@ from tests.unit.helpers import (
     whole,
 )
 
-
-def _account(ident, name, currency="PEN", *, code=None, partner=None, **extra) -> dict:
-    return {
-        "id": ident,
-        "name": name,
-        "currency_code": currency,
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-        "statement_code": code,
-        "statement_partner_id": partner,
-        **extra,
-    }
-
-
 #: The card's dollar account first, so its line stands there and still sends the
-#: soles one; then a savings account with a code, and one without.
+#: soles one; then a savings account and cash, each alone on its holder.
 ACCOUNTS = [
-    _account("sig-usd", "BCP Signature USD", "USD", code="SIG", partner="sig-pen"),
-    _account("sig-pen", "BCP Signature PEN", code="SIG", partner="sig-usd"),
-    _account("aho-pen", "Sueldo Soles", code="AHO"),
-    _account("cash", "Efectivo"),
+    account_record(
+        id="sig-usd",
+        name="BCP Signature USD",
+        currency_code="USD",
+        statement_partner_id="sig-pen",
+    ),
+    account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
+    account_record(id="aho-pen", name="Sueldo Soles", holder_id="h2"),
+    account_record(id="cash", name="Efectivo", holder_id="h3"),
 ]
 
 #: A card's paper as screen 1A draws it: both currencies, matched, new and empty

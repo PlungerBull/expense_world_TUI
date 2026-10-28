@@ -20,6 +20,7 @@ from tests.unit.helpers import (
     ANSWER_BUILDERS,
     FAKE_ANSWERS,
     FakeClient,
+    account_record,
     complete_answer,
     create_answer,
     delete_answer,
@@ -465,3 +466,17 @@ def test_a_holder_read_spreads_a_test_s_record_over_the_whole_shape():
     assert (card["statement_code"], card["account_ids"]) == ("SIG", ["a", "b"])
     assert [h["id"] for h in listed["items"]] == ["h-pen", "h-visa"]
     assert set(listed["items"][0]) == set(holder_record())
+
+
+def test_an_account_is_on_a_holder_and_carries_no_statement_code_of_its_own():
+    """The statement code is the holder's: an account names its holder and nothing
+    else of a statement (contract: "Holders"); a test's fields and a base account
+    spread over the whole shape."""
+    bare = account_record()
+    usd = account_record(id="acc-usd", currency_code="USD")
+    person = account_record(usd, name="Ana", is_person=True, holder_id=None)
+
+    assert bare["holder_id"] == holder_record()["id"] == "h1"
+    assert {"statement_code", "statement_partner_id"}.isdisjoint(bare)
+    assert set(usd) == set(person) == set(bare)
+    assert (person["id"], person["currency_code"], person["holder_id"]) == ("acc-usd", "USD", None)

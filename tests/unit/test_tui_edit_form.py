@@ -62,7 +62,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "acc2",
@@ -71,7 +70,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "acc3",
@@ -80,7 +78,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "accX",
@@ -89,7 +86,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": True,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
 ]
 CATEGORIES = [

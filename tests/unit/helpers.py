@@ -1097,6 +1097,38 @@ def holder_list(items: list[dict] | None = None) -> dict:
     return whole([holder_record(item) for item in (items if items is not None else [{}])])
 
 
+#: An account as `GET /accounts/{id}` reads it, every field present: the one account
+#: of `_HOLDER`, in soles, nothing recorded on it and no opening balance; the statement
+#: code is its holder's, never the account's (contract: "Holders").
+_ACCOUNT = {
+    "id": "acc1",
+    "user_id": "u-1",
+    "name": "BCP Ahorros",
+    "currency_code": "PEN",
+    "is_person": False,
+    "color": "#3b82f6",
+    "holder_id": "h1",
+    "current_balance_cents": 0,
+    "current_balance_home_cents": 0,
+    "opening_balance_transaction_id": None,
+    "is_archived": False,
+    "sort_order": 1,
+    "created_at": "2026-04-01T15:00:00Z",
+    "updated_at": "2026-04-01T15:00:00Z",
+    "version": 1,
+    "deleted_at": None,
+}
+
+
+@answer_of("GET", "/v1/accounts/{account_id}")
+def account_record(base: dict | None = None, /, **fields: Any) -> dict:
+    """One account as the engine reads it: `base` (another account, to vary one) and
+    then `fields` spread over `_ACCOUNT` (contract: GET /v1/accounts/{account_id}).
+    It is the shared account builder: no test file defines an account builder of its
+    own. A person passes `is_person=True, holder_id=None`."""
+    return {**_ACCOUNT, **(base or {}), **fields}
+
+
 #: What `FakeClient` answers a write no `write_responses` entry names: a list of
 #: `(method, path pattern, answer)`, one per write the fake answers in the engine's
 #: shape, the pattern a regex matching the path FakeClient sees (the contract's path
@@ -1206,54 +1238,30 @@ def _statement_deleted(client: "FakeClient", body: Any, statement_id: str) -> di
 #: the way the engine lists people after every real account (contract: GET
 #: /v1/accounts). Every account list and picker must show exactly this order.
 ENGINE_ORDER_ACCOUNTS = [
-    {
-        "id": "acc-zeta",
-        "name": "Zeta Ahorros",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": False,
-        "sort_order": 3,
-        "color": "#3b82f6",
-        "statement_code": None,
-        "current_balance_cents": 500,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc-alfa",
-        "name": "Alfa Corriente",
-        "currency_code": "USD",
-        "is_person": False,
-        "is_archived": False,
-        "sort_order": 1,
-        "color": "#3b82f6",
-        "statement_code": None,
-        "current_balance_cents": 700,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc-medio",
-        "name": "Medio Visa",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": False,
-        "sort_order": 2,
-        "color": "#3b82f6",
-        "statement_code": None,
-        "current_balance_cents": -300,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "per-ana",
-        "name": "Ana",
-        "currency_code": "PEN",
-        "is_person": True,
-        "is_archived": False,
-        "sort_order": 0,
-        "color": "#3b82f6",
-        "statement_code": None,
-        "current_balance_cents": 100,
-        "opening_balance_transaction_id": None,
-    },
+    account_record(id="acc-zeta", name="Zeta Ahorros", sort_order=3, current_balance_cents=500),
+    account_record(
+        id="acc-alfa",
+        name="Alfa Corriente",
+        currency_code="USD",
+        holder_id="h2",
+        sort_order=1,
+        current_balance_cents=700,
+    ),
+    account_record(
+        id="acc-medio",
+        name="Medio Visa",
+        holder_id="h3",
+        sort_order=2,
+        current_balance_cents=-300,
+    ),
+    account_record(
+        id="per-ana",
+        name="Ana",
+        is_person=True,
+        holder_id=None,
+        sort_order=0,
+        current_balance_cents=100,
+    ),
 ]
 #: The names as the engine orders them, people included and without them.
 ENGINE_ORDER_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS]

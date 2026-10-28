@@ -18,7 +18,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "color": None,
-        "statement_code": None,
         "opening_balance_transaction_id": None,
     }
 ]

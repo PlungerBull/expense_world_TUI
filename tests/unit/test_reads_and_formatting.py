@@ -208,21 +208,18 @@ def test_load_account_index_gives_names_and_archived_ids_from_one_read(configure
                     "name": "BCP",
                     "is_archived": False,
                     "is_person": False,
-                    "statement_code": None,
                 },
                 {
                     "id": "a2",
                     "name": "Ahorro viejo",
                     "is_archived": True,
                     "is_person": False,
-                    "statement_code": None,
                 },
                 {
                     "id": "p1",
                     "name": "Mom",
                     "is_archived": False,
                     "is_person": True,
-                    "statement_code": None,
                 },
             ]
         )
@@ -377,7 +374,6 @@ _ACCOUNT_ROWS = [
         "currency_code": "PEN",
         "current_balance_cents": 100,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "a2",
@@ -385,7 +381,6 @@ _ACCOUNT_ROWS = [
         "currency_code": None,
         "is_person": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "p1",
@@ -393,7 +388,6 @@ _ACCOUNT_ROWS = [
         "currency_code": "PEN",
         "is_person": True,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {"name": "no-id row is skipped"},
 ]
@@ -560,7 +554,6 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
                     "name": "BCP PEN",
                     "currency_code": "PEN",
                     "opening_balance_transaction_id": None,
-                    "statement_code": None,
                 },
                 {
                     "id": "a2",
@@ -568,7 +561,6 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
                     "currency_code": "PEN",
                     "is_archived": True,
                     "opening_balance_transaction_id": None,
-                    "statement_code": None,
                 },
             ]
         )
@@ -601,7 +593,6 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
                     "name": "Retired",
                     "is_archived": True,
                     "opening_balance_transaction_id": None,
-                    "statement_code": None,
                 }
             ]
         )

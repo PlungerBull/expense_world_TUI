@@ -8,6 +8,7 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
+    account_record,
     in_order,
     render_text,
     run_app,
@@ -24,7 +25,6 @@ ITEMS = [
         "is_archived": False,
         "currency_code": "PEN",
         "color": "#4a90d9",
-        "statement_code": None,
         "current_balance_cents": 1245000,
         "opening_balance_transaction_id": None,
     },
@@ -35,7 +35,6 @@ ITEMS = [
         "is_archived": False,
         "currency_code": "PEN",
         "color": None,
-        "statement_code": None,
         "current_balance_cents": -150000,
         "opening_balance_transaction_id": None,
     },
@@ -46,7 +45,6 @@ ITEMS = [
         "is_archived": True,
         "currency_code": "PEN",
         "color": "#888888",
-        "statement_code": None,
         "current_balance_cents": 0,
         "opening_balance_transaction_id": None,
     },
@@ -73,7 +71,7 @@ def test_the_code_column_sits_after_cur_and_shows_a_dim_dash_without_one():
     right-aligned column."""
     assert AccountsScreen.HEADERS == ["Name", "Type", "Cur", "Code", "Color", "Balance", "Status"]
     assert AccountsScreen.ALIGN_RIGHT == {AccountsScreen.HEADERS.index("Balance")}
-    items = [{**ITEMS[0], "statement_code": "SIG"}, ITEMS[1]]
+    items = [account_record(ITEMS[0], statement_code="SIG"), ITEMS[1]]
     by_id = {r[0]: r[1] for r in account_rows(items)}
     assert by_id["a1"][3] == "SIG"
     dash = by_id["a2"][3]
@@ -85,7 +83,7 @@ def test_the_code_column_reads_as_the_mockup_draws_it(monkeypatch):
     and the colour."""
     import expense.reads as ac
 
-    items = [{**ITEMS[0], "statement_code": "SIG"}, ITEMS[1]]
+    items = [account_record(ITEMS[0], statement_code="SIG"), ITEMS[1]]
     monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(items))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 

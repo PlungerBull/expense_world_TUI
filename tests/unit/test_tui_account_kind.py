@@ -25,6 +25,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_URL,
+    account_record,
     error_response,
     run_app,
     stub_home_month,
@@ -36,31 +37,23 @@ from tests.unit.helpers import (
 SIZE = (120, 40)
 
 
-def _account(ident: str, name: str, *, person: bool = False, archived: bool = False) -> dict:
-    return {
-        "id": ident,
-        "name": name,
-        "is_person": person,
-        "is_archived": archived,
-        "currency_code": "PEN",
-        "color": None,
-        "statement_code": None,
-        "current_balance_cents": 125000,
-        "opening_balance_transaction_id": None,
-    }
-
-
 def _rows() -> list[dict]:
-    """Manage ▸ Accounts as screen 1 draws it, plus a second person; Sueldo
-    Soles holds a statement code."""
+    """Manage ▸ Accounts as screen 1 draws it, plus a second person."""
+    held = {"current_balance_cents": 125000}
     return [
-        {**_account("a-sueldo", "Sueldo Soles"), "statement_code": "SJN"},
-        {**_account("a-efectivo", "Efectivo"), "opening_balance_transaction_id": "t-open"},
-        _account("a-alejo", "ALEJO PEN"),
-        _account("a-alejo-usd", "ALEJO USD"),
-        _account("a-eliana", "Eliana", person=True),
-        _account("a-juan", "Juan", person=True),
-        _account("a-viejo", "Ahorro viejo", archived=True),
+        account_record(id="a-sueldo", name="Sueldo Soles", **held),
+        account_record(
+            id="a-efectivo",
+            name="Efectivo",
+            holder_id="h2",
+            opening_balance_transaction_id="t-open",
+            **held,
+        ),
+        account_record(id="a-alejo", name="ALEJO PEN", holder_id="h3", **held),
+        account_record(id="a-alejo-usd", name="ALEJO USD", holder_id="h4", **held),
+        account_record(id="a-eliana", name="Eliana", is_person=True, holder_id=None, **held),
+        account_record(id="a-juan", name="Juan", is_person=True, holder_id=None, **held),
+        account_record(id="a-viejo", name="Ahorro viejo", holder_id="h5", is_archived=True, **held),
     ]
 
 

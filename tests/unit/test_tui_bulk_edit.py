@@ -242,7 +242,6 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
                     "name": "BCP",
                     "is_archived": False,
                     "opening_balance_transaction_id": None,
-                    "statement_code": None,
                 }
             ]
         },

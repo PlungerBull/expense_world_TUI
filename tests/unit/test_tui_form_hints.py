@@ -46,7 +46,6 @@ ACCOUNT = {
     "is_archived": False,
     "currency_code": "PEN",
     "color": "#4a90d9",
-    "statement_code": None,
     "current_balance_cents": 0,
     "opening_balance_transaction_id": None,
 }

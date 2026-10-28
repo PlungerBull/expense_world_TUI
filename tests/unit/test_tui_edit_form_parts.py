@@ -70,7 +70,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": "o1",
-        "statement_code": None,
     },
     {
         "id": "acc2",
@@ -79,7 +78,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "acc-old",
@@ -88,7 +86,6 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": True,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
 ]
 #: In the engine's order, as the mockup's lists draw it: @Pendiente first.

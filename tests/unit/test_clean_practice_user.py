@@ -16,19 +16,10 @@ import respx
 from expense.config import Config
 from expense.http import ExpenseClient
 from tests.scripts_loader import load_script
+from tests.unit.helpers import account_record
 
 PRACTICE = "http://127.0.0.1:8002"
 TARGET = ["--engine-url", PRACTICE]
-
-
-def _account(ident, name, code=None, archived=False):
-    return dict(
-        id=ident,
-        name=name,
-        currency_code="PEN",
-        statement_code=code,
-        is_archived=archived,
-    )
 
 
 def _recon(ident, account, twin=None, status=1):
@@ -143,7 +134,10 @@ def test_no_key_is_refused_before_any_request(script, monkeypatch, capsys):
 @respx.mock
 def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(script, capsys):
     engine = FakeEngine(
-        accounts=[_account("a1", "contract-stmt-1", "ZZQ"), _account("a2", "BCP Signature PEN")],
+        accounts=[
+            account_record(id="a1", name="contract-stmt-1"),
+            account_record(id="a2", name="BCP Signature PEN", holder_id="h2"),
+        ],
         recons=[_recon("r1", "a1"), _recon("r2", "a2")],
         categories=[dict(id="c1", name="contract-c-1"), dict(id="c2", name="@Pendiente")],
         hashtags=[dict(id="h1", name="freshman-h"), dict(id="h2", name="Pendiente")],
@@ -164,8 +158,8 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
 def test_apply_removes_in_the_order_the_deletes_need(script):
     engine = FakeEngine(
         accounts=[
-            _account("a1", "contract-card-pen", "ZZQ", archived=True),
-            _account("a2", "contract-card-usd", "ZZQ"),
+            account_record(id="a1", name="contract-card-pen", is_archived=True),
+            account_record(id="a2", name="contract-card-usd", currency_code="USD", holder_id="h2"),
         ],
         recons=[_recon("r1", "a1", twin="r2", status=2), _recon("r2", "a2", twin="r1", status=2)],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
@@ -192,7 +186,10 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
 @respx.mock
 def test_a_card_statement_half_on_an_unmatched_account_is_left_whole(script, capsys):
     engine = FakeEngine(
-        accounts=[_account("a1", "contract-card-pen", "ZZQ"), _account("a2", "Card USD", "ZZQ")],
+        accounts=[
+            account_record(id="a1", name="contract-card-pen"),
+            account_record(id="a2", name="Card USD", currency_code="USD"),
+        ],
         recons=[_recon("r1", "a1", twin="r2"), _recon("r2", "a2", twin="r1")],
     )
     _serve(engine)
@@ -208,7 +205,7 @@ def test_a_card_statement_half_on_an_unmatched_account_is_left_whole(script, cap
 @respx.mock
 def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
     engine = FakeEngine(
-        accounts=[_account("a1", "BCP PEN")],
+        accounts=[account_record(id="a1", name="BCP PEN")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
         hashtags=[dict(id="h1", name="contract-h-1")],
     )
@@ -223,7 +220,7 @@ def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
 @respx.mock
 def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
     engine = FakeEngine(
-        accounts=[_account("a1", "contract-acct-1")], refuse=["DELETE /accounts/a1"]
+        accounts=[account_record(id="a1", name="contract-acct-1")], refuse=["DELETE /accounts/a1"]
     )
     _serve(engine)
 
@@ -236,7 +233,12 @@ def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
 
 @respx.mock
 def test_a_prefix_replaces_the_test_names(script, capsys):
-    engine = FakeEngine(accounts=[_account("a1", "probe-1"), _account("a2", "contract-x")])
+    engine = FakeEngine(
+        accounts=[
+            account_record(id="a1", name="probe-1"),
+            account_record(id="a2", name="contract-x", holder_id="h2"),
+        ]
+    )
     _serve(engine)
 
     assert script.main([*TARGET, "--prefix", "probe-", "--apply"]) == 0
@@ -249,7 +251,7 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
 def test_a_system_row_appearing_between_two_snapshots_is_no_leftover(script):
     """The engine creates `@Pendiente`, `@Opening` and the pending hashtag on first need
     and never deletes them, so a test that brings one about leaves nothing behind."""
-    engine = FakeEngine(accounts=[_account("a1", "BCP PEN")])
+    engine = FakeEngine(accounts=[account_record(id="a1", name="BCP PEN")])
     _serve(engine)
     with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
         before = script.holdings(client)
@@ -282,7 +284,7 @@ def test_a_system_row_is_never_matched_or_deleted(script, capsys):
 @respx.mock
 def test_a_refused_transaction_delete_is_listed_once(script, capsys):
     engine = FakeEngine(
-        accounts=[_account("a1", "contract-acct-1")],
+        accounts=[account_record(id="a1", name="contract-acct-1")],
         txs=[
             dict(id="t1", account_id="a1", hashtag_ids=[]),
             dict(id="t2", account_id="a1", hashtag_ids=[]),

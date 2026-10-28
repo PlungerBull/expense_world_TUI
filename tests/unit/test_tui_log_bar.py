@@ -59,7 +59,6 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "acc2",
@@ -67,7 +66,6 @@ ACCOUNTS = [
         "currency_code": "USD",
         "is_person": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
     {
         "id": "acc3",
@@ -75,7 +73,6 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
-        "statement_code": None,
     },
 ]
 CATEGORIES = {

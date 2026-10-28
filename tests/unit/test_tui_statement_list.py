@@ -32,6 +32,7 @@ from expense.tui.screens.reconciliations import (
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
+    account_record,
     complete_answer,
     cursor_page,
     delete_answer,
@@ -45,44 +46,57 @@ from tests.unit.helpers import (
 )
 
 
-def _account(
-    aid: str,
-    name: str,
-    currency: str,
-    code: str | None,
-    balance: int,
-    order: int,
-    partner: str | None = None,
-):
-    """An account as `GET /accounts` reads it, every field it serves: `partner` is its
-    `statement_partner_id`, the card's other account, null on any account that is not
-    half of a live card (contract: "Bank Accounts", "Statement partner")."""
-    return {
-        "id": aid,
-        "user_id": "u-1",
-        "name": name,
-        "currency_code": currency,
-        "is_person": False,
-        "color": None,
-        "statement_code": code,
-        "statement_partner_id": partner,
-        "current_balance_cents": balance,
-        "current_balance_home_cents": balance,
-        "opening_balance_transaction_id": None,
-        "is_archived": False,
-        "sort_order": order,
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "version": 1,
-        "deleted_at": None,
-    }
+def _held(cents: int) -> dict:
+    """An account's balance, in its own currency and at home alike."""
+    return {"current_balance_cents": cents, "current_balance_home_cents": cents}
 
 
-SIG_PEN = _account("acc-sig-pen", "Signature PEN", "PEN", "SIG", -51230, 1, "acc-sig-usd")
-SIG_USD = _account("acc-sig-usd", "Signature USD", "USD", "SIG", -6140, 2, "acc-sig-pen")
-AHORRO = _account("acc-ahorro", "Ahorro Soles", "PEN", "AHO", 648000, 3)
-SUELDO = _account("acc-sueldo", "Sueldo Soles", "PEN", None, 1245000, 4)
-DIGITAL = _account("acc-digital", "Cuenta Digital Dólares", "USD", None, 82015, 5)
+#: The accounts as `GET /accounts` reads them, each with the statement code the
+#: Reconciliations screens and `_answer` read off an account, and a card's two with the
+#: partner the screens read: the card's other account, absent on any other account
+#: (contract: "Bank Accounts", "Statement partner").
+SIG_PEN = account_record(
+    id="acc-sig-pen",
+    **_held(-51230),
+    name="Signature PEN",
+    sort_order=1,
+    statement_code="SIG",
+    statement_partner_id="acc-sig-usd",
+)
+SIG_USD = account_record(
+    id="acc-sig-usd",
+    **_held(-6140),
+    name="Signature USD",
+    currency_code="USD",
+    sort_order=2,
+    statement_code="SIG",
+    statement_partner_id="acc-sig-pen",
+)
+AHORRO = account_record(
+    id="acc-ahorro",
+    **_held(648000),
+    name="Ahorro Soles",
+    holder_id="h2",
+    sort_order=3,
+    statement_code="AHO",
+)
+SUELDO = account_record(
+    id="acc-sueldo",
+    **_held(1245000),
+    name="Sueldo Soles",
+    holder_id="h3",
+    sort_order=4,
+    statement_code=None,
+)
+DIGITAL = account_record(
+    id="acc-digital",
+    **_held(82015),
+    name="Cuenta Digital Dólares",
+    currency_code="USD",
+    holder_id="h4",
+    sort_order=5,
+    statement_code=None,
+)
 ACCOUNTS = [SIG_PEN, SIG_USD, AHORRO, SUELDO, DIGITAL]
 
 
@@ -538,8 +552,8 @@ def test_an_archived_card_accounts_halves_still_show_under_its_column(monkeypatc
     one is archived (contract: "Bank Accounts", "While one of the two accounts is archived");
     the browse lists no archived account, yet the accounts read names its column and the
     title, so every half shows where it belongs."""
-    live_pen = {**SIG_PEN, "statement_partner_id": None}
-    archived_usd = {**SIG_USD, "statement_partner_id": None, "is_archived": True}
+    live_pen = account_record(SIG_PEN, statement_partner_id=None)
+    archived_usd = account_record(SIG_USD, statement_partner_id=None, is_archived=True)
     accounts = [live_pen, archived_usd, AHORRO, SUELDO, DIGITAL]
     client = _engine(monkeypatch, accounts=accounts)
     seen: dict = {}
@@ -585,8 +599,8 @@ def test_a_statement_shows_the_account_its_partner_and_every_account_it_has_a_ha
     pen, usd = ("acc-sig-pen", "Signature PEN", "PEN"), ("acc-sig-usd", "Signature USD", "USD")
     accounts = [SIG_PEN, SIG_USD, AHORRO, SUELDO]
     assert statement_columns("acc-sig-usd", accounts, []) == StatementAccounts("SIG", (pen, usd))
-    unnamed_pen = {**SIG_PEN, "statement_partner_id": None}
-    archived_usd = {**SIG_USD, "statement_partner_id": None, "is_archived": True}
+    unnamed_pen = account_record(SIG_PEN, statement_partner_id=None)
+    archived_usd = account_record(SIG_USD, statement_partner_id=None, is_archived=True)
     accounts = [unnamed_pen, archived_usd, AHORRO, SUELDO]
     assert statement_columns("acc-sig-pen", accounts, CARD) == StatementAccounts("SIG", (pen, usd))
     assert statement_columns("acc-sig-pen", accounts, []) == StatementAccounts("SIG", (pen,))

@@ -16,7 +16,7 @@ from textual.widgets import Input, Static
 from expense.errors import EngineError
 from expense.tui.screens.create_forms import EditAccountScreen, NewAccountScreen
 from expense.tui.screens.modals import ConfirmModal
-from tests.unit.helpers import render_text, run_app, wait_for
+from tests.unit.helpers import account_record, render_text, run_app, wait_for
 
 NEW_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
 EDIT_HINT = "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
@@ -24,20 +24,14 @@ TAKEN_LINE = (
     "Another account in this currency has this code: pick another, or clear it there first."
 )
 
-SIGNATURE = {
-    "id": "acc-sig",
-    "name": "Signature Soles",
-    "is_person": False,
-    "is_archived": False,
-    "currency_code": "PEN",
-    "color": None,
-    "statement_code": "SGI",
-    "current_balance_cents": 0,
-    "opening_balance_transaction_id": None,
-}
-NO_CODE = {**SIGNATURE, "id": "acc-sue", "name": "Sueldo Soles", "statement_code": None}
-WITH_OPENING = {**SIGNATURE, "opening_balance_transaction_id": "tx-open"}
-ELIANA = {**NO_CODE, "id": "acc-eli", "name": "Eliana", "is_person": True}
+#: Accounts with the statement code the form's STATEMENT CODE line reads off an
+#: account, or null for none.
+SIGNATURE = account_record(id="acc-sig", name="Signature Soles", color=None, statement_code="SGI")
+NO_CODE = account_record(
+    SIGNATURE, id="acc-sue", name="Sueldo Soles", holder_id="h2", statement_code=None
+)
+WITH_OPENING = account_record(SIGNATURE, opening_balance_transaction_id="tx-open")
+ELIANA = account_record(NO_CODE, id="acc-eli", name="Eliana", is_person=True, holder_id=None)
 
 
 def _bar(screen) -> Input:

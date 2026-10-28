@@ -41,7 +41,6 @@ ARCHIVED = {
     "is_archived": True,
     "sort_order": 4,
     "color": "#3b82f6",
-    "statement_code": None,
     "current_balance_cents": 0,
     "opening_balance_transaction_id": None,
 }

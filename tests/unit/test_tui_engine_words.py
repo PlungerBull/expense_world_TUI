@@ -179,7 +179,6 @@ def test_a_refused_archive_shows_the_words_whole(fake_client, monkeypatch):
             "is_archived": False,
             "currency_code": "PEN",
             "color": None,
-            "statement_code": None,
             "opening_balance_transaction_id": None,
         }
     ]

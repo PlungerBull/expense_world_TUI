@@ -97,11 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tes
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-2. **One account record for every unit test (builder).** One account-record builder in
-   helpers.py carrying `holder_id` and no statement code or partner; the ten unit test files that
-   build their own `_account` switch to it (moved from test-suite-leftovers).
-   *Passes if:* no unit test file defines its own `_account`, and no account fixture carries
-   `statement_code` or `statement_partner_id`.
 3. **The new names on transactions and bank lines (builder).** `reconciliation_id` becomes
    `statement_id` and `left_reconciliation` becomes `left_statement` in
    [reads.py](../../expense/reads.py), [bank_line_write.py](../../expense/bank_line_write.py),
@@ -115,6 +110,9 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
    (`GET /holders`), and a helper that finds a holder's accounts, replacing `card_partners`.
    [flow.py](../../expense/bank_import/flow.py)'s `account_picks` pairs a holder's accounts
    from the holder, keeping its words, and `reconciliation_names` reads `GET /statements/{id}`.
+   The test fixtures that archive one account of a holder while the other stays live, which the
+   contract no longer allows (contract: "Holders"), go with `card_partners` (`HALF_ARCHIVED` in
+   test_tui_card_statement.py); those that pin the Reconciliations screens go in part 1b.
    *Passes if:* unit tests pin a holder's two accounts as one line and an account alone on its
    holder as its own, the bank import's stopping statement is named through the new read, and
    no request in [expense/](../../expense/) names `/cards` or `card_id`.
@@ -147,3 +145,11 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- [clean_practice_user.py](../../scripts/clean_practice_user.py)'s printout reads each account's
+  `statement_code` ("no code" otherwise), which an account no longer carries: the code is the
+  holder's (contract: "Holders"). Found by task 2.
+- [check_fixture_drift.py](../../scripts/check_fixture_drift.py) reads a fixture's keys only
+  from quoted `"key":` dict literals, so a key a test passes to a builder as a keyword argument
+  (`account_record(statement_partner_id=…)`) is never checked against the contract. Found by
+  task 2's review.

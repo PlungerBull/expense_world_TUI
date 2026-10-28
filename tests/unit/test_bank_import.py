@@ -36,6 +36,7 @@ from expense.bank_import.flow import (
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
     ORDERED_ALONE,
+    account_record,
     error_response,
     import_answer,
     import_day,
@@ -45,19 +46,6 @@ from tests.unit.helpers import (
 )
 
 PACKAGE = Path(__file__).resolve().parents[2] / "expense"
-
-
-def _account(ident, name, currency="PEN", *, partner=None, **extra) -> dict:
-    return {
-        "id": ident,
-        "name": name,
-        "currency_code": currency,
-        "is_person": False,
-        "is_archived": False,
-        "statement_code": "SIG" if partner else None,
-        "statement_partner_id": partner,
-        **extra,
-    }
 
 
 # ---- the request ----------------------------------------------------------------
@@ -133,9 +121,14 @@ def test_a_card_is_one_pick_paired_by_the_engine():
     comes first (contract: GET /v1/accounts)."""
     picks = account_picks(
         [
-            _account("sig-usd", "BCP Signature USD", "USD", partner="sig-pen"),
-            _account("bcp-pen", "BCP PEN"),
-            _account("sig-pen", "BCP Signature PEN", partner="sig-usd"),
+            account_record(
+                id="sig-usd",
+                name="BCP Signature USD",
+                currency_code="USD",
+                statement_partner_id="sig-pen",
+            ),
+            account_record(id="bcp-pen", name="BCP PEN", holder_id="h2"),
+            account_record(id="sig-pen", name="BCP Signature PEN", statement_partner_id="sig-usd"),
         ]
     )
     assert [(p.name, p.currencies, p.account_id) for p in picks] == [
@@ -155,8 +148,10 @@ def test_accounts_sharing_a_name_are_not_folded_without_the_engines_pairing():
     them."""
     picks = account_picks(
         [
-            _account("ia-pen", "Interbank Ahorros PEN"),
-            _account("ia-usd", "Interbank Ahorros USD", "USD"),
+            account_record(id="ia-pen", name="Interbank Ahorros PEN"),
+            account_record(
+                id="ia-usd", name="Interbank Ahorros USD", currency_code="USD", holder_id="h2"
+            ),
         ]
     )
     assert [(p.name, p.currencies) for p in picks] == [
@@ -168,10 +163,10 @@ def test_accounts_sharing_a_name_are_not_folded_without_the_engines_pairing():
 def test_archived_accounts_people_and_a_partner_not_listed_are_left_out():
     picks = account_picks(
         [
-            _account("old", "Retired PEN", is_archived=True),
-            _account("ana", "Ana", is_person=True),
+            account_record(id="old", name="Retired PEN", holder_id="h2", is_archived=True),
+            account_record(id="ana", name="Ana", is_person=True, holder_id=None),
             # its partner is archived, so not read here: the account stands alone
-            _account("half", "Visa PEN", partner="other-half"),
+            account_record(id="half", name="Visa PEN", statement_partner_id="other-half"),
             {"name": "no id"},
         ]
     )

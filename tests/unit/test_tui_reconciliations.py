@@ -17,6 +17,7 @@ from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
     NO_STATEMENT,
+    account_record,
     archived_refusal,
     archived_words,
     bank_line_row,
@@ -85,22 +86,13 @@ def _patch(monkeypatch):
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                {
-                    "id": "acc1",
-                    "name": "BCP PEN",
-                    "currency_code": "PEN",
-                    "opening_balance_transaction_id": None,
-                    "statement_code": None,
-                    "statement_partner_id": None,
-                },
-                {
-                    "id": "acc2",
-                    "name": "Interbank USD",
-                    "currency_code": "USD",
-                    "opening_balance_transaction_id": None,
-                    "statement_code": None,
-                    "statement_partner_id": None,
-                },
+                account_record(id="acc1", name="BCP PEN"),
+                account_record(
+                    id="acc2",
+                    name="Interbank USD",
+                    currency_code="USD",
+                    holder_id="h2",
+                ),
             ]
         ),
     )
@@ -304,22 +296,17 @@ def _patch_browse(monkeypatch, items=None, fail=False):
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                {
-                    "id": "acc1",
-                    "name": "BCP PEN",
-                    "currency_code": "PEN",
-                    "current_balance_cents": 100,
-                    "statement_code": None,
-                    "statement_partner_id": None,
-                },
-                {
-                    "id": "acc2",
-                    "name": "Interbank USD",
-                    "currency_code": "USD",
-                    "opening_balance_transaction_id": None,
-                    "statement_code": None,
-                    "statement_partner_id": None,
-                },
+                account_record(
+                    id="acc1",
+                    name="BCP PEN",
+                    current_balance_cents=100,
+                ),
+                account_record(
+                    id="acc2",
+                    name="Interbank USD",
+                    currency_code="USD",
+                    holder_id="h2",
+                ),
             ]
         ),
     )

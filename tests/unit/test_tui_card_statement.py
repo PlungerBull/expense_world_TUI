@@ -19,6 +19,7 @@ from expense.tui.screens.reconciliations import (
     ReconciliationsScreen,
 )
 from tests.unit.helpers import (
+    account_record,
     reconciliation_answer,
     refusal_text,
     render_text,
@@ -28,35 +29,43 @@ from tests.unit.helpers import (
     whole,
 )
 
-
-def _account(
-    aid: str, name: str, currency: str, code: str | None, partner: str | None = None, **extra
-) -> dict:
-    """An account as the engine reads it: `partner` is its `statement_partner_id`,
-    the card's other account, null on any account that is not half of a live card
-    (contract: "Bank Accounts", "Statement partner")."""
-    return {
-        "id": aid,
-        "name": name,
-        "currency_code": currency,
-        "current_balance_cents": 0,
-        "statement_code": code,
-        "statement_partner_id": partner,
-        "is_person": False,
-        **extra,
-    }
-
-
-SIG_PEN = _account("acc-sig-pen", "Signature PEN", "PEN", "SIG", "acc-sig-usd")
-SIG_USD = _account("acc-sig-usd", "Signature USD", "USD", "SIG", "acc-sig-pen")
-SUELDO = _account("acc-sueldo", "Sueldo Soles", "PEN", None)
-AHORRO = _account("acc-ahorro", "Ahorro PEN", "PEN", "AHO")  # a code, no other half
+#: The accounts as the engine reads them, each with the statement code and partner
+#: `reads.card_partners` and the Reconciliations screens read off an account: the
+#: partner is the card's other account, null on any account that is not half of a
+#: live card (contract: "Bank Accounts", "Statement partner").
+SIG_PEN = account_record(
+    id="acc-sig-pen",
+    name="Signature PEN",
+    statement_code="SIG",
+    statement_partner_id="acc-sig-usd",
+)
+SIG_USD = account_record(
+    id="acc-sig-usd",
+    name="Signature USD",
+    currency_code="USD",
+    statement_code="SIG",
+    statement_partner_id="acc-sig-pen",
+)
+SUELDO = account_record(
+    id="acc-sueldo",
+    name="Sueldo Soles",
+    holder_id="h2",
+    statement_code=None,
+    statement_partner_id=None,
+)
+AHORRO = account_record(  # a code, no other half
+    id="acc-ahorro",
+    name="Ahorro PEN",
+    holder_id="h3",
+    statement_code="AHO",
+    statement_partner_id=None,
+)
 ACCOUNTS = [SIG_PEN, SIG_USD, SUELDO, AHORRO]
 #: A card with its dollar account archived: both read null
 #: (contract: "Bank Accounts", "While one of the two accounts is archived").
 HALF_ARCHIVED = [
-    {**SIG_PEN, "statement_partner_id": None},
-    {**SIG_USD, "statement_partner_id": None, "is_archived": True},
+    account_record(SIG_PEN, statement_partner_id=None),
+    account_record(SIG_USD, statement_partner_id=None, is_archived=True),
 ]
 
 PEN_ACCOUNT = (SIG_PEN["id"], "Signature PEN", "PEN")
@@ -78,11 +87,14 @@ def test_each_card_account_names_the_other_and_no_other_account_has_one():
 def test_accounts_sharing_a_code_are_no_card_unless_the_engine_names_them():
     """Two accounts holding one code, neither naming the other, make no card;
     a named partner is read whatever codes the two hold."""
-    unnamed = [{**SIG_PEN, "statement_partner_id": None}, {**SIG_USD, "statement_partner_id": None}]
+    unnamed = [
+        account_record(SIG_PEN, statement_partner_id=None),
+        account_record(SIG_USD, statement_partner_id=None),
+    ]
     assert card_partners(unnamed) == {}
     other_codes = [
-        {**SUELDO, "statement_partner_id": "acc-ahorro"},
-        {**AHORRO, "statement_partner_id": "acc-sueldo"},
+        account_record(SUELDO, statement_partner_id="acc-ahorro"),
+        account_record(AHORRO, statement_partner_id="acc-sueldo"),
     ]
     assert card_partners(other_codes) == {
         "acc-sueldo": ("acc-ahorro", "Ahorro PEN", "PEN"),
@@ -97,9 +109,10 @@ def test_an_archived_half_leaves_both_accounts_with_none():
 
 
 def test_a_partner_the_read_does_not_hold_or_an_id_less_row_makes_no_entry():
-    nameless = {"id": "acc-x", "statement_partner_id": "acc-y"}
-    blank = {"id": "acc-y", "statement_partner_id": "acc-x"}
-    no_id = {**SIG_USD, "id": None}
+    unread = {"name": None, "currency_code": None}
+    nameless = account_record(unread, id="acc-x", statement_partner_id="acc-y")
+    blank = account_record(unread, id="acc-y", statement_partner_id="acc-x")
+    no_id = account_record(SIG_USD, id=None)
     assert card_partners([SIG_PEN, no_id]) == {}
     assert card_partners([nameless, blank]) == {
         "acc-x": ("acc-y", "(unnamed)", "?"),

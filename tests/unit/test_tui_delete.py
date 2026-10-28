@@ -27,6 +27,7 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
+    account_record,
     archived_refusal,
     archived_words,
     bank_line_row,
@@ -44,18 +45,17 @@ from tests.unit.helpers import (
 SIZE = (120, 40)  # the manage window holds its 20-row cap, so row 22 is page 2
 
 
-def _account(i: int) -> dict:
-    return {
-        "id": f"a{i}",
-        "name": f"Cuenta {i:02d}",
-        "is_person": i == 22,
-        "is_archived": False,
-        "currency_code": "PEN",
-        "color": None,
-        "statement_code": None,
-        "current_balance_cents": -15000 if i == 22 else 0,
-        "opening_balance_transaction_id": None,
-    }
+def _cuenta(i: int) -> dict:
+    """Row `i` of Manage ▸ Accounts, alone on its holder; row 22 is a person who
+    owes 150.00."""
+    person = i == 22
+    return account_record(
+        id=f"a{i}",
+        name=f"Cuenta {i:02d}",
+        is_person=person,
+        holder_id=None if person else f"h{i}",
+        current_balance_cents=-15000 if person else 0,
+    )
 
 
 def _category(i: int) -> dict:
@@ -76,7 +76,7 @@ MANAGE = {
     "accounts": (
         AccountsScreen,
         "fetch_accounts",
-        _account,
+        _cuenta,
         "Delete this account?",
         "Cuenta 22 · person · PEN · -150.00\n"
         "It is for an account made by mistake: no screen can bring it back.",
@@ -409,7 +409,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
         (
             AccountsScreen,
             "fetch_accounts",
-            _account(1),
+            _cuenta(1),
             "accounts/a1",
             409,
             "CONFLICT",
@@ -612,7 +612,7 @@ def test_a_transaction_on_an_archived_account_shows_only_the_engine_words(config
 def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
     """A `409` on the very route whose refusal has a line, but with no reason,
     gets none: the line follows the reason, never the status and the route."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([_account(1)]))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([_cuenta(1)]))
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
@@ -676,7 +676,7 @@ def test_a_cancelled_delete_keeps_the_archive_re_selection(configured, monkeypat
     """`a` then `d` then cancel: the row the toggle will re-select after its
     reload is still the toggled one, so "press a again to undo" lands on it.
     Only a delete that went through starts the list over."""
-    _stub_manage(monkeypatch, "accounts", [_account(i) for i in range(3)])
+    _stub_manage(monkeypatch, "accounts", [_cuenta(i) for i in range(3)])
 
     async def scenario(pilot, app):
         screen = AccountsScreen()

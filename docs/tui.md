@@ -1823,6 +1823,11 @@ make rows fit that do not. Width has **no** floor of any kind.
   other three answer the statement the path names, read from the test's
   `GET /statements/{id}` when it serves one (its id alone otherwise), with its status
   after the write, a complete adding the close's notes to each balance.
+- **`helpers.account_record` is the shared account builder** — the engine's account
+  record, every field present, on holder `h1` (contract: GET /v1/accounts/{account_id}),
+  marked with `answer_of` so the drift check covers it. A test passes only the fields it
+  is about, by name, and varies an account with `account_record(base, field=…)`; no test
+  file defines an account builder of its own.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
   `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), while a statement's
