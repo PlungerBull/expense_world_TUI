@@ -26,7 +26,7 @@ def request_body(account_id: str, data: bytes, *, dry_run: bool) -> dict:
     """Exactly the three keys the engine takes: the account the file is from,
     and the file's bytes (`file_field`). The one body of both uploads: the
     bank's download (contract: POST /v1/transactions/import, "Body") and a
-    month's statement PDF (contract: POST /v1/reconciliations/import), whose
+    month's statement PDF (contract: POST /v1/statements/import), whose
     bodies hold the same three keys."""
     return {
         "dry_run": dry_run,

@@ -16,7 +16,7 @@ LOG bar.
 
 The app sends the PDF whole and reads nothing in it: every row, its outcome, the
 near misses, the lines taken out, the balances and every refusal are the
-engine's (contract: POST /v1/reconciliations/import). The account is the one
+engine's (contract: POST /v1/statements/import). The account is the one
 picked; nothing is matched, added up or guessed here. The call, the account
 picks and the file read are the shared steps in expense/bank_import/flow.py, how
 the answer reads is expense/bank_import/statement.py; what is here is only what
@@ -39,6 +39,7 @@ from expense.bank_import.statement import (
     StatementAnswer,
     StatementCounts,
     StatementRow,
+    review_line_ids,
     statement_answer,
 )
 from expense.errors import EngineError
@@ -58,19 +59,15 @@ from expense.tui.screens.bank_import import (
     padded_amount,
     plural,
 )
-from expense.tui.screens.reconciliations import (
-    FlaggedLinesScreen,
-    flagged_note,
-    review_line_ids,
-)
+from expense.tui.screens.reconciliations import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE
 from expense.tui.widgets.refusal import hanging
 
 #: The account list's breadcrumb (screen A2).
 ACCOUNT_CRUMB = ("Upload a statement",)
 
-#: The statement's state on the preview's second line: every half created, or
-#: an open draft filled (screens 1A and 1B).
+#: The statement's state on the preview's second line: created, or an open
+#: draft filled (screens 1A and 1B).
 A_NEW_STATEMENT = "a new statement"
 A_DRAFT_FILLED = "a draft, filled from the paper"
 
@@ -102,7 +99,7 @@ def changed_meanwhile(err: Exception) -> bool:
     """A `409 CONFLICT` whose reason is `CONCURRENT_CHANGE`, on any key: a
     matched line, the statement's draft or a name the upload files under
     changed while it ran, and nothing was written; it is sent again
-    (contract: POST /v1/reconciliations/import, "Concurrency")."""
+    (contract: POST /v1/statements/import, "Concurrency")."""
     return (
         isinstance(err, EngineError)
         and err.code == "CONFLICT"
@@ -269,28 +266,28 @@ def taken_out_lines(
 
 
 def balance_lines(answer: StatementAnswer) -> list[Text]:
-    """`begin  end` dim, then one line per half: its currency and the paper's
-    balances (contract: POST /v1/reconciliations/import, "Response")."""
+    """`begin  end` dim, then one line per account of the holder: its currency
+    and the paper's balances (contract: POST /v1/statements/import, "Response")."""
     figures = [
         format_cents(c)
-        for half in answer.halves
-        for c in (half.beginning_balance_cents, half.ending_balance_cents)
+        for balance in answer.balances
+        for c in (balance.beginning_balance_cents, balance.ending_balance_cents)
         if c is not None
     ]
     width = max([len("begin"), *map(len, figures)]) + 2
     lines = [Text(f"{'':3}  {'begin'.rjust(width)}  {'end'.rjust(width)}", style="dim")]
-    for half in answer.halves:
-        line = Text(f"{half.currency.ljust(3)}  ")
-        line.append_text(padded_amount(half.beginning_balance_cents, width, BALANCE_RULE))
+    for balance in answer.balances:
+        line = Text(f"{balance.currency.ljust(3)}  ")
+        line.append_text(padded_amount(balance.beginning_balance_cents, width, BALANCE_RULE))
         line.append("  ")
-        line.append_text(padded_amount(half.ending_balance_cents, width, BALANCE_RULE))
+        line.append_text(padded_amount(balance.ending_balance_cents, width, BALANCE_RULE))
         lines.append(line)
     return lines
 
 
 def statement_head(answer: StatementAnswer) -> Text:
     """`SIG-202610 · 2026-09-26 → 2026-10-25 · a new statement`, or `… · a
-    draft, filled from the paper` when a half fills an open draft."""
+    draft, filled from the paper` when the upload fills an open draft."""
     state = A_DRAFT_FILLED if answer.fills_a_draft else A_NEW_STATEMENT
     head = Text(f"{answer.name} · {answer.date_start} → {answer.date_end} · ")
     head.append(state, style="dim")
@@ -317,7 +314,7 @@ def counts_line(counts: StatementCounts, *, done: bool) -> Text:
 
 class StatementPreviewScreen(PreviewScreen):
     """The engine's dry run of this PDF on this account. Nothing is written
-    until `⏎ Close <name>`, one `POST /reconciliations/import` with `dry_run`
+    until `⏎ Close <name>`, one `POST /statements/import` with `dry_run`
     false; `esc` sends nothing. A refused upload shows the engine's words and
     `⏎` sends nothing; one met by the apply because something changed while it
     ran offers `⏎ Preview again`, a fresh dry run before any write."""
@@ -361,9 +358,10 @@ class StatementPreviewScreen(PreviewScreen):
     # ---- the engine ----------------------------------------------------------
     @work(thread=True, exclusive=True, group="engine-write")
     def _ask(self, dry_run: bool) -> None:
-        """One `POST /reconciliations/import`, the dry run or the apply, through
+        """One `POST /statements/import`, the dry run or the apply, through
         flow.py's one call; the client mints the idempotency key. The dry run
-        then reads the lines its answer names by id alone (`statement_lines`)."""
+        then reads the lines its answer names by id alone (`statement_lines`);
+        the apply's flagged lines are its completed statement's `review_lines`."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
@@ -380,7 +378,7 @@ class StatementPreviewScreen(PreviewScreen):
                     cfg, answer.lines_to_read(), verbose=verbose
                 )
             else:
-                flagged = review_line_ids(response.get("reconciliation") or {})
+                flagged = review_line_ids(response.get("statement") or {})
         except Exception as err:  # every failure is shown, none swallowed
             self.app.call_from_thread(self._failed, err)
             return
@@ -460,7 +458,7 @@ class StatementPreviewScreen(PreviewScreen):
         answer = self._answer
         if answer is None:
             return MIN_PAGE
-        extra = 1 + 1 + len(answer.halves)  # the statement's line, the balances
+        extra = 1 + 1 + len(answer.balances)  # the statement's line, the balances
         extra += (2 + len(answer.taken_out)) if answer.taken_out else 0
         extra += 1 if answer.counts.new else 0
         extra += 1 if self._lines_error else 0

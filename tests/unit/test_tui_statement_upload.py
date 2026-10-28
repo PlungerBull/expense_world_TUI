@@ -3,9 +3,9 @@
 The screens are A1 and A2 of docs/mockups/expense-world-statement-pdf-upload.html
 and 1 to 3 and 6A of docs/mockups/expense-world-statement-pdf-screens.html. A
 dropped PDF is a few made-up bytes: the app sends them whole and reads nothing in
-them, and the one engine call, `POST /reconciliations/import`, is answered by a
-fake on the shared FakeClient that reads the file it was sent and answers that
-paper (`statement_import_answer`); one test goes through the real HTTP client
+them, and the one engine call, `POST /statements/import`, is answered by a fake
+on the shared FakeClient that reads the file it was sent and answers that paper
+(`statement_upload_answer`); one test goes through the real HTTP client
 against respx, for the idempotency key.
 """
 
@@ -48,9 +48,9 @@ from tests.unit.helpers import (
     import_row,
     render_text,
     run_app,
-    statement_half,
-    statement_import_answer,
     statement_row,
+    statement_upload_answer,
+    upload_balance,
     wait_for,
     whole,
 )
@@ -105,12 +105,13 @@ CARD_ROWS = [
         description="MANT. CUENTA",
     ),
 ]
+#: The card's balances, one per account of its holder in the accounts' order, as
+#: the engine sends them: the dollar account first, as ACCOUNTS lists it.
+USD_BALANCE = upload_balance("sig-usd", "USD", begin=-3642, end=-6140)
+PEN_BALANCE = upload_balance()
 CARD = {
     "rows": CARD_ROWS,
-    "halves": [
-        statement_half(),
-        statement_half("sig-usd", "USD", begin=-3642, end=-6140),
-    ],
+    "balances": [USD_BALANCE, PEN_BALANCE],
     "taken_out": ["bl-farm"],
 }
 
@@ -132,11 +133,9 @@ SAVINGS = {
     "name": "Octubre 2026",
     "date_start": "2026-10-01",
     "date_end": "2026-10-31",
-    "halves": [
-        statement_half(
-            "aho-pen", creates=False, reconciliation_id="r-oct", begin=1091240, end=1245000
-        )
-    ],
+    "creates": False,
+    "statement_id": "s-oct",
+    "balances": [upload_balance("aho-pen", begin=1091240, end=1245000)],
 }
 
 #: The ledger lines the card's answer names by id alone: the near miss and the
@@ -156,10 +155,13 @@ LINES = {
 
 
 # ---- the seams ---------------------------------------------------------------
-def _patch(monkeypatch, lines: dict | None = None) -> list[list[str]]:
-    """The LOG bar's reference reads, its peek, the account list and the lines
-    read by their ids; returns the ids of each read by ids."""
-    listed = whole(ACCOUNTS)
+def _patch(
+    monkeypatch, lines: dict | None = None, accounts: list[dict] | None = None
+) -> list[list[str]]:
+    """The LOG bar's reference reads, its peek, the account list (ACCOUNTS
+    unless `accounts` is given) and the lines read by their ids; returns the ids
+    of each read by ids."""
+    listed = whole(ACCOUNTS if accounts is None else accounts)
     served = LINES if lines is None else lines
     reads_by_ids: list[list[str]] = []
 
@@ -190,13 +192,8 @@ def _engine(fake_client: FakeClient, papers: dict, downloads: dict | None = None
     def post(path, json_body=None):
         record(path, json_body)
         sent = base64.b64decode(json_body["file"])
-        if path == "/reconciliations/import":
-            spec = papers[sent]
-            review = spec.get("review_lines")
-            parts = {k: v for k, v in spec.items() if k != "review_lines"}
-            return statement_import_answer(
-                **parts, dry_run=json_body["dry_run"], review_lines=review
-            )
+        if path == "/statements/import":
+            return statement_upload_answer(**papers[sent], dry_run=json_body["dry_run"])
         return import_answer((downloads or {})[sent], dry_run=json_body["dry_run"])
 
     fake_client.post = post
@@ -204,7 +201,7 @@ def _engine(fake_client: FakeClient, papers: dict, downloads: dict | None = None
 
 def _uploads(fake_client) -> list[bool]:
     """The `dry_run` of every statement upload, in order."""
-    return [b["dry_run"] for path, b in fake_client.posts if path == "/reconciliations/import"]
+    return [b["dry_run"] for path, b in fake_client.posts if path == "/statements/import"]
 
 
 def _pdf(tmp_path, name: str = "BCP Visa 1492 2026-10.pdf"):
@@ -331,13 +328,13 @@ def test_a_pdf_is_a_dropped_file_and_a_statement_by_its_name(tmp_path):
 def test_the_call_sends_exactly_three_keys_on_the_cards_soles_account():
     """The body is the download's: `dry_run`, the picked account (a card's soles
     one) and the file's bytes in standard base64
-    (contract: POST /v1/reconciliations/import)."""
+    (contract: POST /v1/statements/import)."""
     client = FakeClient()
     data = bytes(range(256)) * 50
     card = account_picks(ACCOUNTS)[0]
     statement_call(client, card, data, dry_run=True)
     ((path, body),) = client.posts
-    assert path == "/reconciliations/import"
+    assert path == "/statements/import"
     assert body == {
         "dry_run": True,
         "account_id": "sig-pen",
@@ -346,7 +343,7 @@ def test_the_call_sends_exactly_three_keys_on_the_cards_soles_account():
 
 
 def test_the_answer_reads_as_the_engine_sent_it():
-    answer = statement_answer(statement_import_answer(**CARD, dry_run=True))
+    answer = statement_answer(statement_upload_answer(**CARD, dry_run=True))
     assert (answer.name, answer.date_start, answer.date_end) == (
         "SIG-202610",
         "2026-09-26",
@@ -456,8 +453,8 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
         ]
         assert [line.split() for line in lines[2:5]] == [
             ["begin", "end"],
-            ["PEN", "-1,204.10", "-512.30"],
             ["USD", "-36.42", "-61.40"],
+            ["PEN", "-1,204.10", "-512.30"],
         ]
         assert _cells(lines[5]) == ["#", "date", "title", "amount", "cur"]
         rows = [_cells(line) for line in lines[6:17]]
@@ -501,6 +498,38 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
         assert _shown(preview) == {"escape": "Cancel", "enter": "Close SIG-202610"}
         assert _uploads(fake_client) == [True]  # the dry run only
         assert reads_by_ids == [["bl-farm", "bl-near"]]  # one read, by their ids
+
+    run_app(scenario, size=(120, 50))
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "shown"),
+    [
+        ("sig-usd", "sig-pen", ["USD", "PEN"]),
+        ("sig-pen", "sig-usd", ["PEN", "USD"]),
+    ],
+    ids=["dollar-account-first", "soles-account-first"],
+)
+def test_a_cards_balance_lines_follow_its_holders_accounts_order(
+    fake_client, monkeypatch, tmp_path, first, second, shown
+):
+    """One balance line per account of the holder, in the engine's order, the
+    holder's accounts' order (contract: POST /v1/statements/import, "Response"):
+    the app sorts nothing, and still sends the soles account."""
+    by_id = {a["id"]: a for a in ACCOUNTS}
+    balance = {"sig-usd": USD_BALANCE, "sig-pen": PEN_BALANCE}
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, accounts=[by_id[first], by_id[second], *ACCOUNTS[2:]])
+    paper = {**CARD, "balances": [balance[first], balance[second]]}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert lines[2].split() == ["begin", "end"]
+        assert [line.split()[0] for line in lines[3:5]] == shown
+        ((_, body),) = fake_client.posts
+        assert body["account_id"] == "sig-pen"
 
     run_app(scenario, size=(120, 50))
 
@@ -628,11 +657,28 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
 
 
 def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path):
-    """Screen 3: the ⚑ line counts both halves' `review_lines`, and `f` opens
-    the flagged lines' screen on them; back from it, the screen stays."""
+    """Screen 3: the ⚑ line counts every account's `review_lines` in the
+    completed statement, and `f` opens the flagged lines' screen on them; back
+    from it, the screen stays."""
     path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): {**CARD, "review_lines": ["bl-near", "bl-farm"]}})
+    usd_line = bank_line_row(
+        "bl-hulu",
+        [
+            import_part(
+                "t-hulu",
+                -799,
+                account_id="sig-usd",
+                line="bl-hulu",
+                day="2026-10-12",
+                title="HULU",
+            )
+        ],
+        net_cents=-799,
+        account_id="sig-usd",
+    )
+    _patch(monkeypatch, lines={**LINES, "bl-hulu": usd_line})
+    flagged = {"sig-pen": ["bl-near"], "sig-usd": ["bl-hulu"]}  # each on its own account
+    _engine(fake_client, {path.read_bytes(): {**CARD, "review_lines": flagged}})
 
     async def scenario(pilot, app):
         await _card_preview(pilot, app, path)
@@ -646,7 +692,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         await pilot.press("f")
         flagged = await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
         await wait_for(pilot, lambda: flagged._list is not None, message="flagged never read")
-        assert flagged._ids == ["bl-near", "bl-farm"]
+        assert flagged._ids == ["bl-hulu", "bl-near"]  # the balances' order, USD first
         assert flagged._statement == "SIG-202610"
         await pilot.press("escape")
         await _on(pilot, app, StatementResultScreen, "esc did not come back")
@@ -735,6 +781,47 @@ def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
         assert _shown(preview) == {"escape": "Back"}
         await pilot.press("enter")  # ⏎ sends nothing more
         await pilot.pause()
+        assert _uploads(fake_client) == [True]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_savings_paper_for_a_holder_of_two_currencies_is_refused_in_the_engines_words(
+    fake_client, monkeypatch, tmp_path
+):
+    """A savings paper, in soles, sent for a savings account whose holder also
+    holds a dollar account: `HOLDER_ACCOUNT_NOT_ON_PAPER` on `account_id`, shown
+    in the engine's words with no line of the app's, nothing written
+    (contract: POST /v1/statements/import, "Every account of the holder is on the paper")."""
+    path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
+    _patch(
+        monkeypatch,
+        accounts=[
+            *ACCOUNTS[:2],
+            account_record(id="aho-pen", name="Sueldo PEN", holder_id="h2"),
+            account_record(id="aho-usd", name="Sueldo USD", currency_code="USD", holder_id="h2"),
+        ],
+    )
+    words = "Sueldo USD is an account of this holder the paper does not print."
+    fake_client.errors["POST"] = _refusal(
+        "VALIDATION_ERROR", "account_id", words, "HOLDER_ACCOUNT_NOT_ON_PAPER"
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _accounts(pilot, app)
+        await pilot.press("down", "enter")  # the savings holder's line
+        preview = await _refused(pilot, app)
+        assert _lines(preview) == [
+            "Preview · Sueldo PEN + USD",
+            "VALIDATION_ERROR — The statement cannot be uploaded.",
+            f"! account_id: {words}",
+            "Nothing was written.",
+        ]
+        assert _shown(preview) == {"escape": "Back"}
+        ((_, body),) = fake_client.posts
+        assert body["account_id"] == "aho-pen"
         assert _uploads(fake_client) == [True]
 
     run_app(scenario, size=(120, 40))
@@ -834,8 +921,8 @@ def test_a_download_and_a_pdf_go_one_by_one_each_its_own_way(fake_client, monkey
         assert [path for path, _ in fake_client.posts] == [
             "/transactions/import",
             "/transactions/import",
-            "/reconciliations/import",
-            "/reconciliations/import",
+            "/statements/import",
+            "/statements/import",
         ]
         await pilot.press("enter")
         await _on(pilot, app, HomeScreen, "⏎ Home did not go home")
@@ -882,13 +969,13 @@ def test_the_apply_is_one_write_its_key_reused_on_a_retry(configured, monkeypatc
     applies = iter(
         [
             httpx.Response(503, json={"error": {"code": "UNAVAILABLE", "message": "busy"}}),
-            httpx.Response(200, json=statement_import_answer(**CARD, dry_run=False)),
+            httpx.Response(200, json=statement_upload_answer(**CARD, dry_run=False)),
         ]
     )
 
     def engine(request):
         if json.loads(request.content)["dry_run"]:
-            return httpx.Response(200, json=statement_import_answer(**CARD, dry_run=True))
+            return httpx.Response(200, json=statement_upload_answer(**CARD, dry_run=True))
         return next(applies)
 
     async def scenario(pilot, app):
@@ -897,7 +984,7 @@ def test_the_apply_is_one_write_its_key_reused_on_a_retry(configured, monkeypatc
         await _on(pilot, app, StatementResultScreen, "no result screen")
 
     with respx.mock(assert_all_called=False) as mocked:
-        route = mocked.post(f"{ENGINE_URL}/v1/reconciliations/import").mock(side_effect=engine)
+        route = mocked.post(f"{ENGINE_URL}/v1/statements/import").mock(side_effect=engine)
         run_app(scenario, size=(120, 50))
     sent = [json.loads(call.request.content) for call in route.calls]
     keys = [call.request.headers["X-Idempotency-Key"] for call in route.calls]
@@ -942,7 +1029,7 @@ def test_a_long_paper_pages_with_pgdn_and_pgup(fake_client, monkeypatch, tmp_pat
     path = _pdf(tmp_path)
     _patch(monkeypatch)
     rows = [statement_row(n, -100 * n, description=f"ROW {n}") for n in range(1, 41)]
-    _engine(fake_client, {path.read_bytes(): {"rows": rows}})
+    _engine(fake_client, {path.read_bytes(): {"rows": rows, "balances": CARD["balances"]}})
 
     def places(preview) -> list[str]:
         return [_cells(line)[0] for line in _lines(preview) if re.match(r"\d+\s+2026-", line)]
@@ -964,7 +1051,7 @@ def test_a_long_paper_pages_with_pgdn_and_pgup(fake_client, monkeypatch, tmp_pat
 
 def test_an_empty_rows_amount_is_plain():
     """Screen 1A draws an empty row's `0.00` in no colour: it is no money in or out."""
-    answer = statement_answer(statement_import_answer(**CARD, dry_run=True))
+    answer = statement_answer(statement_upload_answer(**CARD, dry_run=True))
     columns = Columns(answer, [], width=116)
     (empty,) = row_lines(answer.rows[9], columns, {})
     at = empty.plain.index("0.00")
@@ -987,7 +1074,7 @@ def test_a_fee_row_stays_on_one_line_on_a_narrow_screen(fake_client, monkeypatch
         day="2026-10-25",
         description="GASTO MENSUAL POR SEGURO DE DESGRAVAMEN DE LA TARJETA",
     )
-    _engine(fake_client, {path.read_bytes(): {"rows": [long_fee]}})
+    _engine(fake_client, {path.read_bytes(): {"rows": [long_fee], "balances": CARD["balances"]}})
 
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)

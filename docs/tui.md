@@ -747,19 +747,20 @@ cursor on the first category (`HomeScreen.start_fresh`).
 it whole and reads nothing in it, and the engine reads the paper, matches each of its rows to a
 ledger line, creates the lines the ledger lacks, takes out of the month's open statement the
 lines the paper does not print, puts every line in the paper's order and completes the
-statement, creating it (on a card, both halves) or filling its open draft
-(contract: POST /v1/reconciliations/import). The request is the download's (`request_body` in
+statement, one for the whole holder (on a card, its soles and dollar accounts together), creating
+it or filling its open draft
+(contract: POST /v1/statements/import). The request is the download's (`request_body` in
 [engine.py](../expense/bank_import/engine.py)), sent by `statement_call` in
-[flow.py](../expense/bank_import/flow.py) to `POST /reconciliations/import`; the answer reads
+[flow.py](../expense/bank_import/flow.py) to `POST /statements/import`; the answer reads
 through [statement.py](../expense/bank_import/statement.py). The account is the one you pick: the
 engine never picks it by the number the paper prints, and the app matches, adds up and guesses
 nothing. Its three full screens replace one another above the LOG bar, as a download's do:
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking a card sends its soles account; the engine closes both halves from either | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (every half created) or `a draft, filled from the paper` (a half fills an open draft); then `begin  end` dim and one line per half, its currency and the paper's balances (`halves`). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a card's paper (two halves), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; `… N more · pgdn` when the rows outrun the screen. Under a new row, one warning-colour line per ledger line one day off it with the same total (`near_misses`): `! <day> <title> <amount> in the ledger is one day off: not paired`. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (the apply's `reconciliation.review_lines`, both halves'), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking a card sends its soles account; the engine closes the holder's statement from any of its accounts | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per account of the holder, its currency and the paper's balances (`balances`), in the engine's order, the holder's accounts' order, so a card whose dollar account comes first shows its `USD` line above its `PEN` one; the app sorts nothing (contract: POST /v1/statements/import, "Response"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; `… N more · pgdn` when the rows outrun the screen. Under a new row, one warning-colour line per ledger line one day off it with the same total (`near_misses`): `! <day> <title> <amount> in the ledger is one day off: not paired`. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
 colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
@@ -780,7 +781,7 @@ when not zero, `empty` and `taken out` only when not zero. After the close they 
 reads the apply's answer, not the dry run's.
 
 `⏎ Close <name>` sends the same PDF on the same account as the apply — one
-`POST /reconciliations/import` with `dry_run: false` through the shared HTTP client (its
+`POST /statements/import` with `dry_run: false` through the shared HTTP client (its
 idempotency key covers a retry); a repeated `⏎` while it is on its way sends nothing more, and
 `esc` on the preview sends nothing. `f` on the screen after the close opens the flagged lines'
 screen on the lines it flagged ("The flagged lines' screen" in §4); back from it, the `⚑` line
@@ -791,7 +792,8 @@ download does (`refusal_lines` and `failure_lines` in
 [bank_import.py](../expense/tui/screens/bank_import.py)): `CODE — message`, a `!` line per refused
 key (`! file: …` for a paper the engine cannot read, misread or that does not add up, or a
 period or month another statement holds; `! account_id: …` for an account with no statement
-code, archived, or of another currency; a row's `rows.<place>.date` future date as the engine's
+code, archived, or of another currency, or on a holder that also holds an account in a currency
+the paper does not print; a row's `rows.<place>.date` future date as the engine's
 `Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the app's
 line when "When the engine says no" gives one: for `RECONCILIATION_NOT_DRAFT` on `file`, a month
 already completed, `Revert it first, then drop the PDF again.` The footer is `esc Back` on the
@@ -799,7 +801,7 @@ last (or only) file, and keeps `esc Cancel both` / `esc Cancel all` while files 
 nothing. A refusal met by the apply shows under the preview the same way. When it is a `409
 CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line, the statement's draft or a name the
 upload files under changed while it ran
-(contract: POST /v1/reconciliations/import, "Concurrency"), the line under it is
+(contract: POST /v1/statements/import, "Concurrency"), the line under it is
 `It changed while the upload ran: ⏎ checks the paper against the ledger again.` and the footer
 `esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes.
 

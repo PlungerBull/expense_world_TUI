@@ -3,7 +3,7 @@ typer, no config.
 
 The engine reads the PDF, matches each of its rows to a ledger line, and
 answers what closing the month from it does, or did
-(contract: POST /v1/reconciliations/import). The app sends the file whole
+(contract: POST /v1/statements/import). The app sends the file whole
 (`request_body` in engine.py, the body of both uploads) and reads nothing in
 it; this module only says how the answer reads, so the screens show the
 engine's word. Nothing here matches, adds up or picks an account.
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from expense.formatting import signed_cents
 
-#: A row's outcomes (contract: POST /v1/reconciliations/import, "Response").
+#: A row's outcomes (contract: POST /v1/statements/import, "Response").
 MATCHED = "matched"
 NEW = "new"
 EMPTY = "empty"
@@ -70,30 +70,41 @@ def statement_rows(response: dict) -> list[StatementRow]:
 
 
 @dataclass(frozen=True)
-class StatementHalf:
-    """One reconciliation the statement fills or creates: on a card, one per
-    currency, the named account's first."""
+class StatementBalance:
+    """One account's balances in the statement, as the paper gives them: one
+    per account of the holder, a card's soles and dollar accounts each."""
 
     account_id: str
     currency: str
-    #: True when closing creates it; False when it fills an open draft.
-    creates: bool
     beginning_balance_cents: int | None
     ending_balance_cents: int | None
 
 
-def statement_halves(response: dict) -> list[StatementHalf]:
-    """The answer's `halves`, in its order, with the paper's balances."""
+def statement_balances(response: dict) -> list[StatementBalance]:
+    """The answer's `balances`, in its order: the holder's accounts' order
+    (contract: POST /v1/statements/import, "Response")."""
     return [
-        StatementHalf(
-            account_id=str(half.get("account_id")),
-            currency=str(half.get("currency") or "?"),
-            creates=bool(half.get("creates")),
-            beginning_balance_cents=half.get("beginning_balance_cents"),
-            ending_balance_cents=half.get("ending_balance_cents"),
+        StatementBalance(
+            account_id=str(balance.get("account_id")),
+            currency=str(balance.get("currency") or "?"),
+            beginning_balance_cents=balance.get("beginning_balance_cents"),
+            ending_balance_cents=balance.get("ending_balance_cents"),
         )
-        for half in response.get("halves") or []
+        for balance in response.get("balances") or []
     ]
+
+
+def review_line_ids(statement: dict) -> list[str]:
+    """The ids of the bank lines a close flagged for review: each balance's
+    `review_lines`, in the balances' order. A statement upload's apply answers
+    its close as the completed statement, `statement`
+    (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
+    ids: list[str] = []
+    for balance in statement.get("balances") or []:
+        named = balance.get("review_lines")
+        if isinstance(named, list):
+            ids.extend(str(line_id) for line_id in named if line_id)
+    return ids
 
 
 @dataclass(frozen=True)
@@ -122,13 +133,16 @@ def statement_counts(response: dict) -> StatementCounts:
 
 @dataclass(frozen=True)
 class StatementAnswer:
-    """The answer as the screens read it: the statement's name and days, its
-    halves, its rows, the ids of the lines taken out, and the counts."""
+    """The answer as the screens read it: the statement's name and days,
+    whether closing creates it, its balances, its rows, the ids of the lines
+    taken out, and the counts."""
 
     name: str
     date_start: str
     date_end: str
-    halves: tuple[StatementHalf, ...]
+    #: True when closing creates the statement; False when it fills an open draft.
+    creates: bool
+    balances: tuple[StatementBalance, ...]
     rows: tuple[StatementRow, ...]
     #: The lines in the open statement that the paper does not print, oldest
     #: first: taken out of it, never changed or deleted.
@@ -137,13 +151,13 @@ class StatementAnswer:
 
     @property
     def fills_a_draft(self) -> bool:
-        """True when any half fills an open draft rather than being created."""
-        return any(not half.creates for half in self.halves)
+        """True when the upload fills an open draft rather than creating it."""
+        return not self.creates
 
     @property
     def several_currencies(self) -> bool:
-        """A card's paper: one half per currency."""
-        return len(self.halves) > 1
+        """A card's paper: one balance per currency."""
+        return len(self.balances) > 1
 
     def lines_to_read(self) -> list[str]:
         """The ids the answer names a ledger line by alone, each once: the lines
@@ -164,7 +178,8 @@ def statement_answer(response: dict) -> StatementAnswer:
         name=str(response.get("name") or ""),
         date_start=str(response.get("date_start") or ""),
         date_end=str(response.get("date_end") or ""),
-        halves=tuple(statement_halves(response)),
+        creates=bool(response.get("creates")),
+        balances=tuple(statement_balances(response)),
         rows=tuple(statement_rows(response)),
         taken_out=tuple(str(i) for i in response.get("taken_out") or []),
         counts=statement_counts(response),

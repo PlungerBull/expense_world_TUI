@@ -1006,7 +1006,7 @@ mark points at the lines worth opening first; the caption only had to stop sayin
 **Decision.** (1) **A month's PDF is dropped on the LOG bar**, as a bank download is, and its
 account is picked from the download's own list; several files dropped together go one by one,
 each its own way. A file's kind is its name's ending alone, and the engine judges what is inside
-(contract: POST /v1/reconciliations/import). The owner picked A1, A2 in
+(contract: POST /v1/statements/import). The owner picked A1, A2 in
 [expense-world-statement-pdf-upload.html](mockups/expense-world-statement-pdf-upload.html) and
 screens 1 to 4, 5 A and 6 A in
 [expense-world-statement-pdf-screens.html](mockups/expense-world-statement-pdf-screens.html).
@@ -1022,7 +1022,10 @@ ledger` and `new`, `file n of m` in a run of several files, and a refusal's enve
 `!` line per key. (6) **The live suite makes its statement PDFs itself**, with no PDF library,
 and covers the savings paper only, since the contract does not print the card's column header;
 the engine ask "Publish one made-up sample statement PDF per paper, so every client can test the
-statement upload" asks for both papers' samples and layouts.
+statement upload" asks for both papers' samples and layouts. (7) **A card's balance lines follow the
+engine's order**, the holder's accounts' order (contract: POST /v1/statements/import), so a
+card whose dollar account sorts first shows its dollar line first (owner, 2026-10-28): every
+client shows the same order, and the app sorts nothing.
 
 **Why.** Every file from the bank then comes in through one door, so there is one place to learn.
 The engine reads and matches the paper, so the app only sends it and shows the answer. A preview
@@ -1030,9 +1033,10 @@ shows a wrong file before anything is written, and checking numbers belongs to a
 them, a spec of its own. A test PDF needs fixed-width text at exact points, which a few lines of
 the suite's own code write without adding a dependency.
 
-**Rejected.** *Starting the upload from the statement on Reconciliations* (B) — a key and a path
-field on another screen, for what a drop already does. *A PDF dropped only on its own* (6 B) — a
-month's download and its PDF could not go in together. *Keeping the tick-list on an open
-statement of an account with a statement code* (5 B) — ticking cannot close the month there.
-*Waiting for accounts to carry their numbers* (question 8, B) — closing statements would wait on
-account names.
+**Rejected.** *Soles first on a card, whatever the accounts' order* — the app would reorder what the
+engine sends, and each client could order it differently. *Starting the upload from the statement on
+Reconciliations* (B) — a key and a path field on another screen, for what a drop already does. *A
+PDF dropped only on its own* (6 B) — a month's download and its PDF could not go in together.
+*Keeping the tick-list on an open statement of an account with a statement code* (5 B) — ticking
+cannot close the month there. *Waiting for accounts to carry their numbers* (question 8, B) —
+closing statements would wait on account names.

@@ -97,16 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tes
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-5. **The statement upload on the new route (builder).**
-   [statement.py](../../expense/bank_import/statement.py),
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py) and flow.py's
-   `statement_call` use `POST /statements/import` and read its answer's `balances`,
-   `creates`, `statement_id` and `statement`; the flagged lines come from each balance's
-   `review_lines`; `HOLDER_ACCOUNT_NOT_ON_PAPER` shows in the engine's words. The screens stay
-   as built.
-   *Passes if:* the 26 tests of test_tui_statement_upload.py pass on the new answer, a new one
-   pins `HOLDER_ACCOUNT_NOT_ON_PAPER`, and the old upload builder is gone.
-
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.

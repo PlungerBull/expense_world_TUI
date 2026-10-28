@@ -252,7 +252,7 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
         "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
     ),
     # On `file`, a statement PDF's month already completed: the upload closes a
-    # month only from a draft or from none (contract: POST /v1/reconciliations/import).
+    # month only from a draft or from none (contract: POST /v1/statements/import, "The statement").
     ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep(
         "Press u to revert it, then d again.",
         by_key={"file": "Revert it first, then drop the PDF again."},

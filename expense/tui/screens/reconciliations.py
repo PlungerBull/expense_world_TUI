@@ -1815,9 +1815,7 @@ def line_count(n: int) -> str:
 def review_line_ids(body: dict) -> list[str]:
     """The ids of the bank lines a close flagged for review, the named half's
     `review_lines`, then the other half's (`twin.review_lines`)
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
-    A statement upload's apply answers its close the same way, as its
-    `reconciliation` (contract: POST /v1/reconciliations/import)."""
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
     twin = body.get("twin")
     halves = [body, twin] if isinstance(twin, dict) else [body]
     ids: list[str] = []

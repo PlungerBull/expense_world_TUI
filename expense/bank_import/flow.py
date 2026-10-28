@@ -142,14 +142,15 @@ def import_call(client, pick: AccountPick, data: bytes, *, dry_run: bool) -> dic
 
 
 def statement_call(client, pick: AccountPick, data: bytes, *, dry_run: bool) -> dict:
-    """`POST /reconciliations/import` on a client the caller opened: the PDF
-    and the pick's account, with the body of the download's call
-    (`request_body`). A card's soles account is named; the engine closes both
-    halves from either (contract: POST /v1/reconciliations/import). The apply
-    is this one call, not a dry run followed by a write; the client's
-    idempotency key covers a retry."""
+    """`POST /statements/import` on a client the caller opened: the PDF and
+    the pick's account, with the body of the download's call (`request_body`).
+    A card's soles account is named; the engine closes the holder's statement,
+    every account of the holder, from any of them
+    (contract: POST /v1/statements/import, "Accounts"). The apply is this one
+    call, not a dry run followed by a write; the client's idempotency key
+    covers a retry."""
     return client.post(
-        "/reconciliations/import",
+        "/statements/import",
         json_body=request_body(pick.account_id, data, dry_run=dry_run),
     )
 
