@@ -1818,7 +1818,11 @@ make rows fit that do not. Width has **no** floor of any kind.
   create answers what it was sent, `twin` included on a card; the other three answer the
   half the path names, read from the test's `GET /reconciliations/{id}` when it serves
   one (its id alone otherwise), with its status after the write, and its twin when that
-  record names a `twin_id`.
+  record names a `twin_id`. A statement's create, revert, complete and delete have entries
+  alike: the create answers the draft it was sent, one balance per account it names; the
+  other three answer the statement the path names, read from the test's
+  `GET /statements/{id}` when it serves one (its id alone otherwise), with its status
+  after the write, a complete adding the close's notes to each balance.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
   `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), while a statement's

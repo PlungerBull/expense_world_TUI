@@ -766,9 +766,11 @@ def statement_row(
     transaction_id: str | None = None,
     near_misses: tuple[tuple[str, str], ...] = (),
 ) -> dict:
-    """One row of a `POST /reconciliations/import` answer, every key present: the row
-    as the engine read it from the paper (`place` its number on it, from 1) and what
-    closing does with it (contract: POST /v1/reconciliations/import, "Response").
+    """One row of a `POST /reconciliations/import` or `POST /statements/import` answer,
+    every key present: the row as the engine read it from the paper (`place` its number
+    on it, from 1) and what closing does with it
+    (contract: POST /v1/reconciliations/import, "Response")
+    (contract: POST /v1/statements/import, "Response").
     `amount_cents` is given signed here and written as the engine sends it, a magnitude
     and `transaction_type` (1 out, 2 in). `near_misses` are `(bank_line_id, date)`;
     a matched row's `bank_line_id` defaults to one of its own."""
@@ -861,6 +863,240 @@ def statement_import_answer(
     }
 
 
+#: One account's balances in a statement as `GET /statements/{id}` reads them, nothing
+#: entered past the beginning: `difference_cents` is `null` while the ending balance is
+#: (contract: "Statements", "`difference_cents` — the add-up check").
+_BALANCE = {
+    "account_id": "acc1",
+    "beginning_balance_cents": 0,
+    "ending_balance_cents": None,
+    "difference_cents": None,
+}
+#: The close's notes `POST /statements/{id}/complete` adds to each balance: no warning,
+#: no gap, no line flagged (contract: POST /v1/statements/{statement_id}/complete, "Response").
+_CLOSE_NOTES = {"warnings": [], "coverage_gap": None, "review_lines": []}
+#: A draft statement as `GET /statements/{id}` reads it, every field present, on a holder
+#: of one account without a statement code, so its order counts are `null`
+#: (contract: "Statements", "A statement's order"): what the statement answers below
+#: spread a test's record over.
+_STATEMENT = {
+    "id": "s1",
+    "user_id": "u-1",
+    "holder_id": "h1",
+    "name": "April 2026",
+    "date_start": "2026-04-01",
+    "date_end": "2026-04-30",
+    "status": 1,
+    "balances": [_BALANCE],
+    "unplaced_count": None,
+    "shared_place_count": None,
+    "created_at": "2026-04-01T15:00:00Z",
+    "updated_at": "2026-04-01T15:00:00Z",
+    "version": 1,
+    "deleted_at": None,
+}
+#: When a deleted statement's `deleted_at` reads.
+_STATEMENT_DELETED_AT = "2026-05-02T15:00:00Z"
+
+
+def _statement(record: dict | None, balance: dict) -> dict:
+    """`record` spread over `_STATEMENT`, each of its `balances` spread over `balance`."""
+    whole_record = {**_STATEMENT, **(record or {})}
+    return {**whole_record, "balances": [{**balance, **b} for b in whole_record["balances"]]}
+
+
+@answer_of("GET", "/v1/statements/{statement_id}")
+def statement_record(record: dict | None = None) -> dict:
+    """One statement as `GET /statements/{id}` reads it: `record` spread over a draft,
+    each of its `balances` over an account's balances nothing entered past the beginning
+    (contract: "Statements", "Statement response")."""
+    return _statement(record, _BALANCE)
+
+
+@answer_of("GET", "/v1/statements")
+def statement_list(items: list[dict] | None = None) -> dict:
+    """`GET /statements?holder_id=`'s answer, whole and unpaged: `{items}`, each item a
+    `statement_record` of the record a test gives (one draft by default)
+    (contract: GET /v1/statements)."""
+    return whole([statement_record(item) for item in (items if items is not None else [{}])])
+
+
+@answer_of("POST", "/v1/statements")
+def statement_create_answer(sent: dict | None = None) -> dict:
+    """`POST /statements`'s answer to `sent`, the request body: the draft it makes, each
+    balance's `difference_cents` its ending minus its beginning, as nothing is assigned
+    yet, `null` while the ending balance is (contract: POST /v1/statements, "Response")
+    (contract: "Statements", "`difference_cents` — the add-up check")."""
+    sent = sent or {}
+    fields = ("id", "holder_id", "name", "date_start", "date_end", "balances")
+    made = statement_record({key: sent[key] for key in fields if key in sent})
+    for balance in made["balances"]:
+        end = balance["ending_balance_cents"]
+        balance["difference_cents"] = (
+            None if end is None else end - balance["beginning_balance_cents"]
+        )
+    return made
+
+
+@answer_of("PUT", "/v1/statements/{statement_id}")
+def statement_put_answer(record: dict | None = None) -> dict:
+    """`PUT /statements/{id}`'s answer: the statement as `GET /statements/{id}` reads it
+    after the write, `record` spread over a draft (contract: PUT /v1/statements/{statement_id})."""
+    return statement_record(record)
+
+
+@answer_of("POST", "/v1/statements/{statement_id}/revert")
+def statement_revert_answer(record: dict | None = None) -> dict:
+    """`POST /statements/{id}/revert`'s answer: the statement as `GET /statements/{id}`
+    reads it after the write, `record` spread over a draft, with no close notes
+    (contract: POST /v1/statements/{statement_id}/revert)."""
+    return statement_record(record)
+
+
+@answer_of("DELETE", "/v1/statements/{statement_id}")
+def statement_delete_answer(record: dict | None = None) -> dict:
+    """`DELETE /statements/{id}`'s answer: the statement as it is after the delete,
+    `record` spread over a draft, with `deleted_at` set and its lines unassigned, so both
+    order counts read `0`, or `null` on a holder with no statement code
+    (contract: DELETE /v1/statements/{statement_id})."""
+    gone = statement_record(record)
+    counts = ("unplaced_count", "shared_place_count")
+    return {
+        **gone,
+        "deleted_at": _STATEMENT_DELETED_AT,
+        **{key: 0 for key in counts if gone[key] is not None},
+    }
+
+
+@answer_of("POST", "/v1/statements/{statement_id}/complete")
+def statement_complete_answer(record: dict | None = None) -> dict:
+    """`POST /statements/{id}/complete`'s answer: the statement after the write, `record`
+    spread over a completed one, each of its `balances` over an account's balances that
+    add up (an ending balance and a `difference_cents` of `0`) carrying the close's notes,
+    `warnings` (`[]`), `coverage_gap` (`None`) and `review_lines` (`[]`) unless the
+    balance names them (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
+    completed = {"status": 2, "updated_at": "2026-05-02T15:00:00Z", "version": 2}
+    added_up = {**_BALANCE, "ending_balance_cents": 0, "difference_cents": 0, **_CLOSE_NOTES}
+    return _statement({**completed, **(record or {})}, added_up)
+
+
+def upload_balance(
+    account_id: str = "sig-pen",
+    currency: str = "PEN",
+    *,
+    begin: int = -120410,
+    end: int = -51230,
+) -> dict:
+    """One of a `POST /statements/import` answer's `balances`: its account and currency
+    and the paper's balances (contract: POST /v1/statements/import, "Response")."""
+    return {
+        "account_id": account_id,
+        "currency": currency,
+        "beginning_balance_cents": begin,
+        "ending_balance_cents": end,
+    }
+
+
+@answer_of("POST", "/v1/statements/import")
+def statement_upload_answer(
+    rows: list[dict] | None = None,
+    *,
+    dry_run: bool = False,
+    creates: bool = True,
+    statement_id: str = "s-paper",
+    name: str = "SIG-202610",
+    date_start: str = "2026-09-26",
+    date_end: str = "2026-10-25",
+    balances: list[dict] | None = None,
+    taken_out: list[str] | None = None,
+    review_lines: dict[str, list[str]] | None = None,
+    counts: dict | None = None,
+) -> dict:
+    """`POST /statements/import`'s answer: `dry_run` echoed, `statement_id` (`None` on a
+    dry run that creates the statement), `creates`, the statement's name and days, its
+    `balances` (one `upload_balance` by default), `statement` (on an apply the completed
+    statement as a complete answers it, each balance flagging the ids `review_lines`
+    gives for its account; `None` on a dry run), one row per row of the paper (each a
+    `statement_row`), `taken_out` and `counts` (by default the rows and the lines taken
+    out counted) (contract: POST /v1/statements/import, "Response"). The bare answer is
+    an apply holding a new row with a near miss, so the drift script checks each nested
+    shape."""
+    if rows is None:
+        rows = [statement_row(1, outcome="new", near_misses=(("bl-near", "2026-10-03"),))]
+    paper = balances if balances is not None else [upload_balance()]
+    flagged = review_lines or {}
+    taken = list(taken_out or [])
+    outcomes = [row["outcome"] for row in rows]
+    closed = {
+        "id": statement_id,
+        "name": name,
+        "date_start": date_start,
+        "date_end": date_end,
+        "unplaced_count": 0,
+        "shared_place_count": 0,
+        "balances": [
+            {
+                "account_id": b["account_id"],
+                "beginning_balance_cents": b["beginning_balance_cents"],
+                "ending_balance_cents": b["ending_balance_cents"],
+                "review_lines": list(flagged.get(b["account_id"], [])),
+            }
+            for b in paper
+        ],
+    }
+    return {
+        "dry_run": dry_run,
+        "statement_id": None if dry_run and creates else statement_id,
+        "creates": creates,
+        "name": name,
+        "date_start": date_start,
+        "date_end": date_end,
+        "balances": paper,
+        "statement": None if dry_run else statement_complete_answer(closed),
+        "rows": rows,
+        "taken_out": taken,
+        "counts": counts
+        if counts is not None
+        else {
+            "matched": outcomes.count("matched"),
+            "new": outcomes.count("new"),
+            "empty": outcomes.count("empty"),
+            "taken_out": len(taken),
+        },
+    }
+
+
+#: A holder as `GET /holders/{id}` reads it, every field present: one account, no
+#: statement code (contract: "Holders", "Holder response").
+_HOLDER = {
+    "id": "h1",
+    "user_id": "u-1",
+    "name": "BCP Ahorros",
+    "statement_code": None,
+    "account_ids": ["acc1"],
+    "is_archived": False,
+    "sort_order": 1,
+    "created_at": "2026-04-01T15:00:00Z",
+    "updated_at": "2026-04-01T15:00:00Z",
+    "version": 1,
+    "deleted_at": None,
+}
+
+
+@answer_of("GET", "/v1/holders/{holder_id}")
+def holder_record(record: dict | None = None) -> dict:
+    """One holder as `GET /holders/{id}` reads it: `record` spread over a holder of one
+    account with no statement code (contract: "Holders", "Holder response")."""
+    return {**_HOLDER, **(record or {})}
+
+
+@answer_of("GET", "/v1/holders")
+def holder_list(items: list[dict] | None = None) -> dict:
+    """`GET /holders`'s answer, whole and unpaged: `{items}`, each item a `holder_record`
+    of the record a test gives (one holder by default) (contract: GET /v1/holders)."""
+    return whole([holder_record(item) for item in (items if items is not None else [{}])])
+
+
 #: What `FakeClient` answers a write no `write_responses` entry names: a list of
 #: `(method, path pattern, answer)`, one per write the fake answers in the engine's
 #: shape, the pattern a regex matching the path FakeClient sees (the contract's path
@@ -937,6 +1173,32 @@ def _gone(record: dict) -> dict:
 def _deleted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
     half, twin = _statement_of(client, reconciliation_id)
     return delete_answer(_gone(half), twin=twin and _gone(twin))
+
+
+def _served_statement(client: "FakeClient", statement_id: str) -> dict:
+    """The statement the path names, as the test serves `GET /statements/{id}` (its id
+    alone when it serves none)."""
+    return {"id": statement_id, **client.get_responses.get(f"/statements/{statement_id}", {})}
+
+
+@fake_answer("POST", "/v1/statements")
+def _statement_created(client: "FakeClient", body: Any) -> dict:
+    return statement_create_answer(body)
+
+
+@fake_answer("POST", "/v1/statements/{statement_id}/revert")
+def _statement_reverted(client: "FakeClient", body: Any, statement_id: str) -> dict:
+    return statement_revert_answer({**_served_statement(client, statement_id), "status": 1})
+
+
+@fake_answer("POST", "/v1/statements/{statement_id}/complete")
+def _statement_completed(client: "FakeClient", body: Any, statement_id: str) -> dict:
+    return statement_complete_answer({**_served_statement(client, statement_id), "status": 2})
+
+
+@fake_answer("DELETE", "/v1/statements/{statement_id}")
+def _statement_deleted(client: "FakeClient", body: Any, statement_id: str) -> dict:
+    return statement_delete_answer(_served_statement(client, statement_id))
 
 
 #: `GET /accounts?include_people=true` in an order no client could derive:
@@ -1147,7 +1409,10 @@ class FakeClient:
     create, revert, complete and delete have entries: the create answers what it was
     sent, `twin` included; the other three answer the half the path names, as the
     test serves `GET /reconciliations/{id}` (or its id alone), with its status after
-    the write, and its twin when that record names a `twin_id`.
+    the write, and its twin when that record names a `twin_id`. A statement's create,
+    revert, complete and delete have entries alike: the create answers what it was sent;
+    the other three answer the statement the path names, as the test serves
+    `GET /statements/{id}` (or its id alone), with its status after the write.
 
     `post` and `put` are read through `__getattribute__`, which hands back the
     method checked by `refuse_read_only_fields` — so a function a test assigns to

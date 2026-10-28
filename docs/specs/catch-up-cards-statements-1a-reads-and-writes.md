@@ -97,12 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tes
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-1. **The fake engine answers on the statement and holder routes (builder).** In
-   [helpers.py](../../tests/unit/helpers.py): answer builders for the statement routes and the
-   holder routes, marked `@answer_of`. The old reconciliation builders stay until their last user
-   moves, in part 1b.
-   *Passes if:* the drift check names none of the new builders, and each is used by at least one
-   unit test.
 2. **One account record for every unit test (builder).** One account-record builder in
    helpers.py carrying `holder_id` and no statement code or partner; the ten unit test files that
    build their own `_account` switch to it (moved from test-suite-leftovers).
