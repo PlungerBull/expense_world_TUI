@@ -517,32 +517,25 @@ APP_FAULT = (
         # OPENING_BALANCE_NOT_TAGGED: the engine's words alone, with no line of the app's
         ("VALIDATION_ERROR", "parts.0.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", False, None),
         ("VALIDATION_ERROR", "parts.2.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", True, None),
-        # a transaction in a completed reconciliation: the engine's words alone
+        # a transaction in a completed statement: the engine's words alone
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
-        # archived-account 3 A: the engine's words alone, on every route that answers it
+        # archived-account 3 A: ACCOUNT_ARCHIVED draws no line under either code it
+        # comes with, a CONFLICT on a delete or a statement's complete, revert or delete,
+        # a VALIDATION_ERROR on a save, whatever the key, on a list or off one
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),
-        ("CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED", False, None),
+        ("CONFLICT", "statement_id", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
-        ("VALIDATION_ERROR", "ending_balance_cents", "ACCOUNT_ARCHIVED", True, None),
+        ("VALIDATION_ERROR", "balances.acc1.ending_balance_cents", "ACCOUNT_ARCHIVED", False, None),
         # `t` on an account already of that kind, or archived: the engine's words alone
         ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
         ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
-        # person-reconciliations 1 A: a reconciliation stops `t`, with the line on
-        # how; a new reconciliation on a person keeps the engine's words alone
-        (
-            "CONFLICT",
-            "account_id",
-            "HAS_RECONCILIATION",
-            True,
-            "On Reconciliations, press d on each of its reconciliations; "
-            "a completed one needs u first.",
-        ),
-        ("VALIDATION_ERROR", "account_id", "PERSON_ACCOUNT", False, None),
+        # person-reconciliations 1 B: an account that has been in a statement stops `t`,
+        # in the engine's words alone
+        ("CONFLICT", "account_id", "HAS_RECONCILIATION", True, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
         # a statement code another account in this currency has gets the app's line;
-        # a code clashing with a reconciliation, a person given a code and a code
-        # that is not three capital letters keep the engine's words alone
+        # a code that is not three capital letters keeps the engine's words alone
         (
             "CONFLICT",
             "statement_code",
@@ -551,10 +544,11 @@ APP_FAULT = (
             "Another account in this currency has this code: "
             "pick another, or clear it there first.",
         ),
-        ("VALIDATION_ERROR", "statement_code", "STATEMENT_MONTH_TAKEN", False, None),
-        ("VALIDATION_ERROR", "statement_code", "COMPLETED_STATEMENT_JOINED", False, None),
-        ("VALIDATION_ERROR", "statement_code", "PERSON_ACCOUNT", False, None),
         ("VALIDATION_ERROR", "statement_code", "INVALID_FORMAT", False, None),
+        # a statement ending in a month another statement of its holder holds, on a new
+        # statement and on a statement PDF: the engine's words alone
+        ("VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN", False, None),
+        ("VALIDATION_ERROR", "file", "STATEMENT_MONTH_TAKEN", False, None),
         # 3A
         ("LIMIT_REACHED", "id", "CAP_REACHED", False, "Delete one first."),
         # 4, on a form and in a batch or an import
@@ -623,7 +617,7 @@ APP_FAULT = (
         # 8B
         (
             "CONFLICT",
-            "reconciliation_id",
+            "statement_id",
             "RECONCILIATION_NOT_DRAFT",
             True,
             "Press u to revert it, then d again.",
@@ -649,7 +643,7 @@ APP_FAULT = (
             False,
             "An opening balance always stays in @Opening.",
         ),
-        # the field lock answers first in a completed reconciliation: no line
+        # the field lock answers first in a completed statement: no line
         ("VALIDATION_ERROR", "account_id", "LOCKED", False, None),
     ],
 )
@@ -728,7 +722,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "CONCURRENT_CHANGE",
         "RESERVED_NAME_HELD",
         "OPENING_BALANCE_EXISTS",
-        "HAS_RECONCILIATION",
         "RECONCILIATION_NOT_DRAFT",
         "ID_EXISTS",
         "IDEMPOTENCY_KEY_REUSED",

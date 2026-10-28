@@ -1667,8 +1667,6 @@ class ReconciliationDetailScreen(
             on_response=self._balance_saved_record,
             on_success=self._balance_saved,
             on_error=self._balance_failed,
-            # `r` on this screen reads the statement again
-            error_text=list_refusal_text,
         )
 
     def _balance_saved_record(self, body: dict) -> None:

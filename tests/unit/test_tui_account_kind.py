@@ -285,9 +285,6 @@ _RECON_WORDS = (
     "Delete its reconciliations first."
 )
 _RECON_FIELD = "Must be an account without reconciliations: a person cannot have one."
-_RECON_LINE = (
-    "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
-)
 _CODE_WORDS = (
     "The account has the statement code 'SJN', which a person account cannot carry. "
     "Clear the code first."
@@ -302,7 +299,7 @@ REFUSALS = [
         _RECON_WORDS,
         _RECON_FIELD,
         "HAS_RECONCILIATION",
-        f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}\n\n{_RECON_LINE}",
+        f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}",
     ),
     (
         "a-alejo",
@@ -355,9 +352,8 @@ REFUSALS = [
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
-    """The "Failed" note is the engine's words whole; only `HAS_RECONCILIATION`
-    adds the app's line, chosen by the reason; the rest,
-    `HAS_STATEMENT_CODE` among them, show the engine's words alone
+    """The "Failed" note is the engine's words alone, with no line of the app's,
+    `HAS_RECONCILIATION` and `HAS_STATEMENT_CODE` among them
     (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). Nothing
     changes: the account keeps its kind (`_by_id` holds `is_person`) and the list
     is not read again. Nothing
@@ -398,15 +394,15 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
     assert sent.call_count == 2
 
 
-# ---- person-reconciliations 1 A · refused until its reconciliations go ------
+# ---- person-reconciliations 1 B · refused until its reconciliations go ------
 
 
 def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
     configured, monkeypatch
 ):
-    """Screen 1 A of expense-world-person-reconciliations.html: `t Make person`
+    """Screen 1 B of expense-world-person-reconciliations.html: `t Make person`
     on a bank account with a reconciliation, draft or completed, is refused
-    with the engine's words and the app's line on how, and the account stays a
+    with the engine's words alone, and the account stays a
     bank account where it was (contract: POST /v1/accounts/{account_id}/make-person,
     "Refusals"). Once its reconciliations are deleted the engine no longer
     refuses, and `t` makes it a person."""
@@ -453,7 +449,7 @@ def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
         )
         run_app(scenario, size=SIZE)
     assert seen["refused"] == [
-        ("Failed", f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}\n\n{_RECON_LINE}")
+        ("Failed", f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}")
     ]
     assert seen["same"]
     assert seen["kind"] is False

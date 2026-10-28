@@ -495,7 +495,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## Completing a reconciliation asks for its ending balance first (2026-10-15, owner)
 
-**Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
+**Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
 
 **Decision.** `c` on a draft with no ending balance opens a box for it; `enter` saves it, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A reconciliation's batch screen"). Saving and completing stay two writes and two answers, so a balance can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No reconciliation was completed without an ending balance, so the app offers no revert-and-fill path.
 
@@ -734,11 +734,10 @@ is reversible and keeps the account's id, name, currency, balance and transactio
 new group, and the note says what it became, so a second `t` turns it back. (2) **A refusal is
 the engine's words.** An account's opening balance goes with it both ways, since a person
 carries one as a bank account does (see "A person carries an opening balance"). A person never
-has reconciliations, since a
-reconciliation checks the ledger against a bank statement and a person sends none (owner,
-2026-10-22): `HAS_RECONCILIATION` adds `On Reconciliations, press d on each of its
-reconciliations; a completed one needs u first.`, because the engine's words cannot say that a
-completed one goes back to draft before it is deleted. (3) **The sheet import never matches names itself:** the
+has statements, since a statement checks the ledger against a bank statement and a person sends
+none (owner, 2026-10-22). The engine refuses `t` on an account that has ever been in one, a
+deleted one included (contract: "Error reasons"), so no delete lets it through and
+`HAS_RECONCILIATION` shows in the engine's words alone (owner, 2026-10-28). (3) **The sheet import never matches names itself:** the
 engine proposes an existing account for each sheet name
 (contract: POST /v1/transactions/import-sheet), so a re-run after a conversion is the engine's
 to match.
@@ -885,7 +884,7 @@ already shows read-only, and the engine's words are enough.
 **Decision.** (1) **A card is two bank accounts, one per currency, sharing a statement code**,
 and the engine acts on a card's month as one statement: one create makes both halves, and a
 complete, revert, delete or `PUT` on either half writes both
-(contract: "Reconciliations", "A statement's order"). (2) **A card lists its statements from one
+(contract: "Statements", "Every write acts on the whole statement"). (2) **A card lists its statements from one
 `GET /statements?holder_id=`**, one row per statement, each account's balances from its entry in
 `balances`, never matched by days or names; what the row
 shows is in [tui.md](tui.md) "The Reconciliations browse". The owner picked 1 A and question 3 B

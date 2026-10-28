@@ -1811,16 +1811,18 @@ def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, type
 
 
 def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_client, monkeypatch):
-    """The engine refuses the PUT: its words whole, with the line this screen's
-    `r` makes true, and no complete is asked or sent."""
+    """The engine refuses the PUT of a statement completed meanwhile, `LOCKED` on the
+    balance (contract: PUT /v1/statements/{statement_id}, "Field locking on COMPLETED"):
+    its words whole, no line of the app's, and no complete is asked or sent."""
     _patch(monkeypatch)
+    balance = "balances.acc1.ending_balance_cents"
     fake_client.errors["PUT"] = EngineError(
-        "CONFLICT",
-        "Engine words for CONCURRENT_CHANGE.",
-        {"statement_id": "stand-in field words"},
-        409,
+        "VALIDATION_ERROR",
+        "Engine words for LOCKED.",
+        {balance: "Locked while the statement is completed."},
+        422,
         {},
-        {"statement_id": "CONCURRENT_CHANGE"},
+        {balance: "LOCKED"},
     )
     notices = _notes(monkeypatch)
 
@@ -1832,9 +1834,8 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
         assert notices == [
             (
                 "Couldn't save",
-                "CONFLICT — Engine words for CONCURRENT_CHANGE.\n"
-                "  statement_id: stand-in field words\n\n"
-                "It changed at the same moment: press r, then try again.",
+                "VALIDATION_ERROR — Engine words for LOCKED.\n"
+                f"  {balance}: Locked while the statement is completed.",
                 "error",
             )
         ]

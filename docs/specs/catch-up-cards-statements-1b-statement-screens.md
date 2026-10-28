@@ -97,16 +97,7 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-6. **The engine's current words in the docs, and the app's lines for its refusals (builder).**
-   The same words in tui.md and the grouped-refusals mockup;
-   [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go (but
-   `HAS_OPENING_BALANCE`, and `PERSON_ACCOUNT` on the opening-balance route, which
-   are gone ([decisions.md](../decisions.md) "A person carries an opening balance"); this spec
-   drops `PERSON_ACCOUNT`'s lines on the statement routes), and
-   `HAS_RECONCILIATION`'s goes too, as the owner settled; the comment heading test_errors.py's
-   archived-account rows says what the rows prove (moved from test-suite-leftovers).
-   *Passes if:* no doc or mockup quotes a sentence the engine no longer sends, and no app line
-   names a reason the contract lacks.
+Every task is done (2026-10-28); the tester's acceptance check and the librarian's sweep remain.
 
 ## Reply to the engine
 
@@ -153,11 +144,27 @@ Not built in this spec; drafted into a new spec when it is done.
   "Bank line not found." in test_tui_delete.py and test_tui_flagged_lines.py but
   "bank_line not found." as the practice engine sends it in test_tui_reconciliations.py; the
   opening balance's zero-amount case says "Amount cannot be zero." where the contract prints
-  "Must not be zero."; a test pins `CONCURRENT_CHANGE` on `PUT /statements/{id}`, which the
-  contract lists only on its `DELETE`; the sealed-line words cite the complete instead of the
+  "Must not be zero."; the sealed-line words cite the complete instead of the
   bank-line and transaction deletes; and some test names still say reconciliation. Found by
   task 5 and its review.
 - tests/unit/test_tui_account_kind.py keeps the old `HAS_RECONCILIATION` words for `t` on a
   bank account: its route, `POST /accounts/{id}/make-person`, answers `404` from contract
   `0cf6711e3a98fefe`, so the catch-up to that contract rebuilds `t` on the holder's route and
   this test with it (owner, 2026-10-28, A). Found by task 5.
+- tests/unit/test_no_read_only_fields.py still sends `places` to
+  `PUT /reconciliations/{id}/statement-order`, a route the contract no longer has (only
+  `GET /v1/statements/{statement_id}/statement-order`), with a dead citation. Found by task 6.
+- The refusal drawn in `expense-world-edit-part.html` changed shape: the engine's message now
+  names the other part of the bank line ("Transaction <id>, another part of the same bank line,
+  refuses this change. …"), so the mockup needs a redraw, not a word swap. Found by task 6.
+- `PERSON_TAKES_NO_STATEMENT` (contract `0cf6711e3a98fefe`) has no line or doc row; it is the
+  catch-up to that contract's. Found by task 6.
+- The citations and words of the routes contract `0cf6711e3a98fefe` dropped (the account archive,
+  unarchive, make-person and make-account, `POST /people`) stay for the catch-up to that
+  contract: tui.md ~830, 836, 898, 899, 903, 1000, 1001, 1148; errors.py ~198–203;
+  decisions.md ~635, 717, 733; test_tui_account_kind.py (its docstrings, `_RECON_*` words and the
+  test that a deleted statement lets `t` through, which the contract now denies); and
+  `expense-world-person-reconciliations.html` and `expense-world-account-to-person.html`. The
+  statement code's (tui.md ~1004, errors.py ~224, formatting.py ~284, test_tui_statement_code.py,
+  `expense-world-statement-code-field.html`, and `statement_code` sent on `PUT /accounts`) are the
+  cards spec's. Found by task 6 and its review.

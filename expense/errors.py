@@ -189,22 +189,22 @@ _APP_FAULT = (
 #: docs/decisions.md "Hints are chosen by the engine's reasons, never its wording".
 #: The reasons are the contract's (contract: "Error reasons"). Left out on purpose:
 #: `IN_COMPLETED_RECONCILIATION`, whose message already says to revert the
-#: reconciliation to draft first (contract: DELETE /v1/transactions/{transaction_id})
+#: statement to draft first (contract: DELETE /v1/transactions/{transaction_id})
 #: (contract: DELETE /v1/bank-lines/{bank_line_id}),
-#: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account first
+#: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account, or the
+#: statement's holder, first
 #: (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
-#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts")
+#: (contract: PUT /v1/statements/{statement_id}, "An archived holder")
 #: (contract: POST /v1/accounts/{account_id}/make-person),
 #: `KIND_UNCHANGED`, whose words already say the account is of that kind
 #: (contract: POST /v1/accounts/{account_id}/make-person)
 #: (contract: POST /v1/accounts/{account_id}/make-account),
 #: `HAS_STATEMENT_CODE`, whose message already names the code and says to clear it
 #: first (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"),
-#: `PERSON_ACCOUNT`, whose words already say a person cannot have it
-#: (contract: POST /v1/reconciliations, "A person account never has reconciliations"),
-#: `STATEMENT_MONTH_TAKEN` and `COMPLETED_STATEMENT_JOINED` on a statement code,
-#: whose words already name the reconciliations and say what to do
-#: (contract: "Bank Accounts", "Statement code"),
+#: `HAS_RECONCILIATION`, whose words show alone: the engine refuses an account that
+#: has ever been in a statement, a deleted one included (contract: "Error reasons"),
+#: `STATEMENT_MONTH_TAKEN`, whose words already name the statement holding that month
+#: (contract: "Statements", "One statement per holder per month"),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {
@@ -245,12 +245,6 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "OPENING_BALANCE_EXISTS"): NextStep(
         "It got one meanwhile: close the form and open it again to change it."
     ),
-    # A person never has reconciliations, so `t` cannot turn an account with
-    # one, draft or completed, until each is deleted, a completed one after its
-    # revert (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
-    ("CONFLICT", "HAS_RECONCILIATION"): NextStep(
-        "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
-    ),
     # On `file`, a statement PDF's month already completed: the upload closes a
     # month only from a draft or from none (contract: POST /v1/statements/import, "The statement").
     ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep(
@@ -268,8 +262,8 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("VALIDATION_ERROR", "OPENING_BALANCE_CATEGORY_FIXED"): NextStep(
         "An opening balance always stays in @Opening."
     ),
-    # A reconciliation completes only with its ending balance entered (contract:
-    # POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be
+    # A statement completes only with every account's ending balance entered (contract:
+    # POST /v1/statements/{statement_id}/complete, "Every ending balance must be
     # entered"); `c` on the batch screen asks for it when the screen reads it as empty.
     ("VALIDATION_ERROR", "ENDING_BALANCE_REQUIRED"): NextStep(
         "Press c again: the app asks for it first."

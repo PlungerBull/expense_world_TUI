@@ -276,7 +276,7 @@ def format_status(value: object) -> str:
 def format_period(item: dict) -> str:
     """`date_start → date_end`. Both are calendar
     days on the wire (contract: "Date inputs"), and every period has both
-    (contract: POST /v1/reconciliations)."""
+    (contract: POST /v1/statements)."""
     return f"{item['date_start']} → {item['date_end']}"
 
 

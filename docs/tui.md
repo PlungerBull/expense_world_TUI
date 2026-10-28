@@ -449,7 +449,7 @@ sentence** (screen 1 B of
 [expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)): under
 the line fields, one dim line per distinct sentence names the lines it covers by their names on
 the form, in the form's order, then the sentence
-(`date, title, account: Locked by completed reconciliation.`; a field the form has no line for,
+(`date, title, account: Locked by completed statement.`; a field the form has no line for,
 such as `statement_id`, is named nowhere); under the parts, each column's line carries its
 sentence, `amount  read-only · The parts must add up to the line's total.`, two parts locked in
 one column for different sentences showing each once, joined by ` · `. A long sentence wraps:
@@ -904,11 +904,10 @@ so its balance does not change (contract: POST /v1/accounts/{account_id}/make-pe
 one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the footer and does
 nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
 as it was and `t` works again; the "Failed" note is the engine's words whole (the table in
-"When the engine says no"). A person never has reconciliations, so `t Make person` on an
-account with one, draft or completed, is refused with `HAS_RECONCILIATION` until each is
-deleted (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"), and the note adds
-`On Reconciliations, press d on each of its reconciliations; a completed one needs u first.`
-(screen 1 A in
+"When the engine says no"). A person never has statements, so `t Make person` on an
+account that has ever been in one, a deleted one included, is refused with
+`HAS_RECONCILIATION` (contract: "Error reasons"), and the note is the engine's words alone
+(screen 1 B in
 [expense-world-person-reconciliations.html](mockups/expense-world-person-reconciliations.html)).
 Home shows the account under its new group, BANK ACCOUNTS or
 PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read-only:
@@ -980,8 +979,7 @@ below).
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
-reconciliation draws when completed without its ending balance, the one a new
-reconciliation draws on a person account, the one a system category
+statement draws when completed without an ending balance, the one a system category
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE —
@@ -997,18 +995,17 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
-| `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a reconciliation, draft or completed | `On Reconciliations, press d on each of its reconciliations; a completed one needs u first.` |
-| `PERSON_ACCOUNT` (a `VALIDATION_ERROR`) on `account_id` | a new reconciliation started from a screen read before its account became a person (contract: POST /v1/reconciliations, "A person account never has reconciliations") | none: the engine's words already say a person cannot have reconciliations, and the form stays open with what was typed |
+| `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account that has ever been in a statement, a deleted one included | none: the engine's words alone |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `HAS_STATEMENT_CODE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a statement code (contract: POST /v1/accounts/{account_id}/make-person, "Refusals") | none: the engine's message already names the code and says to clear it first |
-| `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
-| `STATEMENT_MONTH_TAKEN`, `COMPLETED_STATEMENT_JOINED` (a `VALIDATION_ERROR`) on `statement_code` | a code set or changed on a bank account's Edit form that would clash with a reconciliation under it (contract: "Bank Accounts", "Statement code") | none: the engine's words name the reconciliations and say what to do |
+| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
 | `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
@@ -1036,9 +1033,10 @@ screen that reports a failure through it shows the line. Two rows are the import
 apply by `changed_meanwhile` in [statement_upload.py](../expense/tui/screens/statement_upload.py);
 each shows its line in place of `format_error`'s, since what follows is `⏎ Preview again`.
 `RECONCILIATION_NOT_DRAFT` picks its line by its key: `file` (a statement PDF) or any other. A write sent from a list (every
-`d`, `t` on Manage ▸ Accounts, and the ending balance saved at `c` on a reconciliation's
-batch screen, where `r` reads it again) asks for the list's line (`list_refusal_text` in
-[_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
+`d`, and `t` on Manage ▸ Accounts) asks for the list's line (`list_refusal_text` in
+[_base.py](../expense/tui/screens/_base.py)). The ending balance saved at `c` asks for none:
+the engine lists `CONCURRENT_CHANGE` on a statement's delete, not on its save
+(contract: DELETE /v1/statements/{statement_id}) (contract: PUT /v1/statements/{statement_id}). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, the keys
 `hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`, and
 `OPENING_BALANCE_NOT_TAGGED` has its line on a transaction write's `hashtag_ids` alone, so
@@ -1096,7 +1094,7 @@ what was refused in the error colour, then the rows it hit, unstyled — `row 2`
 
 ```
   amount_cents: Must not be zero. row 2
-  date: The date falls inside a completed reconciliation's period. rows 4, 6
+  date: Period 2026-01-01 to 2026-01-30 is sealed by completed statement 'January 2026'. Revert it to draft to change anything inside it. rows 4, 6
   ctrl+s retries just the rows without a ✓.
 ```
 
@@ -1123,7 +1121,7 @@ line after. A lost connection reads in the shared text, the rows it met under it
 
 ```
 2 of 3 refused
-account_id: Locked by completed reconciliation.
+account_id: Locked by completed statement.
 rows 1, 3
 ```
 
@@ -1854,9 +1852,7 @@ make rows fit that do not. Width has **no** floor of any kind.
   file defines an account builder of its own.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
-  `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), while a statement's
-  order goes out as `places`, a list of line ids, which passes
-  (contract: "Reconciliations", "A statement's order"). The autouse
+  `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"). The autouse
   `_no_read_only_fields_in_requests` in [conftest.py](../tests/unit/conftest.py) fails any
   unit test whose request holds one (`helpers.READ_ONLY_FIELDS`), even when the app
   swallows the refusal: it checks `httpx.Client.send` (respx), `FakeClient.post`/`.put` and
