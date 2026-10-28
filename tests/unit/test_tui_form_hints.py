@@ -93,7 +93,7 @@ SPLIT_LINE = {
     "net_cents": -8500,
     "parts": [_PART, {**_PART, "id": "p2"}],
 }
-_LINE_FIELDS = ("title", "date", "account_id", "reconciliation_id")
+_LINE_FIELDS = ("title", "date", "account_id", "statement_id")
 #: Each closed state's `edit_limits`, as the engine answers it
 #: (tests/contract/test_bank_line_edit_limits.py).
 ARCHIVED = edit_limits(
@@ -104,7 +104,7 @@ ARCHIVED = edit_limits(
 )
 #: The same with no title on the line: a title filled while empty is not refused.
 ARCHIVED_NO_TITLE = edit_limits(
-    locked_fields=dict.fromkeys(("date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"),
+    locked_fields=dict.fromkeys(("date", "account_id", "statement_id"), "ACCOUNT_ARCHIVED"),
     total_fixed=True,
     parts_fixed=True,
     locked_part_fields={"p1": {"amount_cents": "ACCOUNT_ARCHIVED"}},
@@ -405,7 +405,7 @@ def test_title_says_save_only_when_it_is_the_one_line_left():
     every_field = ("amount_cents", "category_id", "hashtag_ids", "description")
     limits = edit_limits(
         locked_fields=dict.fromkeys(
-            ("date", "account_id", "reconciliation_id", "operation_code"), "ACCOUNT_ARCHIVED"
+            ("date", "account_id", "statement_id", "operation_code"), "ACCOUNT_ARCHIVED"
         ),
         total_fixed=True,
         parts_fixed=True,

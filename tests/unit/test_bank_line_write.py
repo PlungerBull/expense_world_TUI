@@ -106,7 +106,7 @@ def test_the_body_is_the_line_fields_given_then_parts():
     parts = [{"id": "p1", "amount_cents": -6000}]
     assert line_body(parts) == {"parts": parts}
     assert line_body(parts, {"title": "Tottus"}) == {"title": "Tottus", "parts": parts}
-    assert LINE_FIELDS == {"title", "date", "account_id", "operation_code", "reconciliation_id"}
+    assert LINE_FIELDS == {"title", "date", "account_id", "operation_code", "statement_id"}
 
 
 @pytest.mark.parametrize("key", ["statement_line", "statement_place", "amount_cents"])

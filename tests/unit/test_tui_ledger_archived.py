@@ -61,7 +61,7 @@ def _row(tx_id: str, account_id: str, title: str) -> dict:
         "line_code": line_code_of(f"bl-{tx_id}"),
         "statement_line": None,
         "statement_place": None,
-        "reconciliation_id": None,
+        "statement_id": None,
     }
 
 
@@ -79,7 +79,7 @@ def _archived_limits(part_id: str) -> dict:
     their amounts kept (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")."""
     return edit_limits(
         locked_fields=dict.fromkeys(
-            ("title", "date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"
+            ("title", "date", "account_id", "statement_id"), "ACCOUNT_ARCHIVED"
         ),
         total_fixed=True,
         parts_fixed=True,
@@ -418,7 +418,7 @@ def test_s_and_d_are_off_on_an_empty_ledger(fake_client, monkeypatch):
     [
         ("c", "efe", {"category_id": "cat-efe"}),
         ("h", "caj", {"hashtag_ids": ["h-caja"]}),
-        ("b", "zeta", {"account_id": "acc-zeta", "reconciliation_id": None}),
+        ("b", "zeta", {"account_id": "acc-zeta", "statement_id": None}),
     ],
     ids=["category", "hashtags", "account"],
 )

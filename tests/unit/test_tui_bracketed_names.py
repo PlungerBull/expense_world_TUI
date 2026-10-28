@@ -176,7 +176,7 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
     they were."""
     part = {
         **import_part("t1", -10000, account_id="acc1", line="l1", day="2026-04-11", title=title),
-        "reconciliation_id": None,
+        "statement_id": None,
     }
     line = bank_line_row(
         "l1", [part], net_cents=-10000, operation_code="48201764", account_id="acc1"

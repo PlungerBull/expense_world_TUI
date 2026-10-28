@@ -17,8 +17,8 @@ when nothing is selected. Each opens the bulk pick (`BulkPickScreen` in
 bulk_pick.py), a full screen listing the rows it changes over its bar,
 at most five and then `+ N more` (`changed_rows`); the write is one
 `PUT /transactions/{id}` per row, in order — an account move adds
-`reconciliation_id: null` to each row whose account changes, so it leaves its
-reconciliation, and a hashtag pick that names a real hashtag drops the pending
+`statement_id: null` to each row whose account changes, so it leaves its
+statement, and a hashtag pick that names a real hashtag drops the pending
 one (`hashtags_to_send`) (contract: PUT /v1/transactions/{transaction_id}) — and
 then the list reads fresh from the newest 10, so on a filtered list the changed
 rows leave at once. The receipt of a move counts the parts the engine's answers
@@ -265,9 +265,9 @@ def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object,
     """(id, PUT body) per target row.
 
     Each row gets its own copy of `payload`; an account move adds
-    `reconciliation_id: None` only to the rows whose account changes
+    `statement_id: None` only to the rows whose account changes
     (`unassign_on_move`), so a row already on the picked account keeps its
-    reconciliation."""
+    statement."""
     writes = []
     for key in targets:
         body = dict(payload)

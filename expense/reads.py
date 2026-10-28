@@ -173,7 +173,7 @@ def _filter_params(
         account_id=account,
         category_id=category,
         hashtag_id=hashtag,
-        reconciliation_id=reconciliation,
+        statement_id=reconciliation,
         unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,
@@ -348,7 +348,7 @@ def _line_filter_params(
     return query_params(
         ids=None if ids is None else ",".join(ids),
         account_id=account,
-        reconciliation_id=reconciliation,
+        statement_id=reconciliation,
         unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,

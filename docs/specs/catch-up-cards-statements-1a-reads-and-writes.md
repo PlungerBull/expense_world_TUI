@@ -97,14 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves `pytest tes
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches.
 
-3. **The new names on transactions and bank lines (builder).** `reconciliation_id` becomes
-   `statement_id` and `left_reconciliation` becomes `left_statement` in
-   [reads.py](../../expense/reads.py), [bank_line_write.py](../../expense/bank_line_write.py),
-   [edit_form.py](../../expense/tui/screens/edit_form.py) and
-   [transactions.py](../../expense/tui/screens/transactions.py), with their fixtures and tests;
-   the words on screen stay.
-   *Passes if:* unit tests pin a move sending `statement_id: null` and reading `left_statement`,
-   and the drift check no longer names either old field.
 4. **Holders and statements read through the engine (builder).** In reads.py: the statement
    list by holder (`GET /statements?holder_id=`), one statement by id, and the holders list
    (`GET /holders`), and a helper that finds a holder's accounts, replacing `card_partners`.

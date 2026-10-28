@@ -1153,7 +1153,7 @@ FARM_PARTS = [
         ("bl-farm", "title", "FARMACIA CENTRAL", {"title": "FARMACIA CENTRAL"}),
         ("bl-farm", "operation", "55500011", {"operation_code": "55500011"}),
         ("bl-farm", "operation", "", {"operation_code": None}),
-        ("bl-farm", "account", "Interbank", {"account_id": "acc2", "reconciliation_id": None}),
+        ("bl-farm", "account", "Interbank", {"account_id": "acc2", "statement_id": None}),
         ("bl-uber", "operation", "11122233", {"operation_code": "11122233"}),
         ("bl-uber", "0.amount", "-30.00", {}),
     ],

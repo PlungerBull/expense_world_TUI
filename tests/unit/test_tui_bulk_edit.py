@@ -117,7 +117,7 @@ async def _open(app, pilot, screen):
 
 def _moved(row: dict, account: str = "acc2") -> dict:
     """`row` after a move onto `account`: on it, and in no reconciliation."""
-    return {**row, "account_id": account, "reconciliation_id": None}
+    return {**row, "account_id": account, "statement_id": None}
 
 
 def _answer_moves(fake_client, rows: list[dict], *, left: tuple[str, ...] = ()) -> None:
@@ -305,7 +305,7 @@ def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monke
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [
-            ("/transactions/t2", {"account_id": "acc2", "reconciliation_id": None})
+            ("/transactions/t2", {"account_id": "acc2", "statement_id": None})
         ]
 
     run_app(scenario, size=(120, 30))
@@ -396,7 +396,7 @@ def test_b_offers_no_archived_account_so_no_body_names_one(fake_client, monkeypa
         await pilot.press("a", "l", "f", "a", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [
-            ("/transactions/t1", {"account_id": "acc-alfa", "reconciliation_id": None})
+            ("/transactions/t1", {"account_id": "acc-alfa", "statement_id": None})
         ]
 
     run_app(scenario, size=(160, 30))
@@ -548,7 +548,7 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
         assert [_plain(m) for t, m in toasts if t == "Refused"] == [
-            f"account_id: {ARCHIVED_FIELD_WORDS} · reconciliation_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
+            f"account_id: {ARCHIVED_FIELD_WORDS} · statement_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
         ]
         assert ("", "2 rows → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -876,9 +876,9 @@ def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkey
 #: t1 is assigned and moves, t2 is assigned but already on the picked account,
 #: t3 is in no reconciliation and moves.
 MIXED = [
-    {**ITEMS[0], "reconciliation_id": "r1"},
-    {**ITEMS[1], "account_id": "acc2", "reconciliation_id": "r2"},
-    {**ITEMS[2], "reconciliation_id": None},
+    {**ITEMS[0], "statement_id": "r1"},
+    {**ITEMS[1], "account_id": "acc2", "statement_id": "r2"},
+    {**ITEMS[2], "statement_id": None},
 ]
 
 
@@ -899,10 +899,10 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: len(fake_client.puts) == 3)
         assert fake_client.puts == [
-            ("/transactions/t1", {"account_id": "acc2", "reconciliation_id": None}),
+            ("/transactions/t1", {"account_id": "acc2", "statement_id": None}),
             # already on acc2: not a move, so it keeps its reconciliation
             ("/transactions/t2", {"account_id": "acc2"}),
-            ("/transactions/t3", {"account_id": "acc2", "reconciliation_id": None}),
+            ("/transactions/t3", {"account_id": "acc2", "statement_id": None}),
         ]
         await wait_for(pilot, lambda: toasts)
         # t3 was in no reconciliation, t2 never moved: two rows, one left
@@ -949,7 +949,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
                 {"account_id": "Locked by completed reconciliation."},
                 422,
                 {},
-                reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+                reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
             )
         return real_put(path, json_body=json_body)
 
@@ -980,7 +980,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
 
 
 def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_client, monkeypatch):
-    """The engine checks `LOCKED` first, `reconciliation_id` included: the
+    """The engine checks `LOCKED` first, `statement_id` included: the
     locked row is named with the engine's reason and is not counted as left."""
     _stub_ledger(monkeypatch, MIXED)
     toasts: list[tuple[str, str]] = []
@@ -994,7 +994,7 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
                 {"account_id": "Locked by completed reconciliation."},
                 422,
                 {},
-                reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+                reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
             )
         return real_put(path, json_body=json_body)
 
@@ -1624,7 +1624,7 @@ def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> 
         "line_code": line_code_of(line),
         "statement_line": None,
         "statement_place": None,
-        "reconciliation_id": recon,
+        "statement_id": recon,
     }
 
 
@@ -1641,7 +1641,7 @@ PURCHASE = [
 ON_PARTS = {
     "c": (["kor"], {"category_id": "kor"}),
     "h": (["pend", "com", ""], {"hashtag_ids": ["h1"]}),
-    "b": (["oro"], {"account_id": "acc2", "reconciliation_id": None}),
+    "b": (["oro"], {"account_id": "acc2", "statement_id": None}),
 }
 
 
@@ -1662,7 +1662,7 @@ def _answer_line_moves(fake_client, rows: list[dict]) -> None:
             return put_answer(_moved(named), [])
         moved_lines.add(line)
         parts = [row for row in rows if row["bank_line_id"] == line]
-        left = tuple(part["id"] for part in parts if part["reconciliation_id"])
+        left = tuple(part["id"] for part in parts if part["statement_id"])
         return put_answer(_moved(named), [_moved(part) for part in parts], left=left)
 
     fake_client.put = put
@@ -1763,7 +1763,7 @@ def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, 
 
 # ---- b: the receipt counts what the engine says moved ------------------------
 # Each `PUT` answers with `changed_parts`: every part of the line whose line field
-# the write changed, each flagged `left_reconciliation` when it left one
+# the write changed, each flagged `left_statement` when it left one
 # (contract: PUT /v1/transactions/{transaction_id}, "Response"). The receipt
 # counts the distinct parts across the answers, and nothing is read to count them.
 

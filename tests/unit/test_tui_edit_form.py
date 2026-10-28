@@ -550,13 +550,14 @@ def test_a_null_hashtag_id_renders_and_a_title_edit_leaves_the_set_alone(fake_cl
 
 
 # ---- an account move leaves the reconciliation --------------------------------
-# (contract: "Assigning transactions") (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")
+# (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")
+# (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")
 
 
 def _moved(part: dict, *, left: bool) -> dict:
     return {
-        "transaction": {**part, "account_id": "acc3", "reconciliation_id": None},
-        "left_reconciliation": left,
+        "transaction": {**part, "account_id": "acc3", "statement_id": None},
+        "left_statement": left,
     }
 
 
@@ -570,7 +571,7 @@ def _moved(part: dict, *, left: bool) -> dict:
 )
 def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, changed, note):
     """Typed key by key: `⏎` past date and title, `Ahorros` on ACCOUNT, `ctrl+s`.
-    Every account change sends `reconciliation_id: null` beside the parts, and
+    Every account change sends `statement_id: null` beside the parts, and
     the note says the line left its reconciliation only when the answer's
     `changed_parts` flags a part (contract: PUT /v1/bank-lines/{bank_line_id}, "Response")."""
     _patch(monkeypatch)
@@ -587,12 +588,12 @@ def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, chang
 
     _open(scenario_steps=steps)
     assert fake_client.calls == [
-        ("PUT", PATH, {"account_id": "acc3", "reconciliation_id": None, "parts": [_kept()]})
+        ("PUT", PATH, {"account_id": "acc3", "statement_id": None, "parts": [_kept()]})
     ]
     assert notices == [("", note)]
 
 
-def test_an_edit_that_keeps_the_account_sends_no_reconciliation_id(fake_client, monkeypatch):
+def test_an_edit_that_keeps_the_account_sends_no_statement_id(fake_client, monkeypatch):
     """Re-picking the line's own account is no change, so a line edited on
     another field keeps its reconciliation."""
     _patch(monkeypatch)
@@ -637,11 +638,11 @@ def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
         {"account_id": "Locked by completed reconciliation."},
         422,
         {},
-        reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+        reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
     )
     summary, on_top = _move_refused(err, fake_client, monkeypatch)
     assert fake_client.calls == [
-        ("PUT", PATH, {"account_id": "acc2", "reconciliation_id": None, "parts": [_kept()]})
+        ("PUT", PATH, {"account_id": "acc2", "statement_id": None, "parts": [_kept()]})
     ]
     assert "VALIDATION_ERROR — Fields are locked by a completed reconciliation." in summary
     assert "! account_id: Locked by completed reconciliation." in summary
@@ -793,7 +794,7 @@ def test_an_opening_balances_account_refusal_shows_its_line_under_the_parts(
 # (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules").
 
 ON_ARCHIVED = {**TXN, "account_id": "accX"}
-_ARCHIVED_FIELDS = ("title", "date", "account_id", "reconciliation_id")
+_ARCHIVED_FIELDS = ("title", "date", "account_id", "statement_id")
 
 
 def _archived_limits(*fields: str, part="tx1") -> dict:
@@ -830,7 +831,7 @@ def test_an_archived_lines_empty_title_left_open_by_edit_limits_saves(fake_clien
     filled: the form opens on TITLE, and the save sends it beside the part at
     its current amount."""
     record = {**ON_ARCHIVED, "title": None}
-    limits = _archived_limits("date", "account_id", "reconciliation_id")
+    limits = _archived_limits("date", "account_id", "statement_id")
     _patch(monkeypatch, _line(record, limits=limits))
 
     async def steps(screen, pilot, app):
@@ -990,10 +991,10 @@ def test_the_no_batch_form_names_its_operation_line_among_the_locked(fake_client
 
 def test_line_fields_locked_for_different_reasons_get_a_sentence_each(fake_client, monkeypatch):
     """Each distinct sentence once, in the form's order of the lines it covers;
-    a field the form has no line for (`reconciliation_id`) is named nowhere."""
+    a field the form has no line for (`statement_id`) is named nowhere."""
     limits = edit_limits(
         locked_fields={
-            "reconciliation_id": "LOCKED",
+            "statement_id": "LOCKED",
             "account_id": "ACCOUNT_ARCHIVED",
             "title": "LOCKED",
             "date": "ACCOUNT_ARCHIVED",
@@ -1282,11 +1283,11 @@ def test_the_saves_busy_hint_stays_while_it_is_sent(fake_client, monkeypatch, re
 
 # ---- what the save sends for an emptied field --------------------------------
 # An explicit `null` is `NOT_NULL` on every line field but `title` and
-# `operation_code` (clear them) and `reconciliation_id` (unassigns), and on a kept
+# `operation_code` (clear them) and `statement_id` (unassigns), and on a kept
 # part's `category_id`, `description` and `hashtag_ids`; `""` empties a description
 # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
 # (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
-NULL_CLEARS = {"reconciliation_id", "title", "operation_code"}
+NULL_CLEARS = {"statement_id", "title", "operation_code"}
 
 LINE_PART = {**TXN, "id": "p1", "title": "FARMACIA"}
 BANK_LINE = _line(LINE_PART, operation="47391026")
@@ -1398,7 +1399,7 @@ def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
 
 def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client, monkeypatch):
     """Date, title, account, amount, category and hashtags changed and the note
-    emptied, in one save: the one `null` is the `reconciliation_id` the move adds."""
+    emptied, in one save: the one `null` is the `statement_id` the move adds."""
     _patch(monkeypatch)
 
     async def steps(screen, pilot, app):
@@ -1415,7 +1416,7 @@ def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client
     _open(scenario_steps=steps)
     [(path, body)] = fake_client.puts
     assert path == PATH
-    assert _nulls(body) == {"reconciliation_id"}
+    assert _nulls(body) == {"statement_id"}
     assert body["title"] == "Inkafarma"
     assert body["account_id"] == "acc2"
     assert body["date"].startswith("2026-07-01T00:00:00")

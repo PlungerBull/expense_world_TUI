@@ -56,8 +56,8 @@ on a retry), its body built by
 - the line fields the owner changed, and only those, so a read-only one is
   never sent: `date`, `title`, `account_id`, and on the "no batch" form
   `operation_code`, whose `null` clears it; a changed account also sends
-  `reconciliation_id: null`, so the move takes the line out of its
-  reconciliation (`unassign_on_move`);
+  `statement_id: null`, so the move takes the line out of its statement
+  (`unassign_on_move`);
 - `parts`, the line's complete set: each part read from the line under its own
   id, with its current signed amount always and its category, note and
   hashtags only when changed (`kept_part`), a part added under a fresh id
@@ -66,7 +66,7 @@ on a retry), its body built by
 
 A save that changes nothing says `No changes to save.` and sends nothing.
 Saved, the note says `Saved. It left its reconciliation.` when the engine's
-answer flags a part as leaving one, and `Saved.` otherwise (`moved_parts`)
+answer flags a part `left_statement`, and `Saved.` otherwise (`moved_parts`)
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). A refused save
 stays under the parts until something changes: the engine's words, each
 `parts.<i>.<field>` key read as `part i+1 (field)`, the amounts a refusal
@@ -198,31 +198,31 @@ def split_key(key: str) -> tuple[int, str] | None:
 
 
 def unassign_on_move(payload: dict, record: dict) -> None:
-    """Make an account move take the row out of its reconciliation.
+    """Make an account move take the row out of its statement.
 
-    A write that changes `account_id` on a row assigned to a draft
-    reconciliation must say what happens to the assignment, or the engine
-    refuses it (contract: "Assigning transactions")
+    A write that changes `account_id` on a row assigned to a draft statement
+    must say what happens to the assignment, or the engine refuses it
+    (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). So a payload whose
-    `account_id` differs from the record's gains `reconciliation_id: None` — the
+    `account_id` differs from the record's gains `statement_id: None` — the
     move unassigns. An `account_id` equal to the record's is not a move and
-    gains nothing, so the row keeps its reconciliation.
+    gains nothing, so the row keeps its statement.
 
-    Whether a part did leave its reconciliation is the engine's answer to say
+    Whether a part did leave its statement is the engine's answer to say
     (`moved_parts`). Mutates `payload`; shared by the Edit form, whose record is
     the bank line, and the ledger's bulk `b`, whose record is a transaction.
     """
     if "account_id" in payload and payload["account_id"] != record.get("account_id"):
-        payload["reconciliation_id"] = None
+        payload["statement_id"] = None
 
 
 def moved_parts(answers: list[dict]) -> tuple[int, int]:
-    """(parts moved, parts that left their reconciliation) across the answers
+    """(parts moved, parts that left their statement) across the answers
     of one or more writes, each part counted once by its id.
 
     Every answer lists in `changed_parts` each part of the bank line whose line
-    field the write changed, and flags `left_reconciliation` on a part that was
-    in a reconciliation before and is in none or another after
+    field the write changed, and flags `left_statement` on a part that was
+    in a statement before and is in none or another after
     (contract: PUT /v1/transactions/{transaction_id}, "Response")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). Moving both
     parts of a line lists both in the first answer and none in the second, so
@@ -235,7 +235,7 @@ def moved_parts(answers: list[dict]) -> tuple[int, int]:
         for entry in answer.get("changed_parts", []):
             key = entry["transaction"]["id"]
             moved.add(key)
-            if entry["left_reconciliation"]:
+            if entry["left_statement"]:
                 left.add(key)
     return len(moved), len(left)
 
@@ -299,7 +299,7 @@ class EditFormScreen(FormScreen):
         self._line_reasons: dict[str, str | None] = {}
         self._original: dict = {}
         self._refusal: Exception | None = None  # the engine's, until something changes
-        self._left_reconciliation = False  # the save's answer flags a part as leaving
+        self._left_statement = False  # the save's answer flags a part as leaving
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
@@ -813,7 +813,7 @@ class EditFormScreen(FormScreen):
 
     def _answered(self, body: dict) -> None:
         # the note reads the engine's answer, never the line as read before the save
-        self._left_reconciliation = moved_parts([body])[1] > 0
+        self._left_statement = moved_parts([body])[1] > 0
 
     def _refused(self, err: Exception) -> None:
         """The refusal stays under the parts, the form open as it was."""
@@ -822,7 +822,7 @@ class EditFormScreen(FormScreen):
         self._refresh_view()
 
     def _done(self) -> None:
-        left = self._left_reconciliation
+        left = self._left_statement
         self.notify("Saved. It left its reconciliation." if left else "Saved.")
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 

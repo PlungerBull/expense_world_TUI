@@ -770,7 +770,7 @@ TRANSACTION_RESPONSE = {
     "description": None,
     "transaction_type": 1,
     "hashtag_ids": [],
-    "reconciliation_id": "rec-id",
+    "statement_id": "rec-id",
     "bank_line_id": "66666666-6666-6666-6666-666666666666",
     "line_code": "#000042",
     "operation_code": None,
@@ -954,6 +954,29 @@ def test_count_transactions_sends_the_filters_and_nothing_else(configured):
         "unreconciled": "true",
         "date_from": "2026-06-01",
     }
+
+
+@pytest.mark.parametrize(
+    ("path", "read", "answer"),
+    [
+        ("/transactions", "fetch_transactions", cursor_page([])),
+        ("/transactions/count", "count_transactions", {"count": 0}),
+        ("/bank-lines", "fetch_bank_lines", cursor_page([])),
+        ("/bank-lines/count", "count_bank_lines", {"count": 0}),
+    ],
+)
+@respx.mock
+def test_the_statement_filter_goes_as_statement_id(configured, path, read, answer):
+    """The lists and counts of transactions and bank lines filter by `statement_id`
+    (contract: GET /v1/transactions) (contract: GET /v1/bank-lines)."""
+    from expense import config as config_module
+    from expense import reads
+
+    route = respx.get(f"{BASE}/v1{path}").mock(return_value=httpx.Response(200, json=answer))
+    getattr(reads, read)(config_module.ensure_loaded(), reconciliation="st-1")
+    params = dict(route.calls.last.request.url.params)
+    assert params["statement_id"] == "st-1"
+    assert "reconciliation_id" not in params
 
 
 @pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])

@@ -168,7 +168,7 @@ LINES = {
 }
 OPERATION = {"bl-9": "47391026"}
 
-_LOCKED = ("title", "date", "account_id", "reconciliation_id")
+_LOCKED = ("title", "date", "account_id", "statement_id")
 #: What the engine answers for each line's state (test_bank_line_edit_limits.py).
 LIMITS = {
     "bl-9": edit_limits(),
@@ -933,13 +933,13 @@ def test_a_kept_parts_hashtags_go_only_when_changed_and_a_new_part_gets_a_fresh_
 
 
 def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
-    """A changed account goes with `reconciliation_id: null`, the parts as they
+    """A changed account goes with `statement_id: null`, the parts as they
     are; the answer flags a part as leaving, so the note says so
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Response")."""
     part = bank_line("bl-1")["parts"][0]
     engine.write_responses["/bank-lines/bl-1"] = {
         **bank_line("bl-1"),
-        "changed_parts": [{"transaction": part, "left_reconciliation": True}],
+        "changed_parts": [{"transaction": part, "left_statement": True}],
         "created_part_ids": [],
         "deleted_part_ids": [],
     }
@@ -958,7 +958,7 @@ def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
             "/bank-lines/bl-1",
             {
                 "account_id": "acc2",
-                "reconciliation_id": None,
+                "statement_id": None,
                 "parts": [{"id": "t1", "amount_cents": -2800}],
             },
         )

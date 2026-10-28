@@ -328,14 +328,14 @@ saves the name alone and the engine keeps the colour (`_edit_payload` in
 [create_forms.py](../expense/tui/screens/create_forms.py)).
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
-(contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds
-`reconciliation_id: null` to each row whose account changes, and only to those: a row
+(contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"), so `b` adds
+`statement_id: null` to each row whose account changes, and only to those: a row
 already on the picked account keeps its reconciliation. The Edit form adds
-`reconciliation_id: null` beside its parts the same way when the line's account changes
+`statement_id: null` beside its parts the same way when the line's account changes
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
-write changed and whether it left its reconciliation
+write changed and whether it left its reconciliation (`left_statement`)
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
 across the answers that landed and those flagged as leaving — `3 rows → BCP USD · 2 left their
 reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
@@ -350,7 +350,7 @@ save.
 the part's `description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
 On a part with no note it is no change. No field the form sends is `null` except
-`operation_code`, which `null` clears, and the `reconciliation_id: null` a move adds.
+`operation_code`, which `null` clears, and the `statement_id: null` a move adds.
 **A date the form can't read is refused at `⏎`.** On DATE, on the Edit form from the ledger
 and from "no batch" alike, `⏎` checks the bar with the reader the save uses
 (`is_readable_date` in [dates.py](../expense/dates.py)): a day `2026-10-23`, with or without
@@ -450,7 +450,7 @@ sentence** (screen 1 B of
 the line fields, one dim line per distinct sentence names the lines it covers by their names on
 the form, in the form's order, then the sentence
 (`date, title, account: Locked by completed reconciliation.`; a field the form has no line for,
-such as `reconciliation_id`, is named nowhere); under the parts, each column's line carries its
+such as `statement_id`, is named nowhere); under the parts, each column's line carries its
 sentence, `amount  read-only · The parts must add up to the line's total.`, two parts locked in
 one column for different sentences showing each once, joined by ` · `. A long sentence wraps:
 beside a column's `read-only`, under the `·` that opens it; under the shared fields, under its
@@ -481,7 +481,7 @@ the set it has
 A part added here goes under a fresh id with what it holds, its hashtags through
 `hashtags_to_send` with `pending_alone=False`, so a part with only the pending hashtag sends
 none; a part dropped with `^x` is left out, so the engine deletes it. An account changed also
-sends `reconciliation_id: null` ("A move takes a row out of its reconciliation" above). With no
+sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
 line field changed, the same parts and each kept part holding only its id and amount, the form
 says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
 `Saved. It left its reconciliation.` when the answer flags a part as leaving, closes, and the
@@ -1462,7 +1462,7 @@ panel opens on the open account's reconciliations, the cursor on its new half.
 header — name, account, period, then `begin`, `end`, `diff` and `status` — over a list of
 **bank lines**, read from `GET /bank-lines` (contract: GET /v1/bank-lines) through
 `fetch_bank_lines` in [reads.py](../expense/reads.py), every page of each read. On a draft
-it is a tick-list: the batch's lines (`reconciliation_id=`) ticked and first, then the
+it is a tick-list: the batch's lines (`statement_id=`) ticked and first, then the
 account's lines in no batch inside the period (`account_id`, `unreconciled=true`, and the
 period's own days as `date_from` / `date_to`), each read in the engine's order, newest
 first. Once completed it is the batch's lines alone, read-only, with no tick box. A

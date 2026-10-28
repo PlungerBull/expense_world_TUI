@@ -443,7 +443,7 @@ the bar is where the right file gets dropped next.
 
 **Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` in Home.
 
-**Decision.** Both paths send `reconciliation_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `reconciliation_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
+**Decision.** Both paths send `statement_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `statement_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
 
 The counts are the engine's: each move's answer lists every part of the bank line it changed and whether each left its reconciliation (contract: PUT /v1/transactions/{transaction_id}, "Response"), and the note counts the distinct parts listed across the answers that landed. A move that changes nothing shows no note. A line field reaches every part of a split transaction, so one request can move several rows, and two requests on one line can list the same rows; only the engine knows what moved.
 
@@ -617,7 +617,7 @@ the wrong place.
 ## A form never sends `null` where the engine refuses it (2026-10-18)
 
 **Decision.** The Edit form sends `null` only for the fields the engine clears with it
-(`reconciliation_id`, `title`, `operation_code`); an emptied note is sent as
+(`statement_id`, `title`, `operation_code`); an emptied note is sent as
 `description: ""` (contract: PUT /v1/transactions/{transaction_id}). A unit test empties every
 field of both Edit forms and fails on any other `null`.
 

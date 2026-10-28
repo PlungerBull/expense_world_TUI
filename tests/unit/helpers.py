@@ -248,7 +248,7 @@ def import_part(
         "date": f"{day}T05:00:00Z",
         "account_id": account_id,
         "category_id": category_id,
-        "reconciliation_id": None,
+        "statement_id": None,
         "bank_line_id": line,
         "line_code": line_code_of(line),
         "operation_code": None,
@@ -341,13 +341,13 @@ def bank_line_row(
 def put_answer(named: dict, changed: list[dict], *, left: tuple[str, ...] = ()) -> dict:
     """A `PUT /transactions/{id}` answer: the part named, after the write, plus
     `changed_parts`, one entry per part in `changed` (each the part after the write,
-    in the line's list order), `left_reconciliation` true for the ids in `left`
+    in the line's list order), `left_statement` true for the ids in `left`
     (contract: PUT /v1/transactions/{transaction_id}, "Response"). `changed` is `[]`
     for a body that changed no line field."""
     return {
         **named,
         "changed_parts": [
-            {"transaction": part, "left_reconciliation": part["id"] in left} for part in changed
+            {"transaction": part, "left_statement": part["id"] in left} for part in changed
         ],
     }
 

@@ -347,9 +347,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
         lines = mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(
             side_effect=lambda request: httpx.Response(
                 200,
-                json=cursor_page(
-                    ASSIGNED if "reconciliation_id" in request.url.params else AVAILABLE
-                ),
+                json=cursor_page(ASSIGNED if "statement_id" in request.url.params else AVAILABLE),
             )
         )
         mock.get(f"{ENGINE_URL}/v1/reconciliations").mock(httpx.Response(200, json=whole([DRAFT])))
@@ -362,7 +360,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     assert request.headers["X-Idempotency-Key"]
     assert request.read() == b'{"reconciliation_id":"r1"}'
     sent = [dict(call.request.url.params) for call in lines.calls]
-    assert {"reconciliation_id": "r1", "limit": "200"} in sent
+    assert {"statement_id": "r1", "limit": "200"} in sent
     assert {
         "account_id": "acc1",
         "unreconciled": "true",

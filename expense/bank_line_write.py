@@ -39,7 +39,7 @@ from expense.reads import hashtags_to_send
 
 #: The line fields the whole-line write takes beside `parts`
 #: (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
-LINE_FIELDS = frozenset({"title", "date", "account_id", "operation_code", "reconciliation_id"})
+LINE_FIELDS = frozenset({"title", "date", "account_id", "operation_code", "statement_id"})
 
 
 def new_part(
