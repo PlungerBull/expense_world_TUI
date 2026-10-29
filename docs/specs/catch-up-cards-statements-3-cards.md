@@ -6,12 +6,16 @@ card, and a closed statement's review list is readable in full" (`29228c5191b666
 `e06456a20aca6e4c`, holders and archiving a holder), and the holder part of its hand-off of
 2026-10-28, "A person carries an opening balance, and a card is now called a holder everywhere"
 (`2cec1b59048f50dc` and `e7393dd869963db1`: holder in every route, field, reason and
-section); then to `f00534abdde7fa82`: the engine's hand-off of 2026-10-28, "An account moves
+section); then to `256f3190cf24fc36`: the engine's hand-off of 2026-10-28, "An account moves
 between holders, a holder is made and unmade with its accounts, and a holder's bank lines list in
-one read" (`3e472b3256dcdc69` to `256f3190cf24fc36`, which the contract's change log names
-`f00534abdde7fa82`), its parts on the move, a holder deleted with its last account, a holder
-created with its accounts and an account's delete refused while a statement holds it. The other
-parts:
+one read" (`3e472b3256dcdc69` to `256f3190cf24fc36`; this client recorded it as
+`f00534abdde7fa82`, a draft that never shipped), its parts on the move, a holder deleted with its
+last account, a holder created with its accounts and an account's delete refused while a
+statement holds it; then to `e020782e3579d011`: the engine's hand-off of 2026-10-28, "A person is
+a holder; unpairing is one write; the PDF upload moves a line one day off; the change log reaches
+back; your practice engine serves only shipped code" (`4dd95f836dba7be2` to `e020782e3579d011`),
+its parts on a holder's kind, the kind changed on the holder, archiving on the holder only, a
+person's move, `POST /people` removed and unpairing in one write. The other parts:
 part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
@@ -19,8 +23,9 @@ part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
-**Status: draft; every question answered by the owner on 2026-10-28 (question 3 folded into the
-card-field mockup's question b). Its tasks are drafted when the owner names it the current spec.** It runs after
+**Status: draft; questions 1 to 10 answered by the owner on 2026-10-28 (question 3 folded into the
+card-field mockup's question b, question 5 no longer applying); questions 11 to 13, from the
+hand-off "A person is a holder; …", wait on the owner. Its tasks are drafted when the owner names it the current spec.** It runs after
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md), and
 [before-the-official-import.md](before-the-official-import.md) runs after it. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -40,12 +45,29 @@ terminal app's seven card and statement specs the engine's coming changes touch"
 - **An account a live statement holds is not deleted:** `409 IN_LIVE_STATEMENT` on `account_id`,
   judged after `HAS_TRANSACTIONS`; the statement is deleted first, a completed one reverted
   before (contract: DELETE /v1/accounts/{account_id}).
-- **People become holders too,** so creating, converting and archiving a person happen on its
-  holder, and the people route goes: not yet in the contract.
+- **People are holders too** (contract: "Holders", "Its kind"): a holder is a bank holder or a
+  person holder (`is_person`), and every account is on one, a person included. A person is made
+  with `POST /holders` and `is_person: true`, one account per currency (ALEJO in soles and in
+  dollars is one write), or with `POST /accounts` on a person holder; `POST /people` answers
+  `404`. `GET /holders` lists bank holders first, then person holders.
+- **The kind changes on the holder, whole:** `POST /holders/{id}/make-person` and
+  `/make-account` turn the holder and every account of it; the holder stays. The account routes
+  answer `404`, and `HOLDER_HAS_OTHER_ACCOUNTS` is sent by no operation
+  (contract: POST /v1/holders/{holder_id}/make-person).
+- **Archiving is on the holder only,** a person's included: `POST /accounts/{id}/archive` and
+  `/unarchive` answer `404`, and `ARCHIVE_THE_HOLDER` is sent by no operation
+  (contract: POST /v1/holders/{holder_id}/archive).
+- **A person moves between person holders,** as a bank account between bank holders; a move onto
+  a holder of the other kind is `HOLDER_KIND_MISMATCH`, and `PERSON_NOT_MOVED` is sent by no
+  operation (contract: POST /v1/accounts/{account_id}/move).
+- **Unpairing is one write:** the move takes `holder`, a new holder made of the account's kind
+  and the account moved onto it, all or nothing, a refusal of the holder keyed `holder.<field>`;
+  exactly one of `holder_id` and `holder` is sent (contract: POST /v1/accounts/{account_id}/move).
+- **A person takes no statement and no bank file** (`PERSON_TAKES_NO_STATEMENT`). The app already
+  leaves people out of Reconciliations and of the import door's account lists, so nothing on
+  screen changes for it.
 
-Two holders cannot share a name (contract: POST /v1/holders). This spec is rewritten around
-holders when the people-become-holders change lands; its questions can be answered now, from the
-mockups listed under "Questions for the owner".
+Two holders cannot share a name, whatever their kind (contract: POST /v1/holders).
 
 ---
 
@@ -53,8 +75,8 @@ mockups listed under "Questions for the owner".
 
 In the engine, a holder is a thing of its own: one bank product holding its accounts, one per
 currency. A savings account is a holder of one account; the Visa credit card, billed in soles and
-in dollars, is a holder of two. Every bank account is on exactly one holder, and a person is on
-none. The statement code belongs to the holder, not to the account, and a bank account is archived
+in dollars, is a holder of two. Every account is on exactly one holder: a bank account on a bank
+holder, a person on a person holder (ALEJO in soles and in dollars is one person holder of two). The statement code belongs to the holder, not to the account, and a bank account is archived
 with its holder, every currency at once (contract: "Holders").
 
 An account that has never been in a statement moves between holders
@@ -62,8 +84,8 @@ An account that has never been in a statement moves between holders
 `POST /v1/accounts/{account_id}/move` puts it on another holder, keeping its id, transactions and
 balance, and a holder the move leaves holding no live account is deleted in the same write
 (contract: POST /v1/accounts/{account_id}/move). Pairing two currencies is moving one account onto
-the other's holder; unpairing is creating a holder (`POST /v1/holders`) and moving the account
-onto it. The move answers this client's "Yes to moving an account to another card, with the
+the other's holder; unpairing is moving the account onto a new holder made in the same write.
+People pair and unpair the same way, between person holders. The move answers this client's "Yes to moving an account to another card, with the
 limits you proposed; no to the sheet import refusing a name used in two currencies".
 
 Until this spec lands, these break against the engine (the live engine serves
@@ -74,12 +96,9 @@ Until this spec lands, these break against the engine (the live engine serves
 - **The statement code line** of the New and Edit account forms is refused: an account carries
   no code any more.
 - **Manage ▸ Accounts' Code column** shows `—` on every row: the code is the holder's.
-- **`a` on a bank account** is refused with `ARCHIVE_THE_HOLDER` and writes nothing; a person's
-  `a` works as before (contract: "Holders", "A holder is archived whole").
-- **`t` on a person** (Make bank) is refused: the engine needs the holder the account goes on
-  (contract: POST /v1/accounts/{account_id}/make-account). `t` on a bank account works when the
-  account is alone on its holder and has never been in a statement; its holder is deleted with it
-  (contract: POST /v1/accounts/{account_id}/make-person).
+- **`a` on any account, a person's included,** answers `404`: archiving is on the holder only.
+- **`t` on any account** answers `404`: the kind changes on the holder.
+- **A new person** (`n` with type person) answers `404`: `POST /people` is gone.
 - **`d` on an account a live statement holds** is refused `IN_LIVE_STATEMENT`, in the engine's
   words (contract: DELETE /v1/accounts/{account_id}).
 - **`expense import sheet --create-names`** is refused on its first account: it creates accounts
@@ -90,34 +109,35 @@ Until this spec lands, these break against the engine (the live engine serves
 1. **Holders are shown and edited in the app,** where question 1 decides: a holder's name, its
    statement code and the accounts on it (contract: "Holders").
 2. **A new bank account goes on a holder,** as question 2 decides: a holder made for it first, or
-   one picked that holds no account in its currency (contract: POST /v1/accounts). A person is
-   created as before, on no holder.
+   one picked that holds no account in its currency (contract: POST /v1/accounts). **A new person
+   goes on a person holder,** as question 13 decides (contract: POST /v1/holders).
 3. **The statement code is the holder's,** set, changed and cleared where question 3 decides
    (contract: "Holders", "Statement code"); the account's New and Edit forms lose their code line,
    and a person's Edit form keeps its `opening` and `as of` lines
    ([decisions.md](../decisions.md) "A person carries an opening balance"). The app's line for
    `HAS_STATEMENT_CODE`, which `make-person` no longer sends now that the code is the holder's, goes
    with the code line, in errors.py, tui.md and test_errors.py.
-4. **`a` on a bank account archives its holder, every account on it,** and unarchives it the same
-   way, as question 4 decides (contract: POST /v1/holders/{holder_id}/archive). A person's `a`
-   stays as it is.
-5. **`t` on a person makes it a bank account on a holder,** as question 5 decides
-   (contract: POST /v1/accounts/{account_id}/make-account). `t` on a bank account and its
-   refusals read as question 6 decides.
+4. **`a` on any account archives its holder, every account on it,** a person's included, and
+   unarchives it the same way, as question 4 decides
+   (contract: POST /v1/holders/{holder_id}/archive).
+5. **`t` turns the account's holder, every account on it, into the other kind,** as question 11
+   decides (contract: POST /v1/holders/{holder_id}/make-person)
+   (contract: POST /v1/holders/{holder_id}/make-account); its refusals (`KIND_UNCHANGED`,
+   `ACCOUNT_ARCHIVED`, `HAS_RECONCILIATION`, all on `holder_id`) read as question 6 decides.
 6. **Pairing and unpairing an account in the app,** with the engine's move to another holder
-   (contract: POST /v1/accounts/{account_id}/move): putting an account on another holder (the
-   Visa's dollars onto the Visa's holder), or taking it off onto a new holder of its own. A holder
-   the move leaves with no live account is deleted in the same write. It is the card line of a
-   bank account's Edit form (question 1, answered B), drawn in
-   `expense-world-holders-card-field.html`. The engine's refusals, first one first, show in its words: an
-   archived account (`ACCOUNT_ARCHIVED`), a person (`PERSON_NOT_MOVED`), an account that has ever
-   been in a statement, a deleted one included (`STATEMENT_KEEPS_ACCOUNT`), the account's own
-   holder (`HOLDER_UNCHANGED`), an unknown or archived holder (`INVALID_REFERENCE`), a holder
-   already holding that currency (`HOLDER_CURRENCY_TAKEN`) and a holder with a statement
-   (`HOLDER_HAS_STATEMENT`). The move is not offered on an archived account, a person, or an
-   account that has ever been in a statement. Unpairing is two writes, a new holder and the move
-   onto it, so a refused move leaves the new holder empty; the ask "Move an account onto a new
-   holder in one write" makes it one.
+   (contract: POST /v1/accounts/{account_id}/move): putting an account on another holder of its
+   kind (the Visa's dollars onto the Visa's holder, ALEJO's dollars onto ALEJO's), or taking it
+   off onto a new holder of its own, in one write (`holder` in place of `holder_id`). A holder the
+   move leaves with no live account is deleted in the same write. It is the holder line of a bank
+   account's Edit form (question 1, answered B), drawn in `expense-world-holders-card-field.html`,
+   and of a person's as question 12 decides. The line lists only holders of the account's kind.
+   The engine's refusals, first one first, show in its words: an archived account
+   (`ACCOUNT_ARCHIVED`), an account that has ever been in a statement, a deleted one included
+   (`STATEMENT_KEEPS_ACCOUNT`), the account's own holder (`HOLDER_UNCHANGED`), an unknown or
+   archived holder (`INVALID_REFERENCE`), a holder of the other kind (`HOLDER_KIND_MISMATCH`), a
+   holder already holding that currency (`HOLDER_CURRENCY_TAKEN`), a holder with a statement
+   (`HOLDER_HAS_STATEMENT`), and a new holder's refusals keyed `holder.<field>`
+   (`NAME_EXISTS`, `STATEMENT_CODE_EXISTS`, `CAP_REACHED`).
 7. **No flow leaves an empty holder behind, or deletes one the engine already removed:** a
    holder goes with its last account, so the app sends no `DELETE /holders/{id}` after an
    account's delete, and re-reads what it shows after a delete or a move.
@@ -141,12 +161,14 @@ Until this spec lands, these break against the engine (the live engine serves
 2. A new savings account goes on a holder of its own.
 3. You set, change and clear a holder's statement code; the account forms ask for none.
 4. `a` on either of the Visa's accounts archives both and says so as question 4 decides; `a`
-   again unarchives both. A person's `a` works as before.
-5. `t` on a person makes it a bank account on the holder question 5 decides; `t` back works on
-   an account alone on its holder and never in a statement.
-6. An account created on a holder of its own is paired onto another holder and unpaired again;
-   one that has been in a statement is refused in the engine's words, and every move refusal
-   shows its message.
+   again unarchives both. `a` on ALEJO archives both of ALEJO's currencies the same way.
+5. `t` on ALEJO turns both of ALEJO's currencies into bank accounts, and `t` back turns them into
+   people, as question 11 decides; a holder that has had a statement is refused in the engine's
+   words.
+6. An account created on a holder of its own is paired onto another holder and unpaired again,
+   each one request; a person the same, between person holders; one that has been in a
+   statement is refused in the engine's words, a refused unpairing leaves no holder behind, and
+   every move refusal shows its message.
 7. `--create-names` on a sheet gives every account it creates a holder of its own, named as
    question 8 decides, and the dry run after it lists no name missing.
 8. A refused holder write says why in the engine's words and writes nothing.
@@ -155,6 +177,9 @@ Until this spec lands, these break against the engine (the live engine serves
    write.
 10. Deleting an account a live statement holds shows `IN_LIVE_STATEMENT` and what to do next.
 11. The unit suite and the drift check pass.
+12. ALEJO in soles and in dollars is created in one write from the app, as question 13 decides.
+13. No request names `POST /people`, `POST /accounts/{id}/make-person`, `/make-account`,
+    `/archive` or `/unarchive`, and nothing expects an account with no holder.
 
 ## Questions for the owner
 
@@ -233,13 +258,14 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    **Recommended:** B, as question 2 B; A collides on holder names for a person in two
    currencies.
 
-   **Answered 2026-10-28:** B.
-6. **`t` on a bank account: what its holder refusals say.** The engine refuses an account sharing
-   its holder (`HOLDER_HAS_OTHER_ACCOUNTS`) and a holder with a statement (`HOLDER_HAS_STATEMENT`)
-   (contract: POST /v1/accounts/{account_id}/make-person). The line for an account that has been
-   in any statement (`HAS_RECONCILIATION`) is as
-   [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)
-   question 2 decides.
+   **Answered 2026-10-28:** B. **No longer applies** since contract `e1959ea3b1d8ca6d`: `t`
+   changes the kind of the whole holder, which stays, so there is no holder to pick; question 11
+   asks what `t` does instead.
+6. **`t`: what its refusals say.** The engine refuses `t` on an archived holder
+   (`ACCOUNT_ARCHIVED`), on a holder already that kind (`KIND_UNCHANGED`) and on a holder that has
+   ever had a statement, a deleted one included (`HAS_RECONCILIATION`), each on `holder_id`
+   (contract: POST /v1/holders/{holder_id}/make-person). Part 1b dropped the app's line for
+   `HAS_RECONCILIATION`.
    - **A.** The engine's words alone, for both.
    - **B.** A line of the app's under each.
 
@@ -285,6 +311,35 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
 
     **Answered 2026-10-28:** A.
 
+11. **`t` on an account whose holder holds two** (mockup
+    `expense-world-holders-kind-whole.html`). `t` turns every account of the holder: on the Visa,
+    both currencies become people; on ALEJO, both become bank accounts.
+    - **A.** No question; the note names every account turned ("Now people: Visa Signature PEN,
+      Visa Signature USD."), as the archive's note does (question 4 B).
+    - **B.** No question; today's note ("Now a person."), and both rows move.
+    - **C.** On a holder of more than one account, `t` asks first; a holder of one turns at once.
+
+    **Recommended:** A: one key turns the whole holder, as `a` does, and the note says what went.
+12. **A person's holder line** (mockup `expense-world-holders-person-line.html`). People are on
+    holders, so the Holder column shows a person's holder too.
+    - **A.** A person's Edit form gets the holder line a bank account's has, listing only person
+      holders holding no account in its currency, and a new holder of its own: ALEJO's dollars are
+      paired onto ALEJO's holder there.
+    - **B.** No holder line on a person; a person's currencies are paired only when it is made
+      (question 13).
+
+    **Recommended:** A: people pair and unpair as bank accounts do, with the same line.
+13. **A new person** (mockup `expense-world-holders-new-person.html`), `n` with type person.
+    - **A.** One form, its currencies picked (PEN, USD or both), one write; each account named the
+      person's own name ("ALEJO" in both).
+    - **B.** The same form; each account named the name and its currency ("ALEJO PEN",
+      "ALEJO USD").
+    - **C.** Today's form, one currency; a second currency is a second New, paired afterwards
+      (question 12 A).
+
+    **Recommended:** A: one person in two currencies is made at once, and a person shows by name
+    with its currency beside it.
+
 Mockups this spec redraws, once picked: `expense-world-statement-code-field.html`,
 `expense-world-account-to-person.html`, `expense-world-person-reconciliations.html` and the
 archive panes of `expense-world-archived-account.html` in [mockups/](../mockups/).
@@ -302,30 +357,29 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 - **Range:** `46e2fdf6e11d7548` → `e7393dd869963db1`, shared with the other parts of this
   catch-up; the holders (`29228c5191b6669b`), archiving a holder (`e06456a20aca6e4c`) and the
   rename of card to holder (`2cec1b59048f50dc`, `e7393dd869963db1`). `d34fc8d06ff652c4` and
-  `4ac20e42cf8566ee` are
-  answered by the catch-up on a person's opening balance, done on 2026-10-28. Then
-  `3e472b3256dcdc69` → `f00534abdde7fa82` (the hand-off "An account moves between holders, a
-  holder is made and unmade with its accounts, and a holder's bank lines list in one read", which
-  ends at `256f3190cf24fc36`): the move, the delete with the last account, a holder created with
-  its accounts and `IN_LIVE_STATEMENT`; its bank lines by holder and flagged-line advice are
-  [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md)'s.
+  `4ac20e42cf8566ee` are answered by the catch-up on a person's opening balance, done on
+  2026-10-28. Then `3e472b3256dcdc69` → `256f3190cf24fc36` (the hand-off "An account moves
+  between holders, …"): the move, the delete with the last account, a holder created with its
+  accounts and `IN_LIVE_STATEMENT`. Then `4dd95f836dba7be2` → `e020782e3579d011` (the hand-off "A
+  person is a holder; …"): a holder's kind, the kind changed on the holder, the archive on the
+  holder only, a person's move, `POST /people` removed and unpairing in one write.
 - **The engine's "Done when" checks to report on:** the TUI reads and writes holders, and creates
-  accounts with `holder_id`; archiving a bank account goes through its holder; make-account
-  creates the new holder first, then sends `{"holder_id": …}`. From the hand-off "A person
-  carries an opening balance, and a card is now called a holder everywhere": a refusal the app
-  explains by reason (e.g. a second PEN account on a holder) is matched by its holder-named
-  reason.
-  From the hand-off "An account moves between holders…": pairing two accounts on different
-  holders and unpairing them again works from the TUI, and every move refusal shows its message;
-  no TUI flow leaves an empty holder behind or calls `DELETE /holders/{id}` on a holder its last
-  account's delete already removed; a new bank account with its own holder, and a two-currency
-  holder, are each one `POST /holders`; deleting an account a live statement holds shows
-  `IN_LIVE_STATEMENT` and what to do next.
-- **The asks it closes:** "Move an account onto a new holder in one write", if it lands first;
-  "Yes to moving an account to another card, with the limits you
+  accounts with `holder_id`; archiving goes through the holder. From the hand-off "A person
+  carries an opening balance, …": a refusal the app explains by reason is matched by its
+  holder-named reason. From the hand-off "An account moves between holders, …": pairing and
+  unpairing work from the TUI, every move refusal shows its message, no flow leaves an empty
+  holder behind or calls `DELETE /holders/{id}` on a holder already gone, a new bank account and
+  a two-currency holder are each one `POST /holders`, and deleting an account a live statement
+  holds shows `IN_LIVE_STATEMENT`. From the hand-off "A person is a holder; …": no request names
+  `POST /people`, `POST /accounts/{id}/make-person`, `/make-account`, `/archive` or `/unarchive`;
+  ALEJO in soles and dollars is created in one write from the app, and a person made on its own
+  holder is paired with another by the move; unpairing is one request, and a refused one leaves no
+  holder behind.
+- **The asks it closes:** "Yes to moving an account to another card, with the limits you
   proposed; no to the sheet import refusing a name used in two currencies", "Delete a card with
-  its last account, so no client leaves an empty card behind" and "Create a bank account and its
-  own card in one write".
+  its last account, so no client leaves an empty card behind", "Create a bank account and its own
+  card in one write" (its `make-account` half answered differently: the kind changes on the
+  holder, whole) and "Move an account onto a new holder in one write".
 
 ## Found along the way
 

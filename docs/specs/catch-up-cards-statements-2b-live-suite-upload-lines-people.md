@@ -4,7 +4,10 @@ Catches up to contract `e7393dd869963db1`, from `46e2fdf6e11d7548`: the engine's
 2026-10-27, "A card is its own object, its statement is one object for the whole card, and a
 closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`),
 and the rename in its hand-off of 2026-10-28, "A person carries an opening balance, and a card
-is now called a holder everywhere" (`2cec1b59048f50dc` and `e7393dd869963db1`). The catch-up is
+is now called a holder everywhere" (`2cec1b59048f50dc` and `e7393dd869963db1`); then the parts on
+the upload and people of the hand-off of 2026-10-28, "A person is a holder; unpairing is one
+write; the PDF upload moves a line one day off; the change log reaches back; your practice engine
+serves only shipped code" (`4dd95f836dba7be2` to `e020782e3579d011`). The catch-up is
 seven specs, run in this order:
 
 1. part 1a, the app's reads and writes, done on 2026-10-28;
@@ -20,6 +23,8 @@ It runs after 2a, whose shared helpers its tests use.
 **Status: approved by the owner on 2026-10-28; it runs after part 2a. Task 6, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
 accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28;
+points 1 and 3 and tasks 1, 5 and 6 changed for the hand-off "A person is a holder; …" and wait on
+the owner's approval again;
 that hand-off's own live tests are
 [catch-up-cards-statements-2c-live-suite-holder-move.md](catch-up-cards-statements-2c-live-suite-holder-move.md)'s.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
@@ -69,18 +74,23 @@ the practice user.
    account in one of its currencies refused; a savings paper for a holder holding another
    account refused. The papers the tests draw themselves (for a duplicate, a line one day off, a line
    dated in the future, totals that don't add up) follow the layout the engine states, and one
-   test proves a drawn paper reads exactly as the savings sample does.
+   test proves a drawn paper reads exactly as the savings sample does. A line one day off the
+   paper's row is matched and moved to the row's day (`redated`), on a dry run only said; a line
+   two days off is not; and a person is refused both uploads (`PERSON_TAKES_NO_STATEMENT`)
+   (contract: POST /v1/statements/import).
 2. **The bank-line tests read a statement's review list as the engine serves it**: in the
    paper's order only, before and after the close
    (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); a line
    moved to another account says it left its statement; and a transaction can no longer be
    created straight into a statement (contract: POST /v1/transactions, "No `statement_id`").
 3. **Holders, people and archiving are tested**: a holder's routes and their refusals; a person
-   turned back into a bank account onto a holder; a bank account turned into a person only when
-   it is alone on its holder and never in a statement, its holder going with it
-   (contract: POST /v1/accounts/{account_id}/make-person, "Its holder is deleted with it");
-   archiving through the holder, both currencies at once
-   (contract: POST /v1/holders/{holder_id}/archive, "Every account at once").
+   made on a person holder, two currencies in one write, and added to one with `POST /accounts`;
+   the kind changed on the holder, whole, both ways, the holder kept and its refusals
+   (`ACCOUNT_ARCHIVED`, `KIND_UNCHANGED`, `HAS_RECONCILIATION` for a deleted statement too)
+   (contract: POST /v1/holders/{holder_id}/make-person)
+   (contract: POST /v1/holders/{holder_id}/make-account); archiving through the holder only, both
+   currencies at once, a person holder's people as a bank holder's accounts
+   (contract: POST /v1/holders/{holder_id}/archive); and the removed routes answering `404`.
 4. **The practice-data cleaner works on holders and statements,** reads every page of a test's
    leftovers, and its doc says how to clean either practice user.
 5. **Every `(contract: …)` citation in the tests, the scripts and [runtime.md](../runtime.md)
@@ -113,8 +123,13 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
    [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) on
    `POST /statements/import`, reading each account's balances and the statement's id and
    `creates`; `STATEMENT_MONTH_TAKEN` on a holder of one account; `HOLDER_ACCOUNT_NOT_ON_PAPER`;
-   the suite's drawn papers following the stated layout instead of a probed one.
-   *Passes if:* both files pass live and the drawn papers cite the stated layout.
+   the suite's drawn papers following the stated layout instead of a probed one; a line one day
+   off matched and moved to the paper's day (`redated`, `counts.redated`; on a dry run nothing
+   moved), a line two days off created and flagged; `PERSON_TAKES_NO_STATEMENT` for a person on
+   the PDF upload and on the bank download (`POST /transactions/import`), on a dry run as on an
+   apply.
+   *Passes if:* both files pass live, the drawn papers cite the stated layout, and no test reads
+   `near_misses`.
 2. **The card tests from the published samples (builder).** In test_statement_import.py: the
    `card` and `card-no-dollars` samples closing one holder one after the other, the undated fees
    dated the statement's last day, `NO_ACCOUNT_FOR_CURRENCY` for a holder missing its other
@@ -142,28 +157,31 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
 5. **Holders, people and archiving (builder).** The holder routes and `HOLDER_CURRENCY_TAKEN`,
    `HOLDER_HAS_STATEMENT`, `HOLDER_HAS_ACCOUNTS` and an archived holder refused a new account;
    [test_account_kind.py](../../tests/contract/test_account_kind.py) and
-   [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) with `make-account`
-   onto a holder and `make-person`'s new refusals (`HOLDER_HAS_OTHER_ACCOUNTS`,
-   `HAS_RECONCILIATION` for a deleted statement too, `HOLDER_HAS_STATEMENT`) and its holder
-   deleted; archiving through the holder, and `ARCHIVE_THE_HOLDER` on a bank account's own route.
-   `make-person`'s refusals are read in the engine's order (`ACCOUNT_ARCHIVED`,
-   `KIND_UNCHANGED`, `HAS_RECONCILIATION`, `HOLDER_HAS_OTHER_ACCOUNTS`, `HOLDER_HAS_STATEMENT`)
-   (contract: POST /v1/accounts/{account_id}/make-person). A person keeps its opening balance
+   [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) on the holder's
+   kind: a person holder made with `is_person: true` and two currencies in one write, a person
+   added with `POST /accounts` on it, `PUT /holders/{id}` refusing `is_person`; `make-person` and
+   `make-account` on the holder turning every account, deleted ones included, the holder kept;
+   their refusals read in the engine's order (`NOT_FOUND`, `ACCOUNT_ARCHIVED`, `KIND_UNCHANGED`,
+   `HAS_RECONCILIATION` for a deleted statement too), each on `holder_id`
+   (contract: POST /v1/holders/{holder_id}/make-person); archiving through the holder only, a
+   person holder's people included; `POST /people`, `POST /accounts/{id}/make-person`,
+   `/make-account`, `/archive` and `/unarchive` answering `404`. A person keeps its opening balance
    ([decisions.md](../decisions.md) "A person carries an opening balance"): test_account_kind.py
    drops `HAS_OPENING_BALANCE` (its case, its place in the order and its docstrings'
    mentions); test_people_lifecycle.py's point that a person refuses an opening balance is turned
    round; and a live check proves `make-person`, then `make-account`, keep the same opening-balance
-   transaction and balance. Once people become holders,
-   [test_opening_balance.py](../../tests/contract/test_opening_balance.py)'s person test moves to
-   the route that makes a person. [runtime.md](../runtime.md)'s clauses on people ("no opening
+   transaction and balance, now on the holder's routes.
+   [test_opening_balance.py](../../tests/contract/test_opening_balance.py)'s person test makes its
+   person on a person holder. [runtime.md](../runtime.md)'s clauses on people ("no opening
    balance", "`HAS_OPENING_BALANCE` (before `HAS_RECONCILIATION`)") follow.
-   *Passes if:* those tests pass live, each refusal writing nothing, `make-person`'s refusals in
-   the engine's order with no `HAS_OPENING_BALANCE`, and an account's opening balance unchanged
-   through `make-person` and `make-account`.
+   *Passes if:* those tests pass live, each refusal writing nothing, the holder conversions'
+   refusals in the engine's order with no `HAS_OPENING_BALANCE` or `HOLDER_HAS_OTHER_ACCOUNTS`,
+   no test sends a removed route but to prove its `404`, and an account's opening balance
+   unchanged through `make-person` and `make-account`.
 6. **The cleaner (builder).**
    [clean_practice_user.py](../../scripts/clean_practice_user.py) on `/statements` and `/holders`
-   (unarchive the holder, revert and delete each statement, delete the transactions on every
-   page, then the accounts, each holder going with its last account, and no
+   (unarchive the holder, a person holder included, revert and delete each statement, delete the
+   transactions on every page, then the accounts, each holder going with its last account, and no
    `DELETE /holders/{id}` after it; contract: DELETE /v1/accounts/{account_id}), with
    [test_clean_practice_user.py](../../tests/contract/test_clean_practice_user.py);
    [runtime.md](../runtime.md) "Leftovers" saying a leftover on the reserved-names practice user

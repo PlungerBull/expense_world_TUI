@@ -1,7 +1,8 @@
 # What the app's reads and writes on holders turned up
 
 Three small things part 1a of the cards and statements catch-up turned up: the app's reads and
-writes on the engine's holders, done on 2026-10-28 at contract `f00534abdde7fa82`.
+writes on the engine's holders, done on 2026-10-28 at contract `256f3190cf24fc36` (recorded then
+as `f00534abdde7fa82`, a draft that never shipped).
 
 **Status: approved by the owner on 2026-10-28, question 1 answered (B).** Its tasks
 are drafted when the owner approves it. It runs after

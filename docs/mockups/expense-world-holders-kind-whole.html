@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>t on a holder of two accounts</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b,.note b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code,.note code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .note{margin-top:18px;border:1px solid var(--warn);border-radius:10px;padding:12px 16px;
+        color:var(--muted);font-size:12.5px;line-height:1.65}
+  .note .t{color:var(--warn);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;margin:0 0 4px}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>t turns the whole holder</h1>
+  <p><code>t</code> on <b>Manage ▸ Accounts</b> turns a bank account into a person, or a person into a bank account. The engine now puts people on holders, as it does bank accounts, and turns a <b>whole holder</b> at once: every account on it changes kind together. A holder of one account works exactly as <code>t</code> does today.</p>
+  <p>So <code>t</code> on <b>Visa Signature PEN</b> also turns <b>Visa Signature USD</b>, which sits on the same holder. The question is what you see when one key turns two accounts. The refusal at the bottom is the same whichever you pick. The names and amounts are invented; the refusal's words are the engine's.</p>
+</div>
+<div class="pane">
+<div class="lbl">Before · Manage ▸ Accounts <span>— shared by every option</span></div>
+<p class="blurb">Two holders hold two accounts each: the Visa (<b>Visa Signature PEN</b> and <b>Visa Signature USD</b>, bank accounts) and the person <b>ALEJO</b> (<b>ALEJO</b> in soles and <b>ALEJO USD</b> in dollars). The cursor is on <b>Visa Signature PEN</b>, so the footer offers <code>t Make person</code>.</p>
+<div class="var"><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>            40.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">On a person's row the footer reads <code>t Make bank</code> instead, as today. On an archived row <code>t</code> leaves the footer, as today.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Option A <span>— no question; the note names every account turned</span></div>
+<p class="blurb"><code>t</code> on <b>Visa Signature PEN</b> turns its whole holder at once, both accounts. The note under the list names each account that turned, the way the archive note you picked does (<code>Archived with its holder: …</code>).</p>
+<div class="var"><div class="oh">A · <span>t on Visa Signature PEN</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>            40.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      person  PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      person  USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Now people: Visa Signature PEN,
+                                                  <span class="a">▌</span> Visa Signature USD.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make bank  <span class="a">d</span> Delete</pre></div></div><p class="cap">Both Visa rows are people now, at the end of the people's list, where the engine puts them. The cursor stays on the account you pressed <code>t</code> on, so a second <code>t</code> turns both back.</p></div>
+<div class="var"><div class="oh">A · <span>t on ALEJO, the reverse</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+ <span class="a">▸</span> <span class="ab">ALEJO                   bank    PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active</span>
+   ALEJO USD               bank    USD  ALEJO                   <span class="d">—</span>            40.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Now bank accounts: ALEJO, ALEJO USD.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">The reverse: <code>t</code> on <b>ALEJO</b> turns the person holder ALEJO into a bank holder, and both its accounts into bank accounts, at the end of the bank accounts' list.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Option B <span>— no question; today's short note</span></div>
+<p class="blurb">The same write and the same list as A. The note stays today's <code>Now a person.</code> (or <code>Now a bank account.</code>), so you see the dollar account went too only by looking down the list.</p>
+<div class="var"><div class="oh">B · <span>t on Visa Signature PEN</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>            40.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      person  PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      person  USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Now a person.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make bank  <span class="a">d</span> Delete</pre></div></div><p class="cap">Both Visa rows moved; the note speaks of one.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Option C <span>— a question first when the holder holds more than one account</span></div>
+<p class="blurb"><code>t</code> on an account whose holder holds two asks before turning; only <code>y</code> turns them. A holder of one account turns at once, as today.</p>
+<div class="var"><div class="oh">C · <span>t on Visa Signature PEN</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">   Name           </span><span class="a">──────────────────────────────────────────────────────────</span><span class="d">alance  Status</span>
+<span class="d">   ───────────────</span>                                                          <span class="d">──────────────────</span>
+<span class="d">   Visa Signature </span>  <span class="ab">Turn both accounts of Visa Signature into people?</span>       <span class="d">340.50  active</span>
+<span class="d">   Visa Signature </span>                                                          <span class="d">185.20  active</span>
+<span class="d">   Sueldo Soles   </span>  Visa Signature PEN · bank · PEN · -2,340.50             <span class="d">450.00  active</span>
+<span class="d">   Efectivo       </span>  Visa Signature USD · bank · USD · -185.20               <span class="d">350.00  active</span>
+<span class="d">   ALEJO          </span>                                                          <span class="d">150.00  active</span>
+<span class="d">   ALEJO USD      </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>                 <span class="d"> 40.00  active</span>
+<span class="d">   Eliana         </span>                                                          <span class="d">-80.00  active</span>
+<span class="d">                  </span><span class="a">──────────────────────────────────────────────────────────</span><span class="d">  </span>
+<span class="d">   balances are native currency</span>
+
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap">The question names both accounts. <code>y</code> turns both and the list reads as A's; the note says <code>Now people.</code> Any other key turns nothing.</p></div>
+<div class="var"><div class="oh">C · <span>t on Eliana, a holder of one account</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+ <span class="a">▸</span> <span class="ab">Eliana                  bank    PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active</span>
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>            40.00  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Now a bank account.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap"><code>t</code> on <b>Eliana</b>, whose holder holds her soles account alone: no question, today's note.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Refused · a holder that has had a statement <span>— the same under every option</span></div>
+<p class="blurb"><b>Sueldo Soles</b> has had statements, so the engine keeps its kind for good. <code>t</code> on it is refused in the engine's own words, shown alone, and nothing changes.</p>
+<div class="var"><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+   Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+ <span class="a">▸</span> <span class="ab">Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active</span>
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>      <span class="n">    -150.00</span>  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>            40.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="n">▌</span> <span class="b">Failed</span>
+                                                  <span class="n">▌</span> CONFLICT — Must be a holder that has never had
+                                                  <span class="n">▌</span> a statement, live or deleted: a reconciled
+                                                  <span class="n">▌</span> account never becomes a person.
+                                                  <span class="n">▌</span>   holder_id: Must be a holder that has never
+                                                  <span class="n">▌</span>   had a statement, live or deleted: a
+                                                  <span class="n">▌</span>   reconciled account never becomes a person.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">The words are the engine's (<code>HAS_RECONCILIATION</code>, from turning a holder into a person). Turning a person holder that has had a statement back into a bank holder is refused the same way, with the engine's words for that direction: <code>… a holder that has had a statement keeps its kind.</code></p></div>
+</div>
+
+<div class="pick">
+  <b>To pick:</b> <b>A</b> (recommended) · no question; the note names every account turned. <b>B</b> · no question; today's short note. <b>C</b> · a question first when the holder holds more than one account.
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

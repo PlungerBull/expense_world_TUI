@@ -36,7 +36,8 @@ approved by the owner.
 
 Every bank account sits on a **holder**, the engine's name for one bank product: the Visa is one
 holder holding a soles and a dollar account, each BCP savings account is a holder of its own, and
-a person is on no holder (contract: "Holders"). A holder holds the statement code its PDFs print
+a person is on a person holder, ALEJO in soles and in dollars on one (contract: "Holders",
+"Its kind"). A holder holds the statement code its PDFs print
 (contract: "Holders", "Statement code"), and one PDF closes one holder's month.
 
 ## The sheet as it is imported (checked 2026-10-21)
@@ -74,15 +75,15 @@ a person is on no holder (contract: "Holders"). A holder holds the statement cod
 | 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
 | 10 | How do the Visa's two accounts end up on one holder? | By the engine's move of an account onto another holder, allowed while the account has never been in a statement, a deleted one included (contract: "Holders", "An account in no statement moves between holders"): pairing is moving one account onto the other currency's holder, and the holder it leaves, holding no live account, is deleted in the same write (contract: POST /v1/accounts/{account_id}/move). `--create-names` gives every account a holder of its own, and the Visa's two accounts are put on one holder in the app before the import (step 5), so no account is made by hand. Neither the import nor the statement upload can tell which accounts share a holder: the sheet holds only a name and a currency per account. The answer saying yes, "Yes to moving an account to another card, with the limits you proposed; no to the sheet import refusing a name used in two currencies", is handed over (2026-10-27). |
 | — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account") (2026-10-17). The Visa's two accounts keep their two names on one holder; the holder has a name of its own. |
-| — | People | Imported as bank accounts, each on a holder of its own, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21); turning an account into a person deletes its holder with it (contract: POST /v1/accounts/{account_id}/make-person). |
+| — | People | Imported as bank accounts, each on a holder of its own, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21). Since contract `e1959ea3b1d8ca6d` (the hand-off "A person is a holder; …", 2026-10-28), `t` turns the whole holder, which stays: a person in two currencies (the four people in both) has its two accounts paired onto one holder first, by the move, then `t` on it turns both (contract: POST /v1/holders/{holder_id}/make-person). Question 3 asks whether that stays the way. |
 
 ## What the engine settled
 
 - **A future person keeps its opening balance** (contract `4ac20e42cf8566ee`, the hand-off "A
   person carries an opening balance, and a card is now called a holder everywhere"): the import
   makes an account's first `SALDO INICIAL` row its opening balance (contract: POST /v1/transactions/import-sheet, "Opening balances"),
-  and turning the account into a person keeps it (contract: POST /v1/accounts/{account_id}/make-person),
-  so the balance stays the sheet's.
+  and turning the holder into a person holder keeps it
+  (contract: POST /v1/holders/{holder_id}/make-person), so the balance stays the sheet's.
 
 ## Steps
 
@@ -131,3 +132,14 @@ The steps follow decided 10.
 The name each holder gets when one name is used in two currencies (the four people in both
 currencies) is a question of
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
+
+3. **People in the import: still bank accounts turned with `t`?** Since 2026-10-28 `t` turns a
+   whole holder, and a person in two currencies is one person holder of two. The import's create
+   step makes each account a bank account on a holder of its own.
+   - **A.** As planned: the import makes them bank accounts; in the app, each person's two
+     currencies are paired onto one holder, then `t` turns it into a person holder.
+   - **B.** Ask the engine for the sheet import to make the people as person holders itself,
+     both currencies on one, given which sheet names are people.
+
+   **Recommended:** none yet: it waits on the cards spec's questions 11 to 13, which decide how
+   people are made and paired in the app; asked again when this spec is next.

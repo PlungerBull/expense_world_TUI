@@ -5,7 +5,10 @@ Catches up to contract `e7393dd869963db1`, from `46e2fdf6e11d7548`: the engine's
 closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e06456a20aca6e4c`),
 and the rename of card to holder in its hand-off of 2026-10-28, "A person carries an opening
 balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`,
-`e7393dd869963db1`). The catch-up is seven specs, run in this order:
+`e7393dd869963db1`); then the part on making people of the hand-off of 2026-10-28, "A person is a
+holder; unpairing is one write; the PDF upload moves a line one day off; the change log reaches
+back; your practice engine serves only shipped code" (`4dd95f836dba7be2` to `e020782e3579d011`).
+The catch-up is seven specs, run in this order:
 
 1. part 1a, the app's reads and writes, done on 2026-10-28;
 2. [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md);
@@ -15,11 +18,15 @@ balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc`,
 6. [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md);
 7. [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
-It runs after 1b, whose app helpers the live tests call.
+It runs after 1b, whose app helpers the live tests call, and after
+[catch-up-shipped-practice-engine.md](catch-up-shipped-practice-engine.md), so its tests run on
+the engine's shipped code.
 
 **Status: approved by the owner on 2026-10-28; it runs after part 1b. Task 1, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
-accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28.** When done, the why moves to
+accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28; point 1
+and task 1, changed for the hand-off "A person is a holder; …", wait on the owner's approval
+again.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 **Built on the holder names.** The engine's rename of card to holder is in the live contract
@@ -27,10 +34,9 @@ since `e7393dd869963db1` (the hand-off of 2026-10-28, "A person carries an openi
 card is now called a holder everywhere"): the routes are `/holders`, the field is `holder_id`
 everywhere, and every reason and message says holder, with nothing behaving differently; "card"
 is left only for the bank's product, a credit card. The tests make a holder, then its accounts,
-and set codes on the holder. People become holders in a later engine change, not yet in the
-contract (the engine coders' answer of 2026-10-27, "Which of the terminal app's seven card and
-statement specs the engine's coming changes touch"); once they do, a statement code on a
-person's holder is refused.
+and set codes on the holder. People are holders too since `4dd95f836dba7be2`: a person is made on
+a person holder (`POST /holders` with `is_person: true`), `POST /people` answers `404`, and a
+person holder may carry a statement code like any holder (contract: "Holders", "Its kind").
 
 ---
 
@@ -52,7 +58,7 @@ Nothing you see changes. Only the tests change.
 ## What it must do
 
 1. **Every test builds its records the shared way.** A bank account is made with its holder
-   first, and everything a test makes, holders and statements included, is cleaned up after it.
+   first, and a person with its person holder, and everything a test makes, holders and statements included, is cleaned up after it.
    A test fails when it leaves a holder behind, as it already does for an account, a category or
    a hashtag.
 2. **The statement tests run on the new routes**: a holder's statement made, renamed, completed,
@@ -82,14 +88,16 @@ citations of the files it touches.
 
 1. **The shared helpers (builder).** In [conftest.py](../../tests/contract/conftest.py): a
    holder and its accounts made through `Scratch` in one write (`POST /holders` with `accounts`;
-   contract: POST /v1/holders), a statement's body on `POST /statements` with `holder_id` and each
+   contract: POST /v1/holders), a person holder and its people the same way with `is_person: true`
+   in place of `POST /people`, a statement's body on `POST /statements` with `holder_id` and each
    account's balances, `Scratch`'s cleanup reverting and deleting statements before accounts, an
    account that a live statement holds being refused (`IN_LIVE_STATEMENT`), then deleting the
    accounts, each holder going with its last account (contract: DELETE /v1/accounts/{account_id}),
    and deleting only the holders it made with no account; `leaves_nothing` counting holders;
    `send_order` and `reconciliation_body` go.
    *Passes if:* a test making a holder of two accounts and a statement on it leaves nothing, one
-   that leaves a holder fails naming it, and conftest.py names no `/cards` or `card_id`.
+   making a person holder of two people leaves nothing, one that leaves a holder fails naming it,
+   and conftest.py names no `/cards`, `card_id` or `/people`.
 2. **The first half of the tests onto the shared helpers (builder).** These files stop posting
    `/accounts` themselves and build their accounts through `Scratch`:
    [test_freshman_flow.py](../../tests/contract/test_freshman_flow.py),

@@ -87,7 +87,7 @@ pick. It also brings every sentence of the engine's the app quotes up to the eng
 - **When `t` is refused for an account that has been in a statement, the engine's words show
   alone** (owner, 2026-10-28, 2 A): the app's line about deleting reconciliations goes, since the
   engine refuses an account that was ever in a statement, a deleted one included
-  (contract: POST /v1/accounts/{account_id}/make-person).
+  (contract: POST /v1/holders/{holder_id}/make-person).
 
 ---
 

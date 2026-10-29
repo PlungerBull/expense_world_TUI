@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>New person</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b,.note b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code,.note code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .note{margin-top:18px;border:1px solid var(--warn);border-radius:10px;padding:12px 16px;
+        color:var(--muted);font-size:12.5px;line-height:1.65}
+  .note .t{color:var(--warn);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;margin:0 0 4px}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>A new person in one or two currencies</h1>
+  <p><code>n</code> New on <b>Manage ▸ Accounts</b>, with <code>type</code> person. For bank accounts you picked one form that makes a holder with one or more currencies in one write. The engine now does the same for a person: <b>ALEJO</b> in soles and in dollars is one person holder made in one write.</p>
+  <p>The question is whether a person's New form does it too, and if so what the two accounts are named. The names and amounts are invented; the notes after <code>^s</code> are part of each option.</p>
+</div>
+<div class="pane">
+<div class="lbl">Option A <span>— one form; each account takes the person's name</span></div>
+<p class="blurb">The form you picked for a new bank account, with <code>type</code> person: a name, the currencies (PEN, USD or both) and a color. No statement code: a person has no statements. One write makes the person holder and one account per currency.</p>
+<div class="var"><div class="oh">A · <span>the form</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CURRENCIES      </span>PEN USD<span class="a">▍</span>
+
+   <span class="d">PEN, USD or both · one account each · enter to go on</span>
+
+   type            person
+   name            ALEJO
+   <span class="b">currencies      </span><span class="d">PEN + USD</span>
+   color           <span class="d">—  (optional)</span>
+
+   <span class="d">creates the person ALEJO, holding</span>
+     ALEJO                 PEN
+     ALEJO                 USD
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Both accounts are named just <b>ALEJO</b>: people show by name, with the currency beside it. The engine allows one name in two currencies.</p></div>
+<div class="var"><div class="oh">A · <span>after it</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>             0.00  active
+   ALEJO                   person  USD  ALEJO                   <span class="d">—</span>             0.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Person created: ALEJO, in PEN and USD.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">Two rows named ALEJO, told apart by the Cur column, on one holder. The list starts again at its top, as after any write.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Option B <span>— one form; each account takes the name and its currency</span></div>
+<p class="blurb">The same form and the same single write as A. Only the accounts' names differ: the name with its currency after it, as a bank account of two currencies is named (<b>Visa Signature PEN</b>, <b>Visa Signature USD</b>).</p>
+<div class="var"><div class="oh">B · <span>the form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CURRENCIES      </span>PEN USD<span class="a">▍</span>
+
+   <span class="d">PEN, USD or both · one account each · enter to go on</span>
+
+   type            person
+   name            ALEJO
+   <span class="b">currencies      </span><span class="d">PEN + USD</span>
+   color           <span class="d">—  (optional)</span>
+
+   <span class="d">creates the person ALEJO, holding</span>
+     ALEJO PEN             PEN
+     ALEJO USD             USD
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The holder is named <b>ALEJO</b>; its accounts <b>ALEJO PEN</b> and <b>ALEJO USD</b>.</p></div>
+<div class="var"><div class="oh">B · <span>after it</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO PEN               person  PEN  ALEJO                   <span class="d">—</span>             0.00  active
+   ALEJO USD               person  USD  ALEJO                   <span class="d">—</span>             0.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Person created: ALEJO PEN, ALEJO USD.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">The currency shows twice on each row, in the name and in the Cur column. A person of one currency is named plainly: <b>Eliana</b>.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">Option C <span>— today's form: one currency per person</span></div>
+<p class="blurb"><code>n</code> makes a person in one currency, as today. A second currency is a second <code>n</code>, which lands on a holder of its own; then the holder line on its Edit form puts it on the first one (the person's holder line page, option A).</p>
+<div class="var"><div class="oh">C · <span>the second New, for ALEJO's dollars</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CURRENCY        </span>USD<span class="a">▍</span>
+
+   <span class="d">PEN or USD</span>
+
+   type            person
+   name            ALEJO USD
+   <span class="b">currency        </span>USD
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The second New, for the dollars. It cannot be named plain <b>ALEJO</b>: it makes a holder named after it, and two holders cannot share a name.</p></div>
+<div class="var"><div class="oh">C · <span>after both, before pairing</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="b">   Name                    Type    Cur  Holder                  Color      Balance  Status</span>
+<span class="d">   ───────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="a">▸</span> <span class="ab">Visa Signature PEN      bank    PEN  Visa Signature          <span class="s1">██</span>     <span class="n">  -2,340.50</span>  active</span>
+   Visa Signature USD      bank    USD  Visa Signature          <span class="d">—</span>      <span class="n">    -185.20</span>  active
+   Sueldo Soles            bank    PEN  Sueldo Soles            <span class="d">—</span>        12,450.00  active
+   Efectivo                bank    PEN  Efectivo                <span class="d">—</span>           350.00  active
+   ALEJO                   person  PEN  ALEJO                   <span class="d">—</span>             0.00  active
+   ALEJO USD               person  USD  ALEJO USD               <span class="d">—</span>             0.00  active
+   Eliana                  person  PEN  Eliana                  <span class="d">—</span>      <span class="n">     -80.00</span>  active
+
+   <span class="d">balances are native currency</span>
+
+                                                  <span class="a">▌</span> Person created.
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><p class="cap">Two holders until you pair them: <code>e</code> on <b>ALEJO USD</b>, holder line, <b>ALEJO</b>, <code>^s</code>. Without the holder line (that page's option B) they stay apart.</p></div>
+</div>
+
+<div class="pick">
+  <b>To pick:</b> <b>A</b> (recommended) · one form, each account named the person's name: ALEJO and ALEJO. <b>B</b> · one form, each account named with its currency: ALEJO PEN and ALEJO USD. <b>C</b> · today's form, one currency per person; a second currency is a second New, then paired.
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

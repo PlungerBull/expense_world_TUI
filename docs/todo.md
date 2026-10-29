@@ -28,34 +28,35 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine moved again: say whether to go on, and ask for one hand-off to `ec1b54dcf8b39917`
-Asked 2026-10-28 · Blocks: every new task, among them [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md)'s task 7 and its close; [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
+### Approve the practice-engine spec and the live tests' changed tasks
+Asked 2026-10-28 · Blocks: [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md)
 
-While part 1b's acceptance check ran on 2026-10-28, the practice engine restarted on a newer
-contract: saved `0cf6711e3a98fefe` (recorded that day), engine `ec1b54dcf8b39917`. The check
-lists two versions after the saved one, both dated 2026-10-28:
+The engine's hand-off of 2026-10-28, "A person is a holder; unpairing is one write; the PDF upload
+moves a line one day off; the change log reaches back; your practice engine serves only shipped
+code", is planned in, and contract `e020782e3579d011` is recorded. A new small spec starts the
+practice engine with the engine's launcher, so every check runs on shipped code; nothing you see
+changes. The live tests' specs take people made on person holders (2a's task 1), the upload's
+one-day-off match and people refused statements and bank files (2b's tasks 1, 5 and 6), and
+unpairing in one write and a person's move (2c's tasks).
 
-- `1d7021fa568b0388`: wording only: `GET /bank-lines` (`?holder_id=` with `?account_id=`),
-  `DELETE /accounts/{id}` and `HAS_TRANSACTIONS` point to archiving the holder
-  (`POST /holders/{id}/archive`), and `archived_people` on the dashboard.
-- `ec1b54dcf8b39917`: `POST /accounts/{id}/move` takes `holder`, a new holder made and the
-  account moved onto it in one write (the ask "Move an account onto a new holder in one write");
-  exactly one of `holder_id` and `holder` is sent (`REQUIRED`, `CONFLICTING_PARAMETERS`); the
-  holder cap is checked on that move too; wording.
+**Recommended:** approve them, so they run after 1b: the practice-engine spec first, then 2a,
+2b and 2c.
 
-Nothing in either touches the statement routes. Part 1b's screens passed in the app against it.
-The hand-off you are asking the engine coders for (from `256f3190cf24fc36`, this client's
-`f00534abdde7fa82`, after which come `4dd95f836dba7be2`, `e1959ea3b1d8ca6d`, `abaa7b2637ec0bad`,
-`fccaa61852f29d3c`, `aa3589bfe7427241` and `0cf6711e3a98fefe`: person holders, the archive and the
-change of kind moved to the holder, `POST /people` gone) now reaches `ec1b54dcf8b39917`.
+### Pick how people work on holders, and the PDF preview's moved lines
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
 
-- **A.** Record `ec1b54dcf8b39917`, finish part 1b (task 7, a one-line test guard, then the doc
-  sweep and its close), and ask the engine coders for one hand-off file from `256f3190cf24fc36`
-  to `ec1b54dcf8b39917`, planned into the catch-up specs when it comes.
-- **B.** The same, but stop until the hand-off is planned.
+People are holders now, `t` turns a whole holder, and the PDF upload moves your line one day to
+the bank's day instead of warning. Four questions, each drawn as a mockup in [mockups/](mockups/):
 
-**Recommended:** A, because neither new version touches what 1b built, and task 7 only fixes a
-test guard.
+- cards question 11, `t` on a holder of two: `expense-world-holders-kind-whole.html`;
+- cards question 12, a person's holder line: `expense-world-holders-person-line.html`;
+- cards question 13, a new person: `expense-world-holders-new-person.html`;
+- statement screen question 12, the PDF preview's moved lines: `expense-world-statement-pdf-redated.html`.
+
+Cards question 5 no longer applies (`t` has no holder to pick), and statement screen question 11
+is settled as B by the engine, which declined to name a flagged line's twin.
+
+**Recommended:** A on each.
 
 ---
 
@@ -177,19 +178,19 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27, cards and statements** (to `f00534abdde7fa82`: the
-  rename of card to holder and the account move of 2026-10-28 included): eight
+- **The engine catch-up of 2026-10-27, cards and statements** (to `e020782e3579d011`: the
+  rename of card to holder, the account move and people as holders of 2026-10-28 included): nine
   specs, run in order:
   part 1a (done on 2026-10-28),
   [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
+  [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md),
   [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
   [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
   [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md),
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  1b runs now. The counts line's last task, its live tests, waits on 2a; 2b also waits on people
-  becoming holders, and the cards spec on that.
+  1b runs now. The counts line's last task, its live tests, waits on 2a.
 - **A person's opening balance: its hint and the sheet import's test**: a draft spec waiting for
   the owner's approval and a pick
   ([specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)).
