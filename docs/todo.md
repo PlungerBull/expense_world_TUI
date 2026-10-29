@@ -37,6 +37,15 @@ Nothing you see changes, and the ask above does not touch it.
 
 **Recommended:** approve it, to run after 1b.
 
+### Approve the PDF preview spec
+Asked 2026-10-28 · Blocks: [specs/catch-up-pdf-preview-day-moved.md](specs/catch-up-pdf-preview-day-moved.md)
+
+The part of the statement screen spec that marks a line the bank moves one day, split out so it
+does not wait on the engine. Two small tasks: the `· day moved` mark you picked (B), and removing
+the old "one day off: not paired" warning the engine no longer sends. Its tasks are drafted in it.
+
+**Recommended:** approve it and name it the current spec: it waits on nothing.
+
 ---
 
 ## Backlog

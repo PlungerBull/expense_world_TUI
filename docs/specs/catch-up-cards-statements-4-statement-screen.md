@@ -8,8 +8,10 @@ made and unmade with its accounts, and a holder's bank lines list in one read", 
 holder's bank lines in one read (`903200521b7c116a`) and what a client does with a flagged line
 (`3e3bd0b766c709fc`); then the engine's hand-off of 2026-10-28, "A person is a holder; unpairing is
 one write; the PDF upload moves a line one day off; the change log reaches back; your practice
-engine serves only shipped code", its parts on the PDF upload matching a line one day off
-(`95e8fea031ba6bd1`) and the flagged-line advice reworded (`e020782e3579d011`). The routes, the live suite, the sheet import's counts and cards themselves are the other
+engine serves only shipped code", its part on the flagged-line advice reworded
+(`e020782e3579d011`); its part on the PDF upload matching a line one day off
+(`95e8fea031ba6bd1`) is [catch-up-pdf-preview-day-moved.md](catch-up-pdf-preview-day-moved.md),
+which does not wait on what this spec waits on. The routes, the live suite, the sheet import's counts and cards themselves are the other
 specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
@@ -17,12 +19,11 @@ specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28)
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
-**On hold since 2026-10-28:** it waits on the engine's hand-off for the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies", which makes a card one account with a balance per currency; its question 12, the PDF preview's moved lines, did not depend on it and is answered.
+**On hold since 2026-10-28:** it waits on the engine's hand-off for the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies", which makes a card one account with a balance per currency.
 
 **Status: draft; questions 1 to 11 answered by the owner on 2026-10-28, each as recommended (2 A
 picked from its mockup; 11 settled as B by the engine), and these screens say "holder" (question 1
-of the cards spec); question 12, from the hand-off "A person is a holder; …", answered by the owner
-on 2026-10-28 as B, picked from its mockup. It runs
+of the cards spec). It runs
 after the catch-up's other specs, since it names cards by their own names. Its questions about
 screens are drawn in
 [expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html);
@@ -107,9 +108,6 @@ The engine also changed what the screens can do:
 12. **A statement refused because one of its accounts was deleted while it was written** is sent
     again with the card's remaining accounts, as the engine asks
     (contract: DELETE /v1/accounts/{account_id}).
-13. **The PDF upload's preview and result read `redated`,** as question 12 decides (B: a
-    `· day moved` mark on each moved row), and nothing
-    reads `near_misses` (contract: POST /v1/statements/import).
 
 ## How the owner knows it is done
 
@@ -251,21 +249,6 @@ word these screens use for a card, "card" or "holder", is question 1 of
     (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line").
     The recommendation's "B until it lands" is therefore the answer: **B**, the engine's two ways
     as words under the line.
-12. **The PDF upload's preview when the engine moves a line one day** (mockup
-    `expense-world-statement-pdf-redated.html`). Today a row the paper printed shows a warning
-    under it when your line sits one day off ("… in the ledger is one day off: not paired"), from
-    `near_misses`, which the engine removed. Now the engine matches that line and moves it to the
-    paper's day; the row reads matched, with `redated` (contract: POST /v1/statements/import).
-    - **A.** A dim line under the matched row names the day the line moves from.
-    - **B.** A short mark at the end of the matched row, with no day.
-    - **C.** Nothing on the rows; the preview's count line says how many lines move.
-
-    **Recommended:** A: you see which of your lines the bank's paper moves, and from which day,
-    before anything is written.
-
-    **Answered by the owner, 2026-10-28: B.** A matched row the engine moves reads
-    `✓ In the ledger · day moved`, with no old day, the way a fee row carries its note; the
-    result after ⏎ reads as it does today.
 
 ---
 
@@ -283,14 +266,13 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   answered by the catch-up on a person's opening balance, done on 2026-10-28.
   Then `903200521b7c116a` and `3e3bd0b766c709fc` of the hand-off "An account moves between
   holders, a holder is made and unmade with its accounts, and a holder's bank lines list in one
-  read". Then `95e8fea031ba6bd1` and `e020782e3579d011` of the hand-off "A person is a holder;
-  …": the one-day-off match and the flagged-line advice.
+  read". Then `e020782e3579d011` of the hand-off "A person is a holder; …": the flagged-line
+  advice.
 - **The engine's "Done when" checks to report on:** "Every statement screen uses /statements,
   one object per card, with balances per account." From the hand-off "An account moves between
   holders…": a holder's lines in no statement show in one list, both currencies together, with
   their count; the flagged-line screen offers both paths on a holder with a statement code, as
-  words (question 11 B). From the hand-off "A person is a holder; …": no code reads
-  `near_misses`, and the PDF upload shows which lines moved to the bank's day.
+  words (question 11 B).
 - **The asks it closes:** "List a card's bank lines in no statement in one read" and "Say what a
   client does with a flagged line on a card with a statement code"; "Name a flagged line's twin
   wherever the flagged lines are read" is answered differently by the engine (question 11).
