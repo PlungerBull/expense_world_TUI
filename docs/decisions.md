@@ -1066,3 +1066,23 @@ hides the same split, and pairing, unpairing and person holders stay for the own
 *Renaming holder to account and account to currency, nothing else* — a currency keeping its own
 name, colour, kind and move keeps the duplication under new names. *One account mixing
 currencies in one balance* — a total across currencies has no meaning.
+
+## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
+
+**Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to
+the paper's day (its `redated`) reads `✓ In the ledger · day moved`: the mark dim after the
+reason, as a fee row's note is, with no old day and no count of such rows
+(contract: POST /v1/statements/import, "The bank's day wins"). After `⏎` the close reads as any
+close. The app draws the engine's `redated` as sent and decides nothing. No warning sits under a
+new row: the engine matches a line one day off instead of naming it, so the app reads only the
+lines taken out by id. What the preview shows is in [tui.md](tui.md) "A statement PDF closes its
+month".
+
+**Why.** The engine pairs the line and moves it on the close, so the row is in the ledger like any
+matched row; a short mark says your line moves without a second read and without a taller row,
+so a long paper fits more rows on a page.
+
+**Rejected.** *A dim line under the row naming the day it moves from* — the app would read each
+moved line by id to show a day the close is about to change, and every moved row takes two
+lines. *Nothing on the rows, only a count under the table* — you see how many lines move, not
+which.

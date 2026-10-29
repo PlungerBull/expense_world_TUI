@@ -37,6 +37,26 @@ Nothing you see changes, and the ask above does not touch it.
 
 **Recommended:** approve it, to run after 1b.
 
+### Approve the leftovers spec of the PDF preview's moved line
+Asked 2026-10-28 · Blocks: [specs/day-moved-leftovers.md](specs/day-moved-leftovers.md)
+
+One small cleanup of the PDF preview's code, and two questions on test fixtures and doc
+citations that the holder specs on hold may already redo. Nothing you see changes.
+
+**Recommended:** approve it with 1 A and 2 A, leaving only the cleanup to build.
+
+### Let the PDF spec say the engine now matches a line one day off
+Asked 2026-10-28 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
+
+Your PDF spec still says a ledger line one day off a paper's row is never paired and the preview
+warns about it (its point 4 and the settled point "A ledger line one day off a PDF line is never
+paired"). The engine now matches such a line and moves it to the bank's day, and the preview marks
+it `· day moved`.
+- **A.** Let the orchestrator reword those two places to say so.
+- **B.** Leave your words as they are.
+
+**Recommended:** A, so the spec matches the engine and the app.
+
 ---
 
 ## Backlog

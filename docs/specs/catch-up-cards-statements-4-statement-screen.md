@@ -10,8 +10,8 @@ holder's bank lines in one read (`903200521b7c116a`) and what a client does with
 one write; the PDF upload moves a line one day off; the change log reaches back; your practice
 engine serves only shipped code", its part on the flagged-line advice reworded
 (`e020782e3579d011`); its part on the PDF upload matching a line one day off
-(`95e8fea031ba6bd1`) is [catch-up-pdf-preview-day-moved.md](catch-up-pdf-preview-day-moved.md),
-which does not wait on what this spec waits on. The routes, the live suite, the sheet import's counts and cards themselves are the other
+(`95e8fea031ba6bd1`) is caught up apart, its why in [decisions.md](../decisions.md) "The PDF
+preview marks a line moved to the bank's day". The routes, the live suite, the sheet import's counts and cards themselves are the other
 specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
