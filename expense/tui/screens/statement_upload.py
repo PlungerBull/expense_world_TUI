@@ -78,6 +78,10 @@ PENDING_NOTE = f"new ones go under {PENDING} and {PENDING_HASHTAG}"
 #: statement's last day.
 FEE_NOTE = "· a fee, dated the last day"
 
+#: The mark after a row whose ledger line is one day off and moves to the
+#: row's day on `⏎` (contract: POST /v1/statements/import, "The bank's day wins").
+DAY_MOVED = "· day moved"
+
 #: The "Taken out" block's head and the words after it.
 TAKEN_OUT = "Taken out"
 TAKEN_OUT_NOTE = " · in the statement, not on the paper; they stay in the ledger"
@@ -141,8 +145,9 @@ OUTCOMES: dict[str, tuple[str, str, str, str]] = {
 
 
 def row_tail(row: StatementRow) -> Text:
-    """What follows a row's columns: its outcome's mark and reason, and after
-    a card's undated line (`fee`) the fee note, dim."""
+    """What follows a row's columns: its outcome's mark and reason, after a
+    card's undated line (`fee`) the fee note, dim, and after a row whose line
+    moves to its day (`redated`, only ever a matched row) `· day moved`, dim."""
     mark, mark_style, reason, reason_style = OUTCOMES.get(row.outcome, ("?", "", row.outcome, ""))
     tail = Text("  ")
     tail.append(mark, style=mark_style)
@@ -150,14 +155,16 @@ def row_tail(row: StatementRow) -> Text:
     tail.append(reason, style=reason_style)
     if row.fee:
         tail.append(f"  {FEE_NOTE}", style="dim")
+    if row.redated:
+        tail.append(f"  {DAY_MOVED}", style="dim")
     return tail
 
 
 class Columns:
     """The table's widths, from every row and every line it lists, so a page
     and the "Taken out" block line up whatever the window. The title column
-    takes what the screen leaves once the widest row's mark, reason and fee
-    note have their room, so no row wraps."""
+    takes what the screen leaves once the widest row's mark, reason, fee note
+    and `· day moved` have their room, so no row wraps."""
 
     def __init__(self, answer: StatementAnswer, taken: list[dict], *, width: int) -> None:
         titles = [row.description or NO_TITLE for row in answer.rows]
@@ -211,11 +218,11 @@ def _cents(value: object) -> int:
 
 def row_lines(row: StatementRow, columns: Columns, lines: dict[str, dict]) -> list[RenderableType]:
     """A row of the paper, its outcome's mark and reason (and the fee note on a
-    card's undated line), then under a new row one `!` line per ledger line one
-    day off it with its total: the engine's day, and the line's title and
-    total as read by its id (the row's own amount, its total being the same,
-    and `—` while the line is unread). An empty row's `0.00` is plain, as
-    drawn: it is no money in or out."""
+    card's undated line, `· day moved` on a row whose line moves), then under
+    a new row one `!` line per ledger line one day off it with its total: the
+    engine's day, and the line's title and total as read by its id (the row's
+    own amount, its total being the same, and `—` while the line is unread).
+    An empty row's `0.00` is plain, as drawn: it is no money in or out."""
     text = columns.line(
         str(row.place),
         row.date_iso,

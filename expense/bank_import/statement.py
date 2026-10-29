@@ -45,6 +45,9 @@ class StatementRow:
     amount_cents: int  # signed: negative = money out; 0 on an empty row
     outcome: str  # matched | new | empty
     near_misses: tuple[NearMiss, ...]
+    #: Its line was matched one day off and is moved to the row's day (on a dry
+    #: run, would be) (contract: POST /v1/statements/import, "The bank's day wins").
+    redated: bool
 
 
 def statement_rows(response: dict) -> list[StatementRow]:
@@ -64,6 +67,7 @@ def statement_rows(response: dict) -> list[StatementRow]:
                 NearMiss(str(miss.get("bank_line_id")), str(miss.get("date")))
                 for miss in item.get("near_misses") or []
             ),
+            redated=bool(item.get("redated")),
         )
         for item in response.get("rows") or []
     ]

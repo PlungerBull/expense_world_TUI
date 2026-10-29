@@ -1078,27 +1078,111 @@ def test_an_empty_rows_amount_is_plain():
     assert [s for s in matched.spans if s.start <= at < s.end]
 
 
-def test_a_fee_row_stays_on_one_line_on_a_narrow_screen(fake_client, monkeypatch, tmp_path):
-    """The title column gives way to the widest row's mark, reason and fee
-    note, so a fee row with a long title is one line, its title cut with `…`."""
+@pytest.mark.parametrize(
+    ("marked", "tail"),
+    [
+        ({"outcome": "new", "fee": True}, "+  New  · a fee, dated the last day"),
+        ({"redated": True}, "✓  In the ledger  · day moved"),
+    ],
+    ids=["fee-note", "day-moved"],
+)
+def test_a_marked_row_stays_on_one_line_on_a_narrow_screen(
+    fake_client, monkeypatch, tmp_path, marked, tail
+):
+    """The title column gives way to the widest row's mark, reason and note
+    (the fee note, or `· day moved`), so such a row with a long title is one
+    line, its title cut with `…`."""
     path = _pdf(tmp_path)
     _patch(monkeypatch)
-    long_fee = statement_row(
+    long_row = statement_row(
         1,
         -1240,
-        outcome="new",
-        fee=True,
         day="2026-10-25",
         description="GASTO MENSUAL POR SEGURO DE DESGRAVAMEN DE LA TARJETA",
+        **marked,
     )
-    _engine(fake_client, {path.read_bytes(): {"rows": [long_fee], "balances": CARD["balances"]}})
+    _engine(fake_client, {path.read_bytes(): {"rows": [long_row], "balances": CARD["balances"]}})
+    note = tail.split("  ")[-1]
 
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)
         raw = _body(preview, width=preview.size.width - 4).split("\n")
         (row,) = [line for line in raw if line.strip().startswith("1  2026-10-25")]
-        assert row.rstrip().endswith("+  New  · a fee, dated the last day")
+        assert row.rstrip().endswith(tail)
         assert "…" in row
-        assert not any("fee, dated" in line for line in raw if line is not row)
+        assert not any(note in line for line in raw if line is not row)
 
     run_app(scenario, size=(80, 40))
+
+
+# ---- a line moved to the bank's day ----------------------------------------------------
+#: A savings paper whose second row's line sits one day off it: matched, and moved
+#: to the paper's day on ⏎ (contract: POST /v1/statements/import, "The bank's day wins").
+MOVED = {
+    **SAVINGS,
+    "rows": [
+        statement_row(1, 485000, account_id="aho-pen", day="2026-10-01", description="HABERES"),
+        statement_row(
+            2, -80000, account_id="aho-pen", day="2026-10-03", description="TRANSF", redated=True
+        ),
+    ],
+}
+
+
+def test_a_moved_line_reads_day_moved_and_nothing_else_changes(fake_client, monkeypatch, tmp_path):
+    """Option B of docs/mockups/expense-world-statement-pdf-redated.html: the
+    moved row reads `✓ In the ledger · day moved`, a row matched on its own day
+    no mark; the count line counts no move, and after ⏎ the close reads as any
+    close."""
+    path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): MOVED})
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _accounts(pilot, app)
+        await pilot.press("down", "enter")  # Sueldo Soles
+        preview = await _previewed(pilot, app)
+        lines = _lines(preview)
+        assert _cells(lines[4]) == ["#", "date", "title", "amount"]
+        assert _cells(lines[5]) == ["1", "2026-10-01", "HABERES", "4,850.00", "✓", "In the ledger"]
+        assert _cells(lines[6]) == [
+            "2",
+            "2026-10-03",
+            "TRANSF",
+            "-800.00",
+            "✓",
+            "In the ledger",
+            "· day moved",
+        ]
+        assert lines[7:] == ["2 rows · 2 in the ledger · 0 new"]
+        await pilot.press("enter")
+        result = await _on(pilot, app, StatementResultScreen, "no result screen")
+        assert _lines(result) == [
+            "✓ Octubre 2026 closed · Sueldo Soles",
+            "2 rows · 2 were in the ledger · 0 created",
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_day_moved_mark_is_dim_as_the_fee_note_is():
+    """`· day moved` is drawn as the fee note is: dim, after the reason."""
+    rows = [
+        statement_row(1, redated=True),
+        statement_row(2, outcome="new", fee=True, day="2026-10-25"),
+        statement_row(3),
+    ]
+    answer = statement_answer(statement_upload_answer(rows, dry_run=True))
+    assert [row.redated for row in answer.rows] == [True, False, False]
+    columns = Columns(answer, [], width=116)
+    (moved,), (fee,), (plain,) = (row_lines(row, columns, {}) for row in answer.rows)
+
+    def styles(text, words: str) -> list[str]:
+        at = text.plain.index(words)
+        return [str(span.style) for span in text.spans if span.start <= at < span.end]
+
+    assert moved.plain.rstrip().endswith("✓  In the ledger  · day moved")
+    assert styles(moved, "· day moved") == styles(fee, "· a fee") == ["dim"]
+    assert plain.plain.rstrip().endswith("✓  In the ledger")

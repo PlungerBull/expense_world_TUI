@@ -642,13 +642,16 @@ def statement_row(
     bank_line_id: str | None = None,
     transaction_id: str | None = None,
     near_misses: tuple[tuple[str, str], ...] = (),
+    redated: bool = False,
 ) -> dict:
     """One row of a `POST /statements/import` answer, every key present: the row as the
     engine read it from the paper (`place` its number on it, from 1) and what closing
     does with it (contract: POST /v1/statements/import, "Response").
     `amount_cents` is given signed here and written as the engine sends it, a magnitude
     and `transaction_type` (1 out, 2 in). `near_misses` are `(bank_line_id, date)`;
-    a matched row's `bank_line_id` defaults to one of its own."""
+    a matched row's `bank_line_id` defaults to one of its own. `redated` is true on a
+    matched row whose line moves to the row's day
+    (contract: POST /v1/statements/import, "The bank's day wins")."""
     if outcome == "matched" and bank_line_id is None:
         bank_line_id = f"bl-{place}"
     return {
@@ -666,6 +669,7 @@ def statement_row(
         "bank_line_id": bank_line_id,
         "transaction_id": transaction_id,
         "near_misses": [{"bank_line_id": i, "date": d} for i, d in near_misses],
+        "redated": redated,
     }
 
 
@@ -868,6 +872,7 @@ def statement_upload_answer(
             "new": outcomes.count("new"),
             "empty": outcomes.count("empty"),
             "taken_out": len(taken),
+            "redated": sum(1 for row in rows if row["redated"]),
         },
     }
 

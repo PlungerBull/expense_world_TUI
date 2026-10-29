@@ -266,7 +266,7 @@ def test_a_statement_upload_apply_answers_the_completed_statement():
         ("acc-usd", ["bl-flag"]),
     ]
     assert (closed["unplaced_count"], closed["shared_place_count"]) == (0, 0)
-    assert answer["counts"] == {"matched": 1, "new": 0, "empty": 1, "taken_out": 0}
+    assert answer["counts"] == {"matched": 1, "new": 0, "empty": 1, "taken_out": 0, "redated": 0}
 
 
 @pytest.mark.parametrize(("creates", "statement_id"), [(True, None), (False, "s-paper")])

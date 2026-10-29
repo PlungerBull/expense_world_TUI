@@ -64,16 +64,7 @@ None: the owner picked the screen, B of the redated mockup, on 2026-10-28.
 Drafted 2026-10-28; approved by the owner on 2026-10-28. Each needs the practice engine for the drift
 check, which the orchestrator starts before the task and stops after it.
 
-1. **The mark on a moved row (builder).** The PDF upload's preview reads each row's `redated` and
-   draws `· day moved` dim after a matched row's reason, as the fee note is drawn
-   ([statement.py](../../expense/bank_import/statement.py),
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py)); the unit fixtures in
-   [helpers.py](../../tests/unit/helpers.py) carry `redated`; tui.md's preview row says so.
-   *Passes if:* a unit test previews a row with `redated: true` and finds `✓ In the ledger · day
-   moved`, the mark dim; a row with `redated: false` has no mark; the title column still leaves
-   room so no row wraps; tui.md's preview row names the mark with its contract citation; the
-   drift script shows no fixture key the contract lacks for the upload.
-2. **The old warning goes (builder).** Remove `near_misses` from the app: its rows, its line under
+1. **The old warning goes (builder).** Remove `near_misses` from the app: its rows, its line under
    a new row, its share of the ledger-line read by id and its `—` fallback, its fixtures and its
    tests; tui.md's preview row, the paragraph on reading the lines, and "No `r` on the import
    screens" stop naming near misses; the warning leaves
@@ -100,3 +91,12 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **Citations the live contract no longer holds,** in files this spec does not touch: run
+  against the practice engine's contract of 2026-10-28, the citation checker finds citations of
+  removed routes such as `/v1/reconciliations` and `/v1/accounts/{id}/archive`, for example in
+  docs/runtime.md:100, docs/decisions.md:635 and docs/tui.md:830 (found by task 1's builder on
+  2026-10-28). Check whether the catch-up specs on hold already own each one.
+- **The holder fixtures lack `is_person`**: the drift script reports `GET /v1/holders` and
+  `GET /v1/holders/{holder_id}` answers whose fixtures leave out the required `is_person`. Likely
+  owned by the holder specs on hold; check before drafting.
