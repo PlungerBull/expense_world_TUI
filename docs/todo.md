@@ -40,6 +40,40 @@ arrive.
 
 **Recommended:** approve it, with A on both questions.
 
+### The engine moved to contract 07475793a38b47b4: an account holds its currencies
+Asked 2026-10-28 · Blocks: every new task; the done-check of [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md)
+
+The engine shipped your ask "An account holds its currencies": a card in soles and dollars is now
+one account with a balance per currency, and the holder routes are gone. This client last caught
+up to `e020782e3579d011`. The version check prints, word for word:
+
+```
+the engine's contract version has changed: saved e020782e3579d011, engine 07475793a38b47b4.
+what the contract changed since e020782e3579d011, newest first:
+  07475793a38b47b4  2026-10-28
+    changed: ⚠️ `GET /accounts` and `GET /accounts/{id}` answer the account: one per holder, its `id` the holder's, with `id`, `user_id`, `name`, `color`, `is_person`, `statement_code`, `is_archived`, `sort_order`, `currencies`, `created_at`, `updated_at`, `version`, `deleted_at`, each but `currencies` the holder's own. `currencies` lists one `{currency_code, current_balance_cents, opening_balance_transaction_id}` per live per-currency account of the holder, archived ones included, by `currency_code` ascending; a deleted one is not listed, and a holder holding none reads `[]`. A card in soles and in dollars was two rows of `GET /accounts`; it is now one account whose `currencies` are `[{"currency_code": "PEN", …}, {"currency_code": "USD", …}]`, each balance in its own currency. What clients do: list accounts from `GET /accounts`, and read each currency's balance and opening balance from `currencies`.
+    changed: ⚠️ `GET /accounts` lists accounts in the holders' order: every bank account first, then every person, each group by `sort_order`, then creation time. `?include_people=true` adds person accounts and `?include_archived=true` archived ones, as before, now judged on the account.
+    changed: ⚠️ `GET /accounts/{id}` takes the account's id, the holder's. The `id` of a per-currency account (the one `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move` answer, and every `account_id` elsewhere names) is now `404` there, as are a deleted account and another user's.
+    removed: ⚠️ `GET /holders` and `GET /holders/{id}`; both now answer as an unknown route does. Replacement: `GET /accounts?include_people=true&include_archived=true` lists every holder as an account, and `GET /accounts/{id}` reads one by the holder's id, with `currencies` in place of `account_ids`.
+    removed: ⚠️ `current_balance_home_cents` from every account response: `GET /accounts`, `GET /accounts/{id}`, `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move`. Replacement: none. An account and each of its currencies carry their balance in their own currency only, and no figure adds two currencies together. `/dashboard`'s account rows keep theirs.
+    changed: `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move` answer the per-currency account (*Bank Accounts* → *Per-currency account response*; `PerCurrencyAccountResponse` in the contract): the shape every account route answered before, without `current_balance_home_cents`.
+    removed: `SETTINGS_MISSING` (and its reason `NOT_PROVISIONED`) from `GET /accounts`, `GET /accounts/{id}`, `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move`, which no longer read the settings. `POST /accounts/{id}/opening-balance` still answers it (*Settings preconditions*).
+    added: `color` on the holder response, on every `/holders` route, and in the holder's activity snapshots: the holder's colour, the account's `color` on `GET /accounts`.
+    changed: wording, *Base Conventions* (the list shapes), *Holders*, `POST /holders`, `PUT /holders/{id}`, `POST /holders/{id}/archive`, `/make-person` and `/make-account`, *Bank Accounts* (*Per-currency order*, *Opening balance*, *Balances*, *Holder*, *An archived account*), `POST /accounts`, `DELETE /accounts/{id}`, `POST /accounts/{id}/move`, *People / Person Accounts*, *Statements* (the order of `balances`), `GET /dashboard` (the rows' order), `GET /activity` (*Snapshot content*) and `GET /exchange-rates` (*Freshness*).
+```
+
+The practice-engine spec's four tasks are done; its only failing check is this move (the check
+correctly names the new version), so its doc sweep waits too. The specs drafted for the holder
+model (2a, 2b, 2c, 3, 4) were written against the version before this one.
+
+- **A.** Ask the engine coders for one hand-off file from `e020782e3579d011` to
+  `07475793a38b47b4`, and make catching up to it the next spec; the holder-model specs are
+  re-planned from it before any of them runs.
+- **B.** Keep the specs as they are and catch up after them.
+
+**Recommended:** A, because 2a to 4 would otherwise rewrite the app and the live tests onto
+routes the engine has just removed.
+
 ---
 
 ## Backlog
@@ -189,7 +223,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  The practice engine's spec runs now. The counts line's last task, its live tests, waits on 2a.
+  The practice engine's spec has its tasks done; its check, and every spec after it, waits on the owner's answer on contract 07475793a38b47b4. The counts line's last task, its live tests, waits on 2a.
 - **What the statement screens' catch-up turned up**: a draft spec waiting for the owner's
   approval and two questions
   ([specs/catch-up-cards-statements-1b-leftovers.md](specs/catch-up-cards-statements-1b-leftovers.md)).
