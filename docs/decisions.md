@@ -1041,3 +1041,28 @@ PDF dropped only on its own* (6 B) — a month's download and its PDF could not 
 *Keeping the tick-list on an open statement of an account with a statement code* (5 B) — ticking
 cannot close the month there. *Waiting for accounts to carry their numbers* (question 8, B) —
 closing statements would wait on account names.
+
+## An account holds its currencies (2026-10-28, owner)
+
+**Decision.** A bank account, or a person, is one account that holds one or more currencies: a
+Peruvian credit card holds soles and dollars, and ALEJO owes in both. The engine's holder becomes
+the account, with its name, colour, order, kind, statement code and archived flag; each of the
+engine's per-currency accounts becomes one currency of it, keeping only its currency, opening
+balance and balance, so amounts in two currencies are never added up. A currency has no name or
+colour of its own: it shows as the account's name and its currency ("VISA Infinite Sapphire ·
+USD"). The engine is asked for it in "An account holds its currencies: the holder becomes the
+account, and each account becomes one of its currencies"; the holder specs wait on its hand-off.
+
+**Why.** The owner always works with the holder, and the per-currency account was only a vehicle
+to keep currencies apart, yet it carried a name, colour, order, kind and archived flag of its own
+and moved between holders. Two levels that both act as an account made pairing, unpairing,
+person holders, a holder of one account and "the whole holder" rules, each a thing every client
+would have to teach. Every multi-currency ledger keeps an account and a balance per currency in
+it; making the holder that account keeps both levels and drops the duplication. Done before the
+official import and before any client builds holder screens, it costs the least.
+
+**Rejected.** *Keeping holders and per-currency accounts, shown as one in the app* — every client
+hides the same split, and pairing, unpairing and person holders stay for the owner to use.
+*Renaming holder to account and account to currency, nothing else* — a currency keeping its own
+name, colour, kind and move keeps the duplication under new names. *One account mixing
+currencies in one balance* — a total across currencies has no meaning.

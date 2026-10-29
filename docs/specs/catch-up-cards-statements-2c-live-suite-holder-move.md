@@ -13,6 +13,8 @@ made with its accounts, a delete refused while a statement holds the account) an
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md)
 (a holder's lines in one read, a flagged line's two paths); this spec is their live tests.
 
+**On hold since 2026-10-28:** its tests are of holders and moving accounts between them, which the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies" removes; rewritten from the engine's hand-off for it.
+
 **Status: approved by the owner on 2026-10-28, with its tasks; its points and tasks, changed for
 the hand-off "A person is a holder; …", wait on the owner's approval again.** It runs after
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),

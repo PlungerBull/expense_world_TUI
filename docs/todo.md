@@ -28,35 +28,39 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the practice-engine spec and the live tests' changed tasks
-Asked 2026-10-28 · Blocks: [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md)
+### Hand over the ask "An account holds its currencies"
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md), [specs/before-the-official-import.md](specs/before-the-official-import.md)
 
-The engine's hand-off of 2026-10-28, "A person is a holder; unpairing is one write; the PDF upload
-moves a line one day off; the change log reaches back; your practice engine serves only shipped
-code", is planned in, and contract `e020782e3579d011` is recorded. A new small spec starts the
-practice engine with the engine's launcher, so every check runs on shipped code; nothing you see
-changes. The live tests' specs take people made on person holders (2a's task 1), the upload's
-one-day-off match and people refused statements and bank files (2b's tasks 1, 5 and 6), and
-unpairing in one write and a person's move (2c's tasks).
+You decided on 2026-10-28 that a bank account holds its currencies: the engine's holder becomes the
+account, and each of its accounts one of its currencies, with no name or colour of its own
+([decisions.md](decisions.md) "An account holds its currencies"). The ask is in
+[to-engine/](to-engine/), written for the engine coders. Copy it into the engine repo's
+`docs/from-tui/` and say when it is done; their hand-off is planned into the specs it blocks.
 
-**Recommended:** approve them, so they run after 1b: the practice-engine spec first, then 2a,
-2b and 2c.
+**Recommended:** none: only you can hand it over.
 
-### Pick how people work on holders, and the PDF preview's moved lines
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
+### Approve the practice-engine spec
+Asked 2026-10-28 · Blocks: [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md)
 
-People are holders now, `t` turns a whole holder, and the PDF upload moves your line one day to
-the bank's day instead of warning. Four questions, each drawn as a mockup in [mockups/](mockups/):
+A small spec that starts the practice engine with the engine's own launcher, so every check runs
+on the engine's shipped code, and records only a contract version the engine's change log lists.
+Nothing you see changes, and the ask above does not touch it.
 
-- cards question 11, `t` on a holder of two: `expense-world-holders-kind-whole.html`;
-- cards question 12, a person's holder line: `expense-world-holders-person-line.html`;
-- cards question 13, a new person: `expense-world-holders-new-person.html`;
-- statement screen question 12, the PDF preview's moved lines: `expense-world-statement-pdf-redated.html`.
+**Recommended:** approve it, to run after 1b.
 
-Cards question 5 no longer applies (`t` has no holder to pick), and statement screen question 11
-is settled as B by the engine, which declined to name a flagged line's twin.
+### Pick how the PDF preview shows a line the bank moves one day
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
 
-**Recommended:** A on each.
+The PDF upload now matches your line when it sits one day off the paper's row and moves it to the
+bank's day, instead of warning. Question 12 of the statement screen spec, drawn in
+[mockups/expense-world-statement-pdf-redated.html](mockups/expense-world-statement-pdf-redated.html):
+A, a dim line under the row naming the day it moves from; B, a short mark on the row; C, only a
+count. The three holder mockups of the same day (`expense-world-holders-kind-whole.html`,
+`expense-world-holders-person-line.html`, `expense-world-holders-new-person.html`) are not asked:
+the ask above removes what they draw.
+
+**Recommended:** A, because you see which of your lines the paper moves, and from which day,
+before anything is written.
 
 ---
 

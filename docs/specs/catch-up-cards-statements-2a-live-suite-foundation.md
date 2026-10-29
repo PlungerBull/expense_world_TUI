@@ -22,6 +22,8 @@ It runs after 1b, whose app helpers the live tests call, and after
 [catch-up-shipped-practice-engine.md](catch-up-shipped-practice-engine.md), so its tests run on
 the engine's shipped code.
 
+**On hold since 2026-10-28:** its shared helpers make accounts on holders, which the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies" removes; rewritten from the engine's hand-off for it, so the live tests are fixed once.
+
 **Status: approved by the owner on 2026-10-28; it runs after part 1b. Task 1, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
 accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28; point 1

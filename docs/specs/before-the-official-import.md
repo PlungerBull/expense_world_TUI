@@ -1,5 +1,7 @@
 # The official import
 
+**On hold since 2026-10-28:** how the Visa's two currencies and the people come in changes with the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies"; its question 3 and decided 10 are rewritten from the engine's hand-off for it.
+
 **Status: waits on the cards-and-statements catch-up, which reaches contract
 `e7393dd869963db1`: the app working again
 (part 1a, the app's reads and writes (done on 2026-10-28) and

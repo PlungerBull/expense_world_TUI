@@ -20,6 +20,8 @@ seven specs, run in this order:
 
 It runs after 2a, whose shared helpers its tests use.
 
+**On hold since 2026-10-28:** its holder and people tests change with the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies"; rewritten from the engine's hand-off for it, after 2a.
+
 **Status: approved by the owner on 2026-10-28; it runs after part 2a. Task 6, changed for the
 engine's hand-off "An account moves between holders, a holder is made and unmade with its
 accounts, and a holder's bank lines list in one read", was approved again on 2026-10-28;

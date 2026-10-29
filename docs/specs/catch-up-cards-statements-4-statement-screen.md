@@ -17,6 +17,8 @@ specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28)
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
+**On hold since 2026-10-28:** it waits on the engine's hand-off for the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies", which makes a card one account with a balance per currency; its question 12, the PDF preview's moved lines, does not depend on it and can be answered now.
+
 **Status: draft; questions 1 to 11 answered by the owner on 2026-10-28, each as recommended (2 A
 picked from its mockup; 11 settled as B by the engine), and these screens say "holder" (question 1
 of the cards spec); question 12, from the hand-off "A person is a holder; …", waits on the owner. It runs

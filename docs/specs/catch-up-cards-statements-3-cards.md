@@ -23,6 +23,8 @@ part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
+**On hold since 2026-10-28:** the owner asked the engine to make the holder the account and each account one of its currencies (the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies"). Holders, pairing, unpairing and person holders go, so this spec is rewritten from the engine's hand-off for that ask; its answered questions stand where they still apply, and questions 11 to 13 are not asked.
+
 **Status: draft; questions 1 to 10 answered by the owner on 2026-10-28 (question 3 folded into the
 card-field mockup's question b, question 5 no longer applying); questions 11 to 13, from the
 hand-off "A person is a holder; …", wait on the owner. Its tasks are drafted when the owner names it the current spec.** It runs after
