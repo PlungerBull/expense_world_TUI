@@ -874,12 +874,14 @@ def statement_upload_answer(
 
 
 #: A holder as `GET /holders/{id}` reads it, every field present: one account, no
-#: statement code (contract: "Holders", "Holder response").
+#: statement code (contract: "Holders", "Holder response"); a bank holder, so
+#: `is_person` is false (contract: "Holders", "Its kind").
 _HOLDER = {
     "id": "h1",
     "user_id": "u-1",
     "name": "BCP Ahorros",
     "statement_code": None,
+    "is_person": False,
     "account_ids": ["acc1"],
     "is_archived": False,
     "sort_order": 1,
@@ -892,8 +894,8 @@ _HOLDER = {
 
 @answer_of("GET", "/v1/holders/{holder_id}")
 def holder_record(record: dict | None = None) -> dict:
-    """One holder as `GET /holders/{id}` reads it: `record` spread over a holder of one
-    account with no statement code (contract: "Holders", "Holder response")."""
+    """One holder as `GET /holders/{id}` reads it: `record` spread over a bank holder of
+    one account with no statement code (contract: "Holders", "Holder response")."""
     return {**_HOLDER, **(record or {})}
 
 

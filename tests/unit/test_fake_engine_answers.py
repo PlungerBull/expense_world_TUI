@@ -293,6 +293,13 @@ def test_a_holder_read_spreads_a_test_s_record_over_the_whole_shape():
     assert set(listed["items"][0]) == set(holder_record())
 
 
+def test_a_holder_read_is_a_bank_holder_by_default():
+    """`is_person` tells a bank holder from a person holder (contract: GET /v1/holders):
+    the base holder is a bank's."""
+    assert holder_record()["is_person"] is False
+    assert holder_list()["items"][0]["is_person"] is False
+
+
 def test_an_account_is_on_a_holder_and_carries_no_statement_code_of_its_own():
     """The statement code is the holder's: an account names its holder and nothing
     else of a statement (contract: "Holders"); a test's fields and a base account

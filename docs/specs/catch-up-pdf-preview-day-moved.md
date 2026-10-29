@@ -86,12 +86,13 @@ Not built in this spec; drafted into a new spec when it is done.
   removed routes such as `/v1/reconciliations` and `/v1/accounts/{id}/archive`, for example in
   docs/runtime.md:100, docs/decisions.md:635 and docs/tui.md:830 (found by task 1's builder on
   2026-10-28). Check whether the catch-up specs on hold already own each one.
-- **The holder fixtures lack `is_person`**: the drift script reports `GET /v1/holders` and
-  `GET /v1/holders/{holder_id}` answers whose fixtures leave out the required `is_person`. Likely
-  owned by the holder specs on hold; check before drafting.
 - **runtime.md still describes the live upload test with `near_misses`** (docs/runtime.md:100, "a
   line one day off a new row in its `near_misses`"), as does tests/contract/test_statement_import.py;
   task 1 of spec 2b rewrites that test, so its doc line should go with it. Check 2b names it.
 - **The preview's `_window_end` builds every row to count them** (statement_upload.py, about line
   456): each row is one line now, so the count is plain arithmetic. A small cleanup, found by task
   2's reviewer.
+- **Person accounts in unit fixtures have `holder_id=None`** (test_tui_account_kind.py:54-55,
+  test_tui_create_forms.py:298, test_reads_and_formatting.py:1029), where the live contract puts a
+  person account on a person holder, `holder_id` never `null`; the drift script does not check
+  account fixtures for it. Likely owned by the holder specs on hold; check before drafting.
