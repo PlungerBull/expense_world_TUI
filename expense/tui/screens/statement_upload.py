@@ -447,16 +447,17 @@ class StatementPreviewScreen(PreviewScreen):
         return max(MIN_PAGE, self.size.height - PREVIEW_CHROME - extra)
 
     def _window(self, columns: Columns) -> list[Text]:
-        """The rows from `_start` that fit the budget, one line each; at least
-        one row."""
+        """The rows from `_start` to `_window_end`, one line each."""
         assert self._answer is not None
-        rows = self._answer.rows[self._start : self._start + self._budget()]
+        rows = self._answer.rows[self._start : self._window_end()]
         return [row_line(row, columns) for row in rows]
 
     def _window_end(self) -> int:
+        """Where the page ends: each row is one line, so as many rows from
+        `_start` as the budget holds (at least one), up to the last row."""
         if self._answer is None:
             return 0
-        return self._start + len(self._window(self._columns()))
+        return min(len(self._answer.rows), self._start + self._budget())
 
     def body(self) -> RenderableType:
         title = Text(f"Preview · {pick_label(self._pick)}")

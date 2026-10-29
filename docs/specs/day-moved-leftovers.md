@@ -59,11 +59,7 @@ fixtures in step with the engine's contract.
 
 Drafted 2026-10-28, when the owner named this the current spec.
 
-1. **The preview's page end by arithmetic (builder).** In
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py), the preview's page end
-   (`_window_end`) counts rows as `min(len(rows), start + budget)` instead of drawing every row.
-   *Passes if:* no row is drawn to find the page end; the preview pages exactly as before, every
-   test of test_tui_statement_upload.py passing unchanged; ruff and mypy clean.
+None left: every task is done.
 
 ## Found along the way
 
