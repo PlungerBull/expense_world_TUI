@@ -28,17 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the ask "An account holds its currencies"
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md), [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md), [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md), [specs/before-the-official-import.md](specs/before-the-official-import.md)
-
-You decided on 2026-10-28 that a bank account holds its currencies: the engine's holder becomes the
-account, and each of its accounts one of its currencies, with no name or colour of its own
-([decisions.md](decisions.md) "An account holds its currencies"). The ask is in
-[to-engine/](to-engine/), written for the engine coders. Copy it into the engine repo's
-`docs/from-tui/` and say when it is done; their hand-off is planned into the specs it blocks.
-
-**Recommended:** none: only you can hand it over.
-
 ### Approve the practice-engine spec
 Asked 2026-10-28 · Blocks: [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md)
 
