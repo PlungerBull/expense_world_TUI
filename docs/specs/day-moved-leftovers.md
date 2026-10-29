@@ -3,8 +3,9 @@
 What the work on the PDF preview's `· day moved` mark found along the way, on 2026-10-28, and did
 not build: one small cleanup, and two pieces that may belong to the holder specs on hold.
 
-**Status: draft, written 2026-10-28 for the owner to rewrite or approve; questions 1 and 2 wait on
-the owner.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: approved and named the current spec by the owner on 2026-10-28, questions 1 and 2
+answered A: only point 1 is built here, and points 2 and 3 wait for the holder specs, as
+todo.md's backlog notes.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -41,6 +42,8 @@ fixtures in step with the engine's contract.
    - **B.** Fix them here now, so the tests match today's engine.
 
    **Recommended:** A: the same tests change again once the hand-off lands.
+
+   **Answered 2026-10-28:** A.
 2. **The docs' stale citations.** They describe screens (archiving, turning an account into a
    person) that the holder specs on hold rebuild on the engine's new routes.
    - **A.** Leave them to those specs, which rewrite the same paragraphs.
@@ -48,11 +51,19 @@ fixtures in step with the engine's contract.
 
    **Recommended:** A: those paragraphs are rewritten when the screens are.
 
+   **Answered 2026-10-28:** A.
+
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec and its questions are answered.
+Drafted 2026-10-28, when the owner named this the current spec.
+
+1. **The preview's page end by arithmetic (builder).** In
+   [statement_upload.py](../../expense/tui/screens/statement_upload.py), the preview's page end
+   (`_window_end`) counts rows as `min(len(rows), start + budget)` instead of drawing every row.
+   *Passes if:* no row is drawn to find the page end; the preview pages exactly as before, every
+   test of test_tui_statement_upload.py passing unchanged; ruff and mypy clean.
 
 ## Found along the way
 

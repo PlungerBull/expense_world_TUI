@@ -37,14 +37,6 @@ Nothing you see changes, and the ask above does not touch it.
 
 **Recommended:** approve it, to run after 1b.
 
-### Approve the leftovers spec of the PDF preview's moved line
-Asked 2026-10-28 · Blocks: [specs/day-moved-leftovers.md](specs/day-moved-leftovers.md)
-
-One small cleanup of the PDF preview's code, and two questions on test fixtures and doc
-citations that the holder specs on hold may already redo. Nothing you see changes.
-
-**Recommended:** approve it with 1 A and 2 A, leaving only the cleanup to build.
-
 ---
 
 ## Backlog
@@ -52,6 +44,13 @@ citations that the holder specs on hold may already redo. Nothing you see change
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **For the holder specs, when they are rewritten from the hand-off of the ask "An account holds
+  its currencies: the holder becomes the account, and each account becomes one of its
+  currencies":** (1) unit fixtures make person accounts with no holder (`holder_id` empty), in
+  test_tui_account_kind.py, test_tui_create_forms.py and test_reads_and_formatting.py; (2)
+  tui.md and decisions.md cite routes and parts the engine removed: archiving an account, turning
+  an account into a person or back, and "Bank Accounts" / "Statement code". The owner left both
+  to those specs on 2026-10-28 (questions 1 and 2 of the PDF preview's leftovers spec).
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in
