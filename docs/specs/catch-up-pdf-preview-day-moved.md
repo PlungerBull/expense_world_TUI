@@ -10,9 +10,8 @@ since they sit in a file that spec moves onto the engine's new routes. It stands
 the owner's call of 2026-10-28, so it does not wait on the ask "An account holds its currencies:
 the holder becomes the account, and each account becomes one of its currencies".
 
-**Status: draft, written 2026-10-28 for the owner to approve, with its tasks; no question open.
-It touches only the PDF upload's preview, which no spec on hold changes, so it can run as soon as
-the owner names it the current spec.** When done, the why moves to [decisions.md](../decisions.md)
+**Status: approved, with its tasks, and named the current spec by the owner on 2026-10-28; no
+question open. It touches only the PDF upload's preview, which no spec on hold changes.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
 ---
@@ -62,7 +61,7 @@ None: the owner picked the screen, B of the redated mockup, on 2026-10-28.
 
 ## Tasks
 
-Drafted 2026-10-28, waiting on the owner's approval. Each needs the practice engine for the drift
+Drafted 2026-10-28; approved by the owner on 2026-10-28. Each needs the practice engine for the drift
 check, which the orchestrator starts before the task and stops after it.
 
 1. **The mark on a moved row (builder).** The PDF upload's preview reads each row's `redated` and
