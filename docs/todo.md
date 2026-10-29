@@ -37,20 +37,6 @@ Nothing you see changes, and the ask above does not touch it.
 
 **Recommended:** approve it, to run after 1b.
 
-### Pick how the PDF preview shows a line the bank moves one day
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md)
-
-The PDF upload now matches your line when it sits one day off the paper's row and moves it to the
-bank's day, instead of warning. Question 12 of the statement screen spec, drawn in
-[mockups/expense-world-statement-pdf-redated.html](mockups/expense-world-statement-pdf-redated.html):
-A, a dim line under the row naming the day it moves from; B, a short mark on the row; C, only a
-count. The three holder mockups of the same day (`expense-world-holders-kind-whole.html`,
-`expense-world-holders-person-line.html`, `expense-world-holders-new-person.html`) are not asked:
-the ask above removes what they draw.
-
-**Recommended:** A, because you see which of your lines the paper moves, and from which day,
-before anything is written.
-
 ---
 
 ## Backlog

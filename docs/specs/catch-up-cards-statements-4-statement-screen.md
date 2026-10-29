@@ -17,11 +17,12 @@ specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28)
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md).
 
-**On hold since 2026-10-28:** it waits on the engine's hand-off for the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies", which makes a card one account with a balance per currency; its question 12, the PDF preview's moved lines, does not depend on it and can be answered now.
+**On hold since 2026-10-28:** it waits on the engine's hand-off for the ask "An account holds its currencies: the holder becomes the account, and each account becomes one of its currencies", which makes a card one account with a balance per currency; its question 12, the PDF preview's moved lines, did not depend on it and is answered.
 
 **Status: draft; questions 1 to 11 answered by the owner on 2026-10-28, each as recommended (2 A
 picked from its mockup; 11 settled as B by the engine), and these screens say "holder" (question 1
-of the cards spec); question 12, from the hand-off "A person is a holder; …", waits on the owner. It runs
+of the cards spec); question 12, from the hand-off "A person is a holder; …", answered by the owner
+on 2026-10-28 as B, picked from its mockup. It runs
 after the catch-up's other specs, since it names cards by their own names. Its questions about
 screens are drawn in
 [expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html);
@@ -106,7 +107,8 @@ The engine also changed what the screens can do:
 12. **A statement refused because one of its accounts was deleted while it was written** is sent
     again with the card's remaining accounts, as the engine asks
     (contract: DELETE /v1/accounts/{account_id}).
-13. **The PDF upload's preview and result read `redated`,** as question 12 decides, and nothing
+13. **The PDF upload's preview and result read `redated`,** as question 12 decides (B: a
+    `· day moved` mark on each moved row), and nothing
     reads `near_misses` (contract: POST /v1/statements/import).
 
 ## How the owner knows it is done
@@ -260,6 +262,10 @@ word these screens use for a card, "card" or "holder", is question 1 of
 
     **Recommended:** A: you see which of your lines the bank's paper moves, and from which day,
     before anything is written.
+
+    **Answered by the owner, 2026-10-28: B.** A matched row the engine moves reads
+    `✓ In the ledger · day moved`, with no old day, the way a fee row carries its note; the
+    result after ⏎ reads as it does today.
 
 ---
 
