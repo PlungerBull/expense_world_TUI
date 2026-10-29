@@ -11,8 +11,7 @@ its other parts make the test answers lack. Its other parts are in
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
-**Status: draft, written 2026-10-28 for the owner to rewrite or approve; no question waits on the
-owner. Its tasks are drafted and wait on the owner's approval.** It runs after
+**Status: approved by the owner on 2026-10-28, its tasks with it.** It runs after
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)
 and before [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 whose live tests then run on shipped code. When done, the why moves to
@@ -58,7 +57,7 @@ None.
 
 ## Tasks
 
-Drafted 2026-10-28; they wait on the owner's approval. Each leaves `pytest tests/unit` green.
+Drafted 2026-10-28; approved by the owner on 2026-10-28. Each leaves `pytest tests/unit` green.
 
 1. **The launcher (builder).** `scripts/practice-engine up` starts the engine with the engine's
    client practice launcher, given the port 8002, from the engine checkout's root (the hand-off's

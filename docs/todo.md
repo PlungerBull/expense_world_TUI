@@ -28,15 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the practice-engine spec
-Asked 2026-10-28 · Blocks: [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md)
-
-A small spec that starts the practice engine with the engine's own launcher, so every check runs
-on the engine's shipped code, and records only a contract version the engine's change log lists.
-Nothing you see changes, and the ask above does not touch it.
-
-**Recommended:** approve it, to run after 1b.
-
 ---
 
 ## Backlog
