@@ -17,7 +17,7 @@ back; your practice engine serves only shipped code" (`4dd95f836dba7be2` to `e02
 its parts on a holder's kind, the kind changed on the holder, archiving on the holder only, a
 person's move, `POST /people` removed and unpairing in one write. The other parts:
 part 1a, the app's reads and writes (done on 2026-10-28),
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+part 1b, the statement screens (done on 2026-10-28),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
@@ -28,7 +28,7 @@ part 1a, the app's reads and writes (done on 2026-10-28),
 **Status: draft; questions 1 to 10 answered by the owner on 2026-10-28 (question 3 folded into the
 card-field mockup's question b, question 5 no longer applying); questions 11 to 13, from the
 hand-off "A person is a holder; …", wait on the owner. Its tasks are drafted when the owner names it the current spec.** It runs after
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md), and
+part 1b, the statement screens (done on 2026-10-28), and
 [before-the-official-import.md](before-the-official-import.md) runs after it. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -82,7 +82,7 @@ holder, a person on a person holder (ALEJO in soles and in dollars is one person
 with its holder, every currency at once (contract: "Holders").
 
 An account that has never been in a statement moves between holders
-(contract: "Holders", "An account in no statement moves between holders"):
+(contract: "Holders", "An account in no statement moves between holders of its kind"):
 `POST /v1/accounts/{account_id}/move` puts it on another holder, keeping its id, transactions and
 balance, and a holder the move leaves holding no live account is deleted in the same write
 (contract: POST /v1/accounts/{account_id}/move). Pairing two currencies is moving one account onto

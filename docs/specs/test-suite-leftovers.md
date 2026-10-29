@@ -20,7 +20,7 @@ The points on code the catch-up to `e7393dd869963db1` rewrites moved into it: on
 builder for the unit suite, the coverage-gap warning fixture, the sealed line's delete words and
 two test comments on statements and people into
 part 1a, the app's reads and writes (done on 2026-10-28) and
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md); the contract
+part 1b, the statement screens (done on 2026-10-28); the contract
 files building their records through `Scratch`, `_transaction_ids`, the statement-order helper
 and the create-into-a-statement test going, the practice-user cleaner (reading every page among
 its rework) and the import test naming

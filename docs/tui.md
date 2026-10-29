@@ -710,8 +710,8 @@ does, a `FUTURE_DATE` included
 and the engine's words alone; when they do not (a `409`'s words need not begin so), the line
 keeps the key, `! rows.<row>.<field>: <words>`, so the row is never lost. Any other key
 (`file`, refused whole: not a download, unreadable, empty, over 500 rows; `account_id`) shows
-as `! <key>: <words>` too (`_names_its_row` in
-[bank_import.py](../expense/tui/screens/bank_import.py)). The app's line for the refusal, when "When the engine says no" gives one
+as `! <key>: <words>` too (`names_its_row` in
+[errors.py](../expense/errors.py)). The app's line for the refusal, when "When the engine says no" gives one
 (`OPERATION_CODE_EXISTS` on an apply, `RESERVED_NAME_HELD`), follows after a blank line. The
 footer is `esc Back` on the last (or only) file, and keeps `esc Cancel both` / `esc Cancel all`
 while files follow; `⏎` sends nothing more. A failure that names no key (a `5xx`, the engine

@@ -11,7 +11,7 @@ serves only shipped code" (`4dd95f836dba7be2` to `e020782e3579d011`). The catch-
 seven specs, run in this order:
 
 1. part 1a, the app's reads and writes, done on 2026-10-28;
-2. [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md);
+2. part 1b, the statement screens (done on 2026-10-28);
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md);
 4. this one;
 5. [catch-up-split-rows.md](catch-up-split-rows.md);

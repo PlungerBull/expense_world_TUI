@@ -6,7 +6,7 @@ as `f00534abdde7fa82`, a draft that never shipped).
 
 **Status: approved by the owner on 2026-10-28, question 1 answered (B).** Its tasks
 are drafted when the owner approves it. It runs after
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+part 1b, the statement screens (done on 2026-10-28),
 which removes the old reconciliation fixtures the drift check still names. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 

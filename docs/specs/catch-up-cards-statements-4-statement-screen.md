@@ -13,7 +13,7 @@ engine serves only shipped code", its part on the flagged-line advice reworded
 (`95e8fea031ba6bd1`) is caught up apart, its why in [decisions.md](../decisions.md) "The PDF
 preview marks a line moved to the bank's day". The routes, the live suite, the sheet import's counts and cards themselves are the other
 specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28),
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+part 1b, the statement screens (done on 2026-10-28),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
@@ -75,8 +75,7 @@ The engine also changed what the screens can do:
 1. **Every statement screen shows one statement per card**: the list of statements, the form
    that opens one and the statement's own screen, each with a balance per account, as questions
    2, 3 and 5 decide. The screen is named as question 1 decides.
-2. **A statement's lines are listed in the paper's order** (contract: GET /v1/bank-lines,
-   "Ordering"): on a card with a statement code, numbered as the paper numbers them, both
+2. **A statement's lines are listed in the paper's order** (contract: GET /v1/bank-lines, "Ordering"): on a card with a statement code, numbered as the paper numbers them, both
    currencies in one numbering; the opening balance listed apart, since it holds no place on the
    paper. Screen 4 of
    [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html)

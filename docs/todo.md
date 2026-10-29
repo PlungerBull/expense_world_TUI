@@ -28,6 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Approve the statement screens' leftovers spec
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1b-leftovers.md](specs/catch-up-cards-statements-1b-leftovers.md)
+
+Small things the statement screens' catch-up turned up: a holder of three currencies can't open a
+statement from the card form, the `⚑` count after a close can read one too many, the flagged
+screen's head is blank while it loads, and some leftover code and test words. It runs after the
+catch-up's live-test specs. Its two questions are in the spec: whether the three-currency form
+waits for part 7's redraw, and whether the flagged screen's head shows its count before the lines
+arrive.
+
+**Recommended:** approve it, with A on both questions.
+
 ---
 
 ## Backlog
@@ -41,7 +53,17 @@ ships (its why moves to [decisions.md](decisions.md)).
   test_tui_account_kind.py, test_tui_create_forms.py and test_reads_and_formatting.py; (2)
   tui.md and decisions.md cite routes and parts the engine removed: archiving an account, turning
   an account into a person or back, and "Bank Accounts" / "Statement code". The owner left both
-  to those specs on 2026-10-28, since the hand-off rewrites the same tests and paragraphs.
+  to those specs on 2026-10-28, since the hand-off rewrites the same tests and paragraphs. The
+  code and unit tests cite the same removed routes (archiving an account, make-person /
+  make-account, `POST /people`) in reads.py, the ledger's transactions.py, accounts.py,
+  create_forms.py, test_tui_bulk_edit.py, test_tui_create_forms.py and test_tui_ledger_archived.py.
+- **Mockups quote the complete's old ordering refusal**, "Cannot complete reconciliation until its
+  statement is fully ordered": expense-world-card-statement.html and
+  expense-world-statement-screen.html. The engine now prints no top message, and its field words
+  end "Upload the bank's statement (POST /statements/import), which sets the order." They need a
+  redraw, so they go to part 7,
+  [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md),
+  which redraws those screens.
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in
@@ -159,7 +181,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   rename of card to holder, the account move and people as holders of 2026-10-28 included): nine
   specs, run in order:
   part 1a (done on 2026-10-28),
-  [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
+  part 1b (done on 2026-10-28),
   [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md),
   [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
   [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
@@ -167,7 +189,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  1b runs now. The counts line's last task, its live tests, waits on 2a.
+  The practice engine's spec runs now. The counts line's last task, its live tests, waits on 2a.
+- **What the statement screens' catch-up turned up**: a draft spec waiting for the owner's
+  approval and two questions
+  ([specs/catch-up-cards-statements-1b-leftovers.md](specs/catch-up-cards-statements-1b-leftovers.md)).
 - **A person's opening balance: its hint and the sheet import's test**: a draft spec waiting for
   the owner's approval and a pick
   ([specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)).

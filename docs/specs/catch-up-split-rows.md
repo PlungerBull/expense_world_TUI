@@ -9,7 +9,7 @@ hand-off's part "Smaller changes" (`f91a1e0ae626c712` and `f0ee03d6faa96af1`), a
 import's counts say how many sheet rows its split lines come from"; the rename does not touch
 it. The rest of that range is caught up in
 part 1a, the app's reads and writes (done on 2026-10-28),
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+part 1b, the statement screens (done on 2026-10-28),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md) and

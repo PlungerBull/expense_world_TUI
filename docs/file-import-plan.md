@@ -18,7 +18,7 @@ manual, in Home's bulk `space` + `c`/`b`/`h`. The LOG bar stays for what has no 
 people).
 
 **BCP only** — no second bank, no CSV, no format abstraction. The bank's PDF comes in only as a
-month's statement, which closes that month's reconciliation (owner, 2026-10-25; a draft spec:
+month's statement, which closes that month's reconciliation (owner, 2026-10-25; its spec:
 [statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). The engine
 reads both export shapes (card: no operation number, ISO dates, mixed PEN/USD; current account:
 operation number, `dd/mm/yyyy`) (contract: POST /v1/transactions/import, "The download").

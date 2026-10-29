@@ -12,7 +12,7 @@ its other parts make the test answers lack. Its other parts are in
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
 **Status: approved by the owner on 2026-10-28, its tasks with it.** It runs after
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)
+part 1b, the statement screens (done on 2026-10-28)
 and before [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 whose live tests then run on shipped code. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.

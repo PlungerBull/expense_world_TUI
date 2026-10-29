@@ -17,7 +17,7 @@ None of it changes what you see; it is code, tests and drawings that say old thi
 The rest of what this spec held on 2026-10-26 moved into the catch-up to `e7393dd869963db1`,
 which rewrites the same code: the engine's old words, the "no batch" helper's names and comment,
 and the grouped refusals' drawing into
-[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md); the practice-data
+part 1b, the statement screens (done on 2026-10-28); the practice-data
 cleaner into
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md); a
 completed statement's footer, the "no batch" list's order and the card statement's drawing, with
