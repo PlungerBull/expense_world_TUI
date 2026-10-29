@@ -33,8 +33,7 @@ nothing saying your line will move.
 
 1. **A row whose line the engine moves reads `✓ In the ledger · day moved`** on the preview: the
    mark dim at the end of the row, the way a fee row carries its note, with no old day (the
-   owner's pick, B, in
-   [expense-world-statement-pdf-redated.html](../mockups/expense-world-statement-pdf-redated.html)).
+   owner's pick, B).
    Every other row reads as today, and so does the screen after `⏎`.
 2. **Nothing in the app reads `near_misses`**: the warning line under a new row goes, and so does
    the read of those lines.
@@ -64,17 +63,7 @@ None: the owner picked the screen, B of the redated mockup, on 2026-10-28.
 Drafted 2026-10-28; approved by the owner on 2026-10-28. Each needs the practice engine for the drift
 check, which the orchestrator starts before the task and stops after it.
 
-1. **The old warning goes (builder).** Remove `near_misses` from the app: its rows, its line under
-   a new row, its share of the ledger-line read by id and its `—` fallback, its fixtures and its
-   tests; tui.md's preview row, the paragraph on reading the lines, and "No `r` on the import
-   screens" stop naming near misses; the warning leaves
-   [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html);
-   [expense-world-statement-pdf-redated.html](../mockups/expense-world-statement-pdf-redated.html)
-   is deleted with its links.
-   *Passes if:* `grep -rn "near_miss\|NearMiss" expense tests/unit` finds nothing; the lines taken
-   out are still read once by id, and their read failing still shows its `!` line (their tests
-   pass unchanged); the docs link test passes; the tester's run of the app shows the screen as
-   "How the owner knows it is done" 1 and 2 say.
+None left: every task is done.
 
 ## Reply to the engine
 
@@ -100,3 +89,9 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The holder fixtures lack `is_person`**: the drift script reports `GET /v1/holders` and
   `GET /v1/holders/{holder_id}` answers whose fixtures leave out the required `is_person`. Likely
   owned by the holder specs on hold; check before drafting.
+- **runtime.md still describes the live upload test with `near_misses`** (docs/runtime.md:100, "a
+  line one day off a new row in its `near_misses`"), as does tests/contract/test_statement_import.py;
+  task 1 of spec 2b rewrites that test, so its doc line should go with it. Check 2b names it.
+- **The preview's `_window_end` builds every row to count them** (statement_upload.py, about line
+  456): each row is one line now, so the count is plain arithmetic. A small cleanup, found by task
+  2's reviewer.

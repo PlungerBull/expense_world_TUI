@@ -15,16 +15,15 @@ LOG bar.
                              flagged (screen 3)
 
 The app sends the PDF whole and reads nothing in it: every row, its outcome, the
-near misses, the lines taken out, the balances and every refusal are the
-engine's (contract: POST /v1/statements/import). The account is the one
-picked; nothing is matched, added up or guessed here. The call, the account
-picks and the file read are the shared steps in expense/bank_import/flow.py, how
-the answer reads is expense/bank_import/statement.py; what is here is only what
-the screens draw.
+lines taken out, the balances and every refusal are the engine's
+(contract: POST /v1/statements/import). The account is the one picked; nothing
+is matched, added up or guessed here. The call, the account picks and the file
+read are the shared steps in expense/bank_import/flow.py, how the answer reads
+is expense/bank_import/statement.py; what is here is only what the screens
+draw.
 """
 
 from rich.console import Group, RenderableType
-from rich.table import Table
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
@@ -178,11 +177,6 @@ class Columns:
         rest = self.number + 2 + 10 + 2 + 2 + self.amount + (5 if self.cur else 0) + tail
         self.title = max(len("title"), min(max(map(len, titles), default=0), width - rest))
 
-    @property
-    def title_at(self) -> int:
-        """Where the title column starts."""
-        return self.number + 2 + 10 + 2
-
     def header(self) -> Text:
         words = (
             f"{'#'.rjust(self.number)}  {'date'.ljust(10)}  {'title'.ljust(self.title)}  "
@@ -216,13 +210,10 @@ def _cents(value: object) -> int:
     return value if isinstance(value, int) else 0
 
 
-def row_lines(row: StatementRow, columns: Columns, lines: dict[str, dict]) -> list[RenderableType]:
+def row_line(row: StatementRow, columns: Columns) -> Text:
     """A row of the paper, its outcome's mark and reason (and the fee note on a
-    card's undated line, `· day moved` on a row whose line moves), then under
-    a new row one `!` line per ledger line one day off it with its total: the
-    engine's day, and the line's title and total as read by its id (the row's
-    own amount, its total being the same, and `—` while the line is unread).
-    An empty row's `0.00` is plain, as drawn: it is no money in or out."""
+    card's undated line, `· day moved` on a row whose line moves). An empty
+    row's `0.00` is plain, as drawn: it is no money in or out."""
     text = columns.line(
         str(row.place),
         row.date_iso,
@@ -232,25 +223,7 @@ def row_lines(row: StatementRow, columns: Columns, lines: dict[str, dict]) -> li
         rule="plain" if row.outcome == EMPTY else AMOUNT_RULE,
     )
     text.append_text(row_tail(row))
-    out: list[RenderableType] = [text]
-    for miss in row.near_misses:
-        line = lines.get(miss.bank_line_id)
-        if line is not None:
-            _day, title, _code, net = bank_line_columns(line)
-            title, cents = str(title or NO_TITLE), _cents(net)
-        else:
-            title, cents = NO_TITLE, row.amount_cents
-        words = Text(
-            f"! {miss.date_iso} {title} {format_cents(cents)} "
-            "in the ledger is one day off: not paired",
-            style=PALETTE.warning,
-        )
-        grid = Table.grid()
-        grid.add_column(width=max(0, columns.title_at - 4), no_wrap=True)
-        grid.add_column()
-        grid.add_row("", hanging(words))
-        out.append(grid)
-    return out
+    return text
 
 
 def taken_out_lines(
@@ -473,20 +446,12 @@ class StatementPreviewScreen(PreviewScreen):
         extra += 1 if self._lines_error else 0
         return max(MIN_PAGE, self.size.height - PREVIEW_CHROME - extra)
 
-    def _window(self, columns: Columns) -> list[list[RenderableType]]:
-        """The rows from `_start` that fit the budget, each its own lines (a
-        row, then its near misses); at least one row."""
+    def _window(self, columns: Columns) -> list[Text]:
+        """The rows from `_start` that fit the budget, one line each; at least
+        one row."""
         assert self._answer is not None
-        budget = self._budget()
-        out: list[list[RenderableType]] = []
-        used = 0
-        for row in self._answer.rows[self._start :]:
-            lines = row_lines(row, columns, self._lines)
-            if out and used + len(lines) > budget:
-                break
-            out.append(lines)
-            used += len(lines)
-        return out
+        rows = self._answer.rows[self._start : self._start + self._budget()]
+        return [row_line(row, columns) for row in rows]
 
     def _window_end(self) -> int:
         if self._answer is None:
@@ -510,8 +475,7 @@ class StatementPreviewScreen(PreviewScreen):
         columns = self._columns()
         parts.append(columns.header())
         window = self._window(columns)
-        for lines in window:
-            parts.extend(lines)
+        parts.extend(window)
         after = len(answer.rows) - (self._start + len(window))
         if after > 0:
             parts.append(Text(f"… {after} more · pgdn", style="dim"))

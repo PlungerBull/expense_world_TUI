@@ -9,8 +9,8 @@ Three modules, none of which prints or imports typer:
                   counts, and the days whose file and ledger totals disagree
     statement.py  the statement upload's answer → its name and days, whether
                   it creates the statement, each account's balances, one row
-                  per row of the paper with its outcome and near misses, the
-                  lines taken out, the counts, and the lines its close flagged
+                  per row of the paper with its outcome, the lines taken out,
+                  the counts, and the lines its close flagged
     flow.py       the door's steps: read the dropped file's bytes, list the
                   accounts as picks (a card's two accounts as one), make the
                   one call (`import_call`, `statement_call`), name the

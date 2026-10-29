@@ -157,7 +157,7 @@ def statement_call(client, pick: AccountPick, data: bytes, *, dry_run: bool) -> 
 
 def statement_lines(cfg, ids: list[str], *, verbose: bool) -> tuple[dict[str, dict], str | None]:
     """bank line id → the line, for the lines a statement's answer names by id
-    alone: those taken out and the near misses. One read by their ids
+    alone: those taken out. One read by their ids
     (`reads.fetch_bank_lines_by_ids`), never while drawing; none when there are
     no ids. A failed read never hides what the upload does: the reason is
     returned for one line under the counts, and the lines go unread."""

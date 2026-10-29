@@ -20,15 +20,6 @@ EMPTY = "empty"
 
 
 @dataclass(frozen=True)
-class NearMiss:
-    """A ledger line one day off a new row with its total, which the engine
-    never pairs with it: its id and its day."""
-
-    bank_line_id: str
-    date_iso: str
-
-
-@dataclass(frozen=True)
 class StatementRow:
     """One row of the paper as the engine read it, and what closing does (or,
     on a dry run, would do) with it."""
@@ -44,7 +35,6 @@ class StatementRow:
     fee: bool
     amount_cents: int  # signed: negative = money out; 0 on an empty row
     outcome: str  # matched | new | empty
-    near_misses: tuple[NearMiss, ...]
     #: Its line was matched one day off and is moved to the row's day (on a dry
     #: run, would be) (contract: POST /v1/statements/import, "The bank's day wins").
     redated: bool
@@ -63,10 +53,6 @@ def statement_rows(response: dict) -> list[StatementRow]:
             fee=bool(item.get("fee")),
             amount_cents=signed_cents(item),
             outcome=str(item.get("outcome")),
-            near_misses=tuple(
-                NearMiss(str(miss.get("bank_line_id")), str(miss.get("date")))
-                for miss in item.get("near_misses") or []
-            ),
             redated=bool(item.get("redated")),
         )
         for item in response.get("rows") or []
@@ -165,15 +151,8 @@ class StatementAnswer:
 
     def lines_to_read(self) -> list[str]:
         """The ids the answer names a ledger line by alone, each once: the lines
-        taken out, then every near miss, in the rows' order."""
-        ids: list[str] = []
-        for line_id in [
-            *self.taken_out,
-            *(miss.bank_line_id for row in self.rows for miss in row.near_misses),
-        ]:
-            if line_id not in ids:
-                ids.append(line_id)
-        return ids
+        taken out, in the engine's order."""
+        return list(dict.fromkeys(self.taken_out))
 
 
 def statement_answer(response: dict) -> StatementAnswer:

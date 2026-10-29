@@ -761,7 +761,7 @@ nothing. Its three full screens replace one another above the LOG bar, as a down
 | Screen | Shows | Keys |
 |---|---|---|
 | **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking a card sends its soles account; the engine closes the holder's statement from any of its accounts | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per account of the holder, its currency and the paper's balances (`balances`), in the engine's order, the holder's accounts' order, so a card whose dollar account comes first shows its `USD` line above its `PEN` one; the app sorts nothing (contract: POST /v1/statements/import, "Response"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Under a new row, one warning-colour line per ledger line one day off it with the same total (`near_misses`): `! <day> <title> <amount> in the ledger is one day off: not paired`. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
+| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per account of the holder, its currency and the paper's balances (`balances`), in the engine's order, the holder's accounts' order, so a card whose dollar account comes first shows its `USD` line above its `PEN` one; the app sorts nothing (contract: POST /v1/statements/import, "Response"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
 | **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
@@ -769,12 +769,12 @@ colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `�
 `@Pendiente` and the pending hashtag, `· Empty` (dim) for `empty`, a row of `0.00` whose place
 stays empty, its amount in no colour. Every other amount is coloured by its sign. The title column
 takes what the screen leaves once the widest row's mark, reason, fee note and `· day moved` have
-their room, so no row wraps; only a screen too narrow for the paper's longest title cuts one, with `…`. The answer names the near misses and the lines taken out by id alone, so the
-preview's worker reads them once by their ids (`statement_lines` in
-[flow.py](../expense/bank_import/flow.py), `reads.fetch_bank_lines_by_ids`), never while drawing,
-and not at all when there are none. When the read fails, a near miss keeps its day with `—` for
-its title and the row's own amount (its total is the same), the taken-out block keeps its head,
-and a dim `! could not read the ledger lines: <why>` sits under the counts.
+their room, so no row wraps; only a screen too narrow for the paper's longest title cuts one,
+with `…`. The answer names the lines taken out by id alone, so the preview's worker reads them
+once by their ids (`statement_lines` in [flow.py](../expense/bank_import/flow.py),
+`reads.fetch_bank_lines_by_ids`), never while drawing, and not at all when there are none. When
+the read fails, the taken-out block keeps its head, and a dim
+`! could not read the ledger lines: <why>` sits under the counts.
 
 **The counts** are the engine's `counts` and its rows for the total:
 `10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out`, the `new` count in the accent colour
@@ -1343,7 +1343,7 @@ the flagged lines again, none of them in the footer.
   footer keeps to `esc` and `⏎`.
 - **No `r` on the import screens.** Each reads once, when it opens — the account list, the
   preview's dry run and the names of the reconciliations that stop a move, or a statement's
-  near misses and lines taken out (read again only by `⏎ Preview again`); dropping the file
+  lines taken out (read again only by `⏎ Preview again`); dropping the file
   on the LOG bar again reads them all afresh.
 - **No `?` on the import screens.** They do not take `HelpBindingMixin`; the footer is their
   whole key list.

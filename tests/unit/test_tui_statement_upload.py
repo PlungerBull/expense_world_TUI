@@ -36,7 +36,7 @@ from expense.tui.screens.statement_upload import (
     StatementAccountScreen,
     StatementPreviewScreen,
     StatementResultScreen,
-    row_lines,
+    row_line,
 )
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -65,18 +65,11 @@ ACCOUNTS = [
 ]
 
 #: A card's paper as screen 1A draws it: both currencies, matched, new and empty
-#: rows, a near miss under a new row, and two undated fees.
+#: rows, and two undated fees.
 CARD_ROWS = [
     statement_row(1, -750, day="2026-09-24", description="TAMBO MIRAFLORES"),
     statement_row(2, -8430, day="2026-09-27", description="PLAZA VEA SURCO"),
-    statement_row(
-        3,
-        -4200,
-        outcome="new",
-        day="2026-10-02",
-        description="UBER *TRIP",
-        near_misses=(("bl-near", "2026-10-03"),),
-    ),
+    statement_row(3, -4200, outcome="new", day="2026-10-02", description="UBER *TRIP"),
     statement_row(4, -4490, day="2026-10-14", description="NETFLIX.COM"),
     statement_row(5, 80000, day="2026-10-20", description="PAGO TARJETA"),
     statement_row(
@@ -138,12 +131,12 @@ SAVINGS = {
     "balances": [upload_balance("aho-pen", begin=1091240, end=1245000)],
 }
 
-#: The ledger lines the card's answer names by id alone: the near miss and the
-#: line taken out.
+#: The ledger lines the tests read by id: the line the card's answer takes out,
+#: and one the flagged lines' screen lists.
 LINES = {
-    "bl-near": bank_line_row(
-        "bl-near",
-        [import_part("t-near", -4200, line="bl-near", day="2026-10-03", title="UBER *TRIP")],
+    "bl-uber": bank_line_row(
+        "bl-uber",
+        [import_part("t-uber", -4200, line="bl-uber", day="2026-10-03", title="UBER *TRIP")],
         net_cents=-4200,
     ),
     "bl-farm": bank_line_row(
@@ -353,7 +346,7 @@ def test_the_answer_reads_as_the_engine_sent_it():
     assert answer.rows[9].amount_cents == 0 and answer.rows[9].outcome == "empty"
     assert answer.rows[7].fee and not answer.rows[0].fee
     assert answer.several_currencies and not answer.fills_a_draft
-    assert answer.lines_to_read() == ["bl-farm", "bl-near"]
+    assert answer.lines_to_read() == ["bl-farm"]
     assert (answer.counts.matched, answer.counts.new, answer.counts.empty) == (5, 4, 1)
     assert answer.counts.taken_out == 1 and answer.counts.rows == 10
 
@@ -457,12 +450,11 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
             ["PEN", "-1,204.10", "-512.30"],
         ]
         assert _cells(lines[5]) == ["#", "date", "title", "amount", "cur"]
-        rows = [_cells(line) for line in lines[6:17]]
+        rows = [_cells(line) for line in lines[6:16]]
         assert rows == [
             ["1", "2026-09-24", "TAMBO MIRAFLORES", "-7.50", "PEN", "✓", "In the ledger"],
             ["2", "2026-09-27", "PLAZA VEA SURCO", "-84.30", "PEN", "✓", "In the ledger"],
             ["3", "2026-10-02", "UBER *TRIP", "-42.00", "PEN", "+", "New"],
-            ["! 2026-10-03 UBER *TRIP -42.00 in the ledger is one day off: not paired"],
             ["4", "2026-10-14", "NETFLIX.COM", "-44.90", "PEN", "✓", "In the ledger"],
             ["5", "2026-10-20", "PAGO TARJETA", "800.00", "PEN", "✓", "In the ledger"],
             ["6", "2026-10-05", "AMAZON", "-24.99", "USD", "✓", "In the ledger"],
@@ -489,7 +481,7 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
             ],
             ["10", "2026-10-25", "MANT. CUENTA", "0.00", "USD", "·", "Empty"],
         ]
-        assert lines[17:] == [
+        assert lines[16:] == [
             "Taken out · in the statement, not on the paper; they stay in the ledger",
             "2026-10-11  FARMACIA CENTRAL       -42.90  PEN",
             "10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out",
@@ -497,7 +489,7 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
         ]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Close SIG-202610"}
         assert _uploads(fake_client) == [True]  # the dry run only
-        assert reads_by_ids == [["bl-farm", "bl-near"]]  # one read, by their ids
+        assert reads_by_ids == [["bl-farm"]]  # one read, by their ids
 
     run_app(scenario, size=(120, 50))
 
@@ -552,8 +544,8 @@ def test_a_taken_out_line_lines_up_under_the_tables_columns(fake_client, monkeyp
 
 
 def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monkeypatch, tmp_path):
-    """The near miss keeps its day and the row's amount, the taken-out block its
-    head, and one dim line says why the lines went unread."""
+    """The taken-out block keeps its head, and one dim line says why the lines
+    went unread."""
     path = _pdf(tmp_path)
     _patch(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD})
@@ -566,7 +558,6 @@ def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monke
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)
         lines = _lines(preview)
-        assert "! 2026-10-03 — -42.00 in the ledger is one day off: not paired" in lines
         assert "Taken out · in the statement, not on the paper; they stay in the ledger" in lines
         assert not any("FARMACIA" in line for line in lines)
         assert "! could not read the ledger lines: INTERNAL_ERROR — Something went wrong." in lines
@@ -607,7 +598,7 @@ def test_a_savings_preview_has_one_balance_line_and_no_currency(fake_client, mon
         assert _shown(preview) == {"escape": "Cancel", "enter": "Close Octubre 2026"}
         ((_, body),) = fake_client.posts
         assert body["account_id"] == "aho-pen"
-        assert reads_by_ids == []  # no id to read: nothing taken out, no near miss
+        assert reads_by_ids == []  # no id to read: nothing taken out
 
     run_app(scenario, size=(120, 40))
 
@@ -678,13 +669,13 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         account_id="sig-usd",
     )
     _patch(monkeypatch, lines={**LINES, "bl-hulu": usd_line})
-    flagged = {"sig-pen": ["bl-near"], "sig-usd": ["bl-hulu"]}  # each on its own account
+    flagged = {"sig-pen": ["bl-uber"], "sig-usd": ["bl-hulu"]}  # each on its own account
     _engine(fake_client, {path.read_bytes(): {**CARD, "review_lines": flagged}})
     review_reads: list[tuple] = []  # (read, statement id, sort, ids sent)
 
     def review_list(cfg, *, review_of, sort, **kwargs):
         review_reads.append(("list", review_of, sort, kwargs.get("ids")))
-        return {"items": [LINES["bl-near"], usd_line], "limit": 200, "next_cursor": None}
+        return {"items": [LINES["bl-uber"], usd_line], "limit": 200, "next_cursor": None}
 
     def review_count(cfg, *, review_of, **kwargs):
         review_reads.append(("count", review_of, None, kwargs.get("ids")))
@@ -705,7 +696,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         await pilot.press("f")
         flagged = await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
         await wait_for(pilot, lambda: flagged._list is not None, message="flagged never read")
-        assert [row.key for row in flagged._list._rows] == ["bl-near", "bl-hulu"]
+        assert [row.key for row in flagged._list._rows] == ["bl-uber", "bl-hulu"]
         assert review_reads == [
             ("list", "s-paper", "statement", None),
             ("count", "s-paper", None, None),
@@ -1070,10 +1061,10 @@ def test_an_empty_rows_amount_is_plain():
     """Screen 1A draws an empty row's `0.00` in no colour: it is no money in or out."""
     answer = statement_answer(statement_upload_answer(**CARD, dry_run=True))
     columns = Columns(answer, [], width=116)
-    (empty,) = row_lines(answer.rows[9], columns, {})
+    empty = row_line(answer.rows[9], columns)
     at = empty.plain.index("0.00")
     assert not [s for s in empty.spans if s.start <= at < s.end]
-    (matched,) = row_lines(answer.rows[4], columns, {})  # +800.00 keeps its colour
+    matched = row_line(answer.rows[4], columns)  # +800.00 keeps its colour
     at = matched.plain.index("800.00")
     assert [s for s in matched.spans if s.start <= at < s.end]
 
@@ -1130,8 +1121,8 @@ MOVED = {
 
 
 def test_a_moved_line_reads_day_moved_and_nothing_else_changes(fake_client, monkeypatch, tmp_path):
-    """Option B of docs/mockups/expense-world-statement-pdf-redated.html: the
-    moved row reads `✓ In the ledger · day moved`, a row matched on its own day
+    """A row whose line moves to the paper's day reads `✓ In the ledger · day
+    moved`, the mark alone with no old day, and a row matched on its own day
     no mark; the count line counts no move, and after ⏎ the close reads as any
     close."""
     path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
@@ -1177,7 +1168,7 @@ def test_the_day_moved_mark_is_dim_as_the_fee_note_is():
     answer = statement_answer(statement_upload_answer(rows, dry_run=True))
     assert [row.redated for row in answer.rows] == [True, False, False]
     columns = Columns(answer, [], width=116)
-    (moved,), (fee,), (plain,) = (row_lines(row, columns, {}) for row in answer.rows)
+    moved, fee, plain = (row_line(row, columns) for row in answer.rows)
 
     def styles(text, words: str) -> list[str]:
         at = text.plain.index(words)
