@@ -141,10 +141,10 @@ def _card(diff_usd: int | None = 0) -> dict[str, int | None]:
     return {"acc-sig-pen": 0, "acc-sig-usd": diff_usd}
 
 
-#: The card's four months of pane 1 A, in the engine's order: `date_start` ascending
-#: (contract: "Statements", "Ordering"). Julio and Agosto are completed; Septiembre is
-#: a draft with three lines unplaced; Octubre is a draft, its dollar account off by
-#: -2.99, two lines unplaced and a place held twice.
+#: The card's four months of pane 1 A, in the engine's order: `date_start` ascending,
+#: then creation time, oldest first (contract: "Statements", "Ordering"). Julio and
+#: Agosto are completed; Septiembre is a draft with three lines unplaced; Octubre is a
+#: draft, its dollar account off by -2.99, two lines unplaced and a place held twice.
 CARD = [
     _statement("jul", "h-sig", "Julio 2026", JUL, _card(), status=2),
     _statement("ago", "h-sig", "Agosto 2026", AGO, _card(), status=2),

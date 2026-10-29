@@ -207,7 +207,7 @@ def test_decision_pointers_in_code_resolve():
 
 # ---- the five list orders carry their direction ------------------------------
 # The contract states the order of accounts, categories, a category's tags,
-# tags and an account's reconciliations with its direction. A doc or a comment
+# tags and a holder's statements with its direction. A doc or a comment
 # that cites one of those "Ordering" rules gives the direction in the same
 # paragraph, and none paraphrases an order as SQL. The owner's specs are not
 # scanned: they list the citations under one sentence that carries the wording.
@@ -216,7 +216,7 @@ _ORDERING_CITATIONS = (
     '(contract: GET /v1/accounts, "Ordering")',
     '(contract: GET /v1/categories, "Ordering")',
     '(contract: GET /v1/categories/{category_id}/hashtags, "Ordering")',
-    '(contract: "Reconciliations", "Ordering")',
+    '(contract: "Statements", "Ordering")',
 )
 _SQL_ORDER = re.compile(r"\b(?:date_start|created_at|sort_order|uses)`?\s+(?:ASC|DESC)\b")
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t#:]*\n")
