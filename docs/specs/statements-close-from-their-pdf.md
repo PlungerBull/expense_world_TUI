@@ -72,9 +72,8 @@ difference of zero, on 2026-10-26.
    the PDF covers that is in no statement is flagged by the close, and shows as a close's
    flagged lines show (built in the catch-up spec), before and after the close.
 4. **Before anything is written, the app shows what the upload would do**: each PDF line,
-   matched, to be created, or an empty `0.00` line; the ledger lines one day off a created line
-   with the same amount, which the engine never pairs, so a likely wrong date shows; the lines
-   it would take out; and each currency's balances. You confirm and it is written, or nothing
+   matched, to be created, or an empty `0.00` line; which matched lines the engine moves to the
+   paper's day, one day off it with the same amount; the lines it would take out; and each currency's balances. You confirm and it is written, or nothing
    is. The screens are picked from a mockup before they are built.
 5. **A refused upload says why in the engine's words** (a PDF the engine cannot read, one whose
    lines don't add up to its own totals, a month already completed, a card with no statement
@@ -162,8 +161,9 @@ From the live contract (contract: POST /v1/statements/import):
   (contract: POST /v1/statements/import, "Accounts").
 - **A line the upload creates** is filed under `@Pendiente` and the pending hashtag, the paper's
   text as its title, for you to classify later.
-- **A ledger line one day off a PDF line is never paired**: the PDF line is created, and the
-  preview names the near miss.
+- **A ledger line one day off a PDF line is matched** and moved to the paper's day on the close
+  (contract: POST /v1/statements/import, "The bank's day wins"); the preview marks it
+  `· day moved`.
 - **A card's account with no row still closes,** with no line, inside the holder's statement
   (contract: POST /v1/statements/import, "A card's account with no row still closes").
 - **Every account of the holder is on the paper**: a savings account's paper sent for a holder
