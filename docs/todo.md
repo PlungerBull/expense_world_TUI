@@ -50,7 +50,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   test_tui_account_kind.py, test_tui_create_forms.py and test_reads_and_formatting.py; (2)
   tui.md and decisions.md cite routes and parts the engine removed: archiving an account, turning
   an account into a person or back, and "Bank Accounts" / "Statement code". The owner left both
-  to those specs on 2026-10-28 (questions 1 and 2 of the PDF preview's leftovers spec).
+  to those specs on 2026-10-28, since the hand-off rewrites the same tests and paragraphs.
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in

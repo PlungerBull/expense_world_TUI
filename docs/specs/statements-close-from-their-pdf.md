@@ -73,8 +73,9 @@ difference of zero, on 2026-10-26.
    flagged lines show (built in the catch-up spec), before and after the close.
 4. **Before anything is written, the app shows what the upload would do**: each PDF line,
    matched, to be created, or an empty `0.00` line; which matched lines the engine moves to the
-   paper's day, one day off it with the same amount; the lines it would take out; and each currency's balances. You confirm and it is written, or nothing
-   is. The screens are picked from a mockup before they are built.
+   paper's day, one day off it with the same amount; the lines it would take out; and each
+   currency's balances. You confirm and it is written, or nothing is. The screens are picked
+   from a mockup before they are built.
 5. **A refused upload says why in the engine's words** (a PDF the engine cannot read, one whose
    lines don't add up to its own totals, a month already completed, a card with no statement
    code, a savings account's paper sent for a card that also holds another currency) and
