@@ -59,12 +59,9 @@ None.
 
 Drafted 2026-10-28; approved by the owner on 2026-10-28. Each leaves `pytest tests/unit` green.
 
-1. **The launcher (builder).** `scripts/practice-engine up` starts the engine with the engine's
-   client practice launcher, given the port 8002, from the engine checkout's root (the hand-off's
-   section 11 names its path and its refusals), detached as today, and knows it again on :8002 by its command; `down` stops it by its pid; the reseed and
-   the keys stay as they are, and nothing from the caller's environment reaches it.
-   *Passes if:* `up` then `down` start and stop it, the version it serves is the newest in its
-   change log, and anything else on :8002 is left alone.
+Tasks 1 and 4 are done (2026-10-28): `up` starts the engine's launcher, and the test answers
+already carried `is_person` and `redated`, the drift check naming nothing.
+
 2. **The guard (builder).** `.claude/hooks/guard.py` lets the tester start the practice engine
    only with the launcher and stop it only by its pid, as runtime.md says; its tests trip each
    rule, the old start included; runtime.md "Working against the live engine" says how.
@@ -73,10 +70,6 @@ Drafted 2026-10-28; approved by the owner on 2026-10-28. Each leaves `pytest tes
    --record-version` refuses a served version its own `x-changelog` does not list, records
    nothing, and says why; runtime.md "Contract version" says so.
    *Passes if:* a test proves the refusal and that a listed version is recorded.
-4. **The test answers' new fields (builder).** In tests/unit/helpers.py, `holder_list` and
-   `holder_record` carry `is_person` and the upload's answer carries `redated` on each row and
-   `counts.redated`; no screen changes.
-   *Passes if:* the drift check against the practice engine names no missing field.
 
 ## Reply to the engine
 

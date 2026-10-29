@@ -78,14 +78,15 @@ _ENGINE_PATHS = [
     re.compile(r"\bsql/\d{3}"),
 ]
 
-# The tester's start/reseed commands for the practice engine (CLAUDE.md "Stay
-# inside this repo", docs/runtime.md "Working against the live engine").
+# The practice engine's start and reseed commands (CLAUDE.md "Stay inside this
+# repo", docs/runtime.md "Working against the live engine").
 # Each entry is (doc, exact text): a match wholly inside that text in that doc
 # passes; the same text anywhere else is still caught.
 _ALLOWED = [
     ("CLAUDE.md", "It starts the engine on `:8002` from `../expense_world_engine`"),
     ("CLAUDE.md", "`deploy/local/seed-test-user.sh --force`"),
     ("docs/runtime.md", "In the engine repo, `deploy/local/seed-test-user.sh` seeds"),
+    ("docs/runtime.md", "practice launcher, `deploy/local/client-practice-engine.sh 8002`, run"),
 ]
 
 

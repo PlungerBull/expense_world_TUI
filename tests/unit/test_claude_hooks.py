@@ -728,21 +728,26 @@ def test_guard_keeps_the_hand_run_engine_ops_to_the_tester(box, agent, command):
 
 
 def test_practice_engine_script_is_pinned_to_the_test_engine():
-    """The script fixes :8002, the test database and the checkout's own interpreter, and
-    never names the live engine's port."""
+    """The script fixes :8002 and starts the engine only with the engine's own practice
+    launcher, never uvicorn itself, and never names the live engine's port."""
     script = Path(__file__).resolve().parents[2] / PRACTICE
     assert os.access(script, os.X_OK), "scripts/practice-engine must be executable"
     text = script.read_text()
-    assert "PORT=8002" in text and "DB=expense_world_test" in text
-    assert ".venv/bin/python -m uvicorn app.main:app" in text
+    assert "PORT=8002" in text
+    assert "LAUNCHER=deploy/local/client-practice-engine.sh\n" in text
+    assert 'clean nohup "${LAUNCHER}" "${PORT}" > "${LOG}" 2>&1 < /dev/null &' in text
     assert "deploy/local/seed-test-user.sh --force" in text
     assert "8000" not in text
+    # the engine is started only through the launcher, which fixes the database itself
+    assert "DB_URL" not in text and ".venv/bin/python" not in text
+    # it knows the launcher's own process on :8002 by its command, and nothing else
+    assert '"-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\\$"' in text
     # the caller's environment reaches nothing it runs
     assert text.startswith("#!/bin/bash -p\n"), "bash -p skips BASH_ENV and inherited functions"
     assert "for name in $(compgen -e); do unset" in text
     assert 'clean() { /usr/bin/env -i HOME="${HOME}"' in text
     assert "PATH=/usr/bin:/bin:/usr/sbin:/sbin" in text
-    for run in ("lsof", "curl", "ps", "SUPABASE_DB_URL=", "deploy/local/seed-test-user.sh"):
+    for run in ("lsof", "curl", "ps", "nohup", "deploy/local/seed-test-user.sh"):
         assert f"clean {run}" in text, run
     assert "-sTCP:LISTEN" in text, "down stops only the :8002 listener"
 

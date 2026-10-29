@@ -1,22 +1,27 @@
 #!/bin/bash -p
-# Start or stop the practice engine: the engine checkout next to this repo, on :8002, over
-# the disposable `expense_world_test` database (docs/runtime.md "Working against the live
-# engine" is the ops guide this script follows word for word).
+# Start or stop the practice engine: the last commit of the engine checkout next to this
+# repo, on :8002, over the disposable `expense_world_test` database, started by the engine's
+# own launcher, deploy/local/client-practice-engine.sh, from the checkout's root. The
+# launcher serves an export of the engine's last commit, never the checkout's uncommitted
+# work, and names that commit in the log (docs/runtime.md "Working against the live engine"
+# is the ops guide this script follows word for word).
 #
 #   scripts/practice-engine up     start it (or reuse the one already on :8002), wait for
 #                                  /health, reseed the two practice users and print their
 #                                  fresh keys: the shared practice user's (EXPENSE_PAT) and
 #                                  the reserved-names practice user's (EXPENSE_RESERVED_PAT)
 #   scripts/practice-engine down   stop the practice engine listening on :8002, whoever
-#                                  started it; anything else on the port is left alone
+#                                  started it, by its pid; anything else on the port is
+#                                  left alone
 #
-# Both keys are printed to the terminal by the engine's own reseed and are never written to
-# a file here. Everything this script touches is fixed in it: port 8002, the
-# `expense_world_test` database, the engine checkout's own interpreter. It takes no
+# A reused engine keeps serving the commit it started on: `down` then `up` serves a newer
+# engine commit. Both keys are printed to the terminal by the engine's own reseed and are
+# never written to a file here. Everything this script runs is fixed in it: port 8002, the
+# engine's launcher (which fixes the database and the interpreter), its reseed. It takes no
 # options, and the caller's environment does not reach anything it runs: `bash -p` skips
-# BASH_ENV and inherited functions, every exported variable is unset below, and the engine,
-# the reseed, lsof, curl and ps run under `env -i` with only HOME (from the user database),
-# USER, LOGNAME and PATH=/usr/bin:/bin:/usr/sbin:/sbin. So no argument
+# BASH_ENV and inherited functions, every exported variable is unset below, and the
+# launcher, the reseed, lsof, curl and ps run under `env -i` with only HOME (from the user
+# database), USER, LOGNAME and PATH=/usr/bin:/bin:/usr/sbin:/sbin. So no argument
 # and no variable can point it at the live engine or the real ledger. The session guard
 # (.claude/hooks/guard.py) lets every agent run it, only as `scripts/practice-engine up` or
 # `scripts/practice-engine down`, its output going nowhere but the terminal, /dev/null or
@@ -33,7 +38,6 @@ export HOME="${HOME_DIR}" USER="${ME}" LOGNAME="${ME}" PATH=/usr/bin:/bin:/usr/s
 clean() { /usr/bin/env -i HOME="${HOME}" USER="${ME}" LOGNAME="${ME}" PATH="${PATH}" "$@"; }
 
 PORT=8002
-DB=expense_world_test
 HEALTH="http://127.0.0.1:${PORT}/health"
 LOG=/tmp/expense-test-engine.log
 START_TIMEOUT=60
@@ -41,6 +45,8 @@ STOP_TIMEOUT=15
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENGINE="$(cd "${REPO}/.." && pwd)/expense_world_engine"
+# The engine's own launcher for a client's practice engine, run from the checkout's root.
+LAUNCHER=deploy/local/client-practice-engine.sh
 
 say() { printf 'practice-engine: %s\n' "$*"; }
 die() { printf 'practice-engine: %s\n' "$*" >&2; exit 1; }
@@ -50,28 +56,26 @@ listener() { clean lsof -nP -t -iTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null | head -
 
 healthy() { clean curl -sf --max-time 2 "${HEALTH}" > /dev/null 2>&1; }
 
-# The process on :8002 is a practice engine: the start command this script uses, whoever
-# ran it (a tester's hand start included), not something else.
+# The process on :8002 is a practice engine: the launcher runs the engine in its own process,
+# whose command ends in the uvicorn start below, whoever ran the launcher; not something else.
 is_practice_engine() {
-    clean ps -o command= -p "$1" 2>/dev/null | grep -q -- "-m uvicorn app.main:app --port ${PORT}"
+    clean ps -o command= -p "$1" 2>/dev/null |
+        grep -q -- "-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\$"
 }
 
 up() {
-    [ -x "${ENGINE}/.venv/bin/python" ] || die "no engine checkout with a .venv at ${ENGINE}"
+    [ -x "${ENGINE}/${LAUNCHER}" ] || die "no engine checkout with ${LAUNCHER} at ${ENGINE}"
     local pid
     pid="$(listener)"
     if [ -n "${pid}" ]; then
         is_practice_engine "${pid}" || die ":${PORT} is taken by pid ${pid}, not the practice engine"
         say "reusing the practice engine already on :${PORT} (pid ${pid})"
     else
-        say "starting the practice engine on :${PORT} over ${DB} (log: ${LOG})"
+        say "starting the engine's last commit on :${PORT} with ${LAUNCHER} (log: ${LOG})"
         # Detached: it outlives this script and the agent that ran it.
         pid="$(
             cd "${ENGINE}"
-            clean SUPABASE_DB_URL="postgresql://expense_engine@127.0.0.1:5432/${DB}" \
-                ADMIN_DB_URL="postgresql://${ME}@127.0.0.1:5432/${DB}" \
-                nohup .venv/bin/python -m uvicorn app.main:app --port "${PORT}" \
-                > "${LOG}" 2>&1 < /dev/null &
+            clean nohup "${LAUNCHER}" "${PORT}" > "${LOG}" 2>&1 < /dev/null &
             echo $!
         )"
     fi
@@ -79,8 +83,7 @@ up() {
     until healthy; do
         if ! kill -0 "${pid}" 2>/dev/null; then
             tail -n 20 "${LOG}" >&2 || true
-            die "the engine exited before answering ${HEALTH} (log: ${LOG}); a crash at start" \
-                "may be the engine checkout mid-edit (docs/runtime.md)"
+            die "the engine exited before answering ${HEALTH} (log: ${LOG})"
         fi
         if [ "${waited}" -ge "${START_TIMEOUT}" ]; then
             tail -n 20 "${LOG}" >&2 || true
