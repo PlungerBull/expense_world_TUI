@@ -59,14 +59,10 @@ None.
 
 Drafted 2026-10-28; approved by the owner on 2026-10-28. Each leaves `pytest tests/unit` green.
 
-Tasks 1, 2 and 4 are done (2026-10-28): `up` starts the engine's launcher, the guard lets the
-tester start the engine only with it, and the test answers already carried `is_person` and
-`redated`, the drift check naming nothing.
-
-3. **Record only a listed version (builder).** `scripts/check_fixture_drift.py
-   --record-version` refuses a served version its own `x-changelog` does not list, records
-   nothing, and says why; runtime.md "Contract version" says so.
-   *Passes if:* a test proves the refusal and that a listed version is recorded.
+All four tasks are done (2026-10-28): `up` starts the engine's launcher, the guard lets the
+tester start the engine only with it, `--record-version` refuses a version the change log does
+not list, and the test answers already carried `is_person` and `redated`, the drift check naming
+nothing.
 
 ## Reply to the engine
 
@@ -95,3 +91,5 @@ Not built in this spec; drafted into a new spec when it is done.
 - [test-suite-leftovers.md](test-suite-leftovers.md) point 11, "The guard checks a test-engine
   start whole", is about the old hand start, which the guard now blocks entirely; the owner's
   draft needs that point dropped. Found by task 2's review.
+- `--record-version` takes a version listed anywhere in the change log, not only as its first
+  entry, and no test pins that choice. Found by task 3's review.

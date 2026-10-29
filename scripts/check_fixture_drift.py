@@ -20,7 +20,8 @@ makes the target explicit.
 CONTRACT VERSION. Every run also compares the engine's `info.version` with the one
 saved in `scripts/engine-contract-version`, fails when they differ and prints what
 moved; the rules live in docs/runtime.md "Contract version". Saving a new
-version is its own step:
+version is its own step, refused for a version the contract's change log does not
+list:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
@@ -242,17 +243,37 @@ def version_problem(doc: dict, saved: str | None, engine: str, engine_url: str) 
     return None
 
 
+def changelog(doc: dict) -> list | None:
+    """The contract's `x-changelog`, which lists the released versions newest first, one
+    entry each, its first entry being the current `info.version`; a version an engine
+    running unreleased work serves is never listed
+    (contract: "Base Conventions", "The contract"). None when the log is absent, empty
+    or not a list; its entries are left to the caller to check."""
+    log = doc.get("x-changelog")
+    return log if isinstance(log, list) and log else None
+
+
+def is_listed(doc: dict, engine: str) -> bool:
+    """Whether the contract's change log lists `engine`, so it is a released version.
+
+    False when the log is absent or malformed (any entry not an object with a string
+    `version`), as well as when no entry is `engine`: a version is recorded only
+    when the log can be trusted to say it shipped."""
+    log = changelog(doc)
+    if log is None:
+        return False
+    if not all(isinstance(e, dict) and isinstance(e.get("version"), str) for e in log):
+        return False
+    return any(entry["version"] == engine for entry in log)
+
+
 def changes_since(doc: dict, saved: str, engine: str) -> list[dict] | None:
     """The contract's change-log entries newer than `saved`, newest first.
 
-    Reads `x-changelog`, which lists the released versions newest first, one entry
-    each, its first entry being the current `engine` version; a listed version is
-    never removed, and a version an engine serves might never be listed
-    (contract: "Base Conventions", "The contract"). None means the whole contract
-    is to be treated as changed: the log is absent or malformed, its first entry
-    is not `engine`, or `saved` is not in it."""
-    log = doc.get("x-changelog")
-    if not isinstance(log, list) or not log:
+    None means the whole contract is to be treated as changed: the log is absent or
+    malformed, its first entry is not `engine`, or `saved` is not in it."""
+    log = changelog(doc)
+    if log is None:
         return None
     if not isinstance(log[0], dict) or log[0].get("version") != engine:
         return None
@@ -488,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             f"save the engine's current contract version to scripts/{SAVED_VERSION_FILE.name} "
-            "and check nothing else"
+            "when the contract's change log lists it, and check nothing else"
         ),
     )
     args = parser.parse_args(argv)
@@ -499,6 +520,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.record_version:
         saved = read_saved_version()
+        if not is_listed(doc, engine_version):
+            print(
+                f"not recorded: the engine serves contract version {engine_version}, which "
+                "the contract's change log (x-changelog) does not list, or the log is missing "
+                "or unreadable, so it may be a draft that never shipped. "
+                f"The saved version stays {saved or 'none'}."
+            )
+            return 1
         SAVED_VERSION_FILE.write_text(engine_version + "\n")
         print(f"recorded contract version {engine_version} (was {saved or 'none'}).")
         return 0

@@ -118,7 +118,7 @@ def test_missing_saved_version_fails_and_names_the_recording_step(drift, capsys,
 
 @respx.mock
 def test_record_version_writes_only_the_engine_version_and_checks_nothing(drift, capsys):
-    _serve(MOVED)
+    _serve(MOVED, LOG[1:])  # the change log lists MOVED, so it is a released version
     drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
     # A fixture the contract does not serve: a normal check would fail on it.
     (drift.UNIT_TESTS / "test_stale.py").write_text('ROW = {"retired' + '_field": 1}\n')
@@ -279,6 +279,39 @@ def test_matching_version_prints_no_changelog(drift, capsys):
     out = capsys.readouterr().out
     assert "changed" not in out
     assert "`x-changelog` itself." not in out
+
+
+DRAFT = "f00534abdde7fa82"
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "changelog",
+    [LOG, None, [], "not a list", [_entry(DRAFT, "2026-10-28"), dict(date="2026-10-01")]],
+    ids=["not-listed", "absent", "empty", "string", "listed-beside-an-entry-without-version"],
+)
+def test_record_version_refuses_a_version_the_change_log_does_not_list(drift, capsys, changelog):
+    """A served version the log leaves out may be a draft that never shipped: nothing is saved."""
+    _serve(DRAFT, changelog)
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE, "--record-version"]) == 1
+    assert drift.SAVED_VERSION_FILE.read_text() == SAVED + "\n"
+    out = capsys.readouterr().out
+    assert f"not recorded: the engine serves contract version {DRAFT}" in out
+    assert "change log (x-changelog) does not list" in out
+    assert "may be a draft that never shipped" in out
+    assert f"The saved version stays {SAVED}." in out
+    assert "recorded contract version" not in out
+
+
+@respx.mock
+def test_record_version_refused_with_no_saved_version_writes_no_file(drift, capsys):
+    _serve(DRAFT, LOG)
+
+    assert drift.main(["--engine-url", PRACTICE, "--record-version"]) == 1
+    assert not drift.SAVED_VERSION_FILE.exists()
+    assert "The saved version stays none." in capsys.readouterr().out
 
 
 @respx.mock
