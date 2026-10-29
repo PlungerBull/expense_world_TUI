@@ -36,15 +36,13 @@ What it blocks:
     redirect, the target outside it);
   - for the **tester** (`agent_type == "tester"`) alone, the ops guide's commands, each with
     no `$NAME`/`${…}` expansion other than `$HOME`: `cd <dir>` (one word); `sleep <n>`; a
-    bare `true`; the test-engine start (`.venv/bin/python -m uvicorn app.main:app --port
-    8002`, the interpreter written exactly so — the engine checkout's own, the one built on
-    the Python 3.12 the engine needs; any other interpreter word is refused — whose env
-    prefix names only `SUPABASE_DB_URL` and/or
-    `ADMIN_DB_URL`, at least one of them, and every one naming `expense_world_test`, env
-    names compared case-insensitively — any other name is one the engine ignores, so it
-    guards nothing; a URL left off falls back to the engine's `.env`, and the engine refuses
-    to start when its two URLs name different databases, so a start with one test URL fails
-    at startup, while a start with none reads both from `.env`, which names the real ledger);
+    bare `true`; the test-engine start, which is the engine's own launcher alone:
+    `deploy/local/client-practice-engine.sh 8002` (the path in any spelling that names the
+    launcher — relative, `./`, absolute or `~` — never through `bash`/`sh`) with `8002` as
+    its one argument, no env prefix (the launcher fixes the database and the interpreter),
+    and the command's folder the engine checkout's root, maybe after `nohup` and with its
+    output redirected and a trailing `&`; any other start, such as the engine's interpreter
+    running uvicorn itself, is refused, since it serves the checkout's uncommitted work;
     `deploy/local/seed-test-user.sh --force` with no env prefix (relative, `..`, absolute
     or `~` path, or through `bash`/`sh`); `curl` and `lsof` with no env prefix (curl flags
     only from `-s -S -f -i -v`, their bundles, `--silent --show-error --fail --max-time <n>`;
@@ -59,7 +57,8 @@ What it blocks:
   allowed: the ops guide does not give it to the tester.
 - **The practice-engine script** (`scripts/practice-engine`, "Stay inside this repo"): every agent
   may run it, but a Bash command that names it (`practice-engine` anywhere in its text, in any
-  case, or a word resolving, symlinks followed, to the script) passes only as one exact
+  case, but for the launcher's name `client-practice-engine`, or a word resolving, symlinks
+  followed, to the script) passes only as one exact
   shape, the whole command and nothing else: `scripts/practice-engine up` or `… down` (or
   `./scripts/…`, both from the repo root, or the repo's absolute path from anywhere in
   the repo), then any of `> /dev/null` and `2>&1`, then at most one `|` into a bare
@@ -88,7 +87,8 @@ What it blocks:
   `lsof -t -i :8002`). The guard checks only the command's form, not which process a pid
   names; stopping only the engine it started is a rule the tester keeps. Every agent stops
   the practice engine with `scripts/practice-engine down`, which stops whatever listens on
-  `:8002` when its command line is the practice engine's start, whoever started it.
+  `:8002` when its command line is the launcher's engine start and its working folder the
+  launcher's export of a commit, whoever started it.
 - **Git** (single branch, never `--no-verify`): `push` with `--force`/`-f` (alone or in a
   short-flag cluster such as `-uf`)/`--force-with-lease`/`--mirror`/a `+refspec`; `commit --amend`;
   `rebase`, `reset --hard`, `filter-branch`, `filter-repo`, `update-ref`; new branches
@@ -128,8 +128,8 @@ describes. What passes:
 - environment set before the command (an earlier `export`, a profile);
 - a tester's `sed` script the shell expands as a glob (an unquoted `s/x.*/y/` matching a
   real path);
-- a test-engine start whose `*_DB_URL`s name an `expense_world_test` database on another
-  host (only the database name is checked);
+- what the engine's launcher itself does: the guard reads the command line, so the launcher
+  (the engine's own) is what serves the last commit over the test database;
 - a WebFetch `file://` URL;
 - a whole-suite run whose arguments the guard does not see: `PYTEST_ADDOPTS`, an `@file`
   of arguments, or `python` options before `-m pytest`;
@@ -193,8 +193,8 @@ _CURL_BUNDLE = re.compile(r"-[sSfiv]+")
 _KILLERS = frozenset({"kill", "pkill", "killall"})
 _LSOF_8002 = (["-ti", ":8002"], ["-t", "-i", ":8002"])
 _PYTHON = re.compile(r"python(?:3(?:\.\d+)?)?")
-# The test-engine start: the engine checkout's own interpreter, nothing else.
-_START_COMMAND = [".venv/bin/python", "-m", "uvicorn", "app.main:app", "--port", "8002"]
+# The test-engine start: the engine's own launcher, which serves only its last commit.
+_LAUNCHER = ("deploy", "local", "client-practice-engine.sh")
 _READ_ONLY = frozenset(
     {
         "cat",
@@ -235,6 +235,8 @@ _SHELL_STATE = frozenset(
 _EXPANSION = re.compile(r"\$[\w{(]")
 _GREP_FLAGS = re.compile(r"-[viEFocqxw]+")
 _PRACTICE_NAME = "practice-engine"
+# The script's name, not as the tail of the engine launcher's `client-practice-engine`.
+_PRACTICE_MENTION = re.compile(r"(?<!client-)practice-engine")
 _PRACTICE_RELATIVE = frozenset({f"scripts/{_PRACTICE_NAME}", f"./scripts/{_PRACTICE_NAME}"})
 # Shell text that never belongs in a practice-engine run: groups, substitutions, lists,
 # expansions, escapes and line breaks.
@@ -415,8 +417,17 @@ def _sed_on_stdin(args: list[str]) -> bool:
     return scripts > 0
 
 
-def _is_test_db(url: str) -> bool:
-    return url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1] == "expense_world_test"
+def _is_launch(ctx: Context, seg: Segment, cwd: Path) -> bool:
+    """`deploy/local/client-practice-engine.sh 8002`, by any path, run from the engine
+    checkout's root: the launcher serves an export of the engine's last commit."""
+    words = seg.words
+    if len(words) != 2 or words[1] != "8002" or "/" not in words[0]:
+        return False
+    target = ctx.resolve(words[0], cwd) or (cwd / words[0]).resolve()
+    launcher = ctx.engine.joinpath(*_LAUNCHER).resolve()
+    here, root = cwd.resolve(), ctx.engine.resolve()
+    # the same file and the same folder, compared the way every path is
+    return is_within(target, launcher) and is_within(here, root) and is_within(root, here)
 
 
 def _is_seed(ctx: Context, seg: Segment, cwd: Path) -> bool:
@@ -434,11 +445,12 @@ def _practice_path(ctx: Context) -> Path:
 
 
 def _mentions_practice(ctx: Context, command: str) -> bool:
-    """`command` names the practice-engine script: its name in any case, in the text or in
-    a word once the shell's quotes and escapes are gone (`pract''ice-engine`), or a word
+    """`command` names the practice-engine script: its name in any case, but as the tail of
+    the launcher's `client-practice-engine`, in the text or in a word once the shell's
+    quotes and escapes are gone (`pract''ice-engine`), or a word
     that resolves (symlinks followed, globs expanded) to the script itself."""
     words = tokens(command)
-    if any(_PRACTICE_NAME in text.casefold() for text in [command, *words]):
+    if any(_PRACTICE_MENTION.search(text.casefold()) for text in [command, *words]):
         return True
     script = _practice_path(ctx).resolve()
     for word in words:
@@ -513,14 +525,9 @@ def _practice_named_only(ctx: Context, command: str) -> bool:
 def _tester_op(ctx: Context, seg: Segment, cwd: Path) -> bool:
     """The ops-guide commands the tester may run in the engine checkout."""
     words = seg.words
-    if words == _START_COMMAND:
-        names = {k.upper() for k in seg.env}  # the engine ignores name case
-        # only the two URLs the engine reads: no PYTHONPATH, no name the engine ignores
-        only_db = names <= {"SUPABASE_DB_URL", "ADMIN_DB_URL"}
-        return bool(names) and only_db and all(_is_test_db(v) for v in seg.env.values())
     if seg.env:
         return False
-    if _is_seed(ctx, seg, cwd):
+    if _is_launch(ctx, seg, cwd) or _is_seed(ctx, seg, cwd):
         return True
     if seg.name == "lsof":
         return words[1:] in _LSOF_8002
@@ -1004,8 +1011,9 @@ def check_bash(ctx: Context, command: str) -> str | None:
             )
             if not tester_ok:
                 who = (
-                    "the tester may only start the :8002 test engine, reseed the practice "
-                    "users and stop what it started"
+                    "the tester may only start the :8002 test engine with its launcher "
+                    "(`deploy/local/client-practice-engine.sh 8002`, from the engine "
+                    "checkout's root), reseed the practice users and stop what it started"
                     if ctx.tester
                     else "only the tester goes there, to start the test engine"
                 )

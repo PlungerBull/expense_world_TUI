@@ -21,9 +21,13 @@ import pytest
 HOOKS = Path(__file__).resolve().parents[2] / ".claude" / "hooks"
 TEST_DB = "postgresql://expense_engine@127.0.0.1:5432/expense_world_test"
 ADMIN_TEST_DB = "postgresql://owner@127.0.0.1:5432/expense_world_test"
+# The old hand start, the engine checkout's working tree run by its own interpreter: refused.
 START_PYTHON = ".venv/bin/python"
 UVICORN = f"{START_PYTHON} -m uvicorn app.main:app --port 8002"
-START_TEST_ENGINE = f"SUPABASE_DB_URL={TEST_DB} ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}"
+OLD_START = f"SUPABASE_DB_URL={TEST_DB} ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}"
+# The test-engine start: the engine's own launcher, which serves only its last commit.
+LAUNCHER = "deploy/local/client-practice-engine.sh"
+START_TEST_ENGINE = f"{LAUNCHER} 8002"
 SCRATCH = "/private/tmp/claude-501/scratchpad"
 IN_ENGINE = "cd ../expense_world_engine && "
 SEED = "../expense_world_engine/deploy/local/seed-test-user.sh --force"
@@ -276,12 +280,20 @@ def test_guard_allows_bash(box, command):
 TESTER_ALLOWED = [
     ("lsof -ti :8002 | xargs kill", "{engine}"),
     ("curl -s http://127.0.0.1:8002/health", "{engine}"),
+    # the launcher, by any spelling of its path, from the engine checkout's root, detached
     ("cd ../expense_world_engine && " + START_TEST_ENGINE, ""),
     ("cd {engine} && " + START_TEST_ENGINE + f" > {SCRATCH}/engine.log 2>&1 &", ""),
+    (
+        IN_ENGINE + f"nohup {START_TEST_ENGINE} > /tmp/expense-test-engine.log 2>&1 < /dev/null &",
+        "",
+    ),
+    ("cd $HOME/Documents/expense_world_engine && " + START_TEST_ENGINE, ""),
     (START_TEST_ENGINE, "{engine}"),
-    # one test URL is enough: the engine refuses to start when its two URLs differ
-    (f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} {UVICORN}", ""),
-    (f"cd ../expense_world_engine && ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", ""),
+    ("./" + START_TEST_ENGINE, "{engine}"),
+    ("{engine}/" + START_TEST_ENGINE, "{engine}"),
+    ("~/Documents/expense_world_engine/" + START_TEST_ENGINE, "{engine}"),
+    (IN_ENGINE + "../expense_world_engine/" + START_TEST_ENGINE, ""),
+    ("cd {engine}/deploy && cd .. && " + START_TEST_ENGINE, ""),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force", ""),
     ("bash deploy/local/seed-test-user.sh --force", "{engine}"),
     ("kill 12345", "{engine}"),
@@ -341,45 +353,38 @@ TESTER_BLOCKED = [
     ("killall python", STAY),
     ("xargs kill < pids.txt", STAY),
     ("lsof -ti tcp:8000 | xargs kill", LIVE),
-    # env names are case-insensitive to the engine
-    (
-        f"cd ../expense_world_engine && admin_db_url=postgresql://o@127.0.0.1:5432/expense_world "
-        f"{START_TEST_ENGINE}",
-        STAY,
-    ),
-    (
-        f"cd ../expense_world_engine && SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1"
-        f":5432/expense_world {UVICORN}",
-        STAY,
-    ),
-    (
-        "cd ../expense_world_engine && PYTHONPATH=/private/tmp/x "
-        f"SUPABASE_DB_URL={TEST_DB} {UVICORN}",
-        STAY,
-    ),
-    (f"cd ../expense_world_engine && FOO_URL={TEST_DB} {UVICORN}", STAY),
-    # a `*_DB_URL` name the engine ignores leaves both real URLs to `.env`
-    (f"cd ../expense_world_engine && FOO_DB_URL={TEST_DB} {UVICORN}", STAY),
-    (
-        f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} OTHER_DB_URL=postgresql://"
-        f"expense_engine@127.0.0.1:5432/expense_world {UVICORN}",
-        STAY,
-    ),
-    (
-        f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} "
-        + UVICORN.replace("8002", "8001"),
-        STAY,
-    ),
+    # the launcher takes `8002` and nothing else, and no environment
+    (IN_ENGINE + LAUNCHER, STAY),
+    (IN_ENGINE + f"{LAUNCHER} 8000", STAY),
+    (IN_ENGINE + f"{LAUNCHER} 8001", STAY),
+    (IN_ENGINE + f"{LAUNCHER} 8003", STAY),
+    (IN_ENGINE + f"{LAUNCHER} 8002 8002", STAY),
+    (IN_ENGINE + f"{LAUNCHER} --port 8002", STAY),
+    (IN_ENGINE + f"{LAUNCHER} $PORT", STAY),
+    (IN_ENGINE + f"SUPABASE_DB_URL={TEST_DB} {START_TEST_ENGINE}", STAY),
+    (IN_ENGINE + f"env FOO=1 {START_TEST_ENGINE}", STAY),
+    (IN_ENGINE + f"env -i {START_TEST_ENGINE}", STAY),
+    (IN_ENGINE + f"bash {START_TEST_ENGINE}", STAY),
+    (IN_ENGINE + f"sh {START_TEST_ENGINE}", STAY),
+    # ... run from the engine checkout's root, and only the engine's own launcher
+    ("../expense_world_engine/" + START_TEST_ENGINE, STAY),
+    ("{engine}/" + START_TEST_ENGINE, STAY),
+    ("cd ../expense_world_engine/deploy/local && ./client-practice-engine.sh 8002", STAY),
+    ("cd ../expense_world_engine/deploy && ../" + START_TEST_ENGINE, STAY),
+    (IN_ENGINE + "deploy/local/client-practice-engine2.sh 8002", STAY),
+    (IN_ENGINE + "app/client-practice-engine.sh 8002", STAY),
     ("cd ../expense_world_engine && curl -X POST http://127.0.0.1:8002/v1/accounts", STAY),
     ("cd ../expense_world_engine && curl -o x http://127.0.0.1:8002/health", STAY),
     ("lsof -ti :8000 | xargs kill", LIVE),
-    ("cd ../expense_world_engine && " + UVICORN.replace("8002", "8000"), STAY),
-    ("cd ../expense_world_engine && " + UVICORN, STAY),  # no test-db env
-    (
-        "cd ../expense_world_engine && SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1"
-        f":5432/expense_world ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}",
-        STAY,
-    ),
+    # the old hand start, by every spelling: it serves the checkout's uncommitted work
+    (IN_ENGINE + OLD_START, STAY),
+    (IN_ENGINE + OLD_START + " > /tmp/expense-test-engine.log 2>&1 &", STAY),
+    (OLD_START, STAY),  # run in the engine checkout (the cwd, below)
+    (f"{IN_ENGINE}SUPABASE_DB_URL={TEST_DB} {UVICORN}", STAY),
+    (f"{IN_ENGINE}ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", STAY),
+    (IN_ENGINE + UVICORN, STAY),
+    (IN_ENGINE + UVICORN.replace("8002", "8000"), STAY),
+    (IN_ENGINE + "nohup .venv/bin/uvicorn app.main:app --port 8002", STAY),
     ("cd ../expense_world_engine && " + START_TEST_ENGINE + " > engine.log", STAY),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh", STAY),
     ("cd ../expense_world_engine && deploy/local/create-test-db.sh --force", STAY),
@@ -450,12 +455,13 @@ TESTER_BLOCKED = [
 
 @pytest.mark.parametrize(("command", "rule"), TESTER_BLOCKED)
 def test_guard_tester_exception_is_narrow(box, command, rule):
-    cwd = "{engine}" if command.startswith("kill") else ""
+    cwd = "{engine}" if command.startswith(("kill", OLD_START)) else ""
     _blocked(box.guard("Bash", {"command": command}, agent="tester", cwd=cwd), rule)
 
 
-# Every interpreter but the engine checkout's own `.venv/bin/python`.
-OTHER_START_PYTHONS = [
+# Every interpreter, the engine checkout's own `.venv/bin/python` included.
+START_PYTHONS = [
+    START_PYTHON,
     "python",
     "python3",
     "python3.12",
@@ -472,13 +478,17 @@ OTHER_START_PYTHONS = [
 ]
 
 
-@pytest.mark.parametrize("python", OTHER_START_PYTHONS)
+@pytest.mark.parametrize("python", START_PYTHONS)
 @pytest.mark.parametrize("prefix", [IN_ENGINE, ""])
-def test_guard_starts_the_test_engine_with_its_own_python_only(box, python, prefix):
-    assert START_TEST_ENGINE.count(START_PYTHON) == 1
-    command = prefix + START_TEST_ENGINE.replace(START_PYTHON, python)
+def test_guard_refuses_the_old_hand_start_and_points_at_the_launcher(box, python, prefix):
+    """No interpreter starts the engine by hand: it would serve the checkout's working tree.
+    The refusal names the launcher, the one start the tester has."""
+    assert OLD_START.count(START_PYTHON) == 1
+    command = prefix + OLD_START.replace(START_PYTHON, python)
     cwd = "" if prefix else "{engine}"
-    _blocked(box.guard("Bash", {"command": command}, cwd=cwd, agent="tester"), STAY)
+    result = box.guard("Bash", {"command": command}, cwd=cwd, agent="tester")
+    _blocked(result, STAY)
+    assert f"`{START_TEST_ENGINE}`, from the engine checkout's root" in result.stderr
 
 
 @pytest.mark.parametrize("agent", ["builder", "reviewer", "librarian", None])
@@ -531,6 +541,35 @@ PRACTICE_NAMED_ONLY = [
     f'git add {PRACTICE} && PATH="$PWD/.venv/bin:$PATH" git commit -m "$(cat <<\'EOF\'\n'
     f'Add {PRACTICE} up/down\n\nRun `{PRACTICE} up > key.txt`? No.\nEOF\n)"',
 ]
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize(
+    "command",
+    [
+        "grep -rn client-practice-engine docs CLAUDE.md > /dev/null",
+        "echo client-practice-engine | tee /dev/null",
+        "printf 'Client-Practice-Engine' | cat",
+    ],
+)
+def test_guard_does_not_read_the_launchers_name_as_the_practice_engine_script(box, agent, command):
+    """The engine launcher's name ends in the script's: alone it names no script, so its
+    commands go to the other rules (here none applies)."""
+    _allowed(box.guard("Bash", {"command": command}, agent=agent))
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"echo client-practice-engine; {PRACTICE} up > key.txt",
+        f"{PRACTICE} up > client-practice-engine.txt",
+        "scripts/{{client-,}}practice-engine up > key.txt",  # `fill` turns `{{` into `{`
+        f"cd ../expense_world_engine && {LAUNCHER} 8002 && {{repo}}/{PRACTICE} up",
+    ],
+)
+def test_guard_still_sees_the_practice_engine_script_beside_the_launchers_name(box, agent, command):
+    _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
 
 
 @pytest.mark.parametrize("agent", EVERY_AGENT)
@@ -740,8 +779,14 @@ def test_practice_engine_script_is_pinned_to_the_test_engine():
     assert "8000" not in text
     # the engine is started only through the launcher, which fixes the database itself
     assert "DB_URL" not in text and ".venv/bin/python" not in text
-    # it knows the launcher's own process on :8002 by its command, and nothing else
-    assert '"-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\\$"' in text
+    # it knows the launcher's own process on :8002 by its command and by its working folder,
+    # the launcher's export of a commit: the same command run from the working tree is not it
+    assert '"-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\\$" || return 1' in text
+    assert 'clean lsof -a -p "$1" -d cwd -Fn' in text
+    assert '"${root}/.client-practice-engine/"?*) return 0 ;;' in text
+    assert "*) return 1 ;;" in text
+    # bash 3.2 (macOS /bin/bash) parses it: a quote in a comment inside `$(…)` would not
+    assert subprocess.run(["/bin/bash", "-n", str(script)], capture_output=True).returncode == 0
     # the caller's environment reaches nothing it runs
     assert text.startswith("#!/bin/bash -p\n"), "bash -p skips BASH_ENV and inherited functions"
     assert "for name in $(compgen -e); do unset" in text
@@ -1247,29 +1292,40 @@ def test_tests_gate_blocks_when_pytest_is_missing(box):
     assert "could not run the unit tests" in result.stderr
 
 
-def _ops_guide_start_command() -> str:
-    """The test-engine start block from docs/runtime.md, lines joined by `\\`."""
+def _ops_guide_section() -> str:
+    """docs/runtime.md "Working against the live engine", up to its next `##` heading."""
     doc = (Path(__file__).resolve().parents[2] / "docs" / "runtime.md").read_text()
-    lines = doc.splitlines()
-    first = next(i for i, line in enumerate(lines) if line.strip().startswith("SUPABASE_DB_URL="))
-    block = []
-    for line in lines[first:]:
-        block.append(line.strip())
-        if not line.endswith("\\"):
-            break
-    return "\n".join(block).replace("<owner>", "owner")  # the doc's placeholder
+    section = doc.split("\n## Working against the live engine\n", 1)[1]
+    return section.split("\n## ", 1)[0]
+
+
+def _ops_guide_start_command() -> str:
+    """The tester's hand start of the test engine: the section's one indented code line."""
+    code = [line.strip() for line in _ops_guide_section().splitlines() if line.startswith("      ")]
+    assert len(code) == 1, code
+    return code[0]
 
 
 def test_guard_lets_the_tester_run_the_ops_guide_command(box):
     command = _ops_guide_start_command()
-    assert command.count("\\\n") == 2 and "--port 8002" in command
-    # the checkout's own interpreter, detached with its output in a log, so the
-    # engine outlives the agent that starts it
-    assert ".venv/bin/python -m uvicorn" in command
+    # the engine's launcher on :8002, detached with its output in a log, so the engine
+    # outlives the agent that starts it
+    assert f"{START_TEST_ENGINE} " in command
     assert command.endswith(" &") and "> /tmp/" in command
     _allowed(
         box.guard("Bash", {"command": "cd ../expense_world_engine && " + command}, agent="tester")
     )
+
+
+def test_ops_guide_names_no_engine_start_but_the_launcher():
+    """The section starts the engine only with the launcher: no interpreter, no database
+    URL, and uvicorn only as the launcher's own process's command line."""
+    section = _ops_guide_section()
+    assert LAUNCHER in section
+    for start in ("_DB_URL", "python -m uvicorn", ".venv/bin/", "uvicorn app.main:app --port"):
+        assert start not in section, start
+    launched = "-m uvicorn app.main:app --host 127.0.0.1 --port 8002"
+    assert section.count("uvicorn") == section.count(launched) == 1
 
 
 def test_guard_lets_the_tester_run_the_documented_reseed(box):

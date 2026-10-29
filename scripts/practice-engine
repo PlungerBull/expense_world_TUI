@@ -57,10 +57,19 @@ listener() { clean lsof -nP -t -iTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null | head -
 healthy() { clean curl -sf --max-time 2 "${HEALTH}" > /dev/null 2>&1; }
 
 # The process on :8002 is a practice engine: the launcher runs the engine in its own process,
-# whose command ends in the uvicorn start below, whoever ran the launcher; not something else.
+# whose command ends in the uvicorn start below and whose working folder is the launcher's
+# export of a commit, under ${ENGINE}/.client-practice-engine/, whoever ran the launcher; not
+# something else, and not the same command run from the checkout's uncommitted working tree.
 is_practice_engine() {
     clean ps -o command= -p "$1" 2>/dev/null |
-        grep -q -- "-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\$"
+        grep -q -- "-m uvicorn app.main:app --host 127.0.0.1 --port ${PORT}\$" || return 1
+    local root cwd
+    root="$(cd "${ENGINE}" 2>/dev/null && pwd -P)" || return 1
+    cwd="$(clean lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)" || true
+    case "${cwd}" in
+        "${root}/.client-practice-engine/"?*) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 up() {
@@ -76,6 +85,7 @@ up() {
         pid="$(
             cd "${ENGINE}"
             clean nohup "${LAUNCHER}" "${PORT}" > "${LOG}" 2>&1 < /dev/null &
+            # the pid of the backgrounded subshell: it lives as long as the launcher, so kill -0 holds
             echo $!
         )"
     fi

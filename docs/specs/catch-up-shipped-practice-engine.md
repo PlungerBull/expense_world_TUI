@@ -59,13 +59,10 @@ None.
 
 Drafted 2026-10-28; approved by the owner on 2026-10-28. Each leaves `pytest tests/unit` green.
 
-Tasks 1 and 4 are done (2026-10-28): `up` starts the engine's launcher, and the test answers
-already carried `is_person` and `redated`, the drift check naming nothing.
+Tasks 1, 2 and 4 are done (2026-10-28): `up` starts the engine's launcher, the guard lets the
+tester start the engine only with it, and the test answers already carried `is_person` and
+`redated`, the drift check naming nothing.
 
-2. **The guard (builder).** `.claude/hooks/guard.py` lets the tester start the practice engine
-   only with the launcher and stop it only by its pid, as runtime.md says; its tests trip each
-   rule, the old start included; runtime.md "Working against the live engine" says how.
-   *Passes if:* the hook tests pass, and runtime.md names no start command but the launcher.
 3. **Record only a listed version (builder).** `scripts/check_fixture_drift.py
    --record-version` refuses a served version its own `x-changelog` does not list, records
    nothing, and says why; runtime.md "Contract version" says so.
@@ -86,3 +83,15 @@ Written into [to-engine/](../to-engine/) when the last spec of the range
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- The comment at the start script's `$!` capture calls that pid "the backgrounded subshell";
+  after the fork and exec chain it is the launcher's own pid, and the line runs past 100
+  characters. Found by task 2's review.
+- The guard's exemption that keeps the launcher's name, `client-practice-engine`, from counting
+  as the start script's lets a name built from it at run time through
+  (`x=client-practice-engine; scripts/${x#client-} up`). Names built at run time are a limit the
+  guard's docstring already states, and a static spelling is still caught. Found by task 2's
+  review.
+- [test-suite-leftovers.md](test-suite-leftovers.md) point 11, "The guard checks a test-engine
+  start whole", is about the old hand start, which the guard now blocks entirely; the owner's
+  draft needs that point dropped. Found by task 2's review.
