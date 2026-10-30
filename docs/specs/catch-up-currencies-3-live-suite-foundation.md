@@ -91,16 +91,6 @@ Files left to spec 4 may fail live until it runs. `test_card_statement.py` (task
 skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
 skip and its `# ruff: noqa: E402` line.
 
-4. **Reports and the dashboard (builder).**
-   [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py):
-   `bank_accounts`, `people` and the archived sections one row per account,
-   `{id, name, currencies}`, each currency `{currency_code, current_balance_cents}`, live
-   currencies only, in the accounts' order (contract: GET /v1/dashboard, "`bank_accounts`");
-   no `current_balance_home_cents` anywhere on an account row; the month's categories and
-   totals still in the home currency with `unconverted_count`
-   (contract: GET /v1/dashboard, "Aggregates are home-currency only").
-   *Passes if:* the file passes live and names no `current_balance_home_cents` but to prove it
-   absent.
 5. **Opening balance, resources, system names, transactions and the cursor (builder).**
    [test_opening_balance.py](../../tests/contract/test_opening_balance.py) per currency:
    `currency_code` required (`REQUIRED`), `UNSUPPORTED_VALUE`, `CURRENCY_NOT_HELD` on
@@ -159,3 +149,11 @@ None of its own: its results are reported in the reply of
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **One shared way to log a plain transaction in the live tests.**
+  [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py)'s `_spend`
+  and [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) each build a
+  `POST /transactions` body by hand, since `Scratch.line` takes no category and dates at noon,
+  which can be in the future. A `Scratch` helper dated a minute ago would replace both. The
+  reports' tests dated a minute ago also fail when run in a month's first minute (display
+  timezone), the report reading the new month while the row lands in the old one.

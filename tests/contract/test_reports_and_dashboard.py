@@ -16,28 +16,68 @@ depended on its contents would depend on run order.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
-from expense.errors import EngineError
 from expense.reads import pending_hashtag_of
 
-
-def _safe_delete(client, path):
-    try:
-        client.delete(path)
-    except EngineError:
-        pass
+from .conftest import Scratch
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
+def _a_minute_ago(scratch: Scratch) -> str:
+    """A moment just past, in the caller's display timezone, the zone the month is cut in
+    (contract: GET /v1/dashboard, "Field rules"); a transaction may not be dated ahead."""
+    past = datetime.now(scratch.zone) - timedelta(minutes=1)
+    return past.isoformat(timespec="seconds")
 
 
-def _now_iso() -> str:
-    return _now().isoformat(timespec="seconds").replace("+00:00", "Z")
+def _month(scratch: Scratch) -> dict[str, str]:
+    now = datetime.now(scratch.zone)
+    return {"year": str(now.year), "month": str(now.month)}
+
+
+def _spend(scratch: Scratch, account_id: str, amount: int, **fields: str) -> str:
+    """A signed transaction of today in the account's PEN, written whole; its id."""
+    tx_id = str(uuid4())
+    scratch.transactions.append(tx_id)
+    scratch.client.post(
+        "/transactions",
+        json_body={
+            "id": tx_id,
+            "title": "report row",
+            "amount_cents": amount,
+            "account_id": account_id,
+            "currency_code": "PEN",
+            "date": _a_minute_ago(scratch),
+            **fields,
+        },
+    )
+    return tx_id
+
+
+def _row(rows: list[dict] | None, account_id: str) -> dict:
+    assert rows is not None, "the section is null"
+    found = [r for r in rows if r["id"] == account_id]
+    assert len(found) == 1, "an account is not exactly one row"
+    return found[0]
+
+
+def _balances(row: dict) -> dict[str, int]:
+    return {c["currency_code"]: c["current_balance_cents"] for c in row["currencies"]}
+
+
+def _assert_row_shape(row: dict) -> None:
+    """`{id, name, currencies}`, each currency `{currency_code, current_balance_cents}`,
+    and no home-currency value anywhere on it
+    (contract: GET /v1/dashboard, "Balances are native only")."""
+    assert row.keys() == {"id", "name", "currencies"}
+    codes = [c["currency_code"] for c in row["currencies"]]
+    assert codes == sorted(codes), "currencies are not by code ascending"
+    for currency in row["currencies"]:
+        assert currency.keys() == {"currency_code", "current_balance_cents"}
+        assert isinstance(currency["current_balance_cents"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -76,34 +116,70 @@ def test_dashboard_has_the_sections_home_indexes_by(client):
     assert isinstance(body["people"], list)
     assert isinstance(body["categories"], list)
     assert {"net_home_cents", "unconverted_count"} <= body["totals"].keys()
+    for row in body["bank_accounts"] + body["people"]:
+        _assert_row_shape(row)
 
 
-def test_dashboard_accounts_carry_their_own_currency_and_balance(client):
-    """Home draws every balance in the account's *own* currency
-    — which only works while the row says which currency that is."""
-    account_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-dash-{account_id[:8]}",
-            "currency_code": "USD",
-        },
-    )
-    try:
-        body = client.get("/dashboard")
-        row = next((a for a in body["bank_accounts"] if a["id"] == account_id), None)
-        assert row is not None, "a live account is missing from /dashboard"
-        assert row["currency_code"] == "USD"
-        assert isinstance(row["current_balance_cents"], int)
-    finally:
-        _safe_delete(client, f"/accounts/{account_id}")
+def test_a_two_currency_account_and_person_are_one_row_each_with_a_balance_per_currency(
+    client, scratch
+):
+    """Home draws one row per account and a balance per currency under it, each in its
+    own currency (contract: GET /v1/dashboard, "`bank_accounts`"); a client that kept the
+    old one-currency row would show one of the two balances and call it the account's."""
+    card = scratch.account("PEN", "USD")
+    friend = scratch.account("PEN", "USD", person=True)
+    scratch.opening_balance(card, "2026-01-01", "PEN")
+    scratch.opening_balance(card, "2026-01-01", "USD")
+    scratch.opening_balance(friend, "2026-01-01", "USD")
+    _spend(scratch, card, -1200)
+
+    body = client.get("/dashboard")
+
+    card_row = _row(body["bank_accounts"], card)
+    _assert_row_shape(card_row)
+    assert _balances(card_row) == {"PEN": 50000 - 1200, "USD": 50000}
+    friend_row = _row(body["people"], friend)
+    _assert_row_shape(friend_row)
+    assert _balances(friend_row) == {"PEN": 0, "USD": 50000}
+    assert not any(r["id"] == friend for r in body["bank_accounts"])
+    assert not any(r["id"] == card for r in body["people"])
 
 
-def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
+def test_the_rows_come_in_the_accounts_order(client, scratch):
+    """Rows follow `GET /accounts` (`sort_order`, then creation time) for bank accounts and
+    for people alike (contract: GET /v1/dashboard, "`people`")."""
+    banks = [scratch.account(), scratch.account("USD"), scratch.account("PEN", "USD")]
+    people = [scratch.account(person=True), scratch.account("USD", person=True)]
+
+    body = client.get("/dashboard")
+    listed = client.get("/accounts", params={"include_people": "true"})["items"]
+
+    for section, mine in ((body["bank_accounts"], banks), (body["people"], people)):
+        order = [r["id"] for r in section if r["id"] in mine]
+        assert sorted(order) == sorted(mine)
+        assert order == [a["id"] for a in listed if a["id"] in mine]
+
+
+def test_a_removed_currency_is_not_listed(client, scratch):
+    """A row lists the account's live currencies only
+    (contract: GET /v1/dashboard, "`bank_accounts`")."""
+    account_id = scratch.account("PEN", "USD")
+    assert set(_balances(_row(client.get("/dashboard")["bank_accounts"], account_id))) == {
+        "PEN",
+        "USD",
+    }
+
+    client.delete(f"/accounts/{account_id}/currencies/USD")
+
+    row = _row(client.get("/dashboard")["bank_accounts"], account_id)
+    assert _balances(row) == {"PEN": 0}
+
+
+def test_an_archived_account_moves_whole_to_its_own_section(client, scratch):
     """`include_archived` is a parameter here. An archived account is real
     (docs/decisions.md "Archive is a prompt-free toggle"), so the row still
-    exists when asked for — but it does **not** rejoin `bank_accounts`.
+    exists when asked for — but it does **not** rejoin `bank_accounts`, and it moves
+    with every currency in it (contract: GET /v1/dashboard, "`?include_archived=true`").
 
     The engine answers with a separate `archived_accounts` list — **null** until
     the flag is passed, never an empty list. Both halves matter:
@@ -114,31 +190,58 @@ def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
         ask" from "you asked and there are none" — which is exactly the
         difference a client uses to decide whether to draw the panel at
         all (`if archived_accounts is not None`).
-
-    Assuming the merge, or an empty list, and iterating the null is precisely
-    how a second client would meet this.
     """
-    account_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-arch-{account_id[:8]}",
-            "currency_code": "PEN",
-        },
-    )
-    try:
-        client.post(f"/accounts/{account_id}/archive")
+    account_id = scratch.account("PEN", "USD")
+    friend = scratch.account("PEN", "USD", person=True)
+    scratch.opening_balance(account_id, "2026-01-01", "USD")
+    scratch.opening_balance(friend, "2026-01-01", "PEN")
+    scratch.archive(account_id)
+    scratch.archive(friend)
 
-        default = client.get("/dashboard")
-        assert not any(a["id"] == account_id for a in default["bank_accounts"])
-        assert default["archived_accounts"] is None  # not asked for
+    default = client.get("/dashboard")
+    assert not any(r["id"] == account_id for r in default["bank_accounts"])
+    assert not any(r["id"] == friend for r in default["people"])
+    assert default["archived_accounts"] is None  # not asked for
+    assert default["archived_people"] is None
 
-        asked = client.get("/dashboard", params={"include_archived": "true"})
-        assert not any(a["id"] == account_id for a in asked["bank_accounts"])
-        assert any(a["id"] == account_id for a in asked["archived_accounts"])
-    finally:
-        _safe_delete(client, f"/accounts/{account_id}")
+    asked = client.get("/dashboard", params={"include_archived": "true"})
+    assert not any(r["id"] == account_id for r in asked["bank_accounts"])
+    assert not any(r["id"] == friend for r in asked["people"])
+    archived = _row(asked["archived_accounts"], account_id)
+    _assert_row_shape(archived)
+    assert _balances(archived) == {"PEN": 0, "USD": 50000}
+    archived_person = _row(asked["archived_people"], friend)
+    _assert_row_shape(archived_person)
+    assert _balances(archived_person) == {"PEN": 50000, "USD": 0}
+
+    client.post(f"/accounts/{account_id}/unarchive")
+    back = client.get("/dashboard", params={"include_archived": "true"})
+    assert _balances(_row(back["bank_accounts"], account_id)) == {"PEN": 0, "USD": 50000}
+    assert not any(r["id"] == account_id for r in back["archived_accounts"])
+
+
+def test_the_aggregates_are_home_currency_with_an_unconverted_count(client, scratch):
+    """Categories and totals stay in the home currency, each figure paired with its
+    `unconverted_count`, and `@Opening` is not among the categories
+    (contract: GET /v1/dashboard, "Aggregates are home-currency only")."""
+    account_id = scratch.account("PEN", "USD")
+    scratch.opening_balance(account_id, "2026-01-01", "USD")
+    _spend(scratch, account_id, -1200)
+
+    body = client.get("/dashboard")
+
+    assert {
+        "inflow_home_cents",
+        "outflow_home_cents",
+        "net_home_cents",
+        "unconverted_count",
+    } <= body["totals"].keys()
+    assert "@Opening" not in [c["name"] for c in body["categories"]]
+    for category in body["categories"]:
+        assert {"id", "name", "spent_home_cents", "unconverted_count"} <= category.keys()
+        assert "spent_cents" not in category
+        if category["unconverted_count"]:
+            assert category["spent_home_cents"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -146,11 +249,11 @@ def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
 # ---------------------------------------------------------------------------
 
 
-def test_single_month_report_has_the_keys_the_table_renders(client):
-    now = _now()
-    body = client.get("/reports/monthly", params={"year": str(now.year), "month": str(now.month)})
+def test_single_month_report_has_the_keys_the_table_renders(client, scratch):
+    params = _month(scratch)
+    body = client.get("/reports/monthly", params=params)
 
-    assert body["month"] == {"year": now.year, "month": now.month}
+    assert body["month"] == {"year": int(params["year"]), "month": int(params["month"])}
     assert isinstance(body["categories"], list)
     assert {
         "inflow_home_cents",
@@ -184,15 +287,14 @@ def test_range_report_returns_one_entry_per_month_in_order(client):
     ]
 
 
-def test_a_category_row_carries_its_hashtag_breakdown(client):
+def test_a_category_row_carries_its_hashtag_breakdown(client, scratch):
     """Home folds hashtag rows under their category and `⏎` filters the ledger
     by the pair. The nesting IS the feature: a flat list of hashtag totals could
     not be attributed to a category at all.
 
     Asserted structurally — the practice user's history is not fixed.
     """
-    now = _now()
-    body = client.get("/reports/monthly", params={"year": str(now.year), "month": str(now.month)})
+    body = client.get("/reports/monthly", params=_month(scratch))
     for category in body["categories"]:
         assert {"id", "name", "spent_home_cents", "unconverted_count"} <= category.keys()
         assert isinstance(category["hashtag_breakdown"], list)
@@ -201,149 +303,68 @@ def test_a_category_row_carries_its_hashtag_breakdown(client):
             assert isinstance(slice_["spent_home_cents"], int)
 
 
-def test_a_months_categories_sum_to_its_net(client):
+def test_a_months_categories_sum_to_its_net(client, scratch):
     """The one arithmetic claim worth making against real data.
 
     Home prints a per-category column and a `net` line from the same payload; if
     they are computed from different row sets, the screen contradicts itself. A
     transaction created here guarantees there is something to add up.
     """
-    now = _now()
-    account_id = str(uuid4())
-    tx_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-sum-{account_id[:8]}",
-            "currency_code": "PEN",
-        },
+    account_id = scratch.account()
+    _spend(scratch, account_id, -3300)
+
+    body = client.get("/reports/monthly", params=_month(scratch))
+    if body["totals"]["unconverted_count"]:
+        pytest.skip("unconverted rows in the month — the totals are not comparable")
+
+    assert (
+        sum(c["spent_home_cents"] for c in body["categories"]) == body["totals"]["net_home_cents"]
     )
-    try:
-        client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "report row",
-                "amount_cents": -3300,
-                "account_id": account_id,
-                "date": _now_iso(),
-            },
-        )
-        body = client.get(
-            "/reports/monthly", params={"year": str(now.year), "month": str(now.month)}
-        )
-        if body["totals"]["unconverted_count"]:
-            pytest.skip("unconverted rows in the month — the totals are not comparable")
-
-        assert (
-            sum(c["spent_home_cents"] for c in body["categories"])
-            == (body["totals"]["net_home_cents"])
-        )
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
 
 
-def test_an_uncategorised_row_lands_under_pendiente_and_counts(client):
+def test_an_uncategorised_row_lands_under_pendiente_and_counts(client, scratch):
     """A row with no category
     is a real ledger row that shows up in the month's figures.
 
     The unit suite asserts Home *draws* `@Pendiente`; only the engine can say a
     category-less transaction actually files there and is actually counted.
     """
-    now = _now()
-    account_id = str(uuid4())
-    tx_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-pend-{account_id[:8]}",
-            "currency_code": "PEN",
-        },
-    )
-    try:
-        created = client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "no category",
-                "amount_cents": -4400,
-                "account_id": account_id,
-                "date": _now_iso(),
-            },
-        )
-        assert created["id"] == tx_id  # accepted without a category at all
+    account_id = scratch.account()
+    tx_id = _spend(scratch, account_id, -4400)
+    assert client.get(f"/transactions/{tx_id}")["id"] == tx_id  # accepted without a category
 
-        body = client.get(
-            "/reports/monthly", params={"year": str(now.year), "month": str(now.month)}
-        )
-        pendiente = next((c for c in body["categories"] if c["name"] == "@Pendiente"), None)
-        assert pendiente is not None, "the month has no @Pendiente row"
-        assert pendiente["spent_home_cents"] != 0
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    body = client.get("/reports/monthly", params=_month(scratch))
+    pendiente = next((c for c in body["categories"] if c["name"] == "@Pendiente"), None)
+    assert pendiente is not None, "the month has no @Pendiente row"
+    assert pendiente["spent_home_cents"] != 0
 
 
-def test_a_row_waiting_for_a_hashtag_is_its_categorys_pending_hashtag_row(client):
+def test_a_row_waiting_for_a_hashtag_is_its_categorys_pending_hashtag_row(client, scratch):
     """Home's pending row stands on this: a row written with no hashtag counts
     in its category's breakdown as the `[<pending id>]` row, never as an empty
-    `hashtag_ids` (contract: GET /v1/dashboard), and `⏎` on that row asks for the
-    same category and `hashtag_id=<pending id>`, whose list and count are that
-    row (contract: GET /v1/transactions). The pending hashtag is found by
+    `hashtag_ids` (contract: GET /v1/dashboard, "`hashtag_breakdown`"), and `⏎` on that
+    row asks for the same category and `hashtag_id=<pending id>`, whose list and count are
+    that row (contract: GET /v1/transactions). The pending hashtag is found by
     `system_key`, never by name.
     """
-    now = _now()
-    account_id = str(uuid4())
-    category_id = str(uuid4())
-    tx_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-ph-{account_id[:8]}",
-            "currency_code": "PEN",
-        },
-    )
-    client.post(
-        "/categories",
-        json_body={"id": category_id, "name": f"contract-ph-{category_id[:8]}", "color": "#123456"},
-    )
-    try:
-        client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "waits for a hashtag",
-                "amount_cents": -2100,
-                "account_id": account_id,
-                "category_id": category_id,
-                "date": _now_iso(),
-            },
-        )
-        pending = pending_hashtag_of(client.get("/hashtags")["items"])
-        assert pending is not None, "an untagged write did not make the pending hashtag exist"
+    account_id = scratch.account()
+    category_id = scratch.category()
+    tx_id = _spend(scratch, account_id, -2100, category_id=category_id)
+    pending = pending_hashtag_of(client.get("/hashtags")["items"])
+    assert pending is not None, "an untagged write did not make the pending hashtag exist"
 
-        body = client.get(
-            "/reports/monthly", params={"year": str(now.year), "month": str(now.month)}
-        )
-        for category in body["categories"]:
-            for slice_ in category["hashtag_breakdown"]:
-                assert slice_["hashtag_ids"], f"an empty hashtag row under {category['name']}"
-        mine = next(c for c in body["categories"] if c["id"] == category_id)
-        assert [s["hashtag_ids"] for s in mine["hashtag_breakdown"]] == [[pending[0]]]
-        assert mine["hashtag_breakdown"][0]["spent_home_cents"] == -2100
+    body = client.get("/reports/monthly", params=_month(scratch))
+    for category in body["categories"]:
+        for slice_ in category["hashtag_breakdown"]:
+            assert slice_["hashtag_ids"], f"an empty hashtag row under {category['name']}"
+    mine = next(c for c in body["categories"] if c["id"] == category_id)
+    assert [s["hashtag_ids"] for s in mine["hashtag_breakdown"]] == [[pending[0]]]
+    assert mine["hashtag_breakdown"][0]["spent_home_cents"] == -2100
 
-        params = {"category_id": category_id, "hashtag_id": pending[0]}
-        listed = client.get("/transactions", params=params)
-        assert [item["id"] for item in listed["items"]] == [tx_id]
-        assert client.get("/transactions/count", params=params)["count"] == 1
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    params = {"category_id": category_id, "hashtag_id": pending[0]}
+    listed = client.get("/transactions", params=params)
+    assert [item["id"] for item in listed["items"]] == [tx_id]
+    assert client.get("/transactions/count", params=params)["count"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +372,7 @@ def test_a_row_waiting_for_a_hashtag_is_its_categorys_pending_hashtag_row(client
 # ---------------------------------------------------------------------------
 
 
-def test_a_write_is_signed_but_a_bare_read_is_not(client):
+def test_a_write_is_signed_but_a_bare_read_is_not(client, scratch):
     """`debit_as_negative` is a *read* preference; the write is always signed.
 
     CLAUDE.md calls the sign convention shared infrastructure — "input and
@@ -364,34 +385,11 @@ def test_a_write_is_signed_but_a_bare_read_is_not(client):
     inherit this endpoint; the asymmetry should be written down somewhere that
     fails when it changes.
     """
-    account_id = str(uuid4())
-    tx_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": account_id,
-            "name": f"contract-sign-{account_id[:8]}",
-            "currency_code": "PEN",
-        },
-    )
-    try:
-        created = client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "an expense",
-                "amount_cents": -1200,  # signed going in
-                "account_id": account_id,
-                "date": _now_iso(),
-            },
-        )
-        assert created["amount_cents"] == 1200  # magnitude coming back
+    account_id = scratch.account()
+    tx_id = _spend(scratch, account_id, -1200)  # signed going in
 
-        bare = client.get(f"/transactions/{tx_id}")
-        assert bare["amount_cents"] == 1200
+    bare = client.get(f"/transactions/{tx_id}")
+    assert bare["amount_cents"] == 1200  # magnitude coming back
 
-        asked = client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
-        assert asked["amount_cents"] == -1200
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    asked = client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
+    assert asked["amount_cents"] == -1200
