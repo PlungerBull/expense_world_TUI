@@ -10,7 +10,7 @@ The seven specs of this catch-up, run in this order:
 
 1. part 1, the app's reads and writes (done on 2026-10-30)
 2. part 2, the PDF upload and the two imports (done on 2026-10-30)
-3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
+3. part 3, the live tests' foundation (done on 2026-10-30)
 4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md)
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md)
 6. this one

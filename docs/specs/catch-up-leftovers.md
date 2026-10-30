@@ -3,7 +3,7 @@
 **Status: approved by the owner on 2026-10-28; no question open. It runs after the catch-up to
 contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
-[3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+3 (done on 2026-10-30), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files. Its tasks are drafted when the owner names it the current spec.** When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -17,8 +17,8 @@ the sheet import through the engine, and not fixed there. None of it changes wha
 code, tests and drawings that say old things.
 
 The rest of what was found belongs to other specs: the practice-data cleaner to
-[catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md),
-the live suite's foundation, which moves the cleaner to the new model; a completed statement's
+part 3 of the currencies catch-up, the live suite's foundation (done on 2026-10-30), which moved
+the cleaner to the new model; a completed statement's
 footer, the "no batch" list's order and the card statement's drawing, with both their questions,
 to [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md); the
 import door's account list, with its drawing `expense-world-import-door.html` ("not a BCP bank

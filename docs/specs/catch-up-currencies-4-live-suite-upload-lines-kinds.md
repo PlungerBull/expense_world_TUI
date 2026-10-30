@@ -8,7 +8,7 @@ seven specs, run in this order:
 
 1. part 1, the app's reads and writes (done on 2026-10-30);
 2. part 2, the PDF upload and the two imports (done on 2026-10-30);
-3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md);
+3. part 3, the live tests' foundation (done on 2026-10-30);
 4. this one;
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md);
 6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md);
@@ -24,7 +24,7 @@ deleted.
 ## Why
 
 The live tests ([tests/contract/](../../tests/contract/)) prove the engine's rules against a real
-engine. [Spec 3](catch-up-currencies-3-live-suite-foundation.md) moves the shared helpers and a
+engine. Part 3 of the currencies catch-up (done on 2026-10-30) moved the shared helpers and a
 statement's own tests onto accounts that hold their currencies; this spec does the rest of the
 suite that still builds on the old model: the statement PDF upload, bank lines and their moves,
 the bank download and the sheet, turning an account into a person and back, archiving, and
@@ -199,7 +199,20 @@ model until" tests/contract` finds each): the task rewriting one removes its ski
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when this spec is done, with the tester's results, and
-those of [spec 3](catch-up-currencies-3-live-suite-foundation.md).
+those of part 3 of the currencies catch-up, the live tests' foundation, checked on 2026-10-30
+against the practice engine: its 16 live files passed (92 tests) and left nothing on either
+practice user. They prove an account and a person made with their currencies in one write and
+deleted whole; the opening balance per currency (`REQUIRED`, `UNSUPPORTED_VALUE`,
+`CURRENCY_NOT_HELD`, `OPENING_BALANCE_EXISTS` in one currency while the other takes its own);
+every transaction and batch item naming its currency; the dashboard's one row per account with
+a balance per live currency and no home-currency balance, the month's aggregates in the home
+currency with `unconverted_count`; and a statement's life on the account: made, renamed,
+completed, reverted and deleted as one record, `NO_TRANSACTIONS_ASSIGNED` per currency, the
+list needing `?account_id=`, the period's refusals, locking, an archived account's statements
+frozen, a currency with nothing left out and listed in `not_covered`, `DIFFERENCE_NOT_ZERO` per
+currency, `MONEY_AT_START_NOT_COVERED`, a line giving a draft its currency's null balances, then
+`BEGINNING_BALANCE_REQUIRED` and `ENDING_BALANCE_REQUIRED` in one answer, and `LOCKED` on a
+completed statement gaining a currency. Each held as the contract states it.
 
 - **Range:** `e020782e3579d011` → `f82426fb0a099676` (`07475793a38b47b4`, `d5241e52676b19f9`,
   `2d7db5f914b565d9`, `b54580104fce4fde`, `394b3a9034b36d98`, `ba0f857bc43b95ce`,

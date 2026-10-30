@@ -3,7 +3,7 @@
 **Status: draft, written 2026-10-29 for the owner to approve, with five questions. It runs last:
 after the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
-[3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+3 (done on 2026-10-30), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)) and the specs that follow it.** Turning sheet
 accounts into people is built ([decisions.md](../decisions.md) "An account becomes a person, and

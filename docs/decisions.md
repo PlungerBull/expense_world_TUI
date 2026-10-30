@@ -1120,6 +1120,35 @@ saved one is read as `Caja`* — a rename that holds for one run only; a sheet n
 colon and three capitals cannot be renamed. *Rebuilding today's statement screens first* — work
 the redraw throws away.
 
+## The live suite makes every record one way, and a file waiting for its rewrite skips whole (2026-10-30)
+
+**Decision.** (1) **Every live contract test makes its records through the shared helpers in
+[tests/contract/conftest.py](../tests/contract/conftest.py)**: an account with its currencies in
+one write (`account_body`, `Scratch.account`), a statement with a balance per currency
+(`statement_create_body`, `Scratch.statement`), transactions and opening balances naming their
+currency, and one cleanup that reverts and deletes statements, then transactions, hashtags and
+categories, then each account whole. A test file keeps no copy of a helper, and a refusal is
+checked on the exact key, reason and, where the contract states one, message (`assert_refusal`).
+(2) **A live file whose helpers are gone and whose rewrite belongs to a later spec skips whole**,
+its reason naming that spec (`grep -rn "on the holder model until" tests/contract`), and the
+task that rewrites it removes the skip. (3) **The practice-data cleaner reads each account's
+statements, reverts and deletes them, deletes the transactions in one cursor pass and then the
+account whole** ([runtime.md](runtime.md) "Working against the live engine"). (4) **A test's
+account has no statement code unless the test is about codes**, since a coded account's
+statement must be ordered before it completes.
+
+**Why.** One way of making records means one place to change when the engine's shapes change,
+and cleanup that cannot drift from what was made. A file that cannot import stops every contract
+run at collection, the unit suite's plain contract run included, so it cannot wait failing. Rows
+deleted behind a cursor's bookmark move no later page (contract: "Base Conventions", "Cursors, on every cursor-paged list"),
+so one pass reaches every row.
+
+**Rejected.** *Keeping the removed helpers until every file is rewritten* — it keeps the holder
+shapes alive in the suite. *Local body builders and refusal checks per file* — each copy drifts,
+and a check that only finds the field's name somewhere in the answer proves less than the
+contract states. *Repeating the cleaner's pass until nothing more deletes* — a second full read
+that the cursor rule makes needless.
+
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to

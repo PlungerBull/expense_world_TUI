@@ -10,14 +10,14 @@ import's counts say how many sheet rows its split lines come from"; the rename d
 it. The rest of that range is caught up in the app's reads and writes, its statement screens
 and the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
-[3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+3 (done on 2026-10-30), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and
 screens.
 
 **Status: approved and named the current spec by the owner on 2026-10-27, its question
 answered and its tasks approved. Task 2 runs after the live suite's foundation
-([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)),
+(part 3 of the currencies catch-up, done on 2026-10-30),
 and after the app's sheet import code is on the new model
 (part 2 of the currencies catch-up, done on 2026-10-30),
 since the live sheet test runs that code.** When done, the why moves to
@@ -58,7 +58,7 @@ see.
 2. A sheet with no split transaction shows `0` for both.
 3. The unit suite and the live suite pass, and the drift check no longer names
    `counts.split_rows`. The live checks run after the live suite's foundation
-   ([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)).
+   (part 3 of the currencies catch-up, done on 2026-10-30).
 
 ## What the owner settled
 
@@ -78,7 +78,7 @@ None open.
 Approved by the owner on 2026-10-27.
 
 2. **The live suite proves the count and the cursor refusal (builder), after
-   [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
+   part 3 of the currencies catch-up (done on 2026-10-30)
    and part 2 of the currencies catch-up (done on 2026-10-30).**
    The live sheet import checks `split_rows` beside `split_lines`
    ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)), its `names.accounts`

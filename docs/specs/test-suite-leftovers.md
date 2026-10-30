@@ -25,7 +25,7 @@ comments on statements and people in the cards and statements catch-up's parts 1
 (done on 2026-10-28); the contract files building their records through `Scratch`, the
 statement-order helper going and the practice-user cleaner (reading every page among its
 rework) in
-[catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md);
+part 3 of the currencies catch-up, the live tests' foundation (done on 2026-10-30);
 `_transaction_ids`, the create-into-a-statement test going and the import test naming its
 stopping statement in
 [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md);

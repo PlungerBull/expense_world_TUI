@@ -53,7 +53,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 
 1. the app's reads and writes: done on 2026-10-30;
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
-3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): approved on 2026-10-30, running now;
+3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
 6. [the main views](specs/catch-up-currencies-6-main-views.md): 15 tasks in two halves (6a the accounts, 6b the currency as its own field), 11 questions, 10 with a mockup;
@@ -70,10 +70,13 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (2 questions, one with a mockup to draw), after part 6.
 
+New, from part 3: [what the live tests' foundation turned up](specs/catch-up-currencies-3-leftovers.md)
+(no question), after part 4.
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest, and start part 2 next, so each is ready when the one before it
+**Recommended:** approve the rest, and start part 4 next, so each is ready when the one before it
 is done.
 
 ---
