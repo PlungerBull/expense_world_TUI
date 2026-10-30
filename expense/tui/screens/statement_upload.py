@@ -100,9 +100,11 @@ def pick_label(pick: AccountPick) -> str:
 
 def changed_meanwhile(err: Exception) -> bool:
     """A `409 CONFLICT` whose reason is `CONCURRENT_CHANGE`, on any key: a
-    matched line, the statement's draft or a name the upload files under
-    changed while it ran, and nothing was written; it is sent again
-    (contract: POST /v1/statements/import, "Concurrency")."""
+    matched line (`rows.<place>`) or the statement's draft (`file`) changed
+    while it ran (contract: POST /v1/statements/import, "Concurrency"), or the
+    pending category or hashtag a created row files under was deleted while it
+    was being created (`category_id` or `hashtag_ids`)
+    (contract: POST /v1/statements/import); nothing was written; it is sent again."""
     return (
         isinstance(err, EngineError)
         and err.code == "CONFLICT"
@@ -227,7 +229,7 @@ def row_line(row: StatementRow, columns: Columns) -> Text:
 
 
 def taken_out_lines(
-    answer: StatementAnswer, lines: dict[str, dict], columns: Columns, pick: AccountPick
+    answer: StatementAnswer, lines: dict[str, dict], columns: Columns
 ) -> list[Text]:
     """The "Taken out" block: the lines in the open statement that the paper
     does not print, oldest first as the engine lists them, each read by its id
@@ -240,14 +242,15 @@ def taken_out_lines(
         if line is None:
             continue
         day, title, _code, net = bank_line_columns(line)
-        currency = pick.currency_of(str(line.get("account_id")))
+        currency = str(line.get("currency_code") or "?")
         out.append(columns.line("", day, str(title or NO_TITLE), _cents(net), currency))
     return out
 
 
 def balance_lines(answer: StatementAnswer) -> list[Text]:
-    """`begin  end` dim, then one line per account of the holder: its currency
-    and the paper's balances (contract: POST /v1/statements/import, "Response")."""
+    """`begin  end` dim, then one line per currency the engine's answer holds, and
+    no other (a currency the paper does not cover shows nothing): its code and
+    the paper's balances (contract: POST /v1/statements/import, "Response")."""
     figures = [
         format_cents(c)
         for balance in answer.balances
@@ -342,7 +345,7 @@ class StatementPreviewScreen(PreviewScreen):
         flow.py's one call; the client mints the idempotency key. The dry run
         then reads the lines its answer names by id alone (`statement_lines`);
         the apply's flagged lines are counted off its completed statement's
-        `review_lines`."""
+        `review_lines` and those of its `not_covered` currencies."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
@@ -414,7 +417,7 @@ class StatementPreviewScreen(PreviewScreen):
         answer = self._answer
         assert answer is not None
         parts: list[RenderableType] = []
-        taken = taken_out_lines(answer, self._lines, columns, self._pick)
+        taken = taken_out_lines(answer, self._lines, columns)
         if taken:
             parts.extend(taken)
             parts.append(Text(""))

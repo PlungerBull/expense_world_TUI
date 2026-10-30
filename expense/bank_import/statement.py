@@ -6,7 +6,7 @@ answers what closing the month from it does, or did
 (contract: POST /v1/statements/import). The app sends the file whole
 (`request_body` in engine.py, the body of both uploads) and reads nothing in
 it; this module only says how the answer reads, so the screens show the
-engine's word. Nothing here matches, adds up or picks an account.
+engine's word. Nothing here matches, adds up or picks an account or a currency.
 """
 
 from dataclasses import dataclass
@@ -26,7 +26,7 @@ class StatementRow:
 
     #: Its place in the statement, counting from 1: the paper's number.
     place: int
-    account_id: str
+    #: The currency of the account the row is on (`currency_code`).
     currency: str
     #: The day it is matched and created on.
     date_iso: str
@@ -46,8 +46,7 @@ def statement_rows(response: dict) -> list[StatementRow]:
     return [
         StatementRow(
             place=int(item.get("place") or 0),
-            account_id=str(item.get("account_id")),
-            currency=str(item.get("currency") or "?"),
+            currency=str(item.get("currency_code") or "?"),
             date_iso=str(item.get("date")),
             description=item.get("description"),
             fee=bool(item.get("fee")),
@@ -61,22 +60,21 @@ def statement_rows(response: dict) -> list[StatementRow]:
 
 @dataclass(frozen=True)
 class StatementBalance:
-    """One account's balances in the statement, as the paper gives them: one
-    per account of the holder, a card's soles and dollar accounts each."""
+    """One currency's balances in the statement, as the paper gives them: one per
+    currency the statement covers, a card's soles and its dollars each."""
 
-    account_id: str
     currency: str
     beginning_balance_cents: int | None
     ending_balance_cents: int | None
 
 
 def statement_balances(response: dict) -> list[StatementBalance]:
-    """The answer's `balances`, in its order: the holder's accounts' order
-    (contract: POST /v1/statements/import, "Response")."""
+    """The answer's `balances`, in its order: one per currency the statement
+    covers, in the account's currency order (contract: POST /v1/statements/import,
+    "Response"). A currency the paper does not cover has none."""
     return [
         StatementBalance(
-            account_id=str(balance.get("account_id")),
-            currency=str(balance.get("currency") or "?"),
+            currency=str(balance.get("currency_code") or "?"),
             beginning_balance_cents=balance.get("beginning_balance_cents"),
             ending_balance_cents=balance.get("ending_balance_cents"),
         )
@@ -86,12 +84,13 @@ def statement_balances(response: dict) -> list[StatementBalance]:
 
 def review_line_ids(statement: dict) -> list[str]:
     """The ids of the bank lines a close flagged for review: each balance's
-    `review_lines`, in the balances' order. A statement upload's apply answers
-    its close as the completed statement, `statement`
-    (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
+    `review_lines`, in the balances' order, then those of each `not_covered`
+    currency, the account's currencies the statement holds no balances for. A
+    statement upload's apply answers its close as the completed statement,
+    `statement` (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
     ids: list[str] = []
-    for balance in statement.get("balances") or []:
-        named = balance.get("review_lines")
+    for entry in [*(statement.get("balances") or []), *(statement.get("not_covered") or [])]:
+        named = entry.get("review_lines")
         if isinstance(named, list):
             ids.extend(str(line_id) for line_id in named if line_id)
     return ids

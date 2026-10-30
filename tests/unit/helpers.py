@@ -638,8 +638,8 @@ def statement_row(
     amount_cents: int = -1000,
     *,
     outcome: str = "matched",
-    account_id: str = "sig-pen",
-    currency: str = "PEN",
+    account_id: str = "sig",
+    currency_code: str = "PEN",
     day: str = "2026-10-02",
     description: str | None = "TAMBO MIRAFLORES",
     fee: bool = False,
@@ -659,7 +659,7 @@ def statement_row(
     return {
         "place": place,
         "account_id": account_id,
-        "currency": currency,
+        "currency_code": currency_code,
         "processed_on": None if fee else day,
         "date": day,
         "description": description,
@@ -792,17 +792,15 @@ def statement_complete_answer(record: dict | None = None) -> dict:
 
 
 def upload_balance(
-    account_id: str = "sig-pen",
-    currency: str = "PEN",
+    currency_code: str = "PEN",
     *,
     begin: int = -120410,
     end: int = -51230,
 ) -> dict:
-    """One of a `POST /statements/import` answer's `balances`: its account and currency
-    and the paper's balances (contract: POST /v1/statements/import, "Response")."""
+    """One of a `POST /statements/import` answer's `balances`: a currency the statement
+    covers and the paper's balances (contract: POST /v1/statements/import, "Response")."""
     return {
-        "account_id": account_id,
-        "currency": currency,
+        "currency_code": currency_code,
         "beginning_balance_cents": begin,
         "ending_balance_cents": end,
     }
@@ -821,13 +819,16 @@ def statement_upload_answer(
     balances: list[dict] | None = None,
     taken_out: list[str] | None = None,
     review_lines: dict[str, list[str]] | None = None,
+    not_covered: dict[str, list[str]] | None = None,
     counts: dict | None = None,
 ) -> dict:
     """`POST /statements/import`'s answer: `dry_run` echoed, `statement_id` (`None` on a
     dry run that creates the statement), `creates`, the statement's name and days, its
-    `balances` (one `upload_balance` by default), `statement` (on an apply the completed
-    statement as a complete answers it, each balance flagging the ids `review_lines`
-    gives for its account; `None` on a dry run), one row per row of the paper (each a
+    `balances` (one `upload_balance` by default, one per currency the statement covers),
+    `statement` (on an apply the completed statement as a complete answers it, each
+    balance flagging the ids `review_lines` gives for its currency code, and one
+    `not_covered` entry per currency of `not_covered` flagging its ids; `None` on a dry
+    run), one row per row of the paper (each a
     `statement_row`), `taken_out` and `counts` (by default the rows and the lines taken
     out counted) (contract: POST /v1/statements/import, "Response"). The bare answer is
     an apply holding a new row, so the drift script checks each nested shape."""
@@ -837,6 +838,7 @@ def statement_upload_answer(
     flagged = review_lines or {}
     taken = list(taken_out or [])
     outcomes = [row["outcome"] for row in rows]
+    notes = {"warnings": [], "coverage_gap": None}
     closed = {
         "id": statement_id,
         "name": name,
@@ -844,14 +846,23 @@ def statement_upload_answer(
         "date_end": date_end,
         "unplaced_count": 0,
         "shared_place_count": 0,
+        "balances": [],
+    }
+    statement = {
+        **statement_complete_answer(closed),
+        "account_id": "sig",
         "balances": [
             {
-                "account_id": b["account_id"],
-                "beginning_balance_cents": b["beginning_balance_cents"],
-                "ending_balance_cents": b["ending_balance_cents"],
-                "review_lines": list(flagged.get(b["account_id"], [])),
+                **b,
+                "difference_cents": 0,
+                **notes,
+                "review_lines": list(flagged.get(b["currency_code"], [])),
             }
             for b in paper
+        ],
+        "not_covered": [
+            {"currency_code": code, **notes, "review_lines": list(ids)}
+            for code, ids in (not_covered or {}).items()
         ],
     }
     return {
@@ -862,7 +873,7 @@ def statement_upload_answer(
         "date_start": date_start,
         "date_end": date_end,
         "balances": paper,
-        "statement": None if dry_run else statement_complete_answer(closed),
+        "statement": None if dry_run else statement,
         "rows": rows,
         "taken_out": taken,
         "counts": counts

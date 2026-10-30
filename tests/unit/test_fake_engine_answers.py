@@ -247,11 +247,12 @@ def test_a_statement_read_and_put_spread_a_test_s_record_over_the_whole_shape():
 
 
 def test_a_statement_upload_apply_answers_the_completed_statement():
-    paper = [upload_balance("acc-pen", "PEN"), upload_balance("acc-usd", "USD", begin=0, end=0)]
+    paper = [upload_balance("PEN"), upload_balance("USD", begin=0, end=0)]
     answer = statement_upload_answer(
-        [statement_row(1, account_id="acc-pen"), statement_row(2, outcome="empty")],
+        [statement_row(1), statement_row(2, outcome="empty")],
         balances=paper,
-        review_lines={"acc-usd": ["bl-flag"]},
+        review_lines={"USD": ["bl-flag"]},
+        not_covered={"EUR": ["bl-eur"]},
     )
     closed = answer["statement"]
 
@@ -261,9 +262,12 @@ def test_a_statement_upload_apply_answers_the_completed_statement():
         paper,
     )
     assert (closed["id"], closed["status"], closed["name"]) == ("s-paper", 2, "SIG-202610")
-    assert [(b["account_id"], b["review_lines"]) for b in closed["balances"]] == [
-        ("acc-pen", []),
-        ("acc-usd", ["bl-flag"]),
+    assert [(b["currency_code"], b["review_lines"]) for b in closed["balances"]] == [
+        ("PEN", []),
+        ("USD", ["bl-flag"]),
+    ]
+    assert [(n["currency_code"], n["review_lines"]) for n in closed["not_covered"]] == [
+        ("EUR", ["bl-eur"])
     ]
     assert (closed["unplaced_count"], closed["shared_place_count"]) == (0, 0)
     assert answer["counts"] == {"matched": 1, "new": 0, "empty": 1, "taken_out": 0, "redated": 0}

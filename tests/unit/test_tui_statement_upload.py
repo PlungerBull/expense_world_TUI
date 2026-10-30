@@ -19,8 +19,8 @@ import pytest
 import respx
 from textual.widgets import Static
 
-from expense.bank_import.flow import account_picks, statement_call
-from expense.bank_import.statement import statement_answer
+from expense.bank_import.flow import AccountPick, statement_call
+from expense.bank_import.statement import review_line_ids, statement_answer
 from expense.errors import EngineError
 from expense.tui.dropped import dropped_bank_files, is_statement
 from expense.tui.screens.bank_import import (
@@ -72,15 +72,12 @@ CARD_ROWS = [
     statement_row(3, -4200, outcome="new", day="2026-10-02", description="UBER *TRIP"),
     statement_row(4, -4490, day="2026-10-14", description="NETFLIX.COM"),
     statement_row(5, 80000, day="2026-10-20", description="PAGO TARJETA"),
-    statement_row(
-        6, -2499, account_id="sig-usd", currency="USD", day="2026-10-05", description="AMAZON"
-    ),
+    statement_row(6, -2499, currency_code="USD", day="2026-10-05", description="AMAZON"),
     statement_row(
         7,
         -599,
         outcome="new",
-        account_id="sig-usd",
-        currency="USD",
+        currency_code="USD",
         day="2026-10-24",
         description="SPOTIFY P2F3",
     ),
@@ -92,15 +89,13 @@ CARD_ROWS = [
         10,
         0,
         outcome="empty",
-        account_id="sig-usd",
-        currency="USD",
+        currency_code="USD",
         day="2026-10-25",
         description="MANT. CUENTA",
     ),
 ]
-#: The card's balances, one per account of its holder in the accounts' order, as
-#: the engine sends them: the dollar account first, as ACCOUNTS lists it.
-USD_BALANCE = upload_balance("sig-usd", "USD", begin=-3642, end=-6140)
+#: The card's balances, one per currency the paper covers, as the engine sends them.
+USD_BALANCE = upload_balance("USD", begin=-3642, end=-6140)
 PEN_BALANCE = upload_balance()
 CARD = {
     "rows": CARD_ROWS,
@@ -112,23 +107,19 @@ CARD = {
 #: filled, nothing taken out.
 SAVINGS = {
     "rows": [
-        statement_row(1, 485000, account_id="aho-pen", day="2026-10-01", description="HABERES"),
-        statement_row(2, -80000, account_id="aho-pen", day="2026-10-03", description="TRANSF"),
-        statement_row(3, -12000, account_id="aho-pen", day="2026-10-09", description="YAPE"),
-        statement_row(
-            4, -40000, outcome="new", account_id="aho-pen", day="2026-10-15", description="CAJERO"
-        ),
-        statement_row(5, -19240, account_id="aho-pen", day="2026-10-28", description="LUZ"),
-        statement_row(
-            6, 0, outcome="empty", account_id="aho-pen", day="2026-10-30", description="INTERES"
-        ),
+        statement_row(1, 485000, day="2026-10-01", description="HABERES"),
+        statement_row(2, -80000, day="2026-10-03", description="TRANSF"),
+        statement_row(3, -12000, day="2026-10-09", description="YAPE"),
+        statement_row(4, -40000, outcome="new", day="2026-10-15", description="CAJERO"),
+        statement_row(5, -19240, day="2026-10-28", description="LUZ"),
+        statement_row(6, 0, outcome="empty", day="2026-10-30", description="INTERES"),
     ],
     "name": "Octubre 2026",
     "date_start": "2026-10-01",
     "date_end": "2026-10-31",
     "creates": False,
     "statement_id": "s-oct",
-    "balances": [upload_balance("aho-pen", begin=1091240, end=1245000)],
+    "balances": [upload_balance(begin=1091240, end=1245000)],
 }
 
 #: The ledger lines the tests read by id: the line the card's answer takes out,
@@ -318,21 +309,29 @@ def test_a_pdf_is_a_dropped_file_and_a_statement_by_its_name(tmp_path):
     assert dropped_bank_files(f"{_escaped(pdf)} {_escaped(other)}") is None
 
 
-def test_the_call_sends_exactly_three_keys_on_the_cards_soles_account():
-    """The body is the download's: `dry_run`, the picked account (a card's soles
-    one) and the file's bytes in standard base64
-    (contract: POST /v1/statements/import)."""
+def test_the_call_sends_exactly_three_keys_on_the_accounts_id():
+    """The body is the download's: `dry_run`, the picked account's id and the
+    file's bytes in standard base64 (contract: POST /v1/statements/import)."""
     client = FakeClient()
     data = bytes(range(256)) * 50
-    card = account_picks(ACCOUNTS)[0]
-    statement_call(client, card, data, dry_run=True)
+    account = AccountPick("BCP Signature", (("acc-sig", "BCP Signature", "PEN"),))
+    statement_call(client, account, data, dry_run=True)
     ((path, body),) = client.posts
     assert path == "/statements/import"
     assert body == {
         "dry_run": True,
-        "account_id": "sig-pen",
+        "account_id": "acc-sig",
         "file": base64.b64encode(data).decode("ascii"),
     }
+
+
+def test_flagged_lines_are_counted_from_the_balances_and_not_covered():
+    """(contract: POST /v1/statements/{statement_id}/complete, "Response")"""
+    answer = statement_upload_answer(
+        review_lines={"PEN": ["bl-1"]}, not_covered={"USD": ["bl-2", "bl-3"]}
+    )
+    assert review_line_ids(answer["statement"]) == ["bl-1", "bl-2", "bl-3"]
+    assert review_line_ids({"balances": [], "not_covered": []}) == []
 
 
 def test_the_answer_reads_as_the_engine_sent_it():
@@ -495,33 +494,73 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
 
 
 @pytest.mark.parametrize(
-    ("first", "second", "shown"),
+    ("balances", "shown"),
     [
-        ("sig-usd", "sig-pen", ["USD", "PEN"]),
-        ("sig-pen", "sig-usd", ["PEN", "USD"]),
+        ([USD_BALANCE, PEN_BALANCE], ["USD", "PEN"]),
+        ([PEN_BALANCE, USD_BALANCE], ["PEN", "USD"]),
     ],
-    ids=["dollar-account-first", "soles-account-first"],
+    ids=["dollars-first", "soles-first"],
 )
-def test_a_cards_balance_lines_follow_its_holders_accounts_order(
-    fake_client, monkeypatch, tmp_path, first, second, shown
+def test_a_cards_balance_lines_follow_the_answers_order(
+    fake_client, monkeypatch, tmp_path, balances, shown
 ):
-    """One balance line per account of the holder, in the engine's order, the
-    holder's accounts' order (contract: POST /v1/statements/import, "Response"):
-    the app sorts nothing, and still sends the soles account."""
-    by_id = {a["id"]: a for a in ACCOUNTS}
-    balance = {"sig-usd": USD_BALANCE, "sig-pen": PEN_BALANCE}
+    """One balance line per currency the answer holds, in the engine's order
+    (contract: POST /v1/statements/import, "Response"): the app sorts nothing."""
     path = _pdf(tmp_path)
-    _patch(monkeypatch, accounts=[by_id[first], by_id[second], *ACCOUNTS[2:]])
-    paper = {**CARD, "balances": [balance[first], balance[second]]}
-    _engine(fake_client, {path.read_bytes(): paper})
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): {**CARD, "balances": balances}})
 
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)
         lines = _lines(preview)
         assert lines[2].split() == ["begin", "end"]
         assert [line.split()[0] for line in lines[3:5]] == shown
-        ((_, body),) = fake_client.posts
-        assert body["account_id"] == "sig-pen"
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_currency_the_paper_does_not_cover_has_no_balance_line(
+    fake_client, monkeypatch, tmp_path
+):
+    """A card's paper covering soles alone: the answer holds one balance, and
+    the preview shows that one line and no dollars (contract: POST
+    /v1/statements/import, "Which currencies the statement covers")."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    soles = [r for r in CARD_ROWS if r["currency_code"] == "PEN"]
+    _engine(fake_client, {path.read_bytes(): {"rows": soles, "balances": [PEN_BALANCE]}})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert [line.split() for line in lines[2:4]] == [
+            ["begin", "end"],
+            ["PEN", "-1,204.10", "-512.30"],
+        ]
+        assert "USD" not in "\n".join(lines[2:])
+        assert _cells(lines[4]) == ["#", "date", "title", "amount"]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_taken_out_line_shows_its_own_currency(fake_client, monkeypatch, tmp_path):
+    """A dollar line taken out of a two-currency answer reads `USD`, the line's own
+    `currency_code`."""
+    path = _pdf(tmp_path)
+    usd = bank_line_row(
+        "bl-usd",
+        [import_part("t-usd", -599, account_id="sig", line="bl-usd", title="HULU")],
+        net_cents=-599,
+        account_id="sig",
+        currency_code="USD",
+    )
+    _patch(monkeypatch, lines={"bl-usd": usd})
+    _engine(fake_client, {path.read_bytes(): {**CARD, "taken_out": ["bl-usd"]}})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        taken = next(line for line in _lines(preview) if "HULU" in line)
+        assert _cells(taken)[-1] == "USD"
 
     run_app(scenario, size=(120, 50))
 
@@ -648,10 +687,10 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
 
 
 def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path):
-    """Screen 3: the ⚑ line counts every account's `review_lines` in the
-    completed statement, and `f` opens the flagged lines' screen on that
-    statement, which reads its review list and its count, no id sent; back from
-    it, the screen stays."""
+    """Screen 3: the ⚑ line counts every balance's `review_lines` and those of each
+    `not_covered` currency in the completed statement, and `f` opens the flagged
+    lines' screen on that statement, which reads its review list and its count,
+    no id sent; back from it, the screen stays."""
     path = _pdf(tmp_path)
     usd_line = bank_line_row(
         "bl-hulu",
@@ -659,18 +698,24 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
             import_part(
                 "t-hulu",
                 -799,
-                account_id="sig-usd",
+                account_id="sig",
                 line="bl-hulu",
                 day="2026-10-12",
                 title="HULU",
             )
         ],
         net_cents=-799,
-        account_id="sig-usd",
+        account_id="sig",
+        currency_code="USD",
     )
     _patch(monkeypatch, lines={**LINES, "bl-hulu": usd_line})
-    flagged = {"sig-pen": ["bl-uber"], "sig-usd": ["bl-hulu"]}  # each on its own account
-    _engine(fake_client, {path.read_bytes(): {**CARD, "review_lines": flagged}})
+    paper = {
+        "rows": [r for r in CARD_ROWS if r["currency_code"] == "PEN"],
+        "balances": [PEN_BALANCE],  # the paper covers soles; the dollars are `not_covered`
+        "review_lines": {"PEN": ["bl-uber"]},
+        "not_covered": {"USD": ["bl-hulu"]},
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
     review_reads: list[tuple] = []  # (read, statement id, sort, ids sent)
 
     def review_list(cfg, *, review_of, sort, **kwargs):
@@ -769,8 +814,52 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
                 "Revert it first, then drop the PDF again.",
             ],
         ),
+        (
+            _refusal(
+                "VALIDATION_ERROR", "account_id", "The account holds no USD.", "CURRENCY_NOT_HELD"
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! account_id: The account holds no USD.",
+                "Nothing was written.",
+            ],
+        ),
+        (
+            _refusal(
+                "VALIDATION_ERROR",
+                "account_id",
+                "The paper does not print USD, which the account holds.",
+                "ACCOUNT_CURRENCY_NOT_ON_PAPER",
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! account_id: The paper does not print USD, which the account holds.",
+                "Nothing was written.",
+            ],
+        ),
+        (
+            _refusal(
+                "VALIDATION_ERROR",
+                "file",
+                "The account holds USD 12.00 the paper does not cover.",
+                "MONEY_AT_START_NOT_COVERED",
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! file: The account holds USD 12.00 the paper does not cover.",
+                "Nothing was written.",
+            ],
+        ),
     ],
-    ids=["refused-file", "account", "future-date", "not-draft"],
+    ids=[
+        "refused-file",
+        "account",
+        "future-date",
+        "not-draft",
+        "currency-not-held",
+        "currency-not-on-paper",
+        "money-at-start",
+    ],
 )
 def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
     fake_client, monkeypatch, tmp_path, err, shown
@@ -794,63 +883,29 @@ def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
     run_app(scenario, size=(120, 40))
 
 
-def test_a_savings_paper_for_a_holder_of_two_currencies_is_refused_in_the_engines_words(
-    fake_client, monkeypatch, tmp_path
-):
-    """A savings paper, in soles, sent for a savings account whose holder also
-    holds a dollar account: `HOLDER_ACCOUNT_NOT_ON_PAPER` on `account_id`, shown
-    in the engine's words with no line of the app's, nothing written
-    (contract: POST /v1/statements/import, "Every account of the holder is on the paper")."""
-    path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
-    _patch(
-        monkeypatch,
-        accounts=[
-            *ACCOUNTS[:2],
-            account_record(id="aho-pen", name="Sueldo PEN", holder_id="h2"),
-            account_record(id="aho-usd", name="Sueldo USD", currency_code="USD", holder_id="h2"),
-        ],
-    )
-    words = "Sueldo USD is an account of this holder the paper does not print."
-    fake_client.errors["POST"] = _refusal(
-        "VALIDATION_ERROR", "account_id", words, "HOLDER_ACCOUNT_NOT_ON_PAPER"
-    )
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _accounts(pilot, app)
-        await pilot.press("down", "enter")  # the savings holder's line
-        preview = await _refused(pilot, app)
-        assert _lines(preview) == [
-            "Preview · Sueldo PEN + USD",
-            "VALIDATION_ERROR — The statement cannot be uploaded.",
-            f"! account_id: {words}",
-            "Nothing was written.",
-        ]
-        assert _shown(preview) == {"escape": "Back"}
-        ((_, body),) = fake_client.posts
-        assert body["account_id"] == "aho-pen"
-        assert _uploads(fake_client) == [True]
-
-    run_app(scenario, size=(120, 40))
-
-
+@pytest.mark.parametrize(
+    ("key", "words"),
+    [
+        ("rows.4", "Another request changed this row's ledger line. Send it again."),
+        ("file", "Another request changed this statement's draft. Send it again."),
+    ],
+    ids=["a-matched-line", "the-draft"],
+)
 def test_a_change_met_by_the_apply_previews_again_before_any_write(
-    fake_client, monkeypatch, tmp_path
+    fake_client, monkeypatch, tmp_path, key, words
 ):
-    """The apply's `409 CONFLICT` with `CONCURRENT_CHANGE`: the engine's words,
-    the app's line, `⏎ Preview again`, a fresh dry run, and only then a new
-    apply on its own `⏎`."""
+    """The apply's `409 CONFLICT` with `CONCURRENT_CHANGE`, on a matched line or
+    on the draft (`file`): the engine's words, the app's line, `⏎ Preview again`,
+    a fresh dry run, and only then a new apply on its own `⏎`."""
     path = _pdf(tmp_path)
     _patch(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD})
-    words = "Another request changed this row's ledger line. Send it again."
 
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)
         fake_client.errors["POST"] = _refusal(
             "CONFLICT",
-            "rows.4",
+            key,
             words,
             "CONCURRENT_CHANGE",
             status=409,
@@ -862,7 +917,7 @@ def test_a_change_met_by_the_apply_previews_again_before_any_write(
         at = lines.index("CONFLICT — The ledger changed while the upload ran.")
         assert lines[at:] == [
             "CONFLICT — The ledger changed while the upload ran.",
-            f"! rows.4: {words}",
+            f"! {key}: {words}",
             "Nothing was written.",
             "It changed while the upload ran: ⏎ checks the paper against the ledger again.",
         ]
@@ -1112,10 +1167,8 @@ def test_a_marked_row_stays_on_one_line_on_a_narrow_screen(
 MOVED = {
     **SAVINGS,
     "rows": [
-        statement_row(1, 485000, account_id="aho-pen", day="2026-10-01", description="HABERES"),
-        statement_row(
-            2, -80000, account_id="aho-pen", day="2026-10-03", description="TRANSF", redated=True
-        ),
+        statement_row(1, 485000, day="2026-10-01", description="HABERES"),
+        statement_row(2, -80000, day="2026-10-03", description="TRANSF", redated=True),
     ],
 }
 

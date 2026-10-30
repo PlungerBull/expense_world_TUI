@@ -765,8 +765,8 @@ cursor on the first category (`HomeScreen.start_fresh`).
 it whole and reads nothing in it, and the engine reads the paper, matches each of its rows to a
 ledger line, creates the lines the ledger lacks, takes out of the month's open statement the
 lines the paper does not print, puts every line in the paper's order and completes the
-statement, one for the whole holder (on a card, its soles and dollar accounts together), creating
-it or filling its open draft
+statement, the account's, every currency the paper covers together (on a card, its soles and its
+dollars), creating it or filling its open draft
 (contract: POST /v1/statements/import). The request is the download's (`request_body` in
 [engine.py](../expense/bank_import/engine.py)), sent by `statement_call` in
 [flow.py](../expense/bank_import/flow.py) to `POST /statements/import`; the answer reads
@@ -776,9 +776,9 @@ nothing. Its three full screens replace one another above the LOG bar, as a down
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking a card sends its soles account; the engine closes the holder's statement from any of its accounts | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per account of the holder, its currency and the paper's balances (`balances`), in the engine's order, the holder's accounts' order, so a card whose dollar account comes first shows its `USD` line above its `PEN` one; the app sorts nothing (contract: POST /v1/statements/import, "Response"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking an account sends its id; the engine closes that account's statement, every currency the paper covers together (contract: POST /v1/statements/import, "Accounts") | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` and each `not_covered` currency's, in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
 colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
@@ -810,17 +810,21 @@ count of the lines still flagged.
 download does (`refusal_lines` and `failure_lines` in
 [bank_import.py](../expense/tui/screens/bank_import.py)): `CODE — message`, a `!` line per refused
 key (`! file: …` for a paper the engine cannot read, misread or that does not add up, or a
-period or month another statement holds; `! account_id: …` for an account archived, of
-another currency, or on a holder with no statement code or that also holds an account in a
-currency the paper does not print; a row's `rows.<place>.date` future date as the engine's
+period or month another statement holds, and for `MONEY_AT_START_NOT_COVERED`, a currency the
+paper shows at zero while the account held money in it; `! account_id: …` for an account archived,
+a person, with no statement code (`NO_STATEMENT_CODE`), holding no currency the paper prints
+(`CURRENCY_NOT_HELD`) or holding one the paper does not print at all
+(`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
 `Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the app's
 line when "When the engine says no" gives one: for `RECONCILIATION_NOT_DRAFT` on `file`, a month
 already completed, `Revert it first, then drop the PDF again.` The footer is `esc Back` on the
 last (or only) file, and keeps `esc Cancel both` / `esc Cancel all` while files follow; `⏎` sends
 nothing. A refusal met by the apply shows under the preview the same way. When it is a `409
-CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line, the statement's draft or a name the
-upload files under changed while it ran
-(contract: POST /v1/statements/import, "Concurrency"), the line under it is
+CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line (`rows.<place>`) or the statement's draft
+(`file`) changed while it ran
+(contract: POST /v1/statements/import, "Concurrency"), or the pending category or hashtag a
+created row files under was deleted while it was being created (`category_id` or `hashtag_ids`)
+(contract: POST /v1/statements/import), the line under it is
 `It changed while the upload ran: ⏎ checks the paper against the ledger again.` and the footer
 `esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes.
 
@@ -1030,7 +1034,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons"); a statement PDF whose paper prints a currency the picked account does not hold, on `account_id` (contract: POST /v1/statements/import, "Accounts") | none: the engine's words already name the currency; the staged rows stay, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |

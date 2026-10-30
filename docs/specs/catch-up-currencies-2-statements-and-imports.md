@@ -74,7 +74,8 @@ until it is done ("What the owner settled").
    `--account-name SHEET_NAME=LEDGER_NAME` and the saved renames name a sheet account by its name
    alone, and two sheet names may be renamed onto one account ("What the owner settled").
 4. **No request of the upload, the download or the sheet import sends a `/holders` route,
-   `?holder_id=` or a per-currency id**, and the drift check's fixture check is clean.
+   `?holder_id=` or a per-currency id**, and the drift check's fixture check finds nothing in
+   their builders; the Statements screens' builders, which still carry the holder, are spec 7's.
 
 ## How the owner knows it is done
 
@@ -87,7 +88,8 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
 3. A bank download for a two-currency account previews each row with its currency, and imports.
 4. `expense import sheet` on a made-up sheet lists one row per account name with its currencies;
    `--create-names` creates one account per name holding those currencies; `--apply` imports.
-5. The unit suite and the drift check pass whole, the drift check reading `f82426fb0a099676`.
+5. The unit suite passes whole; the drift check reads `f82426fb0a099676` and its fixture check
+   finds nothing outside the Statements screens' builders, which spec 7 moves.
    The live suite passes once specs 3 to 5 are done.
 
 ## What the owner settled
@@ -128,18 +130,7 @@ code it touches, and moves its tests onto spec 1's account builder. The statemen
 [helpers.py](../../tests/unit/helpers.py) that the Statements screens' tests use stay as they
 are until spec 7; the upload's tests build its answers in the shape the engine sends now.
 
-1. **The statement PDF upload on the account (builder).**
-   [statement.py](../../expense/bank_import/statement.py) reads each row's and balance's
-   `currency_code`, and its `review_line_ids` reads the apply's `statement.not_covered` too;
-   [flow.py](../../expense/bank_import/flow.py)'s `statement_call` sends the pick's account;
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py) names lines and
-   balances by currency, one balance line per currency the answer holds, and shows
-   `CURRENCY_NOT_HELD`, `ACCOUNT_CURRENCY_NOT_ON_PAPER`, `MONEY_AT_START_NOT_COVERED` on `file`
-   and `CONCURRENT_CHANGE` in the engine's words.
-   *Passes if:* unit tests pin an upload's body sending the account's id, a card answer's two
-   balance lines and a one-currency answer's one, a flagged line counted from `not_covered`,
-   the retired `HOLDER_ACCOUNT_NOT_ON_PAPER` gone, and each new refusal shown.
-2. **The bank download on the account (builder).**
+1. **The bank download on the account (builder).**
    [flow.py](../../expense/bank_import/flow.py)'s `account_picks` makes one pick per live bank
    account, named by it, its currencies its own, read from the accounts alone; the call sends its
    id; each row's and each day's currency come from their `currency_code`, a card file's day
@@ -151,7 +142,7 @@ are until spec 7; the upload's tests build its answers in the shape the engine s
    *Passes if:* unit tests pin a two-currency account's one line in both doors' lists, the
    call's body, a row's and a day's currency, and the refusal; nothing in flow.py, engine.py,
    bank_import.py or statement_upload.py names a holder.
-3. **The sheet import on account names (builder).**
+2. **The sheet import on account names (builder).**
    [engine.py](../../expense/import_/engine.py) sends `names.accounts` as `{name, account_id}`,
    one per name; the table reads each name's `currencies` and lists them in the CUR column,
    `PEN + USD`; `--create-names` sends `POST /accounts` with each missing name's `currencies`; a
@@ -161,8 +152,9 @@ are until spec 7; the upload's tests build its answers in the shape the engine s
    builder goes. Files: engine.py, [import_cmd.py](../../expense/commands/import_cmd.py),
    [config.py](../../expense/config.py), the sheet tests, commands.md.
    *Passes if:* unit tests pin the body, a two-currency name's create, the table's CUR column, a
-   rename in the new form, and the refusal; the drift check passes whole.
-4. **The saved renames and two names on one account (builder).**
+   rename in the new form, and the refusal; the drift check's fixture check finds nothing in the
+   sheet import's builders.
+3. **The saved renames and two names on one account (builder).**
    A saved rename keyed with a currency is read by its name alone, and two sheet names renamed
    onto one account are allowed, as "What the owner settled" says; commands.md says so.
    *Passes if:* unit tests pin a config holding `BCP:PEN` and `BCP:USD` going to one ledger name
