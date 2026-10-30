@@ -83,6 +83,63 @@ and the sheet import stay broken until spec 2.
    (contract: POST /v1/accounts/{account_id}/archive, "Every currency at once")
    (contract: "What an account is", "An account is deleted whole"); `d`'s question names the
    account and each of its currencies with its balance, as the owner settled.
+7. **The New and Edit account forms write the new model.** A new account's one currency goes in
+   its `currencies`, and a person is created on the same route, as a person
+   (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional"). The Edit
+   form's opening balance is the opened row's currency's, sent with its code
+   (contract: POST /v1/accounts/{account_id}/opening-balance, "Required"). A statement code
+   another account holds is refused in the engine's words alone, as the owner settled
+   (contract: "What an account is", "One account per code").
+8. **The practice-data cleaner's printout** names each account with its currencies and its
+   statement code. Its reads of statements move in spec 3
+   ([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)).
+
+## How the owner knows it is done
+
+On the practice engine, with the practice user's Visa holding soles and dollars:
+
+1. In the LOG bar, `-12.50 $visa` offers "VISA Infinite Sapphire · PEN" and "VISA Infinite
+   Sapphire · USD"; the one picked saves, and the ledger shows the row on it.
+2. On the Edit form, a transaction moved from the Visa's soles to its dollars saves, and the
+   ledger shows it in dollars; moved out of a draft statement, it says it left it, as today.
+3. Home shows the Visa as two rows, each with its own balance; `⏎` on the dollars row opens the
+   ledger on the Visa's dollar rows alone.
+4. On Manage ▸ Accounts, `a` on either of the Visa's rows archives the Visa: both rows dim, and
+   `a` again brings both back. A new bank account and a new person in one currency each save.
+5. The unit suite passes; the drift check reads `f82426fb0a099676`, and its fixture check names
+   only what spec 2 moves: the statements, the PDF upload, the bank download, the sheet import
+   and the holder routes. A transaction in a currency its account does not hold is proven by
+   the unit tests here and live in spec 5.
+
+## What the owner settled
+
+- **A currency shows as its account's name and its code** (owner, 2026-10-29, the engine's
+  hand-off "The owner's rulings"): "VISA Infinite Sapphire · USD"; a currency has no name of its
+  own.
+- **The currency is picked as its own field** (owner, 2026-10-29): in the LOG bar, the Edit form,
+  the ledger and the account forms; that is spec 6's, and until then a currency is picked as
+  "<account> · <code>".
+- **When `t` is refused for an account that has been in a statement, the engine's words show
+  alone** (owner, 2026-10-28, 2 A): the engine refuses an account that was ever in a statement,
+  a deleted one included (contract: POST /v1/accounts/{account_id}/make-person).
+- **`STATEMENT_CODE_EXISTS` reads in the engine's words alone** (owner, 2026-10-28, question 9 A
+  of the cards spec): the app's own line under it goes.
+- **`d` on Manage ▸ Accounts names the whole account until spec 6** (owner, 2026-10-29,
+  question 1 A, [mockups/expense-world-currencies-delete.html](../mockups/expense-world-currencies-delete.html)):
+  whichever of the account's rows the cursor is on, the question's second line is the account,
+  its kind, then each currency it holds with that currency's balance,
+  `Prueba · bank · PEN 0.00 · USD 0.00`, then today's sentence; a one-currency account reads
+  `Efectivo · bank · PEN 350.00`.
+
+---
+
+## Tasks
+
+Approved by the owner on 2026-10-29. Each leaves `pytest tests/unit` green.
+Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
+[runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
+stay, named for what they are, until the task that moves their last user removes them.
+
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
