@@ -17,7 +17,10 @@ The seven specs of this catch-up, run in this order:
 6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md)
 7. this one
 
-**Status:** draft, written 2026-10-29 for the owner to approve. It runs after
+**Status:** draft, written 2026-10-29 for the owner to approve; on 2026-10-30, at the owner's
+ask, it took over the Statements screens' reads and writes from
+[catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
+(point 15, tasks 2 and 9). It runs after
 [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md), last of the seven.
 Its screens are drawn as mockups when it is named the current spec, every option
 its own pane: panes 2A, 3A, 4A, 6A, 7A, 9B, 10B and 11B of
@@ -33,9 +36,11 @@ are redrawn in the account's words; panes 5A and 5B are drawn again for question
 The engine keeps an account's statement as one thing: one name, one set of days, one status
 for the whole account, and a starting and ending balance for each currency with something in
 it, never added together (contract: "Statements"). A Visa month can no longer be half closed.
-[catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
-keeps today's statement screens working on that. This spec makes the screens show the
-statement the way the engine holds it, and the way the bank's paper prints it.
+Today's Statements screens read holders, which are gone, so they do not work against the
+engine; [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
+puts the PDF upload and the two imports on the new model and leaves the screens to this spec
+(owner, 2026-10-30). This spec rebuilds them to show the statement the way the engine holds it,
+and the way the bank's paper prints it.
 
 What the engine now holds, and today's screens do not show:
 
@@ -106,9 +111,11 @@ What the engine now holds, and today's screens do not show:
 11. **A completed statement's footer** shows `d` and not `c` (question 9 B). **An open statement
     on an account with a statement code waits for its PDF:** no ticking, no `c`.
 12. **The PDF upload's and the bank download's account list** name each account by its own name
-    and its currencies, every bank account in both (question 7 A and A). The PDF preview shows
-    each covered currency's balances, and a currency it does not cover as question 2 picks
-    (contract: POST /v1/statements/import, "Which currencies the statement covers").
+    and its currencies, every bank account in both (question 7 A and A), and the PDF preview
+    shows each covered currency's balances and no other (question 2 B)
+    (contract: POST /v1/statements/import, "Which currencies the statement covers"): both built
+    by [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md);
+    this spec keeps them so.
 13. **The new refusals read as question 5 picks:** on the upload `CURRENCY_NOT_HELD`,
     `ACCOUNT_CURRENCY_NOT_ON_PAPER`, `MONEY_AT_START_NOT_COVERED` on `file` and
     `CONCURRENT_CHANGE` (contract: POST /v1/statements/import, "Accounts")
@@ -121,6 +128,15 @@ What the engine now holds, and today's screens do not show:
     `expense-world-card-statement-questions.html` in [mockups/](../mockups/), once the new
     screens' mockups are picked; they are linked from tui.md, decisions.md, todo.md,
     `reconciliations.py` and the statement screens' tests.
+15. **Every statement read and write names the account, and nothing reads a holder.** The
+    statement list is read by the account (contract: GET /v1/statements, "`?account_id=<id>` is required"),
+    a new statement names it, and every balance is keyed by its currency
+    (contract: POST /v1/statements, "`balances`") (contract: PUT /v1/statements/{statement_id}, "`balances`");
+    an account's statement code is read from the account
+    (contract: "What an account is", "Statement code"); a statement's lines are read with
+    `?account_id=`, and with `?currency_code=` where one currency's are wanted
+    (contract: GET /v1/bank-lines, "Filters"). No request sends a `/holders` route or
+    `?holder_id=`, and nothing in the code or the tests names a holder.
 
 ## How the owner knows it is done
 
@@ -132,18 +148,18 @@ What the engine now holds, and today's screens do not show:
    balances, `-300.00` → `-300.00`, and completes; left out, it is refused by name and the screen
    asks for them as question 3 picks.
 4. On an account with no statement code, ticking a dollar line into a soles-only draft shows
-   the dollars blank, "not entered" as question 3 picks; `c` asks for them, and with them
-   filled the statement completes.
+   the dollars blank, as question 3 picks; `c` asks for them, and with them filled the
+   statement completes.
 5. The close's notes on a currency the statement does not cover show as question 4 picks.
 6. An open statement on an account with a statement code offers no ticking and no `c`; a
    completed one offers `d` and not `c`.
 7. The flagged lines show as question 6 says, and the account's lines in no statement list
    every currency together, oldest first.
 8. A line moved to its account's other currency stays in its open statement.
-9. The PDF upload and the bank download list each bank account once, its name and currencies;
-   a PDF refusal shows as question 5 picks.
+9. A PDF refusal shows as question 5 picks.
 10. No screen says "reconciliation".
-11. The unit suite, the live suite and the drift check pass.
+11. No request the app sends names a holder.
+12. The unit suite, the live suite and the drift check pass.
 
 ## What the owner settled
 
@@ -172,6 +188,10 @@ All answered 2026-10-28, each as recommended, in the card statement spec this on
   screens.
 
 And earlier:
+
+- **The lines a close flags show in the engine's order** (owner, 2026-10-28, 1 A): the
+  statement's order, every currency of the account together, is the only order the engine gives
+  this list (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
 
 - **An account with a statement code waits for its PDF** (owner, 2026-10-27, question 5 A of
   [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html)):
@@ -250,16 +270,24 @@ the question, the files named and the tui.md section named.
    "reconciliation"; a test fails on one; tui.md says "Statements".
 2. **The browse and the list of statements** (point 2; questions 2 and 3). The browse and
    `statement_headers` in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4 "The Reconciliations browse". *Passes if:* one row per bank account
-   with its currencies; each statement row shows a difference per covered currency, its status
-   and order, an uncovered currency and a blank balance as questions 2 and 3 pick; the tests
-   pin each.
+   their tests; tui.md §4 "The Reconciliations browse". With it the reads under it (point 15):
+   the statement builders in [helpers.py](../../tests/unit/helpers.py) read as the engine does
+   now, `account_id`, `balances` by `currency_code` with a beginning balance that may be
+   `null`, and `not_covered` on the complete; `fetch_statements` in
+   [reads.py](../../expense/reads.py) takes the account's id; the code is read from the account;
+   `balance_of`, `statement_columns` and their kin key by currency; `holder_of` and
+   `holder_mates` go. *Passes if:* one row per bank account with its currencies; each statement
+   row shows a difference per covered currency, its status and order, an uncovered currency and
+   a blank balance as questions 2 and 3 pick; the one read is
+   `GET /statements?account_id=`; the tests pin each.
 3. **The New statement form** (point 5; question 1). `NewReconciliationScreen` and
    `NewCardStatementScreen` in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
    one form for every account, and its tests; tui.md §4 "A card statement's create form". *Passes
    if:* one `POST /statements` with `account_id` and an entry per currency typed; a currency left
    empty is not sent; `MONEY_AT_START_NOT_COVERED` puts the cursor on that currency's starting
-   balance with the engine's words; the tests pin each.
+   balance with the engine's words; a `CURRENCY_NOT_HELD` on `balances.<i>.currency_code` shows
+   in the engine's words; the retired `ACCOUNT_NOT_ON_HOLDER` and `HOLDER_ACCOUNTS_MISSING` leave
+   the tests; the tests pin each.
 4. **The statement's head and its one list** (points 3 and 4; questions 2 and 3). The detail
    screen in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
    [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) and the statement
@@ -285,14 +313,15 @@ the question, the files named and the tui.md section named.
    show whenever the review list counts any, open or completed; on an account with a code the
    two ways read as words; `u` lists the account's lines in no statement in one read with its
    count, oldest first; the tests pin each.
-8. **The PDF upload and the account list; old mockups go** (points 12 to 14; questions 2 and 5).
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py),
-   [bank_import.py](../../expense/tui/screens/bank_import.py), `account_picks` in
-   [flow.py](../../expense/bank_import/flow.py) and their tests; tui.md §2 "A statement PDF
-   closes its month". *Passes if:* the list names each bank account by name and currencies, in
-   both doors; the preview shows covered and uncovered currencies as question 2 picks; each new
-   refusal reads as question 5 picks; the replaced mockups are deleted and
-   `test_docs_links.py` passes.
+8. **The upload's refusals; old mockups go** (points 13 and 14; question 5).
+   [statement_upload.py](../../expense/tui/screens/statement_upload.py) and its tests; tui.md §2
+   "A statement PDF closes its month". *Passes if:* each new refusal reads as question 5 picks;
+   the replaced mockups are deleted and `test_docs_links.py` passes.
+9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
+   [reads.py](../../expense/reads.py), the holder builders in
+   [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer
+   need them. *Passes if:* nothing in the code or the tests names a holder; no request sends
+   `/holders` or `?holder_id=`; the drift check passes whole.
 
 ## Reply to the engine
 
