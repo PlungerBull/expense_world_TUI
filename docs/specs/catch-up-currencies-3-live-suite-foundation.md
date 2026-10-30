@@ -87,22 +87,10 @@ None.
 
 Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it. Each fixes the `(contract: …)` citations of the files it touches.
-Files left to spec 4 may fail live until it runs. `test_card_statement.py` (tasks 7 and 8)
-skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
-skip and its `# ruff: noqa: E402` line.
+Files left to spec 4 may fail live until it runs.
 
-7. **A statement's currencies, part 1 (builder).**
-   [test_card_statement.py](../../tests/contract/test_card_statement.py), renamed for an
-   account's statement, every half and twin test gone (`HOLDER_ACCOUNTS_MISSING` and
-   `?statement_of=` with them): one statement per account holding PEN and USD; a currency with
-   nothing this month left out of `POST /statements`, and listed in `not_covered` at the close
-   (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"); `DIFFERENCE_NOT_ZERO`
-   keyed `balances.<code>.difference_cents`; the quiet currency closing with no line when its
-   two balances are equal; a `PUT` naming one currency keeping the other; an archived account's
-   statements frozen (contract: "Bank Accounts", "Its statements are frozen").
-   *Passes if:* those tests pass live and the file names no `twin`, half, `/reconciliations`
-   or `HOLDER_ACCOUNTS_MISSING`.
-8. **A statement's currencies, part 2 (builder).** In the same file:
+8. **A statement's currencies, part 2 (builder).** In
+   [test_statement_currencies.py](../../tests/contract/test_statement_currencies.py):
    `MONEY_AT_START_NOT_COVERED` on `balances.<code>` from `POST /statements` and from the
    complete, cleared by adding that currency with `PUT /statements/{id}`
    (contract: POST /v1/statements/{statement_id}/complete, "Every currency with money at the start has balances in it");
