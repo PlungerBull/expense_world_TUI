@@ -46,6 +46,7 @@ from urllib.parse import urlsplit
 from expense.config import Config
 from expense.errors import EngineError
 from expense.http import ExpenseClient
+from expense.reads import held_currencies
 
 #: The name prefixes the live contract tests give what they build. A record a test leaves
 #: fails that test whatever its name (`leaves_nothing` in tests/contract/conftest.py).
@@ -207,7 +208,11 @@ def describe(found: Plan) -> list[str]:
         archived = ", archived" if a["is_archived"] else ""
         code = a.get("statement_code") or "no code"
         count = found.transactions.get(a["id"], 0)
-        lines.append(f"  {a['name']!r} ({a['currency_code']}, {code}{archived}), {count} tx")
+        held = (
+            ", ".join(entry["currency_code"] for _, _, entry in held_currencies([a]))
+            or "no currency"
+        )
+        lines.append(f"  {a['name']!r} ({held}; {code}{archived}), {count} tx")
     lines.append(f"statements: {len(found.statements)}")
     for halves in found.statements:
         state = "completed" if any(h["status"] == _COMPLETED for h in halves) else "draft"

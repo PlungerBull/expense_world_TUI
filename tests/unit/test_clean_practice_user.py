@@ -16,7 +16,7 @@ import respx
 from expense.config import Config
 from expense.http import ExpenseClient
 from tests.scripts_loader import load_script
-from tests.unit.helpers import account_record
+from tests.unit.helpers import account_record, account_with_currencies, held_currency
 
 PRACTICE = "http://127.0.0.1:8002"
 TARGET = ["--engine-url", PRACTICE]
@@ -151,6 +151,29 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
     assert "'contract-c-1'" in out and "'freshman-h'" in out
     for untouched in ("BCP Signature", "stmt r2", "@Pendiente", "'Pendiente'"):
         assert untouched not in out
+    assert engine.calls == []
+
+
+@respx.mock
+def test_the_listing_names_each_account_with_its_currencies_and_code(script, capsys):
+    engine = FakeEngine(
+        accounts=[
+            account_with_currencies(
+                id="a1",
+                name="contract-card",
+                statement_code="CRD",
+                currencies=[held_currency("PEN"), held_currency("USD")],
+            ),
+            account_with_currencies(id="a2", name="contract-plain"),
+        ],
+    )
+    _serve(engine)
+
+    assert script.main(TARGET) == 0
+
+    out = capsys.readouterr().out
+    assert "'contract-card' (PEN, USD; CRD), 0 tx" in out
+    assert "'contract-plain' (PEN; no code), 0 tx" in out
     assert engine.calls == []
 
 
