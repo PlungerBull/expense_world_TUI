@@ -815,21 +815,64 @@ def test_a_rename_is_remembered_by_name_and_a_flag_replaces_it(sheet):
     assert "  BCP          PEN + USD   1,515   Sueldo Soles  missing\n" in result.stdout
 
 
-@respx.mock
-def test_a_rename_saved_with_a_currency_renames_nothing_and_does_not_crash(sheet):
-    """A key of the form `NAME:CUR` is a name no sheet uses: the run goes on as if
-    it were not there, and nothing reads your accounts for it."""
+def _save_names(names):
     config_module.save(
-        config_module.ensure_loaded().model_copy(
-            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
-        )
+        config_module.ensure_loaded().model_copy(update={"sheet_account_names": names})
     )
+
+
+@respx.mock
+def test_saved_renames_with_a_currency_going_to_one_ledger_name_are_one_rename(sheet):
+    _save_names({"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Soles"})
     _engine(_answer(yours=False))
-    accounts = _accounts([])
+    _accounts([])
     result = _run()
     assert result.exit_code == 0, _out(result)
-    assert "  BCP          PEN + USD   1,515   missing\n" in result.stdout
-    assert accounts.call_count == 0
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  missing\n" in result.stdout
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_saved_renames_of_one_name_going_to_two_ledger_names_stop_the_run(sheet, step):
+    _save_names({"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares"})
+    _engine(_answer(yours=False))
+    _accounts([])
+    creates = _creates()
+    before = config_module.config_path().read_text()
+    result = _run(*step)
+    assert result.exit_code == 2, _out(result)
+    words = strip_panel(_out(result))
+    assert "Invalid value" not in words
+    assert (
+        'Your saved renames send "BCP" to both "Sueldo Soles" and "Sueldo Dólares". '
+        'Choose one with --account-name "BCP=<ledger name>".'
+    ) in " ".join(words.split())
+    assert config_module.config_path().read_text() == before
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@respx.mock
+def test_a_sheet_account_named_with_a_currency_cannot_be_renamed(sheet):
+    """A trailing `:` and three capital letters reads as a currency, so the
+    flag names `Caja`, which the sheet lacks; nothing is saved."""
+    answer = sheet_import_answer(accounts=[sheet_name_use("Caja:USD", 3, currencies=["USD"])])
+    _engine(answer)
+    _accounts([])
+    result = _run("--account-name", "Caja:USD=Efectivo")
+    assert result.exit_code == 2, _out(result)
+    assert 'the sheet has no account "Caja:USD".' in strip_panel(_out(result))
+    assert _saved() == {}
+
+
+@respx.mock
+def test_a_flag_replaces_every_saved_key_of_its_name_and_ends_the_stop(sheet):
+    _save_names({"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "bcp": "Old"})
+    _engine(_answer(yours=False))
+    _accounts([])
+    result = _run("--account-name", "BCP=Sueldo Soles")
+    assert result.exit_code == 0, _out(result)
+    assert _saved() == {"BCP": "Sueldo Soles"}
 
 
 @pytest.mark.parametrize("value", ["BCP", "BCP:PEN", "BCP=", "=Sueldo"])
@@ -843,23 +886,19 @@ def test_a_malformed_rename_is_a_usage_error_before_anything_is_sent(sheet, valu
     assert not respx.calls
 
 
-@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
 @respx.mock
-def test_a_rename_putting_two_sheet_accounts_on_one_is_a_usage_error(sheet, step):
-    """Checked against the engine's list of the sheet's names; nothing is
-    created, imported or saved."""
-    _engine(_answer(yours=False))
-    _accounts([])
-    creates = _creates()
-    before = config_module.config_path().read_text()
-    result = _run("--account-name", "BCP=interbank", *step)
-    assert result.exit_code == 2, _out(result)
-    words = strip_panel(_out(result))
-    assert "Invalid value for '--account-name'" in words
-    assert '"BCP" and "Interbank" would both be written as "Interbank".' in words
-    assert config_module.config_path().read_text() == before
-    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
-    assert all(r.call_count == 0 for r in creates.values())
+def test_two_sheet_names_renamed_onto_one_account_go_with_the_same_account_id(sheet):
+    """The engine decides what may share an account."""
+    answer = _answer(yours=True)
+    route = _engine(answer, _answer(yours=True, dry_run=False))
+    _accounts([account_with_currencies(id="acc-sueldo", name="Sueldo")])
+    result = _run("--account-name", "BCP=Sueldo", "--account-name", "Interbank=sueldo", "--apply")
+    assert result.exit_code == 0, _out(result)
+    sent = json.loads(route.calls[-1].request.content)["names"]["accounts"]
+    assert sent[:2] == [
+        {"name": "BCP", "account_id": "acc-sueldo"},
+        {"name": "Interbank", "account_id": "acc-sueldo"},
+    ]
 
 
 @respx.mock

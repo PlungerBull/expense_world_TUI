@@ -31,6 +31,7 @@ from expense.import_.engine import (
     SheetCounts,
     Stage,
     Step,
+    check_disputed,
     check_renames,
     import_sheet,
     merge_renames,
@@ -241,21 +242,61 @@ def test_a_malformed_account_name_is_refused_in_words(value):
 
 def test_a_saved_rename_is_keyed_by_the_sheets_name():
     """`sheet_account_names` keys are sheet names, trimmed and case-insensitive;
-    an older `NAME:CUR` key is just a name no sheet uses, so it renames nothing."""
-    assert saved_renames({"BCP": "Sueldo Soles", " A:B ": " X ", "Empty": " ", " ": "Z"}) == {
-        rename_key("bcp"): "Sueldo Soles",
-        "a:b": "X",
-    }
-    table = names_table(DRY, saved_renames({"BCP Oro:PEN": "Old"}), [])
-    assert table[0].renamed_to is None
+    a key with a currency is read by its name alone."""
+    renames, disputed = saved_renames(
+        {"BCP": "Sueldo Soles", " A:B ": " X ", "Empty": " ", " ": "Z", "Oro:PEN": "Old"}
+    )
+    assert renames == {rename_key("bcp"): "Sueldo Soles", "a:b": "X", "oro": "Old"}
+    assert disputed == {}
+    table = names_table(DRY, saved_renames({"BCP Oro:PEN": "Old"})[0], [])
+    assert table[0].renamed_to == "Old"
+
+
+def test_keys_of_one_name_going_to_one_ledger_name_are_one_rename():
+    renames, disputed = saved_renames(
+        {"BCP:PEN": "Sueldo Soles", "BCP:USD": " sueldo soles ", "bcp": "Sueldo Soles"}
+    )
+    assert renames == {"bcp": "Sueldo Soles"}
+    assert disputed == {}
+
+
+def test_keys_of_one_name_going_to_two_ledger_names_are_disputed():
+    renames, disputed = saved_renames(
+        {"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "Other": "X"}
+    )
+    assert renames == {"other": "X"}
+    assert disputed == {"bcp": ("Sueldo Soles", "Sueldo Dólares")}
+    table = names_table(TWO_ACCOUNTS, renames, [])
+    with pytest.raises(RenameRefused) as refused:
+        check_disputed(table, disputed)
+    assert str(refused.value) == (
+        'Your saved renames send "BCP" to both "Sueldo Soles" and "Sueldo Dólares". '
+        'Choose one with --account-name "BCP=<ledger name>".'
+    )
+    check_disputed(table, {"nobody": ("A", "B")})
+
+
+def test_a_flag_name_and_a_saved_key_are_read_by_one_rule():
+    """A trailing `:` and three capital letters is a currency in both."""
+    merged, renames, disputed = merge_renames(
+        {"Caja:USD": "Old", "caja": "Older"}, [("Caja:PEN", "Efectivo")]
+    )
+    assert merged == {"Caja:PEN": "Efectivo"}
+    assert renames == {"caja": "Efectivo"}
+    assert disputed == {}
+    assert saved_renames({"Caja:usd": "X"})[0] == {"caja:usd": "X"}  # lower-case: a name
+    table = names_table(sheet_import_answer(accounts=[sheet_name_use("Caja:USD", 1)]), renames, [])
+    with pytest.raises(RenameRefused, match='the sheet has no account "Caja:USD"'):
+        check_renames(table, [("Caja:USD", "Efectivo")])
 
 
 def test_a_flag_replaces_the_saved_rename_of_its_account_in_any_letter_case():
-    merged, renames = merge_renames(
-        {"Bcp": "Old", "Interbank": "Dolares"}, [("BCP", "Sueldo Soles")]
+    merged, renames, disputed = merge_renames(
+        {"Bcp": "Old", "Interbank": "Dolares", "BCP:USD": "Older"}, [("BCP", "Sueldo Soles")]
     )
     assert merged == {"Interbank": "Dolares", "BCP": "Sueldo Soles"}
     assert renames == {rename_key("Interbank"): "Dolares", rename_key("BCP"): "Sueldo Soles"}
+    assert disputed == {}
 
 
 # ---- the names table ---------------------------------------------------------------
@@ -357,12 +398,18 @@ def test_a_flag_for_an_account_the_sheet_lacks_is_refused():
     check_renames(table, [(" interbank ", "Sueldo")])  # trimmed, any letter case
 
 
-def test_a_rename_putting_two_sheet_accounts_on_one_is_refused():
-    renames = {rename_key("BCP"): "interbank"}
-    table = names_table(TWO_ACCOUNTS, renames, [])
-    with pytest.raises(RenameRefused) as refused:
-        check_renames(table, [("BCP", "interbank")])
-    assert str(refused.value) == '"BCP" and "Interbank" would both be written as "Interbank".'
+def test_a_rename_putting_two_sheet_accounts_on_one_is_not_refused():
+    """The engine decides what may share an account; both names go to one id."""
+    renames = {rename_key("BCP"): "sueldo", rename_key("Interbank"): "Sueldo"}
+    accounts = [account_with_currencies(id="acc-s", name="Sueldo")]
+    table = names_table(TWO_ACCOUNTS, renames, accounts)
+    check_renames(table, [("BCP", "sueldo"), ("Interbank", "Sueldo")])
+    sent = [e for e in table if e.kind == ACCOUNT]
+    assert [(e.name, e.target_id) for e in sent] == [
+        ("BCP", "acc-s"),
+        ("Interbank", "acc-s"),
+        ("bcp", "acc-s"),
+    ]
 
 
 def test_names_one_rename_covers_are_one_account_not_two():

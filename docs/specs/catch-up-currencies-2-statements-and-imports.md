@@ -131,12 +131,7 @@ code it touches, and moves its tests onto spec 1's account builder. The statemen
 [helpers.py](../../tests/unit/helpers.py) that the Statements screens' tests use stay as they
 are until spec 7; the upload's tests build its answers in the shape the engine sends now.
 
-1. **The saved renames and two names on one account (builder).**
-   A saved rename keyed with a currency is read by its name alone, and two sheet names renamed
-   onto one account are allowed, as "What the owner settled" says; commands.md says so.
-   *Passes if:* unit tests pin a config holding `BCP:PEN` and `BCP:USD` going to one ledger name
-   (read as one rename) and to two (the run stops, naming both, nothing imported), and two names
-   renamed onto one account sent to the engine.
+Every task is done.
 
 ## Reply to the engine
 

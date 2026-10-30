@@ -31,6 +31,7 @@ from expense.import_.engine import (
     HASHTAG,
     NameEntry,
     RenameRefused,
+    SavedRenamesDisputed,
     SheetImport,
     Step,
     import_sheet,
@@ -336,8 +337,11 @@ def run_import(
     --account-name "SHEET_NAME=LEDGER_NAME" puts one sheet account's rows on
     a ledger account of your choosing ("BCP=Sueldo Soles"). It is saved to
     the config and applied on every later run; passing it again for the same
-    account replaces the saved name. An account the sheet does not have, or
-    two sheet accounts put on one, is a usage error and nothing is saved.
+    account replaces the saved name. An account the sheet does not have is a
+    usage error and nothing is saved. Two sheet accounts may be put on one
+    ledger account. When the saved renames send one sheet account to two
+    ledger names, the run stops (a usage error) before anything is written,
+    naming both; --account-name for that account fixes it.
 
     Example: expense import sheet Presupuesto.xlsx
 
@@ -365,12 +369,20 @@ def run_import(
         raise typer.Exit(code=1) from exc
 
     saved = dict(cfg.sheet_account_names)
-    merged, renames = merge_renames(saved, flags)
+    merged, renames, disputed = merge_renames(saved, flags)
     step = Step.APPLY if apply else Step.CREATE_NAMES if create_names else Step.DRY_RUN
     try:
         result = import_sheet(
-            cfg, data, step=step, renames=renames, flags=flags, verbose=get_verbose(ctx)
+            cfg,
+            data,
+            step=step,
+            renames=renames,
+            flags=flags,
+            disputed=disputed,
+            verbose=get_verbose(ctx),
         )
+    except SavedRenamesDisputed as exc:
+        raise click.UsageError(str(exc)) from exc
     except RenameRefused as exc:
         raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc
     # Remembered once the renames were checked against this sheet, a dry run's too.

@@ -23,6 +23,7 @@ names and refuses a bad sheet before anything else is sent:
 Every write is one `ExpenseClient.post`, which carries its own idempotency key.
 """
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -66,9 +67,8 @@ def request_body(data: bytes, *, dry_run: bool, names: dict | None = None) -> di
 # renames: --account-name and the config's `sheet_account_names`
 # ---------------------------------------------------------------------------
 class RenameRefused(ValueError):
-    """A rename the import cannot take: malformed, naming an account the sheet
-    lacks, or putting two of the sheet's accounts on one. The message is the
-    sentence the command shows."""
+    """A rename the import cannot take: malformed, or naming an account the sheet
+    lacks. The message is the sentence the command shows."""
 
 
 #: One `--account-name`: the sheet's name and the ledger name.
@@ -85,7 +85,8 @@ def parse_account_name(value: str) -> Rename:
     """`"BCP=Sueldo Soles"` → `("BCP", "Sueldo Soles")`.
 
     The ledger name is everything after the first `=`; the sheet's name is
-    what comes before it, and may itself hold a colon or a currency.
+    what comes before it (it may itself hold a colon; one ending in `:` and
+    three capital letters is read as written with a currency, `saved_name`).
     """
     sheet, eq, ledger = value.partition("=")
     sheet, ledger = sheet.strip(), ledger.strip()
@@ -94,30 +95,74 @@ def parse_account_name(value: str) -> Rename:
     return sheet, ledger
 
 
-def saved_renames(saved: Mapping[str, str]) -> dict[str, str]:
-    """The config's `sheet_account_names` (`"BCP"` → `"Sueldo Soles"`) keyed
-    by `rename_key`; a key with no name, or a rename with no ledger name, is
-    left out. A key that no sheet name matches (such as an older `"BCP:PEN"`)
-    renames nothing."""
-    out: dict[str, str] = {}
+_CURRENCY_SUFFIX = re.compile(r":[A-Z]{3}$")
+
+
+def saved_name(saved_key: str) -> str:
+    """The sheet name a saved key stands for: a saved key ending in `:` and an
+    upper-case code (`"BCP:PEN"`) is read as its name written with a currency,
+    so as `"BCP"`. A `--account-name` is read the same way, so a sheet account
+    whose own name ends in `:` and three capital letters cannot be renamed."""
+    return _CURRENCY_SUFFIX.sub("", saved_key.strip())
+
+
+def saved_renames(saved: Mapping[str, str]) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
+    """The config's `sheet_account_names` (`"BCP"` → `"Sueldo Soles"`) as
+    `(renames, disputed)`, both keyed by `rename_key` of the sheet's name; a key
+    with no name, or a rename with no ledger name, is left out.
+
+    The keys of one name (`"BCP:PEN"`, `"BCP:USD"`, `"BCP"`) that go to one
+    ledger name (compared as the engine compares account names) are one
+    rename. Keys that go to different ledger names put the name in `disputed`
+    with each ledger name once, in the order saved, and out of `renames`."""
+    found: dict[str, list[str]] = {}
     for saved_key, ledger in saved.items():
-        if saved_key.strip() and ledger.strip():
-            out[rename_key(saved_key)] = ledger.strip()
-    return out
+        name, ledger = saved_name(saved_key), ledger.strip()
+        if name and ledger:
+            ledgers = found.setdefault(rename_key(name), [])
+            if all(rename_key(ledger) != rename_key(seen) for seen in ledgers):
+                ledgers.append(ledger)
+    renames = {key: ledgers[0] for key, ledgers in found.items() if len(ledgers) == 1}
+    disputed = {key: tuple(ledgers) for key, ledgers in found.items() if len(ledgers) > 1}
+    return renames, disputed
 
 
 def merge_renames(
     saved: Mapping[str, str], flags: Iterable[Rename]
-) -> tuple[dict[str, str], dict[str, str]]:
-    """The saved renames with this run's flags: a flag replaces a saved entry
-    for the same sheet account, whatever its letter case. Returns the
-    `sheet_account_names` to save and the renames keyed by `rename_key`."""
+) -> tuple[dict[str, str], dict[str, str], dict[str, tuple[str, ...]]]:
+    """The saved renames with this run's flags: a flag replaces every saved key
+    of the same sheet account, whatever its letter case and whether or not the
+    key carries a currency. Returns the `sheet_account_names` to save, the
+    renames and the disputed names (`saved_renames`). A flag's name is read like
+    a saved key (`saved_name`)."""
     merged = dict(saved)
     for sheet, ledger in flags:
-        for old in [k for k in merged if rename_key(k) == rename_key(sheet)]:
+        for old in [
+            k for k in merged if rename_key(saved_name(k)) == rename_key(saved_name(sheet))
+        ]:
             del merged[old]
         merged[sheet] = ledger
-    return merged, saved_renames(merged)
+    renames, disputed = saved_renames(merged)
+    return merged, renames, disputed
+
+
+class SavedRenamesDisputed(RenameRefused):
+    """The saved renames send one sheet name to different ledger names: a usage
+    error of the run, not of any `--account-name` typed."""
+
+
+def check_disputed(table: list["NameEntry"], disputed: Mapping[str, tuple[str, ...]]) -> None:
+    """Refuse (`SavedRenamesDisputed`) a sheet name the saved renames send to
+    different ledger names; only the sheet's own accounts count."""
+    for entry in table:
+        ledgers = disputed.get(rename_key(entry.name)) if entry.kind == ACCOUNT else None
+        if ledgers:
+            quoted = [f'"{ledger}"' for ledger in ledgers]
+            both = f"{', '.join(quoted[:-1])} and {quoted[-1]}"
+            raise SavedRenamesDisputed(
+                f'Your saved renames send "{entry.name}" to both {both}. '
+                f'Choose one with --account-name "{entry.name}=<ledger name>".'
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -213,24 +258,13 @@ def names_table(
 
 def check_renames(table: list[NameEntry], flags: Iterable[Rename]) -> None:
     """Refuse (`RenameRefused`) a flag naming an account the sheet does not
-    have, and a rename that puts two of the sheet's accounts on one: the same
-    ledger name, compared as the engine compares account names. Two of the
-    sheet's names that one rename covers (`BCP` and `bcp`) are one account to
-    it, not two."""
-    accounts = [e for e in table if e.kind == ACCOUNT]
-    listed = {rename_key(e.name) for e in accounts}
+    have. Two of the sheet's names renamed onto one account are sent as they
+    are, with the same `account_id`: the engine decides what may share one
+    (contract: POST /v1/transactions/import-sheet, "Names")."""
+    listed = {rename_key(e.name) for e in table if e.kind == ACCOUNT}
     for sheet, _ledger in flags:
-        if rename_key(sheet) not in listed:
+        if rename_key(saved_name(sheet)) not in listed:
             raise RenameRefused(f'the sheet has no account "{sheet}".')
-    landing: dict[str, NameEntry] = {}
-    for entry in accounts:
-        other = landing.setdefault(entry.ledger_name.strip().casefold(), entry)
-        if other is entry or rename_key(other.name) == rename_key(entry.name):
-            continue
-        if other.renamed_to is not None or entry.renamed_to is not None:
-            raise RenameRefused(
-                f'"{other.name}" and "{entry.name}" would both be written as "{entry.ledger_name}".'
-            )
 
 
 def missing_names(table: list[NameEntry]) -> list[NameEntry]:
@@ -410,15 +444,17 @@ def import_sheet(
     step: Step,
     renames: Mapping[str, str],
     flags: Iterable[Rename] = (),
+    disputed: Mapping[str, tuple[str, ...]] | None = None,
     verbose: bool = False,
 ) -> SheetImport:
     """Run one step of the sheet import on the workbook's bytes.
 
     A dry run without the table first: a refused sheet stops here, nothing
     created. Your accounts are read only when an account the sheet uses has a
-    rename (`reads.fetch_accounts`), and this run's `flags` are checked
-    against the sheet (`check_renames`, which raises `RenameRefused` before
-    anything else is sent). Then, by `step`:
+    rename (`reads.fetch_accounts`), the `disputed` saved names the sheet uses
+    (`check_disputed`) and this run's `flags` (`check_renames`) are checked
+    against the sheet, each raising `RenameRefused` before anything else is
+    sent. Then, by `step`:
 
     - `DRY_RUN`: with no name missing, the dry run again with the table, for
       the counts; with one missing, nothing more.
@@ -444,6 +480,7 @@ def import_sheet(
                     )
                 )
             table = names_table(answer, renames, accounts)
+            check_disputed(table, disputed or {})
             check_renames(table, flags)
             result.table = table
             missing = result.missing
