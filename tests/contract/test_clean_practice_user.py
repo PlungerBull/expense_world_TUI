@@ -37,14 +37,14 @@ def test_the_script_removes_what_a_test_left(client):
         for currency in ("PEN", "USD"):
             scratch.opening_balance(account, "2026-01-01", currency)
 
-        closed = scratch.statement(account, "2026-02-01", "2026-02-28", "PEN", "USD")
+        closed = scratch.statement(account, "2026-02-01", "2026-02-28", "PEN", "USD")["id"]
         lines = len(scratch.transactions)
         for currency in ("PEN", "USD"):
             scratch.line(account, "2026-02-10", 2500, currency=currency)
             scratch.line(account, "2026-02-11", -2500, currency=currency)
         for tx in scratch.transactions[lines:]:
-            client.put(f"/transactions/{tx}", json_body={"statement_id": closed})
-        draft = scratch.statement(account, "2026-03-01", "2026-03-31", "PEN", "USD")
+            scratch.assign(tx, closed)
+        draft = scratch.statement(account, "2026-03-01", "2026-03-31", "PEN", "USD")["id"]
         assert client.post(f"/statements/{closed}/complete")["status"] == 2
         client.post(f"/accounts/{account}/archive")
 

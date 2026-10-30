@@ -181,7 +181,7 @@ def test_an_archived_accounts_transaction_takes_only_its_categorisation(client, 
     tx_id = scratch.row(
         account_id, DAY, title="archived-row", operation_code=f"OP-{uuid4().hex[:8]}"
     )["id"]
-    draft_id = scratch.statement(account_id, "2026-04-01", "2026-04-30")
+    draft_id = scratch.statement(account_id, "2026-04-01", "2026-04-30")["id"]
     _archive(client, scratch, account_id)
 
     path = f"/transactions/{tx_id}"

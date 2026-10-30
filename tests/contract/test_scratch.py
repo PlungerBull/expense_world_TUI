@@ -17,7 +17,7 @@ def test_two_currency_account_with_opening_balances_and_statements_leaves_nothin
     scratch.opening_balance(account, "2026-01-01", "PEN")
     scratch.opening_balance(account, "2026-01-01", "USD")
     scratch.line(account, "2026-01-10", -1000, currency="USD")
-    statement = scratch.statement(account, "2026-01-01", "2026-01-31", "PEN", "USD")
+    statement = scratch.statement(account, "2026-01-01", "2026-01-31", "PEN", "USD")["id"]
 
     read = client.get(f"/statements/{statement}")
     assert {b["currency_code"] for b in read["balances"]} == {"PEN", "USD"}

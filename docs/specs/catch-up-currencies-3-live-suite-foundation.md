@@ -91,17 +91,6 @@ Files left to spec 4 may fail live until it runs. `test_card_statement.py` (task
 skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
 skip and its `# ruff: noqa: E402` line.
 
-6. **A statement's life (builder).**
-   [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py),
-   renamed for statements, on `/statements`: made, renamed, completed, reverted and deleted as
-   one record, its balances keyed by `currency_code`; `NO_TRANSACTIONS_ASSIGNED` on
-   `balances.<code>.transactions` for every currency of the statement, each reading "At least
-   one transaction must be assigned."; the account's list, `?account_id=` required
-   (`REQUIRED`, `INVALID_FORMAT`, an unknown id `[]`); the period's refusals; complete locking
-   a transaction and revert unlocking it; delete keeping its transactions; an archived
-   account's statements frozen until unarchived.
-   *Passes if:* the file passes live and names no `/reconciliations`, `reconciliation_id`,
-   half or `twin`.
 7. **A statement's currencies, part 1 (builder).**
    [test_card_statement.py](../../tests/contract/test_card_statement.py), renamed for an
    account's statement, every half and twin test gone (`HOLDER_ACCOUNTS_MISSING` and

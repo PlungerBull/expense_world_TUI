@@ -165,12 +165,12 @@ def test_a_completed_statement_holds_its_rows_and_itself(client, scratch):
     account_id = scratch.account()
     tx_id = str(uuid4())
     _make_transaction(scratch, tx_id, account_id)
-    statement_id = scratch.statement(account_id, "2026-01-01", "2026-01-31")
+    statement_id = scratch.statement(account_id, "2026-01-01", "2026-01-31")["id"]
     client.put(
         f"/statements/{statement_id}",
         json_body={"balances": [{"currency_code": "PEN", "ending_balance_cents": -100}]},
     )
-    client.put(f"/transactions/{tx_id}", json_body={"statement_id": statement_id})
+    scratch.assign(tx_id, statement_id)
     client.post(f"/statements/{statement_id}/complete")
 
     # 5 — the row in it, then the statement itself.

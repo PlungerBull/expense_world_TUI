@@ -184,10 +184,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   `r` should read it that way and treat a `404` as gone. Its comment and the docstring of
   `test_r_refreshes_record_from_its_account_list_and_never_writes` still say there is no read by
   id ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 1077,
-  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) line 1074). The
-  lifecycle contract test's docstring says the state machine follows the read by id; the next
-  test is `test_a_period_refuses_any_datetime`
-  ([test_reconciliations_lifecycle.py](../tests/contract/test_reconciliations_lifecycle.py)).
+  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) line 1074).
 
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),

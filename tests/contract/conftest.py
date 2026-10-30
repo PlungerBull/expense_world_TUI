@@ -621,6 +621,36 @@ def account_body(*codes: str, code: str | None = None, person: bool = False) -> 
     return body
 
 
+def statement_create_body(
+    account_id: str,
+    start: str,
+    end: str,
+    *currencies: str,
+    balances: list[dict] | None = None,
+    **fields,
+) -> dict:
+    """A `POST /statements` body under a fresh id over the calendar days `start` to `end`:
+    `balances` as given, else one entry per currency in `currencies` (PEN when none), each
+    beginning and ending at 0 so nothing but the rule under test stands in the way of
+    completing it; `fields` replace or add keys (contract: POST /v1/statements,
+    "Required")."""
+    new_id = str(uuid4())
+    return {
+        "id": new_id,
+        "account_id": account_id,
+        "name": f"contract-stmt-s-{new_id[:8]}",
+        "date_start": start,
+        "date_end": end,
+        "balances": balances
+        if balances is not None
+        else [
+            {"currency_code": c, "beginning_balance_cents": 0, "ending_balance_cents": 0}
+            for c in (currencies or ("PEN",))
+        ],
+        **fields,
+    }
+
+
 class Scratch:
     """What one test builds on the practice user, undone in reverse dependency order:
     archived accounts unarchived, statements reverted and deleted, transactions (opening
@@ -665,32 +695,28 @@ class Scratch:
         self.client.post("/hashtags", json_body={"id": new_id, "name": f"contract-h-{new_id[:8]}"})
         return new_id
 
-    def statement(self, account_id: str, start: str, end: str, *currencies: str) -> str:
-        """A draft statement of the account over the calendar days `start` to `end`, with
-        one balance entry per currency in `currencies` (PEN when none), each beginning and
-        ending at 0 so nothing but the rule under test stands in the way of completing it
-        (contract: POST /v1/statements, "`balances`"); its id."""
-        new_id = str(uuid4())
-        self.statements.append(new_id)
-        self.client.post(
-            "/statements",
-            json_body={
-                "id": new_id,
-                "account_id": account_id,
-                "name": f"contract-stmt-s-{new_id[:8]}",
-                "date_start": start,
-                "date_end": end,
-                "balances": [
-                    {
-                        "currency_code": currency,
-                        "beginning_balance_cents": 0,
-                        "ending_balance_cents": 0,
-                    }
-                    for currency in (currencies or ("PEN",))
-                ],
-            },
+    def statement(
+        self,
+        account_id: str,
+        start: str,
+        end: str,
+        *currencies: str,
+        balances: list[dict] | None = None,
+        **fields,
+    ) -> dict:
+        """A draft statement of the account over the calendar days `start` to `end`, posted
+        (`statement_create_body`); the engine's answer. Its id joins the scratch before the
+        call, so cleanup reaches it whatever the engine does."""
+        body = statement_create_body(
+            account_id, start, end, *currencies, balances=balances, **fields
         )
-        return new_id
+        self.statements.append(body["id"])
+        return self.client.post("/statements", json_body=body)
+
+    def assign(self, tx_id: str, statement_id: str | None) -> None:
+        """Assigns the transaction to the statement, or unassigns it with `None`
+        (contract: PUT /v1/transactions/{transaction_id})."""
+        self.client.put(f"/transactions/{tx_id}", json_body={"statement_id": statement_id})
 
     def noon(self, day: str) -> str:
         y, m, d = (int(part) for part in day.split("-"))
