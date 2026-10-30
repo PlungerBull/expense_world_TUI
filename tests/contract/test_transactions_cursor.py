@@ -19,8 +19,6 @@ to rows this file created. Gating, target and the real-ledger guard: conftest.py
 """
 
 from datetime import datetime
-from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -29,43 +27,17 @@ from expense.errors import EngineError
 ROWS = 7
 
 
-def _safe_delete(client, path):
-    try:
-        client.delete(path)
-    except EngineError:
-        pass
-
-
-def _zone(client) -> ZoneInfo:
-    return ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
-
-
-def _make_account(client) -> str:
-    new_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": new_id,
-            "name": f"contract-cursor-{new_id[:8]}",
-            "currency_code": "PEN",
-        },
+def _post_row(scratch, account_id: str, when: datetime, currency: str = "PEN") -> str:
+    """A `-100` row of `account_id` in `currency` at `when`; its id."""
+    made = scratch.row(
+        account_id,
+        "2026-01-01",
+        -100,
+        currency,
+        title="cursor row",
+        date=when.isoformat(timespec="seconds"),
     )
-    return new_id
-
-
-def _post_row(client, account_id: str, when: datetime, title: str = "cursor row") -> str:
-    new_id = str(uuid4())
-    client.post(
-        "/transactions",
-        json_body={
-            "id": new_id,
-            "title": title,
-            "amount_cents": -100,
-            "account_id": account_id,
-            "date": when.isoformat(timespec="seconds"),
-        },
-    )
-    return new_id
+    return made["id"]
 
 
 def _walk(client, params: dict, *, limit: int) -> list[str]:
@@ -84,20 +56,21 @@ def _walk(client, params: dict, *, limit: int) -> list[str]:
 
 
 @pytest.fixture
-def seeded(client):
+def seeded(scratch):
     """One account holding ROWS rows, three of them sharing one date, so the
-    walk crosses a tie that only `created_at` / `id` can order."""
-    zone = _zone(client)
-    account_id = _make_account(client)
-    tx_ids: list[str] = []
-    try:
-        for day in (3, 5, 5, 5, 8, 9, 12):
-            tx_ids.append(_post_row(client, account_id, datetime(2026, 2, day, 12, tzinfo=zone)))
-        yield account_id, tx_ids
-    finally:
-        for tx_id in tx_ids:
-            _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    walk crosses a tie that only `created_at` / `id` can order. The rows are in both of
+    the account's currencies: the account's list covers them all."""
+    account_id = scratch.account("PEN", "USD")
+    tx_ids = [
+        _post_row(
+            scratch,
+            account_id,
+            datetime(2026, 2, day, 12, tzinfo=scratch.zone),
+            "USD" if day == 9 else "PEN",
+        )
+        for day in (3, 5, 5, 5, 8, 9, 12)
+    ]
+    return account_id, tx_ids
 
 
 def test_the_cursor_walks_every_row_once_both_ways_and_matches_the_count(client, seeded):
@@ -148,21 +121,16 @@ def test_a_cursor_is_bound_to_its_sort(client, seeded):
     assert "after" in (excinfo.value.fields or {})
 
 
-def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
+def test_a_bare_to_day_includes_a_row_late_on_that_day(client, scratch):
     """`GET /transactions?date_to=<day>` with a bare day: the engine
     reads it as the whole day in `display_timezone` (contract: GET /v1/transactions)."""
-    zone = _zone(client)
-    account_id = _make_account(client)
-    late = _post_row(client, account_id, datetime(2026, 2, 20, 23, 30, tzinfo=zone))
-    try:
-        body = client.get(
-            "/transactions",
-            params={"account_id": account_id, "date_from": "2026-02-20", "date_to": "2026-02-20"},
-        )
-        assert [row["id"] for row in body["items"]] == [late]
-    finally:
-        _safe_delete(client, f"/transactions/{late}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    account_id = scratch.account()
+    late = _post_row(scratch, account_id, datetime(2026, 2, 20, 23, 30, tzinfo=scratch.zone))
+    body = client.get(
+        "/transactions",
+        params={"account_id": account_id, "date_from": "2026-02-20", "date_to": "2026-02-20"},
+    )
+    assert [row["id"] for row in body["items"]] == [late]
 
 
 def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
@@ -177,39 +145,36 @@ def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
     assert "date_from" in (err.fields or {})
 
 
-def test_activity_walks_a_window_then_steps_to_the_older_one(client):
+def test_activity_walks_a_window_then_steps_to_the_older_one(client, scratch):
     """`GET /activity` pages inside a window, and the older window ends at the
     echoed `previous_date_to`. A create and a rename guarantee two entries in
     the current window; a page of 1 walks them to a null cursor."""
-    account_id = _make_account(client)
-    try:
-        client.put(f"/accounts/{account_id}", json_body={"name": f"contract-act-{account_id[:8]}"})
-        seen: list[str] = []
-        after = None
-        window = None
-        previous = None
-        while True:
-            params = {"resource_id": account_id, "limit": 1}
-            if after:
-                params["after"] = after
-            body = client.get("/activity", params=params)
-            window = window or (body["date_from"], body["date_to"])
-            previous = previous or body["previous_date_to"]
-            assert (body["date_from"], body["date_to"]) == window  # travels in the cursor
-            seen += [entry["id"] for entry in body["items"]]
-            after = body["next_cursor"]
-            if after is None:
-                break
-        assert len(seen) == len(set(seen)) >= 2
+    account_id = scratch.account()
+    client.put(f"/accounts/{account_id}", json_body={"name": f"contract-act-{account_id[:8]}"})
+    seen: list[str] = []
+    after = None
+    window = None
+    previous = None
+    while True:
+        params = {"resource_id": account_id, "limit": 1}
+        if after:
+            params["after"] = after
+        body = client.get("/activity", params=params)
+        window = window or (body["date_from"], body["date_to"])
+        previous = previous or body["previous_date_to"]
+        assert (body["date_from"], body["date_to"]) == window  # travels in the cursor
+        seen += [entry["id"] for entry in body["items"]]
+        after = body["next_cursor"]
+        if after is None:
+            break
+    assert len(seen) == len(set(seen)) >= 2
 
-        older = client.get(
-            "/activity",
-            params={"resource_id": account_id, "date_to": previous},
-        )
-        assert "items" in older and "next_cursor" in older
-        assert not set(seen) & {entry["id"] for entry in older["items"]}
-    finally:
-        _safe_delete(client, f"/accounts/{account_id}")
+    older = client.get(
+        "/activity",
+        params={"resource_id": account_id, "date_to": previous},
+    )
+    assert "items" in older and "next_cursor" in older
+    assert not set(seen) & {entry["id"] for entry in older["items"]}
 
 
 def _activity_window(client, params: dict) -> tuple[dict, list[str]]:
@@ -227,7 +192,7 @@ def _activity_window(client, params: dict) -> tuple[dict, list[str]]:
             return first, ids
 
 
-def test_activity_walks_back_by_previous_date_to_and_reads_no_row_twice(client):
+def test_activity_walks_back_by_previous_date_to_and_reads_no_row_twice(client, scratch):
     """Walking back sends each response's `previous_date_to` unchanged as the
     next `date_to`, with no date arithmetic, and stops on `null` (contract:
     "Date windows").
@@ -237,34 +202,31 @@ def test_activity_walks_back_by_previous_date_to_and_reads_no_row_twice(client):
     the echoed `date_from` as the next `date_to` would read it twice. Three
     windows are walked, or fewer if `previous_date_to` comes back `null`.
     """
-    account_id = _make_account(client)
-    try:
-        client.put(f"/accounts/{account_id}", json_body={"name": f"contract-walk-{account_id[:8]}"})
-        _, current = _activity_window(client, {"resource_id": account_id})
-        # newest first (contract: GET /v1/activity), so the create is the last entry
-        entries = client.get("/activity", params={"resource_id": account_id})["items"]
-        create = entries[-1]
-        assert create["before_snapshot"] is None
-        assert create["id"] in current
+    account_id = scratch.account()
+    client.put(f"/accounts/{account_id}", json_body={"name": f"contract-walk-{account_id[:8]}"})
+    _, current = _activity_window(client, {"resource_id": account_id})
+    # newest first (contract: GET /v1/activity), so the create is the last entry
+    entries = client.get("/activity", params={"resource_id": account_id})["items"]
+    create = entries[-1]
+    assert create["before_snapshot"] is None
+    assert create["id"] in current
 
-        params = {"resource_id": account_id, "date_from": create["created_at"]}
-        seen: list[str] = []
-        windows = 0
-        while windows < 3:
-            first, ids = _activity_window(client, params)
-            if "date_to" in params:
-                assert first["date_to"] == params["date_to"]  # sent back unchanged
-            seen += ids
-            windows += 1
-            previous = first["previous_date_to"]
-            if previous is None:
-                break
-            params = {"resource_id": account_id, "date_to": previous}
-        assert windows >= 2
-        assert len(seen) == len(set(seen))
-        assert seen.count(create["id"]) == 1
-    finally:
-        _safe_delete(client, f"/accounts/{account_id}")
+    params = {"resource_id": account_id, "date_from": create["created_at"]}
+    seen: list[str] = []
+    windows = 0
+    while windows < 3:
+        first, ids = _activity_window(client, params)
+        if "date_to" in params:
+            assert first["date_to"] == params["date_to"]  # sent back unchanged
+        seen += ids
+        windows += 1
+        previous = first["previous_date_to"]
+        if previous is None:
+            break
+        params = {"resource_id": account_id, "date_to": previous}
+    assert windows >= 2
+    assert len(seen) == len(set(seen))
+    assert seen.count(create["id"]) == 1
 
 
 @pytest.mark.parametrize("path", ["/accounts", "/categories", "/hashtags"])

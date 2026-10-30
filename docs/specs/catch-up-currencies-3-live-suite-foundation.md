@@ -91,20 +91,6 @@ Files left to spec 4 may fail live until it runs. `test_card_statement.py` (task
 skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
 skip and its `# ruff: noqa: E402` line.
 
-5. **Opening balance, resources, system names, transactions and the cursor (builder).**
-   [test_opening_balance.py](../../tests/contract/test_opening_balance.py) per currency:
-   `currency_code` required (`REQUIRED`), `UNSUPPORTED_VALUE`, `CURRENCY_NOT_HELD` on
-   `currency_code`, a second in one currency `OPENING_BALANCE_EXISTS` while the other currency
-   takes its own, each named by its own entry's `opening_balance_transaction_id`
-   (contract: "Bank Accounts", "Opening balance"), its person test on a person account;
-   [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py),
-   [test_system_names.py](../../tests/contract/test_system_names.py),
-   [test_transactions_lifecycle.py](../../tests/contract/test_transactions_lifecycle.py) and
-   [test_transactions_cursor.py](../../tests/contract/test_transactions_cursor.py) on the
-   account's shape and with `currency_code` on every create and batch item, each answer
-   echoing it.
-   *Passes if:* none of these files posts an account body of its own or `/people`, and they
-   pass live.
 6. **A statement's life (builder).**
    [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py),
    renamed for statements, on `/statements`: made, renamed, completed, reverted and deleted as
@@ -153,7 +139,10 @@ Not built in this spec; drafted into a new spec when it is done.
 - **One shared way to log a plain transaction in the live tests.**
   [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py)'s `_spend`
   and [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) each build a
-  `POST /transactions` body by hand, since `Scratch.line` takes no category and dates at noon,
-  which can be in the future. A `Scratch` helper dated a minute ago would replace both. The
+  `POST /transactions` body by hand, since `Scratch.line` takes no category and `Scratch.line` and
+  `Scratch.row` both date at noon, which can be in the future. A `Scratch` helper dated a minute
+  ago would replace both bodies, and `_post_row` in
+  [test_transactions_cursor.py](../../tests/contract/test_transactions_cursor.py) would stop
+  passing a day its `date=` overrides. The
   reports' tests dated a minute ago also fail when run in a month's first minute (display
   timezone), the report reading the new month while the row lands in the old one.

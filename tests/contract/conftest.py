@@ -720,8 +720,22 @@ class Scratch:
         items = [self._item(account_id, day, amount, currency, **group) for amount in amounts]
         return self._create(items)[0]["bank_line_id"]
 
-    def opening_balance(self, account_id: str, day: str, currency: str = "PEN") -> str:
-        """The account's opening balance in `currency`; its line's id."""
+    def row(
+        self, account_id: str, day: str, amount: int = -1000, currency: str = "PEN", **fields
+    ) -> dict:
+        """A new transaction on `day` (a past day: noon today is `FUTURE_DATE` before noon)
+        in `currency` with no title, category or operation code unless `fields` give them;
+        the created item, which must name the account and the currency sent."""
+        item = self._item(account_id, day, amount, currency)
+        del item["title"]
+        made = self._create([{**item, **fields}])[0]
+        assert (made["account_id"], made["currency_code"]) == (account_id, currency)
+        return made
+
+    def opening_balance(
+        self, account_id: str, day: str, currency: str = "PEN", amount_cents: int = 50000
+    ) -> str:
+        """The account's opening balance of `amount_cents` in `currency`; its line's id."""
         tx_id = str(uuid4())
         self.transactions.append(tx_id)
         made = self.client.post(
@@ -729,7 +743,7 @@ class Scratch:
             json_body={
                 "transaction_id": tx_id,
                 "currency_code": currency,
-                "amount_cents": 50000,
+                "amount_cents": amount_cents,
                 "date": self.noon(day),
             },
         )

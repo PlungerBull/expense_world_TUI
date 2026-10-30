@@ -20,26 +20,10 @@ order is put back. Each test builds its own account and undoes what it wrote.
 Gating, target and the real-ledger guard: conftest.py.
 """
 
-from uuid import uuid4
-
 import pytest
 
-from expense.errors import EngineError
 from expense.reads import OPENING_SYSTEM_KEY, PENDING_HASHTAG_KEY, PENDING_SYSTEM_KEY
-from tests.contract.conftest import reason_on
-
-
-def _safe(call, *args):
-    try:
-        call(*args)
-    except EngineError:
-        pass
-
-
-def _refused(call) -> EngineError:
-    with pytest.raises(EngineError) as excinfo:
-        call()
-    return excinfo.value
+from tests.contract.conftest import assert_refusal, refused
 
 
 def _system_row(client, path: str, key: str) -> dict:
@@ -56,11 +40,8 @@ def _swap_case(name: str) -> str:
 
 def _assert_name_kept(client, path: str, row: dict, tried: list[str]) -> None:
     for name in tried:
-        err = _refused(
-            lambda name=name: client.put(f"{path}/{row['id']}", json_body={"name": name})
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR"), name
-        assert reason_on(err, "name") == "SYSTEM_NAME_FIXED", name
+        err = refused(lambda name=name: client.put(f"{path}/{row['id']}", json_body={"name": name}))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "name", "SYSTEM_NAME_FIXED")
         assert client.get(f"{path}/{row['id']}")["name"] == row["name"]
     for same in (row["name"], f"  {row['name']} "):
         kept = client.put(f"{path}/{row['id']}", json_body={"name": same})
@@ -68,39 +49,12 @@ def _assert_name_kept(client, path: str, row: dict, tried: list[str]) -> None:
 
 
 @pytest.fixture
-def system_rows(client):
+def system_rows(client, scratch):
     """An account with an opening balance and an untagged, uncategorised row, so
     `@Opening`, `@Pendiente` and the pending hashtag all exist."""
-    account = str(uuid4())
-    opening = str(uuid4())
-    sparse = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={"id": account, "name": f"contract-names-{account[:8]}", "currency_code": "PEN"},
-    )
-    try:
-        client.post(
-            f"/accounts/{account}/opening-balance",
-            json_body={
-                "transaction_id": opening,
-                "amount_cents": 10000,
-                "date": "2026-01-01T00:00:00Z",
-            },
-        )
-        client.post(
-            "/transactions",
-            json_body={
-                "id": sparse,
-                "amount_cents": -100,
-                "account_id": account,
-                "date": "2026-05-06T12:00:00Z",
-            },
-        )
-        yield
-    finally:
-        _safe(client.delete, f"/transactions/{sparse}")
-        _safe(client.delete, f"/transactions/{opening}")
-        _safe(client.delete, f"/accounts/{account}")
+    account = scratch.account()
+    scratch.opening_balance(account, "2026-01-01")
+    scratch.row(account, "2026-05-06", -100)
 
 
 def test_the_system_categories_keep_their_names(client, system_rows):

@@ -1,216 +1,212 @@
-"""Contract lifecycle for an account's opening balance against a real engine.
+"""Contract lifecycle for an account's opening balance, per currency, against a real engine.
 
-The account Edit form reads the opening balance through the account's
-`opening_balance_transaction_id` and changes it through the transaction routes. Only
-the engine can say that id stays current, and that an opening balance never moves
-to another account or out of `@Opening` (contract: PUT /v1/transactions/{transaction_id},
-"Opening balances stay put").
+The account Edit form reads each currency's opening balance through that currency's entry in
+the account's `currencies` (`opening_balance_transaction_id`) and changes it through the
+transaction routes. Only the engine can say that id stays current, and that an opening
+balance never moves to another account or currency or out of `@Opening`
+(contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 
 What it pins, in the order the form meets it:
 
-1. A new bank account names no opening balance (`null`); `POST
-   /accounts/{id}/opening-balance` makes one and the account then names its id.
-2. Editing its amount and date keeps the same id on the account.
-3. A different `account_id` is `422` `OPENING_BALANCE_ACCOUNT_FIXED`; a different
-   `category_id` (`@Pendiente`) is `422` `OPENING_BALANCE_CATEGORY_FIXED`; both in
-   one body report both. Resending its own account and category is accepted.
-4. A second opening balance is `409` `OPENING_BALANCE_EXISTS` on `account_id`
-   (contract: POST /v1/accounts/{account_id}/opening-balance).
-5. Deleting it leaves the account naming none (`null`) again.
-6. A person from `POST /people` takes one too, under `@Opening` and named by its
-   `opening_balance_transaction_id`, and a second is `409` `OPENING_BALANCE_EXISTS` on
-   `account_id`, as on a bank account (contract: POST /v1/accounts/{account_id}/opening-balance).
+1. A new account names no opening balance in any currency (`null`); `POST
+   /accounts/{id}/opening-balance` seeds one currency and only that currency's entry then
+   names its id.
+2. Editing its amount and date keeps the same id on the entry.
+3. A different `account_id` or `currency_code` is `422` `OPENING_BALANCE_ACCOUNT_FIXED` on
+   each key sent; a different `category_id` (`@Pendiente`) is `422`
+   `OPENING_BALANCE_CATEGORY_FIXED`; all in one body report all. Resending its own is accepted.
+4. The request needs a `currency_code` (`REQUIRED`), a supported one (`UNSUPPORTED_VALUE`)
+   that the account holds (`CURRENCY_NOT_HELD`), all `422` on `currency_code`.
+5. A second opening balance in one currency is `409` `OPENING_BALANCE_EXISTS` on
+   `account_id` while the account's other currency takes its own; each entry names its own.
+6. Deleting one leaves its entry `null` and the other's untouched; the currency then takes a
+   new one.
+7. A person takes them the same way, per currency, as a bank account.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
 from uuid import uuid4
 
-import pytest
+from tests.contract.conftest import assert_refusal, assert_refusals, refused
 
-from expense.errors import EngineError
-from tests.contract.conftest import reason_on
-
-
-def _safe_delete(client, path):
-    try:
-        client.delete(path)
-    except EngineError:
-        pass
+DAY = "2026-01-01"
 
 
-def _make_account(client) -> str:
-    new_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={"id": new_id, "name": f"contract-ob-{new_id[:8]}", "currency_code": "PEN"},
+def _ids(client, account_id: str) -> dict[str, str | None]:
+    """Each currency's `opening_balance_transaction_id` as the account's entries read it."""
+    held = client.get(f"/accounts/{account_id}")["currencies"]
+    return {entry["currency_code"]: entry["opening_balance_transaction_id"] for entry in held}
+
+
+def _seed_body(scratch, currency: str | None, **fields) -> dict:
+    """An opening-balance body under a fresh transaction id, with `currency` named when given."""
+    body = {"transaction_id": str(uuid4()), "amount_cents": 1000, "date": scratch.noon(DAY)}
+    if currency is not None:
+        body["currency_code"] = currency
+    return {**body, **fields}
+
+
+def _post_seed(client, account_id: str, body: dict):
+    return client.post(f"/accounts/{account_id}/opening-balance", json_body=body)
+
+
+def test_opening_balance_lifecycle(client, scratch):
+    account_id = scratch.account("PEN", "USD")
+    other_account_id = scratch.account()
+
+    # 1 — none yet in either currency, then only the seeded currency names the one just made.
+    assert _ids(client, account_id) == {"PEN": None, "USD": None}
+    scratch.opening_balance(account_id, DAY, "PEN", 150000)
+    tx_id = _ids(client, account_id)["PEN"]
+    assert tx_id == scratch.transactions[-1]  # the seed is the client-minted `transaction_id`
+    assert _ids(client, account_id)["USD"] is None
+    seeded = client.get(f"/transactions/{tx_id}")
+    assert (seeded["account_id"], seeded["currency_code"]) == (account_id, "PEN")
+    opening_category_id = seeded["category_id"]
+    assert client.get(f"/categories/{opening_category_id}")["system_key"] == "opening_balance"
+    listed = client.get("/accounts")
+    row = next(a for a in listed["items"] if a["id"] == account_id)
+    assert {e["currency_code"]: e["opening_balance_transaction_id"] for e in row["currencies"]} == {
+        "PEN": tx_id,
+        "USD": None,
+    }
+
+    # 2 — amount and date stay editable; the entry names the same row.
+    edited = client.put(
+        f"/transactions/{tx_id}",
+        json_body={"amount_cents": -2500, "date": "2026-01-03T00:00:00Z"},
     )
-    return new_id
+    assert edited["id"] == tx_id
+    assert edited["currency_code"] == "PEN"
+    assert edited["amount_cents"] == 2500
+    assert edited["transaction_type"] == 1
+    assert edited["date"].startswith("2026-01-03")
+    assert _ids(client, account_id)["PEN"] == tx_id
 
+    # 3 — it never changes account or currency and never leaves @Opening.
+    err = refused(
+        lambda: client.put(f"/transactions/{tx_id}", json_body={"account_id": other_account_id})
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "OPENING_BALANCE_ACCOUNT_FIXED")
 
-def _pendiente_id(client, account_id: str) -> str:
-    """The `@Pendiente` category's id, read off a sparse row the engine files there
-    (contract: POST /v1/transactions). The row is deleted before returning."""
-    sparse_id = str(uuid4())
-    sparse = client.post(
-        "/transactions",
+    err = refused(lambda: client.put(f"/transactions/{tx_id}", json_body={"currency_code": "USD"}))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "OPENING_BALANCE_ACCOUNT_FIXED")
+
+    pendiente_id = scratch.row(other_account_id, "2026-01-02")["category_id"]
+    assert client.get(f"/categories/{pendiente_id}")["system_key"] == "pending"
+    err = refused(
+        lambda: client.put(f"/transactions/{tx_id}", json_body={"category_id": pendiente_id})
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "category_id", "OPENING_BALANCE_CATEGORY_FIXED")
+
+    err = refused(
+        lambda: client.put(
+            f"/transactions/{tx_id}",
+            json_body={
+                "account_id": other_account_id,
+                "currency_code": "USD",
+                "category_id": pendiente_id,
+            },
+        )
+    )
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "account_id": "OPENING_BALANCE_ACCOUNT_FIXED",
+            "currency_code": "OPENING_BALANCE_ACCOUNT_FIXED",
+            "category_id": "OPENING_BALANCE_CATEGORY_FIXED",
+        },
+    )
+
+    unchanged = client.get(f"/transactions/{tx_id}")
+    assert (unchanged["account_id"], unchanged["currency_code"]) == (account_id, "PEN")
+    assert unchanged["category_id"] == opening_category_id
+
+    # Resending what it already has is not a move.
+    resent = client.put(
+        f"/transactions/{tx_id}",
         json_body={
-            "id": sparse_id,
-            "amount_cents": -100,
             "account_id": account_id,
-            "date": "2026-01-02T00:00:00Z",
-        },
-    )
-    client.delete(f"/transactions/{sparse_id}")
-    assert client.get(f"/categories/{sparse['category_id']}")["system_key"] == "pending"
-    return sparse["category_id"]
-
-
-def _refused(call) -> EngineError:
-    with pytest.raises(EngineError) as excinfo:
-        call()
-    return excinfo.value
-
-
-def test_opening_balance_lifecycle(client):
-    account_id = _make_account(client)
-    other_account_id = _make_account(client)
-    tx_id = str(uuid4())
-
-    try:
-        # 1 — none yet, then the account names the one just made.
-        assert client.get(f"/accounts/{account_id}")["opening_balance_transaction_id"] is None
-
-        seeded = client.post(
-            f"/accounts/{account_id}/opening-balance",
-            json_body={
-                "transaction_id": tx_id,
-                "amount_cents": 150000,
-                "date": "2026-01-01T00:00:00Z",
-            },
-        )
-        assert seeded["id"] == tx_id
-        opening_category_id = seeded["category_id"]
-        assert client.get(f"/categories/{opening_category_id}")["system_key"] == ("opening_balance")
-        assert client.get(f"/accounts/{account_id}")["opening_balance_transaction_id"] == tx_id
-        listed = client.get("/accounts")
-        row = next(a for a in listed["items"] if a["id"] == account_id)
-        assert row["opening_balance_transaction_id"] == tx_id
-
-        # 2 — amount and date stay editable; the account names the same row.
-        edited = client.put(
-            f"/transactions/{tx_id}",
-            json_body={"amount_cents": -2500, "date": "2026-01-03T00:00:00Z"},
-        )
-        assert edited["id"] == tx_id
-        assert edited["amount_cents"] == 2500
-        assert edited["transaction_type"] == 1
-        assert edited["date"].startswith("2026-01-03")
-        assert client.get(f"/accounts/{account_id}")["opening_balance_transaction_id"] == tx_id
-
-        # 3 — it never changes account and never leaves @Opening.
-        err = _refused(
-            lambda: client.put(f"/transactions/{tx_id}", json_body={"account_id": other_account_id})
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert reason_on(err, "account_id") == "OPENING_BALANCE_ACCOUNT_FIXED"
-
-        pendiente_id = _pendiente_id(client, other_account_id)
-        err = _refused(
-            lambda: client.put(f"/transactions/{tx_id}", json_body={"category_id": pendiente_id})
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert reason_on(err, "category_id") == "OPENING_BALANCE_CATEGORY_FIXED"
-
-        err = _refused(
-            lambda: client.put(
-                f"/transactions/{tx_id}",
-                json_body={"account_id": other_account_id, "category_id": pendiente_id},
-            )
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert reason_on(err, "account_id") == "OPENING_BALANCE_ACCOUNT_FIXED"
-        assert reason_on(err, "category_id") == "OPENING_BALANCE_CATEGORY_FIXED"
-
-        unchanged = client.get(f"/transactions/{tx_id}")
-        assert unchanged["account_id"] == account_id
-        assert unchanged["category_id"] == opening_category_id
-
-        # Resending what it already has is not a move.
-        resent = client.put(
-            f"/transactions/{tx_id}",
-            json_body={"account_id": account_id, "category_id": opening_category_id},
-        )
-        assert resent["account_id"] == account_id
-        assert resent["category_id"] == opening_category_id
-
-        # 4 — one opening balance per account.
-        err = _refused(
-            lambda: client.post(
-                f"/accounts/{account_id}/opening-balance",
-                json_body={
-                    "transaction_id": str(uuid4()),
-                    "amount_cents": 1000,
-                    "date": "2026-01-01T00:00:00Z",
-                },
-            )
-        )
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert reason_on(err, "account_id") == "OPENING_BALANCE_EXISTS"
-
-        # 5 — deleted, the account names none again.
-        client.delete(f"/transactions/{tx_id}")
-        assert client.get(f"/accounts/{account_id}")["opening_balance_transaction_id"] is None
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{other_account_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
-
-
-def test_a_person_takes_one_opening_balance(client, statuses):
-    person_id = str(uuid4())
-    tx_id = str(uuid4())
-    created = client.post(
-        "/people",
-        json_body={
-            "id": person_id,
-            "name": f"contract-ob-person-{person_id[:8]}",
             "currency_code": "PEN",
+            "category_id": opening_category_id,
         },
     )
-    try:
-        assert created["is_person"] is True
-        assert created["opening_balance_transaction_id"] is None
+    assert (resent["account_id"], resent["currency_code"]) == (account_id, "PEN")
+    assert resent["category_id"] == opening_category_id
 
-        seeded = client.post(
-            f"/accounts/{person_id}/opening-balance",
-            json_body={
-                "transaction_id": tx_id,
-                "amount_cents": -42000,
-                "date": "2026-01-01T00:00:00Z",
-            },
-        )
-        assert statuses[-1] == 201
-        assert seeded["id"] == tx_id
-        assert seeded["account_id"] == person_id
-        assert client.get(f"/categories/{seeded['category_id']}")["system_key"] == (
-            "opening_balance"
-        )
-        assert client.get(f"/accounts/{person_id}")["opening_balance_transaction_id"] == tx_id
 
-        err = _refused(
-            lambda: client.post(
-                f"/accounts/{person_id}/opening-balance",
-                json_body={
-                    "transaction_id": str(uuid4()),
-                    "amount_cents": 1000,
-                    "date": "2026-01-01T00:00:00Z",
-                },
-            )
-        )
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert err.reasons == {"account_id": "OPENING_BALANCE_EXISTS"}
-        assert client.get(f"/accounts/{person_id}")["opening_balance_transaction_id"] == tx_id
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{person_id}")
+def test_a_seed_names_a_currency_the_account_holds(client, scratch):
+    """The currency is required, supported and held, each refused on `currency_code`, and
+    nothing is written (contract: POST /v1/accounts/{account_id}/opening-balance,
+    "Validation")."""
+    account_id = scratch.account("PEN")
+
+    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, None)))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
+
+    for unsupported in ("usd", "EUR"):
+        body = _seed_body(scratch, unsupported)
+        err = refused(lambda body=body: _post_seed(client, account_id, body))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "UNSUPPORTED_VALUE")
+
+    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "USD")))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
+    assert err.fields["currency_code"] == "Must be a currency the account holds."
+
+    assert _ids(client, account_id) == {"PEN": None}
+    assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
+
+
+def test_one_opening_balance_per_currency_and_each_named_by_its_own_entry(client, scratch):
+    """A second seed in one currency is `409` `OPENING_BALANCE_EXISTS` on `account_id`
+    while the account's other currency takes its own; each entry names its own seed, and a
+    deleted one frees only its currency (contract: POST /v1/accounts/{account_id}/opening-balance,
+    "Validation")."""
+    account_id = scratch.account("PEN", "USD")
+    scratch.opening_balance(account_id, DAY, "PEN")
+
+    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "PEN")))
+    assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
+
+    scratch.opening_balance(account_id, DAY, "USD", -7000)
+    ids = _ids(client, account_id)
+    assert ids["PEN"] is not None and ids["USD"] is not None and ids["PEN"] != ids["USD"]
+    for code, tx_id in ids.items():
+        assert client.get(f"/transactions/{tx_id}")["currency_code"] == code
+
+    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "USD")))
+    assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
+    assert _ids(client, account_id) == ids
+
+    # Deleted, the currency's entry is null, the other's is untouched, and it takes a new one.
+    client.delete(f"/transactions/{ids['PEN']}")
+    assert _ids(client, account_id) == {"PEN": None, "USD": ids["USD"]}
+    scratch.opening_balance(account_id, DAY, "PEN")
+    renewed = _ids(client, account_id)
+    assert renewed["PEN"] not in (None, ids["PEN"])
+    assert renewed["USD"] == ids["USD"]
+
+
+def test_a_person_takes_one_opening_balance_per_currency(client, scratch, statuses):
+    person_id = scratch.account("PEN", "USD", person=True)
+    created = client.get(f"/accounts/{person_id}")
+    assert created["is_person"] is True
+    assert _ids(client, person_id) == {"PEN": None, "USD": None}
+
+    scratch.opening_balance(person_id, DAY, "PEN", -42000)
+    assert statuses[-1] == 201
+    tx_id = _ids(client, person_id)["PEN"]
+    assert tx_id == scratch.transactions[-1]
+    seeded = client.get(f"/transactions/{tx_id}")
+    assert (seeded["account_id"], seeded["currency_code"]) == (person_id, "PEN")
+    assert client.get(f"/categories/{seeded['category_id']}")["system_key"] == "opening_balance"
+
+    err = refused(lambda: _post_seed(client, person_id, _seed_body(scratch, "PEN")))
+    assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
+    assert _ids(client, person_id) == {"PEN": tx_id, "USD": None}
+
+    scratch.opening_balance(person_id, DAY, "USD")
+    assert _ids(client, person_id)["USD"] not in (None, tx_id)

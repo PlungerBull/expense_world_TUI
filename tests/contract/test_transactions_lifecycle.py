@@ -1,8 +1,9 @@
 """Contract lifecycle for transactions against a real engine.
 
-Each test creates the supporting account/category, exercises the full lifecycle,
-then cleans up. Gating, target resolution and the real-ledger guard live in
-conftest.py.
+Each test builds the supporting account/category through `scratch`, exercises the full
+lifecycle, and `scratch` cleans up. Every create names its account and the currency of it
+the row is in, and every answer echoes both (contract: POST /v1/transactions, "Fields").
+Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
 from datetime import UTC, datetime
@@ -11,183 +12,137 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
-
-
-def _safe_delete(client, path):
-    try:
-        client.delete(path)
-    except EngineError:
-        pass
-
-
-def _make_account(client, currency_code="PEN"):
-    new_id = str(uuid4())
-    client.post(
-        "/accounts",
-        json_body={
-            "id": new_id,
-            "name": f"contract-acct-{new_id[:8]}",
-            "currency_code": currency_code,
-        },
-    )
-    return new_id
-
-
-def _make_category(client):
-    new_id = str(uuid4())
-    client.post(
-        "/categories",
-        json_body={
-            "id": new_id,
-            "name": f"contract-cat-{new_id[:8]}",
-            "color": "#123456",
-        },
-    )
-    return new_id
+from tests.contract.conftest import assert_refusal, refused
 
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def test_transactions_lifecycle(client):
-    account_id = _make_account(client)
-    category_id = _make_category(client)
-    tx_id = str(uuid4())
-
-    try:
-        created = client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "coffee",
-                "amount_cents": -500,
-                "account_id": account_id,
-                "category_id": category_id,
-                "date": _now_iso(),
-            },
-        )
-        assert created["id"] == tx_id
-
-        fetched = client.get(f"/transactions/{tx_id}")
-        assert fetched["id"] == tx_id
-        assert fetched["title"] == "coffee"
-
-        listed = client.get("/transactions", params={"account_id": account_id})
-        assert any(item["id"] == tx_id for item in listed["items"])
-
-        updated = client.put(
-            f"/transactions/{tx_id}",
-            json_body={"title": "cafe latte"},
-        )
-        assert updated["title"] == "cafe latte"
-
-        deleted = client.delete(f"/transactions/{tx_id}")
-        assert deleted["id"] == tx_id
-        assert deleted.get("deleted_at") is not None
-        # DELETE carries no `warnings` key. Pin the absence.
-        assert "warnings" not in deleted
-
-        # Deleted is deleted: gone from the list, 404 on
-        # get, and the restore route itself is a 404.
-        listed = client.get("/transactions", params={"account_id": account_id})
-        assert not any(item["id"] == tx_id for item in listed["items"])
-        for gone in (
-            lambda: client.get(f"/transactions/{tx_id}"),
-            lambda: client.post(f"/transactions/{tx_id}/restore"),
-        ):
-            with pytest.raises(EngineError) as excinfo:
-                gone()
-            assert excinfo.value.status == 404
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+def _row(account_id: str, category_id: str, currency: str, **fields) -> dict:
+    """A `POST /transactions` body under a fresh id, in `currency` of the account."""
+    return {
+        "id": str(uuid4()),
+        "amount_cents": -500,
+        "account_id": account_id,
+        "currency_code": currency,
+        "category_id": category_id,
+        "date": _now_iso(),
+        **fields,
+    }
 
 
-def test_an_empty_description_empties_the_note_and_null_is_refused(client):
+def test_transactions_lifecycle(client, scratch):
+    account_id = scratch.account("PEN", "USD")
+    category_id = scratch.category()
+    body = _row(account_id, category_id, "USD", title="coffee")
+    tx_id = body["id"]
+    scratch.transactions.append(tx_id)
+
+    created = client.post("/transactions", json_body=body)
+    assert created["id"] == tx_id
+    assert (created["account_id"], created["currency_code"]) == (account_id, "USD")
+
+    fetched = client.get(f"/transactions/{tx_id}")
+    assert fetched["id"] == tx_id
+    assert fetched["title"] == "coffee"
+    assert (fetched["account_id"], fetched["currency_code"]) == (account_id, "USD")
+
+    listed = client.get("/transactions", params={"account_id": account_id})
+    assert [(i["id"], i["currency_code"]) for i in listed["items"]] == [(tx_id, "USD")]
+
+    updated = client.put(f"/transactions/{tx_id}", json_body={"title": "cafe latte"})
+    assert updated["title"] == "cafe latte"
+    assert updated["currency_code"] == "USD"
+
+    deleted = client.delete(f"/transactions/{tx_id}")
+    assert deleted["id"] == tx_id
+    assert deleted.get("deleted_at") is not None
+    # DELETE carries no `warnings` key. Pin the absence.
+    assert "warnings" not in deleted
+
+    # Deleted is deleted: gone from the list, 404 on
+    # get, and the restore route itself is a 404.
+    listed = client.get("/transactions", params={"account_id": account_id})
+    assert not any(item["id"] == tx_id for item in listed["items"])
+    for gone in (
+        lambda: client.get(f"/transactions/{tx_id}"),
+        lambda: client.post(f"/transactions/{tx_id}/restore"),
+    ):
+        with pytest.raises(EngineError) as excinfo:
+            gone()
+        assert excinfo.value.status == 404
+
+
+def test_a_create_names_a_currency_the_account_holds(client, scratch):
+    """A create without `currency_code` is `REQUIRED` and one in a currency the account
+    does not hold is `CURRENCY_NOT_HELD`, each on `currency_code`; nothing is written
+    (contract: POST /v1/transactions, "Fields")."""
+    account_id = scratch.account("PEN")
+    category_id = scratch.category()
+
+    missing = _row(account_id, category_id, "PEN")
+    del missing["currency_code"]
+    err = refused(lambda: client.post("/transactions", json_body=missing))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
+
+    err = refused(
+        lambda: client.post("/transactions", json_body=_row(account_id, category_id, "USD"))
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
+    assert err.fields["currency_code"] == "Must be a currency the account holds."
+    assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
+
+
+def test_an_empty_description_empties_the_note_and_null_is_refused(client, scratch):
     """`""` empties a note and `null` is `422` `NOT_NULL` on `description`, so the
     Edit form sends `""` for an emptied note
     (contract: PUT /v1/transactions/{transaction_id})."""
-    account_id = _make_account(client)
-    category_id = _make_category(client)
-    tx_id = str(uuid4())
+    account_id = scratch.account()
+    category_id = scratch.category()
+    body = _row(account_id, category_id, "PEN", title="pharmacy", description="receta")
+    tx_id = body["id"]
+    scratch.transactions.append(tx_id)
+    client.post("/transactions", json_body=body)
 
-    try:
-        client.post(
-            "/transactions",
-            json_body={
-                "id": tx_id,
-                "title": "pharmacy",
-                "amount_cents": -4250,
-                "account_id": account_id,
-                "category_id": category_id,
-                "date": _now_iso(),
-                "description": "receta",
-            },
-        )
+    emptied = client.put(f"/transactions/{tx_id}", json_body={"description": ""})
+    assert emptied["description"] == ""
+    assert client.get(f"/transactions/{tx_id}")["description"] == ""
 
-        emptied = client.put(f"/transactions/{tx_id}", json_body={"description": ""})
-        assert emptied["description"] == ""
-        assert client.get(f"/transactions/{tx_id}")["description"] == ""
-
-        with pytest.raises(EngineError) as excinfo:
-            client.put(f"/transactions/{tx_id}", json_body={"description": None})
-        err = excinfo.value
-        assert err.status == 422
-        assert err.code == "VALIDATION_ERROR"
-        assert set(err.fields) == {"description"}
-        assert err.reasons == {"description": "NOT_NULL"}
-        after = client.get(f"/transactions/{tx_id}")
-        assert after["description"] == ""
-        assert after["version"] == emptied["version"]  # nothing written
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    err = refused(lambda: client.put(f"/transactions/{tx_id}", json_body={"description": None}))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "description", "NOT_NULL")
+    after = client.get(f"/transactions/{tx_id}")
+    assert after["description"] == ""
+    assert after["version"] == emptied["version"]  # nothing written
 
 
-def test_batch_create(client):
-    account_id = _make_account(client)
-    category_id = _make_category(client)
-    ids = [str(uuid4()) for _ in range(3)]
+def test_batch_create(client, scratch):
+    account_id = scratch.account("PEN", "USD")
+    category_id = scratch.category()
+    currencies = ["PEN", "USD", "PEN"]
+    items = [
+        _row(account_id, category_id, currency, title=title, amount_cents=-100 * n)
+        for n, (title, currency) in enumerate(zip("abc", currencies, strict=True), start=1)
+    ]
+    scratch.transactions.extend(item["id"] for item in items)
 
-    try:
-        body = client.post(
-            "/transactions/batch",
-            json_body={
-                "transactions": [
-                    {
-                        "id": ids[0],
-                        "title": "a",
-                        "amount_cents": -100,
-                        "account_id": account_id,
-                        "category_id": category_id,
-                        "date": _now_iso(),
-                    },
-                    {
-                        "id": ids[1],
-                        "title": "b",
-                        "amount_cents": -200,
-                        "account_id": account_id,
-                        "category_id": category_id,
-                        "date": _now_iso(),
-                    },
-                    {
-                        "id": ids[2],
-                        "title": "c",
-                        "amount_cents": -300,
-                        "account_id": account_id,
-                        "category_id": category_id,
-                        "date": _now_iso(),
-                    },
-                ]
-            },
-        )
-        created = body.get("created", [])
-        assert {item["id"] for item in created} == set(ids)
-    finally:
-        for tx_id in ids:
-            _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    body = client.post("/transactions/batch", json_body={"transactions": items})
+
+    created = body.get("created", [])
+    assert {item["id"] for item in created} == {item["id"] for item in items}
+    echoed = {item["id"]: (item["account_id"], item["currency_code"]) for item in created}
+    assert echoed == {item["id"]: (account_id, item["currency_code"]) for item in items}
+
+
+def test_a_batch_item_without_a_currency_is_refused(client, scratch):
+    """A batch item missing `currency_code` is refused on the item's own key, and the
+    batch writes nothing (contract: POST /v1/transactions/batch)."""
+    account_id = scratch.account()
+    category_id = scratch.category()
+    item = _row(account_id, category_id, "PEN")
+    del item["currency_code"]
+    scratch.transactions.append(item["id"])
+
+    err = refused(lambda: client.post("/transactions/batch", json_body={"transactions": [item]}))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.0.currency_code", "REQUIRED")
+    assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
