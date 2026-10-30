@@ -140,16 +140,6 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
 
-5. **Home on the dashboard's accounts (builder).** `/dashboard`'s rows `{id, name, currencies}`
-   become one Home row per account and currency, named "<account> · <code>", the balance cell
-   as today; PEOPLE folds a row as settled when that currency's balance is exactly zero
-   ([formatting.py](../../expense/formatting.py)'s `split_settled`, its docstring without the
-   home value); `⏎` opens the ledger on that account and currency (task 4).
-   `HOME_DASHBOARD` reads as the engine's answer. Files:
-   [home.py](../../expense/tui/screens/home.py), formatting.py, helpers.py, the Home tests.
-   *Passes if:* unit tests pin a two-currency account's two rows in the engine's order, a person
-   settled in soles and owing in dollars showing once in each place, and `⏎` handing the ledger
-   the account and the currency.
 6. **Manage ▸ Accounts on the account's currencies (builder).** One row per
    account and currency, named "<account> · <code>", Cur and Balance that currency's, the other
    cells the account's; `e`, `a`, `t` and `d` act on the cursor row's account, through the

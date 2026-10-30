@@ -7,8 +7,10 @@ Home is the month grid. One worker reads `/dashboard` for the balances and
   activity. A category with nothing in the whole window is not drawn at all
   (`build_range_grid` already drops it). `→` unfolds a category's
   hashtag rows, `←` folds them. Under the categories: inflow, outflow, net.
-- **BANK ACCOUNTS** with today's balance in each account's own currency.
-- **PEOPLE** the same way, settled people folded behind `▶ N settled`.
+- **BANK ACCOUNTS** one row per account and currency, with today's balance in
+  that currency (contract: GET /v1/dashboard, "Balances are native only").
+- **PEOPLE** the same way, a currency settled when its balance is exactly zero,
+  settled ones folded behind `▶ N settled`.
 - **LEDGER / MANAGE / SYSTEM** — section headers with their screens always
   listed under them; they never collapse.
 
@@ -20,7 +22,7 @@ endpoint, which is why the accounts header says `balance today`.
 
 - on a category — that category, every month;
 - on a hashtag row — that category and that hashtag;
-- on an account or a person — that account.
+- on an account or a person — that account and that currency.
 
 Every hashtag row is one row of the engine's `hashtag_breakdown`, whose
 `hashtag_ids` is never empty: a transaction still waiting for a hashtag counts
@@ -103,7 +105,7 @@ _SCREENS: dict[str, type[Screen]] = {
 #: Option-id prefixes; the rest of the id is the engine row.
 CATEGORY_PREFIX = "category:"
 TAG_PREFIX = "tag:"  # tag:<category id>:<hashtag id>, or tag:<category id>:#<n>
-ACCOUNT_PREFIX = "account:"
+ACCOUNT_PREFIX = "account:"  # account:<account id>:<currency code>
 SETTLED_ID = "fold:settled"
 
 _MIN_NAME_WIDTH = 14
@@ -239,13 +241,23 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
     return rows
 
 
-def _balance_row(person_or_account: dict, indent: str, palette, dim: bool = False) -> HomeRow:
-    name = person_or_account.get("name") or "(unnamed)"
+def _balance_rows(accounts: list[dict]) -> list[dict]:
+    """One row per account and currency, in the engine's order
+    (contract: GET /v1/dashboard, "`bank_accounts`"): `id` and `name` beside the
+    currency's own `currency_code` and `current_balance_cents`."""
+    return [
+        {"id": account["id"], "name": name, **held}
+        for account, name, held in reads.held_currencies(accounts)
+    ]
+
+
+def _balance_row(row: dict, indent: str, palette, dim: bool = False) -> HomeRow:
+    label = formatting.currency_label(row["name"], row["currency_code"])
     return HomeRow(
-        f"{ACCOUNT_PREFIX}{person_or_account['id']}",
-        indent + name,
-        _balance_cell(person_or_account, palette),
-        name=name,
+        f"{ACCOUNT_PREFIX}{row['id']}:{row['currency_code']}",
+        indent + label,
+        _balance_cell(row, palette),
+        name=label,
         dim=dim,
     )
 
@@ -267,10 +279,9 @@ def home_rows(
         rows.append(None)
         dashboard = data.get("dashboard") or {}
         rows.append(HomeRow(None, "BANK ACCOUNTS", Text("balance today", style="dim"), dim=True))
-        for acct in dashboard.get("bank_accounts") or []:
-            if acct.get("id"):
-                rows.append(_balance_row(acct, "  ", palette))
-        people = [p for p in dashboard.get("people") or [] if p.get("id")]
+        for acct in _balance_rows(dashboard.get("bank_accounts") or []):
+            rows.append(_balance_row(acct, "  ", palette))
+        people = _balance_rows(dashboard.get("people") or [])
         outstanding, settled = split_settled(people)
         caption = Text("none" if not people else "", style="dim")
         rows.append(HomeRow(None, "PEOPLE", caption, dim=True))
@@ -576,7 +587,8 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
             cat = option_id[len(TAG_PREFIX) :].split(":", 1)[0]
             flt = LedgerFilter("category", cat, row.name, hashtag_id=row.hashtag)
         elif row is not None and option_id.startswith(ACCOUNT_PREFIX):
-            flt = LedgerFilter("account", option_id[len(ACCOUNT_PREFIX) :], row.name)
+            account_id, code = option_id[len(ACCOUNT_PREFIX) :].rsplit(":", 1)
+            flt = LedgerFilter("account", account_id, row.name, currency_code=code)
         if flt is not None:
             self.app.push_screen(TransactionsScreen(filter=flt))
             return

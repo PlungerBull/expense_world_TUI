@@ -603,19 +603,15 @@ def test_split_settled_partitions_on_the_native_balance():
     assert [p["name"] for p in settled] == ["Ana"]
 
 
-def test_split_settled_ignores_the_home_balance():
-    """A missing exchange rate must never read as "she paid me back"."""
-    people = [
-        # Square in her own currency, unpriceable in home — settled.
-        {"name": "Beto", "current_balance_cents": 0, "current_balance_home_cents": None},
-        # Owes 200 in her own currency, unpriceable in home — still outstanding.
-        {"name": "Cora", "current_balance_cents": 20000, "current_balance_home_cents": None},
-        # Home rounds to zero, native does not. Native decides.
-        {"name": "Dina", "current_balance_cents": 1, "current_balance_home_cents": 0},
+def test_split_settled_reads_each_currency_row_on_its_own_balance():
+    """One person, two currencies, two rows: settled in one, outstanding in the other."""
+    rows = [
+        {"name": "Majo", "currency_code": "PEN", "current_balance_cents": 0},
+        {"name": "Majo", "currency_code": "USD", "current_balance_cents": -4500},
     ]
-    outstanding, settled = split_settled(people)
-    assert [p["name"] for p in outstanding] == ["Cora", "Dina"]
-    assert [p["name"] for p in settled] == ["Beto"]
+    outstanding, settled = split_settled(rows)
+    assert [r["currency_code"] for r in outstanding] == ["USD"]
+    assert [r["currency_code"] for r in settled] == ["PEN"]
 
 
 def test_split_settled_treats_an_unknown_balance_as_outstanding():

@@ -831,6 +831,31 @@ class CurrencyPick(NamedTuple):
     name: str
 
 
+def held_currencies(
+    items: list, *, include_people: bool = True, include_archived: bool = True
+) -> list[tuple[dict, str, dict]]:
+    """`(account, name, currency entry)` for each currency each account holds, in the
+    order given: accounts as sent, each one's `currencies` as sent. Skips id-less
+    rows, a currency entry with no code, person accounts unless `include_people`
+    and archived accounts unless `include_archived`. `name` is the account's name,
+    `(unnamed)` when it has none. The one walk under the picks and Home's rows."""
+    out: list[tuple[dict, str, dict]] = []
+    for account in items:
+        if not account.get("id"):
+            continue
+        if not include_people and account.get("is_person"):
+            continue
+        if not include_archived and account.get("is_archived"):
+            continue
+        name = account.get("name") or "(unnamed)"
+        out.extend(
+            (account, name, held)
+            for held in account.get("currencies") or []
+            if held.get("currency_code")
+        )
+    return out
+
+
 def currency_picks(
     items: list, *, include_people: bool = True, include_archived: bool = True
 ) -> list[CurrencyPick]:
@@ -845,28 +870,17 @@ def currency_picks(
     no pick. Skips id-less rows, person accounts unless `include_people`, and
     archived accounts unless `include_archived`.
     """
-    out: list[CurrencyPick] = []
-    for account in items:
-        if not account.get("id"):
-            continue
-        if not include_people and account.get("is_person"):
-            continue
-        if not include_archived and account.get("is_archived"):
-            continue
-        name = account.get("name") or "(unnamed)"
-        for held in account.get("currencies") or []:
-            code = held.get("currency_code")
-            if not code:
-                continue
-            out.append(
-                CurrencyPick(
-                    account["id"],
-                    currency_label(name, code),
-                    code,
-                    name,
-                )
-            )
-    return out
+    return [
+        CurrencyPick(
+            account["id"],
+            currency_label(name, held["currency_code"]),
+            held["currency_code"],
+            name,
+        )
+        for account, name, held in held_currencies(
+            items, include_people=include_people, include_archived=include_archived
+        )
+    ]
 
 
 def holder_accounts(items: list) -> dict[str, list[dict]]:

@@ -15,7 +15,7 @@ from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
-from tests.unit.helpers import fake_ledger, run_app, stub_home_month, wait_for
+from tests.unit.helpers import HOME_DASHBOARD, fake_ledger, run_app, stub_home_month, wait_for
 
 _CASES = [
     ("ledger", "transactions", home.TransactionsScreen),
@@ -255,9 +255,34 @@ def test_enter_on_an_account_filters_the_ledger_by_it(monkeypatch):
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _select(app, pilot, "account:a-pen")
+        await _select(app, pilot, "account:a-pen:PEN")
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
+        assert app.screen._filter == LedgerFilter(
+            "account", "a-pen", "BCP PEN · PEN", currency_code="PEN"
+        )
+
+    run_app(scenario)
+
+
+def test_enter_on_a_second_currency_hands_the_ledger_that_account_and_currency(monkeypatch):
+    two = {
+        "id": "a-visa",
+        "name": "VISA",
+        "currencies": [
+            {"currency_code": "PEN", "current_balance_cents": 100},
+            {"currency_code": "USD", "current_balance_cents": -250},
+        ],
+    }
+    stub_home_month(monkeypatch, dashboard={**HOME_DASHBOARD, "bank_accounts": [two]})
+    monkeypatch.setattr(SectionScreen, "_load", lambda self: None)
+
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _select(app, pilot, "account:a-visa:USD")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        assert app.screen._filter == LedgerFilter(
+            "account", "a-visa", "VISA · USD", currency_code="USD"
+        )
 
     run_app(scenario)
 
@@ -291,10 +316,10 @@ def test_home_keeps_the_cursor_row_across_a_reload(monkeypatch):
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _highlight(app, "account:a-pen")
+        await _highlight(app, "account:a-pen:PEN")
         app.screen._set_data(app.screen._data, None)
         await pilot.pause()
-        assert app.screen._cursor_id() == "account:a-pen"
+        assert app.screen._cursor_id() == "account:a-pen:PEN"
 
     run_app(scenario)
 

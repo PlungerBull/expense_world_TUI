@@ -94,8 +94,12 @@ def test_the_apps_own_styled_cells_keep_their_styling():
 def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
     """Home's balances: a bank account and a person as the engine holds them,
     the balance after each where it was."""
-    account = {**HOME_DASHBOARD["bank_accounts"][0], "name": words}
-    person = {"id": "p1", "name": words, "currency_code": "PEN", "current_balance_cents": -150000}
+    account = {**HOME_DASHBOARD["bank_accounts"][0], "name": words}  # one PEN currency
+    person = {
+        "id": "p1",
+        "name": words,
+        "currencies": [{"currency_code": "PEN", "current_balance_cents": -150000}],
+    }
     dashboard = {
         **HOME_DASHBOARD,
         "bank_accounts": [account, *HOME_DASHBOARD["bank_accounts"][1:]],
@@ -110,8 +114,11 @@ def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
         option_list = app.query_one(OptionList)
         options = [option_list.get_option_at_index(i) for i in range(option_list.option_count)]
         shown = {o.id: render_text(o.prompt, width=120).strip() for o in options if o.id}
-        for row_id, balance in (("account:a-pen", "5,145.82 PEN"), ("account:p1", "-1,500.00 PEN")):
-            assert re.split(r"\s{2,}", shown[row_id]) == [words, balance], shown[row_id]
+        for row_id, balance in (
+            ("account:a-pen:PEN", "5,145.82 PEN"),
+            ("account:p1:PEN", "-1,500.00 PEN"),
+        ):
+            assert re.split(r"\s{2,}", shown[row_id]) == [f"{words} · PEN", balance], shown[row_id]
 
     run_app(scenario)
 

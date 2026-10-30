@@ -74,7 +74,7 @@ def test_rows_run_categories_totals_accounts_people_screens():
     lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
     assert lefts[:3] == ["CATEGORIES", "▶ @Pendiente", "▶ WANTS"]
     assert lefts[3:7] == ["", "inflow", "outflow", "net"]
-    assert lefts[7:10] == ["BANK ACCOUNTS", "BCP PEN", "BCP USD"]
+    assert lefts[7:10] == ["BANK ACCOUNTS", "BCP PEN · PEN", "BCP USD · USD"]
     assert lefts[10:11] == ["PEOPLE"]
     assert lefts[11:] == [x.strip() for x in SECTIONS]
 
@@ -246,9 +246,9 @@ def test_a_combo_of_several_hashtags_cannot_filter():
 
 def test_balances_are_native_with_the_code_beside_them():
     rows = _by_left(home.home_rows(DATA, palette=PALETTE))
-    assert _plain(rows["BCP PEN"].right) == "5,145.82 PEN"
-    assert _plain(rows["BCP USD"].right) == "1.30 USD"
-    assert rows["BCP USD"].id == "account:a-usd"
+    assert _plain(rows["BCP PEN · PEN"].right) == "5,145.82 PEN"
+    assert _plain(rows["BCP USD · USD"].right) == "1.30 USD"
+    assert rows["BCP USD · USD"].id == "account:a-usd:USD"
     assert _plain(rows["BANK ACCOUNTS"].right) == "balance today"
 
 
@@ -256,15 +256,67 @@ def test_people_say_none_and_fold_the_settled():
     rows = _by_left(home.home_rows(DATA, palette=PALETTE))
     assert _plain(rows["PEOPLE"].right) == "none"
     people = [
-        {"id": "p-1", "name": "Juan", "currency_code": "USD", "current_balance_cents": -4500},
-        {"id": "p-2", "name": "Majo", "currency_code": "PEN", "current_balance_cents": 0},
+        {
+            "id": "p-1",
+            "name": "Juan",
+            "currencies": [{"currency_code": "USD", "current_balance_cents": -4500}],
+        },
+        {
+            "id": "p-2",
+            "name": "Majo",
+            "currencies": [{"currency_code": "PEN", "current_balance_cents": 0}],
+        },
     ]
     data = {**DATA, "dashboard": {**HOME_DASHBOARD, "people": people}}
     rows = _by_left(home.home_rows(data, palette=PALETTE))
-    assert _plain(rows["Juan"].right) == "-45.00 USD" and rows["Juan"].id == "account:p-1"
-    assert "Majo" not in rows and rows["▶ 1 settled"].id == home.SETTLED_ID
+    juan = rows["Juan · USD"]
+    assert _plain(juan.right) == "-45.00 USD" and juan.id == "account:p-1:USD"
+    assert "Majo · PEN" not in rows and rows["▶ 1 settled"].id == home.SETTLED_ID
     rows = _by_left(home.home_rows(data, home.HomeState(settled_open=True), PALETTE))
-    assert rows["Majo"].id == "account:p-2" and rows["Majo"].dim
+    assert rows["Majo · PEN"].id == "account:p-2:PEN" and rows["Majo · PEN"].dim
+
+
+def test_a_two_currency_account_is_two_rows_in_the_engines_order():
+    accounts = [
+        {
+            "id": "a-1",
+            "name": "VISA",
+            "currencies": [
+                {"currency_code": "PEN", "current_balance_cents": 100},
+                {"currency_code": "USD", "current_balance_cents": -250},
+            ],
+        },
+        {
+            "id": "a-0",
+            "name": "Caja",
+            "currencies": [{"currency_code": "PEN", "current_balance_cents": 5}],
+        },
+    ]
+    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "bank_accounts": accounts}}
+    rows = [r for r in _live(home.home_rows(data, palette=PALETTE)) if r.id and ":" in r.id]
+    shown = [(r.left.strip(), r.id, _plain(r.right)) for r in rows if r.id.startswith("account:")]
+    assert shown == [
+        ("VISA · PEN", "account:a-1:PEN", "1.00 PEN"),
+        ("VISA · USD", "account:a-1:USD", "-2.50 USD"),
+        ("Caja · PEN", "account:a-0:PEN", "0.05 PEN"),
+    ]
+
+
+def test_a_person_settled_in_soles_and_owing_in_dollars_shows_in_both_places():
+    person = {
+        "id": "p-1",
+        "name": "Majo",
+        "currencies": [
+            {"currency_code": "PEN", "current_balance_cents": 0},
+            {"currency_code": "USD", "current_balance_cents": -4500},
+        ],
+    }
+    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "people": [person]}}
+    closed = _by_left(home.home_rows(data, palette=PALETTE))
+    assert _plain(closed["Majo · USD"].right) == "-45.00 USD"
+    assert "Majo · PEN" not in closed and closed["▶ 1 settled"].id == home.SETTLED_ID
+    opened = _by_left(home.home_rows(data, home.HomeState(settled_open=True), PALETTE))
+    assert opened["Majo · PEN"].dim and opened["Majo · USD"].id == "account:p-1:USD"
 
 
 def test_screens_stand_before_the_fetch_and_after_a_failure():

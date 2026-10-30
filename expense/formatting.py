@@ -227,13 +227,11 @@ def format_hashtag_cell(
 def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
     """Split person rows into `(outstanding, settled)`. Shared by every People panel.
 
-    "Settled" is **exactly zero in the person's own currency**
-    (`current_balance_cents == 0`). Three parts of that are load-bearing:
+    "Settled" is **exactly zero in that row's own currency**
+    (`current_balance_cents == 0`); a row is one person's one currency, so a
+    person settled in soles and owing in dollars stands in both groups. Two parts
+    of that are load-bearing:
 
-    * **Native, not home.** Every People table shows `current_balance_cents`, and
-      a person whose currency has no rate today has a `null`
-      `current_balance_home_cents` — treating that as settled would mark someone
-      as square because an exchange rate was missing.
     * **Only an `int` counts.** A missing or non-numeric balance is *unknown*, not
       zero, so it stays in `outstanding` where it is visible.
     * **Settled is folded, never dropped.** The engine returns every person and

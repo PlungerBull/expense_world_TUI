@@ -1556,16 +1556,34 @@ HOME_MONTHS = [
         },
     },
 ]
-HOME_DASHBOARD = {
+_DASHBOARD = {
     "month": {"year": 2026, "month": 9},
     "bank_accounts": [
-        {"id": "a-pen", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 514582},
-        {"id": "a-usd", "name": "BCP USD", "currency_code": "USD", "current_balance_cents": 130},
+        {
+            "id": "a-pen",
+            "name": "BCP PEN",
+            "currencies": [{"currency_code": "PEN", "current_balance_cents": 514582}],
+        },
+        {
+            "id": "a-usd",
+            "name": "BCP USD",
+            "currencies": [{"currency_code": "USD", "current_balance_cents": 130}],
+        },
     ],
     "people": [],
     "categories": [],
     "totals": {"net_home_cents": -1148746, "unconverted_count": 0},
 }
+
+
+@answer_of("GET", "/v1/dashboard")
+def dashboard_answer(**fields: Any) -> dict:
+    """`GET /dashboard` as the engine reads it now: `fields` spread over `_DASHBOARD`
+    (each account one row holding its currencies, balances native only)."""
+    return {**_DASHBOARD, **fields}
+
+
+HOME_DASHBOARD = dashboard_answer()
 HOME_TAG_NAMES = dict([("h-sal", "SALIDAS"), ("h-otr", "OTROS"), ("h-pend", "Pendiente")])
 
 

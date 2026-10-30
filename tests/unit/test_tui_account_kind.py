@@ -466,8 +466,8 @@ def _dashboard(rows: list[dict]) -> dict:
     """`/dashboard` as the engine gives it: real accounts and people apart."""
 
     def entry(r: dict) -> dict:
-        keys = ("id", "name", "currency_code", "current_balance_cents")
-        return {k: r[k] for k in keys}
+        held = {k: r[k] for k in ("currency_code", "current_balance_cents")}
+        return {"id": r["id"], "name": r["name"], "currencies": [held]}
 
     live = [r for r in rows if not r["is_archived"]]
     return {
@@ -481,7 +481,7 @@ def _dashboard(rows: list[dict]) -> dict:
 
 def _groups(data: dict) -> tuple[list[str], list[str]]:
     """The names Home draws under BANK ACCOUNTS and under PEOPLE."""
-    lefts = [r.left.strip() for r in home.home_rows(data) if r is not None]
+    lefts = [r.left.strip().rsplit(" · ", 1)[0] for r in home.home_rows(data) if r is not None]
     banks = lefts[lefts.index("BANK ACCOUNTS") + 1 : lefts.index("PEOPLE")]
     people = lefts[lefts.index("PEOPLE") + 1 : lefts.index("LEDGER")]
     return banks, people
