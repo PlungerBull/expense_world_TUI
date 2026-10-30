@@ -14,14 +14,17 @@ the month may be left out. Pinned here, per currency:
   · a currency with no line closes when its beginning and ending balances are equal;
   · a `PUT` naming one currency keeps the others, and a list that names a currency twice, or
     one the account does not hold, is refused on the entry's position;
-  · an archived account's statements, draft and completed, are frozen in each currency.
+  · an archived account's statements, draft and completed, are frozen in each currency;
+  · a currency with money at the start must have balances, on a create and at the close,
+    and a line in a currency a draft holds none for gives the draft that currency's balances;
+  · a completed statement gains no currency.
 
 The single-record lifecycle, the period's refusals, locking and the account's list are in
 test_statements_lifecycle.py. Gating, target resolution and the real-ledger guard live in
 conftest.py.
 """
 
-from tests.contract.conftest import assert_refusal, assert_refusals, refused
+from tests.contract.conftest import assert_refusal, assert_refusals, balance_of, refused
 
 APRIL = ("2026-04-01", "2026-04-30")
 MAY = ("2026-05-01", "2026-05-31")
@@ -39,10 +42,6 @@ def _entry(code: str, beginning: int, ending: int | None) -> dict:
         "beginning_balance_cents": beginning,
         "ending_balance_cents": ending,
     }
-
-
-def _balance(statement: dict, code: str) -> dict:
-    return next(b for b in statement["balances"] if b["currency_code"] == code)
 
 
 def _codes(statement: dict) -> list[str]:
@@ -67,8 +66,8 @@ def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, s
 
     scratch.assign(pen_tx, sid)
     read = client.get(f"/statements/{sid}")
-    assert _balance(read, "PEN")["difference_cents"] == 0
-    assert _balance(read, "USD")["difference_cents"] == -300
+    assert balance_of(read, "PEN")["difference_cents"] == 0
+    assert balance_of(read, "USD")["difference_cents"] == -300
 
     scratch.assign(usd_tx, sid)
     read = client.get(f"/statements/{sid}")
@@ -116,7 +115,7 @@ def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covere
             "review_lines": [stray["bank_line_id"]],
         }
     ]
-    assert _balance(flagged, "PEN")["review_lines"] == []
+    assert balance_of(flagged, "PEN")["review_lines"] == []
 
 
 def test_difference_not_zero_is_keyed_on_each_currency_that_fails_and_writes_nothing(
@@ -211,7 +210,7 @@ def test_a_currency_with_no_line_closes_when_its_two_balances_are_equal(client, 
         ("PEN", 0),
         ("USD", 0),
     ]
-    assert _balance(completed, "USD")["review_lines"] == []
+    assert balance_of(completed, "USD")["review_lines"] == []
 
 
 def test_a_put_naming_one_currency_keeps_the_others(client, scratch):
@@ -231,16 +230,16 @@ def test_a_put_naming_one_currency_keeps_the_others(client, scratch):
         f"/statements/{sid}",
         json_body={"balances": [{"currency_code": "USD", "ending_balance_cents": 4000}]},
     )
-    assert _balance(put, "PEN") == _balance(created, "PEN")
-    assert _balance(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
+    assert balance_of(put, "PEN") == balance_of(created, "PEN")
+    assert balance_of(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
     assert (put["version"], _codes(put)) == (created["version"] + 1, ["PEN", "USD"])
 
     put = client.put(
         f"/statements/{sid}",
         json_body={"balances": [{"currency_code": "PEN", "ending_balance_cents": None}]},
     )
-    assert _balance(put, "PEN") == {**_entry("PEN", 10000, None), "difference_cents": None}
-    assert _balance(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
+    assert balance_of(put, "PEN") == {**_entry("PEN", 10000, None), "difference_cents": None}
+    assert balance_of(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
 
     before = client.get(f"/statements/{sid}")
     assert_refusal(
@@ -358,5 +357,136 @@ def test_an_archived_accounts_statements_are_frozen_in_each_currency(client, scr
         f"/statements/{draft}",
         json_body={"balances": [{"currency_code": "USD", "ending_balance_cents": 5000}]},
     )
-    assert _balance(put, "USD")["ending_balance_cents"] == 5000
-    assert _balance(put, "PEN") == _balance(before[draft], "PEN")
+    assert balance_of(put, "USD")["ending_balance_cents"] == 5000
+    assert balance_of(put, "PEN") == balance_of(before[draft], "PEN")
+
+
+MISSING = "Must be entered before completing."
+LOCKED = "Locked while the statement is completed."
+MONEY_AT_START = (
+    "Holds 30000 USD cents at the start of the statement "
+    "(its balance at the end of 2026-03-31), so the statement needs its USD balances."
+)
+
+
+def test_a_create_leaving_out_a_currency_with_money_at_the_start_is_refused(client, scratch):
+    """An opening balance of $300 on 2026-03-10 is money at the start of April in dollars, so a
+    create sending the soles alone is `422` on `balances.USD` (`MONEY_AT_START_NOT_COVERED`),
+    its message naming the currency and the money, and writes nothing: the account's list of
+    statements reads as before. Sending the dollars too is taken
+    (contract: POST /v1/statements, "Order")."""
+    account = scratch.account("PEN", "USD")
+    scratch.opening_balance(account, "2026-03-10", "USD", 30000)
+    before = client.get("/statements", params={"account_id": account})
+    assert before == {"items": []}
+
+    err = refused(lambda: scratch.statement(account, *APRIL, balances=[_entry("PEN", 0, 0)]))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "MONEY_AT_START_NOT_COVERED")
+    assert err.fields == {"balances.USD": MONEY_AT_START}
+    assert client.get("/statements", params={"account_id": account}) == before
+
+    created = scratch.statement(
+        account, *APRIL, balances=[_entry("PEN", 0, 0), _entry("USD", 30000, 30000)]
+    )
+    assert _codes(created) == ["PEN", "USD"]
+
+
+def test_a_close_refuses_a_currency_with_money_at_the_start_until_its_balances_are_added(
+    client, scratch
+):
+    """A soles-only draft is made while the dollars hold nothing. A dollar row dated before
+    `date_start` then gives them $300 at the start, and the close judges that again: `422` on
+    `balances.USD` (`MONEY_AT_START_NOT_COVERED`), nothing written, the statement a draft as it
+    was. `PUT /statements/{id}` adding the dollars' balances clears it, and the close takes
+    (contract: POST /v1/statements/{statement_id}/complete, "Every currency with money at the
+    start has balances in it")."""
+    account = scratch.account("PEN", "USD")
+    pen_tx = scratch.row(account, "2026-04-15", -1200)["id"]
+    sid = scratch.statement(account, *APRIL, balances=[_entry("PEN", 10000, 8800)])["id"]
+    scratch.assign(pen_tx, sid)
+    scratch.row(account, "2026-03-20", 30000, "USD")
+    before = client.get(f"/statements/{sid}")
+    assert _codes(before) == ["PEN"]
+
+    err = refused(lambda: client.post(f"/statements/{sid}/complete"))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "MONEY_AT_START_NOT_COVERED")
+    assert err.fields == {"balances.USD": MONEY_AT_START}
+    assert client.get(f"/statements/{sid}") == before
+
+    put = client.put(f"/statements/{sid}", json_body={"balances": [_entry("USD", 30000, 30000)]})
+    assert _codes(put) == ["PEN", "USD"]
+    completed = client.post(f"/statements/{sid}/complete")
+    assert (completed["status"], _codes(completed), completed["not_covered"]) == (
+        2,
+        ["PEN", "USD"],
+        [],
+    )
+
+
+def test_a_line_placed_in_a_draft_lacking_its_currency_gives_it_that_currencys_balances(
+    client, scratch
+):
+    """A dollar line placed in a soles-only draft gives the draft dollar balances, both
+    `null` and the dollars' `difference_cents` `null`, in the one write that places it: one
+    version more, the soles untouched. The close then names every blank balance in one answer
+    (`BEGINNING_BALANCE_REQUIRED` and `ENDING_BALANCE_REQUIRED`, both "Must be entered before
+    completing.") and writes nothing; once both are filled it completes, and its `not_covered`
+    is `[]` as the statement now covers every currency
+    (contract: "Statements", "A line in a currency the statement holds no balances for gives
+    it that currency's balances"). The close's refusal is
+    (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")."""
+    account = scratch.account("PEN", "USD")
+    pen_tx = scratch.row(account, "2026-04-15", -1200)["id"]
+    usd_tx = scratch.row(account, "2026-04-16", -300, "USD")["id"]
+    sid = scratch.statement(account, *APRIL, balances=[_entry("PEN", 10000, 8800)])["id"]
+    scratch.assign(pen_tx, sid)
+    draft = client.get(f"/statements/{sid}")
+
+    scratch.assign(usd_tx, sid)
+    placed = client.get(f"/statements/{sid}")
+    assert _codes(placed) == ["PEN", "USD"]
+    assert balance_of(placed, "USD") == {**_entry("USD", None, None), "difference_cents": None}
+    assert balance_of(placed, "PEN") == balance_of(draft, "PEN")
+    assert placed["version"] == draft["version"] + 1
+
+    err = refused(lambda: client.post(f"/statements/{sid}/complete"))
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "balances.USD.beginning_balance_cents": "BEGINNING_BALANCE_REQUIRED",
+            "balances.USD.ending_balance_cents": "ENDING_BALANCE_REQUIRED",
+        },
+    )
+    assert set(err.fields.values()) == {MISSING}
+    assert err.message == "Cannot complete the statement without every currency's balances."
+    assert client.get(f"/statements/{sid}") == placed
+
+    put = client.put(f"/statements/{sid}", json_body={"balances": [_entry("USD", 5000, 4700)]})
+    assert balance_of(put, "USD")["difference_cents"] == 0
+    completed = client.post(f"/statements/{sid}/complete")
+    assert (completed["status"], completed["not_covered"]) == (2, [])
+
+
+def test_a_completed_statement_gains_no_currency(client, scratch):
+    """A completed soles-only statement refuses an entry for the dollars it holds no balances
+    for, with balances or without: `422` `LOCKED` on `balances.USD`, "Locked while the
+    statement is completed.", and it reads as before. Its `not_covered` named the dollars at
+    the close (contract: PUT /v1/statements/{statement_id}, "Field locking on COMPLETED")."""
+    account = scratch.account("PEN", "USD")
+    pen_tx = scratch.row(account, "2026-04-15", -1200)["id"]
+    sid = scratch.statement(account, *APRIL, balances=[_entry("PEN", 10000, 8800)])["id"]
+    scratch.assign(pen_tx, sid)
+    closed = client.post(f"/statements/{sid}/complete")
+    assert [n["currency_code"] for n in closed["not_covered"]] == ["USD"]
+    before = client.get(f"/statements/{sid}")
+
+    for entry in (_entry("USD", 5000, 5000), {"currency_code": "USD"}):
+        err = refused(
+            lambda entry=entry: client.put(f"/statements/{sid}", json_body={"balances": [entry]})
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "LOCKED")
+        assert err.fields == {"balances.USD": LOCKED}
+        assert client.get(f"/statements/{sid}") == before
+    assert _codes(before) == ["PEN"]

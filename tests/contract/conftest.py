@@ -299,6 +299,11 @@ def refused(call) -> EngineError:
     return excinfo.value
 
 
+def balance_of(statement: dict, code: str) -> dict:
+    """The statement's balance entry for the currency `code`."""
+    return next(b for b in statement["balances"] if b["currency_code"] == code)
+
+
 def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str, str]) -> None:
     """The refusal is `status` `code`, keyed on exactly the keys of `reasons`, each
     carrying its reason (contract: "Base Conventions", "`fields` and `reasons` semantics")."""

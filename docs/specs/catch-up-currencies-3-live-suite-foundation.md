@@ -85,24 +85,7 @@ None.
 
 ## Tasks
 
-Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
-task and stops after it. Each fixes the `(contract: …)` citations of the files it touches.
-Files left to spec 4 may fail live until it runs.
-
-8. **A statement's currencies, part 2 (builder).** In
-   [test_statement_currencies.py](../../tests/contract/test_statement_currencies.py):
-   `MONEY_AT_START_NOT_COVERED` on `balances.<code>` from `POST /statements` and from the
-   complete, cleared by adding that currency with `PUT /statements/{id}`
-   (contract: POST /v1/statements/{statement_id}/complete, "Every currency with money at the start has balances in it");
-   a line placed in a draft lacking its currency giving the draft that currency's balances,
-   both `null`, `difference_cents` `null`
-   (contract: "Statements", "A line in a currency the statement holds no balances for gives it that currency's balances");
-   the complete then refused with `BEGINNING_BALANCE_REQUIRED` and `ENDING_BALANCE_REQUIRED` in
-   one answer (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered"),
-   and completing once both are filled; a completed statement gaining no currency (`LOCKED` on
-   `balances.<code>`); `not_covered` naming a currency the statement holds no balances for, `[]`
-   when it covers them all.
-   *Passes if:* those tests pass live, each refusal writing nothing.
+All eight done on 2026-10-30; the acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 

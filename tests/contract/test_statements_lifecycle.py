@@ -35,6 +35,7 @@ from uuid import uuid4
 from tests.contract.conftest import (
     assert_refusal,
     assert_refusals,
+    balance_of,
     read_signed,
     refused,
     statement_create_body,
@@ -55,10 +56,6 @@ APRIL = ("2026-04-01", "2026-04-30")
 #: PEN beginning at 958000 cents with no ending balance entered, and the same ending at 956800.
 OPENING = [{"currency_code": "PEN", "beginning_balance_cents": 958000}]
 CLOSING = [{**OPENING[0], "ending_balance_cents": 956800}]
-
-
-def _balance(statement: dict, code: str) -> dict:
-    return next(b for b in statement["balances"] if b["currency_code"] == code)
 
 
 def test_a_statement_is_made_renamed_completed_reverted_and_deleted_as_one_record(
@@ -353,7 +350,7 @@ def test_completing_with_nothing_assigned_is_refused_in_every_currency(client, s
     )
     completed = client.post(f"/statements/{sid}/complete")
     assert completed["status"] == 2
-    assert _balance(completed, "PEN")["difference_cents"] == 0
+    assert balance_of(completed, "PEN")["difference_cents"] == 0
 
 
 def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(client, scratch):
@@ -369,7 +366,7 @@ def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(clie
     tx = scratch.row(account, "2026-04-15", -1200)["id"]
     draft = scratch.statement(account, *APRIL, balances=OPENING)
     sid = draft["id"]
-    assert _balance(draft, "PEN")["ending_balance_cents"] is None
+    assert balance_of(draft, "PEN")["ending_balance_cents"] is None
     scratch.assign(tx, sid)
     before = client.get(f"/statements/{sid}")
 
@@ -383,7 +380,7 @@ def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(clie
     )
     assert err.fields == {"balances.PEN.ending_balance_cents": BLANK}
     assert client.get(f"/statements/{sid}") == before
-    assert (before["status"], _balance(before, "PEN")["ending_balance_cents"]) == (1, None)
+    assert (before["status"], balance_of(before, "PEN")["ending_balance_cents"]) == (1, None)
 
     client.put(
         f"/statements/{sid}",
@@ -552,7 +549,7 @@ def test_an_archived_accounts_statements_are_frozen_until_unarchived(client, scr
     assert (before[draft]["status"], before[done]["status"]) == (1, 2)
     for sid, current in before.items():
         path = f"/statements/{sid}"
-        pen = _balance(current, "PEN")
+        pen = balance_of(current, "PEN")
         every_field = {
             "name": current["name"],
             "date_start": current["date_start"],
