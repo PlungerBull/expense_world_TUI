@@ -546,15 +546,19 @@ class SectionScreen(
             await content.mount(Static(banner, classes="error"))
 
     # ---- shared write helpers ----------------------------------------------
-    def selected_record(self) -> dict | None:
-        """The record under the list cursor (screens keep `_by_id`)."""
+    def selected_key(self) -> object | None:
+        """The key of the list row under the cursor: the record's id, or whatever
+        key the screen's rows carry (Accounts: an account and a currency)."""
         from expense.tui.widgets.cursor_list import CursorList
 
         try:
-            cursor_list = self.query_one(CursorList)
+            return self.query_one(CursorList).cursor_key
         except Exception:
             return None
-        return getattr(self, "_by_id", {}).get(cursor_list.cursor_key)
+
+    def selected_record(self) -> dict | None:
+        """The record under the list cursor (screens keep `_by_id`)."""
+        return getattr(self, "_by_id", {}).get(self.selected_key())
 
     def _after_write(self, message: str) -> None:
         toast(self, message)
@@ -618,6 +622,11 @@ class ResourceListScreen(SectionScreen):
         """items → the pure row builder's (id, cells, style) rows."""
         raise NotImplementedError
 
+    def index_items(self, items: list) -> dict:
+        """Row key → the record the row stands for; the key is the one `rows` gives
+        each row (a record's id unless the screen's rows differ)."""
+        return {it.get("id"): it for it in items}
+
     def edit_screen(self, item: dict):
         """The prefilled edit form for `e` on a row."""
         raise NotImplementedError
@@ -673,7 +682,7 @@ class ResourceListScreen(SectionScreen):
     def build(self, items: list) -> list[Widget]:
         from expense.tui.widgets.cursor_list import CursorList
 
-        self._by_id = {it.get("id"): it for it in items}
+        self._by_id = self.index_items(items)
         cursor_list = CursorList(
             self.HEADERS,
             self.rows(items),
@@ -701,7 +710,7 @@ class ResourceListScreen(SectionScreen):
         item = self.selected_record()
         if not item or self.is_fixed(item):
             return
-        self._restore_key = item.get("id")
+        self._restore_key = self.selected_key()
         self.app.push_screen(self.edit_screen(item), self._edited)
 
     def _edited(self, saved: object = None) -> None:

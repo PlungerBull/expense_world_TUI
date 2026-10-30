@@ -901,9 +901,17 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **Manage ▸ Accounts is a table of Name, Type, Cur, Code, Color, Balance and Status** (screen
 4 B in [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
 for Code), banks and people together, archived rows dimmed, under the legend `balances are
-native currency`. Code is the account's statement code, or a dim `—` when it has none (a
-person never has one); it is where both accounts of one card show the same code. Balance is the
-one right-aligned column (`account_rows` in
+native currency`. It has one row per account and currency the account holds, named
+`<account> · <code>`: Cur and Balance are that currency's, Type, Code, Color and Status the
+account's, accounts as the engine sends them and each one's currencies as sent
+(`reads.held_currencies`; contract: GET /v1/accounts, "Ordering")
+(contract: "Bank Accounts", "Per-currency order"). An account holding no currency has one row,
+its name alone and a dim `—` for Cur and Balance. `e`, `a`, `t` and `d` act on the account under
+the cursor, every currency at once, through one call with the account's id
+(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"), so `a` dims every
+row of the account; after `a` or `t` the cursor is back on the same row. Code is the account's
+statement code, or a dim `—` when it has none (a person never has one). Balance is the one
+right-aligned column (`account_rows` in
 [accounts.py](../expense/tui/screens/accounts.py)).
 
 **`t` turns an account into a person and back** (screens 1 A, 2 A, 3 and 5 B in
@@ -943,13 +951,19 @@ while a bulk write runs and on an archived account's row (above). On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
 away and can be undone, delete is for something made by mistake.
 
+On Accounts the delete acts on the whole account (contract: "What an account is", "An account is deleted whole"):
+the body's first line is the account, its kind, then each currency it holds with that
+currency's balance, the same whichever of the account's rows the cursor is on; a one-currency
+account reads `Efectivo · bank · PEN 350.00`, one holding none `Prueba · bank`
+([expense-world-currencies-delete.html](mockups/expense-world-currencies-delete.html), pane A).
+
 Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
 and send nothing). The question names the row, then says the part that matters: **no
 screen can bring it back.**
 
 | Screen | Question | Body | Note after |
 |---|---|---|---|
-| Accounts | `Delete this account?` | `Prueba · bank · PEN · 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
+| Accounts | `Delete this account?` | `Prueba · bank · PEN 0.00 · USD 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
 | Ledger, and a line never split in the "no batch" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |

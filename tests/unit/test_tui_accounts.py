@@ -6,9 +6,9 @@ from expense.tui.screens.accounts import AccountsScreen, account_rows
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
-    ENGINE_ORDER_ACCOUNTS,
-    ENGINE_ORDER_NAMES,
-    account_record,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
+    account_with_currencies,
+    held_currency,
     in_order,
     render_text,
     run_app,
@@ -18,43 +18,41 @@ from tests.unit.helpers import (
 )
 
 ITEMS = [
-    {
-        "id": "a1",
-        "name": "BCP Soles",
-        "is_person": False,
-        "is_archived": False,
-        "currency_code": "PEN",
-        "color": "#4a90d9",
-        "current_balance_cents": 1245000,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "a2",
-        "name": "Socio Juan",
-        "is_person": True,
-        "is_archived": False,
-        "currency_code": "PEN",
-        "color": None,
-        "current_balance_cents": -150000,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "a3",
-        "name": "Old BCP",
-        "is_person": False,
-        "is_archived": True,
-        "currency_code": "PEN",
-        "color": "#888888",
-        "current_balance_cents": 0,
-        "opening_balance_transaction_id": None,
-    },
+    account_with_currencies(
+        id="a1",
+        name="BCP Soles",
+        color="#4a90d9",
+        currencies=[held_currency("PEN", 1245000)],
+    ),
+    account_with_currencies(
+        id="a2",
+        name="Socio Juan",
+        is_person=True,
+        color=None,
+        currencies=[held_currency("PEN", -150000)],
+    ),
+    account_with_currencies(
+        id="a3",
+        name="Old BCP",
+        is_archived=True,
+        color="#888888",
+        currencies=[held_currency("PEN", 0)],
+    ),
 ]
+#: One account holding soles and dollars, then one holding soles.
+TWO = account_with_currencies(
+    id="visa",
+    name="Prueba",
+    statement_code="PRU",
+    currencies=[held_currency("PEN", 1000), held_currency("USD", -250)],
+)
 
 
 def test_account_rows_type_balance_status_and_swatch():
-    by_id = {r[0]: r for r in account_rows(ITEMS)}
+    by_id = {r[0][0]: r for r in account_rows(ITEMS)}
     # bank, formatted balance, active status, colored swatch Text
     _key, cells, style = by_id["a1"]
+    assert cells[0] == "BCP Soles · PEN"
     assert cells[1] == "bank" and cells[5] == "12,450.00" and cells[6] == "active"
     assert isinstance(cells[4], Text) and cells[4].style == "#4a90d9"
     assert style == ""
@@ -65,14 +63,40 @@ def test_account_rows_type_balance_status_and_swatch():
     assert cells3[6] == "archived" and style3 == "dim"
 
 
+def test_a_two_currency_account_is_one_row_per_currency():
+    """Name `<account> · <code>`, Cur and Balance that currency's, the other cells the
+    account's, the account's currencies as sent; the key is the account and the code."""
+    rows = account_rows([TWO, ITEMS[0]])
+    assert [r[0] for r in rows] == [("visa", "PEN"), ("visa", "USD"), ("a1", "PEN")]
+    pen, usd = rows[0][1], rows[1][1]
+    assert [pen[0], pen[2], pen[5]] == ["Prueba · PEN", "PEN", "10.00"]
+    assert [usd[0], usd[2], usd[5]] == ["Prueba · USD", "USD", "-2.50"]
+    for same in (1, 3, 6):
+        assert pen[same] == usd[same]
+    assert pen[3] == "PRU" and pen[1] == "bank" and pen[6] == "active"
+
+
+def test_an_account_holding_no_currency_has_one_row_with_a_dim_dash():
+    """`currencies: []` keeps the account reachable: its name alone, a dim `—` for Cur and
+    Balance, the account's other cells, the key `(id, None)`."""
+    empty = account_with_currencies(id="e1", name="Prueba", statement_code="PRU", currencies=[])
+    rows = account_rows([empty, TWO])
+    assert [r[0] for r in rows] == [("e1", None), ("visa", "PEN"), ("visa", "USD")]
+    cells = rows[0][1]
+    assert cells[0] == "Prueba" and cells[1] == "bank" and cells[3] == "PRU"
+    for at in (2, 5):
+        assert isinstance(cells[at], Text) and cells[at].plain == "—" and cells[at].style == "dim"
+    assert cells[6] == "active"
+
+
 def test_the_code_column_sits_after_cur_and_shows_a_dim_dash_without_one():
     """statement-code-field 4 B: `Code` right after `Cur`, the account's statement
     code, or a dim `—` when it has none (a person always); Balance stays the
     right-aligned column."""
     assert AccountsScreen.HEADERS == ["Name", "Type", "Cur", "Code", "Color", "Balance", "Status"]
     assert AccountsScreen.ALIGN_RIGHT == {AccountsScreen.HEADERS.index("Balance")}
-    items = [account_record(ITEMS[0], statement_code="SIG"), ITEMS[1]]
-    by_id = {r[0]: r[1] for r in account_rows(items)}
+    items = [account_with_currencies(ITEMS[0], statement_code="SIG"), ITEMS[1]]
+    by_id = {r[0][0]: r[1] for r in account_rows(items)}
     assert by_id["a1"][3] == "SIG"
     dash = by_id["a2"][3]
     assert isinstance(dash, Text) and dash.plain == "—" and dash.style == "dim"
@@ -83,7 +107,7 @@ def test_the_code_column_reads_as_the_mockup_draws_it(monkeypatch):
     and the colour."""
     import expense.reads as ac
 
-    items = [account_record(ITEMS[0], statement_code="SIG"), ITEMS[1]]
+    items = [account_with_currencies(ITEMS[0], statement_code="SIG"), ITEMS[1]]
     monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(items))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
@@ -126,15 +150,26 @@ def test_accounts_screen_shows_the_engines_order(monkeypatch):
     not alphabetical, not by `sort_order`, the person after every bank."""
     import expense.reads as ac
 
-    monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS))
+    monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())
         await wait_for_list(pilot, app)
         cl = app.screen.query(CursorList).first()
-        assert [row.key for row in cl._rows] == [a["id"] for a in ENGINE_ORDER_ACCOUNTS]
+        assert [row.key for row in cl._rows] == [
+            (a["id"], h["currency_code"])
+            for a in ENGINE_ORDER_HOLDING_ACCOUNTS
+            for h in a["currencies"]
+        ]
         shown = render_text(cl._build(), width=120)
-        assert in_order(shown, ENGINE_ORDER_NAMES)
+        assert in_order(
+            shown,
+            [
+                f"{a['name']} · {h['currency_code']}"
+                for a in ENGINE_ORDER_HOLDING_ACCOUNTS
+                for h in a["currencies"]
+            ],
+        )
 
     run_app(scenario)

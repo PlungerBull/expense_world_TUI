@@ -173,17 +173,7 @@ def test_a_refused_delete_on_a_list_shows_the_words_whole(fake_client, monkeypat
 
 def test_a_refused_archive_shows_the_words_whole(fake_client, monkeypatch):
     """`a` on Manage ▸ Accounts, refused: the toggle's own "Failed" toast."""
-    rows = [
-        {
-            "id": "a1",
-            "name": "BCP",
-            "is_person": False,
-            "is_archived": False,
-            "currency_code": "PEN",
-            "color": None,
-            "opening_balance_transaction_id": None,
-        }
-    ]
+    rows = [account_with_currencies(id="a1", name="BCP", color=None)]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(rows))
     fake_client.errors["POST"] = refusal("CONFLICT", 409, "account_id")
 

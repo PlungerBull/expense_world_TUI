@@ -135,7 +135,12 @@ def test_manage_accounts_shows_a_bracketed_name_whole(monkeypatch):
         lines = render_text(cl._build(), width=AccountsScreen.CARD_WIDTH - 2).splitlines()
         row = next(line for line in lines if "BCP" in line)
         assert NAME in row, row
-        assert row.split()[3:5] == ["bank", "PEN"]  # the columns after it are where they were
+        assert row.split()[3:7] == [
+            "·",
+            "PEN",
+            "bank",
+            "PEN",
+        ]  # its currency, then the columns as were
 
     run_app(scenario)
 

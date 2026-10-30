@@ -13,18 +13,18 @@ from expense.tui.screens.create_forms import EditAccountScreen, EditHashtagScree
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    account_with_currencies,
+    held_currency,
+    run_app,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
-ACCOUNT = {
-    "id": "a1",
-    "name": "BCP",
-    "is_person": False,
-    "is_archived": False,
-    "currency_code": "PEN",
-    "color": "#4a90d9",
-    "current_balance_cents": -7495,
-    "opening_balance_transaction_id": None,
-}
+ACCOUNT = account_with_currencies(
+    id="a1", name="BCP", color="#4a90d9", currencies=[held_currency("PEN", -7495)]
+)
 ACCOUNT_2 = {**ACCOUNT, "id": "a2", "name": "Interbank", "color": None}
 ARCHIVED_ACCOUNT = {**ACCOUNT, "is_archived": True}
 CATEGORY = {"id": "c1", "name": "COMIDA", "is_system": False, "color": None}
@@ -44,6 +44,77 @@ def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
 
     run_app(scenario)
     assert ("POST", "/accounts/a1/archive") in fake_client.requests
+
+
+def test_archive_on_either_row_of_a_two_currency_account_sends_one_call_and_dims_both(
+    fake_client, monkeypatch
+):
+    """`a` on the dollars row sends one `POST /accounts/{id}/archive` with the account's
+    id, never one per currency; the reload dims both rows and the cursor is back on the
+    dollars row."""
+    visa = account_with_currencies(
+        id="visa", name="Visa", currencies=[held_currency("PEN", 100), held_currency("USD", 5)]
+    )
+    served = [visa]
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(list(served)))
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        cursor_list = screen.query(CursorList).first()
+        cursor_list.set_cursor(cursor_list.index_of(("visa", "USD")))
+        served[:] = [{**visa, "is_archived": True}]  # what the engine reads after the write
+        await pilot.press("a")
+        await wait_for(pilot, lambda: fake_client.calls)
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+        cursor_list = screen.query(CursorList).first()
+        assert cursor_list.cursor_key == ("visa", "USD")
+        assert [row.base_style for row in cursor_list._rows] == ["dim", "dim"]
+
+    run_app(scenario)
+    assert [r for r in fake_client.requests if r[0] == "POST"] == [
+        ("POST", "/accounts/visa/archive")
+    ]
+
+
+def _edit_two_currency_account(fake_client, monkeypatch, key):
+    visa = account_with_currencies(
+        id="visa", name="Visa", currencies=[held_currency("PEN", 100), held_currency("USD", 5)]
+    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([visa]))
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        cursor_list = screen.query(CursorList).first()
+        cursor_list.set_cursor(cursor_list.index_of(("visa", "USD")))
+        await pilot.press("e")
+        await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
+        seen["name"] = app.screen._values["name"]
+        await pilot.press(key)
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for_list(pilot, app)
+        await pilot.pause()
+        seen["cursor"] = screen.query(CursorList).first().cursor_key
+
+    run_app(scenario)
+    return seen
+
+
+def test_e_on_the_dollars_row_edits_the_account_and_a_cancel_keeps_the_row(
+    fake_client, monkeypatch
+):
+    seen = _edit_two_currency_account(fake_client, monkeypatch, "escape")
+    assert seen["name"] == "Visa" and seen["cursor"] == ("visa", "USD")
+    assert fake_client.calls == []
+
+
+def test_e_on_the_dollars_row_saves_the_account_by_its_id(fake_client, monkeypatch):
+    _edit_two_currency_account(fake_client, monkeypatch, "ctrl+s")
+    assert "/accounts/visa" in dict(fake_client.puts)
 
 
 def test_unarchive_is_direct(fake_client, monkeypatch):
@@ -75,7 +146,7 @@ def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)  # reload landed
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == "a2"
+        assert cursor_list.cursor_key == ("a2", "PEN")
 
     run_app(scenario)
     assert ("POST", "/accounts/a2/archive") in fake_client.requests
@@ -84,7 +155,9 @@ def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
 def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
     """25 accounts: act on row 22 — beyond the 20-row window.
     The reload must land the cursor back on that row, on its page."""
-    accounts = [{**ACCOUNT, "id": f"a{i}", "name": f"Acct {i:02d}"} for i in range(25)]
+    accounts = [
+        account_with_currencies(ACCOUNT, id=f"a{i}", name=f"Acct {i:02d}") for i in range(25)
+    ]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
 
     async def scenario(pilot, app):
@@ -94,12 +167,12 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
-        cursor_list.set_cursor(cursor_list.index_of("a22"))
+        cursor_list.set_cursor(cursor_list.index_of(("a22", "PEN")))
         await pilot.press("a")
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)  # reload landed
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == "a22"
+        assert cursor_list.cursor_key == ("a22", "PEN")
         assert cursor_list.page_status == "rows 21-25 of 25 · page 2 of 2"
 
     run_app(scenario, size=(120, 40))
@@ -190,6 +263,11 @@ _EDIT_LISTS = {
 }
 
 
+def _row_key(which, row):
+    """The key of a list row: an account's rows are keyed by account and currency."""
+    return (row["id"], "PEN") if which == "accounts" else row["id"]
+
+
 def _edit_second_row(fake_client, monkeypatch, which, key):
     make, rows, fetch = _EDIT_LISTS[which]
     monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole(rows))
@@ -216,11 +294,11 @@ def _edit_second_row(fake_client, monkeypatch, which, key):
 def test_a_saved_edit_reloads_the_list_from_row_1(fake_client, monkeypatch, which):
     cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "ctrl+s")
     assert fake_client.puts  # the save wrote
-    assert cursor == rows[0]["id"]
+    assert cursor == _row_key(which, rows[0])
 
 
 @pytest.mark.parametrize("which", list(_EDIT_LISTS))
 def test_a_cancelled_edit_keeps_the_row(fake_client, monkeypatch, which):
     cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "escape")
     assert fake_client.calls == []
-    assert cursor == rows[1]["id"]
+    assert cursor == _row_key(which, rows[1])

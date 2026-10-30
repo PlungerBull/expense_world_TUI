@@ -25,8 +25,9 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_URL,
-    account_record,
+    account_with_currencies,
     error_response,
+    held_currency,
     run_app,
     stub_home_month,
     wait_for,
@@ -39,21 +40,23 @@ SIZE = (120, 40)
 
 def _rows() -> list[dict]:
     """Manage ▸ Accounts as screen 1 draws it, plus a second person."""
-    held = {"current_balance_cents": 125000}
+
+    def held(*codes: str, opening: str | None = None) -> list[dict]:
+        return [held_currency(c, 125000, opening_balance_transaction_id=opening) for c in codes]
+
     return [
-        account_record(id="a-sueldo", name="Sueldo Soles", **held),
-        account_record(
-            id="a-efectivo",
-            name="Efectivo",
-            holder_id="h2",
-            opening_balance_transaction_id="t-open",
-            **held,
+        account_with_currencies(id="a-sueldo", name="Sueldo Soles", currencies=held("PEN")),
+        account_with_currencies(
+            id="a-efectivo", name="Efectivo", currencies=held("PEN", opening="t-open")
         ),
-        account_record(id="a-alejo", name="ALEJO PEN", holder_id="h3", **held),
-        account_record(id="a-alejo-usd", name="ALEJO USD", holder_id="h4", **held),
-        account_record(id="a-eliana", name="Eliana", is_person=True, holder_id=None, **held),
-        account_record(id="a-juan", name="Juan", is_person=True, holder_id=None, **held),
-        account_record(id="a-viejo", name="Ahorro viejo", holder_id="h5", is_archived=True, **held),
+        account_with_currencies(id="a-alejo", name="ALEJO", currencies=held("PEN", "USD")),
+        account_with_currencies(
+            id="a-eliana", name="Eliana", is_person=True, currencies=held("PEN")
+        ),
+        account_with_currencies(id="a-juan", name="Juan", is_person=True, currencies=held("PEN")),
+        account_with_currencies(
+            id="a-viejo", name="Ahorro viejo", is_archived=True, currencies=held("PEN")
+        ),
     ]
 
 
@@ -99,13 +102,14 @@ def _footer(screen) -> list[str]:
     ]
 
 
-async def _open(pilot, app, monkeypatch, cursor: str):
+async def _open(pilot, app, monkeypatch, cursor: str | tuple[str, str]):
+    """Open the list with the cursor on a row: an account (its soles row) or its row key."""
     screen = AccountsScreen()
     notes = _record_notes(monkeypatch, screen)
     await app.push_screen(screen)
     await wait_for_list(pilot, app)
     listing = screen.query_one(CursorList)
-    listing.set_cursor(listing.index_of(cursor))
+    listing.set_cursor(listing.index_of(cursor if isinstance(cursor, tuple) else (cursor, "PEN")))
     screen.refresh_bindings()
     await pilot.pause()
     return screen, notes
@@ -114,30 +118,34 @@ async def _open(pilot, app, monkeypatch, cursor: str):
 # ---- 1 A and 2 A · both directions ------------------------------------------
 
 TURNS = [
-    # cursor row, route, the row's kind after, the note, its index after, the label after
-    ("a-alejo", "make-person", True, "Now a person.", 5, "t Make bank"),
+    # cursor row, route, the row's kind after, the note, its index after, the label after;
+    # a two-currency account is turned from its dollar row and the cursor stays on it
+    (("a-alejo", "USD"), "make-person", True, "Now a person.", 5, "t Make bank"),
     # an account with an opening balance turns too, keeping it
     # (contract: POST /v1/accounts/{account_id}/make-person)
-    ("a-efectivo", "make-person", True, "Now a person.", 5, "t Make bank"),
-    ("a-juan", "make-account", False, "Now a bank account.", 4, "t Make person"),
+    (("a-efectivo", "PEN"), "make-person", True, "Now a person.", 5, "t Make bank"),
+    (("a-juan", "PEN"), "make-account", False, "Now a bank account.", 4, "t Make person"),
 ]
 
 
-@pytest.mark.parametrize(("ident", "route", "person", "note", "index", "label"), TURNS)
+@pytest.mark.parametrize(("row", "route", "person", "note", "index", "label"), TURNS)
 def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
-    configured, monkeypatch, ident, route, person, note, index, label
+    configured, monkeypatch, row, route, person, note, index, label
 ):
     """`t` sends the one route with no body and an idempotency key, asks
     nothing, and the reload keeps the cursor on the turned account in its new
     place, the note saying what it is now and the footer offering the way back,
     its opening balance, if any, still on it."""
+    ident = row[0]
     rows = _rows()
-    opening = next(r for r in rows if r["id"] == ident)["opening_balance_transaction_id"]
+    opening = next(r for r in rows if r["id"] == ident)["currencies"][0][
+        "opening_balance_transaction_id"
+    ]
     _stub_list(monkeypatch, rows)
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen, notes = await _open(pilot, app, monkeypatch, ident)
+        screen, notes = await _open(pilot, app, monkeypatch, row)
         before = screen.query_one(CursorList).cursor_index
         await pilot.press("t")
         assert not isinstance(app.screen, ConfirmModal)
@@ -148,7 +156,9 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         seen.update(before=before, after=listing.cursor_index, key=listing.cursor_key)
         seen["footer"] = _footer(screen)
         seen["kind"] = screen.selected_record()["is_person"]
-        seen["opening"] = screen.selected_record()["opening_balance_transaction_id"]
+        seen["opening"] = screen.selected_record()["currencies"][0][
+            "opening_balance_transaction_id"
+        ]
 
     with respx.mock() as engine:
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
@@ -159,7 +169,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
     request = sent.calls.last.request
     assert request.content == b""
     assert request.headers["X-Idempotency-Key"]
-    assert seen["key"] == ident
+    assert seen["key"] == row
     assert seen["after"] == index != seen["before"]
     assert seen["kind"] is person
     assert seen["opening"] == opening
@@ -173,7 +183,7 @@ def test_the_label_follows_the_cursor_row_and_t_sits_before_d(configured, monkey
     footers: dict = {}
 
     async def scenario(pilot, app):
-        screen, _ = await _open(pilot, app, monkeypatch, "a-alejo-usd")
+        screen, _ = await _open(pilot, app, monkeypatch, ("a-alejo", "USD"))
         footers["bank"] = _footer(screen)
         await pilot.press("down")  # → Eliana, a person
         await pilot.pause()
@@ -466,8 +476,10 @@ def _dashboard(rows: list[dict]) -> dict:
     """`/dashboard` as the engine gives it: real accounts and people apart."""
 
     def entry(r: dict) -> dict:
-        held = {k: r[k] for k in ("currency_code", "current_balance_cents")}
-        return {"id": r["id"], "name": r["name"], "currencies": [held]}
+        held = [
+            {k: c[k] for k in ("currency_code", "current_balance_cents")} for c in r["currencies"]
+        ]
+        return {"id": r["id"], "name": r["name"], "currencies": held}
 
     live = [r for r in rows if not r["is_archived"]]
     return {

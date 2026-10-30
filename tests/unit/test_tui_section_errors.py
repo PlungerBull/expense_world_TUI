@@ -8,6 +8,7 @@ from textual.widgets import Static
 from expense.errors import EngineError
 from expense.tui.screens.accounts import AccountsScreen
 from tests.unit.helpers import (
+    account_with_currencies,
     render_text,
     run_app,
     section_settled,
@@ -16,16 +17,7 @@ from tests.unit.helpers import (
     whole,
 )
 
-ACCOUNTS = [
-    {
-        "id": "a1",
-        "name": "BCP",
-        "is_person": False,
-        "is_archived": False,
-        "color": None,
-        "opening_balance_transaction_id": None,
-    }
-]
+ACCOUNTS = [account_with_currencies(id="a1", name="BCP", color=None)]
 
 
 def _text(renderable) -> str:
