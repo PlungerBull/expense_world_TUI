@@ -87,22 +87,10 @@ None.
 
 Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it. Each fixes the `(contract: …)` citations of the files it touches.
-Files left to spec 4 may fail live until it runs. `test_clean_practice_user.py` (task 2) and
-`test_card_statement.py` (tasks 7 and 8) skip whole until rewritten, since task 1 removed the
-helpers they import: the task rewriting one removes its skip and its `# ruff: noqa: E402` line.
+Files left to spec 4 may fail live until it runs. `test_card_statement.py` (tasks 7 and 8)
+skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
+skip and its `# ruff: noqa: E402` line.
 
-2. **The cleaner (builder).** [clean_practice_user.py](../../scripts/clean_practice_user.py)
-   reads each matched account's statements with `GET /statements?account_id=`
-   (contract: GET /v1/statements, "`?account_id=<id>` is required"), with no twin or half,
-   reverts the completed ones and deletes each, deletes the transactions on every page, then
-   deletes each account whole; spec 1 gives its printout the account's currencies and code,
-   this task its statements. [test_clean_practice_user.py](../../tests/contract/test_clean_practice_user.py)
-   leaves an account of two currencies with a completed statement and transactions in both,
-   and the script removes them; [runtime.md](../runtime.md) "Working against the live engine"
-   says the script's order on the account model and that a leftover on the reserved-names
-   practice user is cleaned by passing that user's key as `EXPENSE_PAT`.
-   *Passes if:* the test passes live, the script reads past a page holding only refused
-   deletes, and neither names `/reconciliations` or `twin`.
 3. **Six small files onto the shared helpers (builder).**
    [test_freshman_flow.py](../../tests/contract/test_freshman_flow.py),
    [test_pending_hashtag.py](../../tests/contract/test_pending_hashtag.py),

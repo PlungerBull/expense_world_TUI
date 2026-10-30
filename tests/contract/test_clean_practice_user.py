@@ -2,117 +2,72 @@
 
 A test that leaves records behind fails its own teardown (`leaves_nothing` in
 conftest.py); the script is how such leftovers are then removed from the practice user.
-This test leaves some on purpose, outside `Scratch`, under a name prefix of its own, and
-has the script remove them by that prefix:
+This test leaves some on purpose, built with `Scratch` but never cleaned up by it, renamed
+under a name prefix of its own, and has the script remove them by that prefix:
 
-  · a card statement in draft across two accounts sharing a fresh statement code, a line
-    created straight into one half, carrying a category and a hashtag of its own;
-  · an account with no code, an opening balance and a completed reconciliation holding
-    a line, then archived, so its statement must be unarchived and reverted before the
-    delete (contract: POST /v1/reconciliations/{reconciliation_id}/revert);
+  · an account of two currencies (PEN and USD) with no statement code, an opening balance
+    and a line in each currency, a completed statement holding a line in each currency and
+    a draft statement of another month, then archived, so the script must unarchive it and
+    revert the completed statement before the deletes
+    (contract: POST /v1/statements/{statement_id}/revert);
+  · a category and a hashtag;
 
 after which the script finds nothing under the prefix, both statements read `404`, and
 no account, category or hashtag of the prefix is listed. Matching by name and the
 records it leaves alone are pinned in tests/unit/test_clean_practice_user.py.
 """
 
-# ruff: noqa: E402
-import pytest
-
-pytest.skip(
-    "on the holder model until "
-    "docs/specs/catch-up-currencies-3-live-suite-foundation.md "
-    "(task 2) rewrites it",
-    allow_module_level=True,
-)
-
 from uuid import uuid4
 
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import CLEANER, Scratch, free_statement_codes, reconciliation_body
+from tests.contract.conftest import CLEANER, Scratch
 
 
 def test_the_script_removes_what_a_test_left(client):
-    cleaner = CLEANER
     prefix = f"contract-clean-{uuid4().hex[:8]}-"
-    noon = Scratch(client).noon
-    [code] = free_statement_codes(client, 1)
-
-    def made(path: str, name: str, **fields) -> str:
-        new_id = str(uuid4())
-        client.post(path, json_body={"id": new_id, "name": f"{prefix}{name}", **fields})
-        return new_id
-
+    scratch = Scratch(client)
     try:
-        category = made("/categories", "c", color="#123456")
-        hashtag = made("/hashtags", "h")
-        pen = made("/accounts", "card-pen", currency_code="PEN", statement_code=code)
-        usd = made("/accounts", "card-usd", currency_code="USD", statement_code=code)
-        plain = made("/accounts", "plain", currency_code="PEN")
+        category = scratch.category()
+        hashtag = scratch.hashtag()
+        account = scratch.account("PEN", "USD")
+        for path in (f"/categories/{category}", f"/hashtags/{hashtag}", f"/accounts/{account}"):
+            client.put(path, json_body={"name": f"{prefix}{path.split('/')[1]}"})
+        for currency in ("PEN", "USD"):
+            scratch.opening_balance(account, "2026-01-01", currency)
 
-        card = reconciliation_body(pen, "2024-03-01", "2024-03-31", twin=usd)
-        client.post("/reconciliations", json_body=card)
-        line = {
-            "id": str(uuid4()),
-            "title": "contract clean line",
-            "amount_cents": -1500,
-            "account_id": pen,
-            "date": noon("2024-03-10"),
-            "category_id": category,
-            "hashtag_ids": [hashtag],
-            "reconciliation_id": card["id"],
-        }
-        client.post("/transactions", json_body=line)
+        closed = scratch.statement(account, "2026-02-01", "2026-02-28", "PEN", "USD")
+        lines = len(scratch.transactions)
+        for currency in ("PEN", "USD"):
+            scratch.line(account, "2026-02-10", 2500, currency=currency)
+            scratch.line(account, "2026-02-11", -2500, currency=currency)
+        for tx in scratch.transactions[lines:]:
+            client.put(f"/transactions/{tx}", json_body={"statement_id": closed})
+        draft = scratch.statement(account, "2026-03-01", "2026-03-31", "PEN", "USD")
+        assert client.post(f"/statements/{closed}/complete")["status"] == 2
+        client.post(f"/accounts/{account}/archive")
 
-        client.post(
-            f"/accounts/{plain}/opening-balance",
-            json_body={
-                "transaction_id": str(uuid4()),
-                "amount_cents": 50000,
-                "date": noon("2024-01-01"),
-            },
-        )
-        closed = reconciliation_body(plain, "2024-02-01", "2024-02-29")
-        closed["ending_balance_cents"] = -2500
-        client.post("/reconciliations", json_body=closed)
-        client.post(
-            "/transactions",
-            json_body={
-                "id": str(uuid4()),
-                "title": "contract clean line",
-                "amount_cents": -2500,
-                "account_id": plain,
-                "date": noon("2024-02-10"),
-                "reconciliation_id": closed["id"],
-            },
-        )
-        assert client.post(f"/reconciliations/{closed['id']}/complete")["status"] == 2
-        client.post(f"/accounts/{plain}/archive")
-
-        found = cleaner.plan(client, (prefix,))
-        assert {a["id"] for a in found.accounts} == {pen, usd, plain}
-        assert sorted(sorted(h["id"] for h in s) for s in found.statements) == sorted(
-            [sorted([card["id"], card["twin"]["id"]]), [closed["id"]]]
-        )
+        found = CLEANER.plan(client, (prefix,))
+        assert [a["id"] for a in found.accounts] == [account]
+        assert {s["id"] for s in found.statements} == {closed, draft}
+        assert found.transactions[account] == len(scratch.transactions)
         assert [c["id"] for c in found.categories] == [category]
         assert [h["id"] for h in found.hashtags] == [hashtag]
-        assert found.left == []
 
-        assert cleaner.apply(client, found) == []
+        assert CLEANER.apply(client, found) == []
 
-        after = cleaner.plan(client, (prefix,))
+        after = CLEANER.plan(client, (prefix,))
         assert (after.accounts, after.statements, after.categories, after.hashtags) == (
             [],
             [],
             [],
             [],
         )
-        for recon in (card["id"], card["twin"]["id"], closed["id"]):
+        for statement in (closed, draft):
             with pytest.raises(EngineError) as excinfo:
-                client.get(f"/reconciliations/{recon}")
+                client.get(f"/statements/{statement}")
             assert excinfo.value.status == 404
-        assert not [label for label in cleaner.holdings(client).values() if prefix in label]
+        assert not [label for label in CLEANER.holdings(client).values() if prefix in label]
     finally:
-        cleaner.apply(client, cleaner.plan(client, (prefix,)))
+        CLEANER.apply(client, CLEANER.plan(client, (prefix,)))

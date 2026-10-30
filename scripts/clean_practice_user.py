@@ -5,26 +5,27 @@ The live contract tests name what they build `contract-…` or `freshman-…`
 (`TEST_NAME_PREFIXES`) and undo it at teardown, best-effort; a test whose teardown leaves
 a record fails (`leaves_nothing` in tests/contract/conftest.py). Records such a test left,
 or a probe run by hand against the practice engine, stay on the practice user: accounts
-holding statement codes, reconciliations filling the Reconciliations browse. This script
-finds them by name and removes them through the engine's own API, in the order its
-deletes need:
+holding statement codes, statements filling an account's list. This script finds them by
+name and removes them through the engine's own API, in the order its deletes need:
 
   1. every matched archived account is unarchived (an archived account refuses every
-     reconciliation write and every transaction delete);
-  2. every completed statement on a matched account is reverted, then every statement is
-     deleted once, both halves of a card together
-     (contract: DELETE /v1/reconciliations/{reconciliation_id});
-  3. every live transaction on a matched account is deleted;
+     statement write and every transaction delete);
+  2. every statement of a matched account, read with `GET /statements?account_id=`
+     (contract: GET /v1/statements, "`?account_id=<id>` is required"), is reverted when
+     completed (contract: POST /v1/statements/{statement_id}/revert), then deleted
+     (contract: DELETE /v1/statements/{statement_id});
+  3. every live transaction on a matched account is deleted, on every page, reading past
+     a page that holds only deletes the engine refused;
   4. every matched hashtag no live transaction carries any more, every matched category
-     and every matched account is deleted.
+     and every matched account, whole with all its currencies in one delete
+     (contract: DELETE /v1/accounts/{account_id}), is deleted.
 
 A record is matched only by its own name starting with a prefix, and a system category or
 hashtag, which the engine creates for itself and never deletes, never. A matched account's
-reconciliations and transactions go with it; nothing else is touched. A card statement
-whose other half sits on an account that is not matched is left whole, since deleting one
-half deletes both. A hashtag still on a live transaction is left, since deleting it would
-rewrite that transaction (contract: DELETE /v1/hashtags/{hashtag_id}). A category or an
-account the engine refuses to delete is left. Each is listed as left, and the run exits 1.
+statements and transactions go with it; nothing else is touched. A hashtag still on a
+live transaction is left, since deleting it would rewrite that transaction
+(contract: DELETE /v1/hashtags/{hashtag_id}). A category or an account the engine refuses
+to delete is left. Each is listed as left, and the run exits 1.
 
 Without `--apply` it only reads, and prints what it would remove. It talks only to the
 practice engine (`127.0.0.1` or `localhost` on `:8002`) and takes the practice user's key
@@ -56,6 +57,7 @@ _PRACTICE_HOSTS = frozenset({"127.0.0.1", "localhost"})
 _PRACTICE_PORT = 8002
 _COMPLETED = 2
 _PAGE = 200
+_STATEMENTS = "/statements"
 
 
 def practice_url(url: str) -> bool:
@@ -93,14 +95,13 @@ def holdings(client: ExpenseClient) -> dict[str, str]:
 
 @dataclass
 class Plan:
-    """What one run found: the matched records, and what it leaves and why."""
+    """What one run found: the matched records."""
 
     accounts: list[dict] = field(default_factory=list)
-    statements: list[list[dict]] = field(default_factory=list)
+    statements: list[dict] = field(default_factory=list)
     transactions: dict[str, int] = field(default_factory=dict)
     categories: list[dict] = field(default_factory=list)
     hashtags: list[dict] = field(default_factory=list)
-    left: list[str] = field(default_factory=list)
 
 
 def plan(client: ExpenseClient, prefixes: tuple[str, ...]) -> Plan:
@@ -108,21 +109,8 @@ def plan(client: ExpenseClient, prefixes: tuple[str, ...]) -> Plan:
     found = Plan()
     listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
     found.accounts = [a for a in listed["items"] if matches(a["name"], prefixes)]
-    mine = {a["id"] for a in found.accounts}
-    seen: set[str] = set()
     for account in found.accounts:
-        for recon in client.get("/reconciliations", params={"account_id": account["id"]})["items"]:
-            if recon["id"] in seen:
-                continue
-            halves = [recon]
-            if recon.get("twin_id"):
-                halves.append(client.get(f"/reconciliations/{recon['twin_id']}"))
-            seen.update(half["id"] for half in halves)
-            if all(half["account_id"] in mine for half in halves):
-                found.statements.append(halves)
-            else:
-                names = " + ".join(repr(half["name"]) for half in halves)
-                found.left.append(f"statement {names}: its other half is on an unmatched account")
+        found.statements += client.get(_STATEMENTS, params={"account_id": account["id"]})["items"]
         count = client.get("/transactions/count", params={"account_id": account["id"]})["count"]
         found.transactions[account["id"]] = count
     found.categories = [c for c in user_rows(client, "/categories") if matches(c["name"], prefixes)]
@@ -140,7 +128,7 @@ def _try(left: list[str], what: str, call, path: str) -> dict | None:
 
 def apply(client: ExpenseClient, found: Plan) -> list[str]:
     """Removes what `plan` found, in the order the engine's deletes need; what it left."""
-    left = list(found.left)
+    left: list[str] = []
     for account in found.accounts:
         if account["is_archived"]:
             _try(
@@ -149,19 +137,19 @@ def apply(client: ExpenseClient, found: Plan) -> list[str]:
                 client.post,
                 f"/accounts/{account['id']}/unarchive",
             )
-    for halves in found.statements:
-        if any(half["status"] == _COMPLETED for half in halves):
+    for statement in found.statements:
+        if statement["status"] == _COMPLETED:
             _try(
                 left,
-                f"revert {halves[0]['name']!r}",
+                f"revert {statement['name']!r}",
                 client.post,
-                f"/reconciliations/{halves[0]['id']}/revert",
+                f"{_STATEMENTS}/{statement['id']}/revert",
             )
         _try(
             left,
-            f"delete statement {halves[0]['name']!r}",
+            f"delete statement {statement['name']!r}",
             client.delete,
-            f"/reconciliations/{halves[0]['id']}",
+            f"{_STATEMENTS}/{statement['id']}",
         )
     for account in found.accounts:
         _delete_transactions(client, account, left)
@@ -188,18 +176,26 @@ def apply(client: ExpenseClient, found: Plan) -> list[str]:
 
 
 def _delete_transactions(client: ExpenseClient, account: dict, left: list[str]) -> None:
-    """Deletes every live transaction on `account`, page by page, until a page holds none
-    but those already refused; each refused one is listed once."""
+    """Deletes every live transaction on `account`, following the list's cursor page by
+    page, so a page holding only refused deletes does not hide the rows behind it
+    (contract: "Base Conventions", "Cursors, on every cursor-paged list"); each refused
+    transaction is listed once."""
     refused: set[str] = set()
+    after = None
     while True:
-        page = client.get("/transactions", params={"account_id": account["id"], "limit": _PAGE})
-        todo = [tx for tx in page["items"] if tx["id"] not in refused]
-        if not todo:
-            return
-        for tx in todo:
+        params = {"account_id": account["id"], "limit": _PAGE}
+        if after:
+            params["after"] = after
+        page = client.get("/transactions", params=params)
+        for tx in page["items"]:
+            if tx["id"] in refused:
+                continue
             what = f"delete transaction {tx['id']} on {account['name']!r}"
             if _try(left, what, client.delete, f"/transactions/{tx['id']}") is None:
                 refused.add(tx["id"])
+        after = page.get("next_cursor")
+        if not after:
+            return
 
 
 def describe(found: Plan) -> list[str]:
@@ -214,9 +210,9 @@ def describe(found: Plan) -> list[str]:
         )
         lines.append(f"  {a['name']!r} ({held}; {code}{archived}), {count} tx")
     lines.append(f"statements: {len(found.statements)}")
-    for halves in found.statements:
-        state = "completed" if any(h["status"] == _COMPLETED for h in halves) else "draft"
-        lines.append(f"  {' + '.join(repr(h['name']) for h in halves)} ({state})")
+    for statement in found.statements:
+        state = "completed" if statement["status"] == _COMPLETED else "draft"
+        lines.append(f"  {statement['name']!r} ({state})")
     lines.append(f"categories: {len(found.categories)}")
     lines.extend(f"  {c['name']!r}" for c in found.categories)
     lines.append(f"hashtags: {len(found.hashtags)}")
@@ -245,10 +241,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"matching names starting with {', '.join(map(repr, prefixes))}")
         print("\n".join(describe(found)))
         if not args.apply:
-            for reason in found.left:
-                print(f"would leave {reason}")
             print("read only; --apply removes the above")
-            return 1 if found.left else 0
+            return 0
         left = apply(client, found)
         after = plan(client, prefixes)
     for reason in left:

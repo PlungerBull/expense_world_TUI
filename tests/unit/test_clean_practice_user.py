@@ -22,17 +22,21 @@ PRACTICE = "http://127.0.0.1:8002"
 TARGET = ["--engine-url", PRACTICE]
 
 
-def _recon(ident, account, twin=None, status=1):
-    return dict(id=ident, account_id=account, name=f"stmt {ident}", status=status, twin_id=twin)
+def _statement(ident, account, status=1):
+    return dict(id=ident, account_id=account, name=f"stmt {ident}", status=status)
 
 
 class FakeEngine:
-    """The practice user's accounts, reconciliations, transactions, categories and
-    hashtags; `calls` is every write, `METHOD path`, in the order sent."""
+    """The practice user's accounts, statements, transactions, categories and hashtags;
+    `calls` is every write, `METHOD path`, in the order sent; the transactions list
+    comes `page` rows at a time under a cursor."""
 
-    def __init__(self, accounts, recons=(), txs=(), categories=(), hashtags=(), refuse=()):
+    def __init__(
+        self, accounts, statements=(), txs=(), categories=(), hashtags=(), refuse=(), page=200
+    ):
         self.accounts = {a["id"]: a for a in accounts}
-        self.recons = {r["id"]: r for r in recons}
+        self.statements = {r["id"]: r for r in statements}
+        self.page = page
         self.txs = {t["id"]: t for t in txs}
         self.categories = {c["id"]: c for c in categories}
         self.hashtags = {h["id"]: h for h in hashtags}
@@ -55,11 +59,9 @@ class FakeEngine:
     def _read(self, path, query):
         if path == "/accounts":
             return dict(items=list(self.accounts.values()))
-        if path == "/reconciliations":
-            mine = [r for r in self.recons.values() if r["account_id"] == query["account_id"]]
+        if path == "/statements":
+            mine = [r for r in self.statements.values() if r["account_id"] == query["account_id"]]
             return dict(items=mine)
-        if path.startswith("/reconciliations/"):
-            return self.recons[path.rsplit("/", 1)[1]]
         if path == "/transactions/count":
             if "account_id" in query:
                 held = [t for t in self.txs.values() if t["account_id"] == query["account_id"]]
@@ -68,7 +70,11 @@ class FakeEngine:
             return dict(count=len(held))
         if path == "/transactions":
             mine = [t for t in self.txs.values() if t["account_id"] == query["account_id"]]
-            return dict(items=mine, limit=200, next_cursor=None)
+            if "after" in query:
+                mine = [t for t in mine if t["id"] > query["after"]]
+            shown = mine[: self.page]
+            more = len(mine) > self.page
+            return dict(items=shown, limit=200, next_cursor=shown[-1]["id"] if more else None)
         if path == "/categories":
             return dict(items=list(self.categories.values()))
         if path == "/hashtags":
@@ -81,13 +87,9 @@ class FakeEngine:
         if action == ["unarchive"]:
             self.accounts[ident]["is_archived"] = False
         elif action == ["revert"]:
-            for half in (ident, self.recons[ident]["twin_id"]):
-                if half:
-                    self.recons[half]["status"] = 1
-        elif path.startswith("/reconciliations/"):
-            twin = self.recons.pop(ident)["twin_id"]
-            if twin:
-                self.recons.pop(twin)
+            self.statements[ident]["status"] = 1
+        elif path.startswith("/statements/"):
+            self.statements.pop(ident)
         else:
             tables = (self.accounts, self.txs, self.categories, self.hashtags)
             [table] = [t for t in tables if ident in t]
@@ -136,9 +138,12 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
     engine = FakeEngine(
         accounts=[
             account_record(id="a1", name="contract-stmt-1"),
-            account_record(id="a2", name="BCP Signature PEN", holder_id="h2"),
+            account_record(
+                id="a2",
+                name="BCP Signature PEN",
+            ),
         ],
-        recons=[_recon("r1", "a1"), _recon("r2", "a2")],
+        statements=[_statement("r1", "a1"), _statement("r2", "a2")],
         categories=[dict(id="c1", name="contract-c-1"), dict(id="c2", name="@Pendiente")],
         hashtags=[dict(id="h1", name="freshman-h"), dict(id="h2", name="Pendiente")],
     )
@@ -147,7 +152,7 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
     assert script.main(TARGET) == 0
 
     out = capsys.readouterr().out
-    assert "'contract-stmt-1'" in out and "'stmt r1'" in out
+    assert "'contract-stmt-1'" in out and "'stmt r1' (draft)" in out
     assert "'contract-c-1'" in out and "'freshman-h'" in out
     for untouched in ("BCP Signature", "stmt r2", "@Pendiente", "'Pendiente'"):
         assert untouched not in out
@@ -182,9 +187,13 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
     engine = FakeEngine(
         accounts=[
             account_record(id="a1", name="contract-card-pen", is_archived=True),
-            account_record(id="a2", name="contract-card-usd", currency_code="USD", holder_id="h2"),
+            account_with_currencies(
+                id="a2",
+                name="contract-card-two",
+                currencies=[held_currency("PEN"), held_currency("USD")],
+            ),
         ],
-        recons=[_recon("r1", "a1", twin="r2", status=2), _recon("r2", "a2", twin="r1", status=2)],
+        statements=[_statement("r1", "a1", status=2), _statement("r2", "a2")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
         categories=[dict(id="c1", name="contract-c-1")],
         hashtags=[dict(id="h1", name="contract-h-1")],
@@ -195,34 +204,16 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
 
     assert engine.calls == [
         "POST /accounts/a1/unarchive",
-        "POST /reconciliations/r1/revert",
-        "DELETE /reconciliations/r1",
+        "POST /statements/r1/revert",
+        "DELETE /statements/r1",
+        "DELETE /statements/r2",
         "DELETE /transactions/t1",
         "DELETE /hashtags/h1",
         "DELETE /categories/c1",
         "DELETE /accounts/a1",
         "DELETE /accounts/a2",
     ]
-    assert not (engine.accounts or engine.recons or engine.txs)
-
-
-@respx.mock
-def test_a_card_statement_half_on_an_unmatched_account_is_left_whole(script, capsys):
-    engine = FakeEngine(
-        accounts=[
-            account_record(id="a1", name="contract-card-pen"),
-            account_record(id="a2", name="Card USD", currency_code="USD"),
-        ],
-        recons=[_recon("r1", "a1", twin="r2"), _recon("r2", "a2", twin="r1")],
-    )
-    _serve(engine)
-
-    assert script.main([*TARGET, "--apply"]) == 1
-
-    assert set(engine.recons) == {"r1", "r2"}
-    assert not [call for call in engine.calls if "reconciliations" in call]
-    out = capsys.readouterr().out
-    assert "left statement 'stmt r1' + 'stmt r2': its other half is on an unmatched account" in out
+    assert not (engine.accounts or engine.statements or engine.txs)
 
 
 @respx.mock
@@ -259,7 +250,7 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
     engine = FakeEngine(
         accounts=[
             account_record(id="a1", name="probe-1"),
-            account_record(id="a2", name="contract-x", holder_id="h2"),
+            account_record(id="a2", name="contract-x"),
         ]
     )
     _serve(engine)
@@ -320,3 +311,21 @@ def test_a_refused_transaction_delete_is_listed_once(script, capsys):
 
     assert set(engine.txs) == {"t1"}
     assert capsys.readouterr().out.count("left delete transaction t1 ") == 1
+
+
+@respx.mock
+def test_a_page_holding_only_refused_deletes_does_not_hide_the_rows_behind_it(script, capsys):
+    engine = FakeEngine(
+        accounts=[account_record(id="a1", name="contract-acct-1")],
+        txs=[dict(id=f"t{n}", account_id="a1", hashtag_ids=[]) for n in range(1, 6)],
+        refuse=["DELETE /transactions/t1", "DELETE /transactions/t2"],
+        page=2,
+    )
+    _serve(engine)
+
+    assert script.main([*TARGET, "--apply"]) == 1
+
+    assert set(engine.txs) == {"t1", "t2"}
+    out = capsys.readouterr().out
+    assert out.count("left delete transaction t1 ") == 1
+    assert out.count("left delete transaction t2 ") == 1
