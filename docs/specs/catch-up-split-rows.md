@@ -7,19 +7,20 @@ closed statement's review list is readable in full", and the rename of card to h
 opening balance, and a card is now called a holder everywhere". This spec takes the first
 hand-off's part "Smaller changes" (`f91a1e0ae626c712` and `f0ee03d6faa96af1`), answering the ask "The sheet
 import's counts say how many sheet rows its split lines come from"; the rename does not touch
-it. The rest of that range is caught up in
-part 1a, the app's reads and writes (done on 2026-10-28),
-part 1b, the statement screens (done on 2026-10-28),
-[catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
-[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
-[catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md) and
-[catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
+it. The rest of that range is caught up in the app's reads and writes, its statement screens
+and the catch-up to contract `f82426fb0a099676`
+([1](catch-up-currencies-1-reads-and-writes.md), [2](catch-up-currencies-2-statements-and-imports.md),
+[3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+[5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
+[7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and
+screens.
 
 **Status: approved and named the current spec by the owner on 2026-10-27, its question
-answered and its tasks approved. Task 2 waits on the live suite's shared helpers, which create
-accounts on holders
-([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)).**
-The engine coders' answer of 2026-10-27 confirms nothing they are changing touches it. When done, the why moves to
+answered and its tasks approved. Task 2 runs after the live suite's foundation
+([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)),
+and after the app's sheet import code is on the new model
+([catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)),
+since the live sheet test runs that code.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -56,9 +57,8 @@ see.
    question 1 picks, `3` and `8`, and its apply shows the same.
 2. A sheet with no split transaction shows `0` for both.
 3. The unit suite and the live suite pass, and the drift check no longer names
-   `counts.split_rows`. The live checks run once the shared helpers of the live suite create
-   accounts on holders
-   ([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)).
+   `counts.split_rows`. The live checks run after the live suite's foundation
+   ([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)).
 
 ## What the owner settled
 
@@ -77,13 +77,19 @@ None open.
 
 Approved by the owner on 2026-10-27.
 
-2. **The live suite proves the count and the cursor refusal (builder), after the live suite's
-   shared helpers create accounts on holders.** The live sheet import checks `split_rows` beside
-   `split_lines` ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)); a cursor
-   the engine did not issue is refused `422 INVALID_CURSOR` on `after` on each of the four
-   cursor-paged lists; no test expects `500` or `200` for one.
-   *Passes if:* those live tests run green against the practice engine, and nothing in the repo
-   compares the two reworded refusal descriptions as text.
+2. **The live suite proves the count and the cursor refusal (builder), after
+   [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
+   and [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md).**
+   The live sheet import checks `split_rows` beside `split_lines`
+   ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)), its `names.accounts`
+   entries one per sheet account name with no `currency_code`
+   (contract: POST /v1/transactions/import-sheet, "Body"); a cursor the engine did not issue is
+   refused `422 INVALID_CURSOR` on `after` on each of the four cursor-paged lists; no test
+   expects `500` or `200` for one.
+   *Passes if:* those live tests run green against the practice engine, no `names.accounts`
+   entry the live sheet test sends carries `currency_code`, and nothing in the repo compares the
+   two reworded refusal descriptions as text.
+
 
 ## Reply to the engine
 

@@ -1,9 +1,12 @@
 # Leftovers in the test suites
 
-**Status: approved by the owner on 2026-10-28; on 2026-10-27 the owner brought in the
-test-only items of todo.md's backlog. It runs after the catch-up to contract
-`e7393dd869963db1` (the catch-up's specs named below), which rewrites many of the same files. Its tasks
-are drafted when the owner names it the current spec.** When done, the why moves to
+**Status: approved by the owner on 2026-10-28. It runs after the catch-up to contract
+`f82426fb0a099676`
+([catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md) to
+[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)), which
+rewrites many of the same files, and after
+[statements-close-from-their-pdf.md](statements-close-from-their-pdf.md). Its tasks are drafted
+when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -16,23 +19,23 @@ whole (2026-10-27), not fixed there; and the backlog's items that live only in t
 their tools, brought in by the owner on 2026-10-27. All of them are inside the test suites and
 their tools: nothing you see changes, and no engine change is needed.
 
-The points on code the catch-up to `e7393dd869963db1` rewrites moved into it: one account-record
-builder for the unit suite, the coverage-gap warning fixture, the sealed line's delete words and
-two test comments on statements and people into
-part 1a, the app's reads and writes (done on 2026-10-28) and
-part 1b, the statement screens (done on 2026-10-28); the contract
-files building their records through `Scratch`, `_transaction_ids`, the statement-order helper
-and the create-into-a-statement test going, the practice-user cleaner (reading every page among
-its rework) and the import test naming
-its stopping statement into
-[catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md) and
-[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md); the
-statement head shown whole into
-[catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
+The points on code a catch-up rewrites live in that catch-up: one account-record builder for
+the unit suite, the coverage-gap warning fixture, the sealed line's delete words and two test
+comments on statements and people in the cards and statements catch-up's parts 1a and 1b
+(done on 2026-10-28); the contract files building their records through `Scratch`, the
+statement-order helper going and the practice-user cleaner (reading every page among its
+rework) in
+[catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md);
+`_transaction_ids`, the create-into-a-statement test going and the import test naming its
+stopping statement in
+[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md);
+the statement head shown whole in
+[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 The points on things the engine no longer has are dropped: a card statement's create answer
 built by hand, a card's other half checked against its own schema, a reconciliation create's
-builders, a test docstring on the one-account create form, and the browse leaving out an
-archived account with no code (a holder's accounts are archived together now).
+builders, a test docstring on the one-account create form, the browse leaving out an archived
+account with no code (an account is archived whole). So is the guard's check of a hand start
+of the test engine: the guard blocks a hand start and allows only the engine's own launcher.
 
 ## What it must do
 
@@ -42,7 +45,9 @@ archived account with no code (a holder's accounts are archived together now).
    keys are checked against its own endpoint; `answer_of` refuses a second builder for one
    endpoint; and an answer the contract allows in more than one shape (`GET /v1/reports/monthly`
    today) is named as such, not as "no JSON answer"
-   ([the drift script](../../scripts/check_fixture_drift.py)).
+   ([the drift script](../../scripts/check_fixture_drift.py)). It runs after
+   [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md), where
+   `bank_line_row` gains `account_id` and `currency_code`.
 2. **`stub_home_month` says what it replaces**: in helpers.py it also replaces the settings with a
    bare object, so a respx test that calls it fails on `engine_url`; its name or docstring says
    so, or it stops doing it.
@@ -91,13 +96,12 @@ archived account with no code (a holder's accounts are archived together now).
     "(the sheet import's, say)" goes: the import sends no colour, and the colour no swatch shows
     is the engine's own on a row created with none, as [tui.md](../tui.md) "Stepping past COLOR
     keeps it" says.
-11. **The guard checks a test-engine start whole.** It allows a start from a subfolder of the
-    engine checkout, since it checks the interpreter word `.venv/bin/python`, not that the command
-    runs from the checkout's root; and it allows a start with only one of `SUPABASE_DB_URL` and
-    `ADMIN_DB_URL`, though the engine coders' rule is both, every time
-    ([guard.py](../../.claude/hooks/guard.py)). It requires both and checks the folder (or lists
-    the folder under its docstring's limits), with tests in
-    [test_claude_hooks.py](../../tests/unit/test_claude_hooks.py).
+11. **The drift check reads a key a test passes to an answer builder by name.** It reads a
+    fixture's keys only when written as a quoted `"key":`, so a key a test passes to a builder
+    in [helpers.py](../../tests/unit/helpers.py) by name (`statement_partner_id=…`) is never
+    checked against the contract, and an old field can hide there
+    ([the drift script](../../scripts/check_fixture_drift.py)). It reads such keys and names one
+    the contract lacks; a unit test proves it names a made-up field passed by name.
 
 ## How the owner knows it is done
 

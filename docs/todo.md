@@ -28,51 +28,35 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the statement screens' leftovers spec
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1b-leftovers.md](specs/catch-up-cards-statements-1b-leftovers.md)
+### Approve the rewritten specs
+Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-Small things the statement screens' catch-up turned up: a holder of three currencies can't open a
-statement from the card form, the `⚑` count after a close can read one too many, the flagged
-screen's head is blank while it loads, and some leftover code and test words. It runs after the
-catch-up's live-test specs. Its two questions are in the spec: whether the three-currency form
-waits for part 7's redraw, and whether the flagged screen's head shows its count before the lines
-arrive.
+The engine's hand-off "An account holds its currencies: every route names an account and a
+currency code; holders are gone" (contract `f82426fb0a099676`) is planned. Every spec is
+rewritten for one account holding its currencies; the old cards, live-test and practice-engine
+specs are retired. The catch-up is seven specs, run in this order:
 
-**Recommended:** approve it, with A on both questions.
+1. [the app's reads and writes](specs/catch-up-currencies-1-reads-and-writes.md): 8 tasks, 1 question (with a mockup);
+2. [statements and the three imports](specs/catch-up-currencies-2-statements-and-imports.md): 8 tasks, 3 questions of its own (its other two are answered by spec 7's);
+3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
+4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
+5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
+6. [the main views](specs/catch-up-currencies-6-main-views.md): 15 tasks in two halves (6a the accounts, 6b the currency as its own field), 11 questions, 10 with a mockup;
+7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): 8 tasks, 5 questions, 4 with a mockup.
 
-### The engine moved to contract 07475793a38b47b4: an account holds its currencies
-Asked 2026-10-28 · Blocks: every new task; the done-check of [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md)
+Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
+[a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
+[the bank download leftovers](specs/catch-up-leftovers.md),
+[the statement screens' leftovers](specs/catch-up-cards-statements-1b-leftovers.md) (1 question),
+[a month closing from its PDF](specs/statements-close-from-their-pdf.md),
+[the test-suite leftovers](specs/test-suite-leftovers.md), and last
+[the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
-The engine shipped your ask "An account holds its currencies": a card in soles and dollars is now
-one account with a balance per currency, and the holder routes are gone. This client last caught
-up to `e020782e3579d011`. The version check prints, word for word:
+Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
+pick.
 
-```
-the engine's contract version has changed: saved e020782e3579d011, engine 07475793a38b47b4.
-what the contract changed since e020782e3579d011, newest first:
-  07475793a38b47b4  2026-10-28
-    changed: ⚠️ `GET /accounts` and `GET /accounts/{id}` answer the account: one per holder, its `id` the holder's, with `id`, `user_id`, `name`, `color`, `is_person`, `statement_code`, `is_archived`, `sort_order`, `currencies`, `created_at`, `updated_at`, `version`, `deleted_at`, each but `currencies` the holder's own. `currencies` lists one `{currency_code, current_balance_cents, opening_balance_transaction_id}` per live per-currency account of the holder, archived ones included, by `currency_code` ascending; a deleted one is not listed, and a holder holding none reads `[]`. A card in soles and in dollars was two rows of `GET /accounts`; it is now one account whose `currencies` are `[{"currency_code": "PEN", …}, {"currency_code": "USD", …}]`, each balance in its own currency. What clients do: list accounts from `GET /accounts`, and read each currency's balance and opening balance from `currencies`.
-    changed: ⚠️ `GET /accounts` lists accounts in the holders' order: every bank account first, then every person, each group by `sort_order`, then creation time. `?include_people=true` adds person accounts and `?include_archived=true` archived ones, as before, now judged on the account.
-    changed: ⚠️ `GET /accounts/{id}` takes the account's id, the holder's. The `id` of a per-currency account (the one `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move` answer, and every `account_id` elsewhere names) is now `404` there, as are a deleted account and another user's.
-    removed: ⚠️ `GET /holders` and `GET /holders/{id}`; both now answer as an unknown route does. Replacement: `GET /accounts?include_people=true&include_archived=true` lists every holder as an account, and `GET /accounts/{id}` reads one by the holder's id, with `currencies` in place of `account_ids`.
-    removed: ⚠️ `current_balance_home_cents` from every account response: `GET /accounts`, `GET /accounts/{id}`, `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move`. Replacement: none. An account and each of its currencies carry their balance in their own currency only, and no figure adds two currencies together. `/dashboard`'s account rows keep theirs.
-    changed: `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move` answer the per-currency account (*Bank Accounts* → *Per-currency account response*; `PerCurrencyAccountResponse` in the contract): the shape every account route answered before, without `current_balance_home_cents`.
-    removed: `SETTINGS_MISSING` (and its reason `NOT_PROVISIONED`) from `GET /accounts`, `GET /accounts/{id}`, `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` and `POST /accounts/{id}/move`, which no longer read the settings. `POST /accounts/{id}/opening-balance` still answers it (*Settings preconditions*).
-    added: `color` on the holder response, on every `/holders` route, and in the holder's activity snapshots: the holder's colour, the account's `color` on `GET /accounts`.
-    changed: wording, *Base Conventions* (the list shapes), *Holders*, `POST /holders`, `PUT /holders/{id}`, `POST /holders/{id}/archive`, `/make-person` and `/make-account`, *Bank Accounts* (*Per-currency order*, *Opening balance*, *Balances*, *Holder*, *An archived account*), `POST /accounts`, `DELETE /accounts/{id}`, `POST /accounts/{id}/move`, *People / Person Accounts*, *Statements* (the order of `balances`), `GET /dashboard` (the rows' order), `GET /activity` (*Snapshot content*) and `GET /exchange-rates` (*Freshness*).
-```
-
-The practice-engine spec's four tasks are done; its only failing check is this move (the check
-correctly names the new version), so its doc sweep waits too. The specs drafted for the holder
-model (2a, 2b, 2c, 3, 4) were written against the version before this one.
-
-- **A.** Ask the engine coders for one hand-off file from `e020782e3579d011` to
-  `07475793a38b47b4`, and make catching up to it the next spec; the holder-model specs are
-  re-planned from it before any of them runs.
-- **B.** Keep the specs as they are and catch up after them.
-
-**Recommended:** A, because 2a to 4 would otherwise rewrite the app and the live tests onto
-routes the engine has just removed.
+**Recommended:** approve them all, and start spec 1 now: its tasks 1 to 5 and 8 wait on no
+question, and its question 1 is drawn while they run.
 
 ---
 
@@ -81,23 +65,23 @@ routes the engine has just removed.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **For the holder specs, when they are rewritten from the hand-off of the ask "An account holds
-  its currencies: the holder becomes the account, and each account becomes one of its
-  currencies":** (1) unit fixtures make person accounts with no holder (`holder_id` empty), in
-  test_tui_account_kind.py, test_tui_create_forms.py and test_reads_and_formatting.py; (2)
-  tui.md and decisions.md cite routes and parts the engine removed: archiving an account, turning
-  an account into a person or back, and "Bank Accounts" / "Statement code". The owner left both
-  to those specs on 2026-10-28, since the hand-off rewrites the same tests and paragraphs. The
-  code and unit tests cite the same removed routes (archiving an account, make-person /
-  make-account, `POST /people`) in reads.py, the ledger's transactions.py, accounts.py,
-  create_forms.py, test_tui_bulk_edit.py, test_tui_create_forms.py and test_tui_ledger_archived.py.
+- **decisions.md still describes the holder** in "Bank downloads are matched against the
+  ledger, not hashed" (a card's two currencies paired by the engine's holder) and in the entry
+  where a card's accounts are the engine's holder's; both are rewritten when
+  [specs/catch-up-currencies-2-statements-and-imports.md](specs/catch-up-currencies-2-statements-and-imports.md)
+  retires, since that spec changes what they describe.
 - **Mockups quote the complete's old ordering refusal**, "Cannot complete reconciliation until its
   statement is fully ordered": expense-world-card-statement.html and
-  expense-world-statement-screen.html. The engine now prints no top message, and its field words
-  end "Upload the bank's statement (POST /statements/import), which sets the order." They need a
-  redraw, so they go to part 7,
-  [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md),
-  which redraws those screens.
+  expense-world-statement-screen.html; both go with
+  [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md),
+  which redraws those screens and deletes the old drawings.
+- **Three small finds from the practice engine's start script and the drift script:** the
+  comment at the start script's `$!` capture calls that pid "the backgrounded subshell", though
+  after the exec chain it is the launcher's own, and the line runs past 100 characters; the
+  guard's exemption for the launcher's name lets a script name built at run time from it
+  through, a limit its docstring already states for names built at run time; and
+  `--record-version` takes a version listed anywhere in the change log, not only first, with no
+  test pinning that choice.
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in
@@ -107,7 +91,7 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Leftovers in the test suites**: a draft spec waiting for the owner's approval
+- **Leftovers in the test suites**: a spec, after the catch-up
   ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)); every backlog item that
   lives only in the tests and their tools is in it.
 - **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
@@ -211,37 +195,20 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27, cards and statements** (to `e020782e3579d011`: the
-  rename of card to holder, the account move and people as holders of 2026-10-28 included): nine
-  specs, run in order:
-  part 1a (done on 2026-10-28),
-  part 1b (done on 2026-10-28),
-  [specs/catch-up-shipped-practice-engine.md](specs/catch-up-shipped-practice-engine.md),
-  [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
-  [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
-  [specs/catch-up-cards-statements-2c-live-suite-holder-move.md](specs/catch-up-cards-statements-2c-live-suite-holder-move.md),
-  [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
-  [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
-  [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
-  The practice engine's spec has its tasks done; its check, and every spec after it, waits on the owner's answer on contract 07475793a38b47b4. The counts line's last task, its live tests, waits on 2a.
-- **What the statement screens' catch-up turned up**: a draft spec waiting for the owner's
-  approval and two questions
-  ([specs/catch-up-cards-statements-1b-leftovers.md](specs/catch-up-cards-statements-1b-leftovers.md)).
-- **A person's opening balance: its hint and the sheet import's test**: a draft spec waiting for
-  the owner's approval and a pick
-  ([specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)).
+- **The engine catch-up of 2026-10-29, an account holds its currencies** (to
+  `f82426fb0a099676`; the cards and statements catch-up of 2026-10-27 and 2026-10-28 is folded
+  into it, its parts 1a and 1b done on 2026-10-28): the seven specs and the rewritten ones listed
+  under "Approve the rewritten specs", waiting on that approval.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: paused until the cards and statements
-  catch-up is done ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
+- **A month's statement closes from the bank's PDF**: paused until the catch-up's spec 7 is done
+  ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import):
-  [specs/before-the-official-import.md](specs/before-the-official-import.md), after the catch-up's
-  "Cards in the app". A person carries an opening balance and an account moves between holders
-  in the live contract; people becoming holders reshapes it again, so it is rewritten and its
-  questions asked again when that hand-off lands.
+  [specs/before-the-official-import.md](specs/before-the-official-import.md), last, after the
+  catch-up and the rewritten specs.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

@@ -461,13 +461,13 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Rejected.** *Settle it like any other `422`* — `SETTINGS_MISSING` names no row, so every row would carry the same four-line error and every later chunk would draw it again; `LINE_CODES_EXHAUSTED` names one row a send, so the run would spend one request per row to fail them all.
 
-## The practice engine starts with its own Python only (2026-10-12)
+## The practice engine serves only the engine's shipped code, and only a listed version is recorded (2026-10-28)
 
-**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The practice engine is started from this repo's sessions, behind the session guard ([runtime.md](runtime.md) "Working against the live engine").
+**Context.** The engine coders work in the same checkout the practice engine runs from. A practice engine started from that working tree serves their unfinished work: this client once recorded a contract version that never shipped, and a restart failed while the checkout was mid-edit.
 
-**Decision.** The guard allows one start command, word for word, with the engine checkout's `.venv/bin/python` as its interpreter, and refuses every other spelling. The ops guide gives the same command, so the command a person copies and the command the guard accepts are one text.
+**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). `scripts/practice-engine up` runs it, knows its process again by its command and its working folder in the export, and stops it by its pid; the guard lets the tester start it by hand only that way. The drift script records a contract version only when the served contract's own change log lists it, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
 
-**Rejected.** *A list of acceptable interpreters* (`python`, `python3`, …) — each resolves to whatever the shell finds first, which may be this repo's Python or the system's, without the engine's dependencies or on the wrong version. *Accepting any path that ends in the engine's interpreter* — the guard would have to resolve paths to know it is the same file.
+**Rejected.** *Starting uvicorn from the checkout with its own Python* — it serves whatever the checkout holds, half-built work included. *Trusting the served version alone* — a draft looks like any other version until it never ships.
 
 ## A list's order is written in the contract's words, in one home (2026-10-12)
 
@@ -495,7 +495,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## Completing a reconciliation asks for its ending balance first (2026-10-15, owner)
 
-**Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
+**Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
 
 **Decision.** `c` on a draft with no ending balance opens a box for it; `enter` saves it, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A reconciliation's batch screen"). Saving and completing stay two writes and two answers, so a balance can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No reconciliation was completed without an ending balance, so the app offers no revert-and-fill path.
 
@@ -1050,8 +1050,8 @@ the account, with its name, colour, order, kind, statement code and archived fla
 engine's per-currency accounts becomes one currency of it, keeping only its currency, opening
 balance and balance, so amounts in two currencies are never added up. A currency has no name or
 colour of its own: it shows as the account's name and its currency ("VISA Infinite Sapphire ·
-USD"). The engine is asked for it in "An account holds its currencies: the holder becomes the
-account, and each account becomes one of its currencies"; the holder specs wait on its hand-off.
+USD"). The engine holds it from contract `f82426fb0a099676`, answering the ask "An account holds
+its currencies: the holder becomes the account, and each account becomes one of its currencies".
 
 **Why.** The owner always works with the holder, and the per-currency account was only a vehicle
 to keep currencies apart, yet it carried a name, colour, order, kind and archived flag of its own
