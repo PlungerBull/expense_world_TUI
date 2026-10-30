@@ -201,28 +201,32 @@ And earlier:
    - **A.** A row of its own: `USD   nothing this month`.
    - **B.** No row: only the covered currencies show.
 
-   **Recommended:** A: you see that the dollars were looked at and had nothing. The words are new
-   to the app; "nothing this month" is the engine's suggestion. Keep them, or name others.
+   **Answered B** (owner, 2026-10-30): only the covered currencies show, on the list of
+   statements, the PDF preview and a statement's head, also on the head of a statement opened on
+   a currency it does not cover.
 3. **A blank beginning balance, and how `c` gets the balances it needs**
    ([expense-world-statement-currency-picks.html](../mockups/expense-world-statement-currency-picks.html), picks 2 and 3).
    - **How a blank one reads:** **A.** `not entered`, the engine's suggestion, beside a
      difference reading `not checked yet`. **B.** A dim `—`, as an empty ending balance reads
      today.
 
-     **Recommended:** A: blank is not zero, and the words say so.
+     **Answered B** (owner, 2026-10-30): a dim `—`, as an empty ending balance reads today; a
+     difference not checked stays blank, as today.
    - **What `c` does:** **A.** On a draft with any blank balance, `c` opens a box for each one,
      starting balance then ending balance, currency by currency, as today's `Ending balance
      first` box; after a `MONEY_AT_START_NOT_COVERED` refusal it opens the same boxes for the
      currency the engine names; then the usual question. **B.** `c` shows the engine's words, and
      a key of its own opens the boxes for every covered currency.
 
-     **Recommended:** A: one key leads through what is missing, as `c` does today.
+     **Answered A** (owner, 2026-10-30): `c` opens a `Starting balance first` box, then
+     `Ending balance first`, for each blank one, as drawn in pane 5A.
 4. **Where a `not_covered` currency's notes sit** [mockup to draw].
    - **A.** Under the head, beside the covered currencies' notes, each led by its currency:
      `⚠ USD: <the engine's sentence>`.
    - **B.** On the uncovered currency's own row (question 2 A).
 
-   **Recommended:** B with question 2 A, else A.
+   **Recommended:** A. Question 2 is answered B, so no uncovered currency has a row of its own,
+   and B no longer applies.
 5. **The upload's new refusals, and a currency joining or leaving mid-write.**
    - **A.** The engine's words alone, as every refusal shows, with the app's line for
      `CONCURRENT_CHANGE` that already exists (`It changed at the same moment: press r, then try

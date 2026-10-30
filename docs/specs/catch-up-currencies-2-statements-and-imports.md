@@ -146,10 +146,19 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
 1. **A currency the statement does not cover, and a blank starting balance**: answered once, by
    question 2 and question 3's first part of
    [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md); this
-   spec shows them the way those answers pick, on today's screens.
+   spec shows them the way those answers pick, on today's screens. **Answered** (owner,
+   2026-10-30): a currency the statement does not cover shows nothing, only the covered ones,
+   on the list, the PDF preview and the working screen's head, which then has no balances line;
+   a blank starting balance is a dim `—`, as an empty ending balance reads today, its difference
+   blank (panes 1 B to 4 B of
+   [expense-world-statement-currency-picks.html](../mockups/expense-world-statement-currency-picks.html)).
 2. **`c` when the opened currency's starting balance is blank, or the statement holds no
    balances for it while it had money at the start**: answered once, by question 3's second part
    of [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
+   **Answered A** (owner, 2026-10-30): `c` opens a `Starting balance first` box, then
+   `Ending balance first`, for each blank balance of the opened currency, then the usual
+   question; after a `MONEY_AT_START_NOT_COVERED` refusal it opens the same boxes for the
+   currency the engine names (pane 5A of the same mockup).
 3. **The sheet's names table, one row per account name**
    ([expense-world-sheet-names-currencies.html](../mockups/expense-world-sheet-names-currencies.html)). Today each row is a
    name in one currency, with a CUR column; the engine now lists each name once with every
@@ -157,7 +166,7 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
    - **A.** The CUR column lists them, `PEN + USD`, as the bank download's list writes a card's.
    - **B.** No CUR column; the currencies after the name, `Visa (PEN, USD)`.
 
-   **Recommended:** A: the table keeps its columns.
+   **Answered A** (owner, 2026-10-30): the CUR column lists them, `PEN + USD`.
 
 ---
 
@@ -201,8 +210,7 @@ moves its tests onto spec 1's account builder.
    *Passes if:* unit tests pin the lists' params, a tick that gains a blank dollar balance shown
    after the re-read, the ending-balance write's body, a `not_covered` flagged line counted in
    `⚑`, and each new refusal shown.
-4. **A missing currency, a blank start, and `c` asking for them (builder; waits on questions 1
-   and 2).** The list's cells and the working screen's head show a currency the statement does
+4. **A missing currency, a blank start, and `c` asking for them (builder).** The list's cells and the working screen's head show a currency the statement does
    not cover and a blank starting balance as question 1 picks; `c` asks for the opened
    currency's missing balances as question 2 picks and saves them in one
    `PUT /statements/{id}`, sending only that currency (contract: PUT /v1/statements/{statement_id}, "`balances`").
@@ -227,7 +235,7 @@ moves its tests onto spec 1's account builder.
    [bank_import.py](../../expense/tui/screens/bank_import.py), reads.py, helpers.py.
    *Passes if:* unit tests pin a two-currency account's one line, the call's body, a row's and a
    day's currency, and the refusal; nothing in the code or the tests names a holder.
-7. **The sheet import on account names (builder; waits on question 3).**
+7. **The sheet import on account names (builder).**
    [engine.py](../../expense/import_/engine.py) sends `names.accounts` as `{name, account_id}`,
    one per name; the table reads each name's `currencies` and shows them as question 3 picks;
    `--create-names` sends `POST /accounts` with each missing name's `currencies`; a rename is
