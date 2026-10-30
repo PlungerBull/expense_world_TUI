@@ -262,9 +262,9 @@ def test_keys_of_one_name_going_to_one_ledger_name_are_one_rename():
 
 def test_keys_of_one_name_going_to_two_ledger_names_are_disputed():
     renames, disputed = saved_renames(
-        {"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "Other": "X"}
+        {"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "Otra Caja": "X"}
     )
-    assert renames == {"other": "X"}
+    assert renames == {"otra caja": "X"}
     assert disputed == {"bcp": ("Sueldo Soles", "Sueldo Dólares")}
     table = names_table(TWO_ACCOUNTS, renames, [])
     with pytest.raises(RenameRefused) as refused:

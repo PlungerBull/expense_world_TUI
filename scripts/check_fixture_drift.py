@@ -134,6 +134,12 @@ KNOWN_LOCAL = frozenset(
         "engine_url",
         # the renames `expense import sheet` remembers per sheet account
         "sheet_account_names",
+        # the sheet account names those renames are keyed by in the rename tests
+        # (`{"BCP:PEN": ...}`, `{"bcp": ...}`), lower-cased sheet names, not fields
+        "bcp",
+        "caja",
+        "nobody",
+        "oro",
         # a config key no Config field holds: the stale-config load test
         # writes it on purpose to prove an unknown key loads and is dropped
         "bank_files",
