@@ -666,7 +666,7 @@ that it is left out, `·` (dim) a row of `0`:
 
 Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
 statement's id only, so the preview's worker reads each distinct one once by its id
-(`statement_names` in [flow.py](../expense/bank_import/flow.py)), never the holder's list
+(`statement_names` in [flow.py](../expense/bank_import/flow.py)), never a list of statements
 and never while drawing
 (contract: GET /v1/statements/{statement_id}).
 When a read fails, its rows read `Not moved: a reconciliation is reconciled`, the other ids are
@@ -814,8 +814,8 @@ download does (`refusal_lines` and `failure_lines` in
 key (`! file: …` for a paper the engine cannot read, misread or that does not add up, or a
 period or month another statement holds, and for `MONEY_AT_START_NOT_COVERED`, a currency the
 paper shows at zero while the account held money in it; `! account_id: …` for an account archived,
-a person, with no statement code (`NO_STATEMENT_CODE`), holding no currency the paper prints
-(`CURRENCY_NOT_HELD`) or holding one the paper does not print at all
+a person, with no statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows
+money in, or none it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
 (`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
 `Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the app's
 line when "When the engine says no" gives one: for `RECONCILIATION_NOT_DRAFT` on `file`, a month
@@ -845,8 +845,7 @@ picker, the Edit form's account field, the ledger's `b` pick, the Reconciliation
 browse, the new-reconciliation form and the bank import's "Which account is this file?"
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
-leaves them out and moves nothing else, and the bank import's card line stands where its
-first currency leg does. The LOG bar's `$` picker, the Edit form's account field and the
+leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account field and the
 ledger's `b` pick offer no archived account (`QuickAddRefs.picks` in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
 its name and code ("Old bank · PEN"), read-only on its Edit form (below).
@@ -1036,12 +1035,12 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons"); a statement PDF whose paper prints a currency the picked account does not hold, on `account_id` (contract: POST /v1/statements/import, "Accounts") | none: the engine's words already name the currency; the staged rows stay, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
-| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold (contract: "Error reasons") | none: the engine's words name the currency, and the form stays |
+| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |

@@ -9,7 +9,7 @@ list, the account's writes, adding and removing a currency, the opening balance 
 The seven specs of this catch-up, run in this order:
 
 1. part 1, the app's reads and writes (done on 2026-10-30)
-2. [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
+2. part 2, the PDF upload and the two imports (done on 2026-10-30)
 3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
 4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md)
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md)
@@ -168,7 +168,7 @@ the screens show what the engine now holds:
   alone (owner, 2026-10-28, question 10 A of the cards spec).
 - **The sheet import's `--create-names` line counts accounts alone** (owner, 2026-10-28, question
   8 of the cards spec): `Created 4 accounts, 3 categories, 2 hashtags.`, built by
-  [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md).
+  part 2 of the currencies catch-up (done on 2026-10-30).
 - **The opening balance's words** (owner, 2026-10-28, the owner's design for a person's
   `opening` line, drawn in
   [expense-world-person-opening-hint.html](../mockups/expense-world-person-opening-hint.html)):

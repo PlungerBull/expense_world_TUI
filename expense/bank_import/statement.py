@@ -26,7 +26,7 @@ class StatementRow:
 
     #: Its place in the statement, counting from 1: the paper's number.
     place: int
-    #: The currency of the account the row is on (`currency_code`).
+    #: The row's own currency, as the engine's answer gives it (`currency_code`).
     currency: str
     #: The day it is matched and created on.
     date_iso: str

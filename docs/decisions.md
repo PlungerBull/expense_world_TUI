@@ -280,9 +280,9 @@ Decisions whose why lives elsewhere:
 
 ## Bank downloads are matched against the ledger, not hashed (2026-09-12)
 
-**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. A card's two currencies are one pick, its accounts paired only by the engine's `holder_id`, the holder each account is on (contract: "Holders"). (2) **The engine reads and matches** — the download is sent whole, its bytes in base64, and the app reads no cell of it; one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches each row to a bank line (one transaction, or the parts of a split) by operation code, otherwise by account + exact day + direction + total, claiming each line once; titles play no part, and a match writes the bank's title and any missing code onto every part of the line (contract: POST /v1/transactions/import, "Matching"). The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree, or that holds a ledger line no file row claimed, is a report, never an action** (the engine's `day_mismatches`); the unclaimed lines stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new** (owner, 2026-10-16): it is added, and the leftover ledger line's own day shows as disagreeing when it falls inside the file's dates, so the owner fixes it by hand. (4) **The title is the bank's text**, as the engine reads it from the file; the client writes no description (description is the owner's notes field). (5) **New rows land under `@Pendiente` and `#Pendiente`.** (6) **Every row of the file goes in, whatever its date**; a file over **500** rows (the engine's cap) is refused by the engine on `file`; a row inside a completed reconciliation comes back `sealed` and is its own row on the preview, `✗ Closed period`. The preview's `#` is the row's number in the spreadsheet, as the engine numbers it. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). (7) **The ledger lines no file row claimed are shown signed by the app**: the engine sends them as ordinary transaction responses, `amount_cents` positive with the direction in `transaction_type`, and declined a signed copy; `?debit_as_negative` is refused on every route but the two transaction reads (contract: "Base Conventions", "Sign convention — responses"). So the app signs them in one helper, and a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics"). Screens: [mockups/expense-world-import-report.html](mockups/expense-world-import-report.html).
+**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. An account holding two currencies is one pick, read from the accounts alone, and the engine files each row under the currency of its own `Moneda` (contract: POST /v1/transactions/import, "Accounts"). (2) **The engine reads and matches** — the download is sent whole, its bytes in base64, and the app reads no cell of it; one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches each row to a bank line (one transaction, or the parts of a split) by operation code, otherwise by account + exact day + direction + total, claiming each line once; titles play no part, and a match writes the bank's title and any missing code onto every part of the line (contract: POST /v1/transactions/import, "Matching"). The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree, or that holds a ledger line no file row claimed, is a report, never an action** (the engine's `day_mismatches`); the unclaimed lines stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new** (owner, 2026-10-16): it is added, and the leftover ledger line's own day shows as disagreeing when it falls inside the file's dates, so the owner fixes it by hand. (4) **The title is the bank's text**, as the engine reads it from the file; the client writes no description (description is the owner's notes field). (5) **New rows land under `@Pendiente` and `#Pendiente`.** (6) **Every row of the file goes in, whatever its date**; a file over **500** rows (the engine's cap) is refused by the engine on `file`; a row inside a completed reconciliation comes back `sealed` and is its own row on the preview, `✗ Closed period`. The preview's `#` is the row's number in the spreadsheet, as the engine numbers it. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). (7) **The ledger lines no file row claimed are shown signed by the app**: the engine sends them as ordinary transaction responses, `amount_cents` positive with the direction in `transaction_type`, and declined a signed copy; `?debit_as_negative` is refused on every route but the two transaction reads (contract: "Base Conventions", "Sign convention — responses"). So the app signs them in one helper, and a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics"). Screens: [mockups/expense-world-import-report.html](mockups/expense-world-import-report.html).
 
-**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card, and the leftover line shows in the days that disagree. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor*, or *leaving out rows dated before 2026* — the owner wants every row of the file in. *Reading the download in the app and sending its rows* — each client would carry its own reader of the bank's format, and the engine now reads it once for all. *A cleaned merchant name as the title* — the title is what the bank sent. *Reading `GET /holders` to pair a card's accounts* — a second read for what the accounts read already says: each account names its holder, and a holder's accounts are exactly those naming it (contract: "Holders", "Its accounts").
+**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card, and the leftover line shows in the days that disagree. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor*, or *leaving out rows dated before 2026* — the owner wants every row of the file in. *Reading the download in the app and sending its rows* — each client would carry its own reader of the bank's format, and the engine now reads it once for all. *A cleaned merchant name as the title* — the title is what the bank sent.
 
 ## The TUI import door — a drop is text, read up front, asked every time (2026-10-02)
 
@@ -977,7 +977,7 @@ page in the statement's order with no id sent, its count the engine's from
 `GET /bank-lines/count` on the same filter (contract: GET /v1/bank-lines, "It has no bound"); the
 close's `review_lines` only say whether it flagged any, and how many until the screen has
 counted them. (3) **A card's
-accounts are the engine's holder's**: the import door's account list and Reconciliations pair them by
+accounts are the engine's holder's**: Reconciliations pairs them by
 `holder_id` (contract: "Holders"), never a match of statement codes; Reconciliations also reads
 the holders, since the statement code is the holder's. (4) **An
 archived card account with no statement gets no column** on the card's statement list (owner,
@@ -1023,10 +1023,9 @@ ledger` and `new`, `file n of m` in a run of several files, and a refusal's enve
 `!` line per key. (6) **The live suite makes its statement PDFs itself**, with no PDF library,
 and covers the savings paper only, since the contract does not print the card's column header;
 the engine ask "Publish one made-up sample statement PDF per paper, so every client can test the
-statement upload" asks for both papers' samples and layouts. (7) **A card's balance lines follow the
-engine's order**, the holder's accounts' order (contract: POST /v1/statements/import), so a
-card whose dollar account sorts first shows its dollar line first (owner, 2026-10-28): every
-client shows the same order, and the app sorts nothing.
+statement upload" asks for both papers' samples and layouts. (7) **A statement's balance lines follow the
+engine's order**, the account's currency order (contract: POST /v1/statements/import, "Response")
+(owner, 2026-10-28): every client shows the same order, and the app sorts nothing.
 
 **Why.** Every file from the bank then comes in through one door, so there is one place to learn.
 The engine reads and matches the paper, so the app only sends it and shows the answer. A preview
@@ -1088,6 +1087,38 @@ them all, and the row it is pressed on is only one.
 **Rejected.** *One row per account at once* — it is the redraw itself, with its own mockups and
 questions. *`d` asking about the cursor row with a line saying the other currencies go too* — it
 hides the balances the delete removes.
+
+## The PDF upload and the two imports send the account, and the statement screens wait for their redraw (2026-10-30, owner)
+
+**Decision.** (1) **Both import doors list one line per bank account**, named by the account with
+its currencies in the engine's order (`VISA Infinite Sapphire   PEN + USD`, one shared
+`formatting.currencies_phrase`), and send the account's id alone; the engine files each row, and
+each balance of a statement PDF, under its own currency. (2) **The PDF preview shows a balance
+only for each currency the engine's answer covers** (owner, pick 1 B of
+[mockups/expense-world-statement-currency-picks.html](mockups/expense-world-statement-currency-picks.html)).
+(3) **The sheet's names table lists each account name once**, its currencies in the CUR column
+(owner, question 3 A of the mockup the owner picked it from);
+`--create-names` makes one account per missing name holding the currencies its rows use, two
+names the engine holds as one made once. (4) **A rename is the sheet's name alone**,
+`--account-name SHEET_NAME=LEDGER_NAME`; a saved key written with a currency (`BCP:PEN`) is read
+by its name, keys of one name going to two ledger names stop the run before anything is written
+until `--account-name` for that name replaces them, and two sheet names may be renamed onto one
+account, the engine judging what may share it ([commands.md](commands.md) "`expense import
+sheet`"). (5) **The statement screens are rebuilt once, for one statement per account**
+([specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md));
+until then they read holders and do not work against the engine, and a month closes from its PDF.
+
+**Why.** An account now holds its currencies (contract: "Bank Accounts", "`currencies`"), so a
+name in the sheet, a pick in a door and a statement are each the account's. Rebuilding today's
+statement screens on the new model would be undone by their redraw, so the owner moved them
+there and kept the PDF close, the way a month closes, working.
+
+**Rejected.** *Renames per name and currency* — a name is one account now, and the engine reads
+each row's currency from the sheet. *The client refusing two names onto one account* — the
+engine allows it and is the one to judge. *A rename typed as `Caja:USD` kept as typed while a
+saved one is read as `Caja`* — a rename that holds for one run only; a sheet name ending in a
+colon and three capitals cannot be renamed. *Rebuilding today's statement screens first* — work
+the redraw throws away.
 
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 

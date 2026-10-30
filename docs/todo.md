@@ -28,6 +28,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The words when your saved sheet renames disagree
+Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
+
+When your saved renames send one sheet account to two different ledger accounts (say an old
+`BCP:PEN` → `Sueldo Soles` and `BCP:USD` → `Sueldo Dólares`), `expense import sheet` stops
+before writing anything and says:
+
+`Your saved renames send "BCP" to both "Sueldo Soles" and "Sueldo Dólares". Choose one with --account-name "BCP=<ledger name>".`
+
+- **A.** Keep these words.
+- **B.** Other words: tell me which.
+
+**Recommended:** A, because it names the account, both destinations and the one command that
+fixes it.
+
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
@@ -37,7 +52,7 @@ rewritten for one account holding its currencies; the old cards, live-test and p
 specs are retired. The catch-up is seven specs, run in this order:
 
 1. the app's reads and writes: done on 2026-10-30;
-2. [the PDF upload and the two imports](specs/catch-up-currencies-2-statements-and-imports.md): approved on 2026-10-30, every question answered, not started; 4 tasks, the Statements screens moved to part 7 at your ask on 2026-10-30;
+2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
@@ -68,12 +83,10 @@ is done.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **decisions.md still describes the holder** in "Bank downloads are matched against the
-  ledger, not hashed" (a card's two currencies paired by the engine's holder), rewritten when
-  [specs/catch-up-currencies-2-statements-and-imports.md](specs/catch-up-currencies-2-statements-and-imports.md)
-  retires, and in the entry where a card's accounts are the engine's holder's, rewritten when
+- **decisions.md still describes the holder** in the entry where a card's accounts are the
+  engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
   [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)
-  retires; each spec changes what its entry describes.
+  retires, since that spec changes what it describes.
 - **Mockups quote the complete's old ordering refusal**, "Cannot complete reconciliation until its
   statement is fully ordered": expense-world-card-statement.html and
   expense-world-statement-screen.html; both go with
@@ -201,7 +214,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   through the engine on 2026-10-27; the PDF statement below is what is left.
 - **The engine catch-up of 2026-10-29, an account holds its currencies** (to
   `f82426fb0a099676`; the cards and statements catch-up of 2026-10-27 and 2026-10-28 is folded
-  into it, its parts 1a and 1b done on 2026-10-28; part 1 of seven done on 2026-10-30): the six specs left
+  into it, its parts 1a and 1b done on 2026-10-28; parts 1 and 2 of seven done on 2026-10-30): the five specs left
   and the rewritten ones listed under "Approve the rewritten specs", waiting on that approval.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine

@@ -6,7 +6,7 @@ holders are gone" — the part on the live suite's shared helpers, the practice-
 statement's own tests. The catch-up is seven specs, run in this order:
 
 1. part 1, the app's reads and writes (done on 2026-10-30);
-2. [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md);
+2. part 2, the PDF upload and the two imports (done on 2026-10-30);
 3. this one;
 4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md);
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md);

@@ -2,12 +2,10 @@
 
 **Status: approved by the owner on 2026-10-28; no question open. It runs after the catch-up to
 contract `f82426fb0a099676`
-(1 (done on 2026-10-30), [2](catch-up-currencies-2-statements-and-imports.md),
+(1 (done on 2026-10-30), 2 (done on 2026-10-30),
 [3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
-[7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files; point 1 needs
-[catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
-in first. Its tasks are drafted when the owner names it the current spec.** When done, the why
+[7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files. Its tasks are drafted when the owner names it the current spec.** When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -34,9 +32,8 @@ needs no point: the engine itself states that bound as the list's largest page
 1. **The held-reserved-name live test builds its download through the shared helpers.**
    [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) builds its
    download's header and body by hand, where the contract conftest's shared `download_body` and
-   `CURRENT_HEADER` do it ([conftest.py](../../tests/contract/conftest.py)). It runs once
-   [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
-   is in: a download names only the account, each row going to the currency in its own `Moneda`
+   `CURRENT_HEADER` do it ([conftest.py](../../tests/contract/conftest.py)). The app's download is on
+   the new model since part 2 of the currencies catch-up (done on 2026-10-30): a download names only the account, each row going to the currency in its own `Moneda`
    (contract: POST /v1/transactions/import, "Accounts").
 2. **The batch helper keeps only what a caller uses.** `chunk_size`,
    `require_sendable_chunk_size` and the `engine_text` default in

@@ -8,7 +8,7 @@ Three modules, none of which prints or imports typer:
                   spreadsheet row with its verdict and reason, the engine's
                   counts, and the days whose file and ledger totals disagree
     statement.py  the statement upload's answer → its name and days, whether
-                  it creates the statement, each account's balances, one row
+                  it creates the statement, one balance per currency it covers, one row
                   per row of the paper with its outcome, the lines taken out,
                   the counts, and the lines its close flagged
     flow.py       the door's steps: read the dropped file's bytes, list the

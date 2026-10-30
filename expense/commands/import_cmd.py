@@ -337,7 +337,7 @@ def run_import(
     --account-name "SHEET_NAME=LEDGER_NAME" puts one sheet account's rows on
     a ledger account of your choosing ("BCP=Sueldo Soles"). It is saved to
     the config and applied on every later run; passing it again for the same
-    account replaces the saved name. An account the sheet does not have is a
+    sheet name replaces every saved key of that name. An account the sheet does not have is a
     usage error and nothing is saved. Two sheet accounts may be put on one
     ledger account. When the saved renames send one sheet account to two
     ledger names, the run stops (a usage error) before anything is written,

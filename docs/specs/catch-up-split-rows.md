@@ -9,7 +9,7 @@ hand-off's part "Smaller changes" (`f91a1e0ae626c712` and `f0ee03d6faa96af1`), a
 import's counts say how many sheet rows its split lines come from"; the rename does not touch
 it. The rest of that range is caught up in the app's reads and writes, its statement screens
 and the catch-up to contract `f82426fb0a099676`
-(1 (done on 2026-10-30), [2](catch-up-currencies-2-statements-and-imports.md),
+(1 (done on 2026-10-30), 2 (done on 2026-10-30),
 [3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and
@@ -19,7 +19,7 @@ screens.
 answered and its tasks approved. Task 2 runs after the live suite's foundation
 ([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)),
 and after the app's sheet import code is on the new model
-([catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)),
+(part 2 of the currencies catch-up, done on 2026-10-30),
 since the live sheet test runs that code.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -79,7 +79,7 @@ Approved by the owner on 2026-10-27.
 
 2. **The live suite proves the count and the cursor refusal (builder), after
    [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
-   and [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md).**
+   and part 2 of the currencies catch-up (done on 2026-10-30).**
    The live sheet import checks `split_rows` beside `split_lines`
    ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)), its `names.accounts`
    entries one per sheet account name with no `currency_code`

@@ -10,7 +10,7 @@ section 10).
 The seven specs of this catch-up, run in this order:
 
 1. part 1, the app's reads and writes (done on 2026-10-30)
-2. [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
+2. part 2, the PDF upload and the two imports (done on 2026-10-30)
 3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
 4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md)
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md)
@@ -19,7 +19,7 @@ The seven specs of this catch-up, run in this order:
 
 **Status:** draft, written 2026-10-29 for the owner to approve; on 2026-10-30, at the owner's
 ask, it took over the Statements screens' reads and writes from
-[catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
+part 2 of the currencies catch-up (done on 2026-10-30)
 (point 15, tasks 2 and 9). It runs after
 [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md), last of the seven.
 Its screens are drawn as mockups when it is named the current spec, every option
@@ -37,8 +37,8 @@ The engine keeps an account's statement as one thing: one name, one set of days,
 for the whole account, and a starting and ending balance for each currency with something in
 it, never added together (contract: "Statements"). A Visa month can no longer be half closed.
 Today's Statements screens read holders, which are gone, so they do not work against the
-engine; [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
-puts the PDF upload and the two imports on the new model and leaves the screens to this spec
+engine; part 2 of the currencies catch-up (done on 2026-10-30)
+put the PDF upload and the two imports on the new model and leaves the screens to this spec
 (owner, 2026-10-30). This spec rebuilds them to show the statement the way the engine holds it,
 and the way the bank's paper prints it.
 
@@ -114,7 +114,7 @@ What the engine now holds, and today's screens do not show:
     and its currencies, every bank account in both (question 7 A and A), and the PDF preview
     shows each covered currency's balances and no other (question 2 B)
     (contract: POST /v1/statements/import, "Which currencies the statement covers"): both built
-    by [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md);
+    by part 2 of the currencies catch-up (done on 2026-10-30);
     this spec keeps them so.
 13. **The new refusals read as question 5 picks:** on the upload `CURRENCY_NOT_HELD`,
     `ACCOUNT_CURRENCY_NOT_ON_PAPER`, `MONEY_AT_START_NOT_COVERED` on `file` and
