@@ -36,7 +36,7 @@ currency code; holders are gone" (contract `f82426fb0a099676`) is planned. Every
 rewritten for one account holding its currencies; the old cards, live-test and practice-engine
 specs are retired. The catch-up is seven specs, run in this order:
 
-1. [the app's reads and writes](specs/catch-up-currencies-1-reads-and-writes.md): 8 tasks, 1 question (with a mockup);
+1. [the app's reads and writes](specs/catch-up-currencies-1-reads-and-writes.md): approved and its question answered on 2026-10-29; running;
 2. [statements and the three imports](specs/catch-up-currencies-2-statements-and-imports.md): 8 tasks, 3 questions of its own (its other two are answered by spec 7's);
 3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
@@ -55,8 +55,7 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve them all, and start spec 1 now: its tasks 1 to 5 and 8 wait on no
-question, and its question 1 is drawn while they run.
+**Recommended:** approve the rest, so each is ready when the one before it is done.
 
 ---
 

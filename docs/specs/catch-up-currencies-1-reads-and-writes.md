@@ -20,7 +20,7 @@ reads. This is spec 1 of seven that share that range, run in this order:
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md): an
    account's statement on one screen.
 
-**Status: draft, written 2026-10-29 for the owner to approve; it runs first of the seven.** When
+**Status: approved by the owner on 2026-10-29, running; it runs first of the seven.** When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -81,8 +81,8 @@ and the sheet import stay broken until spec 2.
 6. **Manage ▸ Accounts lists one row per account and currency**, and `e`, `a`, `t` and `d` act on
    the account under the cursor, every currency at once
    (contract: POST /v1/accounts/{account_id}/archive, "Every currency at once")
-   (contract: "What an account is", "An account is deleted whole"); `d`'s question as question 1
-   picks.
+   (contract: "What an account is", "An account is deleted whole"); `d`'s question names the
+   account and each of its currencies with its balance, as the owner settled.
 7. **The New and Edit account forms write the new model.** A new account's one currency goes in
    its `currencies`, and a person is created on the same route, as a person
    (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional"). The Edit
@@ -124,24 +124,18 @@ On the practice engine, with the practice user's Visa holding soles and dollars:
   a deleted one included (contract: POST /v1/accounts/{account_id}/make-person).
 - **`STATEMENT_CODE_EXISTS` reads in the engine's words alone** (owner, 2026-10-28, question 9 A
   of the cards spec): the app's own line under it goes.
-
-## Questions for the owner
-
-1. **What `d` asks on Manage ▸ Accounts until spec 6** [mockup to draw]. A row is one currency
-   of an account, but `d` deletes the whole account, every currency of it; the engine deletes
-   only an account with nothing booked in any currency.
-   - **A.** The question names the account and each of its currencies with its balance:
-     `VISA Infinite Sapphire · bank · PEN 0.00 · USD 0.00`, then today's sentence.
-   - **B.** Today's question for the cursor row, with one more line: "This deletes every
-     currency of the account."
-
-   **Recommended:** A: it shows everything the delete removes.
+- **`d` on Manage ▸ Accounts names the whole account until spec 6** (owner, 2026-10-29,
+  question 1 A, [mockups/expense-world-currencies-delete.html](../mockups/expense-world-currencies-delete.html)):
+  whichever of the account's rows the cursor is on, the question's second line is the account,
+  its kind, then each currency it holds with that currency's balance,
+  `Prueba · bank · PEN 0.00 · USD 0.00`, then today's sentence; a one-currency account reads
+  `Efectivo · bank · PEN 350.00`.
 
 ---
 
 ## Tasks
 
-Drafted 2026-10-29; they wait on the owner's approval. Each leaves `pytest tests/unit` green.
+Approved by the owner on 2026-10-29. Each leaves `pytest tests/unit` green.
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
@@ -210,11 +204,11 @@ stay, named for what they are, until the task that moves their last user removes
    *Passes if:* unit tests pin a two-currency account's two rows in the engine's order, a person
    settled in soles and owing in dollars showing once in each place, and `⏎` handing the ledger
    the account and the currency.
-6. **Manage ▸ Accounts on the account's currencies (builder; waits on question 1).** One row per
+6. **Manage ▸ Accounts on the account's currencies (builder).** One row per
    account and currency, named "<account> · <code>", Cur and Balance that currency's, the other
    cells the account's; `e`, `a`, `t` and `d` act on the cursor row's account, through the
    routes the screen calls today; after `a` or `t` the cursor comes back to the same row; `d`
-   asks as question 1 picks. Files: [accounts.py](../../expense/tui/screens/accounts.py) and its
+   asks as "What the owner settled" draws it. Files: [accounts.py](../../expense/tui/screens/accounts.py) and its
    tests (accounts, account kind, Manage actions, delete) on task 1's builder.
    *Passes if:* unit tests pin a two-currency account's rows, `a` on either row sending one
    `POST /accounts/{id}/archive` with the account's id and both rows dim after the reload, and
