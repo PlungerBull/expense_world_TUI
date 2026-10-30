@@ -943,15 +943,17 @@ def pending_label(refs: "QuickAddRefs") -> str:
 
 
 def pick_label(refs: "QuickAddRefs", account_id: object, currency_code: object) -> str:
-    """The "<account> · <code>" of a pick the quick-add pool holds; the account's
-    name alone when the pool has no such pick (an archived account a row still
-    names), and `''` when no account is named."""
+    """The "<account> · <code>" of a pick the quick-add pool holds; for a pick it
+    lacks (an archived account a row still names) the account's name and the code
+    given, or the name alone when no code is given, and `''` when no account is
+    named."""
     if not isinstance(account_id, str):
         return ""
     for pick in refs.picks:
         if pick.account_id == account_id and pick.currency_code == currency_code:
             return pick.label
-    return refs.account_names.get(account_id, "")
+    name = refs.account_names.get(account_id, "")
+    return currency_label(name, str(currency_code)) if name and currency_code else name
 
 
 def _id_name_map(rows: list) -> dict[str, str]:

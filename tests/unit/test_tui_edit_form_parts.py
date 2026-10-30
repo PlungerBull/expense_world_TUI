@@ -48,9 +48,11 @@ from expense.tui.widgets.refusal import hanging
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
+    account_with_currencies,
     cursor_page,
     edit_limits,
     hashtag_refusal,
+    held_currency,
     holder_list,
     import_part,
     line_code_of,
@@ -65,30 +67,15 @@ from tests.unit.helpers import (
 SIZE = (120, 50)
 
 ACCOUNTS = [
-    {
-        "id": "acc1",
-        "name": "Sueldo Soles",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": "o1",
-    },
-    {
-        "id": "acc2",
-        "name": "BCP Dólares",
-        "currency_code": "USD",
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc-old",
-        "name": "Ahorro viejo",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": True,
-        "opening_balance_transaction_id": None,
-    },
+    account_with_currencies(
+        id="acc1",
+        name="Sueldo Soles",
+        currencies=[held_currency("PEN", opening_balance_transaction_id="o1")],
+    ),
+    account_with_currencies(id="acc2", name="BCP Dólares", currencies=[held_currency("USD")]),
+    account_with_currencies(
+        id="acc-old", name="Ahorro viejo", is_archived=True, currencies=[held_currency("PEN")]
+    ),
 ]
 #: In the engine's order, as the mockup's lists draw it: @Pendiente first.
 CATEGORIES = [
@@ -113,6 +100,7 @@ def _tx(
     title="Tottus Jockey Plaza",
     day="2026-10-11",
     account="acc1",
+    currency="PEN",
     category="c-pend",
     tags=None,
     note=None,
@@ -125,6 +113,7 @@ def _tx(
         "amount_cents": amount,
         "date": f"{day}T12:00:00-05:00",
         "account_id": account,
+        "currency_code": currency,
         "category_id": category,
         "hashtag_ids": tags if tags is not None else ["h-pend"],
         "bank_line_id": line,
@@ -209,6 +198,7 @@ def _as_part(tx: dict) -> dict:
         tx["id"],
         tx["amount_cents"],
         account_id=tx["account_id"],
+        currency_code=tx["currency_code"],
         line=tx["bank_line_id"],
         day=tx["date"][:10],
         title=tx["title"],
@@ -226,6 +216,7 @@ def bank_line(line: str) -> dict:
         "id": line,
         "line_code": line_code_of(line),
         "account_id": parts[0]["account_id"],
+        "currency_code": parts[0]["currency_code"],
         "operation_code": OPERATION.get(line),
         "statement_line": None,
         "statement_place": None,
@@ -439,7 +430,7 @@ def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key
     assert summary == [
         "date     2026-10-11",
         "title    Tottus Jockey Plaza",
-        "account  Sueldo Soles",
+        "account  Sueldo Soles · PEN",
         "",
         "      amount    category       hashtags        note",
         "  1   -60.00    COMIDA         #casa           verduras",
@@ -672,7 +663,7 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
     assert summary == [
         "date     2026-10-11  read-only",
         "title    Tottus Jockey Plaza  read-only",
-        "account  Ahorro viejo  read-only",
+        "account  Ahorro viejo · PEN  read-only",
         "date, title, account: The account is archived. Unarchive it first.",
         "",
         "      amount    category       hashtags        note",
@@ -721,7 +712,7 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
     assert summary == [
         "date     2026-01-01",
         "title    Saldo inicial",
-        "account  Sueldo Soles  read-only",
+        "account  Sueldo Soles · PEN  read-only",
         "account: Must not move an opening balance to another account.",
         "",
         "       amount    category       hashtags        note",
@@ -795,7 +786,7 @@ def test_check_6_a_completed_reconciliations_split_line_opens_on_part_1s_amount(
     assert shared == [
         "date     2026-10-11  read-only",
         "title    Tottus Jockey Plaza  read-only",
-        "account  Sueldo Soles  read-only",
+        "account  Sueldo Soles · PEN  read-only",
     ]
     assert footer[-2:] == [("^n", "Add part"), ("^x", "Drop part")]
 
@@ -961,6 +952,7 @@ def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
             "/bank-lines/bl-1",
             {
                 "account_id": "acc2",
+                "currency_code": "USD",
                 "statement_id": None,
                 "parts": [{"id": "t1", "amount_cents": -2800}],
             },
@@ -1258,7 +1250,7 @@ def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(e
         "date       2026-10-11",
         "title      Tottus Jockey Plaza",
         "operation  47391026",
-        "account    Sueldo Soles",
+        "account    Sueldo Soles · PEN",
         "",
         "      amount    category       hashtags        note",
         "  1   -60.00    COMIDA         #casa           verduras",

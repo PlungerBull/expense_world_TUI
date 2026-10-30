@@ -140,19 +140,6 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
 
-3. **The Edit form and the whole-line write on account and currency (builder).** The Edit
-   form's ACCOUNT line picks from task 1's picks, labelled, starting on the record's own account
-   and currency; a save sends `account_id`, `currency_code` or both, only those that changed;
-   `unassign_on_move` adds `statement_id: null` on a change of either.
-   [bank_line_write.py](../../expense/bank_line_write.py)'s `LINE_FIELDS` takes `currency_code`
-   (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"), and the bank line's Edit form reads
-   its currency from the line's own `currency_code`. Files:
-   [edit_form.py](../../expense/tui/screens/edit_form.py), bank_line_write.py, and the Edit form
-   tests on task 1's builder.
-   *Passes if:* unit tests pin a move to the same account's other currency sending
-   `currency_code` alone with `statement_id: null`, a move to another account in the same
-   currency sending `account_id` alone, an unchanged pick sending neither, and
-   `CURRENCY_NOT_HELD` on `account_id` shown in the engine's words.
 4. **The ledger on account and currency (builder).** The Account column reads
    "<account> · <code>" from each row's `account_id` and `currency_code`; bulk `b` picks from
    task 1's picks and sends both keys, with `statement_id: null`, only on the rows whose account

@@ -39,13 +39,14 @@ from expense.tui.screens.edit_form import (
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
-    ENGINE_ORDER_ACCOUNTS,
-    ENGINE_ORDER_NAMES,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
     LOCK_MESSAGES,
     LOCKED_WORDS,
+    account_with_currencies,
     edit_limits,
     hashtag_refusal,
+    held_currency,
     import_part,
     in_order,
     line_code_of,
@@ -56,38 +57,14 @@ from tests.unit.helpers import (
 )
 
 ACCOUNTS = [
-    {
-        "id": "acc1",
-        "name": "BCP PEN",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc2",
-        "name": "BCP USD",
-        "currency_code": "USD",
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc3",
-        "name": "Ahorros",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "accX",
-        "name": "Old bank",
-        "currency_code": "PEN",
-        "is_person": False,
-        "is_archived": True,
-        "opening_balance_transaction_id": None,
-    },
+    account_with_currencies(
+        id="acc1", name="BCP", currencies=[held_currency("PEN"), held_currency("USD")]
+    ),
+    account_with_currencies(id="acc2", name="Visa", currencies=[held_currency("USD")]),
+    account_with_currencies(id="acc3", name="Ahorros", currencies=[held_currency("PEN")]),
+    account_with_currencies(
+        id="accX", name="Old bank", is_archived=True, currencies=[held_currency("PEN")]
+    ),
 ]
 CATEGORIES = [
     {"id": "cat1", "name": "Mascotas", "is_system": False},
@@ -106,6 +83,7 @@ TXN = {
     "title": "Farmacia",
     "amount_cents": -4250,
     "account_id": "acc1",
+    "currency_code": "PEN",
     "category_id": "cat1",
     "hashtag_ids": ["h1"],
     "description": "receta",
@@ -125,6 +103,7 @@ def _as_part(tx: dict) -> dict:
         tx["id"],
         tx["amount_cents"],
         account_id=tx["account_id"],
+        currency_code=tx["currency_code"],
         line=tx["bank_line_id"],
         day=tx["date"][:10],
         title=tx.get("title"),
@@ -141,6 +120,7 @@ def _line(*parts: dict, limits: dict | None = None, operation: str | None = None
         "id": "bl1",
         "line_code": line_code_of("bl1"),
         "account_id": parts[0]["account_id"],
+        "currency_code": parts[0]["currency_code"],
         "operation_code": operation,
         "statement_line": None,
         "statement_place": None,
@@ -246,7 +226,7 @@ def test_the_form_reads_three_reference_lists_and_the_line_once(fake_client, mon
 
     async def steps(screen, pilot, app):
         assert sorted(calls) == [("accounts", True), ("categories", False), ("hashtags", False)]
-        assert "accX" not in [a[0] for a in screen._accounts]  # archived out of the pool
+        assert "accX" not in [a[0][0] for a in screen._picks]  # archived out of the pool
         assert screen._acc_names.get("accX") == "Old bank"  # but resolvable in the map
         assert screen._sequence() == TXN_FIELDS
         return [p.id for p in screen._parts]
@@ -256,18 +236,27 @@ def test_the_form_reads_three_reference_lists_and_the_line_once(fake_client, mon
     assert fake_client.calls == []
 
 
-def test_the_account_field_suggests_in_the_engines_order(fake_client, monkeypatch):
-    """The account picker lists accounts exactly as `GET /accounts` returned
-    them — not alphabetical, not by `sort_order`, the person after every bank."""
-    record = {**TXN, "account_id": ENGINE_ORDER_ACCOUNTS[0]["id"]}
-    _patch(monkeypatch, _line(record), accounts=ENGINE_ORDER_ACCOUNTS)
+def test_the_account_field_suggests_one_pick_per_currency_in_the_engines_order(
+    fake_client, monkeypatch
+):
+    """The account picker lists one pick per account and currency, labelled
+    "<account> · <code>", exactly as `GET /accounts` returned them — not
+    alphabetical, not by `sort_order`, the person last, each account's currencies
+    PEN before USD (contract: "Bank Accounts", "Per-currency order")."""
+    record = {**TXN, "account_id": ENGINE_ORDER_HOLDING_ACCOUNTS[0]["id"]}
+    _patch(monkeypatch, _line(record), accounts=ENGINE_ORDER_HOLDING_ACCOUNTS)
+    labels = [
+        f"{a['name']} · {c['currency_code']}"
+        for a in ENGINE_ORDER_HOLDING_ACCOUNTS
+        for c in a["currencies"]
+    ]
 
     async def steps(screen, pilot, app):
         _on(screen, "account")
         screen._recompute("")
-        assert [ent[1] for ent in screen._suggestions] == ENGINE_ORDER_NAMES
+        assert [ent[1] for ent in screen._suggestions] == labels
         shown = render_text(screen._suggest_renderable(), width=120)
-        assert in_order(shown, ENGINE_ORDER_NAMES)
+        assert in_order(shown, labels)
 
     _open(record, steps)
 
@@ -602,7 +591,7 @@ def test_an_edit_that_keeps_the_account_sends_no_statement_id(fake_client, monke
 
     async def steps(screen, pilot, app):
         _on(screen, "account")
-        _enter(screen, "BCP PEN")  # the account it is already on
+        _enter(screen, "BCP · PEN")  # the account and currency it is already on
         _on(screen, "title")
         _enter(screen, "Farmacia Inkafarma")
         screen.action_submit()
@@ -613,20 +602,111 @@ def test_an_edit_that_keeps_the_account_sends_no_statement_id(fake_client, monke
     assert ("", "Saved.") in notices
 
 
-def _move_refused(err, fake_client, monkeypatch) -> tuple[str, bool]:
-    """Pick BCP USD on ACCOUNT and save into the refusal `err`; returns the
-    summary as drawn and whether the form is still on top."""
-    _patch(monkeypatch)
+def _pick_and_save(fake_client, monkeypatch, typed: str, *, record=TXN) -> list:
+    """Pick `typed` on ACCOUNT of `record`'s form and save; the writes sent."""
+    _patch(monkeypatch, _line(record))
+    _record_notices(monkeypatch)
+
+    async def steps(screen, pilot, app):
+        _on(screen, "account")
+        _enter(screen, typed)
+        screen.action_submit()
+        await pilot.pause()
+        await pilot.pause()
+
+    _open(record, steps)
+    return fake_client.calls
+
+
+def test_a_move_to_the_same_accounts_other_currency_sends_the_currency_alone(
+    fake_client, monkeypatch
+):
+    """BCP in soles to BCP in dollars: `currency_code` alone, with `statement_id: null`
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+    assert _pick_and_save(fake_client, monkeypatch, "BCP · USD") == [
+        ("PUT", PATH, {"currency_code": "USD", "statement_id": None, "parts": [_kept()]})
+    ]
+
+
+def test_a_move_to_another_account_in_the_same_currency_sends_the_account_alone(
+    fake_client, monkeypatch
+):
+    """BCP in soles to Ahorros in soles: `account_id` alone, with `statement_id: null`."""
+    assert _pick_and_save(fake_client, monkeypatch, "Ahorros") == [
+        ("PUT", PATH, {"account_id": "acc3", "statement_id": None, "parts": [_kept()]})
+    ]
+
+
+def test_an_unchanged_pick_sends_neither_key(fake_client, monkeypatch):
+    """Re-picking the line's own account and currency changes nothing: nothing is sent."""
+    assert _pick_and_save(fake_client, monkeypatch, "BCP · PEN") == []
+
+
+def test_the_account_line_starts_on_the_records_own_account_and_currency(fake_client, monkeypatch):
+    """The line reads its pick from the record's `account_id` and `currency_code`: the
+    one shown is the dollar pick of the account, not its first."""
+    record = {**TXN, "currency_code": "USD"}
+    _patch(monkeypatch, _line(record))
+
+    async def steps(screen, pilot, app):
+        assert screen._values["account"] == ("acc1", "USD")
+        assert "account  BCP · USD" in _summary(screen)
+        _on(screen, "account")
+        screen._recompute("")
+        assert [ent[1] for ent in screen._suggestions][screen._suggest_idx] == "BCP · USD"
+
+    _open(record, steps)
+
+
+def test_a_currency_the_account_does_not_hold_shows_the_engines_words_alone(
+    fake_client, monkeypatch
+):
+    """`CURRENCY_NOT_HELD` on `account_id` (an account sent alone onto a currency it does
+    not hold): the engine's words under the parts and nothing of the app's own after
+    `Nothing was saved.` (contract: "Error reasons")."""
+    words = "Must be a currency the account holds: USD."
+    # the line is in dollars and Visa's dollars are a pick on the list, so the account is
+    # sent alone; the engine's read of Visa is newer than the list (it no longer holds them)
+    record = {**TXN, "currency_code": "USD"}
+    err = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"account_id": words},
+        422,
+        {},
+        reasons={"account_id": "CURRENCY_NOT_HELD"},
+    )
+    summary, on_top = _move_refused(err, fake_client, monkeypatch, typed="Visa", record=record)
+    assert fake_client.calls == [
+        (
+            "PUT",
+            PATH,
+            {
+                "account_id": "acc2",
+                "statement_id": None,
+                "parts": [_kept()],
+            },
+        )
+    ]
+    assert f"! account_id: {words}" in summary
+    assert summary.split("Nothing was saved.")[1].strip() == ""
+    assert on_top
+
+
+def _move_refused(err, fake_client, monkeypatch, *, typed="Visa", record=TXN) -> tuple[str, bool]:
+    """Pick `typed` on ACCOUNT of `record`'s form and save into the refusal `err`;
+    returns the summary as drawn and whether the form is still on top."""
+    _patch(monkeypatch, _line(record))
     fake_client.errors["PUT"] = err
 
     async def steps(screen, pilot, app):
         _on(screen, "account")
-        _enter(screen, "BCP USD")
+        _enter(screen, typed)
         screen.action_submit()
         await wait_for(pilot, lambda: screen._refusal is not None and not screen._submitting)
         return _summary(screen, width=120), app.screen is screen
 
-    return _open(scenario_steps=steps)
+    return _open(record, steps)
 
 
 def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
@@ -644,7 +724,16 @@ def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
     )
     summary, on_top = _move_refused(err, fake_client, monkeypatch)
     assert fake_client.calls == [
-        ("PUT", PATH, {"account_id": "acc2", "statement_id": None, "parts": [_kept()]})
+        (
+            "PUT",
+            PATH,
+            {
+                "account_id": "acc2",
+                "currency_code": "USD",
+                "statement_id": None,
+                "parts": [_kept()],
+            },
+        )
     ]
     assert f"VALIDATION_ERROR — {LOCKED_WORDS}" in summary
     assert f"! account_id: {locked}" in summary
@@ -713,7 +802,7 @@ def test_an_opening_balances_field_moves_skip_its_read_only_lines(fake_client, m
 
     async def steps(screen, pilot, app):
         assert screen._locked == {"account", "0.category", "0.hashtags"}
-        assert "account  BCP PEN  read-only" in _summary(screen)
+        assert "account  BCP · PEN  read-only" in _summary(screen)
         _on(screen, "0.amount")
         await pilot.press("tab")
         assert screen._key == "0.note"
@@ -927,7 +1016,7 @@ def test_a_completed_reconciliations_line_says_why_once_under_its_fields(fake_cl
     assert _drawn(TXN, line) == [
         "date     2026-06-20  read-only",
         "title    Farmacia  read-only",
-        "account  BCP PEN  read-only",
+        "account  BCP · PEN  read-only",
         "date, title, account: Locked by completed statement.",
         "",
         "      amount    category       hashtags        note",
@@ -942,7 +1031,7 @@ def test_an_archived_accounts_line_says_why_with_the_engines_sentence(fake_clien
     assert _drawn(ON_ARCHIVED, line) == [
         "date     2026-06-20  read-only",
         "title    Farmacia  read-only",
-        "account  Old bank  read-only",
+        "account  Old bank · PEN  read-only",
         "date, title, account: The account is archived. Unarchive it first.",
         "",
         "      amount    category       hashtags        note",
@@ -960,7 +1049,7 @@ def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkey
     assert _drawn(OPENING, line) == [
         "date     2026-06-20",
         "title    Saldo inicial",
-        "account  BCP PEN  read-only",
+        "account  BCP · PEN  read-only",
         "account: Must not move an opening balance to another account.",
         "",
         "       amount    category       hashtags        note",
@@ -984,7 +1073,7 @@ def test_the_no_batch_form_names_its_operation_line_among_the_locked(fake_client
         "date       2026-06-20  read-only",
         "title      Farmacia  read-only",
         "operation  47391026  read-only",
-        "account    Old bank  read-only",
+        "account    Old bank · PEN  read-only",
         "date, title, operation, account: The account is archived. Unarchive it",
         "                                 first.",
     ]
@@ -1407,7 +1496,7 @@ def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client
     async def steps(screen, pilot, app):
         _enter(screen, "2026-07-01")  # date
         _enter(screen, "Inkafarma")  # title
-        _enter(screen, "BCP USD")  # account
+        _enter(screen, "Visa")  # account
         _enter(screen, "-10.00")  # amount
         _enter(screen, "Salud")  # category
         _enter(screen, "traveling")  # hashtags: adds one and stays
@@ -1505,13 +1594,13 @@ def test_enter_through_every_line_of_the_no_batch_form_sends_nothing(
         for _ in screen._sequence():
             visited.append(screen._key)
             if screen._key == "account":
-                assert _highlighted(screen) == "Ahorros"
+                assert _highlighted(screen) == "Ahorros · PEN"
             await pilot.press("enter")
         assert visited == screen._sequence()
         await pilot.press("ctrl+s")
         await pilot.pause()
         assert screen._values == screen._original
-        assert screen._values["account"] == "acc3"
+        assert screen._values["account"] == ("acc3", "PEN")
 
     notices = _open_stepping(
         monkeypatch, steps, line=line, form=lambda: BankLineEditFormScreen(line=line)
@@ -1520,7 +1609,9 @@ def test_enter_through_every_line_of_the_no_batch_form_sends_nothing(
     assert notices == [("", "No changes to save.")] * 2
 
 
-@pytest.mark.parametrize(("key", "own_name"), [("account", "Ahorros"), ("0.category", "Salud")])
+@pytest.mark.parametrize(
+    ("key", "own_name"), [("account", "Ahorros · PEN"), ("0.category", "Salud")]
+)
 def test_an_untouched_entity_line_starts_on_its_own_value_and_enter_keeps_it(
     fake_client, monkeypatch, key, own_name
 ):
@@ -1530,13 +1621,13 @@ def test_an_untouched_entity_line_starts_on_its_own_value_and_enter_keeps_it(
     async def steps(screen, pilot):
         await _enter_to(screen, pilot, key)
         assert screen.query_one("#bar", Input).value == ""
-        pool = screen._accounts if key == "account" else screen._categories
+        pool = screen._picks if key == "account" else screen._categories
         assert screen._suggestions == pool  # the usual order, nothing filtered
         assert _highlighted(screen) == own_name
         assert own_name in render_text(screen._suggest_renderable(), width=60)
         await pilot.press("enter")
         assert screen._key != key  # moved on
-        assert screen._values["account"] == "acc3"
+        assert screen._values["account"] == ("acc3", "PEN")
         assert screen._parts[0].category_id == "cat2"
 
     _open_stepping(monkeypatch, steps)
@@ -1548,9 +1639,9 @@ def test_typing_a_name_then_enter_still_picks_the_typed_one(fake_client, monkeyp
     async def steps(screen, pilot):
         await _enter_to(screen, pilot, "account")
         await pilot.press(*"usd")
-        assert [e[1] for e in screen._suggestions] == ["BCP USD"]
+        assert [e[1] for e in screen._suggestions] == ["BCP · USD", "Visa · USD"]
         await pilot.press("enter")
-        assert screen._values["account"] == "acc2"
+        assert screen._values["account"] == ("acc1", "USD")
         await _enter_to(screen, pilot, "0.category")
         await pilot.press(*"hog")
         assert _highlighted(screen) == "Hogar"
@@ -1562,7 +1653,9 @@ def test_typing_a_name_then_enter_still_picks_the_typed_one(fake_client, monkeyp
     _open_stepping(monkeypatch, steps)
     path, body = fake_client.puts[0]
     assert path == PATH
-    assert body["account_id"] == "acc2" and body["parts"][0]["category_id"] == "cat3"
+    # the line sits on Ahorros in soles: BCP in dollars moves both
+    assert body["account_id"] == "acc1" and body["currency_code"] == "USD"
+    assert body["parts"][0]["category_id"] == "cat3"
 
 
 def test_arrows_still_choose_another_and_an_erased_bar_returns_to_the_own_one(

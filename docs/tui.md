@@ -331,7 +331,7 @@ a row in a draft reconciliation unless the write also says what happens to the a
 (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"), so `b` adds
 `statement_id: null` to each row whose account changes, and only to those: a row
 already on the picked account keeps its reconciliation. The Edit form adds
-`statement_id: null` beside its parts the same way when the line's account changes
+`statement_id: null` beside its parts the same way when the line's account or currency changes
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
@@ -414,7 +414,14 @@ Each part comes as a magnitude and its `transaction_type`, signed by `signed_cen
 [formatting.py](../expense/formatting.py). Until both reads are in the form takes nothing
 typed; a failed read says why in a toast (`format_error`) and the form saves nothing.
 **On top, the line's shared fields**: `date`, `title` and `account`, as the summary of any bar
-form. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
+form. ACCOUNT picks one account and one currency it holds, the list one pick per account and
+currency (`QuickAddRefs.picks`), each labelled "<account> · <code>" (`currency_label`), and
+opens on the line's own `account_id` and `currency_code`. A save sends only the key that moved:
+`account_id` alone for another account in the same currency, `currency_code` alone for the same
+account's other currency, both for another account's other currency, neither for the pick the
+line already has (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); a move of either also
+sends `statement_id: null`. A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
+`currency_code` shows in its words alone. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
 (no category is `@Pendiente`, the pending hashtag alone is no hashtag); no note reads blank.
@@ -584,10 +591,10 @@ in `DELETE /transactions/{id}`.
 ledger's Edit form ("`⏎` and `s` open the Edit form" above) with OPERATION among the shared
 fields, `date › title › operation › account`, then every part, and its crumb reads
 `Capture & ledger ▸ Reconciliations ▸ Edit`. Over the bar, the line as the list shows it:
-its title, then its signed `net_cents` and the account's currency
+its title, then its signed `net_cents` and the line's own `currency_code`
 (`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, its
 `edit_limits` included, so the form reads no line: the day and title off its first part, its
-`operation_code` and its account. An operation with nothing typed reads `—  (optional)`; its
+`operation_code`, `account_id` and `currency_code`. An operation with nothing typed reads `—  (optional)`; its
 hint is `optional · the bank's operation number · empty clears it`, and an emptied operation
 sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the ledger's Edit
@@ -825,10 +832,10 @@ show accounts as `GET /accounts` lists them, every real account first, then ever
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
 first currency leg does. The LOG bar's `$` picker, the Edit form's account field and the
-ledger's `b` pick offer no archived account (`QuickAddRefs.picks` and `QuickAddRefs.accounts` in
-[reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
-`account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
-shows its name, read-only on its Edit form (below).
+ledger's `b` pick offer no archived account (`QuickAddRefs.picks`; the ledger's `b` reads
+`QuickAddRefs.accounts`, the per-currency pool, in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
+`account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
+its name and code ("Old bank · PEN"), read-only on its Edit form (below).
 
 **On an archived account's row the ledger offers no `d`** (the row and `d` as screen 1 A of
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) draws them;
@@ -1006,6 +1013,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
+| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold (contract: "Error reasons") | none: the engine's words name the currency, and the form stays |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |

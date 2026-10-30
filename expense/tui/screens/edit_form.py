@@ -54,9 +54,14 @@ on a retry), its body built by
 [bank_line_write.py](../../bank_line_write.py) (contract: PUT /v1/bank-lines/{bank_line_id}):
 
 - the line fields the owner changed, and only those, so a read-only one is
-  never sent: `date`, `title`, `account_id`, and on the "no batch" form
-  `operation_code`, whose `null` clears it; a changed account also sends
-  `statement_id: null`, so the move takes the line out of its statement
+  never sent: `date`, `title`, `account_id` and `currency_code`, and on the
+  "no batch" form `operation_code`, whose `null` clears it. The ACCOUNT line
+  picks one account and currency (`currency_picks`, labelled "<account> · <code>"),
+  starting on the line's own, and sends only the key that changed: the account
+  alone for the same currency on another account, the currency alone for
+  another currency of the same account, both for another account's other
+  currency, neither for the pick the line already has. A move of either also
+  sends `statement_id: null`, so it takes the line out of its statement
   (`unassign_on_move`);
 - `parts`, the line's complete set: each part read from the line under its own
   id, with its current signed amount always and its category, note and
@@ -87,8 +92,8 @@ the line fields onto every part (contract: "Transactions (Ledger)", "Bank lines"
 `enter` keeps the field and moves on, and saves only on the last line that can
 change (`FormScreen._advance`) · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
-submits. Sign explicit (− expense / + income); currency derived from the
-account. The keymap is `form_bindings` in _form.py, with `^n` and `^x`.
+submits. Sign explicit (− expense / + income); the currency is the one the ACCOUNT
+line picks. The keymap is `form_bindings` in _form.py, with `^n` and `^x`.
 """
 
 import copy
@@ -169,7 +174,8 @@ DATE_UNREADABLE = "Date: use YYYY-MM-DD."
 _EVERY_PART = {"date", "title", "account"}
 EVERY_PART_NOTE = "changes every part of the transaction"
 # The line fields' names in the whole-line write
-# (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
+# (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). The ACCOUNT line holds
+# an account and a currency, so it writes two of them (`_line_fields`).
 _ENGINE_FIELD = {
     "date": "date",
     "title": "title",
@@ -177,6 +183,7 @@ _ENGINE_FIELD = {
     "account": "account_id",
 }
 _FORM_KEY = {engine: key for key, engine in _ENGINE_FIELD.items()}
+_FORM_KEY["currency_code"] = "account"  # a locked currency locks the whole ACCOUNT line
 # Each part field's attribute on `Part`.
 _PART_ATTR = {
     "amount": "amount_cents",
@@ -200,19 +207,22 @@ def split_key(key: str) -> tuple[int, str] | None:
 def unassign_on_move(payload: dict, record: dict) -> None:
     """Make an account move take the row out of its statement.
 
-    A write that changes `account_id` on a row assigned to a draft statement
-    must say what happens to the assignment, or the engine refuses it
-    (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")
+    A write that changes `account_id` or `currency_code` on a row assigned to a
+    draft statement must say what happens to the assignment, or the engine
+    refuses it (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). So a payload whose
-    `account_id` differs from the record's gains `statement_id: None` — the
-    move unassigns. An `account_id` equal to the record's is not a move and
-    gains nothing, so the row keeps its statement.
+    `account_id` or `currency_code` differs from the record's gains
+    `statement_id: None` — the move unassigns. A key equal to the record's is
+    not a move and gains nothing, so the row keeps its statement.
 
     Whether a part did leave its statement is the engine's answer to say
     (`moved_parts`). Mutates `payload`; shared by the Edit form, whose record is
     the bank line, and the ledger's bulk `b`, whose record is a transaction.
     """
-    if "account_id" in payload and payload["account_id"] != record.get("account_id"):
+    if any(
+        key in payload and payload[key] != record.get(key)
+        for key in ("account_id", "currency_code")
+    ):
         payload["statement_id"] = None
 
 
@@ -284,7 +294,7 @@ class EditFormScreen(FormScreen):
     def __init__(self, *, record: dict) -> None:
         super().__init__()
         self._record = record
-        self._accounts: list = []
+        self._picks: list = []
         self._categories: list = []
         self._hashtags: list = []
         self._acc_names: dict = {}
@@ -317,7 +327,8 @@ class EditFormScreen(FormScreen):
         if rec.get("title"):
             self._values["title"] = self._display["title"] = rec["title"]
         if rec.get("account_id"):
-            self._values["account"] = rec["account_id"]
+            # the pick: an account and one currency it holds
+            self._values["account"] = (rec["account_id"], rec.get("currency_code"))
             self._display["account"] = rec["account_id"][:8]  # resolved once entities load
         if "operation" in self._line_keys() and rec.get("operation_code"):
             self._values["operation"] = self._display["operation"] = rec["operation_code"]
@@ -337,13 +348,16 @@ class EditFormScreen(FormScreen):
 
     def _take_refs(self, refs: QuickAddRefs) -> None:
         self._refs = refs
-        self._accounts = refs.accounts
+        self._picks = [((p.account_id, p.currency_code), p.label) for p in refs.picks]
         self._categories = refs.pickable_categories
         self._hashtags = refs.hashtags
         self._acc_names = refs.account_names
         self._pending_tag = refs.pending_hashtag_id
         if "account" in self._values:
-            self._display["account"] = resolve_name(self._values["account"], self._acc_names)
+            account_id, code = self._values["account"]
+            self._display["account"] = reads.pick_label(refs, account_id, code) or resolve_name(
+                account_id, self._acc_names
+            )
 
     @property
     def _ready(self) -> bool:
@@ -544,7 +558,7 @@ class EditFormScreen(FormScreen):
         at = self._part_at(key)
         own: object = None
         if key == "account":
-            pool = matching(self._accounts, needle)
+            pool = matching(self._picks, needle)
             own = self._values.get("account")
         elif at is not None and at[1] == "category":
             pool = matching(self._categories, needle)
@@ -618,7 +632,7 @@ class EditFormScreen(FormScreen):
             if picked is None:
                 toast(self, f"No account matches “{text}”.", severity="error")
                 return False
-            self._set_value("account", picked[0], picked[1])
+            self._set_value("account", picked[0], picked[1])  # ((account, code), label)
         return True
 
     def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:
@@ -765,6 +779,14 @@ class EditFormScreen(FormScreen):
                 # `null` clears the line's operation code
                 # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
                 fields["operation_code"] = new or None
+            elif key == "account":
+                # only the key that moved: either alone keeps the other as the line has it
+                # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
+                old = self._original.get(key) or (None, None)
+                if new[0] != old[0]:
+                    fields["account_id"] = new[0]
+                if new[1] != old[1]:
+                    fields["currency_code"] = new[1]
             else:
                 fields[_ENGINE_FIELD[key]] = new
         return fields
@@ -832,19 +854,19 @@ class BankLineEditFormScreen(EditFormScreen):
     """The Edit form on a line the "no batch" list holds (Question 1 A of
     expense-world-split-transaction-screen.html): the same form, with OPERATION
     among the shared fields and, over the bar, the line as the list shows it,
-    its title and its `net_cents` with the account's currency.
+    its title and its `net_cents` with the line's own currency.
 
     Every value comes from the line the list holds, its `edit_limits`
     included, so the form reads no line: the day and title off its first part,
-    its `operation_code` and `account_id`."""
+    its `operation_code`, `account_id` and `currency_code`."""
 
-    def __init__(self, *, line: dict, currency: str | None = None) -> None:
-        self._currency = currency
+    def __init__(self, *, line: dict) -> None:
         first = (line.get("parts") or [{}])[0]
         record = {
             **first,
             "bank_line_id": line.get("id"),
             "account_id": line.get("account_id") or first.get("account_id"),
+            "currency_code": line.get("currency_code") or first.get("currency_code"),
             "operation_code": line.get("operation_code"),
         }
         super().__init__(record=record)
@@ -860,6 +882,6 @@ class BankLineEditFormScreen(EditFormScreen):
         head = Text(str(title or "(untitled)"), style="bold")
         head.append("  ·  ", style="dim")
         head.append_text(amount_text(net_cents, PALETTE, AMOUNT_RULE))
-        if self._currency:
-            head.append(f" {self._currency}", style="dim")
+        if line.get("currency_code"):
+            head.append(f" {line['currency_code']}", style="dim")
         return head

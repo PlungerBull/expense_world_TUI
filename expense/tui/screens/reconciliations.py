@@ -687,9 +687,8 @@ class ReconciliationsScreen(SectionScreen):
             if line is not None and first_part(line) is not None:
                 from expense.tui.screens.edit_form import BankLineEditFormScreen
 
-                acct = self._open_account()
                 self.app.push_screen(
-                    BankLineEditFormScreen(line=line, currency=acct[2] if acct else None),
+                    BankLineEditFormScreen(line=line),
                     lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
                 )
             return

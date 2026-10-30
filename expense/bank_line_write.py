@@ -28,7 +28,7 @@ pending hashtag, and with no note it has none
 (contract: PUT /v1/bank-lines/{bank_line_id}, "An id no record holds creates a part").
 
 **The line fields** go beside `parts` only when the screen changed them, and
-only the five the write takes; `statement_line` and `statement_place` never go
+only the six the write takes; `statement_line` and `statement_place` never go
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
 """
 
@@ -39,7 +39,9 @@ from expense.reads import hashtags_to_send
 
 #: The line fields the whole-line write takes beside `parts`
 #: (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
-LINE_FIELDS = frozenset({"title", "date", "account_id", "operation_code", "statement_id"})
+LINE_FIELDS = frozenset(
+    {"title", "date", "account_id", "currency_code", "operation_code", "statement_id"}
+)
 
 
 def new_part(
