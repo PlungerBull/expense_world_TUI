@@ -42,6 +42,7 @@ from tests.unit.helpers import (
     LOCKED_WORDS,
     account_with_currencies,
     archived_refusal,
+    error_body,
     fake_ledger,
     hashtag_refusal,
     held_currency,
@@ -198,12 +199,12 @@ def test_bulk_writes_send_both_keys_and_unassign_only_a_row_whose_account_or_cur
     "Statement assignment")."""
     pick = {"account_id": "acc2", "currency_code": "USD"}
     by_id = {
-        "same": {"account_id": "acc2", "currency_code": "USD", "statement_id": "r1"},
+        "on-the-pick": {"account_id": "acc2", "currency_code": "USD", "statement_id": "r1"},
         "other-account": {"account_id": "acc1", "currency_code": "USD", "statement_id": "r1"},
         "other-currency": {"account_id": "acc2", "currency_code": "PEN", "statement_id": "r1"},
     }
     assert bulk_writes(list(by_id), pick, by_id) == [
-        ("same", pick),
+        ("on-the-pick", pick),
         ("other-account", {**pick, "statement_id": None}),
         ("other-currency", {**pick, "statement_id": None}),
     ]
@@ -612,6 +613,56 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         assert [_plain(m) for t, m in toasts if t == "Refused"] == [
             f"account_id: {ARCHIVED_FIELD_WORDS} · currency_code: {ARCHIVED_FIELD_WORDS}"
             f" · statement_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
+        ]
+        assert ("", "2 rows → BCP Oro · PEN") in toasts
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t2"}
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engine_words_alone(
+    fake_client, monkeypatch
+):
+    """`b` over a selection where one row's move is `CURRENCY_NOT_HELD`; the move sends both
+    keys, so the engine keys the refusal on `currency_code` alone
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"):
+    the "Refused" note names the row and gives the engine's words,
+    the other rows still move, and the refused row stays selected."""
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+    words = "Must be a currency the account holds."
+
+    def put(path, json_body=None):
+        if path.endswith("/t2"):
+            assert {"account_id", "currency_code"} <= set(json_body)
+            fields = {"currency_code": words}
+            reasons = {"currency_code": "CURRENCY_NOT_HELD"}
+            body = error_body("VALIDATION_ERROR", "The account holds no PEN.", fields, reasons)
+            raise EngineError(
+                "VALIDATION_ERROR", "The account holds no PEN.", fields, 422, body, reasons=reasons
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+    _answer_moves(fake_client, [ITEMS[0], ITEMS[2]])
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
+        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
+            f"currency_code: {words}\nrow 2"
         ]
         assert ("", "2 rows → BCP Oro · PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)

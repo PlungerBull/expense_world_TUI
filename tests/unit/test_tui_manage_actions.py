@@ -95,7 +95,7 @@ def _edit_two_currency_account(fake_client, monkeypatch, key, row="USD"):
 
     monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([visa]))
-    seen: dict = {"asked": asked}
+    seen: dict = dict(asked=asked)
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
