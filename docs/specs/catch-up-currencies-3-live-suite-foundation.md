@@ -87,25 +87,10 @@ None.
 
 Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it. Each fixes the `(contract: …)` citations of the files it touches.
-Files left to spec 4 may fail live until it runs.
+Files left to spec 4 may fail live until it runs. `test_clean_practice_user.py` (task 2) and
+`test_card_statement.py` (tasks 7 and 8) skip whole until rewritten, since task 1 removed the
+helpers they import: the task rewriting one removes its skip and its `# ruff: noqa: E402` line.
 
-1. **The shared helpers (builder).** In [conftest.py](../../tests/contract/conftest.py):
-   `account_body` sends `currencies` (contract: POST /v1/accounts, "Required");
-   `Scratch.account(*codes, code=…, person=…)` makes a bank account or a person in one write,
-   PEN when no code is given, and `Scratch.person` goes; `_item`, `line` and `opening_balance`
-   carry `currency_code`; a statement's create body names `account_id` and one balance entry
-   per currency asked (contract: POST /v1/statements, "`balances`"), made through
-   `Scratch.statement`; the upload helpers post `/statements/import`, and `took` takes on the
-   answer's `statement_id`; cleanup unarchives, reverts and deletes each statement, deletes the
-   transactions, opening balances included, then the hashtags and categories, then each
-   account in one `DELETE /accounts/{id}`; `send_order`, `reconciliation_body`, `card`,
-   `lines_into` and every half go; `free_statement_codes` cites the rule it reads
-   (contract: "What an account is", "One account per code"). `leaves_nothing` keeps counting
-   accounts by id (`CLEANER.holdings`).
-   *Passes if:* a test making an account of two currencies with an opening balance and a
-   statement in each leaves nothing, one making a person of two currencies leaves nothing, one
-   that leaves an account fails naming it, and conftest.py names no `/holders`, `holder_id`,
-   `/reconciliations`, `reconciliation_id`, `twin` or `/people`.
 2. **The cleaner (builder).** [clean_practice_user.py](../../scripts/clean_practice_user.py)
    reads each matched account's statements with `GET /statements?account_id=`
    (contract: GET /v1/statements, "`?account_id=<id>` is required"), with no twin or half,

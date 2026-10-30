@@ -87,7 +87,11 @@ None.
 
 Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it. Each builds its records through spec 3's `Scratch` and fixes the
-`(contract: …)` citations of the files it touches.
+`(contract: …)` citations of the files it touches. Three of its files skip whole until it
+rewrites them, since spec 3 removed the helpers they import (`test_statement_codes.py`,
+`test_statement_order.py`, `test_line_codes_and_statement_lines.py`; `grep -rn "on the holder
+model until" tests/contract` finds each): the task rewriting one removes its skip and its
+`# ruff: noqa: E402` line.
 
 1. **The upload on the account (builder).**
    [test_statement_import.py](../../tests/contract/test_statement_import.py) and

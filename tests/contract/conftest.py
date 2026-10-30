@@ -271,7 +271,7 @@ def statuses(client):
     return seen
 
 
-# ---- statements: accounts with a statement code, their reconciliations and lines ----
+# ---- statements: accounts with a statement code, their statements and lines ----
 
 _LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -280,7 +280,7 @@ def free_statement_codes(client: ExpenseClient, count: int) -> list[str]:
     """`count` different statement codes no account of the caller's holds, so a test's
     codes clash with nothing but what it builds itself, whatever an earlier run left.
     A deleted account holds no code; an archived account and a person are read too
-    (contract: "Bank Accounts", "Shared only across currencies")."""
+    (contract: "What an account is", "One account per code")."""
     listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
     held = {item["statement_code"] for item in listed["items"]}
     rng = random.SystemRandom()
@@ -395,7 +395,7 @@ def sheet_file(rows: list[list]) -> bytes:
 
 # ---- made-up statement PDFs ----
 #
-# The contract names what a BCP paper holds, in words (contract: POST /v1/reconciliations/import,
+# The contract names what a BCP paper holds, in words (contract: POST /v1/statements/import,
 # "The paper"). Where each thing sits on the page it does not state: the layout below is what
 # the engine's dry-run answers show it reads, learnt from the page, line and cell its
 # `UNEXPECTED_LAYOUT` messages name. The engine ask "Publish one made-up sample statement PDF
@@ -538,7 +538,7 @@ def savings_paper(
 ) -> bytes:
     """A made-up BCP savings account statement (`Estado de Cuenta de Ahorros`) in
     `currency`, over `start` to `end`, holding what the contract says such a paper holds
-    (contract: POST /v1/reconciliations/import, "The paper"): its previous balance
+    (contract: POST /v1/statements/import, "The paper"): its previous balance
     `before_cents` (`SALDO ANTERIOR`), its `rows` out (`CARGOS`) and in (`ABONOS`) in paper
     order, and its closing balance (`SALDO`). Its totals out and in and its closing balance
     are the rows' own, so it reads; `closing_cents` prints another closing balance, which
@@ -591,8 +591,8 @@ def savings_paper(
 
 
 def statement_body(account_id: str, paper: bytes, *, dry_run: bool) -> dict:
-    """The `POST /reconciliations/import` body for `paper`: exactly its three keys, the
-    file in standard base64 (contract: POST /v1/reconciliations/import), built by the
+    """The `POST /statements/import` body for `paper`: exactly its three keys, the
+    file in standard base64 (contract: POST /v1/statements/import), built by the
     statement upload's own `request_body`, the body of both uploads."""
     return request_body(account_id, paper, dry_run=dry_run)
 
@@ -600,85 +600,49 @@ def statement_body(account_id: str, paper: bytes, *, dry_run: bool) -> dict:
 def send_statement(client: ExpenseClient, account_id: str, paper: bytes, *, dry_run: bool) -> dict:
     """`paper` sent whole as `account_id`'s statement; the engine's answer."""
     return client.post(
-        "/reconciliations/import", json_body=statement_body(account_id, paper, dry_run=dry_run)
+        "/statements/import", json_body=statement_body(account_id, paper, dry_run=dry_run)
     )
 
 
-def account_body(currency: str = "PEN", code: str | None = None) -> dict:
-    """A `POST /accounts` body under a fresh id, with `statement_code` when given."""
+def account_body(*codes: str, code: str | None = None, person: bool = False) -> dict:
+    """A `POST /accounts` body under a fresh id holding one entry per currency code in
+    `codes` (PEN when none), with `statement_code` when given, a person when `person`
+    (contract: POST /v1/accounts, "Required")."""
     new_id = str(uuid4())
-    body = {"id": new_id, "name": f"contract-stmt-{new_id[:8]}", "currency_code": currency}
+    body: dict = {
+        "id": new_id,
+        "name": f"contract-stmt-{new_id[:8]}",
+        "currencies": [{"currency_code": c} for c in (codes or ("PEN",))],
+    }
     if code is not None:
         body["statement_code"] = code
+    if person:
+        body["is_person"] = True
     return body
-
-
-def reconciliation_body(account_id: str, start: str, end: str, twin: str | None = None) -> dict:
-    """A `POST /reconciliations` body under a fresh id over the calendar days `start`
-    to `end`, with an ending balance so nothing but the rule under test stands in the
-    way of completing it; with `twin`, the other half of a card statement on that
-    account, under its own fresh id (contract: POST /v1/reconciliations)."""
-    new_id = str(uuid4())
-    body = {
-        "id": new_id,
-        "account_id": account_id,
-        "name": f"contract-stmt-recon-{new_id[:8]}",
-        "date_start": start,
-        "date_end": end,
-        "beginning_balance_cents": 0,
-        "ending_balance_cents": 0,
-    }
-    if twin is not None:
-        body["twin"] = {
-            "id": str(uuid4()),
-            "account_id": twin,
-            "beginning_balance_cents": 0,
-            "ending_balance_cents": 0,
-        }
-    return body
-
-
-def send_order(client: ExpenseClient, recon: str, places: list[str | None]) -> dict:
-    """Sends `places`, the statement's lines top to bottom with `None` for an empty slot,
-    as `recon`'s statement order; the engine's answer
-    (contract: PUT /v1/reconciliations/{reconciliation_id}/statement-order)."""
-    return client.put(f"/reconciliations/{recon}/statement-order", json_body={"places": places})
 
 
 class Scratch:
     """What one test builds on the practice user, undone in reverse dependency order:
-    archived accounts unarchived, reconciliations reverted and deleted (each statement
-    once), transactions deleted, hashtags, categories and accounts deleted. Every step
-    is best-effort, so a failed test still frees its statement codes."""
+    archived accounts unarchived, statements reverted and deleted, transactions (opening
+    balances included) deleted, then hashtags and categories, then each account in one
+    delete. Every step is best-effort, so a failed test still frees its statement codes."""
 
     def __init__(self, client: ExpenseClient) -> None:
         self.client = client
         self.zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
         self.accounts: list[str] = []
-        self.reconciliations: list[str] = []
+        self.statements: list[str] = []
         self.transactions: list[str] = []
         self.categories: list[str] = []
         self.hashtags: list[str] = []
-        self._first_part: dict[str, str] = {}
 
-    def account(self, currency: str = "PEN", code: str | None = None) -> str:
-        body = account_body(currency, code)
+    def account(self, *codes: str, code: str | None = None, person: bool = False) -> str:
+        """A bank account, or a person with `person`, holding one currency per code in
+        `codes` (PEN when none), made in one write; its id."""
+        body = account_body(*codes, code=code, person=person)
         self.accounts.append(body["id"])
         self.client.post("/accounts", json_body=body)
         return body["id"]
-
-    def person(self, currency: str = "PEN") -> str:
-        new_id = str(uuid4())
-        self.accounts.append(new_id)
-        self.client.post(
-            "/people",
-            json_body={
-                "id": new_id,
-                "name": f"contract-stmt-p-{new_id[:8]}",
-                "currency_code": currency,
-            },
-        )
-        return new_id
 
     def archive(self, account_id: str) -> None:
         """Archives the account; cleanup unarchives every account it made."""
@@ -701,31 +665,44 @@ class Scratch:
         self.client.post("/hashtags", json_body={"id": new_id, "name": f"contract-h-{new_id[:8]}"})
         return new_id
 
-    def reconciliation(self, account_id: str, start: str, end: str) -> str:
-        """A draft over the calendar days `start` to `end`, made alone (`reconciliation_body`)."""
-        body = reconciliation_body(account_id, start, end)
-        self.reconciliations.append(body["id"])
-        self.client.post("/reconciliations", json_body=body)
-        return body["id"]
-
-    def card(self, account_id: str, twin_account_id: str, start: str, end: str) -> tuple[str, str]:
-        """Both halves of a card statement over `start` to `end`, in one create: the
-        half on `account_id` and its twin on `twin_account_id`; their ids, in that order."""
-        body = reconciliation_body(account_id, start, end, twin=twin_account_id)
-        self.reconciliations.extend((body["id"], body["twin"]["id"]))
-        self.client.post("/reconciliations", json_body=body)
-        return body["id"], body["twin"]["id"]
+    def statement(self, account_id: str, start: str, end: str, *currencies: str) -> str:
+        """A draft statement of the account over the calendar days `start` to `end`, with
+        one balance entry per currency in `currencies` (PEN when none), each beginning and
+        ending at 0 so nothing but the rule under test stands in the way of completing it
+        (contract: POST /v1/statements, "`balances`"); its id."""
+        new_id = str(uuid4())
+        self.statements.append(new_id)
+        self.client.post(
+            "/statements",
+            json_body={
+                "id": new_id,
+                "account_id": account_id,
+                "name": f"contract-stmt-s-{new_id[:8]}",
+                "date_start": start,
+                "date_end": end,
+                "balances": [
+                    {
+                        "currency_code": currency,
+                        "beginning_balance_cents": 0,
+                        "ending_balance_cents": 0,
+                    }
+                    for currency in (currencies or ("PEN",))
+                ],
+            },
+        )
+        return new_id
 
     def noon(self, day: str) -> str:
         y, m, d = (int(part) for part in day.split("-"))
         return datetime(y, m, d, 12, tzinfo=self.zone).isoformat(timespec="seconds")
 
-    def _item(self, account_id: str, day: str, amount: int, **fields: str) -> dict:
+    def _item(self, account_id: str, day: str, amount: int, currency: str, **fields: str) -> dict:
         return {
             "id": str(uuid4()),
             "title": "contract statement line",
             "amount_cents": amount,
             "account_id": account_id,
+            "currency_code": currency,
             "date": self.noon(day),
             **fields,
         }
@@ -734,57 +711,42 @@ class Scratch:
         """Creates `items` in one batch; the created items, in request order."""
         self.transactions.extend(item["id"] for item in items)
         created = self.client.post("/transactions/batch", json_body={"transactions": items})
-        for item in created["created"]:
-            self._first_part.setdefault(item["bank_line_id"], item["id"])
         return created["created"]
 
-    def line(self, account_id: str, day: str, *amounts: int, recon: str | None = None) -> str:
-        """A new bank line on `day` holding one part per amount (a batch `line_group`
-        for more than one), assigned whole to `recon` when given (`assign`); its id."""
+    def line(self, account_id: str, day: str, *amounts: int, currency: str = "PEN") -> str:
+        """A new bank line on `day` in `currency` holding one part per amount (a batch
+        `line_group` for more than one); its id."""
         group = {"line_group": "g"} if len(amounts) > 1 else {}
-        items = [self._item(account_id, day, amount, **group) for amount in amounts]
-        first = self._create(items)[0]
-        if recon is not None:
-            self.assign(first["bank_line_id"], recon)
-        return first["bank_line_id"]
+        items = [self._item(account_id, day, amount, currency, **group) for amount in amounts]
+        return self._create(items)[0]["bank_line_id"]
 
-    def lines_into(self, recon: str, account_id: str, day: str, *amounts: int) -> list[str]:
-        """One batch of one single-part line per amount, all on one instant, each created
-        straight into `recon` by the create itself; the lines' ids, in request order."""
-        items = [self._item(account_id, day, amount, reconciliation_id=recon) for amount in amounts]
-        return [item["bank_line_id"] for item in self._create(items)]
-
-    def assign(self, line_id: str, recon: str) -> None:
-        """Assigns the whole bank line `line_id`, one this Scratch made, to `recon` by
-        sending `reconciliation_id` on its first part, which writes it on every live part
-        of the line
-        (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
-        self.client.put(
-            f"/transactions/{self._first_part[line_id]}", json_body={"reconciliation_id": recon}
-        )
-
-    def opening_balance(self, account_id: str, day: str, recon: str | None = None) -> str:
-        """The account's opening balance, assigned to `recon` when given; its line's id."""
+    def opening_balance(self, account_id: str, day: str, currency: str = "PEN") -> str:
+        """The account's opening balance in `currency`; its line's id."""
         tx_id = str(uuid4())
         self.transactions.append(tx_id)
         made = self.client.post(
             f"/accounts/{account_id}/opening-balance",
-            json_body={"transaction_id": tx_id, "amount_cents": 50000, "date": self.noon(day)},
+            json_body={
+                "transaction_id": tx_id,
+                "currency_code": currency,
+                "amount_cents": 50000,
+                "date": self.noon(day),
+            },
         )
-        self._first_part[made["bank_line_id"]] = tx_id
-        if recon is not None:
-            self.assign(made["bank_line_id"], recon)
         return made["bank_line_id"]
 
     def took(self, answer: dict) -> list[str]:
         """Takes on what an upload's answer says it wrote, a bank download's
         (`send_download`) or a statement's (`send_statement`): every transaction it created
-        and, for a statement, every half it created or filled, so cleanup reverts and
-        deletes them. Sent on a dry run too, it takes on nothing. The created transactions'
+        and, for a statement, the statement it created or filled, so cleanup reverts and
+        deletes it. Sent on a dry run, it takes on no transaction (none is created) and the
+        draft the upload would fill, whose `statement_id` the answer carries, but not a
+        statement the upload would create, whose `statement_id` is null
+        (contract: POST /v1/statements/import, "Response"). The created transactions'
         ids, in row order."""
-        for half in answer.get("halves", []):
-            if half["reconciliation_id"] not in (None, *self.reconciliations):
-                self.reconciliations.append(half["reconciliation_id"])
+        statement = answer.get("statement_id")
+        if statement is not None and statement not in self.statements:
+            self.statements.append(statement)
         created = [row["transaction_id"] for row in answer["rows"] if row["transaction_id"]]
         self.transactions.extend(created)
         return created
@@ -796,20 +758,13 @@ class Scratch:
             return None
 
     def cleanup(self) -> None:
-        """A revert and a delete each act on a whole statement, both halves of a card
-        from either one (contract: DELETE /v1/reconciliations/{reconciliation_id}), so
-        a half the delete of its twin took is not sent again."""
+        """Undoes what the test built, in the order the engine's deletes need."""
         for account in self.accounts:
             self._quietly(self.client.post, f"/accounts/{account}/unarchive")
-        for recon in self.reconciliations:
-            self._quietly(self.client.post, f"/reconciliations/{recon}/revert")
-        gone: set[str] = set()
-        for recon in self.reconciliations:
-            if recon in gone:
-                continue
-            answer = self._quietly(self.client.delete, f"/reconciliations/{recon}")
-            if answer is not None and answer.get("twin") is not None:
-                gone.add(answer["twin"]["id"])
+        for statement in self.statements:
+            self._quietly(self.client.post, f"/statements/{statement}/revert")
+        for statement in self.statements:
+            self._quietly(self.client.delete, f"/statements/{statement}")
         for tx in self.transactions:
             self._quietly(self.client.delete, f"/transactions/{tx}")
         for hashtag in self.hashtags:

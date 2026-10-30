@@ -52,6 +52,16 @@ undoes everything (conftest.py `scratch`). Gating, target and the real-ledger gu
 conftest.py.
 """
 
+# ruff: noqa: E402
+import pytest
+
+pytest.skip(
+    "on the holder model until "
+    "docs/specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md "
+    "(its tasks) rewrites it",
+    allow_module_level=True,
+)
+
 from uuid import uuid4
 
 from tests.contract.conftest import assert_refusal, free_statement_codes, refused, send_order

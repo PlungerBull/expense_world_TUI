@@ -16,6 +16,16 @@ no account, category or hashtag of the prefix is listed. Matching by name and th
 records it leaves alone are pinned in tests/unit/test_clean_practice_user.py.
 """
 
+# ruff: noqa: E402
+import pytest
+
+pytest.skip(
+    "on the holder model until "
+    "docs/specs/catch-up-currencies-3-live-suite-foundation.md "
+    "(task 2) rewrites it",
+    allow_module_level=True,
+)
+
 from uuid import uuid4
 
 import pytest
