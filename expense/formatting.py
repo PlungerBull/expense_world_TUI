@@ -279,7 +279,7 @@ def format_period(item: dict) -> str:
 
 
 #: How a card statement's half is named after its currency: a card's soles and
-#: dollar accounts share one statement code (contract: "Bank Accounts", "Statement code").
+#: dollar accounts share one statement code (contract: "What an account is", "Statement code").
 _HALF_WORDS = {"PEN": "soles", "USD": "dollar"}
 
 

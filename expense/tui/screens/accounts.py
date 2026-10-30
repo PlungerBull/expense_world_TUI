@@ -183,7 +183,9 @@ class AccountsScreen(ResourceListScreen):
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        return EditAccountScreen(item)
+        key = self.selected_key()
+        code = key[1] if isinstance(key, tuple) else None
+        return EditAccountScreen(item, code)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen

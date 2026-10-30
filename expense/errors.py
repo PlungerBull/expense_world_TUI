@@ -223,11 +223,6 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     # its name"); Manage ▸ Hashtags offers neither, so this is met only rarely.
     ("FORBIDDEN", "SYSTEM_HASHTAG"): NextStep("The pending hashtag cannot be renamed or deleted."),
     ("CONFLICT", "NAME_EXISTS"): NextStep("That name is taken: pick another."),
-    # Two live accounts share a statement code only when their currencies differ;
-    # a deleted one does not hold its code (contract: "Bank Accounts", "Statement code").
-    ("CONFLICT", "STATEMENT_CODE_EXISTS"): NextStep(
-        "Another account in this currency has this code: pick another, or clear it there first."
-    ),
     ("LIMIT_REACHED", "CAP_REACHED"): NextStep("Delete one first."),
     ("CONFLICT", "OPERATION_CODE_EXISTS"): NextStep(
         "That account already has a row with this operation number: look there for a duplicate."

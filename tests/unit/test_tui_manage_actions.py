@@ -78,22 +78,37 @@ def test_archive_on_either_row_of_a_two_currency_account_sends_one_call_and_dims
     ]
 
 
-def _edit_two_currency_account(fake_client, monkeypatch, key):
+def _edit_two_currency_account(fake_client, monkeypatch, key, row="USD"):
     visa = account_with_currencies(
-        id="visa", name="Visa", currencies=[held_currency("PEN", 100), held_currency("USD", 5)]
+        id="visa",
+        name="Visa",
+        currencies=[
+            held_currency("PEN", 100, opening_balance_transaction_id="tx-pen"),
+            held_currency("USD", 5, opening_balance_transaction_id="tx-usd"),
+        ],
     )
+    asked: list = []
+
+    def fetch(cfg, transaction_id, **kw):
+        asked.append(transaction_id)
+        return {"amount_cents": 100, "date": "2026-01-01T00:00:00-05:00"}
+
+    monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([visa]))
-    seen: dict = {}
+    seen: dict = {"asked": asked}
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
-        cursor_list.set_cursor(cursor_list.index_of(("visa", "USD")))
+        cursor_list.set_cursor(cursor_list.index_of(("visa", row)))
         await pilot.press("e")
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
+        await wait_for(pilot, lambda: not app.screen._opening_loading)
         seen["name"] = app.screen._values["name"]
+        seen["currency"] = app.screen._values["currency"]
+        seen["opening_id"] = app.screen._opening_id
         await pilot.press(key)
         await wait_for(pilot, lambda: app.screen is screen)
         await wait_for_list(pilot, app)
@@ -110,6 +125,16 @@ def test_e_on_the_dollars_row_edits_the_account_and_a_cancel_keeps_the_row(
     seen = _edit_two_currency_account(fake_client, monkeypatch, "escape")
     assert seen["name"] == "Visa" and seen["cursor"] == ("visa", "USD")
     assert fake_client.calls == []
+    # the form opened on the dollars row: its currency and its own opening balance
+    assert seen["currency"] == "USD" and seen["opening_id"] == "tx-usd"
+    assert seen["asked"] == ["tx-usd"]
+
+
+def test_e_on_the_soles_row_opens_the_form_on_soles(fake_client, monkeypatch):
+    seen = _edit_two_currency_account(fake_client, monkeypatch, "escape", row="PEN")
+    assert seen["cursor"] == ("visa", "PEN")
+    assert seen["currency"] == "PEN" and seen["opening_id"] == "tx-pen"
+    assert seen["asked"] == ["tx-pen"]
 
 
 def test_e_on_the_dollars_row_saves_the_account_by_its_id(fake_client, monkeypatch):

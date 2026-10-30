@@ -6,7 +6,7 @@ saved clears the code, no question), 3·1 B (small letters show as capitals whil
 typing), 3·2 B (a taken code gets the app's line under the engine's words) and
 3·3, 3·4 (the engine's words alone). The code is optional on `POST /accounts`,
 set, changed or cleared with `null` on `PUT /accounts/{id}`, and never sent for a
-person (contract: "Bank Accounts", "Statement code").
+person (contract: "What an account is", "Statement code").
 """
 
 import pytest
@@ -16,22 +16,27 @@ from textual.widgets import Input, Static
 from expense.errors import EngineError
 from expense.tui.screens.create_forms import EditAccountScreen, NewAccountScreen
 from expense.tui.screens.modals import ConfirmModal
-from tests.unit.helpers import account_record, render_text, run_app, wait_for
+from tests.unit.helpers import (
+    account_with_currencies,
+    held_currency,
+    render_text,
+    run_app,
+    wait_for,
+)
 
 NEW_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
 EDIT_HINT = "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
-TAKEN_LINE = (
-    "Another account in this currency has this code: pick another, or clear it there first."
-)
 
 #: Accounts with the statement code the form's STATEMENT CODE line reads off an
 #: account, or null for none.
-SIGNATURE = account_record(id="acc-sig", name="Signature Soles", color=None, statement_code="SGI")
-NO_CODE = account_record(
-    SIGNATURE, id="acc-sue", name="Sueldo Soles", holder_id="h2", statement_code=None
+SIGNATURE = account_with_currencies(
+    id="acc-sig", name="Signature Soles", color=None, statement_code="SGI"
 )
-WITH_OPENING = account_record(SIGNATURE, opening_balance_transaction_id="tx-open")
-ELIANA = account_record(NO_CODE, id="acc-eli", name="Eliana", is_person=True, holder_id=None)
+NO_CODE = account_with_currencies(SIGNATURE, id="acc-sue", name="Sueldo Soles", statement_code=None)
+WITH_OPENING = account_with_currencies(
+    SIGNATURE, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")]
+)
+ELIANA = account_with_currencies(NO_CODE, id="acc-eli", name="Eliana", is_person=True)
 
 
 def _bar(screen) -> Input:
@@ -116,7 +121,7 @@ def test_new_bank_account_skipped_code_is_left_out_of_the_body(fake_client):
 
 def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake_client):
     """Typed on bank, then TYPE turned to person: the line leaves the form and
-    `POST /people` carries no code; back on bank the line returns holding it."""
+    the person's `POST /accounts` carries no code; back on bank the line returns holding it."""
     screen = NewAccountScreen()
 
     async def scenario(pilot, app):
@@ -142,7 +147,7 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
 
     run_app(scenario)
     path, body = fake_client.posts[0]
-    assert path == "/people" and "statement_code" not in body
+    assert path == "/accounts" and body["is_person"] is True and "statement_code" not in body
 
 
 # ---- capitals while typing -------------------------------------------------------------
@@ -180,14 +185,14 @@ def test_small_letters_typed_or_pasted_show_as_capitals_on_the_code_line_only(fa
     "record", [SIGNATURE, NO_CODE, WITH_OPENING], ids=["code", "no-code", "opening-balance"]
 )
 def test_edit_hint_says_empty_clears_it_with_or_without_an_opening_balance(record):
-    screen = EditAccountScreen(dict(record))
+    screen = EditAccountScreen(record, "PEN")
     assert "statement_code" in screen._sequence()
     assert screen._hint_for("statement_code") == EDIT_HINT
     assert screen._sequence().index("statement_code") == screen._sequence().index("currency") + 1
 
 
 def test_edit_on_a_person_has_no_code_line_and_never_sends_one(fake_client):
-    screen = EditAccountScreen(dict(ELIANA))
+    screen = EditAccountScreen(ELIANA, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -200,7 +205,7 @@ def test_edit_on_a_person_has_no_code_line_and_never_sends_one(fake_client):
 
 
 def test_edit_opens_holding_the_code_and_unchanged_does_not_send_it(fake_client):
-    screen = EditAccountScreen(dict(SIGNATURE))
+    screen = EditAccountScreen(SIGNATURE, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -220,7 +225,7 @@ def test_edit_opens_holding_the_code_and_unchanged_does_not_send_it(fake_client)
 
 
 def test_edit_a_changed_code_is_sent(fake_client):
-    screen = EditAccountScreen(dict(SIGNATURE))
+    screen = EditAccountScreen(SIGNATURE, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -235,7 +240,7 @@ def test_edit_a_changed_code_is_sent(fake_client):
 
 
 def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
-    screen = EditAccountScreen(dict(NO_CODE))
+    screen = EditAccountScreen(NO_CODE, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -251,7 +256,7 @@ def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
 
 
 def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
-    screen = EditAccountScreen(dict(SIGNATURE))
+    screen = EditAccountScreen(SIGNATURE, "PEN")
     asked: list = []
 
     async def scenario(pilot, app):
@@ -274,13 +279,13 @@ def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
 
 # ---- refusals ------------------------------------------------------------------------
 
-#: The engine's words, as the practice engine gives them (contract: "Bank Accounts",
-#: "Statement code"); the reconciliations they name are invented.
+#: A second live account with one code is `409` on `statement_code` (contract:
+#: "What an account is", "One account per code"); the contract prints the rule, not
+#: the message, so these words are a stand-in.
 TAKEN = EngineError(
     "CONFLICT",
-    "Another account in PEN already has the statement code 'SIG'. "
-    "Two accounts share a code only when their currencies differ.",
-    {"statement_code": "Must not be a statement code another account in this currency has."},
+    "Another account already has the statement code 'SIG'.",
+    {"statement_code": "Must not be a statement code another account has."},
     409,
     {},
     {"statement_code": "STATEMENT_CODE_EXISTS"},
@@ -317,10 +322,10 @@ def notes(monkeypatch):
     return seen
 
 
-def test_a_taken_code_on_edit_shows_the_engines_words_then_the_apps_line(fake_client, notes):
+def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client, notes):
     """3·2 B: the note, and the cursor back on the code line with what was typed."""
     fake_client.errors["PUT"] = TAKEN
-    screen = EditAccountScreen(dict(NO_CODE))
+    screen = EditAccountScreen(NO_CODE, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -335,11 +340,11 @@ def test_a_taken_code_on_edit_shows_the_engines_words_then_the_apps_line(fake_cl
 
     run_app(scenario)
     message, kw = notes[0]
-    assert message == f"{_engine_words(TAKEN)}\n\n{TAKEN_LINE}"
+    assert message == _engine_words(TAKEN)  # nothing after the engine's words
     assert kw.get("title") == "Failed" and kw.get("severity") == "error"
 
 
-def test_a_taken_code_on_new_shows_the_same_note(fake_client, notes):
+def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
     fake_client.errors["POST"] = TAKEN
     screen = NewAccountScreen()
 
@@ -352,7 +357,7 @@ def test_a_taken_code_on_new_shows_the_same_note(fake_client, notes):
         assert screen.is_attached
 
     run_app(scenario)
-    assert notes[0][0] == f"{_engine_words(TAKEN)}\n\n{TAKEN_LINE}"
+    assert notes[0][0] == _engine_words(TAKEN)  # nothing after the engine's words
 
 
 @pytest.mark.parametrize(
@@ -367,7 +372,7 @@ def test_a_taken_code_on_new_shows_the_same_note(fake_client, notes):
 )
 def test_other_code_refusals_keep_the_engines_words_alone(fake_client, notes, refusal):
     fake_client.errors["PUT"] = refusal
-    screen = EditAccountScreen(dict(NO_CODE))
+    screen = EditAccountScreen(NO_CODE, "PEN")
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)

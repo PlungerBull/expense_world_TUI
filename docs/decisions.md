@@ -196,7 +196,7 @@ Decisions whose why lives elsewhere:
 
 ## A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group (2026-08-16)
 
-**Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; `person` posts to `POST /people`. `is_person` is never sent — the endpoint is the flag — and TYPE is read-only on the edit form.
+**Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; both post to `POST /accounts`, `person` adding `is_person: true`, so one route makes either kind and the client keeps no second create path; TYPE is read-only on the edit form.
 
 **Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 

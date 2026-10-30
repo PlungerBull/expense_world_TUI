@@ -1,5 +1,7 @@
 """Create-form tests (new hashtag / category / account, fake client)."""
 
+import uuid
+
 import pytest
 from textual.widgets import Input, Static
 
@@ -12,7 +14,7 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from tests.unit.helpers import account_record, render_text, run_app, wait_for
+from tests.unit.helpers import account_with_currencies, render_text, run_app, wait_for
 
 
 def _enter(screen, text):
@@ -287,16 +289,13 @@ def _green_category() -> EditCategoryScreen:
     return EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#5ab87a"})
 
 
+_ELIANA = account_with_currencies(id="abc", name="Eliana", is_person=True)
+
+
 def _edit_account(color, *, is_person=False) -> EditAccountScreen:
     """The edit form of Sueldo, a soles account or person of `color`."""
     return EditAccountScreen(
-        account_record(
-            id="abc",
-            name="Sueldo",
-            color=color,
-            is_person=is_person,
-            holder_id=None if is_person else "h1",
-        )
+        account_with_currencies(id="abc", name="Sueldo", color=color, is_person=is_person), "PEN"
     )
 
 
@@ -503,33 +502,39 @@ def test_new_account_defaults_to_bank_on_empty_type(fake_client):
     # type (empty → the prefilled bank), name, currency PEN, skip color
     path, body = _run(fake_client, NewAccountScreen(), ["", "Interbank Sueldo", "PEN", "", ""])
     assert path == "/accounts"
-    assert body["name"] == "Interbank Sueldo" and body["currency_code"] == "PEN"
-    assert "color" not in body
-    assert "statement_code" not in body  # skipped: left out, never null
-    # `is_person` is a 422 on both routes — the endpoint is the flag, never a field.
-    assert "is_person" not in body
+    assert body == {
+        "id": body["id"],
+        "name": "Interbank Sueldo",
+        "currencies": [{"currency_code": "PEN"}],
+    }  # a skipped code and colour are left out, never null; a bank account sends no is_person
+    uuid.UUID(body["id"])
 
 
-def test_new_account_type_person_posts_to_people(fake_client):
-    """Picking `person` routes the same fields to POST /people."""
+def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
+    """Picking `person` sends the same body to POST /accounts, with `is_person: true`
+    (contract: POST /v1/accounts, "Optional")."""
     path, body = _run(fake_client, NewAccountScreen(), ["person", "Eliana", "PEN", ""])
-    assert path == "/people"
-    assert body["name"] == "Eliana" and body["currency_code"] == "PEN"
-    assert "is_person" not in body
+    assert path == "/accounts"
+    assert body == {
+        "id": body["id"],
+        "name": "Eliana",
+        "currencies": [{"currency_code": "PEN"}],
+        "is_person": True,
+    }
 
 
 @pytest.mark.parametrize(
-    ("steps", "path"),
-    [(["", "Eliana", "PEN", "", ""], "/accounts"), (["person", "Eliana", "PEN", ""], "/people")],
+    "steps",
+    [["", "Eliana", "PEN", "", ""], ["person", "Eliana", "PEN", ""]],
     ids=["bank", "person"],
 )
-def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps, path):
+def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps):
     """A skipped COLOR leaves the key out of the body, and the form has no
     order field, so the engine applies both defaults; an explicit `null` on
-    either is a 422 (contract: POST /v1/accounts) (contract: POST /v1/people).
+    either is a 422 (contract: POST /v1/accounts, "Optional").
     A bank account's STATEMENT CODE is skipped too, one line before COLOR."""
     posted_path, body = _run(fake_client, NewAccountScreen(), steps)
-    assert posted_path == path
+    assert posted_path == "/accounts"
     assert "color" not in body
     assert "sort_order" not in body
     assert None not in body.values()
@@ -537,15 +542,7 @@ def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps
 
 def test_edit_account_locks_type_and_currency(fake_client):
     """`is_person` is creation-time-only, so editing shows TYPE read-only."""
-    screen = EditAccountScreen(
-        {
-            "id": "abc",
-            "name": "Eliana",
-            "currency_code": "PEN",
-            "is_person": True,
-            "opening_balance_transaction_id": None,
-        }
-    )
+    screen = EditAccountScreen(_ELIANA, "PEN")
     assert screen._locked == {"currency", "type"}
     assert screen._values["type"] == "person"
     assert screen._submit_request()[:2] == ("PUT", "/accounts/abc")
@@ -661,15 +658,7 @@ def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
 
 def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
-    screen = EditAccountScreen(
-        {
-            "id": "abc",
-            "name": "Eliana",
-            "currency_code": "PEN",
-            "is_person": True,
-            "opening_balance_transaction_id": None,
-        }
-    )
+    screen = EditAccountScreen(_ELIANA, "PEN")
 
     async def check(pilot, screen, toasts):
         message, kw = toasts[0]
@@ -689,15 +678,7 @@ def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
 
 
 def _eliana() -> EditAccountScreen:
-    return EditAccountScreen(
-        {
-            "id": "abc",
-            "name": "Eliana",
-            "currency_code": "PEN",
-            "is_person": True,
-            "opening_balance_transaction_id": None,
-        }
-    )
+    return EditAccountScreen(_ELIANA, "PEN")
 
 
 @pytest.mark.parametrize(
@@ -885,20 +866,14 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
 # and AS OF (plain text), on a bank account and a person alike. Every bar form takes the same keymap
 # from FormScreen.
 
-_ACCOUNT = {
-    "id": "abc",
-    "name": "Eliana",
-    "currency_code": "PEN",
-    "is_person": False,
-    "opening_balance_transaction_id": None,
-}
+_ACCOUNT = account_with_currencies(id="abc", name="Eliana")
 
 
 def _navigate(steps):
     """Push the account edit form, then run each `(key, expected field)` step."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(_ACCOUNT))
+        screen = EditAccountScreen(_ACCOUNT, "PEN")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         assert screen._key == "name"  # the first editable field
@@ -963,7 +938,7 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
     """On COLOR the palette list is open; tab and shift+tab still move fields."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(_ACCOUNT))
+        screen = EditAccountScreen(_ACCOUNT, "PEN")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("tab", "tab")
@@ -981,7 +956,7 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
     list takes `↑`/`↓` until it empties, and then `↑` moves back."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(_ACCOUNT))
+        screen = EditAccountScreen(_ACCOUNT, "PEN")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("down")  # NAME: no list → next field

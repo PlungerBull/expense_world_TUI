@@ -132,7 +132,7 @@ def test_a_statement_is_ordered_completed_and_numbered(client, scratch):
     keeps the place, completing again brings the same codes back, and a change or
     clearing of the account's code changes or clears them all
     (contract: POST /v1/reconciliations/{reconciliation_id}/revert)
-    (contract: "Bank Accounts", "Statement code")."""
+    (contract: "What an account is", "Statement code")."""
     code, other = free_statement_codes(client, 2)
     account = scratch.account("PEN", code)
     recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")

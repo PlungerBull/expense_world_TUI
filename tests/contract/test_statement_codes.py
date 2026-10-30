@@ -2,7 +2,7 @@
 
 A statement code is three capital letters naming the bank product an account belongs to,
 and it begins the statement line of every line of the account in a completed
-reconciliation (contract: "Bank Accounts", "Statement code"). Account management sets it
+reconciliation (contract: "What an account is", "Statement code"). Account management sets it
 and the reconciliations browse groups accounts and their statements by it, so only the
 engine can say what it takes and what it refuses. Pinned here:
 
@@ -70,7 +70,7 @@ def _recon_ids(client, account_id: str) -> list[str]:
 def test_a_statement_code_is_set_changed_and_cleared(client, scratch, statuses):
     """`statement_code` is set on `POST /accounts` and set, changed or cleared with
     `PUT /accounts/{id}`, on an archived account too, and `null` when the account has
-    none (contract: "Bank Accounts", "Statement code") (contract: POST /v1/accounts,
+    none (contract: "What an account is", "Statement code") (contract: POST /v1/accounts,
     "Optional") (contract: PUT /v1/accounts/{account_id}, "`statement_code`")."""
     first, second = free_statement_codes(client, 2)
     coded = scratch.account("PEN", first)
@@ -95,7 +95,7 @@ def test_a_statement_code_is_set_changed_and_cleared(client, scratch, statuses):
 def test_a_malformed_statement_code_isrefused(client, scratch):
     """A statement code is exactly three capital letters, `A` to `Z`, compared as sent:
     `sig`, `SI`, `SIGN`, ` SIG`, `S1G` and `""` are each `422` on `statement_code`
-    (`INVALID_FORMAT`) (contract: "Bank Accounts", "Statement code"), on the create
+    (`INVALID_FORMAT`) (contract: "What an account is", "Statement code"), on the create
     (contract: POST /v1/accounts, "Validation") and on `PUT`
     (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). Nothing is written:
     no account is created, and the account sent to keeps its code and `version`."""

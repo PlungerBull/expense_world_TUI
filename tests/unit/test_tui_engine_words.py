@@ -450,7 +450,7 @@ def test_an_opening_balance_that_cannot_be_read_shows_the_words_whole(fake_clien
     monkeypatch.setattr("expense.reads.fetch_transaction", refused)
 
     async def scenario(pilot, app):
-        await app.push_screen(EditAccountScreen(dict(SUELDO)))
+        await app.push_screen(EditAccountScreen(SUELDO, "PEN"))
         assert whole_in(await toast_with_words(pilot, app))
 
     run_app(scenario, toasts=True)
@@ -462,7 +462,7 @@ def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole
     fake_client.errors["POST"] = refusal(key="date")
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(EFECTIVO))
+        screen = EditAccountScreen(EFECTIVO, "PEN")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type_account(screen, "color", "green")

@@ -31,7 +31,7 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
-from tests.unit.helpers import edit_limits, render_text, run_app, wait_for
+from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
 
 NAME_GOES_ON = "free text · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
@@ -39,17 +39,8 @@ CATEGORY_COLOR_SAVES = "optional · enter to save · ↑↓ another swatch"
 CODE_GOES_ON = "optional · three capital letters, e.g. SIG · enter to go on"
 CODE_EDIT_GOES_ON = "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
 
-ACCOUNT = {
-    "id": "acc-sue",
-    "name": "Sueldo Soles",
-    "is_person": False,
-    "is_archived": False,
-    "currency_code": "PEN",
-    "color": "#4a90d9",
-    "current_balance_cents": 0,
-    "opening_balance_transaction_id": None,
-}
-PERSON = {**ACCOUNT, "id": "acc-ana", "name": "Ana", "is_person": True}
+ACCOUNT = account_with_currencies(id="acc-sue", name="Sueldo Soles", color="#4a90d9")
+PERSON = account_with_currencies(ACCOUNT, id="acc-ana", name="Ana", is_person=True)
 CATEGORY = {"id": "cat1", "name": "Mascotas", "color": "#5ab87a", "is_system": False}
 TXN = {
     "id": "tx1",
@@ -180,7 +171,7 @@ def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
 
-    _open(EditAccountScreen(dict(ACCOUNT)), body)
+    _open(EditAccountScreen(ACCOUNT, "PEN"), body)
 
 
 @pytest.mark.parametrize(
@@ -310,7 +301,10 @@ SHAPES = {
     NewCategoryScreen: lambda: [NewCategoryScreen()],
     EditCategoryScreen: lambda: [EditCategoryScreen(dict(CATEGORY))],
     NewAccountScreen: lambda: [NewAccountScreen()],
-    EditAccountScreen: lambda: [EditAccountScreen(dict(ACCOUNT)), EditAccountScreen(dict(PERSON))],
+    EditAccountScreen: lambda: [
+        EditAccountScreen(ACCOUNT, "PEN"),
+        EditAccountScreen(PERSON, "PEN"),
+    ],
     EditFormScreen: lambda: [
         _on(EditFormScreen(record=dict(TXN)), LINE),
         _on(EditFormScreen(record=dict(TXN)), SPLIT_LINE),

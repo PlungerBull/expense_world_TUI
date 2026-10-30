@@ -83,13 +83,6 @@ and the sheet import stay broken until spec 2.
    (contract: POST /v1/accounts/{account_id}/archive, "Every currency at once")
    (contract: "What an account is", "An account is deleted whole"); `d`'s question names the
    account and each of its currencies with its balance, as the owner settled.
-7. **The New and Edit account forms write the new model.** A new account's one currency goes in
-   its `currencies`, and a person is created on the same route, as a person
-   (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional"). The Edit
-   form's opening balance is the opened row's currency's, sent with its code
-   (contract: POST /v1/accounts/{account_id}/opening-balance, "Required"). A statement code
-   another account holds is refused in the engine's words alone, as the owner settled
-   (contract: "What an account is", "One account per code").
 8. **The practice-data cleaner's printout** names each account with its currencies and its
    statement code. Its reads of statements move in spec 3
    ([catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)).
@@ -263,3 +256,7 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The LOG bar's test accounts keep the old per-currency names** (task 2's builder): "BCP
   Signature PEN", so their labels read "BCP Signature PEN · PEN"; rename them to account names
   holding currencies.
+- **A person can hold a statement code now, and the form offers none** (task 7's builder): the
+  engine judges a person's `statement_code` by the same rules as a bank account's
+  (contract: POST /v1/accounts, "Optional"), but the New and Edit account forms show no CODE line
+  for a person. Whether a person gets one is the owner's pick.

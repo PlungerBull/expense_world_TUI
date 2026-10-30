@@ -94,7 +94,7 @@ expense/tui/
                     #   statement.py)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
-                    #   bank) that picks POST /accounts vs POST /people; the
+                    #   bank): both save with POST /accounts, a person with `is_person: true`; the
                     #   account Edit form carries the opening balance (§2).
                     #   COLOR is optional on New account and New category
                     #   (hints: §4 "The bar forms' keys"): a skipped
@@ -1034,7 +1034,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
-| `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
+| `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold (contract: "Error reasons") | none: the engine's words name the currency, and the form stays |
@@ -1179,7 +1179,7 @@ Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press
 2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
 [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
 **`statement code`** sits right after `currency`, on a bank account only: only a real
-account carries a code, and `POST /people` takes none (contract: "Bank Accounts", "Statement code").
+account carries a code on these forms (contract: "What an account is", "Statement code").
 On New, TYPE turned to `person` takes the line off the form and the save sends no code;
 turned back to `bank`, the line returns holding what was typed. A person's Edit form has no
 such line.
@@ -1191,24 +1191,26 @@ such line.
   which `FormBar` applies to every edit of the bar); no other line of any form changes what
   is typed. The app checks nothing else about the code: the engine judges its shape, and a
   digit, a missing letter or a fourth one comes back refused in its words.
-- **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
+- **On New,** the one CURRENCY goes in as `currencies: [{currency_code}]` and a person adds
+  `is_person: true` (contract: POST /v1/accounts, "Optional"); a code typed is sent as
+  `statement_code` on `POST /accounts`; skipped, the key
   is left out of the body, never sent as `null` (contract: POST /v1/accounts).
 - **On Edit,** the line opens holding the account's code. The save sends `statement_code`
   only when it differs from the account's own, and `null` when the line was emptied, which
   clears the code with no question: nothing is lost, since typing the code again brings
   every statement line back (contract: PUT /v1/accounts/{account_id}).
 - **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
-  line with what was typed on the Edit form; `STATEMENT_CODE_EXISTS` adds the app's line
-  `Another account in this currency has this code: pick another, or clear it there first.`,
-  and every other refusal of a code reads in the engine's words alone (the table in "When
-  the engine says no").
+  line with what was typed on the Edit form; every refusal of a code, `STATEMENT_CODE_EXISTS` included, reads in the engine's
+  words alone (the table in "When the engine says no").
 
-**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
+**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on one
+of the account's rows: the form's currency is that row's, and an account holding none opens with
+`opening` and `as of` read-only; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html), and a
 person's in pane A of
 [expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html)).
 The form ends with two optional lines after `color`: **`opening`**, the amount, and
-**`as of`**, its day. There is no title line; the engine names the row. A person's form has
+**`as of`**, its day, both that currency's. There is no title line; the engine names the row. A person's form has
 both lines, as a bank account's does, and its opening balance is written the same way
 (contract: POST /v1/accounts/{account_id}/opening-balance).
 
@@ -1216,8 +1218,9 @@ both lines, as a bank account's does, and its opening balance is written the sam
   `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the
   app never adds or flips a sign. `as of` takes `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the
   account held this`), starts empty, and is marked `*` once there is an amount.
-- **An account that has one opens with both lines filled.** The account names its opening
-  balance by id, or `null` when it has none (contract: "Bank Accounts", "Opening balance"),
+- **An account that has one opens with both lines filled.** The opened currency's entry in
+  the account's `currencies` names its opening balance by id, or `null` when it has none
+  (contract: "Bank Accounts", "`currencies`"),
   and the form reads that one row with `GET /transactions/{id}?debit_as_negative=true`
   (`reads.fetch_transaction`), so the amount arrives signed and nothing reads the sign off
   `transaction_type` (contract: "Base Conventions", "Sign convention — responses"). A save
@@ -1225,9 +1228,10 @@ both lines, as a bank account's does, and its opening balance is written the sam
   read-only, so the account itself still saves.
 - **A save can send two writes, in order:** the account's own changes (`PUT
   /accounts/{id}`), then the opening balance — `POST /accounts/{id}/opening-balance` with a
-  client `transaction_id`, the signed `amount_cents` and the `date` when there is none; a
+  client `transaction_id`, the row's `currency_code`, the signed `amount_cents` and the `date` when there is none; a
   `PUT /transactions/{id}` of only the changed amount or date when there is one. The account
-  write goes when the account changed, or when the opening balance has nothing to send.
+  write goes when the account changed, or when the opening balance has nothing to send. Another
+  currency's opening balance of the account is never touched.
 - **Emptying the amount of an existing one and saving deletes it**, after `ConfirmModal`
   asks `Delete this opening balance?` over the form (`Sueldo Soles · 3,200.00 · 2026-01-01` ·
   `It leaves the account's balance, and no screen can bring it back.`). Only `y` sends the

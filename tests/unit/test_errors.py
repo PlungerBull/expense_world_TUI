@@ -534,16 +534,9 @@ APP_FAULT = (
         ("CONFLICT", "account_id", "HAS_RECONCILIATION", True, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
-        # a statement code another account in this currency has gets the app's line;
-        # a code that is not three capital letters keeps the engine's words alone
-        (
-            "CONFLICT",
-            "statement_code",
-            "STATEMENT_CODE_EXISTS",
-            False,
-            "Another account in this currency has this code: "
-            "pick another, or clear it there first.",
-        ),
+        # a statement code another account has, and a code that is not three capital
+        # letters, keep the engine's words alone
+        ("CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS", False, None),
         ("VALIDATION_ERROR", "statement_code", "INVALID_FORMAT", False, None),
         # a statement ending in a month another statement of its holder holds, on a new
         # statement and on a statement PDF: the engine's words alone
@@ -716,7 +709,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "SYSTEM_CATEGORY",
         "SYSTEM_HASHTAG",
         "NAME_EXISTS",
-        "STATEMENT_CODE_EXISTS",
         "CAP_REACHED",
         "OPERATION_CODE_EXISTS",
         "CONCURRENT_CHANGE",

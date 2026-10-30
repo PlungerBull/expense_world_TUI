@@ -5,10 +5,9 @@ bar, pick choices from a suggestion list, `ctrl+s` (or enter with no field
 ahead that can change) POSTs. Reached with `n` on the Manage list screens.
 
 New account covers both kinds: its first field is TYPE (`bank` / `person`,
-prefilled `bank`), and a `person` picks `POST /people` instead of
-`POST /accounts` — the People API. `is_person`
-is never sent as a field; it is a 422 on both routes, and the endpoint is the
-flag. Editing cannot change it, so TYPE is locked read-only on the edit form.
+prefilled `bank`), and both save with `POST /accounts`; a `person` adds
+`is_person: true` to the body (contract: POST /v1/accounts, "Optional"). Editing
+cannot change it, so TYPE is locked read-only on the edit form.
 """
 
 import uuid
@@ -246,19 +245,17 @@ class NewAccountScreen(BarFormScreen):
     """New bank account *or* person — one form, one key, a TYPE field on top.
 
     A person is a bank account with `is_person = true`, and the two take exactly
-    the same fields; the only difference is which endpoint the save goes to
-    (`POST /accounts` vs `POST /people`). So the choice is a field (Why:
-    docs/decisions.md "A settled person is folded, never hidden"), **prefilled
-    to `bank`** — `n`, `enter`, name… still adds an ordinary account
-    without an extra decision.
+    the same fields; the only difference is `is_person: true` in the body. So the
+    choice is a field (Why: docs/decisions.md "A settled person is folded, never
+    hidden"), **prefilled to `bank`** — `n`, `enter`, name… still adds an
+    ordinary account without an extra decision.
 
-    `is_person` is never sent in the body: `POST /accounts` rejects it and
-    `POST /people` implies it, so on either route the field is a 422. The endpoint
-    *is* the flag.
+    The one CURRENCY goes in as `currencies: [{currency_code}]`
+    (contract: POST /v1/accounts, "Required").
 
     A bank account has one more line, STATEMENT CODE, after CURRENCY: only a
-    real account carries a code, and `POST /people` takes no such field
-    (contract: "Bank Accounts", "Statement code"). With TYPE on person the line
+    real account carries a code here, and a person's form has no such line
+    (contract: "What an account is", "Statement code"). With TYPE on person the line
     leaves the form; back on bank it returns holding what was typed. Letters
     typed there show as capitals; the engine judges the shape. Skipped, the
     key is left out of the body (contract: POST /v1/accounts).
@@ -300,10 +297,7 @@ class NewAccountScreen(BarFormScreen):
         return text.upper() if key == "statement_code" else text
 
     def _submit_request(self) -> tuple[str, str, dict, str]:
-        # The one place the TYPE field is read. `/people` is the only people
-        # route there is — everything after creation is an account route.
-        resource = "people" if self._is_person else self.RESOURCE
-        return ("POST", f"/{resource}", self._payload(), "Creating…")
+        return ("POST", f"/{self.RESOURCE}", self._payload(), "Creating…")
 
     def _done(self) -> None:
         self.notify("Person created." if self._is_person else "Account created.")
@@ -313,8 +307,10 @@ class NewAccountScreen(BarFormScreen):
         payload = {
             "id": str(uuid.uuid4()),
             "name": self._values["name"],
-            "currency_code": self._values["currency"],
+            "currencies": [{"currency_code": self._values["currency"]}],
         }
+        if self._is_person:
+            payload["is_person"] = True
         if self._values.get("color"):
             payload["color"] = self._values["color"]
         if not self._is_person and self._values.get("statement_code"):
@@ -410,18 +406,24 @@ _REFUSED_LINES = {
 class EditAccountScreen(NewAccountScreen):
     """Edit an account — a bank account or a person — and its opening balance.
 
-    The form ends with two optional lines after COLOR: OPENING (the signed
-    amount, in the account's currency, taken as typed) and AS OF (its day). A
-    person's form has them as a bank account's does, and its opening balance is
-    written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
+    The form opens on one row of the list, so on one of the account's currencies
+    (`currency_code`, `None` on an account holding none). CURRENCY shows it,
+    read-only, and the form ends with two optional lines after COLOR: OPENING
+    (the signed amount, in that currency, taken as typed) and AS OF (its day).
+    A person's form has them as a bank account's does, and its opening balance
+    is written the same way, with the currency's code
+    (contract: POST /v1/accounts/{account_id}/opening-balance, "Required"). An
+    account holding no currency has no opening balance to give: both lines are
+    read-only. The other currencies' opening balances are never touched.
 
     A bank account's STATEMENT CODE opens holding its code. The save sends it
     only when it changed, and `null` when the line was emptied, which clears
     the code with no question (contract: PUT /v1/accounts/{account_id}). A
     person's form has no such line.
 
-    The account names its opening balance by id, or `null` when it has none
-    (contract: "Bank Accounts", "Opening balance"); the form reads that row
+    The opened currency's entry in the account's `currencies` names its opening
+    balance by id, or `null` when it has none (contract: "Bank Accounts",
+    "`currencies`"); the form reads that row
     signed through `reads.fetch_transaction`, never from `transaction_type`
     (contract: "Base Conventions", "Sign convention — responses"). Until the
     read lands a save is held back, and a read that fails leaves the two lines
@@ -446,9 +448,10 @@ class EditAccountScreen(NewAccountScreen):
         for f in NewAccountScreen.FIELDS
     ]
 
-    def __init__(self, record: dict) -> None:
+    def __init__(self, record: dict, currency_code: str | None = None) -> None:
         super().__init__()
         self._id = record["id"]
+        self._currency_code = currency_code
         self._name = record.get("name") or "—"
         # Both read-only here. `currency` never changes after creation; `type`
         # is no field of the account's update: it changes with `t` on
@@ -459,7 +462,7 @@ class EditAccountScreen(NewAccountScreen):
         self._values = {
             "type": "person" if record.get("is_person") else "bank",
             "name": record.get("name") or "",
-            "currency": record.get("currency_code") or "",
+            "currency": currency_code or "",
         }
         if record.get("color"):
             self._values["color"] = record["color"]
@@ -472,12 +475,22 @@ class EditAccountScreen(NewAccountScreen):
         # the opening balance.
         self._account_sent = self._payload()
         self._account_saved = False
-        self._opening_id: str | None = record.get("opening_balance_transaction_id")
+        held = next(
+            (
+                h
+                for _, _, h in reads.held_currencies([record])
+                if h["currency_code"] == currency_code
+            ),
+            None,
+        )
+        self._opening_id: str | None = held.get("opening_balance_transaction_id") if held else None
         self._opening_original: dict = {}  # {"opening": cents, "as_of": day} once read
         self._opening_loading = self._opening_id is not None
+        if currency_code is None:  # no currency, no opening balance to give
+            self._locked |= {"opening", "as_of"}
         self._refused_line: str | None = None
         self._refusal_says_next = False  # the last refusal carried its own next step
-        currency = record.get("currency_code") or "?"
+        currency = currency_code or "?"
         self.FIELDS = [
             *EditAccountScreen.FIELDS,
             Field(
@@ -589,6 +602,7 @@ class EditAccountScreen(NewAccountScreen):
             # (contract: POST /v1/accounts/{account_id}/opening-balance).
             body = {
                 "transaction_id": str(uuid.uuid4()),
+                "currency_code": self._currency_code,
                 "amount_cents": cents,
                 "date": to_canonical_aware(str(day)),
             }

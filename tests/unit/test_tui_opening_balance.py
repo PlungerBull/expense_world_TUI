@@ -33,26 +33,21 @@ from tests.unit.helpers import (
     whole,
 )
 
-EFECTIVO = {
-    "id": "acc-efe",
-    "name": "Efectivo",
-    "is_person": False,
-    "is_archived": False,
-    "currency_code": "PEN",
-    "color": None,
-    "current_balance_cents": 0,
-    "opening_balance_transaction_id": None,
-}
-SUELDO = {
-    **EFECTIVO,
-    "id": "acc-sue",
-    "name": "Sueldo Soles",
-    "color": "#4a90d9",
-    "opening_balance_transaction_id": "tx-open",
-}
-ELIANA = {**EFECTIVO, "id": "acc-eli", "name": "Eliana", "is_person": True}
+EFECTIVO = account_with_currencies(
+    id="acc-efe", name="Efectivo", color=None, currencies=[held_currency("PEN")]
+)
+SUELDO = account_with_currencies(
+    EFECTIVO,
+    id="acc-sue",
+    name="Sueldo Soles",
+    color="#4a90d9",
+    currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")],
+)
+ELIANA = account_with_currencies(EFECTIVO, id="acc-eli", name="Eliana", is_person=True)
 #: A person who has an opening balance, and that row as the engine returns it.
-ELIANA_OPENED = {**ELIANA, "opening_balance_transaction_id": "tx-eli"}
+ELIANA_OPENED = account_with_currencies(
+    ELIANA, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-eli")]
+)
 ELIANA_ROW = {
     "id": "tx-eli",
     "account_id": "acc-eli",
@@ -112,15 +107,16 @@ def _hint(screen) -> str:
     return str(screen.query_one("#hint", Static).content)
 
 
-def _form(record, body, *, opening_row=None):
-    """Push the Edit form for `record` (after its read, if it has one), then
-    run `body(pilot, app, screen)`."""
+def _form(record, body, *, code="PEN"):
+    """Push the Edit form for `record` opened on its `code` row (the record's own
+    currency unless given), after its read if it has one, then run
+    `body(pilot, app, screen)`."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(record))
+        screen = EditAccountScreen(record, code)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        if record.get("opening_balance_transaction_id"):
+        if screen._opening_id:
             await wait_for(pilot, lambda: not screen._opening_loading)
         return await body(pilot, app, screen)
 
@@ -211,7 +207,7 @@ def test_screen_2_the_amount_is_taken_as_typed_in_the_accounts_currency(fake_cli
         _type(screen, "opening", "350")
         assert screen._values["opening"] == 35000  # never flipped either way
 
-    _form({**EFECTIVO, "currency_code": "USD"}, body)
+    _form(account_with_currencies(EFECTIVO, currencies=[held_currency("USD")]), body, code="USD")
 
 
 def test_screen_2_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
@@ -246,11 +242,70 @@ def test_screen_2_a_new_opening_balance_posts_signed_with_no_title(fake_client, 
     # the account did not change, so the save is the opening balance alone
     assert fake_client.requests == [("POST", "/accounts/acc-efe/opening-balance")]
     (_path, sent) = fake_client.posts[0]
-    assert set(sent) == {"transaction_id", "amount_cents", "date"}  # title: the engine's
+    # the title is the engine's to name
+    assert set(sent) == {"transaction_id", "currency_code", "amount_cents", "date"}
+    assert sent["currency_code"] == "PEN"
     assert sent["amount_cents"] == -35000
     assert sent["date"] == to_canonical_aware("2026-01-01")
     assert len(sent["transaction_id"]) == 36
     assert ("Saved.", {}) in notes
+
+
+#: The Visa as the engine reads it: soles with an opening balance of its own, dollars
+#: with none (contract: "Bank Accounts", "`currencies`").
+VISA = account_with_currencies(
+    id="acc-visa",
+    name="Visa",
+    currencies=[
+        held_currency("PEN", opening_balance_transaction_id="tx-open"),
+        held_currency("USD"),
+    ],
+)
+
+
+def test_the_dollars_row_posts_its_own_opening_balance_and_leaves_the_soles_one(fake_client):
+    """Opened on the dollars row, the form reads no opening balance (the soles
+    one is not its), and the one typed is sent for USD alone."""
+
+    async def body(pilot, app, screen):
+        assert screen._values["currency"] == "USD" and screen._opening_id is None
+        _type(screen, "opening", "-45.50")
+        _type(screen, "as_of", "2026-01-01")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA, body, code="USD")
+    assert fake_client.requests == [("POST", "/accounts/acc-visa/opening-balance")]
+    (_path, sent) = fake_client.posts[0]
+    assert sent["currency_code"] == "USD" and sent["amount_cents"] == -4550
+    assert not fake_client.puts and not fake_client.deletes
+
+
+def test_the_soles_row_changes_the_soles_opening_balance_only(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        assert screen._opening_id == "tx-open"
+        _type(screen, "opening", "-3000.00")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA, body)
+    assert reads_log == ["tx-open"]
+    assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
+    assert not fake_client.posts
+
+
+def test_a_row_with_no_currency_has_no_opening_balance_to_give(fake_client):
+    """An account holding no currency opens with OPENING and AS OF read-only, and
+    its save is the account alone."""
+    bare = account_with_currencies(id="acc-bare", name="Bare", currencies=[])
+
+    async def body(pilot, app, screen):
+        assert {"opening", "as_of"} <= screen._locked
+        screen._values["name"] = "Barer"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(bare, body, code=None)
+    assert fake_client.requests == [("PUT", "/accounts/acc-bare")]
 
 
 def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
@@ -331,7 +386,7 @@ def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(SUELDO))
+        screen = EditAccountScreen(SUELDO, "PEN")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
@@ -490,8 +545,8 @@ def test_pane_a1_a_person_adds_an_opening_balance(fake_client, notes):
     ]
     assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
     (_path, sent) = fake_client.posts[0]
-    assert set(sent) == {"transaction_id", "amount_cents", "date"}
-    assert sent["amount_cents"] == -15000
+    assert set(sent) == {"transaction_id", "currency_code", "amount_cents", "date"}
+    assert sent["currency_code"] == "PEN" and sent["amount_cents"] == -15000
     assert sent["date"] == to_canonical_aware("2025-12-31")
     assert ("Saved.", {}) in notes
 
@@ -637,7 +692,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     result: list = []
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(dict(EFECTIVO))
+        screen = EditAccountScreen(EFECTIVO, "PEN")
         await app.push_screen(screen, result.append)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type(screen, "color", "green")
@@ -760,19 +815,7 @@ def test_screen_7_each_refusal_shows_in_the_engines_words(
 
 def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
     # the list reads an account holding its currencies; the form is opened on that row's account
-    accounts = [
-        account_with_currencies(
-            id=a["id"],
-            name=a["name"],
-            color=a["color"],
-            currencies=[
-                held_currency(
-                    "PEN", 0, opening_balance_transaction_id=a["opening_balance_transaction_id"]
-                )
-            ],
-        )
-        for a in (SUELDO, EFECTIVO)
-    ]
+    accounts = [SUELDO, EFECTIVO]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
     seen: dict = {}
 
