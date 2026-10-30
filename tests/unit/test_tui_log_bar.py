@@ -20,7 +20,7 @@ from textual.widgets import Input, Label, Static
 from expense.errors import EngineConnectionError, EngineError
 from expense.quickadd.parse import parse
 from expense.quickadd.route import route
-from expense.reads import QuickAddRefs
+from expense.reads import QuickAddRefs, currency_picks
 from expense.tui.screens.log_bar import (
     LEGEND_LINE,
     AccountPeek,
@@ -39,11 +39,12 @@ from expense.tui.screens.log_bar import (
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
 from tests.unit.helpers import (
-    ENGINE_ORDER_ACCOUNTS,
-    ENGINE_ORDER_NAMES,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
+    account_with_currencies,
     cursor_page,
     hashtag_refusal,
+    held_currency,
     in_order,
     refusal_text,
     render_text,
@@ -53,27 +54,9 @@ from tests.unit.helpers import (
 )
 
 ACCOUNTS = [
-    {
-        "id": "acc1",
-        "name": "BCP Signature PEN",
-        "currency_code": "PEN",
-        "is_person": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc2",
-        "name": "BCP Signature USD",
-        "currency_code": "USD",
-        "is_person": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "acc3",
-        "name": "BCP PEN",
-        "currency_code": "PEN",
-        "is_person": False,
-        "opening_balance_transaction_id": None,
-    },
+    account_with_currencies(id="acc1", name="BCP Signature PEN", currencies=[held_currency("PEN")]),
+    account_with_currencies(id="acc2", name="BCP Signature USD", currencies=[held_currency("USD")]),
+    account_with_currencies(id="acc3", name="BCP PEN", currencies=[held_currency("PEN")]),
 ]
 CATEGORIES = {
     "items": [
@@ -84,6 +67,7 @@ CATEGORIES = {
 HASHTAGS = {"items": [{"id": "h1", "name": "CAJA CHICA"}, {"id": "h2", "name": "TAXI"}]}
 
 REFS = QuickAddRefs(
+    picks=currency_picks(ACCOUNTS),
     accounts=[
         ("acc1", "BCP Signature PEN", "PEN"),
         ("acc2", "BCP Signature USD", "USD"),
@@ -150,16 +134,20 @@ class _PeekFetch:
         self.count_error = count_error
         self.accounts: list[str] = []
         self.counted: list[str] = []
+        self.currencies: list[str] = []
+        self.counted_currencies: list[str] = []
 
     def __call__(self, _cfg, **kw):
         assert "offset" not in kw, "the engine refuses offset"
         self.accounts.append(kw.get("account"))
+        self.currencies.append(kw.get("currency_code"))
         if self.error is not None:
             raise self.error
         return self.body
 
     def count(self, _cfg, **kw):
         self.counted.append(kw.get("account"))
+        self.counted_currencies.append(kw.get("currency_code"))
         if self.count_error is not None:
             raise self.count_error
         return self.total
@@ -193,7 +181,7 @@ def _styled(renderable, width: int = 120) -> str:
 def _stage(line: str, today: date = TODAY) -> Staged:
     parsed = parse(
         line,
-        accounts=REFS.accounts,
+        accounts=REFS.quickadd_accounts,
         categories=REFS.categories,
         hashtags=REFS.hashtags,
         today=today,
@@ -402,7 +390,7 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "tottus porongoche -38.60 $sig")
-        assert [name for _, name in screen._picker.candidates] == [
+        assert [name for _, name, _ in screen._picker.candidates] == [
             "BCP Signature PEN",
             "BCP Signature USD",
         ]
@@ -415,18 +403,20 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
 
 
 def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
-    """A bare `$` lists the accounts exactly as `GET /accounts` returned them —
-    not alphabetical, not by `sort_order`, the person after every bank."""
+    """A bare `$` lists the picks exactly as `GET /accounts` returned them — the
+    accounts not alphabetical, not by `sort_order`, the person after every bank, each
+    account's currencies PEN before USD — each as "<account> · <code>"."""
     _patch(monkeypatch)
     monkeypatch.setattr(
-        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS)
     )
+    labels = [f"{n} · {c}" for n in ("Zeta Visa", "Alfa Ahorros", "Ana") for c in ("PEN", "USD")]
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "almuerzo -20 $")
-        assert [name for _, name in screen._picker.candidates] == ENGINE_ORDER_NAMES
-        assert in_order(_text(screen._suggest_renderable()), ENGINE_ORDER_NAMES)
+        assert [f"{n} · {c}" for _, n, c in screen._picker.candidates] == labels
+        assert in_order(_text(screen._suggest_renderable()), labels)
 
     run_app(scenario)
 
@@ -721,6 +711,98 @@ def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
         await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
         assert app.screen is screen  # it stays: the ticks are the receipt
         assert "3 logged · 2 pendiente" in _text(screen._staged_renderable())
+
+    run_app(scenario)
+
+
+VISA = account_with_currencies(
+    id="acc-visa",
+    name="VISA Infinite Sapphire",
+    currencies=[held_currency("PEN"), held_currency("USD")],
+)
+
+
+def test_every_batch_item_names_its_account_and_its_currency(fake_client, monkeypatch):
+    """Each item carries `account_id` and `currency_code` from the pick, and no
+    `holder_id` (contract: POST /v1/transactions/batch)."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: len(fake_client.posts) == 1)
+        items = fake_client.posts[0][1]["transactions"]
+        assert [(i["account_id"], i["currency_code"]) for i in items] == [
+            ("acc1", "PEN"),
+            ("acc2", "USD"),
+        ]
+        assert all("holder_id" not in i for i in items)
+
+    run_app(scenario)
+
+
+def test_dollar_visa_offers_both_of_a_two_currency_accounts_picks(fake_client, monkeypatch):
+    """`$visa` names an account holding two currencies, so it offers both picks, each
+    "<account> · <code>"; completing the dollar one resolves to it, and the save sends
+    that account with that currency."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "-12.50 $visa")
+        labels = ["VISA Infinite Sapphire · PEN", "VISA Infinite Sapphire · USD"]
+        assert [f"{n} · {c}" for _, n, c in screen._picker.candidates] == labels
+        assert in_order(_text(screen._suggest_renderable()), labels)
+        assert '"$visa" matches 2 accounts' in screen._hint()
+
+        screen.action_move(1)  # the USD one
+        screen.on_input_submitted()
+        assert _bar(screen).value == "-12.50 $VISA Infinite Sapphire · USD"
+        assert screen._picker is None
+        assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc-visa", "USD")
+
+        screen.on_input_submitted()
+        assert "VISA Infinite Sapphire · USD" in _text(screen._staged_renderable())
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: len(fake_client.posts) == 1)
+        item = fake_client.posts[0][1]["transactions"][0]
+        assert (item["account_id"], item["currency_code"]) == ("acc-visa", "USD")
+
+    run_app(scenario)
+
+
+def test_a_one_currency_account_resolves_on_its_name_and_exact_wins(fake_client, monkeypatch):
+    """`$BCP PEN` is the whole name of one account holding one currency: it resolves at
+    once to that pick, though "BCP Signature PEN" holds the words too."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "-6.60 $BCP PEN")
+        assert screen._picker is None
+        assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc3", "PEN")
+
+    run_app(scenario)
+
+
+def test_the_staged_totals_add_up_per_currency_from_each_rows_pick(fake_client, monkeypatch):
+    """Soles and dollars of one account stay two figures."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(
+            screen,
+            "a -10 $VISA Infinite Sapphire · PEN",
+            "b -5 $VISA Infinite Sapphire · USD",
+            "c -2.50 $VISA Infinite Sapphire · PEN",
+        )
+        summary = _text(screen._staged_renderable())
+        assert "3 staged" in summary
+        assert "-12.50 PEN" in summary and "-5.00 USD" in summary
 
     run_app(scenario)
 
@@ -1509,10 +1591,12 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         _type(screen, LEDGER_LINE)
         await _peeked(pilot, screen)
         assert fetch.accounts == ["acc1"]
+        # the pick's currency rides on the read and on the count
+        assert (fetch.currencies, fetch.counted_currencies) == (["PEN"], ["PEN"])
         panel = _peek(screen)
         assert panel.display
         # content lines, not border decorations (docs/tui.md §2)
-        assert panel.panel_title == "BCP Signature PEN"
+        assert panel.panel_title == "BCP Signature PEN · PEN"
         assert "of 214 in this account" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
 
@@ -1541,9 +1625,9 @@ def test_the_peek_follows_the_picker_while_the_account_is_ambiguous(fake_client,
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "tottus porongoche -38.60 $sig")
-        assert screen._peek_account == "acc1"  # the highlighted candidate
+        assert screen._peek_account == ("acc1", "PEN")  # the highlighted candidate
         screen.action_move(1)
-        assert screen._peek_account == "acc2"  # …and it swaps as you arrow
+        assert screen._peek_account == ("acc2", "USD")  # …and it swaps as you arrow
 
     run_app(scenario, size=(110, 30))
 
@@ -1558,7 +1642,7 @@ def test_the_peek_stays_on_the_last_account_the_bar_named(fake_client, monkeypat
         await _peeked(pilot, screen)
         screen.on_input_submitted()  # stages it; the bar is empty again
         assert _bar(screen).value == ""
-        assert screen._peek_account == "acc1"
+        assert screen._peek_account == ("acc1", "PEN")
         assert _peek(screen).display
 
     run_app(scenario, size=(110, 30))
@@ -1573,8 +1657,8 @@ def test_the_staged_rows_never_choose_the_peeks_account(fake_client, monkeypatch
         _type(screen, LEDGER_LINE)  # $BCP Signature PEN → acc1
         screen.on_input_submitted()
         _type(screen, "tran.cel.bm. -6.60 $BCP PEN @TRANSPORTE")
-        assert screen._peek_account == "acc3"  # the line's, not the staged row's
-        assert _peek(screen).panel_title == "BCP PEN"
+        assert screen._peek_account == ("acc3", "PEN")  # the line's, not the staged row's
+        assert _peek(screen).panel_title == "BCP PEN · PEN"
 
     run_app(scenario, size=(110, 30))
 
@@ -1786,7 +1870,7 @@ def test_a_bare_dollar_offers_every_account(fake_client, monkeypatch):
         _type(screen, "tottus -38.60 $")
         assert len(screen._picker.candidates) == 3
         # and the peek follows it like any other account token
-        assert screen._peek_account == "acc1"
+        assert screen._peek_account == ("acc1", "PEN")
 
     run_app(scenario, size=(110, 30))
 
@@ -1833,7 +1917,7 @@ def test_a_dropped_file_stands_quick_add_down(fake_client, monkeypatch, tmp_path
         assert screen._parsed is None and screen._hl.parsed is None  # no colouring
         assert screen._picker is None and screen._refused is None
         assert not screen.query_one("#peek", AccountPeek).display
-        assert screen._peek_account == "acc1"  # hidden, not forgotten
+        assert screen._peek_account == ("acc1", "PEN")  # hidden, not forgotten
         assert not screen.query_one("#legend", Static).display
         assert screen._staged_renderable() is None  # the invitation stands down
         hint = screen.query_one("#hint", Static).content
@@ -2016,7 +2100,7 @@ REFS_PENDING = replace(
 def _tags_cell_of(line: str, refs: QuickAddRefs = REFS_PENDING) -> Text:
     parsed = parse(
         line,
-        accounts=refs.accounts,
+        accounts=refs.quickadd_accounts,
         categories=refs.categories,
         hashtags=refs.hashtags,
         today=TODAY,

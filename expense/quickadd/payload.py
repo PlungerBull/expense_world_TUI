@@ -1,5 +1,9 @@
 """A parsed line as a `POST /transactions` body.
 
+A row names its account and the currency it is in, both from the `$account` pick
+(contract: POST /v1/transactions, "`account_id` and `currency_code`"); the batch
+carries the same two keys on each item (contract: POST /v1/transactions/batch).
+
 The TUI's `ctrl+s` batch builds each body from its row here. Pure: `date`
 arrives already canonicalised (RFC 3339 with an offset), because
 `expense.dates.to_canonical_aware` raises `typer.BadParameter` and this package
@@ -36,6 +40,7 @@ def transaction_payload(
         "id": row_id,
         "amount_cents": parsed.amount_cents,
         "account_id": parsed.account_id,
+        "currency_code": parsed.currency_code,
         "date": date,
     }
     if parsed.title:

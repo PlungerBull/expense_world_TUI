@@ -23,9 +23,11 @@ from expense.tui.widgets.cells import swatch
 from expense.tui.widgets.cursor_list import CursorList, list_table
 from tests.unit.helpers import (
     HOME_DASHBOARD,
+    account_with_currencies,
     bank_line_row,
     cursor_page,
     fake_ledger,
+    held_currency,
     import_part,
     import_row,
     render_text,
@@ -46,7 +48,6 @@ from tests.unit.test_tui_bank_import import (
     _preview,
     _previewed,
 )
-from tests.unit.test_tui_log_bar import ACCOUNTS as LOG_ACCOUNTS
 from tests.unit.test_tui_log_bar import _open as _open_log_bar
 from tests.unit.test_tui_log_bar import _patch as _patch_log_bar
 from tests.unit.test_tui_log_bar import _type
@@ -215,7 +216,7 @@ def test_the_log_bar_shows_a_bracketed_account_and_category_whole(
     holds them, typed into the bar by those names; the columns around them are
     where they were."""
     _patch_log_bar(monkeypatch)
-    accounts = [{**LOG_ACCOUNTS[0], "name": account}]
+    accounts = [account_with_currencies(id="acc1", name=account, currencies=[held_currency("PEN")])]
     categories = {"items": [{"id": "cat1", "name": category, "is_system": False}]}
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
     monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: categories)
@@ -230,7 +231,7 @@ def test_the_log_bar_shows_a_bracketed_account_and_category_whole(
         assert re.split(r"\s{2,}", row.strip())[2:] == [
             "almuerzo",
             "-20.00",
-            account,
+            f"{account} · PEN",
             category,
             "#TAXI",
         ], row

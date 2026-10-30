@@ -445,3 +445,37 @@ def test_parse_amount_refuses_an_amount_whose_cents_overflow():
     context, which raises: unreadable, never a crash."""
     for text in ("1e999999", "-1e999999", "1E+999999999"):
         assert parse_amount(text) is None
+
+
+# --- an account pick: one account and one currency it holds ---------------------
+
+
+VISA_PICKS = [
+    ("v1", "VISA Infinite Sapphire", "PEN"),
+    ("v1", "VISA Infinite Sapphire", "USD"),
+    ("a5", "Efectivo", "PEN"),
+]
+
+
+def _picks(line: str):
+    return parse(line, accounts=VISA_PICKS, categories=CATEGORIES, hashtags=HASHTAGS, today=TODAY)
+
+
+def test_a_name_two_currencies_share_is_ambiguous_with_a_candidate_per_currency():
+    result = _picks("-10 $visa")
+    assert result.account_id is None and result.currency_code is None
+    (found,) = result.unresolved
+    assert found.candidates == (
+        ("v1", "VISA Infinite Sapphire", "PEN"),
+        ("v1", "VISA Infinite Sapphire", "USD"),
+    )
+
+
+def test_the_whole_label_names_one_pick_and_the_line_carries_its_currency():
+    result = _picks("-10 $VISA Infinite Sapphire · USD")
+    assert (result.account_id, result.currency_code, result.unresolved) == ("v1", "USD", ())
+
+
+def test_a_one_currency_account_resolves_on_its_name_alone():
+    result = _picks("-10 $efectivo")
+    assert (result.account_id, result.currency_code) == ("a5", "PEN")

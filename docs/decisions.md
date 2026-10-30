@@ -262,7 +262,7 @@ Decisions whose why lives elsewhere:
 
 ## The LOG bar shows the named account's ledger — elastic, and it stays put (2026-08-29)
 
-**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…` per account, cached for the screen; a save invalidates the accounts it wrote to; a failed peek says so in its border and never retries.
+**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…&currency_code=…` per account and currency, cached for the screen; a save invalidates the account currencies it wrote to; a failed peek says so in its border and never retries.
 
 **Rejected.** *A fixed 12-row strip* — steals rows from a long batch. *A one-line summary* — does not answer "did I already log this?". *Blanking the peek when the bar is empty* — blinks off at every `↵`. *A navigable peek* — a second cursor on the screen.
 

@@ -566,6 +566,33 @@ def test_a_refused_row_under_the_log_bar_shows_the_words_whole(fake_client, monk
     run_app(scenario)
 
 
+def test_a_currency_the_account_does_not_hold_shows_the_words_alone(fake_client, monkeypatch):
+    """`CURRENCY_NOT_HELD` on a batch item's `currency_code`: the engine's words under the
+    staged rows, none of the app's own, the rows kept for another try
+    (contract: "Error reasons")."""
+    _patch_log(monkeypatch)
+    words = "Must be a currency the account holds: USD."
+
+    async def scenario(pilot, app):
+        screen = await _open_log(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        _script(fake_client, [_refused_row(0, "currency_code", words, "CURRENCY_NOT_HELD")])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+        shown = render_text(screen._staged_renderable(), width=200)
+        assert f"currency_code: {words}" in shown
+        # nothing of the app's own between the engine's words and the retry note
+        after = shown.split(f"currency_code: {words}")[1]
+        assert [line.strip() for line in after.splitlines()] == [
+            "row 1",
+            "ctrl+s retries just the rows without a ✓.",
+        ]
+        assert [e.saved for e in screen._staged] == [False]  # kept, nothing written
+        assert len(screen._staged) == 1
+
+    run_app(scenario)
+
+
 def test_a_peek_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
     """The account peek's read refused: the note in its own panel."""
     _patch_log(monkeypatch, _PeekFetch(error=refusal("FORBIDDEN", 403)))

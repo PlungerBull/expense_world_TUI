@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date as date_cls
 
+from expense.formatting import currency_label
 from expense.quickadd.money import parse_amount
 from expense.quickadd.names import fold
 from expense.quickadd.when import parse_date
@@ -59,13 +60,14 @@ class Unresolved:
     """A token that named something the reference lists do not contain.
 
     `candidates` is empty when nothing matched and holds every hit when
-    several did — the picker's input either way.
+    several did — the picker's input either way. A candidate is `(id, name)`;
+    an account's is `(account_id, name, currency_code)`, one per currency.
     """
 
     kind: str
     text: str
     span: Span
-    candidates: tuple[tuple[str, str], ...] = ()
+    candidates: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,9 @@ class ParsedLine:
     # The first signed, amount-shaped token `parse_amount` could not read
     # (`-13.853,20`), as typed; it stays a title word. None when there is none.
     unreadable_amount: str | None = None
+    # The code of the currency the `$account` token named, with its account: a
+    # pick is one account and one currency it holds (`reads.CurrencyPick`).
+    currency_code: str | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -102,11 +107,17 @@ class _Entry:
     name: str
     key: str
     words: int
+    # An account pick's currency code, and its "<name> · <code>" label folded:
+    # typing the whole label names exactly that pick, where the name alone names
+    # every currency of the account. Both empty for a category or a hashtag.
+    code: str = ""
+    label_key: str = ""
 
 
 def _entries(rows: Sequence[Sequence]) -> list[_Entry]:
-    """`(id, name, …)` rows -> match entries. Extra columns are ignored, so
-    `account_choices()` tuples pass straight through."""
+    """`(id, name, …)` rows -> match entries. An account row is `(account_id, name,
+    currency_code)`, a pick; a third column that is a string is that code, and
+    any other extra column is ignored."""
     out: list[_Entry] = []
     for row in rows:
         if len(row) < 2:
@@ -117,7 +128,18 @@ def _entries(rows: Sequence[Sequence]) -> list[_Entry]:
         key = fold(" ".join(name.split()))
         if not key:
             continue
-        out.append(_Entry(id=ident, name=name, key=key, words=len(key.split())))
+        code = row[2] if len(row) > 2 and isinstance(row[2], str) else ""
+        label_key = fold(currency_label(" ".join(name.split()), code)) if code else ""
+        out.append(
+            _Entry(
+                id=ident,
+                name=name,
+                key=key,
+                words=len(label_key.split() or key.split()),
+                code=code,
+                label_key=label_key,
+            )
+        )
     return out
 
 
@@ -145,7 +167,8 @@ def _resolve(
 
     An exact name wins outright at the longest length that has one; failing
     that, "contains anywhere" at the longest length with any hit (the rule
-    every existing picker already uses).
+    every existing picker already uses). An account pick's whole label is an
+    exact name too, so "VISA · USD" names that one pick.
     """
     limit = max((e.words for e in entries), default=1)
     extra = _lookahead(words, start, limit)
@@ -155,7 +178,7 @@ def _resolve(
         phrases.append((k + 1, fold(" ".join(" ".join(parts).split()))))
 
     for count, phrase in phrases:
-        hits = [e for e in entries if e.key == phrase]
+        hits = [e for e in entries if phrase in (e.key, e.label_key)]
         if hits:
             return count, hits
     for count, phrase in phrases:
@@ -196,6 +219,7 @@ def parse(
     title_words: list[str] = []
     amount_cents: int | None = None
     picked: dict[str, str | None] = {"account": None, "category": None}
+    picked_code: str | None = None
     hashtag_ids: list[str] = []
     iso: str | None = None
     bad_date = False
@@ -238,13 +262,17 @@ def parse(
                         hashtag_ids.append(hits[0].id)
                 else:
                     picked[kind] = hits[0].id
+                    if kind == "account":
+                        picked_code = hits[0].code or None
             else:
                 unresolved.append(
                     Unresolved(
                         kind=kind,
                         text=typed[1:],
                         span=span,
-                        candidates=tuple((h.id, h.name) for h in hits),
+                        candidates=tuple(
+                            (h.id, h.name, h.code) if h.code else (h.id, h.name) for h in hits
+                        ),
                     )
                 )
             index += count
@@ -294,6 +322,7 @@ def parse(
         unresolved=tuple(unresolved),
         missing=tuple(k for k in REQUIRED if values[k] is None),
         unreadable_amount=unreadable_amount,
+        currency_code=picked_code,
     )
 
 

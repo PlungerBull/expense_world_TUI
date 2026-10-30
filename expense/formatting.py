@@ -454,3 +454,9 @@ def grouped_refusals(
         hit = "" if key in own or not rows else rows_phrase(rows)
         grouped.append((first, hit, [line for line in rest if line.strip()]))
     return grouped
+
+
+def currency_label(name: str, code: str) -> str:
+    """The words for a currency: its account's name and its code, `VISA · USD`. A
+    currency has no name of its own; one copy for the picks, the parser and the picker."""
+    return f"{name} · {code}"

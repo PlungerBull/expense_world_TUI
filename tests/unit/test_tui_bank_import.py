@@ -38,6 +38,8 @@ from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
     account_record,
+    account_with_currencies,
+    held_currency,
     import_answer,
     import_day,
     import_part,
@@ -123,6 +125,20 @@ def _patch(monkeypatch, accounts=None) -> None:
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.fetch_transactions", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.count_transactions", lambda *a, **k: 0)
+
+
+def _patch_log_accounts(monkeypatch) -> None:
+    """The LOG bar's `$` pool reads accounts as the engine sends them now (one account
+    holding its currencies), where the import screens still read the old per-currency
+    shape: a test that stages a line on the bar lists the account `LEDGER_LINE` names."""
+    held = whole(
+        [
+            account_with_currencies(
+                id="sig-pen", name="BCP Signature PEN", currencies=[held_currency("PEN")]
+            )
+        ]
+    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: held)
 
 
 def _engine(fake_client, files: dict, *, mismatches=None, counts=None) -> None:
@@ -1421,6 +1437,7 @@ def test_a_repeated_enter_on_the_preview_sends_one_apply(fake_client, monkeypatc
 def test_esc_back_returns_to_a_cleared_bar_with_the_staged_rows(fake_client, monkeypatch, tmp_path):
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
+    _patch_log_accounts(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD_ROWS})
 
     async def scenario(pilot, app):
@@ -1486,6 +1503,7 @@ def test_enter_home_with_unwritten_staged_rows_asks_first(fake_client, monkeypat
 
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
+    _patch_log_accounts(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD_ROWS})
 
     async def scenario(pilot, app):
@@ -1706,6 +1724,7 @@ def test_a_drop_onto_a_lifted_row_drops_the_edit_and_keeps_the_row(
 ):
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
+    _patch_log_accounts(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD_ROWS})
 
     async def scenario(pilot, app):

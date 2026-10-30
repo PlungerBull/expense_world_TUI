@@ -825,7 +825,7 @@ show accounts as `GET /accounts` lists them, every real account first, then ever
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
 first currency leg does. The LOG bar's `$` picker, the Edit form's account field and the
-ledger's `b` pick offer no archived account (`QuickAddRefs.accounts` in
+ledger's `b` pick offer no archived account (`QuickAddRefs.picks` and `QuickAddRefs.accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
 shows its name, read-only on its Edit form (below).
@@ -1001,6 +1001,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay |
+| `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
@@ -1640,25 +1642,38 @@ of the bar's own cut. The footer reads `esc Cancel  ^s Save  ⇥ Field  ^n Add p
 `^x Drop part` where it works. There is no `?`: the Edit form is a bar form (`FormScreen`), and
 forms take no `HelpBindingMixin`, so there is no `?` card; the bar takes `?` as a character.
 
+**The LOG bar's account is a pick: an account and one currency it holds.** `QuickAddRefs.picks`
+([reads.py](../expense/reads.py), `currency_picks`) holds one pick per account and currency,
+labelled "<account> · <code>", in the engine's order. `$name` matches the account's name, an exact name still winning outright, so a name two currencies share (a card holding
+soles and dollars) matches both picks and opens the picker with each; the whole label typed,
+`$VISA Infinite Sapphire · USD`, names that one pick, which is what `↵` on the picker completes
+to when the name is shared (an unshared name completes as the name). The parsed line carries
+the pick's `currency_code` with its `account_id`, and the save sends both on every batch item
+(contract: POST /v1/transactions/batch). The staged table's account cell reads
+the label, the staged totals add up per currency from each row's `currency_code`, and the
+picker and a refusal's candidates read the label. `QuickAddRefs.accounts` is the old
+per-currency pool, kept for the Edit form and the ledger until they move onto the picks.
+
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,
 the resolved date in words, how many names a token matches, loading/writing) is the
 `#hint` row above it.
 
-**The account peek.** The moment the typed line names an account, that account's posted
+**The account peek.** The moment the typed line names an account, that pick's posted
 ledger fills the room under the staged list — `AccountPeek`, five columns (date, title,
-amount, category, tags; no account column, every row names the same one).
+amount, category, tags; no account column, every row names the same one), titled with the
+pick's label.
 
 * **Elastic.** `#peek` is `height: 1fr` and everything above it is `height: auto`, so the
   panel gets exactly the rows the staged list leaves and draws that many; it re-renders on
   its own `Resize`. The empty-state invitation stands down while it is up.
-* **The account is the bar's**, never a staged row's — the highlighted candidate while a
+* **The pick is the bar's**, never a staged row's — the highlighted candidate while a
   picker is open, nothing at all when the token resolves to nothing.
-* **It stays put.** `↵` clears the bar; the panel keeps the last account the bar named.
+* **It stays put.** `↵` clears the bar; the panel keeps the last pick the bar named.
 
 Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
-`GET /transactions?account_id=…` per account, cached for the life of the screen, and a
+`GET /transactions?account_id=…&currency_code=…` and its count per pick, cached for the life of the screen, and a
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),

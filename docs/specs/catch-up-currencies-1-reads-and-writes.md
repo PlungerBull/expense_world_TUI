@@ -140,21 +140,6 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
 
-2. **The LOG bar and the quick-add line on account and currency (builder).** The quick-add pool
-   in `QuickAddRefs` becomes task 1's picks; `$name` matches the account's name as today, an
-   exact name still winning, and a two-currency account offers both its picks, as two accounts
-   of one name do today. A parsed line carries the currency, and
-   [payload.py](../../expense/quickadd/payload.py) sends `account_id` and `currency_code`, on a
-   create and on each batch item (contract: POST /v1/transactions/batch, "Line groups"). The
-   picker and a refusal's candidates read "<account> · <code>"; the staged totals add up per
-   currency from each row's pick; the peek reads and counts the pick's account and currency.
-   `currency_of` goes. [errors.py](../../expense/errors.py) lists `CURRENCY_NOT_HELD` and
-   `UNSUPPORTED_VALUE` among the reasons whose words show alone, cited. The old pool stays
-   beside the picks for the Edit form and the ledger until tasks 3 and 4.
-   *Passes if:* unit tests pin a batch's items each carrying `account_id` and `currency_code`;
-   `$visa` on a two-currency Visa offering both picks, labelled; a one-currency account
-   resolving on its name as today; and `CURRENCY_NOT_HELD` on `transactions.0.currency_code`
-   shown in the engine's words, the staged rows kept.
 3. **The Edit form and the whole-line write on account and currency (builder).** The Edit
    form's ACCOUNT line picks from task 1's picks, labelled, starting on the record's own account
    and currency; a save sends `account_id`, `currency_code` or both, only those that changed;
@@ -244,3 +229,12 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The LOG bar's words still count accounts where they mean currencies** (task 2's reviewer,
+  2026-10-29): `$visa` on the two-currency Visa says `"$visa" matches 2 accounts` on the hint and
+  in a refusal ([route.py](../../expense/quickadd/route.py)), and the peek's status reads "of N in
+  this account" while it counts one currency of the account. New wording is the owner's pick;
+  spec 6, which redraws the LOG bar, is the natural home.
+- **The LOG bar's test accounts keep the old per-currency names** (task 2's builder): "BCP
+  Signature PEN", so their labels read "BCP Signature PEN · PEN"; rename them to account names
+  holding currencies.

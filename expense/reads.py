@@ -18,7 +18,7 @@ from typing import Any, NamedTuple
 from expense import config as config_module
 from expense.config import Config
 from expense.errors import EngineError
-from expense.formatting import whole_number
+from expense.formatting import currency_label, whole_number
 from expense.http import ExpenseClient
 
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
@@ -859,7 +859,7 @@ def currency_picks(
             out.append(
                 CurrencyPick(
                     account["id"],
-                    f"{name} · {code}",
+                    currency_label(name, code),
                     code,
                     name,
                 )
@@ -895,6 +895,11 @@ class QuickAddRefs:
     their currency for rendering. The three `*_names` maps are the *full*
     id → name sets (archived and system rows included), for resolving ids that
     the matching pool deliberately excludes.
+
+    `picks` is the account pool the LOG bar and its quick-add line match `$name`
+    against: one per account and currency it holds. `accounts` is the old
+    per-currency pool `account_choices` builds, kept until the Edit form and the
+    ledger move onto the picks.
     """
 
     accounts: list[tuple]
@@ -916,6 +921,13 @@ class QuickAddRefs:
     # form's CATEGORY and the ledger's bulk `c`. `categories` stays the
     # quick-add pool, which leaves @Pendiente out.
     pickable_categories: list[tuple[str, str]] = field(default_factory=list)
+    picks: list[CurrencyPick] = field(default_factory=list)
+
+    @property
+    def quickadd_accounts(self) -> list[tuple[str, str, str]]:
+        """The picks as `quickadd.parse()` takes its accounts:
+        `(account_id, name, currency_code)`."""
+        return [(p.account_id, p.name, p.currency_code) for p in self.picks]
 
     @property
     def pending_hashtag_id(self) -> str | None:
@@ -930,20 +942,16 @@ def pending_label(refs: "QuickAddRefs") -> str:
     return refs.pending[1] if refs.pending else PENDING_FALLBACK_NAME
 
 
-def currency_of(refs: "QuickAddRefs", account_id: object) -> str:
-    """The account's currency code, or `''` when no account is named.
-
-    The currency was only ever going to come from the account — a typed line
-    never says which (`$` in `-$1800` is decoration). The TUI staged list
-    needs it per row to total a batch **per currency**: soles are never added
-    to dollars.
-    """
+def pick_label(refs: "QuickAddRefs", account_id: object, currency_code: object) -> str:
+    """The "<account> · <code>" of a pick the quick-add pool holds; the account's
+    name alone when the pool has no such pick (an archived account a row still
+    names), and `''` when no account is named."""
     if not isinstance(account_id, str):
         return ""
-    for row in refs.accounts:
-        if row[0] == account_id and len(row) > 2:
-            return str(row[2])
-    return ""
+    for pick in refs.picks:
+        if pick.account_id == account_id and pick.currency_code == currency_code:
+            return pick.label
+    return refs.account_names.get(account_id, "")
 
 
 def _id_name_map(rows: list) -> dict[str, str]:
@@ -990,4 +998,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         pending=_pending_of(cats),
         pending_hashtag=pending_hashtag_of(tags),
         pickable_categories=pickable_categories(cats),
+        picks=currency_picks(accts, include_people=True, include_archived=False),
     )

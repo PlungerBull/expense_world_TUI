@@ -86,6 +86,7 @@ from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_tran
 from expense.dates import now_local_iso, to_canonical_aware, today_local
 from expense.errors import EngineConnectionError, format_error, row_note
 from expense.formatting import (
+    currency_label,
     format_cents,
     format_hashtag_cell,
     format_short_date,
@@ -99,11 +100,11 @@ from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
 from expense.reads import (
     QuickAddRefs,
-    currency_of,
     hashtags_to_send,
     items_of,
     load_quickadd_refs,
     pending_label,
+    pick_label,
 )
 from expense.tui.dropped import dropped_bank_files, is_statement
 from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
@@ -331,13 +332,21 @@ def format_date_cell(iso: str, today_iso: str) -> str:
     return f"{day} {month} {year}"
 
 
-def _reference_cell(
-    kind: str, value: str | None, names: dict, palette: Palette | None
-) -> str | Text:
-    """A resolved name, or `— account?` in the error colour."""
-    if value:
-        return resolve_name(value, names)
-    return Text(f"— {kind}?", style=palette.error if palette else "")
+#: A pick of a currency: `(account_id, currency_code)`.
+Pick = tuple[str, str]
+
+
+def _candidate_label(candidate: tuple[str, ...]) -> str:
+    """A picker row: an account's pick reads "<account> · <code>" (the engine's name
+    for a currency); a category or a hashtag reads as its name."""
+    return currency_label(candidate[1], candidate[2]) if len(candidate) > 2 else candidate[1]
+
+
+def _account_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> str | Text:
+    """The pick as "<account> · <code>", or `— account?` in the error colour."""
+    if parsed.account_id:
+        return pick_label(refs, parsed.account_id, parsed.currency_code)
+    return Text("— account?", style=palette.error if palette else "")
 
 
 def _category_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> str | Text:
@@ -406,7 +415,7 @@ def staged_rows(
                 date,
                 _title_cell(parsed),
                 amount,
-                _reference_cell("account", parsed.account_id, refs.account_names, palette),
+                _account_cell(parsed, refs, palette),
                 _category_cell(parsed, refs, palette),
                 _tags_cell(parsed, refs, palette),
             )
@@ -506,7 +515,7 @@ def staged_summary(
     if pending:
         totals: dict[str, int] = {}
         for entry in pending:
-            code = currency_of(refs, entry.parsed.account_id)
+            code = entry.parsed.currency_code or ""
             totals[code] = totals.get(code, 0) + (entry.parsed.amount_cents or 0)
         line = Text(f"  {len(pending)} staged", style="dim")
         for code, cents in totals.items():
@@ -722,7 +731,7 @@ class _Picker:
     span: Span
     kind: str
     token: Unresolved
-    candidates: list[tuple[str, str]] = field(default_factory=list)
+    candidates: list[tuple[str, ...]] = field(default_factory=list)
 
 
 class LogBarScreen(Screen):
@@ -772,10 +781,11 @@ class LogBarScreen(Screen):
         self._saving = False
         self._last_save = ""  # the receipt left behind once saved rows clear
         # the peek: which account it shows, and one cached page per account
-        self._peek_account: str | None = None
-        self._peek_cache: dict[str, tuple[list[dict], int]] = {}
-        self._peek_note: dict[str, str] = {}
-        self._peek_wanted: str | None = None
+        # a peek is of one pick: an account and one currency it holds
+        self._peek_account: Pick | None = None
+        self._peek_cache: dict[Pick, tuple[list[dict], int]] = {}
+        self._peek_note: dict[Pick, str] = {}
+        self._peek_wanted: Pick | None = None
         self._peek_timer = None
         # the files the bar holds instead of a line — `None` when it is a line
         self._files: list[Path] | None = None
@@ -846,7 +856,7 @@ class LogBarScreen(Screen):
         else:
             self._parsed = parse(
                 text,
-                accounts=refs.accounts,
+                accounts=refs.quickadd_accounts,
                 categories=refs.categories,
                 hashtags=refs.hashtags,
                 today=today_local(),
@@ -868,7 +878,7 @@ class LogBarScreen(Screen):
                 )
         return None
 
-    def _candidates(self) -> list[tuple[str, str]]:
+    def _candidates(self) -> list[tuple[str, ...]]:
         return self._picker.candidates if self._picker else []
 
     # ---- input -------------------------------------------------------------
@@ -1179,9 +1189,12 @@ class LogBarScreen(Screen):
         candidates = picker.candidates
         if not candidates:
             return
-        _ident, name = candidates[min(self._suggest_idx, len(candidates) - 1)]
+        chosen = candidates[min(self._suggest_idx, len(candidates) - 1)]
+        # an account's name alone names every currency it holds, so a name two
+        # candidates share is completed as the whole "<account> · <code>"
         line = self.query_one("#bar", Input).value
-        token = SIGIL[picker.kind] + name
+        shared = len(chosen) > 2 and sum(c[1] == chosen[1] for c in candidates) > 1
+        token = SIGIL[picker.kind] + (_candidate_label(chosen) if shared else chosen[1])
         self._set_bar(
             line[: picker.span.start] + token + line[picker.span.end :],
             caret=picker.span.start + len(token),
@@ -1273,8 +1286,8 @@ class LogBarScreen(Screen):
         self._sync_peek()
 
     # ---- the account peek --------------------------------------------------
-    def _peek_target(self) -> str | None:
-        """Which account the peek shows — always the bar's, never a staged row's.
+    def _peek_target(self) -> Pick | None:
+        """Which pick (account and currency) the peek shows — the bar's, never a staged row's.
 
         Four cases:
 
@@ -1290,12 +1303,13 @@ class LogBarScreen(Screen):
         picker = self._picker
         if picker is not None and picker.kind == "account" and picker.candidates:
             index = min(self._suggest_idx, len(picker.candidates) - 1)
-            return picker.candidates[index][0]
+            candidate = picker.candidates[index]
+            return (candidate[0], candidate[2])
         parsed = self._parsed
         if parsed is None:
             return self._peek_account
-        if parsed.account_id:
-            return str(parsed.account_id)
+        if parsed.account_id and parsed.currency_code:
+            return (str(parsed.account_id), parsed.currency_code)
         if any(token.kind == "account" for token in parsed.unresolved):
             return None
         return self._peek_account
@@ -1314,7 +1328,7 @@ class LogBarScreen(Screen):
             peek.display = False
             return
         peek.display = True
-        name = resolve_name(target, refs.account_names)
+        name = pick_label(refs, *target)
         note = self._peek_note.get(target)
         cached = self._peek_cache.get(target)
         if cached is not None:
@@ -1325,59 +1339,62 @@ class LogBarScreen(Screen):
         if note is None:
             self._request_peek(target)
 
-    def _request_peek(self, account_id: str) -> None:
+    def _request_peek(self, target: Pick) -> None:
         """Fetch after `PEEK_DEBOUNCE`, and only what you stopped on.
 
         One slot, one timer: retargeting replaces both, so arrowing through
         five candidates costs one request, not five. An account already
         cached — or already refused — never asks again.
         """
-        self._peek_wanted = account_id
+        self._peek_wanted = target
         if self._peek_timer is not None:
             self._peek_timer.stop()
         self._peek_timer = self.set_timer(PEEK_DEBOUNCE, self._fire_peek)
 
     def _fire_peek(self) -> None:
         self._peek_timer = None
-        account_id = self._peek_wanted
-        if account_id and account_id == self._peek_account and account_id not in self._peek_cache:
-            self._load_peek(account_id)
+        target = self._peek_wanted
+        if target and target == self._peek_account and target not in self._peek_cache:
+            self._load_peek(target)
 
     @work(thread=True, group="peek")
-    def _load_peek(self, account_id: str) -> None:
-        """`GET /transactions?account_id=…` — the read the ledger screen makes —
-        and the account's count, together. A count that cannot be read fails
+    def _load_peek(self, target: Pick) -> None:
+        """`GET /transactions?account_id=…&currency_code=…` — the read the ledger
+        screen makes — and the pick's count, together. A count that cannot be read fails
         the peek: no rows beside a guessed number."""
         from expense import config as config_module
 
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            body = reads.fetch_transactions(cfg, account=account_id, limit=PEEK_LIMIT, **kw)
-            total = reads.count_transactions(cfg, account=account_id, **kw)
+            account_id, code = target
+            body = reads.fetch_transactions(
+                cfg, account=account_id, currency_code=code, limit=PEEK_LIMIT, **kw
+            )
+            total = reads.count_transactions(cfg, account=account_id, currency_code=code, **kw)
         except Exception as exc:  # a peek is a courtesy: it reports, never raises
-            call_while_attached(self, self._peek_failed, account_id, format_error(exc))
+            call_while_attached(self, self._peek_failed, target, format_error(exc))
             return
-        call_while_attached(self, self._peek_loaded, account_id, items_of(body), total)
+        call_while_attached(self, self._peek_loaded, target, items_of(body), total)
 
-    def _peek_loaded(self, account_id: str, items: list, total: int) -> None:
-        self._peek_cache[account_id] = (items, total)
-        self._peek_note.pop(account_id, None)
+    def _peek_loaded(self, target: Pick, items: list, total: int) -> None:
+        self._peek_cache[target] = (items, total)
+        self._peek_note.pop(target, None)
         self._refresh_view()
 
-    def _peek_failed(self, account_id: str, message: str) -> None:
-        self._peek_note[account_id] = message
+    def _peek_failed(self, target: Pick, message: str) -> None:
+        self._peek_note[target] = message
         self._refresh_view()
 
     def _invalidate_peek(self, entries: list[Staged]) -> None:
-        """Drop the cached page of every account a save just wrote to.
+        """Drop the cached page of every pick a save just wrote to.
 
         The rows you just logged belong in the panel — it is the same ledger.
         """
         for entry in entries:
-            account_id = entry.parsed.account_id
-            if isinstance(account_id, str):
-                self._peek_cache.pop(account_id, None)
+            account_id, code = entry.parsed.account_id, entry.parsed.currency_code
+            if isinstance(account_id, str) and code:
+                self._peek_cache.pop((account_id, code), None)
         if self._peek_account and self._peek_account not in self._peek_cache:
             self._request_peek(self._peek_account)
 
@@ -1421,13 +1438,7 @@ class LogBarScreen(Screen):
         picker = self._picker
         if picker is None:
             return self._refusal_renderable()
-        labels = []
-        for ident, name in picker.candidates:
-            # an account's currency rides after the name; the other pools have
-            # none, and neither does an account the refs have not loaded yet
-            extra = currency_of(self._refs, ident) if self._refs else ""
-            labels.append(f"{name}    {extra}" if extra else name)
-        return suggestion_list(labels, self._suggest_idx)
+        return suggestion_list([_candidate_label(c) for c in picker.candidates], self._suggest_idx)
 
     def _refusal_renderable(self) -> RenderableType:
         """`! not staged — the line names no account`, in the error colour,
@@ -1441,9 +1452,7 @@ class LogBarScreen(Screen):
         head.append(", ".join(refused.reasons), style=PALETTE.error)
         rows.append(head)
         for token in parsed.unresolved:
-            for ident, name in token.candidates:
-                extra = currency_of(refs, ident)
-                rows.append(Text(f"    {name}{'    ' + extra if extra else ''}", style="dim"))
+            rows.extend(Text(f"    {_candidate_label(c)}", style="dim") for c in token.candidates)
         return Group(*rows)
 
     def _staged_renderable(self) -> RenderableType | None:
