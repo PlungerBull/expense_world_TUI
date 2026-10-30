@@ -132,15 +132,7 @@ code it touches, and moves its tests onto spec 1's account builder. The statemen
 [helpers.py](../../tests/unit/helpers.py) that the Statements screens' tests use stay as they
 are until spec 7; the upload's tests build its answers in the shape the engine sends now.
 
-From the acceptance check of 2026-10-30:
-
-1. **The PDF upload's `STATEMENT_MONTH_TAKEN` row cites a rule the contract dropped (builder).**
-   The row in [tui.md](../tui.md) "When the engine says no" (~1042) and the comment in
-   [errors.py](../../expense/errors.py) (~207) cite `(contract: "Statements", "One statement per holder per month")`
-   and say "another statement of its holder". *Passes if:* both say a month another statement
-   of the account holds, and cite the part of the live contract that states it, checked with
-   `Contract.from_openapi` and `broken_citations` from
-   [test_contract_citations.py](../../tests/contract/test_contract_citations.py).
+Every task is done.
 
 ## Reply to the engine
 

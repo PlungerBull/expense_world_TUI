@@ -204,7 +204,7 @@ _APP_FAULT = (
 #: `HAS_RECONCILIATION`, whose words show alone: the engine refuses an account that
 #: has ever been in a statement, a deleted one included (contract: "Error reasons"),
 #: `STATEMENT_MONTH_TAKEN`, whose words already name the statement holding that month
-#: (contract: "Statements", "One statement per holder per month"),
+#: (contract: "Statements", "One statement per account per month"),
 #: `CURRENCY_NOT_HELD` and `UNSUPPORTED_VALUE`, whose words already name the currency
 #: and say it is not one the account holds, or one the engine supports
 #: (contract: "Error reasons"),
