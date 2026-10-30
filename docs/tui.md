@@ -1845,11 +1845,16 @@ make rows fit that do not. Width has **no** floor of any kind.
   per account it names; the other three answer the statement the path names, read from
   the test's `GET /statements/{id}` when it serves one (its id alone otherwise), with its
   status after the write, a complete adding the close's notes to each balance.
-- **`helpers.account_record` is the shared account builder** — the engine's account
-  record, every field present, on holder `h1` (contract: GET /v1/accounts/{account_id}),
-  marked with `answer_of` so the drift check covers it. A test passes only the fields it
-  is about, by name, and varies an account with `account_record(base, field=…)`; no test
-  file defines an account builder of its own.
+- **`helpers.account_with_currencies` is the shared account builder** — the engine's account
+  as it reads now, every field present, holding its `currencies` (each a `held_currency`:
+  `currency_code`, `current_balance_cents`, `opening_balance_transaction_id`)
+  (contract: GET /v1/accounts/{account_id}), marked with `answer_of` so the drift check
+  covers it. `ENGINE_ORDER_HOLDING_ACCOUNTS` lists it in the engine's order: two bank
+  accounts and a person, each in soles and dollars. A test passes only the fields it is
+  about, by name, and varies an account with `account_with_currencies(base, field=…)`; no
+  test file defines an account builder of its own. `account_record` and
+  `ENGINE_ORDER_ACCOUNTS` are the old per-currency shape on a holder, kept for the tests
+  not yet moved; they stand for no endpoint.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
   `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"). The autouse

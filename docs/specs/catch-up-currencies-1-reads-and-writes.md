@@ -140,23 +140,6 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
 
-1. **The fake engine on accounts, transactions and bank lines, and the shared picks
-   (builder).** In [helpers.py](../../tests/unit/helpers.py): a builder of the account as the
-   engine reads it now, `statement_code` and `currencies` (each `currency_code`,
-   `current_balance_cents`, `opening_balance_transaction_id`), no `currency_code`, `holder_id`
-   or `current_balance_home_cents`, marked for `GET /v1/accounts/{account_id}`, and an
-   engine-order list of it holding a bank account and a person in two currencies each; each
-   later task moves its own tests onto them. The per-currency account builder and
-   `ENGINE_ORDER_ACCOUNTS` lose the marker and stay only for the tests not yet moved.
-   `import_part` and `bank_line_row` carry `currency_code`. In [reads.py](../../expense/reads.py):
-   one shared helper turning account rows into picks, one per account and live currency, in
-   the engine's order, labelled "<account> · <code>", each carrying the account's id and the
-   currency's code, with `account_choices`'s filters on people and archived accounts; the
-   transaction and bank-line filters take a `currency_code`.
-   *Passes if:* unit tests pin the picks and labels of a two-currency account and a two-currency
-   person in the engine's order, and a list and a count sending `currency_code` only when
-   given; the drift check no longer names `GET /v1/accounts/{account_id}` or the import's
-   `parts[0].currency_code`.
 2. **The LOG bar and the quick-add line on account and currency (builder).** The quick-add pool
    in `QuickAddRefs` becomes task 1's picks; `$name` matches the account's name as today, an
    exact name still winning, and a two-currency account offers both its picks, as two accounts

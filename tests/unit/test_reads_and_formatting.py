@@ -27,6 +27,7 @@ from expense.formatting import (
 )
 from expense.reads import (
     account_choices,
+    currency_picks,
     fetch_all_cursor_pages,
     fetch_body,
     hashtags_to_send,
@@ -38,17 +39,22 @@ from expense.reads import (
     load_quickadd_refs,
     query_params,
 )
-from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     account_record,
+    account_with_currencies,
+    bank_line_row,
     cursor_page,
     edit_limits,
     error_response,
+    held_currency,
     holder_list,
+    import_part,
     statement_list,
     statement_record,
     whole,
 )
+from tests.unit.helpers import ENGINE_URL as BASE
 
 # ---------------------------------------------------------------------------
 # format_cents
@@ -418,6 +424,80 @@ def test_account_choices_with_balance_appends_cents():
     rows = account_choices(_ACCOUNT_ROWS, include_people=False, with_balance=True)
     assert rows[0] == ("a1", "BCP", "PEN", 100)
     assert rows[1][3] is None  # missing balance stays None
+
+
+# ---------------------------------------------------------------------------
+# currency_picks: one pick per account and currency it holds
+# ---------------------------------------------------------------------------
+
+
+def test_currency_picks_one_per_account_and_currency_in_the_engines_order():
+    """A bank account and a person, each in two currencies: the accounts in the
+    order sent, PEN before USD within one, each labelled "<account> · <code>" and
+    carrying the account's id and the currency's code, never re-sorted."""
+    picks = currency_picks(ENGINE_ORDER_HOLDING_ACCOUNTS)
+    assert [(p.account_id, p.currency_code) for p in picks] == [
+        ("acc-zeta", "PEN"),
+        ("acc-zeta", "USD"),
+        ("acc-alfa", "PEN"),
+        ("acc-alfa", "USD"),
+        ("per-ana", "PEN"),
+        ("per-ana", "USD"),
+    ]
+    assert [p.label for p in picks] == [
+        "Zeta Visa · PEN",
+        "Zeta Visa · USD",
+        "Alfa Ahorros · PEN",
+        "Alfa Ahorros · USD",
+        "Ana · PEN",
+        "Ana · USD",
+    ]
+    assert picks[1].name == "Zeta Visa"
+
+
+def test_currency_picks_can_leave_out_people_and_archived_accounts():
+    archived = account_with_currencies(
+        id="acc-old", name="Old", is_archived=True, currencies=[held_currency("PEN")]
+    )
+    rows = [*ENGINE_ORDER_HOLDING_ACCOUNTS, archived]
+    assert {p.account_id for p in currency_picks(rows)} == {
+        "acc-zeta",
+        "acc-alfa",
+        "per-ana",
+        "acc-old",
+    }
+    no_people = currency_picks(rows, include_people=False)
+    assert {p.account_id for p in no_people} == {"acc-zeta", "acc-alfa", "acc-old"}
+    live = currency_picks(rows, include_archived=False)
+    assert {p.account_id for p in live} == {"acc-zeta", "acc-alfa", "per-ana"}
+
+
+def test_currency_picks_skips_id_less_rows_and_an_account_holding_no_currency():
+    rows = [
+        {"name": "no id", "currencies": [held_currency("PEN")]},
+        account_with_currencies(id="empty", name="Empty", currencies=[]),
+        account_with_currencies(id="a1", name=None, currencies=[held_currency("USD")]),
+    ]
+    assert [(p.account_id, p.label) for p in currency_picks(rows)] == [("a1", "(unnamed) · USD")]
+
+
+def test_the_new_account_builder_is_the_engines_shape_now():
+    account = account_with_currencies()
+    assert {"statement_code", "currencies"} <= set(account)
+    assert not {"currency_code", "holder_id", "current_balance_home_cents"} & set(account)
+    assert set(account["currencies"][0]) == {
+        "currency_code",
+        "current_balance_cents",
+        "opening_balance_transaction_id",
+    }
+
+
+def test_an_import_part_and_a_bank_line_carry_their_currency_code():
+    part = import_part("t-1", -500, currency_code="USD")
+    assert part["currency_code"] == "USD"
+    line = bank_line_row("bl-1", [part], net_cents=-500, currency_code="USD")
+    assert line["currency_code"] == "USD"
+    assert import_part("t-2", -500)["currency_code"] == "PEN"
 
 
 # ---------------------------------------------------------------------------
@@ -1167,3 +1247,32 @@ def test_bank_line_part_count_reads_only_the_engines_whole_number(line, count):
     which every reader takes as a line never split
     (contract: GET /v1/bank-lines/{bank_line_id})."""
     assert bank_line_part_count(line) == count
+
+
+@respx.mock
+def test_each_list_and_count_sends_currency_code_only_when_given(configured):
+    """The transaction and bank-line reads, list and count, send `?currency_code=`
+    beside `account_id` when given and nothing of it otherwise
+    (contract: GET /v1/transactions) (contract: GET /v1/bank-lines, "Filters")."""
+    from expense import config as config_module
+    from expense.reads import (
+        count_bank_lines,
+        count_transactions,
+        fetch_bank_lines,
+        fetch_transactions,
+    )
+
+    cfg = config_module.ensure_loaded()
+    reads = {
+        "/transactions": (fetch_transactions, cursor_page([])),
+        "/transactions/count": (count_transactions, {"count": 0}),
+        "/bank-lines": (fetch_bank_lines, cursor_page([])),
+        "/bank-lines/count": (count_bank_lines, {"count": 0}),
+    }
+    for path, (read, body) in reads.items():
+        route = respx.get(f"{BASE}/v1{path}").mock(return_value=httpx.Response(200, json=body))
+        read(cfg, account="acct-id")
+        assert "currency_code" not in route.calls.last.request.url.params, path
+        read(cfg, account="acct-id", currency_code="USD")
+        params = route.calls.last.request.url.params
+        assert (params["account_id"], params["currency_code"]) == ("acct-id", "USD"), path

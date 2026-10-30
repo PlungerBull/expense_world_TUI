@@ -241,6 +241,7 @@ def import_part(
     amount_cents: int,
     *,
     account_id: str = "sig-pen",
+    currency_code: str = "PEN",
     line: str = "bl-1",
     day: str = "2026-09-07",
     title: str = "TOTTUS PORONGOCHE",
@@ -269,6 +270,7 @@ def import_part(
         "transaction_type": 1 if amount_cents < 0 else 2,  # 1 outflow, 2 inflow
         "date": f"{day}T05:00:00Z",
         "account_id": account_id,
+        "currency_code": currency_code,
         "category_id": category_id,
         "statement_id": None,
         "bank_line_id": line,
@@ -344,6 +346,7 @@ def bank_line_row(
     net_cents: int,
     operation_code: str | None = None,
     account_id: str = "sig-pen",
+    currency_code: str = "PEN",
     is_opening_balance: bool = False,
 ) -> dict:
     """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
@@ -356,6 +359,7 @@ def bank_line_row(
         "id": line,
         "line_code": line_code_of(line),
         "account_id": account_id,
+        "currency_code": currency_code,
         "operation_code": operation_code,
         "statement_line": parts[0]["statement_line"] if parts else None,
         "statement_place": parts[0]["statement_place"] if parts else None,
@@ -906,9 +910,10 @@ def holder_list(items: list[dict] | None = None) -> dict:
     return whole([holder_record(item) for item in (items if items is not None else [{}])])
 
 
-#: An account as `GET /accounts/{id}` reads it, every field present: the one account
-#: of `_HOLDER`, in soles, nothing recorded on it and no opening balance; the statement
-#: code is its holder's, never the account's (contract: "Holders").
+#: The OLD shape of an account, the engine's per-currency account on a holder, kept for
+#: the tests not yet moved onto `account_with_currencies`: every field present, the one
+#: account of `_HOLDER`, in soles, nothing recorded on it and no opening balance; the
+#: statement code is its holder's, never the account's. It stands for no endpoint now.
 _ACCOUNT = {
     "id": "acc1",
     "user_id": "u-1",
@@ -929,13 +934,54 @@ _ACCOUNT = {
 }
 
 
-@answer_of("GET", "/v1/accounts/{account_id}")
 def account_record(base: dict | None = None, /, **fields: Any) -> dict:
-    """One account as the engine reads it: `base` (another account, to vary one) and
-    then `fields` spread over `_ACCOUNT` (contract: GET /v1/accounts/{account_id}).
-    It is the shared account builder: no test file defines an account builder of its
-    own. A person passes `is_person=True, holder_id=None`."""
+    """The OLD per-currency account (`currency_code`, `holder_id`,
+    `current_balance_home_cents`), kept for the tests not yet moved onto
+    `account_with_currencies`. `base` (another account, to vary one) and then `fields` spread over
+    `_ACCOUNT`. A person passes `is_person=True, holder_id=None`."""
     return {**_ACCOUNT, **(base or {}), **fields}
+
+
+def held_currency(
+    code: str, balance_cents: int = 0, *, opening_balance_transaction_id: str | None = None
+) -> dict:
+    """One entry of an account's `currencies`, every key present
+    (contract: "Bank Accounts", "`currencies`")."""
+    return {
+        "currency_code": code,
+        "current_balance_cents": balance_cents,
+        "opening_balance_transaction_id": opening_balance_transaction_id,
+    }
+
+
+#: An account as `GET /accounts/{id}` reads it now, every field present: one account
+#: holding soles, nothing recorded on it, no statement code and no opening balance.
+_ACCOUNT_HOLDING = {
+    "id": "acc1",
+    "user_id": "u-1",
+    "name": "BCP Ahorros",
+    "color": "#3b82f6",
+    "is_person": False,
+    "statement_code": None,
+    "is_archived": False,
+    "sort_order": 1,
+    "currencies": [held_currency("PEN")],
+    "created_at": "2026-04-01T15:00:00Z",
+    "updated_at": "2026-04-01T15:00:00Z",
+    "version": 1,
+    "deleted_at": None,
+}
+
+
+@answer_of("GET", "/v1/accounts/{account_id}")
+def account_with_currencies(base: dict | None = None, /, **fields: Any) -> dict:
+    """One account as the engine reads it now: `base` (another account, to vary one)
+    and then `fields` spread over `_ACCOUNT_HOLDING`; `currencies` is a list of
+    `held_currency` in the order the engine lists them, PEN before USD
+    (contract: GET /v1/accounts/{account_id}) (contract: "Bank Accounts", "Per-currency order").
+    It is the shared account builder for the model of one account holding its
+    currencies. A person passes `is_person=True`."""
+    return {**_ACCOUNT_HOLDING, **(base or {}), **fields}
 
 
 #: What `FakeClient` answers a write no `write_responses` entry names: a list of
@@ -988,9 +1034,10 @@ def _statement_deleted(client: "FakeClient", body: Any, statement_id: str) -> di
     return statement_delete_answer(_served_statement(client, statement_id))
 
 
-#: `GET /accounts?include_people=true` in an order no client could derive:
-#: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
-#: the way the engine lists people after every real account (contract: GET
+#: The OLD per-currency accounts in the engine's order, kept for the tests not yet moved
+#: onto `ENGINE_ORDER_HOLDING_ACCOUNTS`: `GET /accounts?include_people=true` in an order
+#: no client could derive: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the
+#: person last, the way the engine lists people after every real account (contract: GET
 #: /v1/accounts). Every account list and picker must show exactly this order.
 ENGINE_ORDER_ACCOUNTS = [
     account_record(id="acc-zeta", name="Zeta Ahorros", sort_order=3, current_balance_cents=500),
@@ -1021,6 +1068,36 @@ ENGINE_ORDER_ACCOUNTS = [
 #: The names as the engine orders them, people included and without them.
 ENGINE_ORDER_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS]
 ENGINE_ORDER_BANK_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS if not a["is_person"]]
+
+#: `GET /accounts?include_people=true` on the model of one account holding its currencies,
+#: in an order no client could derive by name: not alphabetical (Zeta, Alfa), the person
+#: last though her `sort_order` is the lowest, since each group numbers its own: bank
+#: accounts first, then people, each by `sort_order` ascending, then creation time,
+#: oldest first (contract: GET /v1/accounts, "Ordering"); two bank accounts and a person, each
+#: holding soles and dollars, PEN before USD
+#: (contract: "Bank Accounts", "Per-currency order").
+ENGINE_ORDER_HOLDING_ACCOUNTS = [
+    account_with_currencies(
+        id="acc-zeta",
+        name="Zeta Visa",
+        sort_order=1,
+        statement_code="ZV",
+        currencies=[held_currency("PEN", -120000), held_currency("USD", -4550)],
+    ),
+    account_with_currencies(
+        id="acc-alfa",
+        name="Alfa Ahorros",
+        sort_order=2,
+        currencies=[held_currency("PEN", 700), held_currency("USD", 25)],
+    ),
+    account_with_currencies(
+        id="per-ana",
+        name="Ana",
+        is_person=True,
+        sort_order=0,
+        currencies=[held_currency("PEN", 100), held_currency("USD", -50)],
+    ),
+]
 
 
 def in_order(text: str, names: list[str]) -> bool:

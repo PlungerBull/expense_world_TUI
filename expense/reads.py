@@ -155,6 +155,7 @@ def fetch_hashtags(
 def _filter_params(
     *,
     account: str | None,
+    currency_code: str | None,
     category: str | None,
     hashtag: str | None,
     reconciliation: str | None,
@@ -167,10 +168,13 @@ def _filter_params(
     The engine declares them once for both endpoints, so the list and its count
     describe the same rows by construction; this mirrors that. Filters only:
     paging, `sort` and `debit_as_negative` are the list's own, and the count
-    422s on any parameter it does not declare.
+    422s on any parameter it does not declare. `currency_code` narrows `account` to
+    one currency of it, or reads that currency on every account when `account` is
+    not given (contract: GET /v1/transactions).
     """
     return query_params(
         account_id=account,
+        currency_code=currency_code,
         category_id=category,
         hashtag_id=hashtag,
         statement_id=reconciliation,
@@ -184,6 +188,7 @@ def fetch_transactions(
     cfg,
     *,
     account: str | None = None,
+    currency_code: str | None = None,
     category: str | None = None,
     hashtag: str | None = None,
     reconciliation: str | None = None,
@@ -205,6 +210,7 @@ def fetch_transactions(
     params = {
         **_filter_params(
             account=account,
+            currency_code=currency_code,
             category=category,
             hashtag=hashtag,
             reconciliation=reconciliation,
@@ -265,6 +271,7 @@ def fetch_bank_lines(
     *,
     ids: Iterable[str] | None = None,
     account: str | None = None,
+    currency_code: str | None = None,
     reconciliation: str | None = None,
     unreconciled: bool = False,
     date_from: str | None = None,
@@ -301,6 +308,7 @@ def fetch_bank_lines(
             **_line_filter_params(
                 ids=ids,
                 account=account,
+                currency_code=currency_code,
                 reconciliation=reconciliation,
                 unreconciled=unreconciled,
                 date_from=date_from,
@@ -343,6 +351,7 @@ def _line_filter_params(
     *,
     ids: Iterable[str] | None,
     account: str | None,
+    currency_code: str | None,
     reconciliation: str | None,
     unreconciled: bool,
     date_from: str | None,
@@ -352,10 +361,12 @@ def _line_filter_params(
     """The filters `GET /bank-lines` and `/bank-lines/count` share — one copy,
     so the list and its count describe the same lines (contract: GET /v1/bank-lines/count).
     `ids` goes comma-joined, as the engine reads it; `review_of` goes as
-    `unassigned_in_period_of`."""
+    `unassigned_in_period_of`; `currency_code` is that currency of `account`, or on
+    every account when none is given (contract: GET /v1/bank-lines, "Filters")."""
     return query_params(
         ids=None if ids is None else ",".join(ids),
         account_id=account,
+        currency_code=currency_code,
         statement_id=reconciliation,
         unreconciled=unreconciled,
         date_from=date_from,
@@ -369,6 +380,7 @@ def count_bank_lines(
     *,
     ids: Iterable[str] | None = None,
     account: str | None = None,
+    currency_code: str | None = None,
     reconciliation: str | None = None,
     unreconciled: bool = False,
     date_from: str | None = None,
@@ -391,6 +403,7 @@ def count_bank_lines(
         params=_line_filter_params(
             ids=ids,
             account=account,
+            currency_code=currency_code,
             reconciliation=reconciliation,
             unreconciled=unreconciled,
             date_from=date_from,
@@ -414,6 +427,7 @@ def count_transactions(
     cfg,
     *,
     account: str | None = None,
+    currency_code: str | None = None,
     category: str | None = None,
     hashtag: str | None = None,
     reconciliation: str | None = None,
@@ -433,6 +447,7 @@ def count_transactions(
         path="/transactions/count",
         params=_filter_params(
             account=account,
+            currency_code=currency_code,
             category=category,
             hashtag=hashtag,
             reconciliation=reconciliation,
@@ -786,7 +801,9 @@ def account_choices(
 
     Skips id-less rows and (unless `include_people`) person accounts. One copy
     of the build shared by the edit form, the new-reconciliation form,
-    and the reconciliations browse.
+    and the reconciliations browse. It reads the old per-currency shape (`currency_code`
+    on the row), kept for the callers not yet moved; `currency_picks` reads an account
+    as the engine sends it now.
     """
     out: list[tuple] = []
     for a in items:
@@ -798,6 +815,55 @@ def account_choices(
         if with_balance:
             row = (*row, a.get("current_balance_cents"))
         out.append(row)
+    return out
+
+
+class CurrencyPick(NamedTuple):
+    """One pick of a currency: an account and one currency it holds. `label` is
+    "<account> · <code>", the words the app shows for a currency (a currency has no
+    name of its own); `name` is the account's alone, what a typed `$name` matches."""
+
+    account_id: str
+    label: str
+    currency_code: str
+    name: str
+
+
+def currency_picks(
+    items: list, *, include_people: bool = True, include_archived: bool = True
+) -> list[CurrencyPick]:
+    """Picks from account rows: one per account and currency it holds, labelled
+    "<account> · <code>".
+
+    Every entry of an account's `currencies` is live, an archived account's included
+    (a removed currency is not listed), and the engine lists accounts in their order
+    and each account's currencies PEN before USD, so the picks keep the order given
+    and are never re-sorted (contract: "Bank Accounts", "`currencies`")
+    (contract: "Bank Accounts", "Per-currency order"). An account holding none gives
+    no pick. Skips id-less rows, person accounts unless `include_people`, and
+    archived accounts unless `include_archived`.
+    """
+    out: list[CurrencyPick] = []
+    for account in items:
+        if not account.get("id"):
+            continue
+        if not include_people and account.get("is_person"):
+            continue
+        if not include_archived and account.get("is_archived"):
+            continue
+        name = account.get("name") or "(unnamed)"
+        for held in account.get("currencies") or []:
+            code = held.get("currency_code")
+            if not code:
+                continue
+            out.append(
+                CurrencyPick(
+                    account["id"],
+                    f"{name} · {code}",
+                    code,
+                    name,
+                )
+            )
     return out
 
 
