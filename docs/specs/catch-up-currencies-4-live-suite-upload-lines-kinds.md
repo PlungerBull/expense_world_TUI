@@ -93,20 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-1. **The upload on the account (builder).**
-   [test_statement_import.py](../../tests/contract/test_statement_import.py) and
-   [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) on
-   `POST /statements/import`: rows and balances read `currency_code`; `statement_id` and
-   `creates`; `STATEMENT_MONTH_TAKEN` on one account; `CURRENCY_NOT_HELD` on `account_id` for a
-   dollar paper sent to a soles-only account; `ACCOUNT_CURRENCY_NOT_ON_PAPER` for a soles paper
-   sent to an account whose dollars hold a line or money at the start; a line one day off
-   matched and moved (`redated`, `counts.redated`; a dry run says so and moves nothing), a line
-   two days off created and flagged; `PERSON_TAKES_NO_STATEMENT` on the upload and on the bank
-   download, on a dry run as on an apply. The drawn papers in
-   [conftest.py](../../tests/contract/conftest.py) cite the stated layout in place of the
-   probed one.
-   *Passes if:* both files pass live, the drawn papers cite the stated layout, and no test reads
-   `near_misses`, `NO_ACCOUNT_FOR_CURRENCY` or `HOLDER_ACCOUNT_NOT_ON_PAPER`.
 2. **The published samples (builder).** In test_statement_import.py: `card` then
    `card-no-dollars` closing one account of PEN and USD month after month, the first with
    `[PEN -125000 → -37959, USD -8000 → -10498]`, the second closing USD `-10498 → -10498` with
@@ -230,6 +216,12 @@ completed statement gaining a currency. Each held as the contract states it.
   so every client can test the statement upload" stays closed: the samples are tested live.
   "An account holds its currencies: the holder becomes the account, and each account becomes
   one of its currencies" closes with [spec 7](catch-up-currencies-7-statement-screen.md).
+- **Contract problems found:** `POST /statements/import` lists `STATEMENT_MONTH_TAKEN` on `file`
+  among its refusals, but its own rule makes the account's live statement whose `date_end` is in
+  the paper's month the paper's, so no other statement can hold that month; only a
+  `POST`/`PUT /statements` landing between the upload's read and its write reaches it. Either drop
+  it from the upload's refusals, or state that it comes only from a concurrent statement write and
+  name it under the upload's "Concurrency" part.
 
 ## Found along the way
 

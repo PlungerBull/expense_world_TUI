@@ -32,9 +32,9 @@ and the key it names:
   · POST /v1/transactions/import-sheet, the apply of a made-up sheet whose row is an
     account's opening balance, on `rows.<row>.category_id`
     (contract: POST /v1/transactions/import-sheet);
-  · POST /v1/reconciliations/import, the apply of a made-up savings statement PDF
+  · POST /v1/statements/import, the apply of a made-up savings statement PDF
     (`savings_paper` in conftest.py) whose row is new, which needs both, on `category_id`
-    or `hashtag_ids`, whichever it needs first (contract: POST /v1/reconciliations/import).
+    or `hashtag_ids`, whichever it needs first (contract: POST /v1/statements/import).
 
 After each refusal, nothing was written: the account's transaction count, the bank line or
 transaction it would have changed, and the user's categories and hashtags read as before.
@@ -55,16 +55,17 @@ from expense.bank_line_write import line_body, new_part
 from expense.http import ExpenseClient
 from expense.import_.engine import request_body
 from tests.contract.conftest import (
+    CURRENT_HEADER,
     PaperRow,
     Scratch,
     assert_refusal,
     free_statement_codes,
     refused,
     savings_paper,
+    send_download,
     send_statement,
     sheet_file,
     sheet_row,
-    workbook,
 )
 
 #: The names the reserved-names user's own rows hold: two categories and a hashtag.
@@ -123,6 +124,7 @@ def _row(made: Scratch, account_id: str, **fields) -> dict:
         "title": "contract reserved row",
         "amount_cents": AMOUNT,
         "account_id": account_id,
+        "currency_code": "PEN",
         "date": made.noon(DAY),
         **fields,
     }
@@ -217,7 +219,12 @@ def test_deleting_a_transactions_only_hashtag_is_refused(reserved_client, made):
 
 def test_an_opening_balance_needing_opening_is_refused(reserved_client, made):
     account = made.account()
-    body = {"transaction_id": str(uuid4()), "amount_cents": 50000, "date": made.noon(DAY)}
+    body = {
+        "transaction_id": str(uuid4()),
+        "currency_code": "PEN",
+        "amount_cents": 50000,
+        "date": made.noon(DAY),
+    }
     made.transactions.append(body["transaction_id"])
     _refused_writing_nothing(
         reserved_client,
@@ -229,16 +236,10 @@ def test_an_opening_balance_needing_opening_is_refused(reserved_client, made):
 
 def test_a_bank_download_creating_a_row_is_refused(reserved_client, made):
     account = made.account()
-    file = workbook(
-        [
-            ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"],
-            ["04/05/2026", "contract reserved row", "S/", AMOUNT / 100, "000123"],
-        ]
-    )
+    rows = [CURRENT_HEADER, ["04/05/2026", "contract reserved row", "S/", AMOUNT / 100, "000123"]]
 
     def upload(dry_run: bool) -> dict:
-        body = {"dry_run": dry_run, "account_id": account, "file": file}
-        return reserved_client.post("/transactions/import", json_body=body)
+        return send_download(reserved_client, account, rows, dry_run=dry_run)
 
     assert [row["outcome"] for row in upload(True)["rows"]] == ["new"]
     _refused_writing_nothing(
@@ -259,7 +260,7 @@ def test_a_sheet_creating_an_opening_balance_is_refused(reserved_client, made):
         "PEN",
     )
     names = {
-        "accounts": [{"name": name, "currency_code": "PEN", "account_id": account}],
+        "accounts": [{"name": name, "account_id": account}],
         "categories": [],
         "hashtags": [],
     }
@@ -274,7 +275,7 @@ def test_a_sheet_creating_an_opening_balance_is_refused(reserved_client, made):
 
 def test_a_statement_pdf_creating_a_row_is_refused(reserved_client, made):
     code = free_statement_codes(reserved_client, 1)[0]
-    account = made.account("PEN", code)
+    account = made.account("PEN", code=code)
     paper = savings_paper(
         [PaperRow(date(2026, 5, 4), "CONTRACT RESERVED", AMOUNT)],
         start=date(2026, 5, 1),
@@ -290,4 +291,4 @@ def test_a_statement_pdf_creating_a_row_is_refused(reserved_client, made):
         "category_id",
         "hashtag_ids",
     )
-    assert reserved_client.get("/reconciliations", params={"account_id": account})["items"] == []
+    assert reserved_client.get("/statements", params={"account_id": account})["items"] == []

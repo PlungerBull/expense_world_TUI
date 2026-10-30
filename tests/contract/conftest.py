@@ -400,15 +400,12 @@ def sheet_file(rows: list[list]) -> bytes:
 
 # ---- made-up statement PDFs ----
 #
-# The contract names what a BCP paper holds, in words (contract: POST /v1/statements/import,
-# "The paper"). Where each thing sits on the page it does not state: the layout below is what
-# the engine's dry-run answers show it reads, learnt from the page, line and cell its
-# `UNEXPECTED_LAYOUT` messages name. The engine ask "Publish one made-up sample statement PDF
-# per paper, so every client can test the statement upload" asks for it to be stated.
+# The contract states what a BCP paper holds and where (contract: POST /v1/statements/import,
+# "The paper's layout"): lines read left to right within 1 point of a line's first character,
+# a savings account's table a fixed-width record of columns 0 to 72 in one fixed-pitch font.
 
 #: Every character of a made-up paper is Courier, whose characters are all one width, at
-#: this size, so a line is a row of character cells: the engine's answers show it reads a
-#: savings account's paper as such a grid, each of its columns a range of cells.
+#: this size, so a line is a row of character cells, each cell a column of the stated table.
 _PDF_FONT_SIZE = 7
 #: Where the cells start, how far apart two lines print (closer lines read as one), and the
 #: page's top and bottom margins, all in points.
@@ -487,23 +484,24 @@ def _ending(cell: int, text: str) -> tuple[int, str]:
     return cell - len(text) + 1, text
 
 
-#: A savings account's paper, as its cells, as the engine's answers show it reads them (the
-#: contract does not state them): the processing date, the value date, the description (up to
-#: `_TEXT_WIDTH` characters), and the amount, out ending in `_OUT_END` or in ending in
-#: `_IN_END`. The engine reads the header word for word, and the totals line's amounts only
-#: under its `CARGOS` and `ABONOS`, so they end in the same cells.
-_PROCESSED, _VALUED, _TEXT, _TEXT_WIDTH, _OUT_END, _IN_END = 14, 20, 26, 18, 67, 86
+#: A savings account's table by its stated columns (contract: POST /v1/statements/import,
+#: "The paper's layout"): the processing date from column 0, the value date from column 6,
+#: the description from column 12 (18 characters at most, `_TEXT_WIDTH`), and the amount, out
+#: ending in column 53 (`_OUT_END`) or in ending in column 72 (`_IN_END`). Column 0 is the
+#: first cell, so `SALDO ANTERIOR` starts in column 12 as the layout asks. The column header
+#: line is read word for word, and the totals' amounts print within 5 points of their labels,
+#: the out total left and the in total and closing balance right of the point halfway between
+#: where `DEBE` and `HABER` end.
+_PROCESSED, _VALUED, _TEXT, _TEXT_WIDTH, _OUT_END, _IN_END = 0, 6, 12, 18, 53, 72
 _SAVINGS_HEADER = _cells(
     (0, "FECHA PROC."),
     (12, "FECHA VALOR"),
-    (_TEXT, "DESCRIPCION"),
+    (24, "DESCRIPCION"),
     _ending(_OUT_END, "CARGOS / DEBE"),
     _ending(_IN_END, "ABONOS / HABER"),
 )
-#: How far above its label, in points, a totals line's amounts print. The engine's answers
-#: show it reads the label standing alone on its line and the amounts beside it a little off
-#: its baseline; on the label's own baseline they join its line, and the label does not read.
-#: The contract does not state it.
+#: How far above its label, in points, a totals line's amounts print: within 5 points of the
+#: label's line and more than 1 point off it, since each label stands alone on its line.
 _BESIDE = 3
 _MONTHS = ("ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SET", "OCT", "NOV", "DIC")
 _SAVINGS_CURRENCIES = {"PEN": ("Soles", "SOLES"), "USD": ("Dolares", "US DOLARES")}
