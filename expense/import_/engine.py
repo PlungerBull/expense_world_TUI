@@ -24,7 +24,7 @@ Every write is one `ExpenseClient.post`, which carries its own idempotency key.
 """
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from uuid import uuid4
 
@@ -71,65 +71,52 @@ class RenameRefused(ValueError):
     sentence the command shows."""
 
 
-#: One `--account-name`: the sheet's name, its currency, the ledger name.
-Rename = tuple[str, str, str]
+#: One `--account-name`: the sheet's name and the ledger name.
+Rename = tuple[str, str]
 
 
-def rename_key(name: str, currency: str) -> tuple[str, str]:
+def rename_key(name: str) -> str:
     """How a renamed sheet account is found: its name trimmed and
-    case-insensitive, its currency upper-case."""
-    return (name.strip().casefold(), currency.strip().upper())
+    case-insensitive."""
+    return name.strip().casefold()
 
 
 def parse_account_name(value: str) -> Rename:
-    """`"BCP:PEN=Sueldo Soles"` → `("BCP", "PEN", "Sueldo Soles")`.
+    """`"BCP=Sueldo Soles"` → `("BCP", "Sueldo Soles")`.
 
-    The ledger name is everything after the first `=`; the currency is what
-    follows the last `:` before it, so a sheet name may itself hold a colon.
+    The ledger name is everything after the first `=`; the sheet's name is
+    what comes before it, and may itself hold a colon or a currency.
     """
-    left, eq, ledger = value.partition("=")
-    sheet, colon, currency = left.rpartition(":")
-    sheet, currency, ledger = sheet.strip(), currency.strip().upper(), ledger.strip()
-    if not eq or not colon or not sheet or not currency or not ledger:
-        raise RenameRefused(
-            f'{value!r} is not SHEET_NAME:CURRENCY=LEDGER_NAME (e.g. "BCP:PEN=Sueldo Soles").'
-        )
-    return sheet, currency, ledger
+    sheet, eq, ledger = value.partition("=")
+    sheet, ledger = sheet.strip(), ledger.strip()
+    if not eq or not sheet or not ledger:
+        raise RenameRefused(f'{value!r} is not SHEET_NAME=LEDGER_NAME (e.g. "BCP=Sueldo Soles").')
+    return sheet, ledger
 
 
-def _key_of_saved(saved_key: str) -> tuple[str, str] | None:
-    """A `sheet_account_names` key (`"BCP:PEN"`, the currency after the last
-    `:`) as a `rename_key`; None without both a name and a currency."""
-    sheet, colon, currency = saved_key.rpartition(":")
-    if colon and sheet.strip() and currency.strip():
-        return rename_key(sheet, currency)
-    return None
-
-
-def saved_renames(saved: Mapping[str, str]) -> dict[tuple[str, str], str]:
-    """The config's `sheet_account_names` (`"BCP:PEN"` → `"Sueldo Soles"`)
-    keyed by `rename_key`; a key without both a name and a currency, or with
-    no ledger name, is left out."""
-    out: dict[tuple[str, str], str] = {}
+def saved_renames(saved: Mapping[str, str]) -> dict[str, str]:
+    """The config's `sheet_account_names` (`"BCP"` → `"Sueldo Soles"`) keyed
+    by `rename_key`; a key with no name, or a rename with no ledger name, is
+    left out. A key that no sheet name matches (such as an older `"BCP:PEN"`)
+    renames nothing."""
+    out: dict[str, str] = {}
     for saved_key, ledger in saved.items():
-        key = _key_of_saved(saved_key)
-        if key is not None and ledger.strip():
-            out[key] = ledger.strip()
+        if saved_key.strip() and ledger.strip():
+            out[rename_key(saved_key)] = ledger.strip()
     return out
 
 
 def merge_renames(
     saved: Mapping[str, str], flags: Iterable[Rename]
-) -> tuple[dict[str, str], dict[tuple[str, str], str]]:
+) -> tuple[dict[str, str], dict[str, str]]:
     """The saved renames with this run's flags: a flag replaces a saved entry
     for the same sheet account, whatever its letter case. Returns the
     `sheet_account_names` to save and the renames keyed by `rename_key`."""
     merged = dict(saved)
-    for sheet, currency, ledger in flags:
-        key = rename_key(sheet, currency)
-        for old in [k for k in merged if _key_of_saved(k) == key]:
+    for sheet, ledger in flags:
+        for old in [k for k in merged if rename_key(k) == rename_key(sheet)]:
             del merged[old]
-        merged[f"{sheet}:{currency}"] = ledger
+        merged[sheet] = ledger
     return merged, saved_renames(merged)
 
 
@@ -149,7 +136,8 @@ class NameEntry:
 
     kind: str  # ACCOUNT, CATEGORY or HASHTAG
     name: str  # the sheet's name, as the engine lists it
-    currency: str | None  # an account's; None for a category or hashtag
+    #: An account's currencies, in the engine's order; empty for a category or hashtag.
+    currencies: tuple[str, ...]
     rows: int  # the rows using it, as the engine counts them
     goes: Goes
     #: The id it goes to: the engine's proposal, or your account of its rename;
@@ -166,12 +154,12 @@ class NameEntry:
         return self.renamed_to or self.name
 
 
-def _create_key(entry: NameEntry) -> tuple[str, str, str | None]:
+def _create_key(entry: NameEntry) -> tuple[str, str]:
     """Two missing names are one when the engine would refuse the second as
-    taken: names are unique case-insensitively, an account's per currency
+    taken: names are unique case-insensitively
     (contract: POST /v1/accounts, "Validation")
     (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
-    return (entry.kind, entry.ledger_name.strip().casefold(), entry.currency)
+    return (entry.kind, entry.ledger_name.strip().casefold())
 
 
 def _listed(answer: dict, kind: str) -> list[dict]:
@@ -179,97 +167,89 @@ def _listed(answer: dict, kind: str) -> list[dict]:
     return list(names.get(_KINDS[kind][0]) or [])
 
 
-def renamed_accounts(answer: dict, renames: Mapping[tuple[str, str], str]) -> bool:
+def renamed_accounts(answer: dict, renames: Mapping[str, str]) -> bool:
     """Whether any account the answer lists has a rename: only then are your
     accounts read."""
-    return any(
-        rename_key(str(a.get("name")), str(a.get("currency_code"))) in renames
-        for a in _listed(answer, ACCOUNT)
-    )
+    return any(rename_key(str(a.get("name"))) in renames for a in _listed(answer, ACCOUNT))
 
 
 def names_table(
     answer: dict,
-    renames: Mapping[tuple[str, str], str],
+    renames: Mapping[str, str],
     accounts: list[dict],
 ) -> list[NameEntry]:
     """Every name the engine's answer lists, in its order (accounts, then
     categories, then hashtags), and where each goes.
 
     - A renamed account (`renames`, keyed by `rename_key`) goes to your
-      account of the rename's name in its currency, when `accounts` (your
-      accounts as `GET /accounts` lists them, archived and people included)
-      holds one, compared as the engine compares account names; else it is
-      missing, to be created under the rename
-      (contract: POST /v1/accounts, "Validation").
+      account of the rename's name, when `accounts` (your accounts as
+      `GET /accounts` lists them, archived and people included) holds one,
+      compared as the engine compares account names; else it is missing, to
+      be created under the rename (contract: POST /v1/accounts, "Validation").
     - Any other name goes to the engine's `proposed_id`, yours under that name
       (contract: POST /v1/transactions/import-sheet, "Names").
-    - A name with neither is missing, to be created under the sheet's name:
-      an account in the sheet's currency, never with the currency added to
-      its name.
+    - A name with neither is missing, to be created under the sheet's name,
+      holding the currencies its rows are in.
     """
     yours = {
-        (str(a.get("name") or "").strip().casefold(), str(a.get("currency_code") or "")): str(
-            a["id"]
-        )
-        for a in accounts
-        if a.get("id")
+        str(a.get("name") or "").strip().casefold(): str(a["id"]) for a in accounts if a.get("id")
     }
     table: list[NameEntry] = []
     for kind in (ACCOUNT, CATEGORY, HASHTAG):
         for item in _listed(answer, kind):
             name = str(item.get("name"))
-            currency = str(item.get("currency_code")) if kind == ACCOUNT else None
+            currencies = tuple(str(c) for c in item.get("currencies") or ())
             rows = int(item.get("rows") or 0)
-            renamed = renames.get(rename_key(name, currency)) if currency is not None else None
+            renamed = renames.get(rename_key(name)) if kind == ACCOUNT else None
             if renamed is not None:
-                target = yours.get((renamed.strip().casefold(), str(currency)))
+                target = yours.get(renamed.strip().casefold())
             else:
                 proposed = item.get("proposed_id")
                 target = str(proposed) if proposed else None
             goes = Goes.YOURS if target else Goes.MISSING
-            table.append(NameEntry(kind, name, currency, rows, goes, target, renamed))
+            table.append(NameEntry(kind, name, currencies, rows, goes, target, renamed))
     return table
 
 
 def check_renames(table: list[NameEntry], flags: Iterable[Rename]) -> None:
     """Refuse (`RenameRefused`) a flag naming an account the sheet does not
     have, and a rename that puts two of the sheet's accounts on one: the same
-    ledger name, compared as the engine compares account names, in the same
-    currency. Two of the sheet's names that one rename covers (`BCP` and
-    `bcp`) are one account to it, not two."""
+    ledger name, compared as the engine compares account names. Two of the
+    sheet's names that one rename covers (`BCP` and `bcp`) are one account to
+    it, not two."""
     accounts = [e for e in table if e.kind == ACCOUNT]
-    listed = {rename_key(e.name, str(e.currency)) for e in accounts}
-    for sheet, currency, _ledger in flags:
-        if rename_key(sheet, currency) not in listed:
-            raise RenameRefused(f'the sheet has no account "{sheet}" in {currency}.')
-    landing: dict[tuple[str, str | None], NameEntry] = {}
+    listed = {rename_key(e.name) for e in accounts}
+    for sheet, _ledger in flags:
+        if rename_key(sheet) not in listed:
+            raise RenameRefused(f'the sheet has no account "{sheet}".')
+    landing: dict[str, NameEntry] = {}
     for entry in accounts:
-        key = (entry.ledger_name.strip().casefold(), entry.currency)
-        other = landing.setdefault(key, entry)
-        same_account = rename_key(other.name, str(other.currency)) == rename_key(
-            entry.name, str(entry.currency)
-        )
-        if other is entry or same_account:
+        other = landing.setdefault(entry.ledger_name.strip().casefold(), entry)
+        if other is entry or rename_key(other.name) == rename_key(entry.name):
             continue
         if other.renamed_to is not None or entry.renamed_to is not None:
             raise RenameRefused(
-                f'"{other.name}" and "{entry.name}" would both be written as '
-                f'"{entry.ledger_name}" [{entry.currency}].'
+                f'"{other.name}" and "{entry.name}" would both be written as "{entry.ledger_name}".'
             )
 
 
 def missing_names(table: list[NameEntry]) -> list[NameEntry]:
     """The names the create step creates, in the table's order: each missing
-    entry, once per name the engine would hold as one (`_create_key`)."""
-    seen: set[tuple[str, str, str | None]] = set()
-    out: list[NameEntry] = []
+    entry, once per name the engine would hold as one (`_create_key`); an
+    account that stands for several sheet names holds the currencies of all
+    of them."""
+    out: dict[tuple[str, str], NameEntry] = {}
     for entry in table:
+        if entry.goes is not Goes.MISSING:
+            continue
         key = _create_key(entry)
-        if entry.goes is Goes.MISSING and key not in seen:
-            seen.add(key)
-            out.append(entry)
-    return out
+        first = out.get(key)
+        if first is None:
+            out[key] = entry
+        else:
+            extra = tuple(c for c in entry.currencies if c not in first.currencies)
+            out[key] = replace(first, currencies=(*first.currencies, *extra))
+    return list(out.values())
 
 
 def table_body(table: list[NameEntry]) -> dict:
@@ -281,10 +261,7 @@ def table_body(table: list[NameEntry]) -> dict:
         listed, id_key, _route = _KINDS[entry.kind]
         if entry.target_id is None:
             raise ValueError(f"{entry.kind} {entry.name!r} has no id to send")
-        sent = {"name": entry.name, id_key: entry.target_id}
-        if entry.currency is not None:
-            sent["currency_code"] = entry.currency
-        body[listed].append(sent)
+        body[listed].append({"name": entry.name, id_key: entry.target_id})
     return body
 
 
@@ -370,12 +347,12 @@ class Stage(Enum):
 @dataclass(frozen=True)
 class Created:
     """One name the create step created: its kind, the name it was created
-    under (the sheet's, or its rename), an account's currency, its id, and
+    under (the sheet's, or its rename), an account's currencies, its id, and
     the engine's answer to the create, untouched."""
 
     kind: str
     name: str
-    currency: str | None
+    currencies: tuple[str, ...]
     id: str
     answer: dict = field(default_factory=dict, compare=False)
 
@@ -413,13 +390,13 @@ class SheetImport:
 
 
 def _create_body(entry: NameEntry, new_id: str) -> dict:
-    """A name's create: an account under its ledger name in the sheet's
-    currency (contract: POST /v1/accounts); a category or hashtag under the
-    sheet's name, with no colour
+    """A name's create: an account under its ledger name holding the
+    currencies, as the sheet's rows use them (contract: POST /v1/accounts,
+    "Required"); a category or hashtag under the sheet's name, with no colour
     (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
-    body = {"id": new_id, "name": entry.ledger_name}
-    if entry.currency is not None:
-        body["currency_code"] = entry.currency
+    body: dict = {"id": new_id, "name": entry.ledger_name}
+    if entry.kind == ACCOUNT:
+        body["currencies"] = [{"currency_code": code} for code in entry.currencies]
     return body
 
 
@@ -431,7 +408,7 @@ def import_sheet(
     data: bytes,
     *,
     step: Step,
-    renames: Mapping[tuple[str, str], str],
+    renames: Mapping[str, str],
     flags: Iterable[Rename] = (),
     verbose: bool = False,
 ) -> SheetImport:
@@ -477,7 +454,7 @@ def import_sheet(
                     new_id = str(uuid4())
                     made = client.post(_KINDS[entry.kind][2], _create_body(entry, new_id))
                     result.created.append(
-                        Created(entry.kind, entry.ledger_name, entry.currency, new_id, made)
+                        Created(entry.kind, entry.ledger_name, entry.currencies, new_id, made)
                     )
             elif not missing:
                 result.stage = Stage.APPLY if step is Step.APPLY else Stage.COUNTS

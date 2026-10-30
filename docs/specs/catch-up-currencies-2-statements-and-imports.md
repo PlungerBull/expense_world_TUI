@@ -131,19 +131,7 @@ code it touches, and moves its tests onto spec 1's account builder. The statemen
 [helpers.py](../../tests/unit/helpers.py) that the Statements screens' tests use stay as they
 are until spec 7; the upload's tests build its answers in the shape the engine sends now.
 
-1. **The sheet import on account names (builder).**
-   [engine.py](../../expense/import_/engine.py) sends `names.accounts` as `{name, account_id}`,
-   one per name; the table reads each name's `currencies` and lists them in the CUR column,
-   `PEN + USD`; `--create-names` sends `POST /accounts` with each missing name's `currencies`; a
-   rename is keyed by the sheet's name, `--account-name SHEET_NAME=LEDGER_NAME`, the config's
-   `sheet_account_names` keyed by name; `CURRENCY_NOT_HELD` on
-   `names.accounts.<i>.account_id` shows in the engine's words. The per-currency account
-   builder goes. Files: engine.py, [import_cmd.py](../../expense/commands/import_cmd.py),
-   [config.py](../../expense/config.py), the sheet tests, commands.md.
-   *Passes if:* unit tests pin the body, a two-currency name's create, the table's CUR column, a
-   rename in the new form, and the refusal; the drift check's fixture check finds nothing in the
-   sheet import's builders.
-2. **The saved renames and two names on one account (builder).**
+1. **The saved renames and two names on one account (builder).**
    A saved rename keyed with a currency is read by its name alone, and two sheet names renamed
    onto one account are allowed, as "What the owner settled" says; commands.md says so.
    *Passes if:* unit tests pin a config holding `BCP:PEN` and `BCP:USD` going to one ledger name

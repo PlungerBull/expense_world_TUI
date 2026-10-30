@@ -18,6 +18,7 @@ from typer.testing import CliRunner
 from expense import config as config_module
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
+    account_with_currencies,
     error_body,
     real_cli_app,
     sheet_import_answer,
@@ -56,7 +57,7 @@ def _body(request: httpx.Request) -> dict:
 
 # ---- the mockup's made-up sheet ----------------------------------------------------
 def _names(*, yours: bool) -> dict:
-    """Screen 1's names (`yours` False, `BCP` PEN renamed to `Sueldo Soles`), or
+    """Screen 1's names (`yours` False, `BCP` renamed to `Sueldo Soles`), or
     screen 3's, every one proposed."""
 
     def p(ident: str) -> str | None:
@@ -64,11 +65,10 @@ def _names(*, yours: bool) -> dict:
 
     return {
         "accounts": [
-            sheet_name_use("BCP", 1204, p("acc-bcp-pen"), currency_code="PEN"),
-            sheet_name_use("BCP", 311, "acc-bcp-usd", currency_code="USD"),
-            sheet_name_use("Interbank", 402, p("acc-ib"), currency_code="PEN"),
-            sheet_name_use("Ana", 38, p("acc-ana-pen"), currency_code="PEN"),
-            sheet_name_use("Ana", 6, p("acc-ana-usd"), currency_code="USD"),
+            sheet_name_use("BCP", 1515, p("acc-bcp"), currencies=["PEN", "USD"]),
+            sheet_name_use("Interbank", 402, p("acc-ib"), currencies=["PEN"]),
+            sheet_name_use("Visa", 261, p("acc-visa"), currencies=["PEN", "USD"]),
+            sheet_name_use("Ana", 44, p("acc-ana"), currencies=["PEN", "USD"]),
         ],
         "categories": [
             sheet_name_use("Comida", 1010, p("cat-comida")),
@@ -118,7 +118,7 @@ def _counted_rows(outcome: str = "new", *, sealed: tuple[int, ...] = ()) -> list
 
 
 #: The renamed account as `GET /accounts` lists it once it exists.
-SUELDO = {"id": "acc-sueldo", "name": "Sueldo Soles", "currency_code": "PEN", "is_archived": False}
+SUELDO = account_with_currencies(id="acc-sueldo", name="Sueldo Soles")
 
 
 def _engine(first: dict | httpx.Response, tabled: dict | httpx.Response | None = None):
@@ -167,13 +167,12 @@ def _saved() -> dict[str, str]:
 
 
 SCREEN_1 = """\
-Accounts (5)
-  SHEET NAME   CUR    ROWS   GOES TO
-  BCP          PEN   1,204   Sueldo Soles  missing
-  BCP          USD     311   yours
-  Interbank    PEN     402   missing
-  Ana          PEN      38   missing
-  Ana          USD       6   missing
+Accounts (4)
+  SHEET NAME   CUR          ROWS   GOES TO
+  BCP          PEN + USD   1,515   Sueldo Soles  missing
+  Interbank    PEN           402   missing
+  Visa         PEN + USD     261   missing
+  Ana          PEN + USD      44   missing
 
 Categories (4)
   SHEET NAME       ROWS   GOES TO
@@ -205,13 +204,13 @@ def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missin
     route = _engine(_answer(yours=False))
     accounts = _accounts([])
     creates = _creates()
-    result = _run("--account-name", "BCP:PEN=Sueldo Soles")
+    result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
     assert result.stdout == SCREEN_1
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     assert route.call_count == 1 and accounts.call_count == 1
     assert all(r.call_count == 0 for r in creates.values())
-    assert _saved() == {"BCP:PEN": "Sueldo Soles"}
+    assert _saved() == {"BCP": "Sueldo Soles"}
 
 
 @respx.mock
@@ -223,7 +222,7 @@ def test_the_create_steps_command_line_keeps_the_file_as_typed(sheet, tmp_path):
     accounts = _accounts([])
     result = _run(file="mi libro.xlsx")
     assert result.exit_code == 0, _out(result)
-    assert "  BCP          PEN   1,204   missing\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   missing\n" in result.stdout
     assert "  expense import sheet 'mi libro.xlsx' --create-names\n" in result.stdout
     assert "9 names don't exist yet. Create them with:\n" in result.stdout
     assert accounts.call_count == 0
@@ -232,7 +231,7 @@ def test_the_create_steps_command_line_keeps_the_file_as_typed(sheet, tmp_path):
 @respx.mock
 def test_one_missing_name_reads_in_the_singular(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, "acc-bcp", currency_code="PEN")],
+        accounts=[sheet_name_use("BCP", 2, "acc-bcp", currencies=["PEN"])],
         categories=[sheet_name_use("Comida", 2, "cat-comida")],
         hashtags=[sheet_name_use("Nuevo", 2)],
     )
@@ -253,7 +252,7 @@ def test_the_create_step_creates_every_missing_name_and_imports_nothing(sheet):
     goes only as a dry run without the table, first."""
     config_module.save(
         config_module.ensure_loaded().model_copy(
-            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
+            update={"sheet_account_names": {"BCP": "Sueldo Soles"}}
         )
     )
     _engine(_answer(yours=False))
@@ -270,8 +269,14 @@ def test_the_create_step_creates_every_missing_name_and_imports_nothing(sheet):
         "/v1/hashtags"
     ] * 2
     sent = [_body(c.request) for c in creates["accounts"].calls]
-    made = [(a["name"], a["currency_code"]) for a in sent]
-    assert made == [("Sueldo Soles", "PEN"), ("Interbank", "PEN"), ("Ana", "PEN"), ("Ana", "USD")]
+    both = [{"currency_code": "PEN"}, {"currency_code": "USD"}]
+    made = [(a["name"], a["currencies"]) for a in sent]
+    assert made == [
+        ("Sueldo Soles", both),
+        ("Interbank", [{"currency_code": "PEN"}]),
+        ("Visa", both),
+        ("Ana", both),
+    ]
     categories = [_body(c.request)["name"] for c in creates["categories"].calls]
     assert categories == ["Comida", "Transporte", "SALDO INICIAL"]
 
@@ -289,7 +294,7 @@ def test_the_create_step_run_again_creates_nothing(sheet):
 @respx.mock
 def test_one_name_of_one_kind_created_reads_in_the_singular(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("Comida", 2, "cat-comida")],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
@@ -315,7 +320,7 @@ def test_the_create_step_with_the_apply_is_a_usage_error(sheet):
 @respx.mock
 def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("@Opening", 2)],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
@@ -342,13 +347,12 @@ def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(
 
 # ---- screen 3: the dry run once every name exists ----------------------------------
 SCREEN_3 = """\
-Accounts (5)
-  SHEET NAME   CUR    ROWS   GOES TO
-  BCP          PEN   1,204   Sueldo Soles  yours
-  BCP          USD     311   yours
-  Interbank    PEN     402   yours
-  Ana          PEN      38   yours
-  Ana          USD       6   yours
+Accounts (4)
+  SHEET NAME   CUR          ROWS   GOES TO
+  BCP          PEN + USD   1,515   Sueldo Soles  yours
+  Interbank    PEN           402   yours
+  Visa         PEN + USD     261   yours
+  Ana          PEN + USD      44   yours
 
 Categories (4)
   SHEET NAME       ROWS   GOES TO
@@ -377,7 +381,7 @@ def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
     again with the table, still a dry run, and nothing is created."""
     config_module.save(
         config_module.ensure_loaded().model_copy(
-            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
+            update={"sheet_account_names": {"BCP": "Sueldo Soles"}}
         )
     )
     route = _engine(_answer(yours=True), _answer(yours=True, rows=_counted_rows(), counts=COUNTS))
@@ -389,8 +393,13 @@ def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
     assert _sent() == [("/v1/transactions/import-sheet", True, False)] + [
         ("/v1/transactions/import-sheet", True, True)
     ]
-    sent = _body(route.calls[1].request)["names"]["accounts"][0]
-    assert sent == {"name": "BCP", "account_id": "acc-sueldo", "currency_code": "PEN"}
+    sent = _body(route.calls[1].request)["names"]["accounts"]
+    assert sent == [
+        {"name": "BCP", "account_id": "acc-sueldo"},
+        {"name": "Interbank", "account_id": "acc-ib"},
+        {"name": "Visa", "account_id": "acc-visa"},
+        {"name": "Ana", "account_id": "acc-ana"},
+    ]
     assert all(r.call_count == 0 for r in creates.values())
 
 
@@ -437,6 +446,26 @@ def test_a_table_the_engine_refuses_prints_as_every_engine_error(sheet):
     assert result.stderr == (
         "Error: VALIDATION_ERROR — Import validation failed.\n"
         "  names.accounts.0.account_id: Must reference an active, non-archived account.\n"
+    )
+
+
+@respx.mock
+def test_a_currency_the_account_does_not_hold_prints_in_the_engines_words(sheet):
+    """`CURRENCY_NOT_HELD` on the table entry (contract: POST /v1/transactions/import-sheet,
+    "Names"): the account a name goes to lacks a currency its rows are in."""
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"names.accounts.0.account_id": "The account holds no USD."},
+        {"names.accounts.0.account_id": "CURRENCY_NOT_HELD"},
+    )
+    _engine(_answer(yours=True), httpx.Response(422, json=refusal))
+    result = _run()
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr == (
+        "Error: VALIDATION_ERROR — Import validation failed.\n"
+        "  names.accounts.0.account_id: The account holds no USD.\n"
     )
 
 
@@ -698,13 +727,18 @@ def test_json_prints_the_engines_answer_to_each_name_created(sheet):
         for kind in ("accounts", "categories", "hashtags")
     }
     assert printed["created"] == answers
-    assert [a["name"] for a in printed["created"]["accounts"]] == ["BCP", "Interbank", "Ana", "Ana"]
+    assert [a["name"] for a in printed["created"]["accounts"]] == [
+        "BCP",
+        "Interbank",
+        "Visa",
+        "Ana",
+    ]
 
 
 @respx.mock
 def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refusal(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("@Opening", 2)],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
@@ -730,7 +764,7 @@ def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refus
 @respx.mock
 def test_json_on_the_engine_out_of_reach_part_way_keeps_the_names_created(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("Comida", 2)],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
@@ -769,28 +803,42 @@ def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
 
 # ---- --account-name ----------------------------------------------------------------
 @respx.mock
-def test_a_rename_is_remembered_and_a_flag_replaces_it(sheet):
+def test_a_rename_is_remembered_by_name_and_a_flag_replaces_it(sheet):
     _engine(_answer(yours=False))
     _accounts([])
-    assert _run("--account-name", "bcp:pen=Old").exit_code == 0
-    assert _saved() == {"bcp:PEN": "Old"}
-    result = _run("--account-name", "BCP:PEN=Sueldo Soles")
+    assert _run("--account-name", "Bcp=Old").exit_code == 0
+    assert _saved() == {"Bcp": "Old"}
+    result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
-    assert _saved() == {"BCP:PEN": "Sueldo Soles"}
+    assert _saved() == {"BCP": "Sueldo Soles"}
     result = _run()
-    assert "  BCP          PEN   1,204   Sueldo Soles  missing\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  missing\n" in result.stdout
 
 
-@pytest.mark.parametrize(
-    "value",
-    ["BCP=Sueldo", "BCP:PEN", "BCP:PEN="],
-)
+@respx.mock
+def test_a_rename_saved_with_a_currency_renames_nothing_and_does_not_crash(sheet):
+    """A key of the form `NAME:CUR` is a name no sheet uses: the run goes on as if
+    it were not there, and nothing reads your accounts for it."""
+    config_module.save(
+        config_module.ensure_loaded().model_copy(
+            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
+        )
+    )
+    _engine(_answer(yours=False))
+    accounts = _accounts([])
+    result = _run()
+    assert result.exit_code == 0, _out(result)
+    assert "  BCP          PEN + USD   1,515   missing\n" in result.stdout
+    assert accounts.call_count == 0
+
+
+@pytest.mark.parametrize("value", ["BCP", "BCP:PEN", "BCP=", "=Sueldo"])
 @respx.mock
 def test_a_malformed_rename_is_a_usage_error_before_anything_is_sent(sheet, value):
     before = config_module.config_path().read_text()
     result = _run("--account-name", value)
     assert result.exit_code == 2, _out(result)
-    assert "is not SHEET_NAME:CURRENCY=LEDGER_NAME" in strip_panel(_out(result))
+    assert "is not SHEET_NAME=LEDGER_NAME" in strip_panel(_out(result))
     assert config_module.config_path().read_text() == before
     assert not respx.calls
 
@@ -804,11 +852,11 @@ def test_a_rename_putting_two_sheet_accounts_on_one_is_a_usage_error(sheet, step
     _accounts([])
     creates = _creates()
     before = config_module.config_path().read_text()
-    result = _run("--account-name", "BCP:PEN=interbank", *step)
+    result = _run("--account-name", "BCP=interbank", *step)
     assert result.exit_code == 2, _out(result)
     words = strip_panel(_out(result))
     assert "Invalid value for '--account-name'" in words
-    assert '"BCP" and "Interbank" would both be written as "Interbank" [PEN].' in words
+    assert '"BCP" and "Interbank" would both be written as "Interbank".' in words
     assert config_module.config_path().read_text() == before
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     assert all(r.call_count == 0 for r in creates.values())
@@ -818,9 +866,9 @@ def test_a_rename_putting_two_sheet_accounts_on_one_is_a_usage_error(sheet, step
 def test_a_rename_for_an_account_the_sheet_lacks_is_a_usage_error(sheet):
     _engine(_answer(yours=False))
     _accounts([])
-    result = _run("--account-name", "BCP:EUR=Euros")
+    result = _run("--account-name", "Nope=Euros")
     assert result.exit_code == 2, _out(result)
-    assert 'the sheet has no account "BCP" in EUR.' in strip_panel(_out(result))
+    assert 'the sheet has no account "Nope".' in strip_panel(_out(result))
     assert _saved() == {}
 
 

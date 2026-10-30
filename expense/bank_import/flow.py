@@ -14,6 +14,7 @@ from pathlib import Path
 from expense import reads
 from expense.bank_import.engine import ImportedRow, blocking_statements, request_body
 from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.formatting import currencies_phrase
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class AccountPick:
     def currencies(self) -> str:
         """`PEN`, or `PEN + USD` for an account holding both, in the order the
         engine lists them (contract: "Bank Accounts", "`currencies`")."""
-        return " + ".join(self.currency_codes)
+        return currencies_phrase(self.currency_codes)
 
 
 def account_picks(accounts: list[dict]) -> list[AccountPick]:

@@ -44,7 +44,7 @@ from expense.import_.engine import (
 )
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
-    account_record,
+    account_with_currencies,
     error_body,
     sheet_import_answer,
     sheet_name_use,
@@ -98,13 +98,10 @@ def _body(request: httpx.Request) -> dict:
     return json.loads(request.content)
 
 
-#: A sheet using one account in two currencies, one you have; a category you have
+#: A sheet using one account name in two currencies, which you lack; a category you have
 #: and one you do not; a hashtag you do not.
 DRY = sheet_import_answer(
-    accounts=[
-        sheet_name_use("BCP Oro", 3, "acc-oro-pen", currency_code="PEN"),
-        sheet_name_use("BCP Oro", 2, None, currency_code="USD"),
-    ],
+    accounts=[sheet_name_use("BCP Oro", 5, None, currencies=["PEN", "USD"])],
     categories=[sheet_name_use("food", 4, "cat-food"), sheet_name_use("travel", 1)],
     hashtags=[sheet_name_use("trip", 5)],
     rows=[sheet_row(r) for r in range(2, 7)],
@@ -112,10 +109,7 @@ DRY = sheet_import_answer(
 
 #: The same sheet once every name is yours.
 ALL_YOURS = sheet_import_answer(
-    accounts=[
-        sheet_name_use("BCP Oro", 3, "acc-oro-pen", currency_code="PEN"),
-        sheet_name_use("BCP Oro", 2, "acc-oro-usd", currency_code="USD"),
-    ],
+    accounts=[sheet_name_use("BCP Oro", 5, "acc-oro", currencies=["PEN", "USD"])],
     categories=[sheet_name_use("food", 4, "cat-food"), sheet_name_use("travel", 1, "cat-trv")],
     hashtags=[sheet_name_use("trip", 5, "tag-trip")],
     rows=[sheet_row(r) for r in range(2, 7)],
@@ -232,81 +226,79 @@ def test_openpyxl_is_a_test_dependency_only():
 
 
 # ---- renames -----------------------------------------------------------------------
-def test_an_account_name_flag_reads_sheet_currency_and_ledger_name():
-    """The currency is what follows the last `:` before the first `=`, so a
-    sheet name may hold a colon and a ledger name an `=`."""
-    assert parse_account_name(" BCP : pen = Sueldo Soles ") == ("BCP", "PEN", "Sueldo Soles")
-    assert parse_account_name("A:B:USD=X=Y") == ("A:B", "USD", "X=Y")
+def test_an_account_name_flag_reads_sheet_name_and_ledger_name():
+    """The ledger name is everything after the first `=`; the sheet's name may
+    hold a colon."""
+    assert parse_account_name(" BCP = Sueldo Soles ") == ("BCP", "Sueldo Soles")
+    assert parse_account_name("A:B=X=Y") == ("A:B", "X=Y")
 
 
-@pytest.mark.parametrize("value", ["BCP=Sueldo", "BCP:PEN", ":PEN=X", "BCP:=X", "BCP:PEN= "])
+@pytest.mark.parametrize("value", ["BCP", "BCP:PEN", "=X", "BCP= ", " =X"])
 def test_a_malformed_account_name_is_refused_in_words(value):
-    with pytest.raises(RenameRefused, match="is not SHEET_NAME:CURRENCY=LEDGER_NAME"):
+    with pytest.raises(RenameRefused, match="is not SHEET_NAME=LEDGER_NAME"):
         parse_account_name(value)
 
 
-def test_a_saved_rename_reads_as_a_flag_does():
-    """`sheet_account_names` keys are `SHEET:CUR`, the currency after the last
-    colon, so a sheet name may hold one."""
-    assert saved_renames(
-        {"BCP:PEN": "Sueldo Soles", "A:B:usd": " X ", "No colon": "Y", "C:": "Z"}
-    ) == {
-        ("bcp", "PEN"): "Sueldo Soles",
-        ("a:b", "USD"): "X",
+def test_a_saved_rename_is_keyed_by_the_sheets_name():
+    """`sheet_account_names` keys are sheet names, trimmed and case-insensitive;
+    an older `NAME:CUR` key is just a name no sheet uses, so it renames nothing."""
+    assert saved_renames({"BCP": "Sueldo Soles", " A:B ": " X ", "Empty": " ", " ": "Z"}) == {
+        rename_key("bcp"): "Sueldo Soles",
+        "a:b": "X",
     }
+    table = names_table(DRY, saved_renames({"BCP Oro:PEN": "Old"}), [])
+    assert table[0].renamed_to is None
 
 
 def test_a_flag_replaces_the_saved_rename_of_its_account_in_any_letter_case():
     merged, renames = merge_renames(
-        {"bcp:pen": "Old", "Interbank:USD": "Dolares"}, [("BCP", "PEN", "Sueldo Soles")]
+        {"Bcp": "Old", "Interbank": "Dolares"}, [("BCP", "Sueldo Soles")]
     )
-    assert merged == {"Interbank:USD": "Dolares", "BCP:PEN": "Sueldo Soles"}
-    assert renames == {("interbank", "USD"): "Dolares", ("bcp", "PEN"): "Sueldo Soles"}
+    assert merged == {"Interbank": "Dolares", "BCP": "Sueldo Soles"}
+    assert renames == {rename_key("Interbank"): "Dolares", rename_key("BCP"): "Sueldo Soles"}
 
 
 # ---- the names table ---------------------------------------------------------------
 def _goes(table: list[NameEntry]) -> list[tuple]:
-    return [(e.kind, e.name, e.currency, e.goes, e.target_id, e.ledger_name) for e in table]
+    return [(e.kind, e.name, e.currencies, e.goes, e.target_id, e.ledger_name) for e in table]
 
 
 def test_each_name_goes_to_its_proposal_else_it_is_missing_under_the_sheets_name():
-    """An account used in two currencies is two names, each its own entry, the
-    missing one keeping the sheet's name with no currency added."""
+    """An account used in two currencies is one name, one entry holding both
+    currencies in the engine's order, missing under the sheet's name."""
     table = names_table(DRY, {}, [])
     assert _goes(table) == [
-        (ACCOUNT, "BCP Oro", "PEN", Goes.YOURS, "acc-oro-pen", "BCP Oro"),
-        (ACCOUNT, "BCP Oro", "USD", Goes.MISSING, None, "BCP Oro"),
-        (CATEGORY, "food", None, Goes.YOURS, "cat-food", "food"),
-        (CATEGORY, "travel", None, Goes.MISSING, None, "travel"),
-        (HASHTAG, "trip", None, Goes.MISSING, None, "trip"),
+        (ACCOUNT, "BCP Oro", ("PEN", "USD"), Goes.MISSING, None, "BCP Oro"),
+        (CATEGORY, "food", (), Goes.YOURS, "cat-food", "food"),
+        (CATEGORY, "travel", (), Goes.MISSING, None, "travel"),
+        (HASHTAG, "trip", (), Goes.MISSING, None, "trip"),
     ]
-    assert [e.rows for e in table] == [3, 2, 4, 1, 5]
+    assert [e.rows for e in table] == [5, 4, 1, 5]
     assert all(e.renamed_to is None for e in table)
     assert [g.value for g in Goes] == ["yours", "missing"]
 
 
-def test_a_renamed_account_goes_to_yours_of_that_name_and_currency_over_the_proposal():
+def test_a_renamed_account_goes_to_yours_of_that_name_over_the_proposal():
     """The rename wins over the proposal; your account is found by its name,
-    trimmed and in any letter case, in the entry's own currency."""
-    renames = {rename_key(" bcp oro ", "pen"): "Sueldo Soles"}
+    trimmed and in any letter case."""
+    renames = {rename_key(" bcp oro "): "Sueldo Soles"}
     accounts = [
-        account_record(id="acc-sueldo-usd", name="Sueldo Soles", currency_code="USD"),
-        account_record(id="acc-sueldo-pen", name=" sueldo soles ", holder_id="h2"),
+        account_with_currencies(id="acc-other", name="Other"),
+        account_with_currencies(id="acc-sueldo", name=" sueldo soles "),
     ]
-    (pen, usd, *_rest) = names_table(DRY, renames, accounts)
-    assert (pen.goes, pen.target_id, pen.renamed_to) == (
+    account = names_table(ALL_YOURS, renames, accounts)[0]
+    assert (account.goes, account.target_id, account.renamed_to) == (
         Goes.YOURS,
-        "acc-sueldo-pen",
+        "acc-sueldo",
         "Sueldo Soles",
     )
-    assert (usd.goes, usd.target_id, usd.renamed_to) == (Goes.MISSING, None, None)
 
 
-def test_a_renamed_account_you_lack_in_its_currency_is_missing_under_the_rename():
-    renames = {rename_key("BCP Oro", "USD"): "Dolares"}
-    accounts = [account_record(id="acc-dolares-pen", name="Dolares")]
-    usd = names_table(DRY, renames, accounts)[1]
-    assert (usd.goes, usd.target_id, usd.renamed_to, usd.ledger_name) == (
+def test_a_renamed_account_you_lack_is_missing_under_the_rename():
+    renames = {rename_key("BCP Oro"): "Dolares"}
+    accounts = [account_with_currencies(id="acc-other", name="Other")]
+    account = names_table(ALL_YOURS, renames, accounts)[0]
+    assert (account.goes, account.target_id, account.renamed_to, account.ledger_name) == (
         Goes.MISSING,
         None,
         "Dolares",
@@ -316,22 +308,28 @@ def test_a_renamed_account_you_lack_in_its_currency_is_missing_under_the_rename(
 
 def test_missing_names_are_one_per_name_the_engine_holds_as_one():
     """`Travel` and `travel` are two names to the sheet but one category to the
-    engine, which would refuse the second create as taken."""
+    engine, which would refuse the second create as taken; two account names it
+    holds as one are created once, holding the currencies of both."""
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 1, "acc-bcp", currency_code="PEN")],
+        accounts=[
+            sheet_name_use("BCP", 1, currencies=["PEN"]),
+            sheet_name_use("bcp", 1, currencies=["USD", "PEN"]),
+        ],
         categories=[sheet_name_use("Travel"), sheet_name_use("travel"), sheet_name_use("Food")],
         hashtags=[sheet_name_use("trip", 1, "tag-trip")],
     )
     missing = missing_names(names_table(answer, {}, []))
-    assert [(e.kind, e.name) for e in missing] == [(CATEGORY, "Travel"), (CATEGORY, "Food")]
+    assert [(e.kind, e.name, e.currencies) for e in missing] == [
+        (ACCOUNT, "BCP", ("PEN", "USD")),
+        (CATEGORY, "Travel", ()),
+        (CATEGORY, "Food", ()),
+    ]
 
 
-def test_the_table_sent_gives_every_name_its_id():
+def test_the_table_sent_gives_every_name_its_id_and_an_account_no_currency():
+    """One `{name, account_id}` per account name, however many currencies it holds."""
     assert table_body(names_table(ALL_YOURS, {}, [])) == {
-        "accounts": [
-            {"name": "BCP Oro", "account_id": "acc-oro-pen", "currency_code": "PEN"},
-            {"name": "BCP Oro", "account_id": "acc-oro-usd", "currency_code": "USD"},
-        ],
+        "accounts": [{"name": "BCP Oro", "account_id": "acc-oro"}],
         "categories": [
             {"name": "food", "category_id": "cat-food"},
             {"name": "travel", "category_id": "cat-trv"},
@@ -345,33 +343,33 @@ def test_the_table_sent_gives_every_name_its_id():
 # ---- checking the renames against the sheet ----------------------------------------
 TWO_ACCOUNTS = sheet_import_answer(
     accounts=[
-        sheet_name_use("BCP", 2, currency_code="PEN"),
-        sheet_name_use("Interbank", 1, "acc-ib", currency_code="PEN"),
-        sheet_name_use("bcp", 1, currency_code="PEN"),
+        sheet_name_use("BCP", 2, currencies=["PEN"]),
+        sheet_name_use("Interbank", 1, "acc-ib", currencies=["PEN"]),
+        sheet_name_use("bcp", 1, currencies=["PEN"]),
     ]
 )
 
 
 def test_a_flag_for_an_account_the_sheet_lacks_is_refused():
     table = names_table(TWO_ACCOUNTS, {}, [])
-    with pytest.raises(RenameRefused, match='the sheet has no account "BCP" in USD.'):
-        check_renames(table, [("BCP", "USD", "Dolares")])
-    check_renames(table, [(" interbank ", "pen", "Sueldo")])  # trimmed, any letter case
+    with pytest.raises(RenameRefused, match='the sheet has no account "Nope".'):
+        check_renames(table, [("Nope", "Dolares")])
+    check_renames(table, [(" interbank ", "Sueldo")])  # trimmed, any letter case
 
 
 def test_a_rename_putting_two_sheet_accounts_on_one_is_refused():
-    renames = {rename_key("BCP", "PEN"): "interbank"}
+    renames = {rename_key("BCP"): "interbank"}
     table = names_table(TWO_ACCOUNTS, renames, [])
     with pytest.raises(RenameRefused) as refused:
-        check_renames(table, [("BCP", "PEN", "interbank")])
-    assert str(refused.value) == '"BCP" and "Interbank" would both be written as "Interbank" [PEN].'
+        check_renames(table, [("BCP", "interbank")])
+    assert str(refused.value) == '"BCP" and "Interbank" would both be written as "Interbank".'
 
 
 def test_names_one_rename_covers_are_one_account_not_two():
     """`BCP` and `bcp` are one account to the rename: no clash."""
-    renames = {rename_key("BCP", "PEN"): "Sueldo Soles"}
+    renames = {rename_key("BCP"): "Sueldo Soles"}
     table = names_table(TWO_ACCOUNTS, renames, [])
-    check_renames(table, [("BCP", "PEN", "Sueldo Soles")])
+    check_renames(table, [("BCP", "Sueldo Soles")])
     assert missing_names(table)[0].ledger_name == "Sueldo Soles"
     assert len([e for e in missing_names(table) if e.kind == ACCOUNT]) == 1
 
@@ -416,10 +414,10 @@ def test_a_rename_reads_your_accounts_people_and_archived_included(configured):
     _engine()
     accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
-            200, json={"items": [account_record(id="acc-sueldo", name="Sueldo Soles")]}
+            200, json={"items": [account_with_currencies(id="acc-sueldo", name="Sueldo Soles")]}
         )
     )
-    renames = {rename_key("BCP Oro", "PEN"): "Sueldo Soles"}
+    renames = {rename_key("BCP Oro"): "Sueldo Soles"}
     result = import_sheet(_cfg(), DATA, step=Step.DRY_RUN, renames=renames)
     assert accounts.call_count == 1
     params = accounts.calls[0].request.url.params
@@ -432,7 +430,7 @@ def test_a_rename_refused_stops_the_run_before_anything_else_is_sent(configured)
     route = _engine()
     creates = _creates()
     with pytest.raises(RenameRefused):
-        import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={}, flags=[("Nope", "PEN", "X")])
+        import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={}, flags=[("Nope", "X")])
     assert route.call_count == 1
     assert all(r.call_count == 0 for r in creates.values())
 
@@ -440,7 +438,7 @@ def test_a_rename_refused_stops_the_run_before_anything_else_is_sent(configured)
 @respx.mock
 def test_the_create_step_creates_each_missing_name_and_imports_nothing(configured):
     """A dry run without `names`, then one create per missing name through its
-    own route (the account under the sheet's name and currency exactly), each
+    own route (the account under the sheet's name holding both currencies), each
     under its own idempotency key; no import is sent."""
     route = _engine()
     creates = _creates()
@@ -458,16 +456,19 @@ def test_the_create_step_creates_each_missing_name_and_imports_nothing(configure
     assert route.call_count == 1 and "names" not in _body(writes[0])
 
     account = _body(creates["accounts"].calls[0].request)
-    assert set(account) == {"id", "name", "currency_code"}
-    assert (account["name"], account["currency_code"]) == ("BCP Oro", "USD")
+    assert account == {
+        "id": account["id"],
+        "name": "BCP Oro",
+        "currencies": [{"currency_code": "PEN"}, {"currency_code": "USD"}],
+    }
     category = _body(creates["categories"].calls[0].request)
     hashtag = _body(creates["hashtags"].calls[0].request)
     assert (set(category), category["name"]) == ({"id", "name"}, "travel")
     assert (set(hashtag), hashtag["name"]) == ({"id", "name"}, "trip")
     assert result.created == [
-        Created(ACCOUNT, "BCP Oro", "USD", account["id"]),
-        Created(CATEGORY, "travel", None, category["id"]),
-        Created(HASHTAG, "trip", None, hashtag["id"]),
+        Created(ACCOUNT, "BCP Oro", ("PEN", "USD"), account["id"]),
+        Created(CATEGORY, "travel", (), category["id"]),
+        Created(HASHTAG, "trip", (), hashtag["id"]),
     ]
     assert result.created[0].answer == {**account, "is_archived": False}
     assert (result.error, result.stage, result.counted, result.answer) == (None, None, False, DRY)
@@ -488,11 +489,14 @@ def test_a_renamed_account_you_lack_is_created_under_its_rename(configured):
     _engine()
     creates = _creates()
     respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json={"items": []}))
-    renames = {rename_key("BCP Oro", "USD"): "Dolares"}
+    renames = {rename_key("BCP Oro"): "Dolares"}
     result = import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames=renames)
     sent = _body(creates["accounts"].calls[0].request)
-    assert (sent["name"], sent["currency_code"]) == ("Dolares", "USD")
-    assert result.created[0] == Created(ACCOUNT, "Dolares", "USD", sent["id"])
+    assert (sent["name"], sent["currencies"]) == (
+        "Dolares",
+        [{"currency_code": "PEN"}, {"currency_code": "USD"}],
+    )
+    assert result.created[0] == Created(ACCOUNT, "Dolares", ("PEN", "USD"), sent["id"])
 
 
 @respx.mock

@@ -14,6 +14,7 @@ from expense import config as config_module
 from expense.errors import EngineError
 from expense.formatting import (
     bank_line_part_count,
+    currencies_phrase,
     format_aggregate,
     format_cents,
     format_hashtag_cell,
@@ -1275,3 +1276,8 @@ def test_each_list_and_count_sends_currency_code_only_when_given(configured):
         read(cfg, account="acct-id", currency_code="USD")
         params = route.calls.last.request.url.params
         assert (params["account_id"], params["currency_code"]) == ("acct-id", "USD"), path
+
+
+def test_currencies_phrase_joins_the_codes_in_the_order_given():
+    assert currencies_phrase(["PEN"]) == "PEN"
+    assert currencies_phrase(("USD", "PEN")) == "USD + PEN"

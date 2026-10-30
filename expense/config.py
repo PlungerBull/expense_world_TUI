@@ -46,8 +46,8 @@ class Config(BaseModel):
     engine_url: str
     token: str | None = None
     main_currency: str | None = None
-    # `expense import sheet`: a sheet account leg ("BCP:PEN" — sheet name,
-    # colon, currency) → the ledger name it is written under ("Sueldo Soles").
+    # `expense import sheet`: a sheet account's name ("BCP") → the ledger name
+    # it is written under ("Sueldo Soles").
     # Written by --account-name, read on every run after; a flag for a key
     # already here replaces it.
     sheet_account_names: dict[str, str] = {}

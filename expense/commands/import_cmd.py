@@ -24,7 +24,7 @@ from expense.errors import (
     key_index,
     names_its_row,
 )
-from expense.formatting import grouped_refusals, rows_phrase
+from expense.formatting import currencies_phrase, grouped_refusals, rows_phrase
 from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
@@ -61,25 +61,27 @@ def _plural(count: int, one: str, many: str) -> str:
 # ---------------------------------------------------------------------------
 def _table_lines(kind: str, entries: list[NameEntry]) -> list[str]:
     """One kind's table: its title and count, the column heads, then a line per
-    name: the sheet's name, an account's currency, its rows, and where it goes
+    name: the sheet's name, an account's currencies, its rows, and where it goes
     (a renamed account's ledger name before it)."""
     title = _NOUNS[kind][0]
     names = [e.name for e in entries]
     rows = [f"{e.rows:,}" for e in entries]
+    currencies = [currencies_phrase(e.currencies) for e in entries]
     name_w = max([len("SHEET NAME"), *map(len, names)])
     rows_w = max([len("ROWS"), *map(len, rows)])
+    cur_w = max([len("CUR"), *map(len, currencies)])
     currency = kind == ACCOUNT
 
     def line(name: str, cur: str, count: str, goes: str) -> str:
-        cells = [name.ljust(name_w), *([cur.ljust(3)] if currency else []), count.rjust(rows_w)]
+        cells = [name.ljust(name_w), *([cur.ljust(cur_w)] if currency else []), count.rjust(rows_w)]
         return "  " + _GAP.join([*cells, goes])
 
     out = [f"{title} ({len(entries)})", line("SHEET NAME", "CUR", "ROWS", "GOES TO")]
-    for entry, count in zip(entries, rows, strict=True):
+    for entry, cur, count in zip(entries, currencies, rows, strict=True):
         goes = entry.goes.value
         if entry.renamed_to is not None:
             goes = f"{entry.renamed_to}  {goes}"
-        out.append(line(entry.name, entry.currency or "", count, goes))
+        out.append(line(entry.name, cur, count, goes))
     return out
 
 
@@ -305,9 +307,9 @@ def run_import(
     account_name: list[str] = typer.Option(
         [],
         "--account-name",
-        metavar="SHEET_NAME:CUR=LEDGER_NAME",
+        metavar="SHEET_NAME=LEDGER_NAME",
         help=(
-            "Put a sheet account's CUR rows on a ledger account of another name. Repeatable; "
+            "Put a sheet account's rows on a ledger account of another name. Repeatable; "
             "remembered in the config for every later run."
         ),
     ),
@@ -318,24 +320,24 @@ def run_import(
     against the ledger, and writes everything or nothing. The app reads no
     cell of it.
 
-    The dry run lists every account (a name in one currency), category and
-    hashtag the sheet uses, its rows, and whether it is yours or missing. While
-    one is missing it shows no counts, since the engine counts only once every
-    name exists, and gives the command that creates them: --create-names,
-    which creates every missing name and imports nothing. Once every name
-    exists, the dry run shows the engine's counts, and --apply imports; with a
-    name missing, --apply is refused and writes nothing. Sending the same
-    sheet again writes nothing: every row is matched.
+    The dry run lists every account (a name, with the currencies its rows are
+    in), category and hashtag the sheet uses, its rows, and whether it is
+    yours or missing. While one is missing it shows no counts, since the
+    engine counts only once every name exists, and gives the command that
+    creates them: --create-names, which creates every missing name and
+    imports nothing. Once every name exists, the dry run shows the engine's
+    counts, and --apply imports; with a name missing, --apply is refused and
+    writes nothing. Sending the same sheet again writes nothing: every row is
+    matched.
 
     One bad row stops the whole import, and every refused row is listed in the
     engine's words; nothing is written and no name is created.
 
-    --account-name "SHEET_NAME:CUR=LEDGER_NAME" puts one sheet account's rows
-    in that currency on a ledger account of your choosing ("BCP:PEN=Sueldo
-    Soles"). It is saved to the config and applied on every later run; passing
-    it again for the same account replaces the saved name. An account the
-    sheet does not have, or two sheet accounts put on one, is a usage error and
-    nothing is saved.
+    --account-name "SHEET_NAME=LEDGER_NAME" puts one sheet account's rows on
+    a ledger account of your choosing ("BCP=Sueldo Soles"). It is saved to
+    the config and applied on every later run; passing it again for the same
+    account replaces the saved name. An account the sheet does not have, or
+    two sheet accounts put on one, is a usage error and nothing is saved.
 
     Example: expense import sheet Presupuesto.xlsx
 
@@ -343,7 +345,7 @@ def run_import(
 
     Example: expense import sheet Presupuesto.xlsx --apply
 
-    Example: expense import sheet Presupuesto.xlsx --account-name "BCP:PEN=Sueldo Soles"
+    Example: expense import sheet Presupuesto.xlsx --account-name "BCP=Sueldo Soles"
     """
     if create_names and apply:
         raise click.UsageError(

@@ -548,13 +548,15 @@ def import_answer(
     }
 
 
-def sheet_name_use(name: str, rows: int = 1, proposed_id: str | None = None, **currency) -> dict:
+def sheet_name_use(
+    name: str, rows: int = 1, proposed_id: str | None = None, **currencies: list[str]
+) -> dict:
     """One name a sheet uses, as an import-sheet answer's `names` lists it: an account
-    `{name, currency_code, rows, proposed_id}` (pass `currency_code=`), a category or
-    hashtag `{name, rows, proposed_id}`
+    `{name, currencies, rows, proposed_id}` (pass `currencies=["PEN", "USD"]`, in the
+    engine's order), a category or hashtag `{name, rows, proposed_id}`
     (contract: POST /v1/transactions/import-sheet, "Response")."""
-    assert set(currency) <= {"currency_code"}, sorted(currency)
-    return {"name": name, **currency, "rows": rows, "proposed_id": proposed_id}
+    assert set(currencies) <= {"currencies"}, sorted(currencies)
+    return {"name": name, **currencies, "rows": rows, "proposed_id": proposed_id}
 
 
 def sheet_row(
@@ -564,6 +566,7 @@ def sheet_row(
     day: str = "2026-03-05",
     title: str = "made-up lunch",
     account_id: str | None = None,
+    currency_code: str = "PEN",
     outcome: str | None = None,
     is_opening_balance: bool | None = None,
     transaction_id: str | None = None,
@@ -578,6 +581,7 @@ def sheet_row(
     return {
         "row": row,
         "account_id": account_id,
+        "currency_code": currency_code,
         "date": day,
         "amount_cents": abs(amount_cents),
         "transaction_type": kind,
@@ -627,7 +631,7 @@ def sheet_import_answer(
             "accounts": (
                 accounts
                 if accounts is not None
-                else [sheet_name_use("made-up acct", currency_code="PEN")]
+                else [sheet_name_use("made-up acct", currencies=["PEN"])]
             ),
             "categories": categories if categories is not None else [sheet_name_use("food")],
             "hashtags": hashtags if hashtags is not None else [sheet_name_use("tag")],

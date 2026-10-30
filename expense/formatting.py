@@ -454,6 +454,12 @@ def grouped_refusals(
     return grouped
 
 
+def currencies_phrase(codes: Iterable[str]) -> str:
+    """An account's currency codes as `PEN`, or `PEN + USD`, in the order given
+    (the engine's; nothing is sorted)."""
+    return " + ".join(codes)
+
+
 def currency_label(name: str, code: str) -> str:
     """The words for a currency: its account's name and its code, `VISA · USD`. A
     currency has no name of its own; one copy for the picks, the parser and the picker."""
