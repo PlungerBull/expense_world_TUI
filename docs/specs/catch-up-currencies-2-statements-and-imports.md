@@ -91,7 +91,8 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
 5. The unit suite passes whole; the drift check reads `f82426fb0a099676` and its fixture check
    finds nothing outside the Statements screens' builders, which spec 7 moves.
    The live suite passes once specs 3 to 5 are done, apart from its citation test on the
-   Statements screens' lines in tui.md and helpers.py, which spec 7 fixes.
+   citations that still name holders or the Statements screens outside the live tests, which
+   spec 7 fixes; none of them is on this spec's code.
 
 ## What the owner settled
 
@@ -131,7 +132,25 @@ code it touches, and moves its tests onto spec 1's account builder. The statemen
 [helpers.py](../../tests/unit/helpers.py) that the Statements screens' tests use stay as they
 are until spec 7; the upload's tests build its answers in the shape the engine sends now.
 
-Every task is done.
+From the acceptance check of 2026-10-30:
+
+1. **The fixture check reads the rename tests' names as fields (builder).** The drift script
+   (`python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002`) lists `bcp`,
+   `caja`, `nobody`, `oro` and `other`, the keys of the saved-rename dicts in
+   [test_cmd_import.py](../../tests/unit/test_cmd_import.py) (~870) and
+   [test_sheet_import_engine.py](../../tests/unit/test_sheet_import_engine.py) (~249-285), as
+   fields the engine no longer has. They are sheet account names, not engine fields.
+   *Passes if:* the drift script lists none of them, by the way the script already tells a
+   test-local key from an engine field (`KNOWN_LOCAL` in
+   [check_fixture_drift.py](../../scripts/check_fixture_drift.py), or keys it does not read as
+   fixtures), and its other lines are unchanged.
+2. **The PDF upload's `STATEMENT_MONTH_TAKEN` row cites a rule the contract dropped (builder).**
+   The row in [tui.md](../tui.md) "When the engine says no" (~1042) and the comment in
+   [errors.py](../../expense/errors.py) (~207) cite `(contract: "Statements", "One statement per holder per month")`
+   and say "another statement of its holder". *Passes if:* both say a month another statement
+   of the account holds, and cite the part of the live contract that states it, checked with
+   `Contract.from_openapi` and `broken_citations` from
+   [test_contract_citations.py](../../tests/contract/test_contract_citations.py).
 
 ## Reply to the engine
 
