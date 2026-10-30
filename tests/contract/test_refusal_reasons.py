@@ -21,12 +21,12 @@ What it pins, each refusal's status, code, keyed `fields`/`reasons` and reason:
 4. A taken `id` re-sent with a different body is `409` `ID_EXISTS` on `id`; in
    `POST /transactions/batch` it is keyed `transactions.<i>.id` (contract:
    "Client-supplied UUIDs").
-5. While its reconciliation is completed, deleting an assigned transaction is `409`
+5. While its statement is completed, deleting an assigned transaction is `409`
    `IN_COMPLETED_RECONCILIATION` on `transaction_id` (contract: DELETE
-   /v1/transactions/{transaction_id}), and deleting the reconciliation is `409`
-   `RECONCILIATION_NOT_DRAFT` on `reconciliation_id` (contract: DELETE
-   /v1/reconciliations/{reconciliation_id}). Completing needs an ending balance
-   (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation").
+   /v1/transactions/{transaction_id}), and deleting the statement is `409`
+   `RECONCILIATION_NOT_DRAFT` on `statement_id` (contract: DELETE
+   /v1/statements/{statement_id}, "Validation"). Completing needs every balance entered and
+   adding up (contract: POST /v1/statements/{statement_id}/complete, "Validation").
 6. Deleting the built-in pending hashtag (found by `system_key`) is `403`
    `SYSTEM_HASHTAG` on `hashtag_id`, and it stays (contract: DELETE
    /v1/hashtags/{hashtag_id}). It is engine-created and can never be deleted, so it
@@ -41,222 +41,141 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 
 from uuid import uuid4
 
-import pytest
-
-from expense.errors import EngineError
-from tests.contract.conftest import reason_on
+from tests.contract.conftest import account_body, assert_refusal, refused
 
 
-def _safe_delete(client, path):
-    try:
-        client.delete(path)
-    except EngineError:
-        pass
-
-
-def _refused(call) -> EngineError:
-    with pytest.raises(EngineError) as excinfo:
-        call()
-    return excinfo.value
-
-
-def _assert_refusal(err: EngineError, status: int, code: str, key: str, reason: str) -> None:
-    """The refusal's status and code, `fields`/`reasons` keyed alike, and `reason` on
-    `key` (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
-    assert (err.status, err.code) == (status, code)
-    assert isinstance(err.fields, dict) and err.fields
-    assert isinstance(err.reasons, dict) and err.reasons
-    assert set(err.reasons) == set(err.fields)
-    assert key in err.fields
-    assert reason_on(err, key) == reason
-
-
-def _make_account(client, account_id: str, name: str) -> None:
-    client.post(
-        "/accounts",
-        json_body={"id": account_id, "name": name, "currency_code": "PEN"},
-    )
-
-
-def _make_transaction(client, tx_id: str, account_id: str, category_id: str | None) -> dict:
+def _make_transaction(scratch, tx_id: str, account_id: str, category_id: str | None = None) -> dict:
+    """A `-100` PEN row dated in January 2026, taken on by `scratch`'s cleanup."""
+    scratch.transactions.append(tx_id)
     body = {
         "id": tx_id,
         "amount_cents": -100,
         "account_id": account_id,
+        "currency_code": "PEN",
         "date": "2026-01-02T00:00:00Z",
     }
     if category_id is not None:
         body["category_id"] = category_id
-    return client.post("/transactions", json_body=body)
+    return scratch.client.post("/transactions", json_body=body)
 
 
-def test_deletes_of_what_is_in_use_name_the_reason(client):
-    account_id = str(uuid4())
-    category_id = str(uuid4())
+def test_deletes_of_what_is_in_use_name_the_reason(client, scratch):
+    account_id = scratch.account()
+    category_id = scratch.category()
+    _make_transaction(scratch, str(uuid4()), account_id, category_id)
+
+    # 1 — an account with a live transaction.
+    err = refused(lambda: client.delete(f"/accounts/{account_id}"))
+    assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
+
+    # 2 — a category a live transaction uses.
+    err = refused(lambda: client.delete(f"/categories/{category_id}"))
+    assert_refusal(err, 409, "CONFLICT", "category_id", "HAS_TRANSACTIONS")
+
+    # 2 — a system category: a row with no category makes @Pendiente exist.
+    _make_transaction(scratch, str(uuid4()), account_id)
+    categories = client.get("/categories")["items"]
+    pendiente = next(c for c in categories if c["system_key"] == "pending")
+    err = refused(lambda: client.delete(f"/categories/{pendiente['id']}"))
+    assert_refusal(err, 403, "FORBIDDEN", "category_id", "SYSTEM_CATEGORY")
+
+
+def test_the_pending_hashtag_is_never_deleted(client, scratch):
+    account_id = scratch.account()
     tx_id = str(uuid4())
-    sparse_id = str(uuid4())
-
-    try:
-        _make_account(client, account_id, f"contract-rr-{account_id[:8]}")
-        client.post(
-            "/categories",
-            json_body={"id": category_id, "name": f"contract-rr-{category_id[:8]}"},
-        )
-        _make_transaction(client, tx_id, account_id, category_id)
-
-        # 1 — an account with a live transaction.
-        err = _refused(lambda: client.delete(f"/accounts/{account_id}"))
-        _assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-
-        # 2 — a category a live transaction uses.
-        err = _refused(lambda: client.delete(f"/categories/{category_id}"))
-        _assert_refusal(err, 409, "CONFLICT", "category_id", "HAS_TRANSACTIONS")
-
-        # 2 — a system category: a row with no category makes @Pendiente exist.
-        _make_transaction(client, sparse_id, account_id, None)
-        categories = client.get("/categories")["items"]
-        pendiente = next(c for c in categories if c["system_key"] == "pending")
-        err = _refused(lambda: client.delete(f"/categories/{pendiente['id']}"))
-        _assert_refusal(err, 403, "FORBIDDEN", "category_id", "SYSTEM_CATEGORY")
-    finally:
-        _safe_delete(client, f"/transactions/{sparse_id}")
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    # 6 — a row with no hashtag makes the pending hashtag exist.
+    _make_transaction(scratch, tx_id, account_id)
+    hashtags = client.get("/hashtags")["items"]
+    pending = next(h for h in hashtags if h["system_key"] == "pending")
+    err = refused(lambda: client.delete(f"/hashtags/{pending['id']}"))
+    assert_refusal(err, 403, "FORBIDDEN", "hashtag_id", "SYSTEM_HASHTAG")
+    assert client.get(f"/hashtags/{pending['id']}")["system_key"] == "pending"
+    assert client.get(f"/transactions/{tx_id}")["hashtag_ids"] == [pending["id"]]
 
 
-def test_the_pending_hashtag_is_never_deleted(client):
-    account_id = str(uuid4())
-    tx_id = str(uuid4())
-
-    try:
-        _make_account(client, account_id, f"contract-rr-{account_id[:8]}")
-        # 6 — a row with no hashtag makes the pending hashtag exist.
-        _make_transaction(client, tx_id, account_id, None)
-        hashtags = client.get("/hashtags")["items"]
-        pending = next(h for h in hashtags if h["system_key"] == "pending")
-        err = _refused(lambda: client.delete(f"/hashtags/{pending['id']}"))
-        _assert_refusal(err, 403, "FORBIDDEN", "hashtag_id", "SYSTEM_HASHTAG")
-        assert client.get(f"/hashtags/{pending['id']}")["system_key"] == "pending"
-        assert client.get(f"/transactions/{tx_id}")["hashtag_ids"] == [pending["id"]]
-    finally:
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
-
-
-def test_a_taken_name_is_name_exists(client):
-    account_id = str(uuid4())
+def test_a_taken_name_is_name_exists(client, scratch):
+    account_id = scratch.account()
+    account_name = client.get(f"/accounts/{account_id}")["name"]
     category_id = str(uuid4())
-    account_name = f"contract-rr-{account_id[:8]}"
+    scratch.categories.append(category_id)
     category_name = f"contract-rr-{category_id[:8]}"
+    client.post("/categories", json_body={"id": category_id, "name": category_name})
 
-    try:
-        _make_account(client, account_id, account_name)
-        client.post("/categories", json_body={"id": category_id, "name": category_name})
-
-        # 3 — compared after trimming, case-insensitively (contract: "Error reasons").
-        err = _refused(
-            lambda: client.post(
-                "/accounts",
-                json_body={
-                    "id": str(uuid4()),
-                    "name": f" {account_name.upper()} ",
-                    "currency_code": "PEN",
-                },
-            )
+    # 3 — compared after trimming, case-insensitively (contract: "Error reasons").
+    err = refused(
+        lambda: client.post(
+            "/accounts",
+            json_body={**account_body(), "name": f" {account_name.upper()} "},
         )
-        _assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
+    )
+    assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
 
-        err = _refused(
-            lambda: client.post(
-                "/categories",
-                json_body={"id": str(uuid4()), "name": category_name.upper()},
-            )
+    err = refused(
+        lambda: client.post(
+            "/categories",
+            json_body={"id": str(uuid4()), "name": category_name.upper()},
         )
-        _assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
-    finally:
-        _safe_delete(client, f"/categories/{category_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+    )
+    assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
 
 
-def test_a_taken_id_is_id_exists(client):
-    account_id = str(uuid4())
+def test_a_taken_id_is_id_exists(client, scratch):
+    account_id = scratch.account()
     tx_id = str(uuid4())
     batch_tx_id = str(uuid4())
+    scratch.transactions.append(batch_tx_id)
 
-    try:
-        _make_account(client, account_id, f"contract-rr-{account_id[:8]}")
-
-        # 4 — the same id with a different body, under a fresh idempotency key.
-        err = _refused(
-            lambda: _make_account(client, account_id, f"contract-rr-other-{account_id[:8]}")
+    # 4 — the same id with a different body, under a fresh idempotency key.
+    err = refused(
+        lambda: client.post(
+            "/accounts", json_body={**account_body(), "id": account_id, "name": f"rr-{account_id}"}
         )
-        _assert_refusal(err, 409, "CONFLICT", "id", "ID_EXISTS")
+    )
+    assert_refusal(err, 409, "CONFLICT", "id", "ID_EXISTS")
 
-        # 4 — in a batch, keyed by the item that carried it.
-        _make_transaction(client, tx_id, account_id, None)
-        err = _refused(
-            lambda: client.post(
-                "/transactions/batch",
-                json_body={
-                    "transactions": [
-                        {
-                            "id": batch_tx_id,
-                            "amount_cents": -200,
-                            "account_id": account_id,
-                            "date": "2026-01-03T00:00:00Z",
-                        },
-                        {
-                            "id": tx_id,
-                            "amount_cents": -300,
-                            "account_id": account_id,
-                            "date": "2026-01-03T00:00:00Z",
-                        },
-                    ]
-                },
-            )
-        )
-        _assert_refusal(err, 409, "CONFLICT", "transactions.1.id", "ID_EXISTS")
-    finally:
-        _safe_delete(client, f"/transactions/{batch_tx_id}")
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
-
-
-def test_a_completed_reconciliation_holds_its_rows_and_itself(client):
-    account_id = str(uuid4())
-    tx_id = str(uuid4())
-    recon_id = str(uuid4())
-
-    try:
-        _make_account(client, account_id, f"contract-rr-{account_id[:8]}")
-        _make_transaction(client, tx_id, account_id, None)
-        client.post(
-            "/reconciliations",
+    # 4 — in a batch, keyed by the item that carried it.
+    _make_transaction(scratch, tx_id, account_id)
+    err = refused(
+        lambda: client.post(
+            "/transactions/batch",
             json_body={
-                "id": recon_id,
-                "account_id": account_id,
-                "name": f"contract-rr-{recon_id[:8]}",
-                "date_start": "2026-01-01",
-                "date_end": "2026-01-31",
-                "beginning_balance_cents": 0,
-                "ending_balance_cents": -100,
+                "transactions": [
+                    {
+                        "id": batch_tx_id,
+                        "amount_cents": -200,
+                        "account_id": account_id,
+                        "currency_code": "PEN",
+                        "date": "2026-01-03T00:00:00Z",
+                    },
+                    {
+                        "id": tx_id,
+                        "amount_cents": -300,
+                        "account_id": account_id,
+                        "currency_code": "PEN",
+                        "date": "2026-01-03T00:00:00Z",
+                    },
+                ]
             },
         )
-        client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon_id})
-        client.post(f"/reconciliations/{recon_id}/complete")
+    )
+    assert_refusal(err, 409, "CONFLICT", "transactions.1.id", "ID_EXISTS")
 
-        # 5 — the row in it, then the reconciliation itself.
-        err = _refused(lambda: client.delete(f"/transactions/{tx_id}"))
-        _assert_refusal(err, 409, "CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION")
 
-        err = _refused(lambda: client.delete(f"/reconciliations/{recon_id}"))
-        _assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
-    finally:
-        try:
-            client.post(f"/reconciliations/{recon_id}/revert")
-        except EngineError:
-            pass
-        _safe_delete(client, f"/transactions/{tx_id}")
-        _safe_delete(client, f"/reconciliations/{recon_id}")
-        _safe_delete(client, f"/accounts/{account_id}")
+def test_a_completed_statement_holds_its_rows_and_itself(client, scratch):
+    account_id = scratch.account()
+    tx_id = str(uuid4())
+    _make_transaction(scratch, tx_id, account_id)
+    statement_id = scratch.statement(account_id, "2026-01-01", "2026-01-31")
+    client.put(
+        f"/statements/{statement_id}",
+        json_body={"balances": [{"currency_code": "PEN", "ending_balance_cents": -100}]},
+    )
+    client.put(f"/transactions/{tx_id}", json_body={"statement_id": statement_id})
+    client.post(f"/statements/{statement_id}/complete")
+
+    # 5 — the row in it, then the statement itself.
+    err = refused(lambda: client.delete(f"/transactions/{tx_id}"))
+    assert_refusal(err, 409, "CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION")
+
+    err = refused(lambda: client.delete(f"/statements/{statement_id}"))
+    assert_refusal(err, 409, "CONFLICT", "statement_id", "RECONCILIATION_NOT_DRAFT")

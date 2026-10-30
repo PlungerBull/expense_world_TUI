@@ -91,16 +91,6 @@ Files left to spec 4 may fail live until it runs. `test_card_statement.py` (task
 skips whole until rewritten, since task 1 removed the helpers it imports: task 7 removes its
 skip and its `# ruff: noqa: E402` line.
 
-3. **Six small files onto the shared helpers (builder).**
-   [test_freshman_flow.py](../../tests/contract/test_freshman_flow.py),
-   [test_pending_hashtag.py](../../tests/contract/test_pending_hashtag.py),
-   [test_refusal_reasons.py](../../tests/contract/test_refusal_reasons.py) (its completed
-   statement holding its rows and itself, on `/statements`),
-   [test_category_hashtags.py](../../tests/contract/test_category_hashtags.py),
-   [test_create_sent_again.py](../../tests/contract/test_create_sent_again.py) and
-   [test_log_lifecycle.py](../../tests/contract/test_log_lifecycle.py): accounts through
-   `Scratch` or `account_body`, every transaction with its `currency_code`.
-   *Passes if:* none of these files posts an account body of its own, and they pass live.
 4. **Reports and the dashboard (builder).**
    [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py):
    `bank_accounts`, `people` and the archived sections one row per account,

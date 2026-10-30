@@ -26,7 +26,7 @@ from expense import config as config_module
 from expense.dates import detect_timezone, now_local_iso
 from expense.errors import EngineError
 from expense.http import ExpenseClient
-from tests.contract.conftest import ENGINE_URL, PAT
+from tests.contract.conftest import ENGINE_URL, PAT, account_body
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("PYTEST_LIVE") != "1" or not PAT,
@@ -73,11 +73,8 @@ def test_freshman_flow(isolated_env):
         transaction_id = None
         suffix = uuid4().hex[:8]
         try:
-            new_id = str(uuid4())
-            account = client.post(
-                "/accounts",
-                json_body={"id": new_id, "name": f"freshman-{suffix}", "currency_code": "USD"},
-            )
+            body = {**account_body("USD"), "name": f"freshman-{suffix}"}
+            account = client.post("/accounts", json_body=body)
             account_id = account["id"]
 
             new_id = str(uuid4())
@@ -99,6 +96,7 @@ def test_freshman_flow(isolated_env):
                     "title": "freshman smoke",
                     "amount_cents": -100,
                     "account_id": account_id,
+                    "currency_code": "USD",
                     "category_id": category_id,
                     "date": now_local_iso(),
                 },
