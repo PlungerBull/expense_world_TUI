@@ -13,7 +13,7 @@ statement's own tests. The catch-up is seven specs, run in this order:
 6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
-**Status: draft, written 2026-10-29 for the owner to approve. It runs after spec 2,** whose app
+**Status: approved by the owner on 2026-10-30; the current spec. It runs after spec 2,** whose app
 code the live tests call: the upload's and the bank download's request bodies and the
 whole-line write ([conftest.py](../../tests/contract/conftest.py) builds its bodies with them).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.

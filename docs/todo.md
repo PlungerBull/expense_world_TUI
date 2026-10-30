@@ -53,7 +53,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 
 1. the app's reads and writes: done on 2026-10-30;
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
-3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
+3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): approved on 2026-10-30, running now;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
 6. [the main views](specs/catch-up-currencies-6-main-views.md): 15 tasks in two halves (6a the accounts, 6b the currency as its own field), 11 questions, 10 with a mockup;
