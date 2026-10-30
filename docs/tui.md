@@ -273,10 +273,8 @@ title gutter, the row in the accent), `a` selects every loaded row or clears the
 the bulk pick for the selection — or for the cursor row when nothing is selected —
 to set the category, move to an account and currency, or **replace** the hashtag set. The
 write is one `PUT /transactions/{id}` per row, in order, on one client, a move sending
-`account_id` and `currency_code` and adding `statement_id: null` only to a row whose account or
-currency changes (`bulk_writes`, `unassign_on_move`), so a row already on the pick keeps its
-statement
-(contract: PUT /v1/transactions/{transaction_id}, "Statement assignment");
+`account_id` and `currency_code` (`bulk_writes`), with `statement_id: null` as "A move takes a
+row out of its reconciliation" below says;
 then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → BCP Oro · USD` for a move:
 the pick's label), and a refused row (an account
@@ -340,18 +338,18 @@ saves the name alone and the engine keeps the colour (`_edit_payload` in
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"), so `b` adds
-`statement_id: null` to each row whose account changes, and only to those: a row
-already on the picked account keeps its reconciliation. The Edit form adds
+`statement_id: null` to each row whose account or currency changes, and only to those: a row
+already on the picked account and currency keeps its reconciliation. The Edit form adds
 `statement_id: null` beside its parts the same way when the line's account or currency changes
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
 write changed and whether it left its reconciliation (`left_statement`)
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
-across the answers that landed and those flagged as leaving — `3 rows → BCP USD · 2 left their
-reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
+across the answers that landed and those flagged as leaving — `3 rows → BCP Oro · USD · 2 left
+their reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
 (`moved_parts` in [edit_form.py](../expense/tui/screens/edit_form.py)). A row already on
-the picked account lists no part, so it is not counted, and a move that changes nothing shows
+the picked account and currency lists no part, so it is not counted, and a move that changes nothing shows
 no receipt; a refused row is still named. The Edit form reads its save's answer the same way
 (`moved_parts`; contract: PUT /v1/bank-lines/{bank_line_id}, "Response"): it says
 `Saved. It left its reconciliation.` when the answer flags any part as leaving, and `Saved.`
@@ -498,8 +496,8 @@ the set it has
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
 A part added here goes under a fresh id with what it holds, its hashtags through
 `hashtags_to_send` with `pending_alone=False`, so a part with only the pending hashtag sends
-none; a part dropped with `^x` is left out, so the engine deletes it. An account changed also
-sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
+none; a part dropped with `^x` is left out, so the engine deletes it. An account or currency
+changed also sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
 line field changed, the same parts and each kept part holding only its id and amount, the form
 says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
 `Saved. It left its reconciliation.` when the answer flags a part as leaving, closes, and the
@@ -910,7 +908,7 @@ its name alone and a dim `—` for Cur and Balance. `e`, `a`, `t` and `d` act on
 the cursor, every currency at once, through one call with the account's id
 (contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"), so `a` dims every
 row of the account; after `a` or `t` the cursor is back on the same row. Code is the account's
-statement code, or a dim `—` when it has none (a person never has one). Balance is the one
+statement code, or a dim `—` when it has none. Balance is the one
 right-aligned column (`account_rows` in
 [accounts.py](../expense/tui/screens/accounts.py)).
 
@@ -1032,7 +1030,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of its holder holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per holder per month") | none: the engine's words name the statement holding that month |
@@ -1178,9 +1176,10 @@ Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press
 **A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,
 2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
 [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
-**`statement code`** sits right after `currency`, on a bank account only: only a real
-account carries a code on these forms (contract: "What an account is", "Statement code").
-On New, TYPE turned to `person` takes the line off the form and the save sends no code;
+**`statement code`** sits right after `currency`, on a bank account only. The engine lets a
+person carry a code too
+(contract: "What an account is", "A person carries a code like any account"); these forms
+offer it none. On New, TYPE turned to `person` takes the line off the form and the save sends no code;
 turned back to `bank`, the line returns holding what was typed. A person's Edit form has no
 such line.
 
@@ -1214,7 +1213,7 @@ The form ends with two optional lines after `color`: **`opening`**, the amount, 
 both lines, as a bank account's does, and its opening balance is written the same way
 (contract: POST /v1/accounts/{account_id}/opening-balance).
 
-- **The amount is signed and taken as typed**, in the account's currency. The hint reads
+- **The amount is signed and taken as typed**, in the opened row's currency. The hint reads
   `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the
   app never adds or flips a sign. `as of` takes `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the
   account held this`), starts empty, and is marked `*` once there is an amount.

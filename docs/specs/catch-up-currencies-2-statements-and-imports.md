@@ -5,7 +5,7 @@ Catches up to contract `f82426fb0a099676`, from `e020782e3579d011`: the engine's
 holders are gone" — the part on statements, the statement PDF upload, the bank download and the
 sheet import. This is spec 2 of seven that share that range, run in this order:
 
-1. [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md): the
+1. part 1, the app's reads and writes (done on 2026-10-30): the
    app's reads and writes on an account and a currency code;
 2. this one: statements, the statement PDF upload, the bank download and the sheet import on the
    account, with the screens as close to today as the new model allows;

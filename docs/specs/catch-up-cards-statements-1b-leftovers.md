@@ -2,7 +2,7 @@
 
 Small things the statement screens' catch-up (contract `e020782e3579d011`) turned up. The rest of
 what it found belongs to other specs: the dropped routes' words and citations, to
-[catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md) and
+part 1, the app's reads and writes (done on 2026-10-30) and
 todo.md's backlog item for them; `t` on an account, to
 [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md); an account with no
 statement code, and the New statement form, to

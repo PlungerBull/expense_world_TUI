@@ -2,7 +2,7 @@
 
 **Status: approved by the owner on 2026-10-28; no question open. It runs after the catch-up to
 contract `f82426fb0a099676`
-([1](catch-up-currencies-1-reads-and-writes.md), [2](catch-up-currencies-2-statements-and-imports.md),
+(1 (done on 2026-10-30), [2](catch-up-currencies-2-statements-and-imports.md),
 [3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files; point 1 needs
@@ -44,7 +44,7 @@ needs no point: the engine itself states that bound as the list's largest page
    always passes its own; and a test docstring in
    [test_batch_write.py](../../tests/unit/test_batch_write.py) calls the default "the
    importer's". Each item's `currency_code` in the same file is
-   [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md)'s.
+   part 1, the app's reads and writes (done on 2026-10-30)'s.
 3. **Stale comments and tags say plainly what they mean.** The comment above `_ENVELOPE_ERRORS`
    in [errors.py](../../expense/errors.py) says EngineError is a branch in `render()`, where it is
    in `json_body` and `exit_code_of`. Two comments in

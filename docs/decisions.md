@@ -1067,6 +1067,28 @@ hides the same split, and pairing, unpairing and person holders stay for the own
 name, colour, kind and move keeps the duplication under new names. *One account mixing
 currencies in one balance* — a total across currencies has no meaning.
 
+## Until the screens are redrawn, a currency is one row named "<account> · <code>" (2026-10-29, owner)
+
+**Decision.** Every list and picker that showed one row per per-currency account shows one row
+per account and currency, labelled with the account's name and the code ("VISA Infinite
+Sapphire · USD", `formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT
+line, the ledger's Account column and bulk `b`, Home's balances, and Manage ▸ Accounts. A pick
+carries the account's id and the currency's code, and every write sends both. On Manage ▸
+Accounts, `e`, `a`, `t` and `d` act on the whole account from any of its rows; `d` names the
+account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`), and Edit
+account opened on a row gives that currency's opening balance. An account the engine reads with
+no currency keeps one row, its name alone, so it can still be found and deleted.
+
+**Why.** It moves the app onto the engine's model with the screens as close to the ones the owner
+knows as the model allows, so the app works again before the screens are redrawn with the
+currency as a field of its own. A row per currency is how the screens already read, and the
+label is the name the owner gave a currency. `d` lists every currency because a delete removes
+them all, and the row it is pressed on is only one.
+
+**Rejected.** *One row per account at once* — it is the redraw itself, with its own mockups and
+questions. *`d` asking about the cursor row with a line saying the other currencies go too* — it
+hides the balances the delete removes.
+
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to

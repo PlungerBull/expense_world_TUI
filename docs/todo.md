@@ -36,7 +36,7 @@ currency code; holders are gone" (contract `f82426fb0a099676`) is planned. Every
 rewritten for one account holding its currencies; the old cards, live-test and practice-engine
 specs are retired. The catch-up is seven specs, run in this order:
 
-1. [the app's reads and writes](specs/catch-up-currencies-1-reads-and-writes.md): approved and its question answered on 2026-10-29; running;
+1. the app's reads and writes: done on 2026-10-30;
 2. [statements and the three imports](specs/catch-up-currencies-2-statements-and-imports.md): 8 tasks, 3 questions of its own (its other two are answered by spec 7's);
 3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
@@ -52,10 +52,14 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
+New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
+(2 questions, one with a mockup to draw), after part 6.
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest, so each is ready when the one before it is done.
+**Recommended:** approve the rest, and start part 2 next, so each is ready when the one before it
+is done.
 
 ---
 
@@ -196,8 +200,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   through the engine on 2026-10-27; the PDF statement below is what is left.
 - **The engine catch-up of 2026-10-29, an account holds its currencies** (to
   `f82426fb0a099676`; the cards and statements catch-up of 2026-10-27 and 2026-10-28 is folded
-  into it, its parts 1a and 1b done on 2026-10-28): the seven specs and the rewritten ones listed
-  under "Approve the rewritten specs", waiting on that approval.
+  into it, its parts 1a and 1b done on 2026-10-28; part 1 of seven done on 2026-10-30): the six specs left
+  and the rewritten ones listed under "Approve the rewritten specs", waiting on that approval.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).

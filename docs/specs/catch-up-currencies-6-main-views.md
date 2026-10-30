@@ -8,7 +8,7 @@ list, the account's writes, adding and removing a currency, the opening balance 
 
 The seven specs of this catch-up, run in this order:
 
-1. [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md)
+1. part 1, the app's reads and writes (done on 2026-10-30)
 2. [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md)
 3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md)
 4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md)

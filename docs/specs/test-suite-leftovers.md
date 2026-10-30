@@ -2,7 +2,7 @@
 
 **Status: approved by the owner on 2026-10-28. It runs after the catch-up to contract
 `f82426fb0a099676`
-([catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md) to
+(part 1, the app's reads and writes (done on 2026-10-30) to
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)), which
 rewrites many of the same files, and after
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md). Its tasks are drafted
@@ -46,7 +46,7 @@ of the test engine: the guard blocks a hand start and allows only the engine's o
    endpoint; and an answer the contract allows in more than one shape (`GET /v1/reports/monthly`
    today) is named as such, not as "no JSON answer"
    ([the drift script](../../scripts/check_fixture_drift.py)). It runs after
-   [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md), where
+   part 1, the app's reads and writes (done on 2026-10-30), where
    `bank_line_row` gains `account_id` and `currency_code`.
 2. **`stub_home_month` says what it replaces**: in helpers.py it also replaces the settings with a
    bare object, so a respx test that calls it fails on `engine_url`; its name or docstring says

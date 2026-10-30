@@ -9,7 +9,7 @@ hand-off's part "Smaller changes" (`f91a1e0ae626c712` and `f0ee03d6faa96af1`), a
 import's counts say how many sheet rows its split lines come from"; the rename does not touch
 it. The rest of that range is caught up in the app's reads and writes, its statement screens
 and the catch-up to contract `f82426fb0a099676`
-([1](catch-up-currencies-1-reads-and-writes.md), [2](catch-up-currencies-2-statements-and-imports.md),
+(1 (done on 2026-10-30), [2](catch-up-currencies-2-statements-and-imports.md),
 [3](catch-up-currencies-3-live-suite-foundation.md), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and

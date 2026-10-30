@@ -6,7 +6,7 @@ holders are gone" — the part on the statement upload, bank lines, the bank dow
 sheet, an account's kind and archiving, and statement codes, in the live suite. The catch-up is
 seven specs, run in this order:
 
-1. [catch-up-currencies-1-reads-and-writes.md](catch-up-currencies-1-reads-and-writes.md);
+1. part 1, the app's reads and writes (done on 2026-10-30);
 2. [catch-up-currencies-2-statements-and-imports.md](catch-up-currencies-2-statements-and-imports.md);
 3. [catch-up-currencies-3-live-suite-foundation.md](catch-up-currencies-3-live-suite-foundation.md);
 4. this one;
