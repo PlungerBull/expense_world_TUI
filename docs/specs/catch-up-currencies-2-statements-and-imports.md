@@ -20,7 +20,7 @@ sheet import. This is spec 2 of seven that share that range, run in this order:
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md): an
    account's statement on one screen.
 
-**Status: draft, written 2026-10-29 for the owner to approve; it runs after spec 1, whose fake
+**Status: approved by the owner on 2026-10-30, not started; it runs after spec 1, whose fake
 engine, account picks and "<account> · <code>" labels it uses.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -52,7 +52,8 @@ else you see change:
 - **The sheet's account names are one per name**, mapped to one account, each row going to the
   currency in its own MONEDA (contract: POST /v1/transactions/import-sheet, "Names"). The names
   table shows each name's currencies as question 3 picks; `--account-name` drops its currency,
-  `--account-name "BCP=Sueldo"`, and your saved renames follow questions 4 and 5.
+  `--account-name "BCP=Sueldo"`; your saved renames are read by their name alone, and two
+  sheet names may go to one account ("What the owner settled").
 
 The statement screen drawn for the new model, a statement per account with a balance per
 currency, is spec 7.
@@ -101,7 +102,7 @@ currency, is spec 7.
    missing name with the currencies its rows use (contract: POST /v1/accounts, "Required");
    an account lacking a currency its name's rows use is refused in the engine's words;
    `--account-name SHEET_NAME=LEDGER_NAME` and the saved renames name a sheet account by its name
-   alone (questions 4 and 5).
+   alone, and two sheet names may be renamed onto one account ("What the owner settled").
 10. **No request sends a `/holders` route, `?holder_id=` or a per-currency id**, and the drift
     check's fixture check is clean.
 
@@ -132,6 +133,13 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
 - **The lines a close flags show in the engine's order** (owner, 2026-10-28, 1 A): the
   statement's order, every currency of the account together, is the only order the engine gives
   this list (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
+- **A saved rename is read by its name alone** (owner, 2026-10-30, question 4 A): `BCP:PEN` →
+  `Sueldo Soles` reads as `BCP` → `Sueldo Soles`; two saved for one name that go to different
+  ledger names stop the run before anything is written, naming both, until `--account-name` for
+  that name replaces them.
+- **Two sheet names may be renamed onto one account** (owner, 2026-10-30, question 5 A): both
+  names' rows go to that account, each in its own currency; the engine decides what may share an
+  account (contract: POST /v1/transactions/import-sheet, "Names").
 
 ## Questions for the owner
 
@@ -149,29 +157,12 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
    - **B.** No CUR column; the currencies after the name, `Visa (PEN, USD)`.
 
    **Recommended:** A: the table keeps its columns.
-4. **Your saved renames.** Your config keeps renames per name and currency (`BCP:PEN` →
-   `Sueldo Soles`); a rename is now per name.
-   - **A.** A saved rename is read by its name alone; two for one name that go to different
-     ledger names stop the run, naming both, nothing imported, until `--account-name` for that
-     name replaces them.
-   - **B.** Saved renames with a currency are left out and dropped at the next save; the run
-     lists them, and you pass `--account-name` again.
-
-   **Recommended:** A: your renames keep working, and a clash is shown, never guessed.
-5. **Two sheet names renamed onto one account.** Today it is refused before anything is
-   written. The engine now takes two names for one account, each row in its own currency
-   (contract: POST /v1/transactions/import-sheet, "Names").
-   - **A.** Allowed: both names' rows go to that account.
-   - **B.** Still refused.
-
-   **Recommended:** A: the engine decides what may share an account, and the app only checks
-   that what you typed is well formed.
 
 ---
 
 ## Tasks
 
-Drafted 2026-10-29; they wait on the owner's approval. Each leaves `pytest tests/unit` green.
+Approved by the owner on 2026-10-30. Each leaves `pytest tests/unit` green.
 Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md),
 [runtime.md](../runtime.md) and [commands.md](../commands.md) lines of the code it touches, and
 moves its tests onto spec 1's account builder.
@@ -246,11 +237,12 @@ moves its tests onto spec 1's account builder.
    [config.py](../../expense/config.py), the sheet tests, commands.md.
    *Passes if:* unit tests pin the body, a two-currency name's create, the table as picked, a
    rename in the new form, and the refusal; the drift check passes whole.
-8. **The saved renames and two names on one account (builder; waits on questions 4 and 5).**
-   A saved rename keyed with a currency is read as question 4 picks, and two sheet names renamed
-   onto one account as question 5 picks; commands.md says so.
-   *Passes if:* unit tests pin a config holding `BCP:PEN` and `BCP:USD` as picked, and two names
-   renamed onto one account as picked.
+8. **The saved renames and two names on one account (builder).**
+   A saved rename keyed with a currency is read by its name alone, and two sheet names renamed
+   onto one account are allowed, as "What the owner settled" says; commands.md says so.
+   *Passes if:* unit tests pin a config holding `BCP:PEN` and `BCP:USD` going to one ledger name
+   (read as one rename) and to two (the run stops, naming both, nothing imported), and two names
+   renamed onto one account sent to the engine.
 
 ## Reply to the engine
 
