@@ -195,14 +195,16 @@ And earlier:
    **Recommended:** A: the form you know, each line named by its currency, and the engine judges
    what is missing. The starting balance's second hint line,
    `0.00 if it holds the account's opening balance, which already counts it`, stays on each.
-2. **A currency the statement does not cover** [mockup to draw], on the statement's head, the list
+2. **A currency the statement does not cover**
+   ([expense-world-statement-currency-picks.html](../mockups/expense-world-statement-currency-picks.html), pick 1), on the statement's head, the list
    of statements and the PDF preview.
    - **A.** A row of its own: `USD   nothing this month`.
    - **B.** No row: only the covered currencies show.
 
    **Recommended:** A: you see that the dollars were looked at and had nothing. The words are new
    to the app; "nothing this month" is the engine's suggestion. Keep them, or name others.
-3. **A blank beginning balance, and how `c` gets the balances it needs** [mockup to draw].
+3. **A blank beginning balance, and how `c` gets the balances it needs**
+   ([expense-world-statement-currency-picks.html](../mockups/expense-world-statement-currency-picks.html), picks 2 and 3).
    - **How a blank one reads:** **A.** `not entered`, the engine's suggestion, beside a
      difference reading `not checked yet`. **B.** A dim `—`, as an empty ending balance reads
      today.

@@ -37,7 +37,7 @@ rewritten for one account holding its currencies; the old cards, live-test and p
 specs are retired. The catch-up is seven specs, run in this order:
 
 1. the app's reads and writes: done on 2026-10-30;
-2. [statements and the three imports](specs/catch-up-currencies-2-statements-and-imports.md): approved on 2026-10-30, its questions 4 and 5 answered, not started; its question 3 waits on a mockup, and its questions 1 and 2 on spec 7's questions 2 and 3;
+2. [statements and the three imports](specs/catch-up-currencies-2-statements-and-imports.md): approved on 2026-10-30, its questions 4 and 5 answered, not started; its question 3, and spec 7's questions 2 and 3 that answer its questions 1 and 2, are drawn for you to pick (2026-10-30): [expense-world-statement-currency-picks.html](mockups/expense-world-statement-currency-picks.html) and [expense-world-sheet-names-currencies.html](mockups/expense-world-sheet-names-currencies.html);
 3. [the live tests' foundation](specs/catch-up-currencies-3-live-suite-foundation.md): 8 tasks, no question;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): 8 tasks, no question;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;

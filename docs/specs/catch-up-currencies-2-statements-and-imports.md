@@ -150,7 +150,8 @@ On the practice engine, with the practice user's Visa holding soles and dollars 
 2. **`c` when the opened currency's starting balance is blank, or the statement holds no
    balances for it while it had money at the start**: answered once, by question 3's second part
    of [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
-3. **The sheet's names table, one row per account name** [mockup to draw]. Today each row is a
+3. **The sheet's names table, one row per account name**
+   ([expense-world-sheet-names-currencies.html](../mockups/expense-world-sheet-names-currencies.html)). Today each row is a
    name in one currency, with a CUR column; the engine now lists each name once with every
    currency its rows use.
    - **A.** The CUR column lists them, `PEN + USD`, as the bank download's list writes a card's.

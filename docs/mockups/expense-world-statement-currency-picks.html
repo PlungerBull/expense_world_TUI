@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Statement currency picks</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  :root[data-theme=dark]{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick,.qs{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:100ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:30px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code,.qs code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,700px),1fr));gap:16px}
+  .opt.three{grid-template-columns:repeat(auto-fit,minmax(min(100%,470px),1fr))}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .qs{margin-top:46px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs b{color:var(--text)}
+  .pick{margin-top:46px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>A statement's currencies · three picks</h1>
+  <p>The engine now makes a statement <b>the account's</b>, with a starting and an ending balance for each currency it covers. Two things are new: a statement may <b>not cover</b> one of the account's currencies (a month with no dollar line and no dollars owed at the start), and a statement may hold a currency whose <b>starting balance is blank</b> (when a dollar line is ticked into a month that had no dollars, the month gains dollar balances, both blank).</p>
+  <p>These are questions 2 and 3 of <code>catch-up-currencies-7-statement-screen.md</code>. Your answer is used twice: <b>now</b>, on today's screens, by part 2 of the catch-up (drawn here), and <b>later</b>, on the new statement screen part 7 draws.</p>
+  <p>Every drawing uses one made-up account: <b>VISA Infinite Sapphire</b>, holding soles and dollars, statement code <code>VIS</code>. Its months:</p>
+  <p>· <b>Julio 2026</b> – no dollar movement and no dollars owed at the start, so it <b>doesn't cover USD</b>.<br>
+     · <b>Agosto</b> and <b>Septiembre 2026</b> – both currencies, both add up.<br>
+     · <b>Octubre 2026</b> – a draft. A dollar line was ticked in after it was made, so its USD <b>starting balance is blank</b>.</p>
+  <p>Grey refusal lines are the engine's own words, quoted from the contract. Pick <b>one letter per question</b>. The button at the top right switches between a light and a dark terminal.</p>
+</div>
+
+<!-- ============================ PICK 1 ============================ -->
+<div class="qs">
+  <h2>Pick 1 · A currency the statement doesn't cover</h2>
+  Julio 2026 has no dollars at all. How does that show on <b>the list of statements</b>, on <b>the statement's own screen</b> opened from the USD row, and on <b>the PDF preview</b>? The words "nothing this month" are the engine's suggestion; keep them, or name others.
+</div>
+
+<div class="pane">
+  <div class="lbl">1 · The list of statements <span>– ⏎ on VISA Infinite Sapphire · PEN (or · USD; the same list opens)</span></div>
+  <div class="opt">
+    <div>
+      <div class="oh">A · its own words <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">VISA Infinite Sapphire · PEN</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Reconciliations — pick an account
+
+    Account                          Cur        Balance
+  <span class="a">▸</span> VISA Infinite Sapphire · PEN     PEN        -512.30
+  <span class="a">▸</span> VISA Infinite Sapphire · USD     USD         -61.40
+    Sueldo Soles · PEN               PEN      12,450.00
+
+  Reconciliations · VISA Infinite Sapphire · VIS   ·   oldest → newest
+    Name             Period                    Diff PEN   Diff USD            Status
+    <span class="d">Julio 2026       2026-06-26 → 2026-07-25          —   nothing this month  completed</span>
+    <span class="d">Agosto 2026      2026-07-26 → 2026-08-25          —   —                   completed</span>
+    <span class="d">Septiembre 2026  2026-08-26 → 2026-09-25          —   —                   completed</span>
+    <span class="rev">Octubre 2026     2026-09-26 → 2026-10-25          —                       draft    </span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  n New  u No batch  ? Keys</span></pre></div></div>
+      <div class="cap">Julio's USD cell says why there's no figure. Octubre's USD cell is blank because its balance isn't entered yet (Pick 2).</div>
+    </div>
+    <div>
+      <div class="oh">B · nothing shown</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">VISA Infinite Sapphire · PEN</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Reconciliations — pick an account
+
+    Account                          Cur        Balance
+  <span class="a">▸</span> VISA Infinite Sapphire · PEN     PEN        -512.30
+  <span class="a">▸</span> VISA Infinite Sapphire · USD     USD         -61.40
+    Sueldo Soles · PEN               PEN      12,450.00
+
+  Reconciliations · VISA Infinite Sapphire · VIS   ·   oldest → newest
+    Name             Period                    Diff PEN   Diff USD   Status
+    <span class="d">Julio 2026       2026-06-26 → 2026-07-25          —              completed</span>
+    <span class="d">Agosto 2026      2026-07-26 → 2026-08-25          —          —   completed</span>
+    <span class="d">Septiembre 2026  2026-08-26 → 2026-09-25          —          —   completed</span>
+    <span class="rev">Octubre 2026     2026-09-26 → 2026-10-25          —              draft    </span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  n New  u No batch  ? Keys</span></pre></div></div>
+      <div class="cap">Julio's USD cell is blank. A blank cell also means "no ending balance yet" (Octubre), so the two look the same.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">2 · The statement's screen <span>– ⏎ on Julio 2026, opened from the USD row</span></div>
+  <div class="blurb">Opened on dollars, the screen lists the dollar lines in no statement inside Julio's days (here, none). Ticking one in would give Julio dollar balances, both blank.</div>
+  <div class="opt">
+    <div>
+      <div class="oh">A · a row of its own <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Julio 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Julio 2026  ·  VISA Infinite Sapphire · USD  ·  2026-06-26 → 2026-07-25
+  USD  <span class="d">nothing this month</span>                                  status <span class="p">completed</span>
+
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+   <span class="d">no lines</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ? Keys</span></pre></div></div>
+    </div>
+    <div>
+      <div class="oh">B · no row</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Julio 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Julio 2026  ·  VISA Infinite Sapphire · USD  ·  2026-06-26 → 2026-07-25
+                                                       status <span class="p">completed</span>
+
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+   <span class="d">no lines</span>
+
+ <span class="d">esc Back  r Refresh  u Revert  d Delete  ? Keys</span></pre></div></div>
+      <div class="cap">The header has no balances line, since there is none for dollars.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">3 · The PDF preview <span>– the Visa's Julio PDF dropped on the LOG bar</span></div>
+  <div class="blurb">The engine sends a balance only for each currency the paper has something in. The paper shows dollars at 0.00 with no row.</div>
+  <div class="opt">
+    <div>
+      <div class="oh">A · a row of its own <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Upload  ▸  <span class="b">BCP Visa 2026-07.pdf</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Preview · VISA Infinite Sapphire · <span class="d">nothing written yet</span>
+  VIS-202607 · 2026-06-26 → 2026-07-25 · <span class="d">a new statement</span>
+         <span class="d">begin          end</span>
+  PEN  -1,020.00    -1,315.80
+  USD  <span class="d">nothing this month</span>
+
+     #  date        title                       amount  cur
+     1  2026-06-28  PLAZA VEA SURCO            <span class="n">-84.30</span>  PEN  <span class="p">✓</span>  <span class="d">In the ledger</span>
+     2  2026-07-04  RAPPI*RESTAURANTE          <span class="n">-96.40</span>  PEN  <span class="a">+  New</span>
+     <span class="d">…</span>
+
+  14 rows · 12 in the ledger · <span class="a">2 new</span>
+
+ <span class="d">esc Cancel  ⏎ Close VIS-202607</span></pre></div></div>
+    </div>
+    <div>
+      <div class="oh">B · only what it covers</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Upload  ▸  <span class="b">BCP Visa 2026-07.pdf</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Preview · VISA Infinite Sapphire · <span class="d">nothing written yet</span>
+  VIS-202607 · 2026-06-26 → 2026-07-25 · <span class="d">a new statement</span>
+         <span class="d">begin          end</span>
+  PEN  -1,020.00    -1,315.80
+
+     #  date        title                       amount  cur
+     1  2026-06-28  PLAZA VEA SURCO            <span class="n">-84.30</span>  PEN  <span class="p">✓</span>  <span class="d">In the ledger</span>
+     2  2026-07-04  RAPPI*RESTAURANTE          <span class="n">-96.40</span>  PEN  <span class="a">+  New</span>
+     <span class="d">…</span>
+
+  14 rows · 12 in the ledger · <span class="a">2 new</span>
+
+ <span class="d">esc Cancel  ⏎ Close VIS-202607</span></pre></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ PICK 2 ============================ -->
+<div class="qs">
+  <h2>Pick 2 · A blank starting balance</h2>
+  Octubre 2026's dollar starting balance is blank: a dollar line was ticked in after the month was made. The engine can't check whether dollars add up until the starting balance is entered, so it sends no difference either. Drawn on the statement's screen opened from the USD row, and on the list.
+</div>
+
+<div class="pane">
+  <div class="lbl">4 · Octubre 2026, opened from the USD row <span>– after ticking in AMAZON MKTPLACE</span></div>
+  <div class="opt">
+    <div>
+      <div class="oh">A · says it in words <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Octubre 2026  ·  VISA Infinite Sapphire · USD  ·  2026-09-26 → 2026-10-25
+  begin <span class="d">not entered</span>    end <span class="d">not entered</span>    diff <span class="d">not checked yet</span>    status <span class="w">draft</span>
+
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+   <span class="rev">[x]   2026-10-05   AMAZON MKTPLACE       48190288        -24.99 </span>
+   [ ]   2026-10-24   SPOTIFY P2F3          48213911         <span class="n">-5.99</span>
+
+ <span class="d">space Toggle  esc Back  r Refresh  c Complete  u Revert  d Delete  ? Keys</span></pre></div></div>
+      <div class="cap">On the list (pane 1), Octubre's <code>Diff USD</code> reads <code>not checked yet</code>. An ending balance not entered reads <code>not entered</code> too, where today it's a dim <code>—</code>.</div>
+    </div>
+    <div>
+      <div class="oh">B · a dim dash</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Octubre 2026  ·  VISA Infinite Sapphire · USD  ·  2026-09-26 → 2026-10-25
+  begin <span class="d">—</span>    end <span class="d">—</span>    diff         status <span class="w">draft</span>
+
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+   <span class="rev">[x]   2026-10-05   AMAZON MKTPLACE       48190288        -24.99 </span>
+   [ ]   2026-10-24   SPOTIFY P2F3          48213911         <span class="n">-5.99</span>
+
+ <span class="d">space Toggle  esc Back  r Refresh  c Complete  u Revert  d Delete  ? Keys</span></pre></div></div>
+      <div class="cap">As today's empty ending balance reads: a dim <code>—</code>, and a blank diff. On the list, Octubre's <code>Diff USD</code> stays blank too. A blank start and a blank end look the same.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ PICK 3 ============================ -->
+<div class="qs">
+  <h2>Pick 3 · What <code>c</code> does when a balance is missing</h2>
+  Today, <code>c</code> on a draft with no ending balance first opens the box <code>Ending balance first</code>, then asks <code>Complete reconciliation?</code>. Now a starting balance can be blank too, and the engine also refuses a month that leaves out a currency that had money at its start. Every refusal is the engine's own words.
+</div>
+
+<div class="pane">
+  <div class="lbl">5A · c leads you through what's missing <span>– recommended · c on Octubre 2026, opened from the USD row</span></div>
+  <div class="blurb">One box per blank balance of the opened currency, starting balance first, then ending balance, each saved as you press enter. Then the usual question.</div>
+  <div class="opt three">
+    <div>
+      <div class="oh"><span>step 1 · the starting balance</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="d">──────────────────────────────────────────────</span>
+
+    <span class="b">Starting balance first</span>
+    The statement's opening figure for
+    VISA Infinite Sapphire · USD · signed ·
+    e.g. 13,853.20
+    -60.12▍
+    <span class="d">[enter] save    [esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────</span>
+
+ <span class="d">esc Cancel</span></pre></div></div>
+    </div>
+    <div>
+      <div class="oh"><span>step 2 · the ending balance</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="d">──────────────────────────────────────────────</span>
+
+    <span class="b">Ending balance first</span>
+    The statement's closing figure for
+    VISA Infinite Sapphire · USD · signed ·
+    e.g. 13,853.20
+    -91.10▍
+    <span class="d">[enter] save    [esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────</span>
+
+ <span class="d">esc Cancel</span></pre></div></div>
+    </div>
+    <div>
+      <div class="oh"><span>step 3 · the question, as today</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="d">──────────────────────────────────────────────</span>
+
+    <span class="b">Complete reconciliation?</span>
+
+    Locks the amount, date, title, account,
+    operation number and reconciliation of the 9
+    ticked rows.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────</span>
+
+ <span class="d">y Yes  n No</span></pre></div></div>
+    </div>
+  </div>
+  <div class="cap"><code>esc</code> on any box stops there. Whatever was saved stays saved, and the next <code>c</code> starts at the first balance still blank. A balance already entered gets no box. The <code>Starting balance first</code> box is new and mirrors today's <code>Ending balance first</code>.</div>
+</div>
+
+<div class="pane">
+  <div class="lbl">5A · when the engine names another currency <span>– c on a month opened from the PEN row, when dollars had money at its start and the month holds no dollar balances</span></div>
+  <div class="opt">
+    <div>
+      <div class="oh"><span>the engine's refusal, then the boxes for the currency it names</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Noviembre 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Noviembre 2026  ·  VISA Infinite Sapphire · PEN  ·  2026-10-26 → 2026-11-25
+  begin -380.70    end -910.40    diff <span class="d">—</span>    status <span class="w">draft</span>
+
+  <span class="nb">Couldn't complete</span>
+  <span class="d">balances.USD: USD has -91.10 at the statement's start, and the statement holds no balances for it.</span>
+
+  <span class="d">──────────────────────────────────────────────</span>
+    <span class="b">Starting balance first</span>
+    The statement's opening figure for
+    VISA Infinite Sapphire · USD · signed ·
+    e.g. 13,853.20
+    ▍
+    <span class="d">[enter] save    [esc] cancel</span>
+  <span class="d">──────────────────────────────────────────────</span></pre></div></div>
+      <div class="cap">After the USD boxes are saved, <code>Complete reconciliation?</code> asks as usual. The engine's sentence above is a stand-in: the contract says only that it names the currency and its money.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">5B · c reports, and a key of its own enters the balances <span>– c on Octubre 2026, opened from the USD row</span></div>
+  <div class="blurb"><code>c</code> sends the complete as it is and shows the engine's words. A new key opens a box for every balance of every currency the statement covers, one after another, already-entered ones filled in for you to keep or change.</div>
+  <div class="opt">
+    <div>
+      <div class="oh"><span>c · the engine's words</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────</span>
+  Octubre 2026  ·  VISA Infinite Sapphire · USD  ·  2026-09-26 → 2026-10-25
+  begin <span class="d">not entered</span>    end <span class="d">not entered</span>    diff <span class="d">not checked yet</span>    status <span class="w">draft</span>
+
+  <span class="nb">Couldn't complete</span>
+  <span class="d">Cannot complete the statement without every currency's balances.</span>
+  <span class="d">balances.USD.beginning_balance_cents: Must be entered before completing.</span>
+  <span class="d">balances.USD.ending_balance_cents: Must be entered before completing.</span>
+
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+   <span class="rev">[x]   2026-10-05   AMAZON MKTPLACE       48190288        -24.99 </span>
+
+ <span class="d">space Toggle  esc Back  r Refresh  c Complete  b Balances  u Revert  d Delete  ? Keys</span></pre></div></div>
+    </div>
+    <div>
+      <div class="oh"><span>b · one box after another, 1 of 4</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="d">──────────────────────────────────────────────</span>
+
+    <span class="b">Balances · 1 of 4</span>
+    Starting balance for
+    VISA Infinite Sapphire · PEN · signed ·
+    e.g. 13,853.20
+    -1,240.50▍
+    <span class="d">[enter] save    [esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────</span>
+
+ <span class="d">esc Cancel</span></pre></div></div>
+      <div class="cap">Then PEN ending, USD starting, USD ending. The key <code>b</code> and the words <code>Balances</code> are placeholders: they would be new to the app, so you would name them.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pick">To answer, say:<ul>
+  <li><b>Pick 1, a currency the statement doesn't cover:</b> A or B. With A, keep "nothing this month" or give other words.</li>
+  <li><b>Pick 2, a blank starting balance:</b> A or B</li>
+  <li><b>Pick 3, what c does:</b> A or B. With B, name the key and its word.</li>
+</ul></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
