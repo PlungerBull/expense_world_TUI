@@ -520,13 +520,15 @@ def paper_day(day: date) -> str:
 
 @dataclass(frozen=True)
 class PaperRow:
-    """One row of a made-up savings paper: its day (its processing and value date both), its
-    description, and its amount in cents, signed: negative out (`CARGOS`), positive in
-    (`ABONOS`), `0` a row of `0.00`, printed in the out column."""
+    """One row of a made-up savings paper: its day (its value date, and its processing date
+    too unless `processed` is given), its description, and its amount in cents, signed:
+    negative out (`CARGOS`), positive in (`ABONOS`), `0` a row of `0.00`, printed in the out
+    column."""
 
     day: date
     description: str
     amount_cents: int
+    processed: date | None = None
 
 
 def savings_paper(
@@ -576,7 +578,7 @@ def savings_paper(
             end_cell = _IN_END if row.amount_cents > 0 else _OUT_END
             lines.append(
                 _cells(
-                    (_PROCESSED, paper_day(row.day)),
+                    (_PROCESSED, paper_day(row.processed or row.day)),
                     (_VALUED, paper_day(row.day)),
                     (_TEXT, row.description),
                     _ending(end_cell, paper_amount(row.amount_cents)),

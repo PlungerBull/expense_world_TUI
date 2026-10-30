@@ -93,14 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-2. **The published samples (builder).** In test_statement_import.py: `card` then
-   `card-no-dollars` closing one account of PEN and USD month after month, the first with
-   `[PEN -125000 → -37959, USD -8000 → -10498]`, the second closing USD `-10498 → -10498` with
-   every row in PEN; the undated fees dated the statement's last day; a card sample sent to a
-   soles-only account refused `CURRENCY_NOT_HELD` on `account_id`; the suite's drawn copy of
-   the savings sample answering the sample's rows, days and balances.
-   *Passes if:* those tests pass live, the card tests use only the published samples, and no
-   real statement is in the repo.
 3. **A card paper with dollars at zero (builder).** A card paper drawn in
    [conftest.py](../../tests/contract/conftest.py) to the stated layout, its dollars at zero
    with no row: sent to a soles-only account it closes in soles only

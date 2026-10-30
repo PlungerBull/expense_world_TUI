@@ -40,13 +40,17 @@ layout"), never a real one: this repo is public. Pinned here:
     `NO_TRANSACTIONS_ASSIGNED` for a paper of `0.00` rows only).
 
 `RESERVED_NAME_HELD` is drawn in test_reserved_name_held.py, as the user holding the names.
-Not drawn here: a card's paper and the published samples, whose cases are other tests'; the
-races (`CONCURRENT_CHANGE`), the line codes used up (`LINE_CODES_EXHAUSTED`) and the
-engine's own fault (`INTERNAL_ERROR`), which no made-up file provokes.
+The published samples, fetched live, are tested here too: `card` then `card-no-dollars`
+closing one account of soles and dollars, the second closing its dollars with no line, and the
+drawn savings paper answering as the `savings` sample does. Not drawn here: a card's paper,
+whose cases are another test's; the races (`CONCURRENT_CHANGE`), the line codes used up
+(`LINE_CODES_EXHAUSTED`) and the engine's own fault (`INTERNAL_ERROR`), which no made-up
+file provokes.
 
 Gating, target and the real-ledger guard: conftest.py.
 """
 
+import base64
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -526,3 +530,133 @@ def test_a_savings_paper_of_empty_rows_only_is_refused(client, scratch):
     _refused_writing_nothing(
         client, account, paper, 422, "VALIDATION_ERROR", "file", "NO_TRANSACTIONS_ASSIGNED"
     )
+
+
+def _sample(client, name: str) -> dict:
+    """The engine's published made-up sample `name` (contract: GET /v1/statements/samples/{sample}),
+    the one paper the card tests use: no real statement is in this repo."""
+    return client.get(f"/statements/samples/{name}")
+
+
+def _paper_of(sample: dict) -> bytes:
+    return base64.b64decode(sample["file"])
+
+
+def _answer_rows(answer: dict, sample: dict) -> list[dict]:
+    """The upload's rows under the keys the sample's rows hold
+    (contract: GET /v1/statements/samples/{sample}, "Response")."""
+    return [
+        {k: row[k] for k in sample_row}
+        for row, sample_row in zip(answer["rows"], sample["rows"], strict=True)
+    ]
+
+
+def test_the_card_samples_close_one_account_month_after_month(client, scratch):
+    """`card` then `card-no-dollars`, both currencies of one account closing in turn: the
+    second, with no dollar row, closes its dollars with no line, their balances equal
+    (contract: POST /v1/statements/import, "A card's currency with no row still closes"),
+    and the undated interest and fees are dated the statement's last day
+    (contract: POST /v1/statements/import, "The rows and their places")."""
+    account, code = _coded(scratch, "PEN", "USD")
+    first, second = _sample(client, "card"), _sample(client, "card-no-dollars")
+    assert first["balances"] == [
+        {
+            "currency_code": "PEN",
+            "beginning_balance_cents": -125000,
+            "ending_balance_cents": -37959,
+        },
+        {"currency_code": "USD", "beginning_balance_cents": -8000, "ending_balance_cents": -10498},
+    ]
+    assert second["balances"][1] == {
+        "currency_code": "USD",
+        "beginning_balance_cents": -10498,
+        "ending_balance_cents": -10498,
+    }
+
+    for sample, month in ((first, "202503"), (second, "202504")):
+        before = _ledger(client, account)
+        dry = send_statement(client, account, _paper_of(sample), dry_run=True)
+        assert dry["statement_id"] is None and dry["creates"] is True
+        assert _ledger(client, account) == before
+        assert (dry["name"], dry["date_start"], dry["date_end"]) == (
+            f"{code}-{month}",
+            sample["date_start"],
+            sample["date_end"],
+        )
+        assert dry["balances"] == sample["balances"]
+        assert _answer_rows(dry, sample) == sample["rows"]
+        assert all(r["account_id"] == account and r["outcome"] == "new" for r in dry["rows"])
+        fees = [r for r in dry["rows"] if r["fee"]]
+        assert fees and all(r["date"] == sample["date_end"] for r in fees)
+
+        done = send_statement(client, account, _paper_of(sample), dry_run=False)
+        scratch.took(done)
+        assert done["balances"] == sample["balances"]
+        assert _answer_rows(done, sample) == sample["rows"]
+        statement = done["statement"]
+        assert (statement["account_id"], statement["status"]) == (account, 2)
+        assert statement["name"] == f"{code}-{month}"
+        for balance in sample["balances"]:
+            held = balance_of(statement, balance["currency_code"])
+            assert held["beginning_balance_cents"] == balance["beginning_balance_cents"]
+            assert held["ending_balance_cents"] == balance["ending_balance_cents"]
+            assert held["difference_cents"] == 0
+        lines = client.get("/bank-lines", params={"statement_id": done["statement_id"]})["items"]
+        assert len(lines) == len(sample["rows"])
+        assert {line["currency_code"] for line in lines} == {
+            r["currency_code"] for r in sample["rows"]
+        }
+
+    assert {r["currency_code"] for r in second["rows"]} == {"PEN"}
+    assert sorted(s["name"] for s in _statements(client, account)) == [
+        f"{code}-202503",
+        f"{code}-202504",
+    ]
+
+
+def test_a_card_sample_sent_to_a_soles_only_account_is_refused(client, scratch):
+    """The card prints dollar rows, so an account holding no dollars is `CURRENCY_NOT_HELD`
+    on a dry run as on an apply (contract: POST /v1/statements/import, "Accounts")."""
+    account, _ = _coded(scratch, "PEN")
+    sample = _sample(client, "card")
+    err = _refused_writing_nothing(
+        client,
+        account,
+        _paper_of(sample),
+        422,
+        "VALIDATION_ERROR",
+        "account_id",
+        "CURRENCY_NOT_HELD",
+    )
+    assert err.fields["account_id"] == "The account holds no USD."
+
+
+def test_the_drawn_savings_paper_answers_as_the_savings_sample_does(client, scratch):
+    """The suite's own drawing of the `savings` sample's rows, days and balances is read as
+    the published paper is: the same rows, days and balances (contract: POST /v1/statements/import,
+    "The paper's layout")."""
+    sample = _sample(client, "savings")
+    drawn = savings_paper(
+        [
+            PaperRow(
+                date.fromisoformat(row["date"]),
+                row["description"],
+                -row["amount_cents"] if row["transaction_type"] == 1 else row["amount_cents"],
+                date.fromisoformat(row["processed_on"]),
+            )
+            for row in sample["rows"]
+        ],
+        start=date.fromisoformat(sample["date_start"]),
+        end=date.fromisoformat(sample["date_end"]),
+        before_cents=sample["balances"][0]["beginning_balance_cents"],
+    )
+    account, _ = _coded(scratch)
+    published = send_statement(client, account, _paper_of(sample), dry_run=True)
+    mine = send_statement(client, account, drawn, dry_run=True)
+
+    assert published["balances"] == mine["balances"] == sample["balances"]
+    assert (mine["date_start"], mine["date_end"]) == (sample["date_start"], sample["date_end"])
+    assert _answer_rows(mine, sample) == _answer_rows(published, sample) == sample["rows"]
+    assert [r["outcome"] for r in mine["rows"]] == [r["outcome"] for r in published["rows"]]
+    assert mine["counts"] == published["counts"]
+    assert mine["name"] == published["name"]
