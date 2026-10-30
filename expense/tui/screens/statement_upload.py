@@ -93,9 +93,9 @@ NO_TITLE = "—"
 
 
 def pick_label(pick: AccountPick) -> str:
-    """The account as the upload's screens name it: `Sueldo Soles`, or a
-    card's line with its currencies, `Signature PEN + USD`."""
-    return f"{pick.name} {pick.currencies}" if pick.is_card else pick.name
+    """The account as the upload's screens name it: `Sueldo Soles`, or, when
+    it holds two currencies, with them, `Signature PEN + USD`."""
+    return f"{pick.name} {pick.currencies}" if pick.holds_two else pick.name
 
 
 def changed_meanwhile(err: Exception) -> bool:
@@ -116,8 +116,8 @@ def changed_meanwhile(err: Exception) -> bool:
 # which account is this statement? — screen A2
 # ---------------------------------------------------------------------------
 class StatementAccountScreen(ImportAccountScreen):
-    """Which account is this statement? The download's account list, a card's
-    two accounts one line; asked every time. The pick is the account: the
+    """Which account is this statement? The download's account list, an account
+    holding two currencies one line; asked every time. The pick is the account: the
     engine never picks one by the number the paper prints."""
 
     QUESTION = "Which account is this statement?  "

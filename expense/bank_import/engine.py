@@ -42,9 +42,10 @@ class ImportedRow:
 
     #: The row's number in the spreadsheet; the first data row is 2.
     row: int
-    #: The account the engine puts the row on: on a card's download, the
-    #: account of the row's currency.
+    #: The account the file is from, and the currency of it the engine puts
+    #: the row on (its own `Moneda`).
     account_id: str
+    currency_code: str
     date_iso: str
     title: str | None
     amount_cents: int  # signed: negative = outflow; 0 on a skipped row
@@ -69,6 +70,7 @@ def answer_rows(response: dict) -> list[ImportedRow]:
         ImportedRow(
             row=int(item.get("row") or 0),
             account_id=str(item.get("account_id")),
+            currency_code=str(item.get("currency_code")),
             date_iso=str(item.get("date")),
             title=item.get("title"),
             amount_cents=signed_cents(item),
@@ -84,13 +86,15 @@ def answer_rows(response: dict) -> list[ImportedRow]:
 
 @dataclass(frozen=True)
 class DayMismatch:
-    """One account and day the engine reports — the `day_mismatches` entry, a
+    """One account, currency and day the engine reports — the `day_mismatches` entry, a
     report only: its file total and ledger total (after this import) differ,
     or it holds a ledger line no file row claimed, or both
     (contract: POST /v1/transactions/import)."""
 
     account_id: str
+    #: The account's name, as the pick names it.
     account_name: str
+    currency_code: str
     date_iso: str
     file_net_cents: int  # signed: inflow positive, outflow negative
     ledger_net_cents: int  # signed, the ledger's after this import
@@ -102,18 +106,18 @@ class DayMismatch:
     unclaimed_parts: tuple[dict, ...]
 
 
-def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
-    """The answer's `day_mismatches`, in the engine's order, each account
-    named from `names` (account id → name; its id when it is not there). The
+def day_mismatches(response: dict, account_name: str) -> list[DayMismatch]:
+    """The answer's `day_mismatches`, in the engine's order, each naming the
+    file's account, `account_name`, and its own `currency_code`. The
     totals stay signed as the engine sends them; a day can be reported with
     equal totals when it holds an unclaimed line."""
     out: list[DayMismatch] = []
     for e in response.get("day_mismatches") or []:
-        account_id = str(e.get("account_id"))
         out.append(
             DayMismatch(
-                account_id=account_id,
-                account_name=names.get(account_id, account_id),
+                account_id=str(e.get("account_id")),
+                account_name=account_name,
+                currency_code=str(e.get("currency_code")),
                 date_iso=str(e.get("date")),
                 file_net_cents=int(e.get("file_net_cents") or 0),
                 ledger_net_cents=int(e.get("ledger_net_cents") or 0),

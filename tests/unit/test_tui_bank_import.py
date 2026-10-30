@@ -37,7 +37,6 @@ from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
-    account_record,
     account_with_currencies,
     held_currency,
     import_answer,
@@ -53,21 +52,22 @@ from tests.unit.helpers import (
     whole,
 )
 
-#: The card's two accounts on one holder, its dollar account first, so its line stands
-#: there and still sends the soles one; then a current account, and an archived one
-#: the list leaves out.
+#: The card, one account holding soles and dollars; then a current account, and an
+#: archived one and a person the list leaves out.
 ACCOUNTS = [
-    account_record(id="sig-usd", name="BCP Signature USD", currency_code="USD", holder_id="h-sig"),
-    account_record(id="sig-pen", name="BCP Signature PEN", holder_id="h-sig"),
-    account_record(id="bcp-pen", name="BCP PEN", holder_id="h2"),
-    account_record(id="old", name="Retired PEN", holder_id="h3", is_archived=True),
+    account_with_currencies(
+        id="sig", name="BCP Signature", currencies=[held_currency("PEN"), held_currency("USD")]
+    ),
+    account_with_currencies(id="bcp", name="BCP PEN"),
+    account_with_currencies(id="old", name="Retired PEN", is_archived=True),
+    account_with_currencies(id="ana", name="Ana", is_person=True, currencies=[]),
 ]
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN"
 
 #: A card's download as the engine reads it: rows 2–5, row 3 in dollars.
 CARD_ROWS = [
     import_row(2, -4900, day="2026-09-11", title="EDO SUSHI BAR LI"),
-    import_row(3, -2117, day="2026-09-09", title="APPLE.COM/BILL", account_id="sig-usd"),
+    import_row(3, -2117, day="2026-09-09", title="APPLE.COM/BILL", currency_code="USD"),
     import_row(4, -420, day="2026-09-08", title="UBER TRIP"),
     import_row(5, -350, day="2026-09-07", title="APPARKA MALL AVENTURA AREQU"),
 ]
@@ -86,9 +86,7 @@ CARD_TWO_IN_LEDGER = [
     CARD_ROWS[3],
 ]
 #: A current account's one-row download.
-CURRENT_ROWS = [
-    import_row(2, 651900, day="2026-09-12", title="PAGO PLANILLA", account_id="bcp-pen")
-]
+CURRENT_ROWS = [import_row(2, 651900, day="2026-09-12", title="PAGO PLANILLA", account_id="bcp")]
 
 PART_1 = import_part("t-1", -350)
 DAY_0907 = import_day(
@@ -128,9 +126,8 @@ def _patch(monkeypatch, accounts=None) -> None:
 
 
 def _patch_log_accounts(monkeypatch) -> None:
-    """The LOG bar's `$` pool reads accounts as the engine sends them now (one account
-    holding its currencies), where the import screens still read the old per-currency
-    shape: a test that stages a line on the bar lists the account `LEDGER_LINE` names."""
+    """The LOG bar's `$` pool lists the account `LEDGER_LINE` names, by the name that
+    line spells."""
     held = whole(
         [
             account_with_currencies(
@@ -258,7 +255,7 @@ async def _refused(pilot, app) -> ImportPreviewScreen:
 
 
 # ---- pure ----------------------------------------------------------------------
-def test_a_cards_two_accounts_are_one_line():
+def test_an_account_of_two_currencies_is_one_line():
     lines = [line.plain.rstrip() for line in account_lines(account_picks(ACCOUNTS), 0)]
     assert [re.split(r"\s{2,}", line.strip()) for line in lines] == [
         ["BCP Signature", "PEN + USD"],
@@ -401,18 +398,17 @@ def test_the_hint_says_the_file_cannot_be_read_in_both_forms(several, monkeypatc
 
 
 # ---- which account — pane 1 -------------------------------------------------------
-def test_the_account_list_names_the_file_and_pairs_a_card_by_the_engine(
+def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_in_one_line(
     fake_client, monkeypatch, tmp_path
 ):
-    """The question and the file's name, dim, nothing read from the file; a
-    card's two accounts one line, two accounts sharing a name but not a card
-    two lines."""
+    """The question and the file's name, dim, nothing read from the file; an
+    account holding soles and dollars is one line, every other live account
+    one line, a person and an archived account none."""
     path = _bank_file(tmp_path)
     accounts = [
         *ACCOUNTS,
-        account_record(id="ia-pen", name="Interbank Ahorros PEN", holder_id="h4"),
-        account_record(
-            id="ia-usd", name="Interbank Ahorros USD", currency_code="USD", holder_id="h5"
+        account_with_currencies(
+            id="ia", name="Interbank Ahorros", currencies=[held_currency("USD")]
         ),
     ]
     _patch(monkeypatch, accounts)
@@ -429,8 +425,7 @@ def test_the_account_list_names_the_file_and_pairs_a_card_by_the_engine(
         assert listed == [
             ["BCP Signature", "PEN + USD"],
             ["BCP PEN", "PEN"],
-            ["Interbank Ahorros PEN", "PEN"],
-            ["Interbank Ahorros USD", "USD"],
+            ["Interbank Ahorros", "USD"],
         ]
         assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
         assert _footer(account) == ["esc Cancel", "⏎ Pick", "↑↓ Move"]  # pane 1, in order
@@ -462,9 +457,9 @@ def test_the_account_list_shows_the_engines_order(fake_client, monkeypatch, tmp_
     run_app(scenario, size=(120, 40))
 
 
-def test_the_card_sends_the_file_whole_on_its_soles_account(fake_client, monkeypatch, tmp_path):
-    """The body is exactly the three keys: the dry run, the card's soles
-    account though its dollar one comes first, and the file's own bytes."""
+def test_the_card_sends_the_file_whole_on_its_account(fake_client, monkeypatch, tmp_path):
+    """The body is exactly the three keys: the dry run, the card's account id
+    and the file's own bytes."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD_ROWS})
@@ -479,7 +474,7 @@ def test_the_card_sends_the_file_whole_on_its_soles_account(fake_client, monkeyp
         assert sent_to == "/transactions/import"
         assert body == {
             "dry_run": True,
-            "account_id": "sig-pen",
+            "account_id": "sig",
             "file": base64.b64encode(path.read_bytes()).decode("ascii"),
         }
 
@@ -547,13 +542,13 @@ def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypa
 #: A download with one row of each outcome, numbered by the spreadsheet; row 6 is a
 #: row of 0 the engine skipped, and row 9 has no title.
 EVERY_REASON_ROWS = [
-    import_row(2, -1850, day="2026-10-14", title="CAFE ANDINO LIMA PE", account_id="bcp-pen"),
+    import_row(2, -1850, day="2026-10-14", title="CAFE ANDINO LIMA PE", account_id="bcp"),
     import_row(
         3,
         -420,
         day="2026-10-13",
         title="AMAZON MKTPLACE",
-        account_id="bcp-pen",
+        account_id="bcp",
         outcome="matched",
         rule="same_day",
     ),
@@ -562,7 +557,7 @@ EVERY_REASON_ROWS = [
         -4290,
         day="2026-10-11",
         title="FARMACIA CENTRAL",
-        account_id="bcp-pen",
+        account_id="bcp",
         outcome="matched",
         rule="operation_code",
         retitled=True,
@@ -572,20 +567,18 @@ EVERY_REASON_ROWS = [
         -2800,
         day="2026-10-09",
         title="SPOTIFY P2F3",
-        account_id="bcp-pen",
+        account_id="bcp",
         outcome="matched",
         rule="operation_code",
         redated=True,
     ),
-    import_row(
-        6, 0, day="2026-10-05", title="PAGO TARJETA", account_id="bcp-pen", outcome="skipped"
-    ),
+    import_row(6, 0, day="2026-10-05", title="PAGO TARJETA", account_id="bcp", outcome="skipped"),
     import_row(
         7,
         -750,
         day="2026-10-01",
         title="TAMBO MIRAFLORES",
-        account_id="bcp-pen",
+        account_id="bcp",
         outcome="matched",
         rule="operation_code",
         redate_blocked_by="st-sep",
@@ -595,11 +588,11 @@ EVERY_REASON_ROWS = [
         -12000,
         day="2026-08-29",
         title="SHELL SAN ISIDRO",
-        account_id="bcp-pen",
+        account_id="bcp",
         outcome="sealed",
         sealed_by="st-aug",
     ),
-    import_row(9, -1540, day="2026-10-15", title=None, account_id="bcp-pen"),
+    import_row(9, -1540, day="2026-10-15", title=None, account_id="bcp"),
 ]
 EVERY_REASON_COUNTS = {
     "new": 2,
@@ -618,7 +611,7 @@ STATEMENTS = {
 
 def _statements(monkeypatch, answer=None) -> list:
     """`GET /statements/{id}`, recorded: each call's id, answered from
-    STATEMENTS, or `answer` raised when it is an exception. The holder's
+    STATEMENTS, or `answer` raised when it is an exception. The statement
     list is never read: a read of it fails the test."""
     asked: list = []
 
@@ -629,7 +622,7 @@ def _statements(monkeypatch, answer=None) -> list:
         return STATEMENTS[statement_id]
 
     def listed(*a, **k):
-        raise AssertionError("the holder's statement list is read")
+        raise AssertionError("the statement list is read")
 
     monkeypatch.setattr("expense.reads.fetch_statement", fetch)
     monkeypatch.setattr("expense.reads.fetch_statements", listed)
@@ -836,7 +829,7 @@ def _no_reads_per_part(monkeypatch) -> list:
             DAY_0908_SPLIT,
             [
                 "! 1 day where the file and the ledger disagree",
-                "2026-09-08 · BCP Signature PEN   file -4.20 · ledger after import -104.20",
+                "2026-09-08 · BCP Signature · PEN   file -4.20 · ledger after import -104.20",
                 "TOTTUS PORONGOCHE  -60.00   in the ledger, not in the file",
                 "TOTTUS PORONGOCHE  -40.00   in the ledger, not in the file",
             ],
@@ -845,7 +838,7 @@ def _no_reads_per_part(monkeypatch) -> list:
             DAY_0911_EQUAL,
             [
                 "! 1 day where the file and the ledger disagree",
-                "2026-09-11 · BCP Signature PEN   file -49.00 · ledger after import -49.00",
+                "2026-09-11 · BCP Signature · PEN   file -49.00 · ledger after import -49.00",
                 "TOTTUS PORONGOCHE   50.00   in the ledger, not in the file",
                 "TOTTUS PORONGOCHE  -50.00   in the ledger, not in the file",
             ],
@@ -899,7 +892,7 @@ def test_a_reported_day_lists_the_file_rows_not_found_and_the_ledger_rows_not_cl
         preview = await _previewed(pilot, app)
         assert _days_shown(preview) == [
             "! 1 day where the file and the ledger disagree",
-            "2026-09-07 · BCP Signature PEN   file -3.50 · ledger after import -7.00",
+            "2026-09-07 · BCP Signature · PEN   file -3.50 · ledger after import -7.00",
             "row 5   APPARKA MALL AVENTURA AREQU  -3.50   in the file, not found",
             "TOTTUS PORONGOCHE            -3.50   in the ledger, not in the file",
         ]
@@ -919,13 +912,13 @@ DAY_0909_USD = import_day(
     "2026-09-09",
     -2117,
     -4234,
-    account_id="sig-usd",
+    currency_code="USD",
     lines=(
         unclaimed_line(
             "bl-9",
             [
                 import_part(
-                    "t-9", -2117, account_id="sig-usd", line="bl-9", day="2026-09-09", title="Apple"
+                    "t-9", -2117, account_id="sig", line="bl-9", day="2026-09-09", title="Apple"
                 )
             ],
         ),
@@ -934,8 +927,8 @@ DAY_0909_USD = import_day(
 
 
 def test_a_card_files_days_name_their_account(fake_client, monkeypatch, tmp_path):
-    """A card's two currencies are two accounts: every day on the preview
-    names its account."""
+    """An account holding two currencies: every day on the preview names its
+    account and its currency."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _engine(
@@ -950,10 +943,10 @@ def test_a_card_files_days_name_their_account(fake_client, monkeypatch, tmp_path
         preview = await _previewed(pilot, app)
         assert _days_shown(preview) == [
             "! 2 days where the file and the ledger disagree",
-            "2026-09-07 · BCP Signature PEN   file  -3.50 · ledger after import  -7.00",
+            "2026-09-07 · BCP Signature · PEN   file  -3.50 · ledger after import  -7.00",
             "row 5   APPARKA MALL AVENTURA AREQU   -3.50   in the file, not found",
             "TOTTUS PORONGOCHE             -3.50   in the ledger, not in the file",
-            "2026-09-09 · BCP Signature USD   file -21.17 · ledger after import -42.34",
+            "2026-09-09 · BCP Signature · USD   file -21.17 · ledger after import -42.34",
             "Apple                        -21.17   in the ledger, not in the file",
         ]
 
@@ -964,17 +957,17 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
     """On a file of one account the days are not named by account."""
     path = _bank_file(tmp_path)
     rows = [
-        import_row(2, -4290, day="2026-09-12", title="FARMACIA CENTRAL", account_id="bcp-pen"),
-        import_row(3, -2800, day="2026-09-11", title="CINE", account_id="bcp-pen"),
+        import_row(2, -4290, day="2026-09-12", title="FARMACIA CENTRAL", account_id="bcp"),
+        import_row(3, -2800, day="2026-09-11", title="CINE", account_id="bcp"),
     ]
     farmacia = import_part(
-        "t-f", -4200, account_id="bcp-pen", line="bl-f", day="2026-09-12", title="Farmacia"
+        "t-f", -4200, account_id="bcp", line="bl-f", day="2026-09-12", title="Farmacia"
     )
     day = import_day(
         "2026-09-12",
         -4290,
         -8490,
-        account_id="bcp-pen",
+        account_id="bcp",
         unmatched_rows=(2,),
         lines=(unclaimed_line("bl-f", [farmacia]),),
     )
@@ -1000,7 +993,7 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
 def test_the_preview_pages_with_pgdn(fake_client, monkeypatch, tmp_path):
     path = _bank_file(tmp_path)
     rows = [
-        import_row(d + 1, -d, day=f"2026-09-{d:02d}", title=f"SHOP {d}", account_id="bcp-pen")
+        import_row(d + 1, -d, day=f"2026-09-{d:02d}", title=f"SHOP {d}", account_id="bcp")
         for d in range(1, 29)
     ]
     _patch(monkeypatch)
@@ -1115,6 +1108,39 @@ def test_a_file_refused_whole_shows_its_key_and_the_engines_words(
             "Nothing was written.",
         ]
         assert _shown(preview) == {"escape": "Back"}
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_a_currency_the_account_does_not_hold_is_shown_in_the_engines_words(
+    fake_client, monkeypatch, tmp_path
+):
+    """`CURRENCY_NOT_HELD` on `rows.<row>.account_id` (contract: POST
+    /v1/transactions/import, "Accounts"): the refused row's own words, as the
+    engine sent them, under the code and message, and nothing written."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    words = "Row 3: The account holds no USD."
+    fake_client.errors["POST"] = EngineError(
+        "VALIDATION_ERROR",
+        "The file cannot be imported.",
+        {"rows.3.account_id": words},
+        422,
+        {},
+        {"rows.3.account_id": "CURRENCY_NOT_HELD"},
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "down", "enter")  # an account of soles
+        preview = await _refused(pilot, app)
+        assert _lines_shown(preview)[1:] == [
+            "VALIDATION_ERROR — The file cannot be imported.",
+            f"! {words}",
+            "Nothing was written.",
+        ]
 
     run_app(scenario, size=(160, 40))
 
@@ -1558,10 +1584,10 @@ def test_two_files_go_one_after_the_other_then_home(fake_client, monkeypatch, tm
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
         sent = [(body["account_id"], body["file"]) for _, body in fake_client.posts]
         assert sent == [
-            ("sig-pen", base64.b64encode(first.read_bytes()).decode()),
-            ("sig-pen", base64.b64encode(first.read_bytes()).decode()),
-            ("bcp-pen", base64.b64encode(second.read_bytes()).decode()),
-            ("bcp-pen", base64.b64encode(second.read_bytes()).decode()),
+            ("sig", base64.b64encode(first.read_bytes()).decode()),
+            ("sig", base64.b64encode(first.read_bytes()).decode()),
+            ("bcp", base64.b64encode(second.read_bytes()).decode()),
+            ("bcp", base64.b64encode(second.read_bytes()).decode()),
         ]
         assert _imports(fake_client) == [True, False, True, False]
         await pilot.press("enter")

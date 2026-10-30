@@ -41,8 +41,9 @@ from expense.tui.screens.statement_upload import (
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
-    account_record,
+    account_with_currencies,
     bank_line_row,
+    held_currency,
     import_answer,
     import_part,
     import_row,
@@ -55,13 +56,13 @@ from tests.unit.helpers import (
     whole,
 )
 
-#: The card's dollar account first, so its line stands there and still sends the
-#: soles one; then a savings account and cash, each alone on its holder.
+#: The card, one account holding soles and dollars; then a savings account and cash.
 ACCOUNTS = [
-    account_record(id="sig-usd", name="BCP Signature USD", currency_code="USD", holder_id="h-sig"),
-    account_record(id="sig-pen", name="BCP Signature PEN", holder_id="h-sig"),
-    account_record(id="aho-pen", name="Sueldo Soles", holder_id="h2"),
-    account_record(id="cash", name="Efectivo", holder_id="h3"),
+    account_with_currencies(
+        id="sig", name="BCP Signature", currencies=[held_currency("PEN"), held_currency("USD")]
+    ),
+    account_with_currencies(id="aho", name="Sueldo Soles"),
+    account_with_currencies(id="cash", name="Efectivo"),
 ]
 
 #: A card's paper as screen 1A draws it: both currencies, matched, new and empty
@@ -314,7 +315,7 @@ def test_the_call_sends_exactly_three_keys_on_the_accounts_id():
     file's bytes in standard base64 (contract: POST /v1/statements/import)."""
     client = FakeClient()
     data = bytes(range(256)) * 50
-    account = AccountPick("BCP Signature", (("acc-sig", "BCP Signature", "PEN"),))
+    account = AccountPick("BCP Signature", "acc-sig", ("PEN",))
     statement_call(client, account, data, dry_run=True)
     ((path, body),) = client.posts
     assert path == "/statements/import"
@@ -636,7 +637,7 @@ def test_a_savings_preview_has_one_balance_line_and_no_currency(fake_client, mon
         ]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Close Octubre 2026"}
         ((_, body),) = fake_client.posts
-        assert body["account_id"] == "aho-pen"
+        assert body["account_id"] == "aho"
         assert reads_by_ids == []  # no id to read: nothing taken out
 
     run_app(scenario, size=(120, 40))

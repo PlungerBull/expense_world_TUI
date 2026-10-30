@@ -15,96 +15,46 @@ from expense import reads
 from expense.bank_import.engine import ImportedRow, blocking_statements, request_body
 from expense.errors import EngineConnectionError, EngineError, format_error
 
-#: The card's account sent as `account_id`: the engine puts each currency's
-#: rows on its own account, whichever of the two is named
-#: (contract: POST /v1/transactions/import, "Accounts").
-SENT_CURRENCY = "PEN"
-
 
 @dataclass(frozen=True)
 class AccountPick:
-    """One answer to "which account": an account, or a card's two accounts.
-
-    `accounts` are `(id, name, currency)`, in the engine's order: the accounts
-    of one holder, the engine's `holder_id` (contract: "Holders")."""
+    """One answer to "which account": a bank account and the currencies it
+    holds (contract: "Bank Accounts", "`currencies`"). The call names the
+    account by its id alone; the engine puts each row on the currency the
+    row's own `Moneda` names (contract: POST /v1/transactions/import,
+    "Accounts")."""
 
     name: str
-    accounts: tuple[tuple[str, str, str], ...]
+    account_id: str
+    currency_codes: tuple[str, ...]
 
     @property
-    def account_id(self) -> str:
-        """The account the call names: the card's soles one, else the first."""
-        for ident, _name, currency in self.accounts:
-            if currency == SENT_CURRENCY:
-                return ident
-        return self.accounts[0][0]
-
-    @property
-    def is_card(self) -> bool:
-        return len(self.accounts) > 1
+    def holds_two(self) -> bool:
+        """The account holds more than one currency, so its file's rows and
+        days each name theirs."""
+        return len(self.currency_codes) > 1
 
     @property
     def currencies(self) -> str:
-        """`PEN`, or `PEN + USD` for a card."""
-        return " + ".join(sorted(currency for _id, _name, currency in self.accounts))
-
-    @property
-    def account_names(self) -> dict[str, str]:
-        """account id → its name, for naming the accounts of `day_mismatches`."""
-        return {ident: name for ident, name, _currency in self.accounts}
-
-    def currency_of(self, account_id: str) -> str:
-        """The currency of the account the engine put a row on; `?` for an
-        account the pick does not hold."""
-        for ident, _name, currency in self.accounts:
-            if ident == account_id:
-                return currency
-        return "?"
-
-
-def card_name(*accounts: tuple[str, str, str]) -> str:
-    """What a card's line is called: the name its accounts share once each
-    drops its own currency code at the end (`BCP Signature PEN` and `BCP
-    Signature USD` → `BCP Signature`). Names that share none show them all,
-    joined by ` / `."""
-    bases = []
-    for _id, name, currency in accounts:
-        words = name.split()
-        if len(words) > 1 and words[-1].upper() == currency.upper():
-            words = words[:-1]
-        bases.append(" ".join(words))
-    if len(set(bases)) == 1:
-        return bases[0]
-    return " / ".join(name for _id, name, _currency in accounts)
+        """`PEN`, or `PEN + USD` for an account holding both, in the order the
+        engine lists them (contract: "Bank Accounts", "`currencies`")."""
+        return " + ".join(self.currency_codes)
 
 
 def account_picks(accounts: list[dict]) -> list[AccountPick]:
     """Every live, non-person account once, in the order given (the engine's:
     every real account first, `sort_order` ascending, then creation time,
-    oldest first — contract: GET /v1/accounts, "Ordering"), except a holder's
-    accounts, which are one pick where the first of them stands. Accounts are
-    one pick only when the engine puts them on one holder (`holder_id`,
-    grouped by `reads.holder_accounts`); a shared name pairs nothing. A holder
-    is archived whole, so leaving out archived accounts leaves out whole
-    holders (contract: "Holders", "A holder is archived whole")."""
-    live = [
-        a for a in accounts if a.get("id") and not a.get("is_archived") and not a.get("is_person")
-    ]
-    held = reads.holder_accounts(live)
-    taken: set[str] = set()
-    picks: list[AccountPick] = []
-    for a in live:
-        if str(a["id"]) in taken:
-            continue
-        rows = held.get(str(a.get("holder_id") or ""), [a])
-        group = tuple(
-            (str(r["id"]), str(r.get("name") or "(unnamed)"), str(r.get("currency_code") or "?"))
-            for r in rows
+    oldest first — contract: GET /v1/accounts, "Ordering"), each with the
+    currencies it holds, its `currencies` (contract: "Bank Accounts", "`currencies`")."""
+    return [
+        AccountPick(
+            str(a.get("name") or "(unnamed)"),
+            str(a["id"]),
+            tuple(str(c.get("currency_code") or "?") for c in a.get("currencies") or []),
         )
-        taken.update(ident for ident, _name, _currency in group)
-        name = group[0][1] if len(group) == 1 else card_name(*group)
-        picks.append(AccountPick(name, group))
-    return picks
+        for a in accounts
+        if a.get("id") and not a.get("is_archived") and not a.get("is_person")
+    ]
 
 
 # ---------------------------------------------------------------------------

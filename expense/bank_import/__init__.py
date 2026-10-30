@@ -12,7 +12,7 @@ Three modules, none of which prints or imports typer:
                   per row of the paper with its outcome, the lines taken out,
                   the counts, and the lines its close flagged
     flow.py       the door's steps: read the dropped file's bytes, list the
-                  accounts as picks (a card's two accounts as one), make the
+                  accounts as picks (one per account, its currencies its own), make the
                   one call (`import_call`, `statement_call`), name the
                   statements that stop a move, read the lines a
                   statement's answer names by id

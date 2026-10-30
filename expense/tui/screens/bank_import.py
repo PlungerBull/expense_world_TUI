@@ -73,7 +73,7 @@ from expense.errors import (
     key_index,
     names_its_row,
 )
-from expense.formatting import format_cents, signed_cents
+from expense.formatting import currency_label, format_cents, signed_cents
 from expense.reads import items_of
 from expense.tui.dropped import is_statement
 from expense.tui.screens._base import relabel, screen_fetch_kwargs
@@ -266,8 +266,8 @@ class ImportScreen(Screen):
 # which account is this file? — expense-world-import-whole-file.html 1
 # ---------------------------------------------------------------------------
 def account_lines(picks: list[AccountPick], cursor: int) -> list[Text]:
-    """One line per pick, a card's two accounts one line (`PEN + USD`); the
-    cursor row in reverse video."""
+    """One line per pick, an account holding two currencies one line
+    (`PEN + USD`); the cursor row in reverse video."""
     name_w = max((len(p.name) for p in picks), default=0) + 4
     cur_w = max((len(p.currencies) for p in picks), default=0) + 6
     return [
@@ -420,10 +420,10 @@ def reason_cell(line: PreviewLine) -> Text:
 
 def preview_table(lines: list[PreviewLine], pick: AccountPick) -> Table:
     """`#  date  title  amount  ✓  reason`, one row per row the engine read,
-    numbered by its spreadsheet row; the mark's column has no heading. On a
-    card, `cur` after the amount: the currency of the account the engine put
-    the row on."""
-    headers = ["#", "date", "title", "amount", *(["cur"] if pick.is_card else []), "", "reason"]
+    numbered by its spreadsheet row; the mark's column has no heading. On an
+    account holding two currencies, `cur` after the amount: the currency the
+    engine put the row on."""
+    headers = ["#", "date", "title", "amount", *(["cur"] if pick.holds_two else []), "", "reason"]
     table = Table(box=None, pad_edge=False, expand=False, show_header=True)
     for header in headers:
         table.add_column(
@@ -440,8 +440,8 @@ def preview_table(lines: list[PreviewLine], pick: AccountPick) -> Table:
             Text(row.title or EMPTY),  # the engine's words, never read as markup
             amount_cell(row.amount_cents, PALETTE, AMOUNT_RULE),
         ]
-        if pick.is_card:
-            cells.append(pick.currency_of(row.account_id))
+        if pick.holds_two:
+            cells.append(row.currency_code)
         cells.extend([mark_cell(line), reason_cell(line)])
         table.add_row(*cells)
     return table
@@ -515,9 +515,11 @@ def flagged_rows(day: DayMismatch, rows: dict[int, ImportedRow]) -> list[Flagged
 
 
 def day_label(day: DayMismatch, *, name_account: bool) -> str:
-    """`2026-09-12`, or `2026-09-12 · BCP Signature USD` on a card file, whose
-    currencies are two accounts."""
-    return f"{day.date_iso} · {day.account_name}" if name_account else day.date_iso
+    """`2026-09-12`, or `2026-09-12 · BCP Signature · USD` on a file of an
+    account holding two currencies, whose days each name theirs."""
+    if not name_account:
+        return day.date_iso
+    return f"{day.date_iso} · {currency_label(day.account_name, day.currency_code)}"
 
 
 def padded_amount(cents: object, width: int = 0, rule: str = AMOUNT_RULE) -> Text:
@@ -820,7 +822,7 @@ class ImportPreviewScreen(PreviewScreen):
             counts = answer_counts(response)
             if dry_run:
                 rows = answer_rows(response)
-                mismatches = day_mismatches(response, self._pick.account_names)
+                mismatches = day_mismatches(response, self._pick.name)
                 # The one read the preview adds: the names of the
                 # statements that stop a move to the bank's day.
                 names, names_error = statement_names(cfg, rows, verbose=self.app._verbose)
@@ -877,7 +879,7 @@ class ImportPreviewScreen(PreviewScreen):
         if self._lines is None:
             return []
         lines = preview_days(
-            self._mismatches, [line.row for line in self._lines], name_account=self._pick.is_card
+            self._mismatches, [line.row for line in self._lines], name_account=self._pick.holds_two
         )
         if self._names_error:
             lines.append(

@@ -433,7 +433,8 @@ def import_row(
     amount_cents: int = -1000,
     *,
     outcome: str = "new",
-    account_id: str = "sig-pen",
+    account_id: str = "sig",
+    currency_code: str = "PEN",
     day: str = "2026-09-07",
     title: str | None = "TOTTUS PORONGOCHE",
     operation_code: str | None = None,
@@ -454,6 +455,7 @@ def import_row(
     return {
         "row": row,
         "account_id": account_id,
+        "currency_code": currency_code,
         "date": day,
         "amount_cents": abs(amount_cents),
         "transaction_type": kind,
@@ -484,16 +486,18 @@ def import_day(
     file_net_cents: int,
     ledger_net_cents: int,
     *,
-    account_id: str = "sig-pen",
+    account_id: str = "sig",
+    currency_code: str = "PEN",
     unmatched_rows: tuple[int, ...] = (),
     lines: tuple[dict, ...] = (),
 ) -> dict:
-    """One `day_mismatches` entry of an import answer: the account and day, both
+    """One `day_mismatches` entry of an import answer: the account, its currency and day, both
     signed totals, the spreadsheet rows on it that matched no line and the ledger
     lines no file row claimed (each an `unclaimed_line`)
     (contract: POST /v1/transactions/import)."""
     return {
         "account_id": account_id,
+        "currency_code": currency_code,
         "date": day,
         "file_net_cents": file_net_cents,
         "ledger_net_cents": ledger_net_cents,

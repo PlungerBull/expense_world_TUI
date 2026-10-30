@@ -320,8 +320,10 @@ the question, the files named and the tui.md section named.
 9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
    [reads.py](../../expense/reads.py), the holder builders in
    [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer
-   need them. *Passes if:* nothing in the code or the tests names a holder; no request sends
-   `/holders` or `?holder_id=`; the drift check passes whole.
+   need them, with the `(contract: …)` citations in tui.md's Statements sections and in
+   helpers.py that still name holders. *Passes if:* nothing in the code or the tests names a
+   holder; no request sends `/holders` or `?holder_id=`; the drift check passes whole; the live
+   suite's citation test passes.
 
 ## Reply to the engine
 
