@@ -3,8 +3,8 @@
 One small thing that part 3 of the catch-up to contract `f82426fb0a099676`, the live tests'
 foundation (done on 2026-10-30), turned up while it ran.
 
-**Status: draft, written 2026-10-30 for the owner to rewrite or approve; no question.** Its tasks
-are drafted when the owner approves it. It runs after
+**Status: approved by the owner on 2026-10-30; no question.** Its tasks are drafted when the
+owner names it the current spec. It runs after
 [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
 which rewrites [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.

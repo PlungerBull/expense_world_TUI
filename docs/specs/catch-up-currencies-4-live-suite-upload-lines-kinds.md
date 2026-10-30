@@ -14,8 +14,8 @@ seven specs, run in this order:
 6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
-**Status: draft, written 2026-10-29 for the owner to approve. It runs after spec 3,** whose
-shared helpers its tests use; its import, bank-line and Edit form tests call the app code specs
+**Status: approved by the owner on 2026-10-30; the current spec. It runs after part 3 (done on
+2026-10-30),** whose shared helpers its tests use; its import, bank-line and Edit form tests call the app code specs
 1 and 2 change. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
