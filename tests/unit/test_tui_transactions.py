@@ -24,6 +24,7 @@ ITEMS = [
         "amount_cents": 651900,
         "date": "2026-03-05T00:00:00Z",
         "account_id": "acc1",
+        "currency_code": "PEN",
         "category_id": "cat1",
         "hashtag_ids": ["h1"],
         "bank_line_id": "bl-1",
@@ -38,6 +39,7 @@ ITEMS = [
         "amount_cents": -43250,
         "date": "2026-03-12T00:00:00Z",
         "account_id": "acc1",
+        "currency_code": "PEN",
         "category_id": "cat2",
         "hashtag_ids": [],
         "line_code": "#000002",
@@ -53,10 +55,59 @@ HASHTAGS = {"h1": "trabajo"}
 def test_transaction_rows_format_and_resolve():
     by_id = dict(transaction_rows(ITEMS, ACCOUNTS, CATEGORIES, HASHTAGS))
     # amount grouped, account/category resolved, tags resolved
-    assert by_id["t1"][2] == "6,519.00" and by_id["t1"][4] == "BCP Soles"
+    assert by_id["t1"][2] == "6,519.00" and by_id["t1"][4] == "BCP Soles · PEN"
     assert by_id["t1"][5] == "Ingreso" and by_id["t1"][6] == "trabajo"
     # no tags → em dash; negative amount formatted
     assert by_id["t2"][2] == "-432.50" and by_id["t2"][6] == "—"
+
+
+def test_the_account_column_reads_account_and_currency_from_each_row():
+    """`<account> · <code>` from the row's `account_id` and `currency_code`: an
+    account holding both currencies reads once per currency; a row naming no
+    currency reads the account alone, and an account the read lacks its short id."""
+    items = [
+        {**ITEMS[0], "id": "pen", "currency_code": "PEN"},
+        {**ITEMS[0], "id": "usd", "currency_code": "USD"},
+        {**ITEMS[0], "id": "none", "currency_code": None},
+        {**ITEMS[0], "id": "gone", "account_id": "0123456789abcdef", "currency_code": "USD"},
+    ]
+    by_id = dict(transaction_rows(items, ACCOUNTS, CATEGORIES, HASHTAGS))
+    assert [by_id[k][4] for k in ("pen", "usd", "none", "gone")] == [
+        "BCP Soles · PEN",
+        "BCP Soles · USD",
+        "BCP Soles",
+        "01234567 · USD",
+    ]
+
+
+def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypatch):
+    """A filter naming an account and one of its currencies reads the list and the
+    count over `account_id` and `currency_code` (contract: GET /v1/transactions); a
+    filter naming the account alone sends no currency."""
+    import expense.tui.screens.transactions as tx_mod
+    from expense.tui.screens.transactions import LedgerFilter
+
+    calls, counts = fake_ledger(monkeypatch, ITEMS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        both = LedgerFilter("account", "acc1", "BCP Soles", currency_code="USD")
+        await app.push_screen(TransactionsScreen(filter=both))
+        await wait_for_list(pilot, app)
+        assert calls[-1]["account"] == "acc1" and calls[-1]["currency_code"] == "USD"
+        assert counts[-1] == {"account": "acc1", "currency_code": "USD", "verbose": False}
+        await app.pop_screen()
+        alone = LedgerFilter("account", "acc1", "BCP Soles")
+        await app.push_screen(TransactionsScreen(filter=alone))
+        await wait_for_list(pilot, app)
+        assert calls[-1]["account"] == "acc1" and "currency_code" not in calls[-1]
+        assert counts[-1] == {"account": "acc1", "verbose": False}
+
+    run_app(scenario)
 
 
 def test_transaction_rows_palette_sign_colors_amounts():

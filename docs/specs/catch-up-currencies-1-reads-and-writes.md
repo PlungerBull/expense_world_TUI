@@ -140,15 +140,6 @@ Each task fixes the `(contract: …)` citations and the [tui.md](../tui.md) and
 [runtime.md](../runtime.md) lines of the code it touches. Old shapes a task cannot yet remove
 stay, named for what they are, until the task that moves their last user removes them.
 
-4. **The ledger on account and currency (builder).** The Account column reads
-   "<account> · <code>" from each row's `account_id` and `currency_code`; bulk `b` picks from
-   task 1's picks and sends both keys, with `statement_id: null`, only on the rows whose account
-   or currency changes (`bulk_writes`), its receipt naming the pick; a ledger opened on one
-   account and currency lists and counts with both. The old pool leaves `QuickAddRefs`. Files:
-   [transactions.py](../../expense/tui/screens/transactions.py), reads.py, and the ledger and
-   bulk-edit tests on task 1's builder.
-   *Passes if:* unit tests pin the column's label, a bulk move's bodies and receipt, and the
-   filtered list and count sending `account_id` and `currency_code`; no code reads the old pool.
 5. **Home on the dashboard's accounts (builder).** `/dashboard`'s rows `{id, name, currencies}`
    become one Home row per account and currency, named "<account> · <code>", the balance cell
    as today; PEOPLE folds a row as settled when that currency's balance is exactly zero

@@ -653,7 +653,9 @@ def load_account_index() -> AccountIndex:
     `archived` to stop offering what the engine would refuse.
     """
     rows = _load_rows("/accounts", {"include_archived": "true", "include_people": "true"})
-    return AccountIndex(_id_name_map(rows), archived_ids(rows))
+    # a nameless account reads "(unnamed)", as the pickers' `currency_picks` label it
+    names = {r["id"]: r.get("name") or "(unnamed)" for r in rows if isinstance(r.get("id"), str)}
+    return AccountIndex(names, archived_ids(rows))
 
 
 def archived_ids(rows: list) -> frozenset[str]:
@@ -800,7 +802,7 @@ def account_choices(
     plus `current_balance_cents` when `with_balance`.
 
     Skips id-less rows and (unless `include_people`) person accounts. One copy
-    of the build shared by the edit form, the new-reconciliation form,
+    of the build shared by the new-reconciliation form
     and the reconciliations browse. It reads the old per-currency shape (`currency_code`
     on the row), kept for the callers not yet moved; `currency_picks` reads an account
     as the engine sends it now.
@@ -890,19 +892,15 @@ def holder_accounts(items: list) -> dict[str, list[dict]]:
 class QuickAddRefs:
     """The reference lists the quick-add grammar matches names against.
 
-    `accounts`/`categories`/`hashtags` are the `(id, name, …)` tuples
-    `quickadd.parse()` takes — extra columns are ignored, so accounts keep
-    their currency for rendering. The three `*_names` maps are the *full*
+    `categories`/`hashtags` are the `(id, name, …)` tuples
+    `quickadd.parse()` takes — extra columns are ignored. The three `*_names` maps are the *full*
     id → name sets (archived and system rows included), for resolving ids that
     the matching pool deliberately excludes.
 
-    `picks` is the account pool the LOG bar and its quick-add line match `$name`
-    against: one per account and currency it holds. `accounts` is the old
-    per-currency pool `account_choices` builds, kept until the Edit form and the
-    ledger move onto the picks.
+    `picks` is the account pool the LOG bar, its quick-add line, the Edit form and
+    the ledger's bulk `b` pick from: one per account and currency it holds.
     """
 
-    accounts: list[tuple]
     categories: list[tuple]
     hashtags: list[tuple]
     account_names: dict[str, str]
@@ -987,7 +985,6 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     cats = items_of(fetch_categories(cfg, **kw))
     tags = items_of(fetch_hashtags(cfg, **kw))
     return QuickAddRefs(
-        accounts=account_choices([a for a in accts if not a.get("is_archived")]),
         categories=[
             (c["id"], c.get("name") or "(unnamed)")
             for c in cats

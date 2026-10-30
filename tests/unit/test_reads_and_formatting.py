@@ -247,6 +247,20 @@ def test_load_account_index_gives_names_and_archived_ids_from_one_read(configure
     assert params["include_archived"] == "true" and params["include_people"] == "true"
 
 
+@respx.mock
+def test_load_account_index_names_a_nameless_account_as_the_pickers_do(configured):
+    """A live account with no name reads "(unnamed)", the word `currency_picks`
+    labels it with, so the ledger's Account column and the picker agree."""
+    respx.get(f"{BASE}/v1/accounts").mock(
+        return_value=_list_body(
+            [account_with_currencies(id="a1", name=None, currencies=[held_currency("PEN")])]
+        )
+    )
+    assert load_account_index().names == {"a1": "(unnamed)"}
+    nameless = account_with_currencies(id="a1", name=None, currencies=[held_currency("PEN")])
+    assert currency_picks([nameless])[0].label == "(unnamed) · PEN"
+
+
 def test_load_account_index_without_config_is_empty():
     """No engine to ask: no names and no archived ids, so no key is taken away."""
     index = load_account_index()
@@ -638,19 +652,10 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
     respx.get(f"{BASE}/v1/accounts").mock(
         return_value=_list_body(
             [
-                {
-                    "id": "a1",
-                    "name": "BCP PEN",
-                    "currency_code": "PEN",
-                    "opening_balance_transaction_id": None,
-                },
-                {
-                    "id": "a2",
-                    "name": "Retired",
-                    "currency_code": "PEN",
-                    "is_archived": True,
-                    "opening_balance_transaction_id": None,
-                },
+                account_with_currencies(id="a1", name="BCP", currencies=[held_currency("PEN")]),
+                account_with_currencies(
+                    id="a2", name="Retired", is_archived=True, currencies=[held_currency("PEN")]
+                ),
             ]
         )
     )
@@ -663,9 +668,10 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
 
     refs = load_quickadd_refs(config_module.ensure_loaded())
 
-    # accounts keep their currency — the parser ignores the extra column, the
-    # renderer needs it to say "-38.60 PEN"
-    assert refs.accounts == [("a1", "BCP PEN", "PEN")]
+    # the pool is one pick per account and currency, an archived account left out
+    assert [(p.account_id, p.currency_code, p.label) for p in refs.picks] == [
+        ("a1", "PEN", "BCP · PEN")
+    ]
     assert refs.categories == [("c1", "KORAKUEN")]
     assert refs.hashtags == [("h1", "TAXI")]
 
@@ -677,12 +683,9 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
     respx.get(f"{BASE}/v1/accounts").mock(
         return_value=_list_body(
             [
-                {
-                    "id": "a2",
-                    "name": "Retired",
-                    "is_archived": True,
-                    "opening_balance_transaction_id": None,
-                }
+                account_with_currencies(
+                    id="a2", name="Retired", is_archived=True, currencies=[held_currency("PEN")]
+                )
             ]
         )
     )
@@ -693,7 +696,7 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
 
     refs = load_quickadd_refs(config_module.ensure_loaded())
 
-    assert refs.accounts == [] and refs.categories == []
+    assert refs.picks == [] and refs.categories == []
     assert refs.account_names == {"a2": "Retired"}
     assert refs.category_names == {"c2": "Opening"}
 

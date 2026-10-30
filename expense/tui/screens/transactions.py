@@ -8,22 +8,23 @@ row's bank line, every part of it, and `+` opens the LOG bar
 (`LogTransactionMixin`).
 
 **The filtered ledger is the categorising pass**. Home pushes this screen with
-a `LedgerFilter` — a category or an account — and it becomes `Ledger › NAME`:
-the same list over the engine's own `?category_id=` / `?account_id=`, with the
+a `LedgerFilter` — a category, or an account and optionally one of its
+currencies — and it becomes `Ledger › NAME`: the same list over the engine's own
+`?category_id=` / `?account_id=` (`&currency_code=`), with the
 legend saying what the filter is and how many rows it holds. `space` selects
 rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens the bulk pick (`BulkPickScreen` in
 bulk_pick.py), a full screen listing the rows it changes over its bar,
 at most five and then `+ N more` (`changed_rows`); the write is one
-`PUT /transactions/{id}` per row, in order — an account move adds
-`statement_id: null` to each row whose account changes, so it leaves its
-statement, and a hashtag pick that names a real hashtag drops the pending
-one (`hashtags_to_send`) (contract: PUT /v1/transactions/{transaction_id}) — and
-then the list reads fresh from the newest 10, so on a filtered list the changed
-rows leave at once. The receipt of a move counts the parts the engine's answers
-list as moved (`moved_parts`), nothing read to count them, and a move that
-changes nothing shows no receipt. A refused row is named by its number;
+`PUT /transactions/{id}` per row, in order — an account move sends `account_id`
+and `currency_code` and adds `statement_id: null` to each row whose account or
+currency changes, so it leaves its statement, and a hashtag pick that names a real
+hashtag drops the pending one (`hashtags_to_send`)
+(contract: PUT /v1/transactions/{transaction_id}) — and then the list reads fresh from
+the newest 10, so on a filtered list the changed rows leave at once. The receipt of a move
+counts the parts the engine's answers list as moved (`moved_parts`), nothing read to
+count them, and a move that changes nothing shows no receipt. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
@@ -74,6 +75,7 @@ from expense.errors import (
 )
 from expense.formatting import (
     bank_line_part_count,
+    currency_label,
     format_hashtag_cell,
     format_short_date,
     grouped_refusals,
@@ -122,20 +124,32 @@ PICK_ROWS_SHOWN = 5
 SELECTED_MARK = "● "
 _GUTTER = "  "
 
-#: What each bulk key writes: the picker's kind → the PUT field it fills.
-BULK_FIELDS = {"category": "category_id", "account": "account_id", "hashtags": "hashtag_ids"}
+#: The bulk keys' kinds: the picker `c`, `b` and `h` open.
+BULK_KINDS = ("category", "account", "hashtags")
 
 
 class LedgerFilter(NamedTuple):
     """What Home handed the ledger: `kind` is `category` or `account`, `id` the
     engine row, `name` what the crumb and the legend say. `hashtag_id` narrows
     a category filter to one hashtag — `⏎` on a hashtag row under a category
-    on Home; the name then reads `WANTS #SALIDAS`."""
+    on Home; the name then reads `WANTS #SALIDAS`. `currency_code` narrows an
+    account filter to one currency of the account: the ledger on an account and
+    a currency (`?account_id=&currency_code=`)."""
 
     kind: str
     id: str
     name: str
     hashtag_id: str | None = None
+    currency_code: str | None = None
+
+
+def _account_cell(item: dict, accounts: dict) -> str:
+    """`<account> · <code>` from the row's `account_id` and `currency_code`, the
+    words `reads.pick_label` gives (`formatting.currency_label`); the account
+    alone for a row naming no currency."""
+    name = resolve_name(item.get("account_id"), accounts)
+    code = item.get("currency_code")
+    return currency_label(name, code) if code else name
 
 
 def transaction_rows(
@@ -156,7 +170,7 @@ def transaction_rows(
                     it.get("description") or "",
                     amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
                     format_short_date(it.get("date")),
-                    resolve_name(it.get("account_id"), accounts),
+                    _account_cell(it, accounts),
                     resolve_name(it.get("category_id"), categories),
                     format_hashtag_cell(it.get("hashtag_ids"), hashtags),
                 ],
@@ -265,9 +279,9 @@ def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object,
     """(id, PUT body) per target row.
 
     Each row gets its own copy of `payload`; an account move adds
-    `statement_id: None` only to the rows whose account changes
-    (`unassign_on_move`), so a row already on the picked account keeps its
-    statement."""
+    `statement_id: None` only to the rows whose account or currency changes
+    (`unassign_on_move`), so a row already on the picked account and currency
+    keeps its statement."""
     writes = []
     for key in targets:
         body = dict(payload)
@@ -324,7 +338,12 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         flt = self._filter
         if flt is None:
             return {}
-        scope = {"category": flt.id} if flt.kind == "category" else {"account": flt.id}
+        if flt.kind == "category":
+            scope = {"category": flt.id}
+        else:
+            scope = {"account": flt.id}
+            if flt.currency_code is not None:
+                scope["currency_code"] = flt.currency_code
         if flt.hashtag_id is not None:
             scope["hashtag"] = flt.hashtag_id
         return scope
@@ -583,7 +602,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         return [cursor] if cursor in self._by_id else []
 
     def action_pick(self, kind: str) -> None:
-        if kind not in BULK_FIELDS or not self._targets():
+        if kind not in BULK_KINDS or not self._targets():
             return
         if self._refs is None:
             # the reference lists load on the first bulk key, not with every
@@ -622,7 +641,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             # pending is how a wrong bulk pick is undone
             return list(refs.pickable_categories)
         if kind == "account":
-            return [(i, n) for i, n, *_ in refs.accounts]
+            return [(_pick_key(p), p.label) for p in refs.picks]
         return list(refs.hashtags)
 
     def _open_picker(self, kind: str) -> None:
@@ -640,14 +659,20 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if picked is None or self._bulk_busy:
             return
         names = dict(self._picker_options(kind))
-        if kind == "hashtags":
+        if kind == "account":
+            pick = next((p for p in self._refs.picks if _pick_key(p) == picked), None)
+            if pick is None:
+                return
+            label = pick.label
+            payload = {"account_id": pick.account_id, "currency_code": pick.currency_code}
+        elif kind == "hashtags":
             ids = list(picked) if isinstance(picked, list) else [picked]
             ids = hashtags_to_send(ids, self._refs.pending_hashtag_id if self._refs else None)
             label = " ".join("#" + names.get(i, i) for i in ids) or "(no tags)"
             payload = {"hashtag_ids": ids}
         else:
             label = names.get(picked, str(picked))
-            payload = {BULK_FIELDS[kind]: picked}
+            payload = {"category_id": picked}
         self._bulk_busy = True
         self.refresh_bindings()
         self._bulk_write(bulk_writes(targets, payload, self._by_id), label, kind == "account")
@@ -753,6 +778,12 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         The list underneath was never rebuilt, so doing nothing keeps it."""
         if saved:
             self._reload_fresh()
+
+
+def _pick_key(pick: reads.CurrencyPick) -> str:
+    """The id a bulk pick lists an account and currency under: the bulk pick
+    takes `(id, name)` options, and one account is two of them."""
+    return f"{pick.account_id}:{pick.currency_code}"
 
 
 def _crumb_for(flt: LedgerFilter | None) -> tuple[str, ...]:

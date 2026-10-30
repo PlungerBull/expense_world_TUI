@@ -20,10 +20,12 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
-    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
+    account_with_currencies,
     bank_line_row,
     edit_limits,
     fake_ledger,
+    held_currency,
     import_part,
     line_code_of,
     render_text,
@@ -33,18 +35,14 @@ from tests.unit.helpers import (
     whole,
 )
 
-ARCHIVED = {
-    "id": "acc-viejo",
-    "name": "Ahorro viejo",
-    "currency_code": "PEN",
-    "is_person": False,
-    "is_archived": True,
-    "sort_order": 4,
-    "color": "#3b82f6",
-    "current_balance_cents": 0,
-    "opening_balance_transaction_id": None,
-}
-ACCOUNTS = [*ENGINE_ORDER_ACCOUNTS, ARCHIVED]
+ARCHIVED = account_with_currencies(
+    id="acc-viejo",
+    name="Ahorro viejo",
+    is_archived=True,
+    sort_order=4,
+    currencies=[held_currency("PEN")],
+)
+ACCOUNTS = [*ENGINE_ORDER_HOLDING_ACCOUNTS, ARCHIVED]
 
 
 def _row(tx_id: str, account_id: str, title: str) -> dict:
@@ -55,6 +53,7 @@ def _row(tx_id: str, account_id: str, title: str) -> dict:
         "amount_cents": -20000,
         "date": "2024-03-28T00:00:00Z",
         "account_id": account_id,
+        "currency_code": "PEN",
         "category_id": "cat-efe",
         "hashtag_ids": [],
         "bank_line_id": f"bl-{tx_id}",
@@ -418,7 +417,7 @@ def test_s_and_d_are_off_on_an_empty_ledger(fake_client, monkeypatch):
     [
         ("c", "efe", {"category_id": "cat-efe"}),
         ("h", "caj", {"hashtag_ids": ["h-caja"]}),
-        ("b", "zeta", {"account_id": "acc-zeta", "statement_id": None}),
+        ("b", "zeta", {"account_id": "acc-zeta", "currency_code": "PEN", "statement_id": None}),
     ],
     ids=["category", "hashtags", "account"],
 )

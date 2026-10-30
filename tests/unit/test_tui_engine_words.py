@@ -18,7 +18,7 @@ from textual.widgets import Input, Static
 import expense.reads as reads_mod
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
-from expense.reads import AccountIndex, QuickAddRefs
+from expense.reads import AccountIndex, QuickAddRefs, currency_picks
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.categories import CategoriesScreen
@@ -36,8 +36,10 @@ from expense.tui.widgets.cursor_list import CursorList, CursorOptionList
 from expense.tui.widgets.refusal import as_markup
 from tests.unit.helpers import (
     ENGINE_URL,
+    account_with_currencies,
     error_response,
     fake_ledger,
+    held_currency,
     render_text,
     run_app,
     styled_stretches,
@@ -250,7 +252,13 @@ LEDGER = [
 ]
 NAMES = {"acc1": "BCP Signature PEN", "cat1": "KORAKUEN", "pend": "@Pendiente"}
 REFS = QuickAddRefs(
-    accounts=[("acc1", "BCP Signature PEN", "PEN")],
+    picks=currency_picks(
+        [
+            account_with_currencies(
+                id="acc1", name="BCP Signature", currencies=[held_currency("PEN")]
+            )
+        ]
+    ),
     categories=[("cat1", "KORAKUEN")],
     hashtags=[],
     account_names={"acc1": "BCP Signature PEN"},

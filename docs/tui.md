@@ -262,14 +262,24 @@ lines; past the terminal's height the list scrolls.
 **The filtered ledger is the categorising pass.** `⏎` on a Home row pushes
 [transactions.py](../expense/tui/screens/transactions.py) with a `LedgerFilter`: the
 crumb reads `Ledger ▸ @Pendiente`, the panel is titled for the filter, the fetch is the
-engine's own `?category_id=` / `?account_id=`, and the legend says `filter: category
-@Pendiente · 20 of 57 loaded · 3 selected`. `space` selects rows (a `●` in the title gutter,
-the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
+engine's own `?category_id=` / `?account_id=`, narrowed to one currency of the account by
+`&currency_code=` when the filter names one (`LedgerFilter.currency_code`: the ledger on an
+account and a currency, its count asking the same two keys) (contract: GET /v1/transactions),
+and the legend says `filter: category @Pendiente · 20 of 57 loaded · 3 selected`. The
+**Account** column reads `<account> · <code>` from each row's `account_id` and
+`currency_code` (`currency_label`; `(unnamed)` for an account with no name, as the pickers
+read it, the account's short id for one the read lacks). `space` selects rows (a `●` in the
+title gutter, the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
 the bulk pick for the selection — or for the cursor row when nothing is selected —
-to set the category, move to an account, or **replace** the hashtag set. The write is
-one `PUT /transactions/{id}` per row, in order, on one client, then the list reads fresh
-from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
-at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
+to set the category, move to an account and currency, or **replace** the hashtag set. The
+write is one `PUT /transactions/{id}` per row, in order, on one client, a move sending
+`account_id` and `currency_code` and adding `statement_id: null` only to a row whose account or
+currency changes (`bulk_writes`, `unassign_on_move`), so a row already on the pick keeps its
+statement
+(contract: PUT /v1/transactions/{transaction_id}, "Statement assignment");
+then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
+at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → BCP Oro · USD` for a move:
+the pick's label), and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others,
 in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
@@ -287,7 +297,8 @@ under it those rows in the ledger's own columns, title gutter and amount colours
 (`changed_rows` in [transactions.py](../expense/tui/screens/transactions.py), drawn by
 `list_table` in [cursor_list.py](../expense/tui/widgets/cursor_list.py), the table `CursorList`
 draws), at most five, then a dim `+ N more` under their titles. Then one bar, `CATEGORY`,
-`ACCOUNT` or `HASHTAGS`, its hint, and the list under it in the engine's order, drawn
+`ACCOUNT` or `HASHTAGS`, its hint, and the list under it in the engine's order (on `ACCOUNT`
+one pick per account and currency, `QuickAddRefs.picks`, labelled `<account> · <code>`), drawn
 and filtered as on the Edit form's entity lines (`suggestion_list` and `matching` in
 [picker.py](../expense/tui/widgets/picker.py)). Typing narrows the list and highlights its
 first match, `↑↓` move the highlight, and `esc` goes back to the ledger with nothing sent
@@ -832,8 +843,7 @@ show accounts as `GET /accounts` lists them, every real account first, then ever
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
 first currency leg does. The LOG bar's `$` picker, the Edit form's account field and the
-ledger's `b` pick offer no archived account (`QuickAddRefs.picks`; the ledger's `b` reads
-`QuickAddRefs.accounts`, the per-currency pool, in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
+ledger's `b` pick offer no archived account (`QuickAddRefs.picks` in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
 its name and code ("Old bank · PEN"), read-only on its Edit form (below).
 
@@ -1659,8 +1669,7 @@ to when the name is shared (an unshared name completes as the name). The parsed 
 the pick's `currency_code` with its `account_id`, and the save sends both on every batch item
 (contract: POST /v1/transactions/batch). The staged table's account cell reads
 the label, the staged totals add up per currency from each row's `currency_code`, and the
-picker and a refusal's candidates read the label. `QuickAddRefs.accounts` is the old
-per-currency pool, kept for the Edit form and the ledger until they move onto the picks.
+picker and a refusal's candidates read the label.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

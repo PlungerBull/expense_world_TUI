@@ -68,11 +68,6 @@ HASHTAGS = {"items": [{"id": "h1", "name": "CAJA CHICA"}, {"id": "h2", "name": "
 
 REFS = QuickAddRefs(
     picks=currency_picks(ACCOUNTS),
-    accounts=[
-        ("acc1", "BCP Signature PEN", "PEN"),
-        ("acc2", "BCP Signature USD", "USD"),
-        ("acc3", "BCP PEN", "PEN"),
-    ],
     categories=[("cat1", "KORAKUEN"), ("cat2", "TRANSPORTE")],
     hashtags=[("h1", "CAJA CHICA"), ("h2", "TAXI")],
     account_names={
