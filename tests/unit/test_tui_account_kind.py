@@ -193,9 +193,9 @@ def test_the_label_follows_the_cursor_row_and_t_sits_before_d(configured, monkey
         footers["back"] = _footer(screen)
 
     run_app(scenario, size=SIZE)
-    tail = ["n New", "e Edit", "a Archive"]
-    assert footers["bank"][-5:] == [*tail, "t Make person", "d Delete"]
-    assert footers["person"][-5:] == [*tail, "t Make bank", "d Delete"]
+    tail = ["n New", "e Edit", "c Currency", "a Archive"]
+    assert footers["bank"][-6:] == [*tail, "t Make person", "d Delete"]
+    assert footers["person"][-6:] == [*tail, "t Make bank", "d Delete"]
     assert footers["back"] == footers["bank"]
 
 
@@ -222,7 +222,7 @@ def test_t_leaves_the_footer_on_an_archived_row_and_sends_nothing(configured, mo
         sent = engine.post(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen["footer"][-4:] == ["n New", "e Edit", "a Archive", "d Delete"]
+    assert seen["footer"][-5:] == ["n New", "e Edit", "c Currency", "a Archive", "d Delete"]
     assert not any(entry.startswith("t ") for entry in seen["footer"])
     assert seen["checks"] == [False, False]
     assert seen["notes"] == [] and seen["busy"] is False

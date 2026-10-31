@@ -331,13 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-6. **Adding a currency** (point 6; question 6). [accounts.py](../../expense/tui/screens/accounts.py)
-   and its tests; tui.md §4 for the new key. *Passes if:* `c` on an account's row (footer
-   `c Currency`) lists the supported currencies the account does not hold, as pane 6 A draws, and
-   `⏎` sends one `POST /accounts/{id}/currencies` for the picked one, the list reading fresh; on
-   an account holding every supported currency `c` writes nothing and shows a note naming the
-   account; `DUPLICATE_CURRENCY` and an archived account show the engine's words; the tests pin
-   each.
 7. **Removing a currency** (point 7; questions 4 and 7). [accounts.py](../../expense/tui/screens/accounts.py),
    [errors.py](../../expense/errors.py) and their tests; tui.md §2 "`d` is the TUI's one
    destructive key". Waits on its mockup: answer 7 gives it a key of its own on the account's
@@ -436,3 +429,12 @@ Not built in this spec; drafted into a new spec when it is done.
   `The opening balance is still loading.`, though more than one currency may be involved.
 - **The 5 A mockup colours the summary's amounts by sign**; the Edit form draws them plain, as
   before.
+- **`c`'s words wait on the owner** (asked 2026-10-31): the receipt `Currency added: USD.`; the
+  pick's title `Add a currency`, against the remove mockup's `Remove a currency · <account>`
+  (recommended: both name the account); and the `?` card's `⏎ never changes data`, which this
+  pick's `⏎` breaks (recommended: name the exception on the card).
+- **A second `c` while the first add is in flight** offers the same currency again, and the
+  engine refuses it; `a` and `t` guard with `_toggle_busy`.
+- **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
+  refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
+  confirms them.

@@ -227,6 +227,7 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
         assert [row.description for row in _rows(groups, "This screen")] == [
             "New",
             "Edit",
+            "Add a currency",
             "Archive / unarchive",
             "Make person",
             "Make bank",

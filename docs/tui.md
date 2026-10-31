@@ -941,6 +941,26 @@ Home shows the account under its new group, BANK ACCOUNTS or
 PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read-only:
 `t` is how an account's type changes.
 
+**`c` adds a currency to an account** (pane 6 A in
+[expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)).
+On Manage ▸ Accounts the footer reads `c Currency` after `e Edit`, on every row, a person's
+and an archived account's too, and is off on an empty list. `c` opens the pick
+`Add a currency` (`PickModal` in [modals.py](../expense/tui/screens/modals.py)): the account on
+one line as the delete question names it (`Caja Chica · bank · PEN 350.00`), the supported
+currencies it does not hold in `SUPPORTED_CURRENCIES` order (`currencies_to_add` in
+[accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
+`[enter] add    [esc] cancel`; the footer is `esc Cancel`. `↑↓` move the highlight, `esc`
+leaves the list as it was, and `⏎` sends `POST /accounts/{id}/currencies` with
+`{"currency_code": …}` at once, with no question, through `run_write` as `a` does
+(contract: POST /v1/accounts/{account_id}/currencies). The note says `Currency added: USD.`
+and the list reads again with the cursor on the same account, its new currency's column at
+`0.00`; its opening balance is set on the Edit form. On an account holding every supported
+currency `c` opens nothing, sends nothing and notes `Visa Inventada already holds every
+currency.`, naming the account. A refusal leaves the list as it was, and the "Failed" note is
+the engine's words alone: `DUPLICATE_CURRENCY` on a list read before the account got that
+currency elsewhere, and an archived account's, which the engine refuses rather than the app
+(contract: POST /v1/accounts/{account_id}/currencies, "Refusals").
+
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
@@ -1035,6 +1055,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
+| `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
@@ -1395,6 +1416,10 @@ them — they are hand-written into the `?` card
   `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
   `f Flagged`, on only while lines its complete flagged are left ("The lines a complete
   flagged for review" below).
+
+  One pick writes on `⏎`: Manage ▸ Accounts' `Add a currency`, opened by `c`, adds the
+  highlighted currency at once, as `a` writes, with no question (§2 "`c` adds a currency to
+  an account"). Its footer is `esc Cancel` alone; the hint line under its list names `⏎`.
 
 **The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
 `FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its

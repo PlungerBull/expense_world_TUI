@@ -163,6 +163,19 @@ The owner approves the task list before any build.
 - **New wording** is built as proposed and waits on the owner's OK, under part 6's "Found along
   the way".
 
+### Part 6a task 6 — `c` adds a currency
+- **The key:** `c` on Manage ▸ Accounts (footer `c Currency`) opens a new shared `PickModal`
+  listing the supported currencies the account does not hold.
+- **The write:** `⏎` sends one `POST /accounts/{id}/currencies` with `{"currency_code": …}`
+  through `run_write`, and the list reads fresh. On a full account it shows the owner-approved
+  note.
+- **Refusals** read in the engine's words.
+- **Review:** approved on the first round, with 2184 tests passing across every file using
+  modals or the screen.
+- **Unconfirmed:** the request body is not checkable here. It follows part 5's plan for the
+  live test.
+- **Waiting on the owner:** three wording points, under part 6's "Found along the way".
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

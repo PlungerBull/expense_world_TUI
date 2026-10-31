@@ -17,7 +17,11 @@ takes, and is off on an archived row; `d` deletes the cursor row's account after
 question (`a` puts an account away, `d` is for one made by mistake). Each acts on
 the whole account, every currency at once, through one call with the account's id.
 After `a` or `t` the list reloads with the cursor on the same account, so a second
-press undoes it. `enter` does nothing.
+press undoes it. `c` (`c Currency`) lists the supported currencies the cursor row's
+account does not hold (`PickModal`) and `⏎` adds the picked one at once with
+`POST /accounts/{id}/currencies`, the list reloading with the cursor on the same
+account; on an account holding every one it writes nothing and says so. `enter`
+on the list does nothing.
 """
 
 from collections.abc import Callable
@@ -30,6 +34,7 @@ from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import format_error
 from expense.formatting import format_cents
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, list_refusal_text
+from expense.tui.screens.modals import PickModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
 from expense.tui.widgets.refusal import toast
@@ -48,6 +53,25 @@ def _balance_cells(account: dict, palette: Palette | None) -> list[str | Text]:
         else code_cell(None)
         for code in SUPPORTED_CURRENCIES
     ]
+
+
+def account_line(account: dict) -> str:
+    """The account on one line: its name, its kind, then each currency it holds
+    with that currency's balance — `Efectivo · bank · PEN 350.00`. The line a
+    delete question and the currency pick name the account by."""
+    kind = "person" if account.get("is_person") else "bank"
+    held = [
+        f"{h['currency_code']} {format_cents(h.get('current_balance_cents'))}"
+        for _, _, h in reads.held_currencies([account])
+    ]
+    return " · ".join([account.get("name") or "(unnamed)", kind, *held])
+
+
+def currencies_to_add(account: dict) -> list[str]:
+    """The supported currencies the account does not hold, in
+    `SUPPORTED_CURRENCIES` order: what `c` offers. Unit-testable."""
+    held = {h["currency_code"] for _, _, h in reads.held_currencies([account])}
+    return [code for code in SUPPORTED_CURRENCIES if code not in held]
 
 
 def account_rows(items: list[dict], palette: Palette | None = None) -> list:
@@ -86,6 +110,7 @@ class AccountsScreen(ResourceListScreen):
     # label follows the row and the other binding never fires.
     BINDINGS = [
         *ResourceListScreen.BINDINGS,
+        Binding("c", "add_currency", "Currency", tooltip="Add a currency"),
         Binding("a", "archive", "Archive", tooltip="Archive / unarchive"),
         Binding("t", "make_person", "Make person"),
         Binding("t", "make_bank", "Make bank"),
@@ -96,26 +121,22 @@ class AccountsScreen(ResourceListScreen):
         return reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
 
     def delete_question(self, item: dict) -> tuple[str, str, str]:
-        """The whole account: its name, its kind, then each currency it holds with
-        that currency's balance."""
-        kind = "person" if item.get("is_person") else "bank"
-        held = [
-            f"{h['currency_code']} {format_cents(h.get('current_balance_cents'))}"
-            for _, _, h in reads.held_currencies([item])
-        ]
-        row = " · ".join([item.get("name") or "(unnamed)", kind, *held])
+        """The whole account (`account_line`), then what a delete is for."""
         return (
             "Delete this account?",
-            f"{row}\nIt is for an account made by mistake: no screen can bring it back.",
+            f"{account_line(item)}\n"
+            "It is for an account made by mistake: no screen can bring it back.",
             "Account deleted.",
         )
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action not in ("make_person", "make_bank"):
+        if action not in ("make_person", "make_bank", "add_currency"):
             return super().check_action(action, parameters)
         item = self.selected_record()
         if item is None:
-            return None  # empty list → nothing to turn
+            return None  # empty list → nothing to act on
+        if action == "add_currency":
+            return True  # any account, a person's and an archived one's too: the engine judges
         if item.get("is_archived"):
             return False  # an archived account keeps its kind: `t` leaves the footer
         return bool(item.get("is_person")) == (action == "make_bank")
@@ -128,6 +149,43 @@ class AccountsScreen(ResourceListScreen):
             ("unarchive", "Unarchived.") if item.get("is_archived") else ("archive", "Archived.")
         )
         self._toggle(item, verb, msg)
+
+    def action_add_currency(self) -> None:
+        """`c`: pick a currency the account does not hold, and `⏎` adds it at
+        once with no question, as `a` writes. On an account holding every
+        supported currency nothing is offered and nothing is sent."""
+        item = self.selected_record()
+        if not item:
+            return
+        choices = currencies_to_add(item)
+        if not choices:
+            name = item.get("name") or "(unnamed)"
+            toast(self, f"{name} already holds every currency.")
+            return
+        ident = item["id"]
+
+        def picked(code: str | None) -> None:
+            if code is None:
+                return
+            # The body names the currency (contract: POST /v1/accounts/{account_id}/currencies).
+            self.run_write(
+                "POST",
+                f"/{self.RESOURCE}/{ident}/currencies",
+                json_body={"currency_code": code},
+                on_success=lambda: self._currency_added(ident, code),
+                error_text=list_refusal_text,
+            )
+
+        pick = PickModal("Add a currency", account_line(item), choices, verb="add")
+        self.app.push_screen(pick, picked)
+
+    def _currency_added(self, ident: str, code: str) -> None:
+        """Added: the note names the currency and the list reads again with the
+        cursor on the same account. A refusal leaves the list as it was, the
+        "Failed" note in the engine's words."""
+        toast(self, f"Currency added: {code}.")
+        self._restore_key = ident
+        self._load()
 
     def action_make_person(self) -> None:
         # No body (contract: POST /v1/accounts/{account_id}/make-person).

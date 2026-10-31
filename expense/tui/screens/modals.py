@@ -1,14 +1,17 @@
 """Reusable modal screens."""
 
+from collections.abc import Sequence
 from typing import TypeVar
 
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Static
 
 from expense.quickadd.money import parse_amount
+from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import toast
 
 
@@ -41,6 +44,55 @@ class ConfirmModal(ModalScreen[bool]):
 
     def action_cancel(self) -> None:
         self.dismiss(False)
+
+
+class PickModal(ModalScreen[str | None]):
+    """One of a few choices, picked from a list: the title, the line naming what
+    the pick acts on, the choices in the order given (the shared
+    `suggestion_list`, the highlight on the first), then `[enter] <verb>    [esc]
+    cancel`. `↑↓` move the highlight, `⏎` dismisses with the highlighted choice,
+    `esc` with None. It writes nothing: the caller acts on what it dismisses
+    with. Manage ▸ Accounts' `c` picks the currency to add through it."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "pick", "Pick", show=False),
+        Binding("up", "move(-1)", "Highlight up", show=False),
+        Binding("down", "move(1)", "Highlight down", show=False),
+    ]
+
+    def __init__(self, title: str, message: str, choices: Sequence[str], *, verb: str) -> None:
+        super().__init__()
+        self._title = title
+        self._message = message
+        self._choices = list(choices)
+        self._verb = verb
+        self._idx = 0
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static(Text(self._title), classes="modal-title"),
+            Static(Text(self._message)),
+            Static(self._list(), id="pick-choices"),
+            Static(Text(f"[enter] {self._verb}    [esc] cancel", style="dim")),
+            id="modal",
+        )
+        yield Footer()
+
+    def _list(self):
+        return suggestion_list(self._choices, self._idx)
+
+    def action_move(self, delta: int) -> None:
+        if self._choices:
+            self._idx = max(0, min(self._idx + delta, len(self._choices) - 1))
+            self.query_one("#pick-choices", Static).update(self._list())
+
+    def action_pick(self) -> None:
+        if self._choices:
+            self.dismiss(self._choices[self._idx])
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 _T = TypeVar("_T")
