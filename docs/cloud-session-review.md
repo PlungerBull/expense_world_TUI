@@ -79,6 +79,13 @@ Each spec question now links its page. The gaps the drawers filled, to check at 
   - under 6 B, whether a new currency's opening balance lines show before the save.
 - **Every engine sentence on the three pages is illustrative,** not the engine's wording.
 
+### The owner's answers to parts 6 and 7 (2026-10-31)
+Recorded under each question of the two specs. Every answer follows the recommendation except
+two: Manage ▸ Accounts takes a column per currency (6.1 C), and Home a line per currency (6.2 B),
+both "for now". Since 6.1 C leaves no currency line, a currency is removed through its own key
+on the account's row (6.7), mirroring the add key; that pick is not drawn yet. The placeholder
+keys `c`, `%` and `m` stay.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

@@ -215,6 +215,9 @@ And earlier:
    **Recommended:** A: the form you know, each line named by its currency, and the engine judges
    what is missing. The starting balance's second hint line,
    `0.00 if it holds the account's opening balance, which already counts it`, stays on each.
+
+   **Answered A** (owner, 2026-10-31).
+
 2. **A currency the statement does not cover**
    ([expense-world-statement-currency-picks.html](../mockups/expense-world-statement-currency-picks.html), pick 1), on the statement's head, the list
    of statements and the PDF preview.
@@ -247,6 +250,9 @@ And earlier:
 
    **Recommended:** A. Question 2 is answered B, so no uncovered currency has a row of its own,
    and B no longer applies.
+
+   **Answered A** (owner, 2026-10-31).
+
 5. **The upload's new refusals, and a currency joining or leaving mid-write.**
    - **A.** The engine's words alone, as every refusal shows, with the app's line for
      `CONCURRENT_CHANGE` that already exists (`It changed at the same moment: press r, then try
@@ -256,6 +262,8 @@ And earlier:
 
    **Recommended:** A: the engine's words already say what to do, and nothing is sent that you
    did not ask for.
+
+   **Answered A** (owner, 2026-10-31).
 
 ---
 
