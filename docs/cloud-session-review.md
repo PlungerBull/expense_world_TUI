@@ -50,6 +50,35 @@ Docs only: the "How the tasks run" paragraph in part 4's spec.
   4–8 or part 7 rewrite, apart from `docs/runtime.md` line 94. That line was broken before task
   3, and it now sits under part 4's "Found along the way".
 
+### ba60b54 — this review log
+This file, and the "Review the cloud session's work" question in todo.md.
+
+### The owner moves the cloud session to the features (2026-10-31)
+The builders cannot read the live contract from the cloud box. At the owner's ask, part 4's
+tasks 4 to 8 and part 5 wait for local credits, and the cloud session turns to the feature
+specs, parts 6 and 7. Their first step is drawing the mockups their questions wait on. Parts 6
+and 7 are still drafts that the owner has not approved.
+
+### af40497, 595a4d5 and the next commit — mockups for parts 6 and 7
+Three pages, each drawn by a builder agent from the spec's questions and today's screens in
+tui.md, with made-up data:
+- `expense-world-currencies-accounts-picks.html`: part 6, questions 1, 2, 3, 5, 6 and 7;
+- `expense-world-currencies-transaction-picks.html`: part 6, questions 8 to 11;
+- `expense-world-statement-form-picks.html`: part 7, questions 1 and 4.
+
+Each spec question now links its page. The gaps the drawers filled, to check at review:
+- **Placeholder keys and marks:** `c` adds a currency, `%` marks the LOG bar's currency token
+  and `m` moves rows to another currency in bulk.
+- **Choices the drawers made:**
+  - under 1 B, the accounts table drops its `Cur` column;
+  - in 1 B, a picked currency's starting balance is required;
+  - in 4 A, only an uncovered currency's note is led by its code;
+  - a two-currency account with no currency typed is refused in the LOG bar.
+- **Two cases the spec does not cover:**
+  - what the add-a-currency key says on an account that already holds every currency;
+  - under 6 B, whether a new currency's opening balance lines show before the save.
+- **Every engine sentence on the three pages is illustrative,** not the engine's wording.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

@@ -178,7 +178,7 @@ the screens show what the engine now holds:
 
 ## Questions for the owner
 
-1. **Manage ▸ Accounts with a two-currency account** [mockup to draw].
+1. **Manage ▸ Accounts with a two-currency account** ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **A.** One row per account, a currencies cell holding every balance:
      `-2,340.50 PEN · -185.20 USD`.
    - **B.** The account's row, then an indented line per currency under it, each with its
@@ -189,7 +189,7 @@ the screens show what the engine now holds:
    currency, so each currency needs a line to put the cursor on. The mockup also draws the
    delete question's body naming the account's currencies, and an archived account dimmed with
    its lines.
-2. **Home's BANK ACCOUNTS and PEOPLE** [mockup to draw].
+2. **Home's BANK ACCOUNTS and PEOPLE** ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **A.** One row per account, its balances side by side, as 1 A.
    - **B.** The account's row, then an indented line per currency, as 1 B.
 
@@ -198,7 +198,7 @@ the screens show what the engine now holds:
    (`?account_id=` and `?currency_code=`). Also: a person in two currencies folds into
    `▶ N settled` only when every currency reads `0.00` (recommended), or each currency's line
    folds alone (contract: "People / Person Accounts", "A settled person is never hidden").
-3. **The New form** for a bank account and for a person [mockup to draw].
+3. **The New form** for a bank account and for a person ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **A.** A `currencies` line taking one or both, picked as the hashtags line picks them: `⏎`
      adds the highlighted one, an empty `⏎` goes on.
    - **B.** A choice line: `PEN`, `USD` or `PEN + USD`.
@@ -214,7 +214,7 @@ the screens show what the engine now holds:
    - **B.** The line on both.
 
    **Recommended:** A.
-5. **The opening balance per currency on the Edit form** [mockup to draw].
+5. **The opening balance per currency on the Edit form** ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **A.** One `opening` and `as of` pair per currency, each label naming its currency
      (`PEN opening`, `PEN as of`, `USD opening`, `USD as of`), the word on the right alone
      (`debt`).
@@ -224,13 +224,13 @@ the screens show what the engine now holds:
 
    **Recommended:** A: once the label names the currency, the currency on the right says it
    twice.
-6. **Adding a currency** [mockup to draw].
+6. **Adding a currency** ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **A.** A key on the account's row: it lists the currencies the account does not hold, and
      `⏎` adds the picked one at once, as `a` writes.
    - **B.** A `currencies` line on the Edit form; the save adds what was picked.
 
    **Recommended:** A: one key, one write, and the Edit form keeps to the account's own fields.
-7. **Removing a currency** [mockup to draw].
+7. **Removing a currency** ([expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)).
    - **Where:** **A.** `d` on the currency's line (under 1 B), asking first, only `y` removing
      it. **B.** On the Edit form's `currencies` line (under 6 B), asking first on save.
 
@@ -243,7 +243,7 @@ the screens show what the engine now holds:
 
      **Recommended:** A, as the owner picked for a refused account delete (question 10 A of the
      cards spec): deleting an account is a choice of its own. The engine suggests B.
-8. **How the currency is typed in the LOG bar** [mockup to draw]. The owner wants a field you
+8. **How the currency is typed in the LOG bar** ([expense-world-currencies-transaction-picks.html](../mockups/expense-world-currencies-transaction-picks.html)). The owner wants a field you
    select, like any other field.
    - **A.** A token of its own, with a mark of its own beside `$`, `@` and `#`, picked from a
      list of the account's currencies as they are.
@@ -254,19 +254,19 @@ the screens show what the engine now holds:
    **Recommended:** A: one token per field, as every other field is typed, and the legend row
    names it. Also, on an account holding one currency: the line takes it with nothing typed
    (recommended: the account holds no other), or the currency is always typed.
-9. **The Edit form's currency line** [mockup to draw].
+9. **The Edit form's currency line** ([expense-world-currencies-transaction-picks.html](../mockups/expense-world-currencies-transaction-picks.html)).
    - **A.** A `currency` line right after `account`, listing the currencies of the account on the
      line above.
    - **B.** As A, listing every currency; one the account does not hold is refused in the
      engine's words.
 
    **Recommended:** A: the list shows what the account holds, read from the engine.
-10. **The ledger's currency** [mockup to draw].
+10. **The ledger's currency** ([expense-world-currencies-transaction-picks.html](../mockups/expense-world-currencies-transaction-picks.html)).
     - **A.** A `Cur` column of its own beside Amount.
     - **B.** The code after the amount, in the Amount column.
 
     **Recommended:** A: the currency is its own field, so it has its own column.
-11. **Moving rows to another currency in bulk** [mockup to draw].
+11. **Moving rows to another currency in bulk** ([expense-world-currencies-transaction-picks.html](../mockups/expense-world-currencies-transaction-picks.html)).
     - **A.** A key of its own beside `b`, `c` and `h`, picking the currency; `b` keeps each row's
       currency, and a row whose new account lacks it is refused in the engine's words.
     - **B.** `b` picks the account, then the currency.

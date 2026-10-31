@@ -201,7 +201,7 @@ And earlier:
 
 ## Questions for the owner
 
-1. **The New statement form** [mockup to draw]. The engine needs a starting balance only for a
+1. **The New statement form** ([expense-world-statement-form-picks.html](../mockups/expense-world-statement-form-picks.html)). The engine needs a starting balance only for a
    currency with money at the start, and the app cannot know which that is: no read gives a
    currency's balance on a past day (contract: POST /v1/statements, "`balances`").
    - **A.** A starting and an ending balance line for each currency of the account, each
@@ -240,7 +240,7 @@ And earlier:
 
      **Answered A** (owner, 2026-10-30): `c` opens a `Starting balance first` box, then
      `Ending balance first`, for each blank one, as drawn in pane 5A.
-4. **Where a `not_covered` currency's notes sit** [mockup to draw].
+4. **Where a `not_covered` currency's notes sit** ([expense-world-statement-form-picks.html](../mockups/expense-world-statement-form-picks.html)).
    - **A.** Under the head, beside the covered currencies' notes, each led by its currency:
      `⚠ USD: <the engine's sentence>`.
    - **B.** On the uncovered currency's own row (question 2 A).
