@@ -351,8 +351,9 @@ the screens show what the engine now holds:
     **Recommended:** B and C: no amount changes currency on several rows at once without being
     asked, and `m` is the currency's own key.
 
-    **Answered C** for a two-currency account (owner, 2026-10-31); a one-currency account is still
-    open.
+    **Answered A and C** (owner, 2026-10-31): to a one-currency account every row takes its
+    currency, the amount as it is, with no question; to an account holding two, each row keeps
+    its own.
 
 ---
 
@@ -409,12 +410,20 @@ left these notes:
     `QuickAddRefs` in [reads.py](../../expense/reads.py) and their tests; tui.md §4 "The legend
     row" and "The account peek". *Passes if:* the bar picks the currency as question 8 draws, the
     legend names it, the peek reads `?currency_code=` beside `?account_id=`, and a
-    `CURRENCY_NOT_HELD` refusal shows under the row, nothing written; the tests pin each.
+    `CURRENCY_NOT_HELD` refusal shows under the row, nothing written; a line on an account
+    holding two currencies with none picked is not staged, the account's currencies listed under
+    it, as the LOG bar pane of
+    [expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)
+    draws; the tests pin each.
 11. **The Edit form's currency line** (point 10; question 9). [edit_form.py](../../expense/tui/screens/edit_form.py),
     `LINE_FIELDS` in [bank_line_write.py](../../expense/bank_line_write.py) and their tests;
     tui.md §2 "On top, the line's shared fields". *Passes if:* a move to the other currency is one
     `PUT /bank-lines/{id}` with `currency_code`, keeping a draft statement's `statement_id`;
-    `edit_limits` naming `currency_code` makes the line read-only; the tests pin each.
+    `edit_limits` naming `currency_code` makes the line read-only; on an account holding one
+    currency the line is shown dim with why and the bar skips it (question 12 A); a change of
+    account to one holding one currency takes it, the line saying what it was, and to one
+    holding two empties the currency and steps the bar to it, `ctrl+s` stopping on the line with
+    none picked, nothing sent (question 13 A); the tests pin each.
 12. **The ledger's currency column and filter** (point 11; questions 2 and 10).
     [transactions.py](../../expense/tui/screens/transactions.py) (`transaction_rows`,
     `LedgerFilter`), the filter params in [reads.py](../../expense/reads.py), and their tests;
@@ -430,10 +439,14 @@ left these notes:
 14. **One row per account in every picker** (point 13). `account_choices` in
     [reads.py](../../expense/reads.py), the `$` picker, the Edit form's account line and the `b`
     pick, and their tests; tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
-    if:* no picker lists a "<account> · <code>" row; a test fails on one.
+    if:* no picker lists a "<account> · <code>" row; a test fails on one; `b` to an account
+    holding one currency sends each row's `PUT` with `account_id` and that `currency_code`, the
+    amount as it is, and to an account holding two sends `account_id` alone, each row keeping its
+    currency (question 14 A and C); the tests pin each.
 15. **The mockups this half replaces go** (point 15). [mockups/](../mockups/) and every doc or
     code comment linking them. *Passes if:* each mockup replaced by a pick of questions 8 to 11
-    is deleted, and `test_docs_links.py` passes.
+    is deleted, `expense-world-currencies-one-or-many.html` with them, and `test_docs_links.py`
+    passes.
 
 ## Reply to the engine
 
