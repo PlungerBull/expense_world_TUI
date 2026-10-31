@@ -331,11 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-4. **The Edit form's account write** (point 4). The account Edit form in
-   [create_forms.py](../../expense/tui/screens/create_forms.py), the `STATEMENT_CODE_EXISTS` line
-   in [errors.py](../../expense/errors.py) and their tests; tui.md §2 "A bank account's statement
-   code …". *Passes if:* name, colour and code go in one `PUT /accounts/{id}`, an emptied code
-   as `null`; `STATEMENT_CODE_EXISTS` shows the engine's words alone; the tests pin each.
 5. **The opening balance per currency** (point 5; question 5). The opening-balance lines of the
    account Edit form in [create_forms.py](../../expense/tui/screens/create_forms.py) and its
    tests; tui.md §2 "An account's opening balance lives on its Edit form". *Passes if:* each
@@ -433,3 +428,8 @@ Not built in this spec; drafted into a new spec when it is done.
   Edit form's HASHTAGS line keeps it (`_keep_typed`); the old CURRENCY line did the same.
 - **No test pins a `color` refusal landing on the New form's COLOR line**, though the code maps
   it.
+- **A taken statement code's test and tui.md name the wrong mockup pane.**
+  `test_a_taken_code_on_edit_shows_the_engines_words_alone` in
+  [test_tui_statement_code.py](../../tests/unit/test_tui_statement_code.py) and tui.md cite
+  "3·2 B" of `expense-world-statement-code-field.html`, the pane with the app's line; the engine's
+  words alone are pane 3·2 A.

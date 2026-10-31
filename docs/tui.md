@@ -1220,13 +1220,17 @@ such line.
   digit, a missing letter or a fourth one comes back refused in its words.
 - **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
   is left out of the body, never sent as `null` (contract: POST /v1/accounts).
-- **On Edit,** the line opens holding the account's code. The save sends `statement_code`
-  only when it differs from the account's own, and `null` when the line was emptied, which
-  clears the code with no question: nothing is lost, since typing the code again brings
-  every statement line back (contract: PUT /v1/accounts/{account_id}).
+- **On Edit,** the line opens holding the account's code. The account's own changes go in
+  one `PUT /accounts/{id}`: `name`, `color` when it is not the account's own, and
+  `statement_code` only when it differs from the account's own, `null` when the line was
+  emptied, which clears the code with no question: nothing is lost, since typing the code
+  again brings every statement line back
+  (contract: PUT /v1/accounts/{account_id}, "`statement_code`").
+  The body holds no currency; an opening balance goes in its own request after it ("An
+  account's opening balance lives on its Edit form" below).
 - **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
-  line with what was typed, on New and Edit; every refusal of a code, `STATEMENT_CODE_EXISTS` included, reads in the engine's
-  words alone (the table in "When the engine says no").
+  line with what was typed, on New and Edit; every refusal of a code, `STATEMENT_CODE_EXISTS`
+  included, reads in the engine's words alone (the table in "When the engine says no").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on the
 account's first currency as the engine lists them (contract: "Bank Accounts", "Per-currency order"),

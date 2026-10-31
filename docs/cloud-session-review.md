@@ -139,6 +139,14 @@ The owner approves the task list before any build.
 - **Follow-ups** under part 6's "Found along the way": no un-pick, `ctrl+s` dropping a typed
   code, and an untested `color` refusal.
 
+### Part 6a task 4 — the Edit form's account write
+- **Already met by the code:** name, colour and code go in one `PUT /accounts/{id}`, an emptied
+  code as `null`, and `STATEMENT_CODE_EXISTS` reads in the engine's words alone.
+- **What the task added:** two tests pinning the single PUT, the `EditAccountScreen` docstring,
+  and tui.md wording.
+- **Review:** approved on the first round. A mislabelled mockup pane ("3·2 B" for 3·2 A) goes
+  under "Found along the way".
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

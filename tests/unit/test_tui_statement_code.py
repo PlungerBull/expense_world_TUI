@@ -3,10 +3,12 @@
 The screens are docs/mockups/expense-world-statement-code-field.html: 1 A (the
 line after CURRENCIES, on a bank account only), 1b A (its hint), 2 A (emptied and
 saved clears the code, no question), 3·1 B (small letters show as capitals while
-typing), 3·2 B (a taken code gets the app's line under the engine's words) and
-3·3, 3·4 (the engine's words alone). The code is optional on `POST /accounts`,
-set, changed or cleared with `null` on `PUT /accounts/{id}`, and never sent for a
-person (contract: "What an account is", "Statement code").
+typing) and every refusal of a code, a taken one (`STATEMENT_CODE_EXISTS`)
+included, in the engine's words alone (owner, 2026-10-28). The code is optional on
+`POST /accounts`, set, changed or cleared with `null` on `PUT /accounts/{id}` in the
+same write as the name and the colour, and never sent for a person
+(contract: "What an account is", "Statement code")
+(contract: PUT /v1/accounts/{account_id}, "`statement_code`").
 """
 
 import pytest
@@ -274,6 +276,54 @@ def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
     assert asked == []
     assert fake_client.puts == [
         ("/accounts/acc-sig", {"name": "Signature Soles", "statement_code": None})
+    ]
+
+
+def _type(screen, key, text):
+    """Land on `key`, type `text`, press enter."""
+    _on(screen, key)
+    _bar(screen).value = text
+    screen._recompute(text)
+    screen.on_input_submitted(None)
+
+
+def test_edit_name_colour_and_code_go_in_one_put(fake_client):
+    screen = EditAccountScreen(SIGNATURE, "PEN")
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        _type(screen, "name", "Signature")
+        _type(screen, "statement_code", "SIG")
+        _type(screen, "color", "green")
+        await _save(pilot, screen, fake_client)
+
+    run_app(scenario)
+    assert fake_client.calls == [
+        (
+            "PUT",
+            "/accounts/acc-sig",
+            {"name": "Signature", "color": "#5ab87a", "statement_code": "SIG"},
+        )
+    ]
+
+
+def test_edit_an_emptied_code_rides_in_the_same_put_as_the_name_and_colour(fake_client):
+    screen = EditAccountScreen(SIGNATURE, "PEN")
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        _type(screen, "name", "Signature")
+        _type(screen, "statement_code", "")
+        _type(screen, "color", "green")
+        await _save(pilot, screen, fake_client)
+
+    run_app(scenario)
+    assert fake_client.calls == [
+        (
+            "PUT",
+            "/accounts/acc-sig",
+            {"name": "Signature", "color": "#5ab87a", "statement_code": None},
+        )
     ]
 
 

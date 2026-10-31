@@ -503,10 +503,12 @@ class EditAccountScreen(NewAccountScreen):
     account holding no currency has no opening balance to give: both lines are
     read-only. The other currencies' opening balances are never touched.
 
-    A bank account's STATEMENT CODE opens holding its code. The save sends it
-    only when it changed, and `null` when the line was emptied, which clears
-    the code with no question (contract: PUT /v1/accounts/{account_id}). A
-    person's form has no such line.
+    A bank account's STATEMENT CODE opens holding its code. The account's own
+    fields go in one `PUT /accounts/{id}`: the name, the colour when it changed,
+    and the code only when it changed, `null` when the line was emptied, which
+    clears the code with no question
+    (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). No currency
+    rides in it. A person's form has no such line.
 
     The opened currency's entry in the account's `currencies` names its opening
     balance by id, or `null` when it has none (contract: "Bank Accounts",
