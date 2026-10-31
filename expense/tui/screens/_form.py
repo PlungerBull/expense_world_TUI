@@ -128,6 +128,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         `key`; the default shows it as typed."""
         return text
 
+    def _bar_word(self, key: str, text: str) -> str:
+        """The word on the bar's right while the bar is on `key` and holds
+        `text`, following it as it is typed; the default shows none."""
+        return ""
+
     def _hint_line(self, key: str) -> Text:
         """The hint line under the bar: `_hint_for`'s words, dimmed."""
         return Text(self._hint_for(key), style="dim")
@@ -206,7 +211,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             read_only=lambda: self._key in self._locked,
             typed=lambda text: self._typed(self._key, text),
         )
-        yield Horizontal(Label("", id="field"), bar, id="inputbar")
+        yield Horizontal(Label("", id="field"), bar, Label("", id="bar-word"), id="inputbar")
         yield Static("", id="hint")
         yield Static("", id="suggest")
         yield Static("", id="summary")
@@ -242,9 +247,14 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self.query_one("#field", Label).update(self._label(key))
         bar = self.query_one("#bar", Input)
         bar.value = self._bar_value(key)
+        self._show_bar_word(bar.value)
         self._recompute(bar.value)
 
+    def _show_bar_word(self, text: str) -> None:
+        self.query_one("#bar-word", Label).update(self._bar_word(self._key, text))
+
     def on_input_changed(self, event: Input.Changed) -> None:
+        self._show_bar_word(event.value)
         if self._suggests(self._key):
             self._recompute(event.value)
             self._refresh_view()

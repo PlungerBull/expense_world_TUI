@@ -105,10 +105,10 @@ def _edit_two_currency_account(fake_client, monkeypatch, key):
         cursor_list.set_cursor(cursor_list.index_of("visa"))
         await pilot.press("e")
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
-        await wait_for(pilot, lambda: not app.screen._opening_loading)
+        await wait_for(pilot, lambda: not app.screen._openings_loading)
         seen["name"] = app.screen._values["name"]
-        seen["currency"] = app.screen._values["currency"]
-        seen["opening_id"] = app.screen._opening_id
+        seen["sequence"] = app.screen._sequence()
+        seen["opening_ids"] = {c: o.id for c, o in app.screen._openings.items()}
         await pilot.press(key)
         await wait_for(pilot, lambda: app.screen is screen)
         await wait_for_list(pilot, app)
@@ -119,16 +119,18 @@ def _edit_two_currency_account(fake_client, monkeypatch, key):
     return seen
 
 
-def test_e_edits_the_account_on_its_first_currency_and_a_cancel_keeps_the_row(
+def test_e_edits_the_account_with_every_currencys_pair_and_a_cancel_keeps_the_row(
     fake_client, monkeypatch
 ):
-    """`e` on a two-currency account's one row opens the form on the account's first
-    currency, as the engine lists them: its code and its own opening balance."""
+    """`e` on a two-currency account's one row opens the form on the account: a
+    pair of opening lines per currency, as the engine lists them, each with its
+    own opening balance."""
     seen = _edit_two_currency_account(fake_client, monkeypatch, "escape")
     assert seen["name"] == "Visa" and seen["cursor"] == "visa"
     assert fake_client.calls == []
-    assert seen["currency"] == "PEN" and seen["opening_id"] == "tx-pen"
-    assert seen["asked"] == ["tx-pen"]
+    assert seen["sequence"][-4:] == ["opening:PEN", "as_of:PEN", "opening:USD", "as_of:USD"]
+    assert seen["opening_ids"] == {"PEN": "tx-pen", "USD": "tx-usd"}
+    assert seen["asked"] == ["tx-pen", "tx-usd"]
 
 
 def test_e_on_a_two_currency_account_saves_it_by_its_id(fake_client, monkeypatch):

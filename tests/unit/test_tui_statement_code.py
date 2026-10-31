@@ -187,14 +187,14 @@ def test_small_letters_typed_or_pasted_show_as_capitals_on_the_code_line_only(fa
     "record", [SIGNATURE, NO_CODE, WITH_OPENING], ids=["code", "no-code", "opening-balance"]
 )
 def test_edit_hint_says_empty_clears_it_with_or_without_an_opening_balance(record):
-    screen = EditAccountScreen(record, "PEN")
+    screen = EditAccountScreen(record)
     assert "statement_code" in screen._sequence()
     assert screen._hint_for("statement_code") == EDIT_HINT
-    assert screen._sequence().index("statement_code") == screen._sequence().index("currency") + 1
+    assert screen._sequence().index("statement_code") == screen._sequence().index("currencies") + 1
 
 
 def test_edit_on_a_person_has_no_code_line_and_never_sends_one(fake_client):
-    screen = EditAccountScreen(ELIANA, "PEN")
+    screen = EditAccountScreen(ELIANA)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -207,7 +207,7 @@ def test_edit_on_a_person_has_no_code_line_and_never_sends_one(fake_client):
 
 
 def test_edit_opens_holding_the_code_and_unchanged_does_not_send_it(fake_client):
-    screen = EditAccountScreen(SIGNATURE, "PEN")
+    screen = EditAccountScreen(SIGNATURE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -227,7 +227,7 @@ def test_edit_opens_holding_the_code_and_unchanged_does_not_send_it(fake_client)
 
 
 def test_edit_a_changed_code_is_sent(fake_client):
-    screen = EditAccountScreen(SIGNATURE, "PEN")
+    screen = EditAccountScreen(SIGNATURE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -242,7 +242,7 @@ def test_edit_a_changed_code_is_sent(fake_client):
 
 
 def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
-    screen = EditAccountScreen(NO_CODE, "PEN")
+    screen = EditAccountScreen(NO_CODE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -258,7 +258,7 @@ def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
 
 
 def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
-    screen = EditAccountScreen(SIGNATURE, "PEN")
+    screen = EditAccountScreen(SIGNATURE)
     asked: list = []
 
     async def scenario(pilot, app):
@@ -288,7 +288,7 @@ def _type(screen, key, text):
 
 
 def test_edit_name_colour_and_code_go_in_one_put(fake_client):
-    screen = EditAccountScreen(SIGNATURE, "PEN")
+    screen = EditAccountScreen(SIGNATURE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -308,7 +308,7 @@ def test_edit_name_colour_and_code_go_in_one_put(fake_client):
 
 
 def test_edit_an_emptied_code_rides_in_the_same_put_as_the_name_and_colour(fake_client):
-    screen = EditAccountScreen(SIGNATURE, "PEN")
+    screen = EditAccountScreen(SIGNATURE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -375,7 +375,7 @@ def notes(monkeypatch):
 def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client, notes):
     """3·2 B: the note, and the cursor back on the code line with what was typed."""
     fake_client.errors["PUT"] = TAKEN
-    screen = EditAccountScreen(NO_CODE, "PEN")
+    screen = EditAccountScreen(NO_CODE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -423,7 +423,7 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
 )
 def test_other_code_refusals_keep_the_engines_words_alone(fake_client, notes, refusal):
     fake_client.errors["PUT"] = refusal
-    screen = EditAccountScreen(NO_CODE, "PEN")
+    screen = EditAccountScreen(NO_CODE)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)

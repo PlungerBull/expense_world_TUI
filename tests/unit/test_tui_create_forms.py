@@ -295,7 +295,7 @@ _ELIANA = account_with_currencies(id="abc", name="Eliana", is_person=True)
 def _edit_account(color, *, is_person=False) -> EditAccountScreen:
     """The edit form of Sueldo, a soles account or person of `color`."""
     return EditAccountScreen(
-        account_with_currencies(id="abc", name="Sueldo", color=color, is_person=is_person), "PEN"
+        account_with_currencies(id="abc", name="Sueldo", color=color, is_person=is_person)
     )
 
 
@@ -395,7 +395,7 @@ def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_cli
         assert screen._suggestions and _highlighted(screen) == []
         await pilot.press("enter")
         await pilot.pause()
-        assert screen._key == "opening" and "color" not in screen._values
+        assert screen._key == "opening:PEN" and "color" not in screen._values
         assert "—  (optional)" in _summary_color(screen)
         await _enter_until_saved(pilot, screen)
 
@@ -540,10 +540,11 @@ def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps
     assert None not in body.values()
 
 
-def test_edit_account_locks_type_and_currency(fake_client):
-    """`is_person` is creation-time-only, so editing shows TYPE read-only."""
-    screen = EditAccountScreen(_ELIANA, "PEN")
-    assert screen._locked == {"currency", "type"}
+def test_edit_account_locks_type_and_currencies(fake_client):
+    """`is_person` is creation-time-only, so editing shows TYPE read-only, and
+    CURRENCIES, which change with their own keys on Manage ▸ Accounts."""
+    screen = EditAccountScreen(_ELIANA)
+    assert screen._locked == {"currencies", "type"}
     assert screen._values["type"] == "person"
     assert screen._submit_request()[:2] == ("PUT", "/accounts/abc")
     assert "is_person" not in screen._payload()
@@ -658,7 +659,7 @@ def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
 
 def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
-    screen = EditAccountScreen(_ELIANA, "PEN")
+    screen = EditAccountScreen(_ELIANA)
 
     async def check(pilot, screen, toasts):
         message, kw = toasts[0]
@@ -678,7 +679,7 @@ def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
 
 
 def _eliana() -> EditAccountScreen:
-    return EditAccountScreen(_ELIANA, "PEN")
+    return EditAccountScreen(_ELIANA)
 
 
 @pytest.mark.parametrize(
@@ -873,7 +874,7 @@ def _navigate(steps):
     """Push the account edit form, then run each `(key, expected field)` step."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, "PEN")
+        screen = EditAccountScreen(_ACCOUNT)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         assert screen._key == "name"  # the first editable field
@@ -920,12 +921,12 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     """tab → next editable field, shift+tab → previous; both stop at the ends."""
     _navigate(
         [
-            ("tab", "statement_code"),  # skips locked CURRENCY
+            ("tab", "statement_code"),  # skips locked CURRENCIES
             ("tab", "color"),
-            ("tab", "opening"),
-            ("tab", "as_of"),
-            ("tab", "as_of"),  # no editable field further on: stays
-            ("shift+tab", "opening"),
+            ("tab", "opening:PEN"),
+            ("tab", "as_of:PEN"),
+            ("tab", "as_of:PEN"),  # no editable field further on: stays
+            ("shift+tab", "opening:PEN"),
             ("shift+tab", "color"),
             ("shift+tab", "statement_code"),
             ("shift+tab", "name"),
@@ -938,7 +939,7 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
     """On COLOR the palette list is open; tab and shift+tab still move fields."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, "PEN")
+        screen = EditAccountScreen(_ACCOUNT)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("tab", "tab")
@@ -956,7 +957,7 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
     list takes `↑`/`↓` until it empties, and then `↑` moves back."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, "PEN")
+        screen = EditAccountScreen(_ACCOUNT)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("down")  # NAME: no list → next field

@@ -1,8 +1,11 @@
-"""The account Edit form's opening balance — the two lines OPENING and AS OF.
+"""The account Edit form's opening balances — a pair of lines per currency,
+`PEN opening` and `PEN as of`, then the next currency's.
 
-The screens are docs/mockups/expense-world-opening-balance.html's; a person's
-form is pane A of docs/mockups/expense-world-person-opening-balance.html. The
-account names its opening balance by id
+The screens are docs/mockups/expense-world-opening-balance.html's, each pair
+labelled as panes "5 A" of
+docs/mockups/expense-world-currencies-accounts-picks.html draw it; a person's
+form is pane A of docs/mockups/expense-world-person-opening-balance.html. Each
+currency of the account names its opening balance by id
 (contract: "Bank Accounts", "Opening balance"); the form reads that row signed
 with one `GET /transactions/{id}`
 (contract: "Base Conventions", "Sign convention — responses") and writes it
@@ -13,7 +16,7 @@ through `POST /accounts/{id}/opening-balance`, `PUT /transactions/{id}` and
 import threading
 
 import pytest
-from textual.widgets import Input, Static
+from textual.widgets import Input, Label, Static
 
 from expense.dates import to_canonical_aware
 from expense.errors import EngineError
@@ -107,17 +110,20 @@ def _hint(screen) -> str:
     return str(screen.query_one("#hint", Static).content)
 
 
-def _form(record, body, *, code="PEN"):
-    """Push the Edit form for `record` opened on its `code` row (the record's own
-    currency unless given), after its read if it has one, then run
+def _word(screen) -> str:
+    """The word on the bar's right."""
+    return str(screen.query_one("#bar-word", Label).content)
+
+
+def _form(record, body):
+    """Push the Edit form for `record`, after its reads if it has any, then run
     `body(pilot, app, screen)`."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(record, code)
+        screen = EditAccountScreen(record)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        if screen._opening_id:
-            await wait_for(pilot, lambda: not screen._opening_loading)
+        await wait_for(pilot, lambda: not screen._openings_loading)
         return await body(pilot, app, screen)
 
     return run_app(scenario)
@@ -125,13 +131,14 @@ def _form(record, body, *, code="PEN"):
 
 @pytest.fixture
 def reads_log(monkeypatch):
-    """`reads.fetch_transaction` answering `reads_log.row` (OPENING_ROW unless
-    set); logs each id it is asked for. Set `reads_log.error` to make it raise
-    instead."""
+    """`reads.fetch_transaction` answering `reads_log.rows[id]`, else
+    `reads_log.row` (OPENING_ROW unless set); logs each id it is asked for.
+    Set `reads_log.error` to make it raise instead."""
 
     class Log(list):
         error: Exception | None = None
         row: dict = OPENING_ROW
+        rows: dict = {}  # id → row, for an id other than `row`'s
 
     log = Log()
 
@@ -139,7 +146,7 @@ def reads_log(monkeypatch):
         log.append(transaction_id)
         if log.error is not None:
             raise log.error
-        return log.row
+        return log.rows.get(transaction_id, log.row)
 
     monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
     return log
@@ -153,15 +160,15 @@ def test_screen_1_two_empty_lines_after_colour_and_no_read(fake_client):
         assert screen._sequence() == [
             "type",
             "name",
-            "currency",
+            "currencies",
             "statement_code",
             "color",
-            "opening",
-            "as_of",
+            "opening:PEN",
+            "as_of:PEN",
         ]
         text = _summary(screen)
-        assert "opening — (optional)" in text
-        assert "as of — (optional)" in text
+        assert "PEN opening — (optional)" in text
+        assert "PEN as of — (optional)" in text
         assert _hint(screen) == "free text · enter to go on"
 
     _form(EFECTIVO, body)
@@ -181,61 +188,94 @@ def test_screen_1_left_empty_the_save_is_the_account_alone(fake_client, notes):
 # ---- 2 · typing the amount, then the date ----------------------------------------
 
 
-def test_screen_2_the_hints_and_the_star_once_there_is_an_amount(fake_client):
+def test_screen_2_no_hint_under_the_amount_and_the_star_once_there_is_one(fake_client):
     async def body(pilot, app, screen):
-        _on(screen, "opening")
-        assert _hint(screen) == (
-            "signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional"
-        )
-        _type(screen, "opening", "350.00")
-        assert screen._key == "as_of"
+        _on(screen, "opening:PEN")
+        assert _hint(screen) == ""  # no line under the amount
+        _type(screen, "opening:PEN", "350.00")
+        assert screen._key == "as_of:PEN"
         assert _hint(screen) == "YYYY-MM-DD · the day the account held this"
         assert screen.query_one("#bar", Input).value == ""  # the date starts empty
         text = _summary(screen)
-        assert "opening 350.00" in text
-        assert "as of — *" in text
+        assert "PEN opening 350.00" in text
+        assert "PEN as of — *" in text
 
     _form(EFECTIVO, body)
 
 
-def test_screen_2_the_amount_is_taken_as_typed_in_the_accounts_currency(fake_client):
+def test_screen_2_the_amount_is_taken_as_typed_in_its_currency(fake_client):
     async def body(pilot, app, screen):
-        _on(screen, "opening")
-        assert "in USD" in _hint(screen)
-        _type(screen, "opening", "-350.00")
-        assert screen._values["opening"] == -35000  # never flipped
-        _type(screen, "opening", "350")
-        assert screen._values["opening"] == 35000  # never flipped either way
+        assert screen._label("opening:USD") == "USD OPENING"
+        _type(screen, "opening:USD", "-350.00")
+        assert screen._values["opening:USD"] == -35000  # never flipped
+        _type(screen, "opening:USD", "350")
+        assert screen._values["opening:USD"] == 35000  # never flipped either way
 
-    _form(account_with_currencies(EFECTIVO, currencies=[held_currency("USD")]), body, code="USD")
+    _form(account_with_currencies(EFECTIVO, currencies=[held_currency("USD")]), body)
 
 
 def test_screen_2_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
     async def body(pilot, app, screen):
-        _type(screen, "opening", "lots")
-        assert screen._key == "opening" and "opening" not in screen._values
-        _type(screen, "opening", "-1.234,5")  # a comma after the dot: never -1.23
-        assert screen._key == "opening" and "opening" not in screen._values
-        _type(screen, "opening", "350.00")
-        _type(screen, "as_of", "01/01/2026")
-        assert screen._key == "as_of" and "as_of" not in screen._values
-        _type(screen, "as_of", "")  # an amount needs its day
-        assert "as_of" not in screen._values
+        _type(screen, "opening:PEN", "lots")
+        assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
+        _type(screen, "opening:PEN", "-1.234,5")  # a comma after the dot: never -1.23
+        assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "01/01/2026")
+        assert screen._key == "as_of:PEN" and "as_of:PEN" not in screen._values
+        _type(screen, "as_of:PEN", "")  # an amount needs its day
+        assert "as_of:PEN" not in screen._values
 
     _form(EFECTIVO, body)
     assert [m for m, _ in notes] == [
-        "Opening: a signed decimal, e.g. -350.00",
-        "Opening: a signed decimal, e.g. -350.00",
-        "As of: use YYYY-MM-DD.",
-        "As Of is required.",
+        "PEN opening: a signed decimal, e.g. -350.00",
+        "PEN opening: a signed decimal, e.g. -350.00",
+        "PEN as of: use YYYY-MM-DD.",
+        "PEN as of is required.",
     ]
     assert fake_client.calls == []
 
 
+# ---- the word on the right: debt, credit or nothing --------------------------------
+
+
+@pytest.mark.parametrize("record", ["bank", "person"])
+@pytest.mark.parametrize(
+    ("typed", "word"),
+    [("-150.00", "debt"), ("150.00", "credit"), ("", ""), ("0.00", ""), ("0", ""), ("-", "")],
+    ids=["negative", "positive", "empty", "zero", "bare-zero", "unreadable"],
+)
+def test_the_word_on_the_right_follows_the_sign_as_typed(fake_client, record, typed, word):
+    """`debt` below zero, `credit` above it, nothing while empty or at zero, the
+    same on a bank account and a person, with no currency after it; it follows
+    the bar as it is typed, before `⏎`."""
+
+    async def body(pilot, app, screen):
+        _on(screen, "opening:PEN")
+        assert _word(screen) == ""
+        screen.query_one("#bar", Input).value = typed
+        await pilot.pause()
+        assert _word(screen) == word
+        _on(screen, "name")
+        assert _word(screen) == ""  # no other line has a word
+
+    _form(ELIANA if record == "person" else EFECTIVO, body)
+
+
+def test_the_word_shows_on_landing_on_a_filled_amount(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        _on(screen, "opening:PEN")
+        assert _word(screen) == "debt"  # -3,200.00, read
+        _on(screen, "as_of:PEN")
+        assert _word(screen) == ""
+
+    _form(SUELDO, body)
+
+
 def test_screen_2_a_new_opening_balance_posts_signed_with_no_title(fake_client, notes):
     async def body(pilot, app, screen):
-        _type(screen, "opening", "-350.00")
-        _type(screen, "as_of", "2026-01-01")  # last line: enter saves
+        _type(screen, "opening:PEN", "-350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")  # last line: enter saves
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
@@ -256,34 +296,111 @@ def test_screen_2_a_new_opening_balance_posts_signed_with_no_title(fake_client, 
 VISA = account_with_currencies(
     id="acc-visa",
     name="Visa",
+    color="#4a90d9",
     currencies=[
         held_currency("PEN", opening_balance_transaction_id="tx-open"),
         held_currency("USD"),
     ],
 )
+#: The same, its dollars with an opening balance too, and that row.
+VISA_BOTH = account_with_currencies(
+    VISA,
+    currencies=[
+        held_currency("PEN", opening_balance_transaction_id="tx-open"),
+        held_currency("USD", opening_balance_transaction_id="tx-usd"),
+    ],
+)
+USD_ROW = {**OPENING_ROW, "id": "tx-usd", "amount_cents": 4000, "date": "2026-02-01T00:00:00-05:00"}
 
 
-def test_dollars_posts_its_own_opening_balance_and_leaves_the_soles_one(fake_client):
-    """Opened on dollars, the form reads no opening balance (the soles
-    one is not its), and the one typed is sent for USD alone."""
+def test_each_currency_has_its_pair_in_the_engines_order(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        assert screen._sequence()[-4:] == ["opening:PEN", "as_of:PEN", "opening:USD", "as_of:USD"]
+        assert [screen._label(k) for k in screen._sequence()[-4:]] == [
+            "PEN OPENING",
+            "PEN AS OF",
+            "USD OPENING",
+            "USD AS OF",
+        ]
+        assert [line for line in _summary(screen).splitlines() if line] == [
+            "type bank read-only",
+            "name Visa",
+            "currencies PEN · USD read-only",
+            "statement code — (optional)",
+            "color ██ blue",
+            "PEN opening -3,200.00",
+            "PEN as of 2026-01-01",
+            "USD opening — (optional)",
+            "USD as of — (optional)",
+        ]
+
+    _form(VISA, body)
+    assert reads_log == ["tx-open"]  # the dollars name none: nothing to read
+
+
+def test_each_pair_reads_its_own_opening_balance(fake_client, reads_log):
+    reads_log.rows = {"tx-usd": USD_ROW}
 
     async def body(pilot, app, screen):
-        assert screen._values["currency"] == "USD" and screen._opening_id is None
-        _type(screen, "opening", "-45.50")
-        _type(screen, "as_of", "2026-01-01")
+        assert (screen._openings["PEN"].id, screen._openings["USD"].id) == ("tx-open", "tx-usd")
+        assert screen._values["opening:PEN"] == -320000
+        assert screen._values["as_of:PEN"] == "2026-01-01"
+        assert screen._values["opening:USD"] == 4000
+        assert screen._values["as_of:USD"] == "2026-02-01"
+
+    _form(VISA_BOTH, body)
+    assert reads_log == ["tx-open", "tx-usd"]
+
+
+def test_changing_only_the_dollars_sends_one_request_with_usd(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        _type(screen, "opening:USD", "-45.50")
+        _type(screen, "as_of:USD", "2026-01-01")  # last line: enter saves
         await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(VISA, body, code="USD")
+    _form(VISA, body)
     assert fake_client.requests == [("POST", "/accounts/acc-visa/opening-balance")]
     (_path, sent) = fake_client.posts[0]
     assert sent["currency_code"] == "USD" and sent["amount_cents"] == -4550
     assert not fake_client.puts and not fake_client.deletes
 
 
-def test_the_soles_row_changes_the_soles_opening_balance_only(fake_client, reads_log):
+def test_the_account_goes_first_then_the_dollars_alone(fake_client, reads_log):
     async def body(pilot, app, screen):
-        assert screen._opening_id == "tx-open"
-        _type(screen, "opening", "-3000.00")
+        _type(screen, "color", "green")
+        _type(screen, "opening:USD", "-45.50")
+        _type(screen, "as_of:USD", "2026-01-01")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA, body)
+    assert fake_client.requests == [
+        ("PUT", "/accounts/acc-visa"),
+        ("POST", "/accounts/acc-visa/opening-balance"),
+    ]
+    assert "currency_code" not in fake_client.puts[0][1]
+    assert fake_client.posts[0][1]["currency_code"] == "USD"
+
+
+def test_changing_both_sends_one_request_per_currency_in_order(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "-3000.00")
+        _type(screen, "opening:USD", "40.00")
+        _type(screen, "as_of:USD", "2026-01-01")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA, body)
+    assert fake_client.requests == [
+        ("PUT", "/transactions/tx-open"),
+        ("POST", "/accounts/acc-visa/opening-balance"),
+    ]
+    assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
+    assert fake_client.posts[0][1]["currency_code"] == "USD"
+    assert fake_client.posts[0][1]["amount_cents"] == 4000
+
+
+def test_the_soles_pair_changes_the_soles_opening_balance_only(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "-3000.00")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
@@ -293,26 +410,225 @@ def test_the_soles_row_changes_the_soles_opening_balance_only(fake_client, reads
     assert not fake_client.posts
 
 
-def test_a_row_with_no_currency_has_no_opening_balance_to_give(fake_client):
-    """An account holding no currency opens with OPENING and AS OF read-only, and
-    its save is the account alone."""
+def test_emptying_the_dollars_asks_then_deletes_the_dollars_row(fake_client, reads_log):
+    reads_log.rows = {"tx-usd": USD_ROW}
+    asked: dict = {}
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:USD", "")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        asked["title"], asked["message"] = app.screen._title, app.screen._message
+        await pilot.press("y")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA_BOTH, body)
+    assert asked == {
+        "title": "Delete this opening balance?",
+        "message": "Visa · USD · 40.00 · 2026-02-01\n"
+        "It leaves the account's balance, and no screen can bring it back.",
+    }
+    assert fake_client.requests == [("DELETE", "/transactions/tx-usd")]
+
+
+def test_emptying_both_asks_once_naming_each(fake_client, reads_log):
+    reads_log.rows = {"tx-usd": USD_ROW}
+    asked: dict = {}
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "")
+        _type(screen, "opening:USD", "")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        asked["title"], asked["message"] = app.screen._title, app.screen._message
+        await pilot.press("y")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA_BOTH, body)
+    assert asked == {
+        "title": "Delete these opening balances?",
+        "message": "Visa · PEN · -3,200.00 · 2026-01-01\n"
+        "Visa · USD · 40.00 · 2026-02-01\n"
+        "They leave the account's balance, and no screen can bring them back.",
+    }
+    assert fake_client.requests == [
+        ("DELETE", "/transactions/tx-open"),
+        ("DELETE", "/transactions/tx-usd"),
+    ]
+
+
+def test_a_refusal_on_the_dollars_lands_on_usd_opening_and_resends_only_it(
+    fake_client, notes, reads_log
+):
+    """The soles' change goes through, the dollars' is refused for a reason
+    naming no line: the cursor lands on `USD opening`, and the next save sends
+    the dollars alone."""
+    fake_client.errors["POST"] = EXISTS
+    seen: dict = {}
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "-3000.00")
+        _type(screen, "opening:USD", "40.00")
+        screen._values["as_of:USD"] = "2026-01-01"
+        _on(screen, "name")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        seen["key"] = screen._key
+        seen["bar"] = screen.query_one("#bar", Input).value
+        seen["first"] = list(fake_client.requests)
+        fake_client.errors.clear()
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA, body)
+    assert (seen["key"], seen["bar"]) == ("opening:USD", "40")
+    assert notes[0][0].startswith("CONFLICT — Account already has an opening balance.")
+    assert seen["first"] == [
+        ("PUT", "/transactions/tx-open"),
+        ("POST", "/accounts/acc-visa/opening-balance"),
+    ]
+    assert fake_client.requests[2:] == [("POST", "/accounts/acc-visa/opening-balance")]
+
+
+def test_a_dated_refusal_on_the_dollars_lands_on_usd_as_of(fake_client, notes, reads_log):
+    fake_client.errors["POST"] = FUTURE
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:USD", "40.00")
+        screen._values["as_of:USD"] = "2026-11-01"
+        _on(screen, "name")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert screen._key == "as_of:USD"
+        assert screen.query_one("#bar", Input).value == "2026-11-01"
+
+    _form(VISA, body)
+
+
+def test_a_refusal_stops_the_currency_behind_it(fake_client, notes, reads_log):
+    """The queue's rule: a refused write drops those behind it."""
+    fake_client.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR",
+        LOCKED_WORDS,
+        {"amount_cents": LOCK_MESSAGES["LOCKED"]},
+        422,
+        {},
+        {"amount_cents": "LOCKED"},
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "-3000.00")
+        _type(screen, "opening:USD", "40.00")
+        screen._values["as_of:USD"] = "2026-01-01"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert screen._key == "opening:PEN"
+
+    _form(VISA, body)
+    assert fake_client.requests == [("PUT", "/transactions/tx-open")]
+
+
+def test_a_failed_read_locks_its_currency_and_the_other_pair_stays_editable(
+    fake_client, notes, monkeypatch
+):
+    def fetch(cfg, transaction_id, **kw):
+        if transaction_id == "tx-usd":
+            raise EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
+        return OPENING_ROW
+
+    monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
+
+    async def body(pilot, app, screen):
+        assert {"opening:USD", "as_of:USD"} <= screen._locked
+        assert not {"opening:PEN", "as_of:PEN"} & screen._locked
+        assert screen._values["opening:PEN"] == -320000
+        _type(screen, "opening:PEN", "-3000.00")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA_BOTH, body)
+    assert "NOT_FOUND" in notes[0][0]
+    assert fake_client.requests == [("PUT", "/transactions/tx-open")]
+
+
+#: The soles with no opening balance yet, the dollars with one.
+VISA_USD_OPENED = account_with_currencies(
+    VISA,
+    currencies=[
+        held_currency("PEN"),
+        held_currency("USD", opening_balance_transaction_id="tx-usd"),
+    ],
+)
+
+
+def test_a_posted_opening_balance_is_changed_by_its_id_on_the_next_save(
+    fake_client, notes, reads_log
+):
+    """The soles' POST goes through, the dollars' PUT is refused: the form
+    stays, and a later change of the soles sends a PUT on the id the POST sent,
+    never a second POST."""
+    reads_log.rows = {"tx-usd": USD_ROW}
+    fake_client.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR",
+        LOCKED_WORDS,
+        {"amount_cents": LOCK_MESSAGES["LOCKED"]},
+        422,
+        {},
+        {"amount_cents": "LOCKED"},
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "-100.00")
+        screen._values["as_of:PEN"] = "2026-01-01"
+        _type(screen, "opening:USD", "50.00")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert screen.is_attached and screen._key == "opening:USD"
+        fake_client.errors.clear()
+        _type(screen, "opening:PEN", "-120.00")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(VISA_USD_OPENED, body)
+    (_path, posted) = fake_client.posts[0]
+    assert posted["currency_code"] == "PEN"
+    assert fake_client.requests == [
+        ("POST", "/accounts/acc-visa/opening-balance"),
+        ("PUT", "/transactions/tx-usd"),
+        ("PUT", f"/transactions/{posted['transaction_id']}"),
+        ("PUT", "/transactions/tx-usd"),
+    ]
+    assert fake_client.puts[1] == (
+        f"/transactions/{posted['transaction_id']}",
+        {"amount_cents": -12000},
+    )
+
+
+def test_an_account_with_no_currency_has_no_pair(fake_client):
+    """An account holding no currency has no opening lines, and its save is
+    the account alone."""
     bare = account_with_currencies(id="acc-bare", name="Bare", currencies=[])
 
     async def body(pilot, app, screen):
-        assert {"opening", "as_of"} <= screen._locked
+        assert screen._sequence() == ["type", "name", "currencies", "statement_code", "color"]
+        assert "currencies — read-only" in _summary(screen)
         screen._values["name"] = "Barer"
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(bare, body, code=None)
+    _form(bare, body)
     assert fake_client.requests == [("PUT", "/accounts/acc-bare")]
 
 
 def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
-        _type(screen, "opening", "350.00")
-        _type(screen, "as_of", "2026-01-01")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
@@ -329,12 +645,12 @@ def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
 def test_screen_3_the_lines_open_filled_from_one_signed_read(fake_client, reads_log):
 
     async def body(pilot, app, screen):
-        assert screen._values["opening"] == -320000  # the signed amount, not the type's
-        assert screen._values["as_of"] == "2026-01-01"
+        assert screen._values["opening:PEN"] == -320000  # the signed amount, not the type's
+        assert screen._values["as_of:PEN"] == "2026-01-01"
         text = _summary(screen)
         assert "opening -3,200.00" in text
         assert "as of 2026-01-01" in text
-        _on(screen, "opening")
+        _on(screen, "opening:PEN")
         assert screen.query_one("#bar", Input).value == "-3200"
 
     _form(SUELDO, body)
@@ -346,7 +662,7 @@ def test_screen_3_the_lines_open_filled_from_one_signed_read(fake_client, reads_
 def test_screen_3_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
 
     async def body(pilot, app, screen):
-        _type(screen, "opening", "-3000")
+        _type(screen, "opening:PEN", "-3000")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
@@ -357,7 +673,7 @@ def test_screen_3_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
 def test_screen_3_a_changed_date_puts_only_the_date(fake_client, reads_log):
 
     async def body(pilot, app, screen):
-        _type(screen, "as_of", "2026-02-01")
+        _type(screen, "as_of:PEN", "2026-02-01")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
@@ -386,13 +702,13 @@ def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(SUELDO, "PEN")
+        screen = EditAccountScreen(SUELDO)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
         assert fake_client.calls == []
         release.set()
-        await wait_for(pilot, lambda: not screen._opening_loading)
+        await wait_for(pilot, lambda: not screen._openings_loading)
 
     run_app(scenario)
     assert ("The opening balance is still loading.", {"severity": "error"}) in notes
@@ -402,7 +718,7 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
     reads_log.error = EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
 
     async def body(pilot, app, screen):
-        assert {"opening", "as_of"} <= screen._locked
+        assert {"opening:PEN", "as_of:PEN"} <= screen._locked
         assert "read-only" in _summary(screen)
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
@@ -419,9 +735,9 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
 @pytest.mark.parametrize(
     "record, lines",
     [
-        (EFECTIVO, ["name", "statement_code", "color", "opening", "as_of"]),
-        (SUELDO, ["name", "statement_code", "color", "opening", "as_of"]),
-        (ELIANA, ["name", "color", "opening", "as_of"]),
+        (EFECTIVO, ["name", "statement_code", "color", "opening:PEN", "as_of:PEN"]),
+        (SUELDO, ["name", "statement_code", "color", "opening:PEN", "as_of:PEN"]),
+        (ELIANA, ["name", "color", "opening:PEN", "as_of:PEN"]),
     ],
     ids=["no-opening", "read-opening", "person"],
 )
@@ -473,7 +789,7 @@ def _empty_and_save(fake_client, answer, record=SUELDO):
 
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
-        _type(screen, "opening", "")
+        _type(screen, "opening:PEN", "")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         asked["title"], asked["message"] = app.screen._title, app.screen._message
@@ -493,7 +809,7 @@ def test_screen_4_emptying_the_amount_asks_first(fake_client, reads_log):
     asked = _empty_and_save(fake_client, "y")
     assert asked == {
         "title": "Delete this opening balance?",
-        "message": "Sueldo Soles · -3,200.00 · 2026-01-01\n"
+        "message": "Sueldo Soles · PEN · -3,200.00 · 2026-01-01\n"
         "It leaves the account's balance, and no screen can bring it back.",
     }
 
@@ -517,14 +833,21 @@ def test_screen_4_any_other_answer_saves_nothing(fake_client, reads_log, answer)
 
 def test_pane_a1_a_person_has_both_lines_after_colour_and_no_code_line(fake_client):
     async def body(pilot, app, screen):
-        assert screen._sequence() == ["type", "name", "currency", "color", "opening", "as_of"]
+        assert screen._sequence() == [
+            "type",
+            "name",
+            "currencies",
+            "color",
+            "opening:PEN",
+            "as_of:PEN",
+        ]
         assert [line for line in _summary(screen).splitlines() if line] == [
             "type person read-only",
             "name Eliana",
-            "currency PEN read-only",
+            "currencies PEN read-only",
             "color — (optional)",
-            "opening — (optional)",
-            "as of — (optional)",
+            "PEN opening — (optional)",
+            "PEN as of — (optional)",
         ]
 
     _form(ELIANA, body)
@@ -534,8 +857,8 @@ def test_pane_a1_a_person_has_both_lines_after_colour_and_no_code_line(fake_clie
 def test_pane_a1_a_person_adds_an_opening_balance(fake_client, notes):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
-        _type(screen, "opening", "-150.00")
-        _type(screen, "as_of", "2025-12-31")  # last line: enter saves
+        _type(screen, "opening:PEN", "-150.00")
+        _type(screen, "as_of:PEN", "2025-12-31")  # last line: enter saves
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(ELIANA, body)
@@ -558,10 +881,10 @@ def test_pane_a2_a_person_who_has_one_opens_with_both_lines_filled(fake_client, 
         assert [line for line in _summary(screen).splitlines() if line] == [
             "type person read-only",
             "name Eliana",
-            "currency PEN read-only",
+            "currencies PEN read-only",
             "color — (optional)",
-            "opening -150.00",
-            "as of 2025-12-31",
+            "PEN opening -150.00",
+            "PEN as of 2025-12-31",
         ]
 
     _form(ELIANA_OPENED, body)
@@ -573,7 +896,7 @@ def test_pane_a2_a_person_changes_its_opening_balance(fake_client, reads_log):
     reads_log.row = ELIANA_ROW
 
     async def body(pilot, app, screen):
-        _type(screen, "opening", "-200.00")
+        _type(screen, "opening:PEN", "-200.00")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
@@ -586,7 +909,7 @@ def test_pane_a2_a_person_empties_its_opening_balance(fake_client, reads_log):
     asked = _empty_and_save(fake_client, "y", ELIANA_OPENED)
     assert asked == {
         "title": "Delete this opening balance?",
-        "message": "Eliana · -150.00 · 2025-12-31\n"
+        "message": "Eliana · PEN · -150.00 · 2025-12-31\n"
         "It leaves the account's balance, and no screen can bring it back.",
     }
     assert fake_client.requests == [
@@ -616,16 +939,16 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
 
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
-        _type(screen, "opening", "350.00")
-        _type(screen, "as_of", "2026-11-01")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-11-01")
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
-        assert screen.is_attached and screen._key == "as_of"
+        assert screen.is_attached and screen._key == "as_of:PEN"
         assert screen.query_one("#bar", Input).value == "2026-11-01"  # still in the form
-        assert (screen._values["opening"], screen._values["as_of"]) == (35000, "2026-11-01")
+        assert (screen._values["opening:PEN"], screen._values["as_of:PEN"]) == (35000, "2026-11-01")
         seen["first"] = list(fake_client.requests)
         fake_client.errors.clear()
-        _type(screen, "as_of", "2026-01-01")
+        _type(screen, "as_of:PEN", "2026-01-01")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
@@ -673,8 +996,8 @@ def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, 
 
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
-        _type(screen, "opening", "350.00")
-        _type(screen, "as_of", "2026-01-01")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
 
@@ -692,12 +1015,12 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     result: list = []
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(EFECTIVO, "PEN")
+        screen = EditAccountScreen(EFECTIVO)
         await app.push_screen(screen, result.append)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type(screen, "color", "green")
-        _type(screen, "opening", "350.00")
-        _type(screen, "as_of", "2026-11-01")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-11-01")
         await wait_for(pilot, lambda: notes)
         await pilot.press("escape")
         await wait_for(pilot, lambda: result)
@@ -715,13 +1038,13 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     [
         (
             EFECTIVO,
-            [("opening", "350.00"), ("as_of", "2026-11-01")],
+            [("opening:PEN", "350.00"), ("as_of:PEN", "2026-11-01")],
             "POST",
             FUTURE,
         ),
         (
             EFECTIVO,
-            [("opening", "0"), ("as_of", "2026-01-01")],
+            [("opening:PEN", "0"), ("as_of:PEN", "2026-01-01")],
             "POST",
             EngineError(
                 "VALIDATION_ERROR",
@@ -734,7 +1057,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         ),
         (
             SUELDO,
-            [("as_of", "2026-03-20")],
+            [("as_of:PEN", "2026-03-20")],
             "PUT",
             EngineError(
                 "VALIDATION_ERROR",
@@ -750,7 +1073,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         ),
         (
             EFECTIVO,
-            [("opening", "350.00"), ("as_of", "2026-01-01")],
+            [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")],
             "POST",
             EngineError(
                 "CONFLICT",
@@ -763,7 +1086,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         ),
         (
             SUELDO,
-            [("opening", "-3000")],
+            [("opening:PEN", "-3000")],
             "PUT",
             EngineError(
                 "VALIDATION_ERROR",
@@ -843,9 +1166,8 @@ def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
 
 
 def test_screen_8_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, notes, monkeypatch):
-    seen = _list_then_edit(
-        fake_client, monkeypatch, [("opening", "350.00"), ("as_of", "2026-01-01")], save=True
-    )
+    steps = [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")]
+    seen = _list_then_edit(fake_client, monkeypatch, steps, save=True)
     assert seen["cursor"] == "acc-sue"  # first page, cursor on row 1
     assert ("Saved.", {}) in notes
     assert ("POST", "/accounts/acc-efe/opening-balance") in fake_client.requests
@@ -950,11 +1272,11 @@ EXISTS = EngineError(
 @pytest.mark.parametrize(
     ("error", "change_colour", "lands_on", "bar"),
     [
-        (ZERO, False, "opening", "0"),  # plain refusal → the amount line
-        (FUTURE, True, "as_of", "2026-11-01"),  # half refusal → the date line
-        (EXISTS, False, "name", "Efectivo"),  # names no line of the form: stays
+        (ZERO, False, "opening:PEN", "0"),  # plain refusal → the amount line
+        (FUTURE, True, "as_of:PEN", "2026-11-01"),  # half refusal → the date line
+        (EXISTS, False, "opening:PEN", "350"),  # names no line: its currency's amount
     ],
-    ids=["plain-amount", "half-date", "no-line-stays"],
+    ids=["plain-amount", "half-date", "no-line-its-amount"],
 )
 def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
     fake_client, notes, error, change_colour, lands_on, bar
@@ -964,9 +1286,9 @@ def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
     async def body(pilot, app, screen):
         if change_colour:
             _type(screen, "color", "green")  # enter here moves on, it does not save
-        _type(screen, "opening", "0" if error is ZERO else "350.00")
+        _type(screen, "opening:PEN", "0" if error is ZERO else "350.00")
         # the date set without enter on the last line, which would save from there
-        screen._values["as_of"] = "2026-11-01" if error is FUTURE else "2026-01-01"
+        screen._values["as_of:PEN"] = "2026-11-01" if error is FUTURE else "2026-01-01"
         _on(screen, "name")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: notes)

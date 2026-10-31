@@ -171,7 +171,7 @@ def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
 
-    _open(EditAccountScreen(ACCOUNT, "PEN"), body)
+    _open(EditAccountScreen(ACCOUNT), body)
 
 
 @pytest.mark.parametrize(
@@ -302,8 +302,8 @@ SHAPES = {
     EditCategoryScreen: lambda: [EditCategoryScreen(dict(CATEGORY))],
     NewAccountScreen: lambda: [NewAccountScreen()],
     EditAccountScreen: lambda: [
-        EditAccountScreen(ACCOUNT, "PEN"),
-        EditAccountScreen(PERSON, "PEN"),
+        EditAccountScreen(ACCOUNT),
+        EditAccountScreen(PERSON),
     ],
     EditFormScreen: lambda: [
         _on(EditFormScreen(record=dict(TXN)), LINE),

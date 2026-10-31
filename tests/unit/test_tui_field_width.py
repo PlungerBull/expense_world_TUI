@@ -13,7 +13,9 @@ import re
 from pathlib import Path
 
 import expense.tui as tui_pkg
+from expense.currencies import SUPPORTED_CURRENCIES
 from expense.tui.screens.create_forms import (
+    EditAccountScreen,
     NewAccountScreen,
     NewCategoryScreen,
     NewHashtagScreen,
@@ -44,6 +46,9 @@ def _all_form_labels() -> dict[str, str]:
     labels |= {f"setup:{key}": text for key, text in SETUP_LABELS.items()}
     for screen in (NewHashtagScreen, NewCategoryScreen, NewAccountScreen):
         labels |= {f"{screen.__name__}:{f.key}": f.label for f in screen.FIELDS}
+    # the account Edit form names each currency's opening lines (`USD OPENING`)
+    every = {"id": "a", "currencies": [{"currency_code": c} for c in SUPPORTED_CURRENCIES]}
+    labels |= {f"EditAccountScreen:{f.key}": f.label for f in EditAccountScreen(every).FIELDS}
     return labels
 
 

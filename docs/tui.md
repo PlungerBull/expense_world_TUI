@@ -1203,7 +1203,7 @@ account's `statement code` (below) and `color`.
 **A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,
 2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
 [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
-**`statement code`** sits right after `currencies` on New and `currency` on Edit, on a bank
+**`statement code`** sits right after `currencies` on New and Edit, on a bank
 account only. The engine lets a
 person carry a code too
 (contract: "What an account is", "A person carries a code like any account"); these forms
@@ -1232,50 +1232,58 @@ such line.
   line with what was typed, on New and Edit; every refusal of a code, `STATEMENT_CODE_EXISTS`
   included, reads in the engine's words alone (the table in "When the engine says no").
 
-**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on the
-account's first currency as the engine lists them (contract: "Bank Accounts", "Per-currency order"),
-and an account holding none opens with
-`opening` and `as of` read-only; screens
-in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html), and a
-person's in pane A of
-[expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html)).
-The form ends with two optional lines after `color`: **`opening`**, the amount, and
-**`as of`**, its day, both that currency's. There is no title line; the engine names the row. A person's form has
-both lines, as a bank account's does, and its opening balance is written the same way
-(contract: POST /v1/accounts/{account_id}/opening-balance).
+**An account's opening balance lives on its Edit form, one per currency** (`e` on Manage ▸
+Accounts opens the form on the account; screens in
+[expense-world-opening-balance.html](mockups/expense-world-opening-balance.html), each
+currency's pair labelled as panes "5 A" of question 5 in
+[expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)
+draw it, on a bank account and a person). `currencies` lists the currencies the account holds,
+read-only (`PEN · USD`; they change on Manage ▸ Accounts). The form ends with two optional
+lines per currency after `color`, in the engine's order of the account's currencies
+(contract: "Bank Accounts", "Per-currency order"), each named by its currency:
+**`PEN opening`**, the amount, and **`PEN as of`**, its day, then **`USD opening`** and
+**`USD as of`**; the bar reads `PEN OPENING`. There is no title line; the engine names the
+row. A person's form has the pairs, as a bank account's does, and its opening balances are
+written the same way (contract: POST /v1/accounts/{account_id}/opening-balance). An account
+holding no currency has no pair.
 
-- **The amount is signed and taken as typed**, in the opened row's currency. The hint reads
-  `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the
-  app never adds or flips a sign. `as of` takes `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the
-  account held this`), starts empty, and is marked `*` once there is an amount.
-- **An account that has one opens with both lines filled.** The opened currency's entry in
-  the account's `currencies` names its opening balance by id, or `null` when it has none
+- **The amount is signed and taken as typed**, in its line's currency; the app never adds or
+  flips a sign. No hint sits under an `opening` line; on the bar's right a word follows what
+  is typed: `debt` below zero, `credit` above it, nothing while the line is empty or `0.00`,
+  the same on every account, bank or person, with no currency after it. An `as of` line takes
+  `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the account held this`), starts empty, and is
+  marked `*` once its currency has an amount.
+- **A currency that has one opens with its pair filled.** Each currency's entry in the
+  account's `currencies` names its opening balance by id, or `null` when it has none
   (contract: "Bank Accounts", "`currencies`"),
-  and the form reads that one row with `GET /transactions/{id}?debit_as_negative=true`
-  (`reads.fetch_transaction`), so the amount arrives signed and nothing reads the sign off
-  `transaction_type` (contract: "Base Conventions", "Sign convention — responses"). A save
-  waits for that read; a read that fails shows its "Failed" note and leaves the two lines
-  read-only, so the account itself still saves.
-- **A save can send two writes, in order:** the account's own changes (`PUT
-  /accounts/{id}`), then the opening balance — `POST /accounts/{id}/opening-balance` with a
-  client `transaction_id`, the row's `currency_code`, the signed `amount_cents` and the `date` when there is none; a
-  `PUT /transactions/{id}` of only the changed amount or date when there is one. The account
-  write goes when the account changed, or when the opening balance has nothing to send. Another
-  currency's opening balance of the account is never touched.
-- **Emptying the amount of an existing one and saving deletes it**, after `ConfirmModal`
-  asks `Delete this opening balance?` over the form (`Sueldo Soles · 3,200.00 · 2026-01-01` ·
-  `It leaves the account's balance, and no screen can bring it back.`). Only `y` sends the
-  account's changes and `DELETE /transactions/{id}`; `⏎`, `n` and `esc` go back to the form
-  with nothing saved.
+  and the form reads each named row with `GET /transactions/{id}?debit_as_negative=true`
+  (`reads.fetch_transaction`), one at a time, so the amount arrives signed and nothing reads
+  the sign off `transaction_type` (contract: "Base Conventions", "Sign convention — responses").
+  A save waits for those reads; a read that fails shows its "Failed" note and leaves that
+  currency's pair read-only, so the rest still saves.
+- **A save sends, in order:** the account's own changes (`PUT /accounts/{id}`), then one write
+  per currency whose pair changed, in the pairs' order — `POST /accounts/{id}/opening-balance`
+  with a client `transaction_id`, that currency's `currency_code`, the signed `amount_cents`
+  and the `date` when it has none; a `PUT /transactions/{id}` of only the changed amount or
+  date when it has one. A currency left as it was sends nothing. The account write goes when
+  the account changed, or when no opening balance has anything to send.
+- **Emptying the amount of an existing one and saving deletes it**, after `ConfirmModal` asks
+  `Delete this opening balance?` over the form (`Sueldo Soles · PEN · 3,200.00 · 2026-01-01` ·
+  `It leaves the account's balance, and no screen can bring it back.`); emptying two asks once,
+  `Delete these opening balances?`, a line per currency, then `They leave the account's
+  balance, and no screen can bring them back.` Only `y` sends the account's changes and
+  `DELETE /transactions/{id}` for each; `⏎`, `n` and `esc` go back to the form with nothing
+  saved.
 - **A refusal** shows the "Failed" note in the engine's words, with the line saying what to
-  do when it has one (`format_error`), and leaves the
-  form open with what was typed, the cursor on the line the refusal names (an amount on
-  `opening`, a date on `as of`, a name, statement code or colour on its own line); a refusal that names
-  none of them leaves the cursor where it was. When the account saved and the opening balance was refused,
-  the note says so: `The account's changes are saved. The opening balance is not:`, the
-  engine's words, then `It is still in the form: fix it and save again.`, or, for a
-  refusal with a line of its own ("When the engine says no" above), that line instead.
-  The next save sends only the opening balance; `esc` just leaves.
+  do when it has one (`format_error`), and leaves the form open with what was typed. A refusal
+  stops the writes behind it (`EngineWriteMixin`). The cursor goes on the line the refusal
+  names: a name, statement code or colour on its own line; an opening balance's refusal on its
+  currency's lines, a date on its `as of` and anything else on its `opening`, so the cursor
+  always says whose it was. When the account saved and an opening balance was refused, the
+  note says so: `The account's changes are saved. The opening balance is not:`, the engine's
+  words, then `It is still in the form: fix it and save again.`, or, for a refusal with a line
+  of its own ("When the engine says no" above), that line instead. The next save sends only
+  what is still unsaved; `esc` just leaves.
 - **Saved,** the form closes with `Saved.` and the account list reads again from its first
   page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
   this way: one that wrote dismisses with `True` and the list starts over; one closed with

@@ -154,7 +154,7 @@ Decisions whose why lives elsewhere:
 
 ## Opening balances are an engine concept (`@Opening` system category), not a client convention (2026-07-20)
 
-**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). Which rows of the owner's sheet are opening balances is the engine's to find when it reads the sheet (contract: POST /v1/transactions/import-sheet).
+**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per currency of an account (409). Which rows of the owner's sheet are opening balances is the engine's to find when it reads the sheet (contract: POST /v1/transactions/import-sheet).
 
 **Rejected.** *A user category plus a naming convention* — invisible to the engine, so reports can never exclude it, and every client invents its own name. *An opening-balance param on `POST /accounts` only* — never fires for accounts that already exist. *Keep the `@Opening` row visible in panels* — visible rows would no longer sum to the total.
 
@@ -1077,10 +1077,9 @@ Accounts one row per account with a column per currency (question 1 C of
 [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)), Home
 the account's row with a line per currency (question 2 B), its `⏎` opening the ledger on the
 account until that spec's task 12 opens a currency's line on that currency alone. Manage ▸
-Accounts' `d`
-naming the account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`).
-Manage ▸ Accounts' `e` opens the Edit form on the account's first currency, so a second currency's opening
-balance is out of reach until that spec's task 5 gives each currency its own pair on the form.
+Accounts' `d` names the account and each currency with its balance (`Prueba · bank · PEN
+0.00 · USD 0.00`), and its `e` opens the Edit form on the account, with an opening balance pair per
+currency (question 5 A).
 
 **Why.** It moves the app onto the engine's model with the screens as close to the ones the owner
 knows as the model allows, so the app works again before the screens are redrawn with the

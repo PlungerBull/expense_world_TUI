@@ -331,12 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-5. **The opening balance per currency** (point 5; question 5). The opening-balance lines of the
-   account Edit form in [create_forms.py](../../expense/tui/screens/create_forms.py) and its
-   tests; tui.md §2 "An account's opening balance lives on its Edit form". *Passes if:* each
-   currency of the account has its pair, reads its own `opening_balance_transaction_id`, and
-   saves with `currency_code` in its own request; the word on the right reads `debt`, `credit`
-   or nothing as settled; a refusal names its currency's line; the tests pin each.
 6. **Adding a currency** (point 6; question 6). [accounts.py](../../expense/tui/screens/accounts.py)
    and its tests; tui.md §4 for the new key. *Passes if:* `c` on an account's row (footer
    `c Currency`) lists the supported currencies the account does not hold, as pane 6 A draws, and
@@ -433,3 +427,12 @@ Not built in this spec; drafted into a new spec when it is done.
   [test_tui_statement_code.py](../../tests/unit/test_tui_statement_code.py) and tui.md cite
   "3·2 B" of `expense-world-statement-code-field.html`, the pane with the app's line; the engine's
   words alone are pane 3·2 A.
+- **The opening balance's new words wait on the owner** (asked 2026-10-31): `Delete these
+  opening balances?` with a row per currency and `They leave the account's balance, and no
+  screen can bring them back.`; `PEN opening: a signed decimal, e.g. -350.00`, `PEN as of: use
+  YYYY-MM-DD.` and `PEN as of is required.`; a refusal naming no line landing on its currency's
+  `opening` line. Built with these words; changing them is one small task.
+- **Two opening-balance notes do not name their currency**: `The opening balance is not:` and
+  `The opening balance is still loading.`, though more than one currency may be involved.
+- **The 5 A mockup colours the summary's amounts by sign**; the Edit form draws them plain, as
+  before.

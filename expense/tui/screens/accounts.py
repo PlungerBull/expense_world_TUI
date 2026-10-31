@@ -9,8 +9,8 @@ archived accounts (archived rows dimmed whole); the Code column shows the accoun
 statement code, a dim `—` when it has none (a person always); the Color column
 renders the account's hex color as a swatch. Balances are native currency — no
 surface converts an account balance to the home currency. `n` creates; `e` edits
-the cursor row's account (prefilled EditAccountScreen, opened on the account's
-first currency); `a` toggles its archive immediately — a second `a` undoes; `t`
+the cursor row's account (prefilled EditAccountScreen, an opening balance's
+pair of lines per currency); `a` toggles its archive immediately — a second `a` undoes; `t`
 turns a bank account into a person (`t Make person`) or a person into a bank
 account (`t Make bank`) immediately, the footer naming the one the cursor row
 takes, and is off on an archived row; `d` deletes the cursor row's account after a
@@ -178,8 +178,7 @@ class AccountsScreen(ResourceListScreen):
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        held = reads.held_currencies([item])
-        return EditAccountScreen(item, held[0][2]["currency_code"] if held else None)
+        return EditAccountScreen(item)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen

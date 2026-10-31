@@ -12,6 +12,7 @@ line picks one currency or more, as the Edit form's HASHTAGS line picks
 hashtags.
 """
 
+import dataclasses
 import uuid
 
 from rich.console import Group, RenderableType
@@ -27,7 +28,7 @@ from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
-from expense.tui.screens._base import screen_fetch_kwargs
+from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.picker import matching, suggestion_list
@@ -242,7 +243,7 @@ class BarFormScreen(FormScreen):
                     hex_ = self._values[f.key]
                     value = Text.assemble(("██ ", hex_), (self._color_name(hex_), ""))
                 elif f.kind == "picks":
-                    value = Text(" · ".join(self._values[f.key]))
+                    value = Text(" · ".join(self._values[f.key]) or "—")
                 else:
                     value = Text(self._value_text(f.key, self._values[f.key]))
             else:
@@ -250,7 +251,7 @@ class BarFormScreen(FormScreen):
                 value = Text("—" + tag, style="dim")
             if locked:  # edit forms lock immutable fields (e.g. account currency)
                 value.append("  read-only", style="dim")
-            label = Text(f.label.lower(), style="dim" if locked else "")
+            label = Text(self._summary_label(f.key), style="dim" if locked else "")
             if f.key == self._key and not locked:
                 label.stylize("bold")
             t.add_row(label, value)
@@ -387,7 +388,13 @@ class NewAccountScreen(BarFormScreen):
             payload["statement_code"] = self._values["statement_code"]
         return payload
 
-    def _refusal_text(self, exc: Exception) -> str:
+    def _line_named(self, field: object, currency: str | None) -> str | None:
+        """The form line a refusal's `field` names (`_form_line_named`);
+        `currency` is the currency whose write was refused, None for the
+        account's own."""
+        return _form_line_named(field)
+
+    def _refusal_text(self, exc: Exception, currency: str | None = None) -> str:
         """The `error_text` of this form's writes: notes the form line the
         refusal names, for the failure callback to land on, then reads as every
         failed write does."""
@@ -395,7 +402,7 @@ class NewAccountScreen(BarFormScreen):
         self._refusal_says_next = next_step(exc) is not None
         if isinstance(exc, EngineError):
             for field in [*(exc.reasons or {}), *(exc.fields or {})]:
-                line = _form_line_named(field)
+                line = self._line_named(field, currency)
                 if line in self._sequence() and line not in self._locked:
                     self._refused_line = line
                     break
@@ -426,8 +433,8 @@ def _edit_payload(values: dict, original_color: str | None) -> dict:
 
 # --------------------------------------------------------------------------- #
 # Edit forms — same bar-form, prefilled, PUT instead of POST. Reached with `e`
-# on a Manage list row (ResourceListScreen). Currency is immutable
-# (engine rejects it), so account edit locks it to a read-only summary row.
+# on a Manage list row (ResourceListScreen). The account Edit form shows the
+# currencies the account holds as a read-only summary row.
 # Each declares `BINDINGS = form_bindings("Save")`: the footer names what
 # `ctrl+s` does here, not the parent's `Create`.
 # --------------------------------------------------------------------------- #
@@ -490,18 +497,57 @@ class EditCategoryScreen(NewCategoryScreen):
         self.dismiss(True)  # wrote: the list starts over (ResourceListScreen._edited)
 
 
-class EditAccountScreen(NewAccountScreen):
-    """Edit an account — a bank account or a person — and its opening balance.
+def opening_side(cents: int | None) -> str:
+    """The word on an `opening` line's right, the same on every account, bank or
+    person: `debt` below zero, `credit` above it, nothing at zero or with
+    nothing readable typed."""
+    if not cents:
+        return ""
+    return "debt" if cents < 0 else "credit"
 
-    The form opens on one of the account's currencies (`currency_code`, the
-    account's first on Manage ▸ Accounts, `None` on an account holding none). CURRENCY shows it,
-    read-only, and the form ends with two optional lines after COLOR: OPENING
-    (the signed amount, in that currency, taken as typed) and AS OF (its day).
-    A person's form has them as a bank account's does, and its opening balance
-    is written the same way, with the currency's code
-    (contract: POST /v1/accounts/{account_id}/opening-balance, "Required"). An
-    account holding no currency has no opening balance to give: both lines are
-    read-only. The other currencies' opening balances are never touched.
+
+#: An opening balance's two lines, `opening` and `as_of`; each currency of the
+#: account has its own pair, keyed `<line>:<currency code>`.
+_PAIR_LINES = {"opening": "opening", "as_of": "as of"}
+#: An `as of` line's hint; an `opening` line has none.
+AS_OF_HINT = "YYYY-MM-DD · the day the account held this"
+
+
+def _pair_key(line: str, code: str) -> str:
+    return f"{line}:{code}"
+
+
+def _pair_line(key: str) -> tuple[str, str] | None:
+    """`(line, currency code)` for a pair line's key; None for any other line."""
+    line, _, code = key.partition(":")
+    return (line, code) if code and line in _PAIR_LINES else None
+
+
+@dataclasses.dataclass
+class _OpeningBalance:
+    """One currency's opening balance as the form knows it: the row's id
+    (None while it has none), what it read or last saved (`opening` cents,
+    `as_of` day), and whether its read is still out."""
+
+    id: str | None
+    original: dict = dataclasses.field(default_factory=dict)
+    loading: bool = False
+
+
+class EditAccountScreen(NewAccountScreen):
+    """Edit an account — a bank account or a person — and its opening balances.
+
+    The form opens on the account. CURRENCIES lists the currencies it holds,
+    read-only, in the engine's order (contract: "Bank Accounts",
+    "Per-currency order"), and the form ends with a pair of optional lines per
+    currency after COLOR, each named by its currency: `PEN opening` (the signed
+    amount, taken as typed) and `PEN as of` (its day), then `USD opening` and
+    `USD as of`. Under an `opening` line there is no hint; on its right a word
+    follows what is typed: `debt` below zero, `credit` above it, nothing at
+    zero or while empty, the same on a bank account and a person. An account
+    holding no currency has no pair. A person's opening balance is written as a
+    bank account's is, with the currency's code
+    (contract: POST /v1/accounts/{account_id}/opening-balance, "Required").
 
     A bank account's STATEMENT CODE opens holding its code. The account's own
     fields go in one `PUT /accounts/{id}`: the name, the colour when it changed,
@@ -510,33 +556,35 @@ class EditAccountScreen(NewAccountScreen):
     (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). No currency
     rides in it. A person's form has no such line.
 
-    The opened currency's entry in the account's `currencies` names its opening
+    Each currency's entry in the account's `currencies` names its opening
     balance by id, or `null` when it has none (contract: "Bank Accounts",
-    "`currencies`"); the form reads that row
-    signed through `reads.fetch_transaction`, never from `transaction_type`
+    "`currencies`"); the form reads each named row signed through
+    `reads.fetch_transaction`, never from `transaction_type`
     (contract: "Base Conventions", "Sign convention — responses"). Until the
-    read lands a save is held back, and a read that fails leaves the two lines
-    read-only so the account itself still saves.
+    reads land a save is held back, and a read that fails leaves that
+    currency's pair read-only so the rest still saves.
 
-    One save may send two writes, in order, through `run_write`'s queue: the
-    account's own changes (`PUT /accounts/{id}`), then the opening balance —
-    `POST /accounts/{id}/opening-balance` when there is none, a `PUT
-    /transactions/{id}` of only what changed, or, when the amount is emptied,
-    a `DELETE /transactions/{id}` after a question. The account half is sent
-    whenever it changed or the opening balance has nothing to send. When the
-    account saves and the opening balance is refused, the note says which half
-    went through, the typed values stay in the form, and the next save sends
-    only the opening balance. Saved, it dismisses with True so the list starts
+    One save sends, in order, through `run_write`'s queue: the account's own
+    changes (`PUT /accounts/{id}`), then one write per currency whose pair
+    changed, in the pairs' order — `POST /accounts/{id}/opening-balance` with
+    its `currency_code` when it has none, a `PUT /transactions/{id}` of only
+    what changed, or, when the amount is emptied, a `DELETE
+    /transactions/{id}` after one question naming each currency it deletes. A
+    currency left as it was sends nothing. The account half is sent whenever
+    it changed or no opening balance has anything to send. A refusal stops
+    the writes behind it; it lands the cursor on its currency's line (the
+    `as of` line for a date, the `opening` line otherwise), the typed values
+    stay in the form, and the next save sends only what is still unsaved.
+    When the account saved and an opening balance is refused, the note says
+    which half went through. Saved, it dismisses with True so the list starts
     over; `esc` dismisses with True too once the account half went through.
     """
 
     BINDINGS = form_bindings("Save")
-    # New's lines, the one currency the form opens on in place of CURRENCIES,
-    # STATEMENT CODE's hint saying that emptying it clears the code
+    # New's lines, CURRENCIES read-only, STATEMENT CODE's hint saying that
+    # emptying it clears the code
     FIELDS = [
-        Field(
-            "currency", "CURRENCY", "choice", choices=_CURRENCIES, required=True, hint="PEN or USD"
-        )
+        Field("currencies", "CURRENCIES", "picks", choices=_CURRENCIES)
         if f.key == "currencies"
         else _field_with_hint(f, STATEMENT_CODE_EDIT_HINT)
         if f.key == "statement_code"
@@ -544,21 +592,22 @@ class EditAccountScreen(NewAccountScreen):
         for f in NewAccountScreen.FIELDS
     ]
 
-    def __init__(self, record: dict, currency_code: str | None = None) -> None:
+    def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]
-        self._currency_code = currency_code
         self._name = record.get("name") or "—"
-        # Both read-only here. `currency` never changes after creation; `type`
-        # is no field of the account's update: it changes with `t` on
-        # Manage ▸ Accounts, which sends `make-person` or `make-account`
+        # Both read-only here. The currencies change with their own keys on
+        # Manage ▸ Accounts; `type` is no field of the account's update: it
+        # changes with `t` there, which sends `make-person` or `make-account`
         # (contract: POST /v1/accounts/{account_id}/make-person)
         # (contract: POST /v1/accounts/{account_id}/make-account).
-        self._locked = {"currency", "type"}
+        self._locked = {"currencies", "type"}
+        held = [h for _, _, h in reads.held_currencies([record])]
+        self._codes: list[str] = [h["currency_code"] for h in held]
         self._values = {
             "type": "person" if record.get("is_person") else "bank",
             "name": record.get("name") or "",
-            "currency": currency_code or "",
+            "currencies": list(self._codes),
         }
         if record.get("color"):
             self._values["color"] = record["color"]
@@ -568,84 +617,95 @@ class EditAccountScreen(NewAccountScreen):
             self._values["statement_code"] = self._original_code
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
         # The account half as last saved: once it matches, a save sends only
-        # the opening balance.
+        # the opening balances.
         self._account_sent = self._payload()
         self._account_saved = False
-        held = next(
-            (
-                h
-                for _, _, h in reads.held_currencies([record])
-                if h["currency_code"] == currency_code
-            ),
-            None,
-        )
-        self._opening_id: str | None = held.get("opening_balance_transaction_id") if held else None
-        self._opening_original: dict = {}  # {"opening": cents, "as_of": day} once read
-        self._opening_loading = self._opening_id is not None
-        if currency_code is None:  # no currency, no opening balance to give
-            self._locked |= {"opening", "as_of"}
-        currency = currency_code or "?"
-        self.FIELDS = [
-            *EditAccountScreen.FIELDS,
-            Field(
-                "opening",
-                "OPENING",
-                hint=(
-                    "signed · 350.00 is money you have · -350.00 is money you owe"
-                    f" · in {currency} · optional"
-                ),
-            ),
-            Field("as_of", "AS OF", hint="YYYY-MM-DD · the day the account held this"),
-        ]
+        self._openings: dict[str, _OpeningBalance] = {}
+        for h in held:
+            opening_id = h.get("opening_balance_transaction_id")
+            self._openings[h["currency_code"]] = _OpeningBalance(
+                opening_id, loading=opening_id is not None
+            )
+        self.FIELDS = [*EditAccountScreen.FIELDS]
+        for code in self._codes:
+            self.FIELDS += [
+                Field(_pair_key("opening", code), f"{code} OPENING"),
+                Field(_pair_key("as_of", code), f"{code} AS OF", hint=AS_OF_HINT),
+            ]
 
-    # ---- the opening balance's two lines ---------------------------------
+    # ---- each currency's two lines -------------------------------------------
+    @property
+    def _openings_loading(self) -> bool:
+        return any(o.loading for o in self._openings.values())
+
+    def _summary_label(self, key: str) -> str:
+        pair = _pair_line(key)
+        return f"{pair[1]} {_PAIR_LINES[pair[0]]}" if pair else super()._summary_label(key)
+
+    def _required_note(self, key: str) -> str:
+        if _pair_line(key):  # `PEN as of is required.`
+            return f"{self._summary_label(key)} is required."
+        return super()._required_note(key)
+
     def _field_required(self, f: Field) -> bool:
-        if f.key == "as_of":
-            return "opening" in self._values  # an amount needs its day
+        pair = _pair_line(f.key)
+        if pair and pair[0] == "as_of":
+            return _pair_key("opening", pair[1]) in self._values  # an amount needs its day
         return f.required
 
     def _value_text(self, key: str, value: object) -> str:
-        return format_cents(value) if key == "opening" else str(value)
+        pair = _pair_line(key)
+        return format_cents(value) if pair and pair[0] == "opening" else str(value)
 
     def _bar_value(self, key: str) -> str:
-        if key == "opening":
-            cents = self._values.get("opening")
+        pair = _pair_line(key)
+        if pair and pair[0] == "opening":
+            cents = self._values.get(key)
             return amount_to_text(cents) if cents is not None else ""
         return super()._bar_value(key)
 
+    def _bar_word(self, key: str, text: str) -> str:
+        pair = _pair_line(key)
+        return opening_side(parse_amount(text)) if pair and pair[0] == "opening" else ""
+
     def _after_mount(self) -> None:
-        if self._opening_loading:
-            self._load_opening()
+        if self._openings_loading:
+            self._load_openings()
 
     @work(thread=True, exclusive=True)
-    def _load_opening(self) -> None:
+    def _load_openings(self) -> None:
+        """Read each currency's named opening balance, one row at a time."""
         from expense import config as config_module
 
-        try:
-            cfg = config_module.ensure_loaded()
-            body = reads.fetch_transaction(
-                cfg, str(self._opening_id), **screen_fetch_kwargs(self.app)
-            )
-        except Exception as exc:  # surface engine/config errors in-app, don't crash
-            self.app.call_from_thread(self._opening_unread, format_error(exc))
-            return
-        self.app.call_from_thread(self._opening_read, body)
+        for code, opening in self._openings.items():
+            if not opening.loading:
+                continue
+            try:
+                cfg = config_module.ensure_loaded()
+                body = reads.fetch_transaction(
+                    cfg, str(opening.id), **screen_fetch_kwargs(self.app)
+                )
+            except Exception as exc:  # surface engine/config errors in-app, don't crash
+                call_while_attached(self, self._opening_unread, code, format_error(exc))
+                continue
+            call_while_attached(self, self._opening_read, code, body)
 
-    def _opening_read(self, body: dict) -> None:
-        self._opening_loading = False
+    def _opening_read(self, code: str, body: dict) -> None:
+        opening = self._openings[code]
+        opening.loading = False
         cents = body.get("amount_cents") if isinstance(body, dict) else None
         day = ((body.get("date") if isinstance(body, dict) else None) or "")[:10]
         if isinstance(cents, int):
-            self._values["opening"] = self._opening_original["opening"] = cents
+            self._values[_pair_key("opening", code)] = opening.original["opening"] = cents
         if day:
-            self._values["as_of"] = self._opening_original["as_of"] = day
-        if self._key in ("opening", "as_of"):
+            self._values[_pair_key("as_of", code)] = opening.original["as_of"] = day
+        if _pair_line(self._key) in (("opening", code), ("as_of", code)):
             self._refresh_bar()
         self._refresh_view()
 
-    def _opening_unread(self, message: str) -> None:
-        self._opening_loading = False
-        self._locked |= {"opening", "as_of"}
+    def _opening_unread(self, code: str, message: str) -> None:
+        self._openings[code].loading = False
+        self._locked |= {_pair_key("opening", code), _pair_key("as_of", code)}
         if self._key in self._locked:
             self._current = self._first_editable()
             self._refresh_bar()
@@ -658,63 +718,86 @@ class EditAccountScreen(NewAccountScreen):
         if event is not None:
             event.prevent_default()
         key = self._key
-        if key not in ("opening", "as_of"):
+        pair = _pair_line(key)
+        if pair is None:
             super().on_input_submitted(event)
             return
+        line, code = pair
+        amount_key = _pair_key("opening", code)
         text = self.query_one("#bar", Input).value.strip()
-        if key == "opening":
+        if line == "opening":
             if not text:
-                self._values.pop("opening", None)
+                self._values.pop(key, None)
             else:
                 cents = parse_amount(text)
                 if cents is None:
-                    self.notify("Opening: a signed decimal, e.g. -350.00", severity="error")
+                    toast(self, f"{code} opening: a signed decimal, e.g. -350.00", severity="error")
                     return
-                self._values["opening"] = cents
+                self._values[key] = cents
         elif not text:
-            if "opening" in self._values:
-                toast(self, f"{self._label('as_of').title()} is required.", severity="error")
+            if amount_key in self._values:
+                toast(self, self._required_note(key), severity="error")
                 return
-            self._values.pop("as_of", None)
+            self._values.pop(key, None)
         elif not is_calendar_day(text):
-            self.notify("As of: use YYYY-MM-DD.", severity="error")
+            toast(self, f"{code} as of: use YYYY-MM-DD.", severity="error")
             return
         else:
-            self._values["as_of"] = text
+            self._values[key] = text
         self._advance()
 
-    def _opening_write(self) -> tuple[str, str, dict | None] | None:
-        """The opening balance's one write for this save, or None."""
-        if "opening" in self._locked:
+    def _opening_write(self, code: str) -> tuple[str, str, dict | None] | None:
+        """`code`'s opening balance write for this save, or None."""
+        amount_key = _pair_key("opening", code)
+        if amount_key in self._locked:
             return None
-        cents = self._values.get("opening")
-        day = self._values.get("as_of")
-        if self._opening_id is None:
+        opening = self._openings[code]
+        cents = self._values.get(amount_key)
+        day = self._values.get(_pair_key("as_of", code))
+        if opening.id is None:
             if cents is None:
                 return None
             # The title is left out, so the engine names the row
             # (contract: POST /v1/accounts/{account_id}/opening-balance).
             body = {
                 "transaction_id": str(uuid.uuid4()),
-                "currency_code": self._currency_code,
+                "currency_code": code,
                 "amount_cents": cents,
                 "date": to_canonical_aware(str(day)),
             }
             return ("POST", f"/accounts/{self._id}/opening-balance", body)
         if cents is None:
-            return ("DELETE", f"/transactions/{self._opening_id}", None)
+            return ("DELETE", f"/transactions/{opening.id}", None)
         changes: dict = {}
-        if cents != self._opening_original.get("opening"):
+        if cents != opening.original.get("opening"):
             changes["amount_cents"] = cents
-        if day != self._opening_original.get("as_of"):
+        if day != opening.original.get("as_of"):
             changes["date"] = to_canonical_aware(str(day))
         if not changes:
             return None
-        return ("PUT", f"/transactions/{self._opening_id}", changes)
+        return ("PUT", f"/transactions/{opening.id}", changes)
+
+    def _line_named(self, field: object, currency: str | None) -> str | None:
+        """The pair lines a refusal names are its currency's own; the
+        account's own write names none of them."""
+        line = super()._line_named(field, currency)
+        if line in _PAIR_LINES:
+            return _pair_key(line, currency) if currency else None
+        return line
+
+    def _refusal_text(self, exc: Exception, currency: str | None = None) -> str:
+        """As New's; a currency's refusal that names none of its lines lands
+        on its `opening` line, so the cursor always says whose it was."""
+        text = super()._refusal_text(exc, currency)
+        if currency is not None and self._refused_line is None:
+            line = _pair_key("opening", currency)
+            if line not in self._locked:
+                self._refused_line = line
+        return text
 
     # ---- submit ------------------------------------------------------------
     def _submit_request(self) -> tuple[str, str, dict, str]:
-        """The account half alone; `action_submit` adds the opening balance."""
+        """The account half alone; `action_submit` adds the opening balances."""
         return ("PUT", f"/accounts/{self._id}", self._payload(), "Saving…")
 
     def _payload(self) -> dict:
@@ -733,38 +816,45 @@ class EditAccountScreen(NewAccountScreen):
     def action_submit(self) -> None:
         if self._submitting:
             return
-        if self._opening_loading:
+        if self._openings_loading:
             self.notify("The opening balance is still loading.", severity="error")
             return
         if not self._required_met():
             return
         account = self._payload()
-        opening = self._opening_write()
-        send_account = account != self._account_sent or opening is None
-        if opening is not None and opening[0] == "DELETE":
-            line = " · ".join(
-                [
-                    self._name,
-                    format_cents(self._opening_original.get("opening")),
-                    str(self._opening_original.get("as_of") or "—"),
-                ]
+        openings = [(code, w) for code in self._codes if (w := self._opening_write(code))]
+        send_account = account != self._account_sent or not openings
+        deleted = [code for code, (method, _, _) in openings if method == "DELETE"]
+        if deleted:
+            lines = "\n".join(
+                " · ".join(
+                    [
+                        self._name,
+                        code,
+                        format_cents(self._openings[code].original.get("opening")),
+                        str(self._openings[code].original.get("as_of") or "—"),
+                    ]
+                )
+                for code in deleted
             )
+            if len(deleted) == 1:
+                title = "Delete this opening balance?"
+                closing = "It leaves the account's balance, and no screen can bring it back."
+            else:
+                title = "Delete these opening balances?"
+                closing = "They leave the account's balance, and no screen can bring them back."
 
             def answered(ok: bool | None) -> None:
                 if ok:
-                    self._send(account if send_account else None, opening)
+                    self._send(account if send_account else None, openings)
 
-            self.app.push_screen(
-                ConfirmModal(
-                    "Delete this opening balance?",
-                    f"{line}\nIt leaves the account's balance, and no screen can bring it back.",
-                ),
-                answered,
-            )
+            self.app.push_screen(ConfirmModal(title, f"{lines}\n{closing}"), answered)
             return
-        self._send(account if send_account else None, opening)
+        self._send(account if send_account else None, openings)
 
-    def _send(self, account: dict | None, opening: tuple[str, str, dict | None] | None) -> None:
+    def _send(
+        self, account: dict | None, openings: list[tuple[str, tuple[str, str, dict | None]]]
+    ) -> None:
         self._submitting = True
         self.query_one("#hint", Static).update(Text("Saving…", style="dim"))
         if account is not None:
@@ -778,7 +868,7 @@ class EditAccountScreen(NewAccountScreen):
                     {"statement_code": self._original_code, **account}
                 )
                 self._account_saved = True
-                if opening is None:
+                if not openings:
                     self._done()
 
             self.run_write(
@@ -789,19 +879,39 @@ class EditAccountScreen(NewAccountScreen):
                 on_error=self._failed,
                 error_text=self._refusal_text,
             )
-        if opening is not None:
-            method, path, body = opening
+        for i, (code, (method, path, body)) in enumerate(openings):
+            sent = {
+                "opening": self._values.get(_pair_key("opening", code)),
+                "as_of": self._values.get(_pair_key("as_of", code)),
+            }
             self.run_write(
                 method,
                 path,
                 json_body=body,
-                on_success=self._done,
+                on_success=self._opening_saved(code, body, sent, last=i == len(openings) - 1),
                 on_error=self._half_failed if account is not None else self._failed,
-                error_text=self._refusal_text,
+                error_text=lambda exc, code=code: self._refusal_text(exc, code),
             )
 
+    def _opening_saved(self, code: str, body: dict | None, sent: dict, *, last: bool):
+        """The success callback of `code`'s write: the form now knows the row
+        as saved, so a later refusal's next save sends only what is unsaved."""
+
+        def saved() -> None:
+            opening = self._openings[code]
+            if sent["opening"] is None:  # deleted
+                opening.id, opening.original = None, {}
+            else:
+                if opening.id is None and body is not None:
+                    opening.id = body["transaction_id"]
+                opening.original = dict(sent)
+            if last:
+                self._done()
+
+        return saved
+
     def _half_failed(self, message: str) -> None:
-        """The account saved, the opening balance was refused: say which is which.
+        """The account saved, an opening balance was refused: say which is which.
 
         A refusal with a line of its own saying what to do (`errors.next_step`)
         ends the note with that line; any other ends it with the form's own."""

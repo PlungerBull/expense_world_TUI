@@ -147,6 +147,22 @@ The owner approves the task list before any build.
 - **Review:** approved on the first round. A mislabelled mockup pane ("3·2 B" for 3·2 A) goes
   under "Found along the way".
 
+### Part 6a task 5 — the opening balance per currency
+- **What changed:** the account Edit form opens on the account, with a `PEN opening` / `PEN as
+  of` pair per held currency, in the engine's order. Each pair reads its own opening
+  transaction. A failed read locks only that pair.
+- **The save:** the account PUT first, then one request per changed currency. A refusal stops
+  what is behind it, and a currency already saved is not sent again.
+- **`debt` / `credit` / nothing** shows on the right of the bar (`#bar-word`, a new
+  `_form.py` hook).
+- **Lifted:** task 1's first-currency limit; decisions.md updated.
+- **Review:** rejected in round 1. Two typed-input notes went through a markup-read notify,
+  failing `test_toast_words.py`, and the read loop handed back without `call_while_attached`.
+  Approved in round 2, with 740 tests passing and two extra tests (one read failing; a POSTed
+  row changed by its id).
+- **New wording** is built as proposed and waits on the owner's OK, under part 6's "Found along
+  the way".
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two
