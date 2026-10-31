@@ -304,6 +304,15 @@ def balance_of(statement: dict, code: str) -> dict:
     return next(b for b in statement["balances"] if b["currency_code"] == code)
 
 
+def account_balance(client: ExpenseClient, account_id: str, code: str = "PEN") -> int:
+    """The account's current balance in the currency `code`, in cents
+    (contract: "Bank Accounts", "Account response")."""
+    held = client.get(f"/accounts/{account_id}")
+    return next(c for c in held["currencies"] if c["currency_code"] == code)[
+        "current_balance_cents"
+    ]
+
+
 def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str, str]) -> None:
     """The refusal is `status` `code`, keyed on exactly the keys of `reasons`, each
     carrying its reason (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
@@ -844,9 +853,13 @@ class Scratch:
         (contract: PUT /v1/transactions/{transaction_id})."""
         self.client.put(f"/transactions/{tx_id}", json_body={"statement_id": statement_id})
 
-    def noon(self, day: str) -> str:
+    def at(self, day: str, hour: int = 12, minute: int = 0) -> str:
+        """`day` at `hour`:`minute` in the user's display timezone, as the engine reads a date."""
         y, m, d = (int(part) for part in day.split("-"))
-        return datetime(y, m, d, 12, tzinfo=self.zone).isoformat(timespec="seconds")
+        return datetime(y, m, d, hour, minute, tzinfo=self.zone).isoformat(timespec="seconds")
+
+    def noon(self, day: str) -> str:
+        return self.at(day)
 
     def _item(self, account_id: str, day: str, amount: int, currency: str, **fields: str) -> dict:
         return {
@@ -883,6 +896,43 @@ class Scratch:
         made = self._create([{**item, **fields}])[0]
         assert (made["account_id"], made["currency_code"]) == (account_id, currency)
         return made
+
+    def refused_row(
+        self,
+        account_id: str,
+        when: str,
+        currency: str = "PEN",
+        *,
+        batch: bool = False,
+        **fields,
+    ) -> EngineError:
+        """The engine's refusal of a new transaction dated `when` (`at`) with `fields` added,
+        sent to `POST /transactions` or, with `batch`, as the one item of
+        `POST /transactions/batch`. Its id joins the scratch before the call, so a row the
+        engine takes after all is still removed."""
+        item = self._item(account_id, "2026-01-01", -100, currency, date=when, **fields)
+        self.transactions.append(item["id"])
+        if batch:
+            body = {"transactions": [item]}
+            return refused(lambda: self.client.post("/transactions/batch", json_body=body))
+        return refused(lambda: self.client.post("/transactions", json_body=item))
+
+    def completed(
+        self, account_id: str, start: str, end: str, *tx_ids: str, currency: str = "PEN"
+    ) -> dict:
+        """A statement of the account over the calendar days `start` to `end` holding the
+        lines of the transactions `tx_ids`, every part of each, all in `currency`, then
+        completed: it begins at 0 and ends at their signed sum, so it adds up. The engine's
+        read of it after the close (contract: POST /v1/statements/{statement_id}/complete)."""
+        total = sum(read_signed(self.client, tx)["amount_cents"] for tx in tx_ids)
+        balances = [
+            {"currency_code": currency, "beginning_balance_cents": 0, "ending_balance_cents": total}
+        ]
+        statement = self.statement(account_id, start, end, balances=balances)["id"]
+        for tx in tx_ids:
+            self.assign(tx, statement)
+        self.client.post(f"/statements/{statement}/complete")
+        return self.client.get(f"/statements/{statement}")
 
     def opening_balance(
         self, account_id: str, day: str, currency: str = "PEN", amount_cents: int = 50000

@@ -1050,7 +1050,7 @@ def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkey
         "date     2026-06-20",
         "title    Saldo inicial",
         "account  BCP · PEN  read-only",
-        "account: Must not move an opening balance to another account.",
+        "account: Must not move an opening balance to another account or currency.",
         "",
         "       amount    category       hashtags        note",
         "  1  3,200.00    @Opening       —",

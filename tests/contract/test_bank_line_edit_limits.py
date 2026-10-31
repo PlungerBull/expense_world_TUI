@@ -6,7 +6,7 @@ Every bank line the engine returns carries `edit_limits`: the line fields a writ
 would refuse; whether the total and the parts are fixed; and, per part, the part fields
 a write would refuse. Each field named is `{reason, message}`, exactly two strings: the
 reason the write gives it in `reasons` and its sentence in `fields`, word for word. It
-is worked out on every read from the line's state, a completed reconciliation, an
+is worked out on every read from the line's state, a completed statement, an
 archived account or an opening balance
 (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The Edit form draws
 those fields read-only before anyone types, so only the engine can say what each
@@ -16,19 +16,23 @@ read's `message` as its words:
 
   · a line nothing closes reads every key of `edit_limits` empty or `false`, on
     `GET /bank-lines/{id}`, on its row of `GET /bank-lines` and on the write's answer;
-  · a line in a completed reconciliation: every line field `LOCKED` but an
+  · a line in a completed statement: every line field `LOCKED` but an
     `operation_code` empty on every part, which is listed once filled; the total
     fixed and the parts not; the one part of a line of one part `SPLIT_TOTAL_MISMATCH`
     on `amount_cents`, no part of a split line; after a revert the next read is open;
   · a line on an archived account: every line field but the empty `operation_code`
     `ACCOUNT_ARCHIVED`, the total and the parts fixed, each part `ACCOUNT_ARCHIVED` on
     `amount_cents`; after an unarchive the next read is open;
-  · an opening balance's line: `account_id` `OPENING_BALANCE_ACCOUNT_FIXED`, the parts
-    fixed and the total not, its part `OPENING_BALANCE_CATEGORY_FIXED` on
-    `category_id` and `OPENING_BALANCE_NOT_TAGGED` on `hashtag_ids`;
+  · an opening balance's line: `account_id` and `currency_code`
+    `OPENING_BALANCE_ACCOUNT_FIXED`, the parts fixed and the total not, its part
+    `OPENING_BALANCE_CATEGORY_FIXED` on `category_id` and `OPENING_BALANCE_NOT_TAGGED`
+    on `hashtag_ids`;
+  · `currency_code` named exactly when `account_id` is, in every kind of line, with the
+    same reason: a move is both or neither (contract: PUT /v1/transactions/{transaction_id},
+    "Moving a transaction"), and a write sending either alone is refused on that key alone;
   · `is_opening_balance`, `true` on the opening balance's line and `false` on every
-    other, on the read by id, each list row, the statement order's read and write, and
-    the whole-line write's answer;
+    other, on the read by id, each list row, the statement order's read, and the
+    whole-line write's answer;
   · `parts` on an opening balance's line: its amount and note change in one write
     under its own id, its own category `@Opening` sent as is is no change, `[]` leaves
     it with no hashtag; another category is `OPENING_BALANCE_CATEGORY_FIXED` on
@@ -62,8 +66,19 @@ from uuid import uuid4
 from expense.errors import EngineError
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
-from tests.contract.conftest import assert_refusals, free_statement_codes, read_signed, refused
+from tests.contract.conftest import (
+    assert_refusals,
+    free_statement_codes,
+    read_signed,
+    refused,
+)
 from tests.unit.helpers import LOCK_MESSAGES
+
+MAY = ("2026-05-01", "2026-05-31")
+
+#: The line fields a closed line names, an empty `operation_code` left out
+#: (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
+LINE_FIELDS = ("title", "date", "account_id", "currency_code", "statement_id")
 
 #: `edit_limits` of a line nothing closes: every key present, nothing in it
 #: (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
@@ -139,22 +154,22 @@ def _new_id(scratch) -> str:
 
 
 def _completed_lines(client, scratch) -> tuple[str, str, str, str]:
-    """A line of one part and a split line in a reconciliation then completed, on a new
-    account: the reconciliation's id, the line of one part's, its part's and the split
-    line's."""
-    account = scratch.account()
-    recon = scratch.reconciliation(account, "2026-05-01", "2026-05-31")
-    single = scratch.line(account, "2026-05-06", -2500, recon=recon)
+    """A line of one part and a split line in a statement then completed, on a new
+    account holding soles and dollars: the statement's id, the line of one part's, its
+    part's and the split line's."""
+    account = scratch.account("PEN", "USD")
+    single = scratch.line(account, "2026-05-06", -2500)
     (single_part,) = scratch.transactions[-1:]
-    split = scratch.line(account, "2026-05-07", -6000, -4000, recon=recon)
-    client.post(f"/reconciliations/{recon}/complete")
-    return recon, single, single_part, split
+    split = scratch.line(account, "2026-05-07", -6000, -4000)
+    parts = scratch.transactions[-2:]
+    statement = scratch.completed(account, *MAY, single_part, *parts)["id"]
+    return statement, single, single_part, split
 
 
 def _archived_line(scratch) -> tuple[str, str, str, str]:
-    """A split line on a new account then archived: the account's id, the line's and its
-    two parts'."""
-    account = scratch.account()
+    """A split line on a new account holding soles and dollars then archived: the
+    account's id, the line's and its two parts'."""
+    account = scratch.account("PEN", "USD")
     line = scratch.line(account, "2026-05-08", -6000, -4000)
     one, two = scratch.transactions[-2:]
     scratch.archive(account)
@@ -162,8 +177,9 @@ def _archived_line(scratch) -> tuple[str, str, str, str]:
 
 
 def _opening_line(scratch) -> tuple[str, str]:
-    """A new account's opening balance: its line's id and its one part's."""
-    line = scratch.opening_balance(scratch.account(), "2026-01-01")
+    """A new account's opening balance, the account holding soles and dollars: its
+    line's id and its one part's."""
+    line = scratch.opening_balance(scratch.account("PEN", "USD"), "2026-01-01")
     (opening,) = scratch.transactions[-1:]
     return line, opening
 
@@ -178,7 +194,7 @@ def _entries(limits: dict) -> list[dict]:
 
 
 def test_a_line_nothing_closes_has_no_limits(client, scratch):
-    """A line of one part and a split line, in no reconciliation, on an active
+    """A line of one part and a split line, in no statement, on an active
     account: `edit_limits` names nothing, on the read by id, on the line's row of
     `GET /bank-lines` and on the write's answer, which is the line as read
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
@@ -198,17 +214,17 @@ def test_a_line_nothing_closes_has_no_limits(client, scratch):
     assert _write(client, split, parts)["edit_limits"] == OPEN
 
 
-def test_a_completed_reconciliations_line_is_locked_until_reverted(client, scratch):
-    """In a completed reconciliation every line field is `LOCKED` but an
+def test_a_completed_statements_line_is_locked_until_reverted(client, scratch):
+    """In a completed statement every line field is `LOCKED` but an
     `operation_code` empty on every part, which may be filled and is listed once it is;
     the total is fixed and the parts are not; the one part of a line of one part is
     `SPLIT_TOTAL_MISMATCH` on `amount_cents`, while a split line lists no part. After
     the revert the next read names nothing
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
-    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)."""
-    recon, single, single_part, split = _completed_lines(client, scratch)
+    (contract: POST /v1/statements/{statement_id}/revert)."""
+    statement, single, single_part, split = _completed_lines(client, scratch)
 
-    locked = dict.fromkeys(("title", "date", "account_id", "reconciliation_id"), "LOCKED")
+    locked = dict.fromkeys(LINE_FIELDS, "LOCKED")
     limits = _limits(client, single)
     assert _reasons(limits) == {
         "locked_fields": locked,
@@ -227,8 +243,9 @@ def test_a_completed_reconciliations_line_is_locked_until_reverted(client, scrat
     moved = {
         "title": "contract moved title",
         "date": scratch.noon("2026-05-20"),
-        "account_id": scratch.account(),
-        "reconciliation_id": None,
+        "account_id": scratch.account("PEN", "USD"),
+        "currency_code": "USD",
+        "statement_id": None,
     }
     _assert_the_writes_words(client, single, moved, locked, line_fields)
     amount = limits["locked_part_fields"][single_part]["amount_cents"]
@@ -251,7 +268,7 @@ def test_a_completed_reconciliations_line_is_locked_until_reverted(client, scrat
         {"operation_code": filled["operation_code"]},
     )
 
-    client.post(f"/reconciliations/{recon}/revert")
+    client.post(f"/statements/{statement}/revert")
     assert _limits(client, single) == OPEN
     assert _limits(client, split) == OPEN
 
@@ -266,9 +283,7 @@ def test_an_archived_accounts_line_is_frozen_until_unarchived(client, scratch):
     account, line, one, two = _archived_line(scratch)
 
     archived = {"amount_cents": "ACCOUNT_ARCHIVED"}
-    line_fields = dict.fromkeys(
-        ("title", "date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"
-    )
+    line_fields = dict.fromkeys(LINE_FIELDS, "ACCOUNT_ARCHIVED")
     limits = _limits(client, line)
     assert _reasons(limits) == {
         "locked_fields": line_fields,
@@ -281,7 +296,8 @@ def test_an_archived_accounts_line_is_frozen_until_unarchived(client, scratch):
         "title": "contract moved title",
         "date": scratch.noon("2026-05-20"),
         "account_id": account,
-        "reconciliation_id": None,
+        "currency_code": "PEN",
+        "statement_id": None,
     }
     _assert_the_writes_words(client, line, moved, line_fields, limits["locked_fields"])
     _assert_the_writes_words(
@@ -300,32 +316,40 @@ def test_an_archived_accounts_line_is_frozen_until_unarchived(client, scratch):
 
 
 def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratch):
-    """An opening balance's line: `account_id` is `OPENING_BALANCE_ACCOUNT_FIXED`, the
-    parts are fixed and the total is not, and its part is
-    `OPENING_BALANCE_CATEGORY_FIXED` on `category_id` and `OPENING_BALANCE_NOT_TAGGED`
-    on `hashtag_ids`, its amount and note left open
+    """An opening balance's line: `account_id` and `currency_code` are
+    `OPENING_BALANCE_ACCOUNT_FIXED`, the parts are fixed and the total is not, and its
+    part is `OPENING_BALANCE_CATEGORY_FIXED` on `category_id` and
+    `OPENING_BALANCE_NOT_TAGGED` on `hashtag_ids`, its amount and note left open. A write
+    sending the account, the currency or both is refused on the keys sent
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
     line, opening = _opening_line(scratch)
+    other = scratch.account("PEN", "USD")
 
     limits = _limits(client, line)
     part_fields = {
         "category_id": "OPENING_BALANCE_CATEGORY_FIXED",
         "hashtag_ids": "OPENING_BALANCE_NOT_TAGGED",
     }
+    fixed = "OPENING_BALANCE_ACCOUNT_FIXED"
     assert _reasons(limits) == {
-        "locked_fields": {"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
+        "locked_fields": {"account_id": fixed, "currency_code": fixed},
         "total_fixed": False,
         "parts_fixed": True,
         "locked_part_fields": {opening: part_fields},
     }
 
-    _assert_the_writes_words(
-        client,
-        line,
-        {"account_id": scratch.account()},
-        {"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
-        limits["locked_fields"],
-    )
+    for body in (
+        {"account_id": other},
+        {"currency_code": "USD"},
+        {"account_id": other, "currency_code": "USD"},
+    ):
+        _assert_the_writes_words(
+            client,
+            line,
+            body,
+            dict.fromkeys(body, fixed),
+            {key: limits["locked_fields"][key] for key in body},
+        )
     amount = read_signed(client, opening)["amount_cents"]
     sent = {"category_id": scratch.category(), "hashtag_ids": [scratch.hashtag()]}
     _assert_the_writes_words(
@@ -340,8 +364,29 @@ def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratc
     )
 
 
+def test_the_currency_is_named_exactly_when_the_account_is(client, scratch):
+    """`edit_limits` names `currency_code` among the line fields exactly when it names
+    `account_id`, with the same reason: on a line in a completed statement, a split one
+    included, on an archived account's line and on an opening balance's line, and on a
+    line nothing closes neither (contract: GET /v1/bank-lines/{bank_line_id},
+    "Response fields")."""
+    _, single, _, split = _completed_lines(client, scratch)
+    _, archived, _, _ = _archived_line(scratch)
+    opening, _ = _opening_line(scratch)
+    open_line = scratch.line(scratch.account("PEN", "USD"), "2026-05-04", -2500)
+
+    named = []
+    for line in (single, split, archived, opening, open_line):
+        fields = _reasons(_limits(client, line))["locked_fields"]
+        assert ("currency_code" in fields) == ("account_id" in fields), line
+        if "account_id" in fields:
+            assert fields["currency_code"] == fields["account_id"], line
+            named.append(line)
+    assert named == [single, split, archived, opening]
+
+
 def test_each_locks_sentence_is_the_unit_fake_engines(client, scratch):
-    """The reasons `edit_limits` gives on a line in a completed reconciliation, an archived
+    """The reasons `edit_limits` gives on a line in a completed statement, an archived
     account's line and an opening balance's line are the six the unit tests' fake engine
     knows, each with the sentence it sends for it, word for word (`LOCK_MESSAGES` in
     tests/unit/helpers.py): the Edit form the unit tests draw shows the live engine's words
@@ -367,34 +412,32 @@ def _flags(lines: list[dict]) -> dict[str, bool]:
 def test_a_line_says_whether_it_is_its_accounts_opening_balance(client, scratch):
     """`is_opening_balance` is `true` on the account's opening balance and `false` on
     every other line, a split one included, never `null`: on the read by id, on each
-    row of `GET /bank-lines` in either order, on the statement order's `places` and
-    `unplaced` as its read and its write answer them, and on the whole-line write's
-    answer (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
+    row of `GET /bank-lines` in either order, on the statement order's `unplaced` as its
+    read answers it, and on the whole-line write's answer
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
     (contract: GET /v1/bank-lines)
-    (contract: GET /v1/reconciliations/{reconciliation_id}/statement-order, "Response")
+    (contract: GET /v1/statements/{statement_id}/statement-order, "Response")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). The opening balance is
-    the line the statement's order never places, so it stays under `unplaced`; a list
-    naming it is refused (test_statement_order.py, `OPENING_BALANCE_NOT_PLACED`)."""
+    the line the statement's order never places, so it stays under `unplaced`; so
+    does every line no paper has placed."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account("PEN", code)
-    recon = scratch.reconciliation(account, "2026-05-01", "2026-05-31")
-    opening = scratch.opening_balance(account, "2026-05-01", recon)
-    single = scratch.line(account, "2026-05-04", -2500, recon=recon)
-    split = scratch.line(account, "2026-05-05", -6000, -4000, recon=recon)
+    account = scratch.account(code=code)
+    statement = scratch.statement(account, *MAY)["id"]
+    opening = scratch.opening_balance(account, "2026-05-01")
+    single = scratch.line(account, "2026-05-04", -2500)
+    split = scratch.line(account, "2026-05-05", -6000, -4000)
+    for part in (opening, single, split):
+        scratch.assign(_line(client, part)["parts"][0]["id"], statement)
     expected = {opening: True, single: False, split: False}
 
     for line_id, flag in expected.items():
         assert _line(client, line_id)["is_opening_balance"] is flag, line_id
-    for params in ({"account_id": account}, {"reconciliation_id": recon, "sort": "statement"}):
+    for params in ({"account_id": account}, {"statement_id": statement, "sort": "statement"}):
         assert _flags(client.get("/bank-lines", params=params)["items"]) == expected, params
 
-    order = client.get(f"/reconciliations/{recon}/statement-order")
+    order = client.get(f"/statements/{statement}/statement-order")
+    assert order["places"] == []
     assert _flags(order["unplaced"]) == expected
-    sent = client.put(
-        f"/reconciliations/{recon}/statement-order", json_body={"places": [single, split]}
-    )
-    assert _flags([entry["bank_line"] for entry in sent["places"]]) == {single: False, split: False}
-    assert _flags(sent["unplaced"]) == {opening: True}
 
     for line_id, flag in expected.items():
         held = _line(client, line_id)["parts"]

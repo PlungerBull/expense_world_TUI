@@ -1,7 +1,7 @@
 """Contract: sealed periods.
 
-A completed reconciliation seals its account's days but the last, which seals once
-the account's next statement is completed too
+A completed statement seals its account's days, in every currency, but the last, which
+seals once the account's next statement is completed too
 (contract: "Transactions (Ledger)", "Sealed periods"). The app computes none of it:
 it reports every refusal by reading the engine's `fields` key and message. The unit
 suite fakes those 422s; this file is the only place they are checked against the
@@ -10,6 +10,10 @@ engine:
   · the wall: five doors refuse a row dated on a sealed day, each naming its own
     key, the message naming the period; the last local minute of the last sealed
     day is inside, the next day is not;
+  · a move onto a sealed day, through `PUT /transactions/{id}` and `PUT /bank-lines/{id}`:
+    `date` moved in is `SEALED_PERIOD` on `date`; `account_id`, `currency_code` or both
+    moved in is `SEALED_PERIOD` on each of those sent; the date moved with them, on
+    `date` alone; the row read back as it was;
   · a statement's last day stays open until the account's next statement is
     completed, is sealed under the statement's own name once it is, and opens
     again when that next statement is reverted;
@@ -18,280 +22,203 @@ engine:
     its line in `review_lines`, and its day seals with the rest;
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
     when there is none; revert carries neither;
-  · periods on one account may not share a day, and may not run backwards.
+  · statements of one account may not share a day, and may not run backwards.
 
-Each test builds its own account, and every row it sends, a refused one included,
-is in its cleanup before the call, so a row the engine takes after all is still
-removed. Gating, target and the real-ledger guard: conftest.py.
+Each test builds its own accounts (conftest.py `scratch`), and every row it sends, a
+refused one included, is in its cleanup before the call, so a row the engine takes after
+all is still removed. Gating, target and the real-ledger guard: conftest.py.
 """
-
-from datetime import datetime
-from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 import pytest
 
-from expense.errors import EngineError
-from tests.contract.conftest import reason_on
+from tests.contract.conftest import (
+    assert_refusal,
+    assert_refusals,
+    balance_of,
+    read_signed,
+    refused,
+)
+
+MARCH = ("2026-03-01", "2026-03-31")
+APRIL = ("2026-04-01", "2026-04-30")
+JANUARY = ("2026-01-01", "2026-01-31")
 
 
-def _safe(call, *args, **kw):
-    try:
-        call(*args, **kw)
-    except EngineError:
-        pass
-
-
-class Ledger:
-    """Creates accounts, rows and periods, and undoes them in reverse order:
-    completed periods are reverted first, since a completed period can be
-    neither deleted nor have its rows deleted. Every period carries its ending
-    balance, so each one can be completed (contract: POST
-    /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be
-    entered")."""
-
-    def __init__(self, client):
-        self.c = client
-        self.zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
-        self.accounts: list[str] = []
-        self.rows: list[str] = []
-        self.periods: list[str] = []
-
-    def at(self, y: int, m: int, d: int, hour: int = 12, minute: int = 0) -> str:
-        return datetime(y, m, d, hour, minute, tzinfo=self.zone).isoformat(timespec="seconds")
-
-    def account(self) -> str:
-        new_id = str(uuid4())
-        self.c.post(
-            "/accounts",
-            json_body={"id": new_id, "name": f"contract-seal-{new_id[:8]}", "currency_code": "PEN"},
-        )
-        self.accounts.append(new_id)
-        return new_id
-
-    def row(self, account_id: str, date: str) -> str:
-        new_id = str(uuid4())
-        self.rows.append(new_id)
-        self.c.post(
-            "/transactions",
-            json_body={
-                "id": new_id,
-                "title": "sealed row",
-                "amount_cents": -500,
-                "account_id": account_id,
-                "date": date,
-            },
-        )
-        return new_id
-
-    def refused_row(self, account_id: str, date: str) -> EngineError:
-        """A row sent on `date`, which the engine must refuse; its id joins the
-        cleanup before the call."""
-        new_id = str(uuid4())
-        self.rows.append(new_id)
-        return _refused(
-            self.c.post,
-            "/transactions",
-            json_body={
-                "id": new_id,
-                "amount_cents": -100,
-                "account_id": account_id,
-                "date": date,
-            },
-        )
-
-    def period(self, account_id: str, start: str, end: str, *rows: str) -> tuple[str, str]:
-        new_id = str(uuid4())
-        name = f"contract-seal-{new_id[:8]}"
-        self.c.post(
-            "/reconciliations",
-            json_body={
-                "id": new_id,
-                "account_id": account_id,
-                "name": name,
-                "date_start": start,
-                "date_end": end,
-                "beginning_balance_cents": 0,
-                "ending_balance_cents": -500 * len(rows),
-            },
-        )
-        self.periods.append(new_id)
-        for row_id in rows:
-            self.c.put(f"/transactions/{row_id}", json_body={"reconciliation_id": new_id})
-        return new_id, name
-
-    def cleanup(self) -> None:
-        for pid in self.periods:
-            _safe(self.c.post, f"/reconciliations/{pid}/revert")
-        for pid in reversed(self.periods):
-            _safe(self.c.delete, f"/reconciliations/{pid}")
-        for rid in reversed(self.rows):
-            _safe(self.c.delete, f"/transactions/{rid}")
-        for aid in reversed(self.accounts):
-            _safe(self.c.delete, f"/accounts/{aid}")
+def _soles(ending: int) -> list[dict]:
+    """The soles balances of a statement beginning at 0 and ending at `ending`."""
+    return [{"currency_code": "PEN", "beginning_balance_cents": 0, "ending_balance_cents": ending}]
 
 
 @pytest.fixture
-def ledger(client):
-    book = Ledger(client)
-    try:
-        yield book
-    finally:
-        book.cleanup()
+def sealed_march(client, scratch):
+    """An account holding soles and dollars whose March 2026 is completed, plus one row
+    outside it (April 10) and one in it filed nowhere (March 12): the completed statement
+    as the engine reads it, the outside row, the loose one. Its sealed days are March 1 to
+    30: the 31st waits for April's statement."""
+    account = scratch.account("PEN", "USD")
+    inside = scratch.row(account, "2026-03-10")
+    loose = scratch.row(account, "2026-03-12")
+    march = scratch.completed(account, *MARCH, inside["id"])
+    outside = scratch.row(account, "2026-04-10")
+    return account, march, outside, loose
 
 
-def _refused(call, *args, **kw) -> EngineError:
-    with pytest.raises(EngineError) as excinfo:
-        call(*args, **kw)
-    assert excinfo.value.status == 422
-    return excinfo.value
+def test_the_wall_on_create_and_batch(client, scratch, sealed_march):
+    account, march, _, _ = sealed_march
+    when = scratch.at("2026-03-15")
+    err = scratch.refused_row(account, when)
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    assert march["name"] in err.fields["date"]
+
+    err = scratch.refused_row(account, when, batch=True)
+    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.0.date", "SEALED_PERIOD")
+    assert march["name"] in err.fields["transactions.0.date"]
 
 
-@pytest.fixture
-def sealed_march(client, ledger):
-    """An account whose March 2026 is completed, plus one row outside it. Its sealed
-    days are March 1 to 30: the 31st waits for April's statement."""
-    account = ledger.account()
-    inside = ledger.row(account, ledger.at(2026, 3, 10))
-    period, name = ledger.period(account, "2026-03-01", "2026-03-31", inside)
-    client.post(f"/reconciliations/{period}/complete")
-    outside = ledger.row(account, ledger.at(2026, 4, 10))
-    return account, period, name, outside
+def test_the_wall_holds_in_the_accounts_other_currency(client, scratch, sealed_march):
+    """The days are the account's: a dollar row, in a currency the statement holds no
+    balances for, is refused on a sealed day too."""
+    account, march, _, _ = sealed_march
+    err = scratch.refused_row(account, scratch.at("2026-03-15"), "USD")
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    assert march["name"] in err.fields["date"]
 
 
-def test_the_wall_on_create_and_batch(client, ledger, sealed_march):
-    account, _, name, _ = sealed_march
-    err = ledger.refused_row(account, ledger.at(2026, 3, 15))
-    assert "date" in err.fields
-    assert name in err.message or name in err.fields["date"]
-
-    batched = str(uuid4())
-    ledger.rows.append(batched)
-    err = _refused(
-        client.post,
-        "/transactions/batch",
-        json_body={
-            "transactions": [
-                {
-                    "id": batched,
-                    "amount_cents": -100,
-                    "account_id": account,
-                    "date": ledger.at(2026, 3, 15),
-                }
-            ]
-        },
-    )
-    assert "transactions.0.date" in err.fields
-
-
-def test_the_wall_is_whole_days_in_the_display_timezone(client, ledger, sealed_march):
+def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_march):
     """23:59 local on the last sealed day (March 30) is inside; 00:00 of the next
     day, the statement's own last day, is not."""
     account, *_ = sealed_march
-    err = ledger.refused_row(account, ledger.at(2026, 3, 30, 23, 59))
-    assert "date" in err.fields
-    ledger.row(account, ledger.at(2026, 3, 31, 0, 0))
+    err = scratch.refused_row(account, scratch.at("2026-03-30", 23, 59))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    scratch.row(account, "2026-03-31", date=scratch.at("2026-03-31", 0, 0))
 
 
-def test_the_last_day_seals_once_the_next_statement_is_completed(client, ledger, sealed_march):
+def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch, sealed_march):
     """March is completed and April is not: March 31 takes a row. April completed:
-    March 31 is refused, named under March's own reconciliation, up to 23:59 local,
+    March 31 is refused, named under March's own statement, up to 23:59 local,
     while April 1 is sealed and April 30, April's own last day, takes a row. April
     reverted: March 31 takes a row again."""
-    account, _, march_name, outside = sealed_march
-    ledger.row(account, ledger.at(2026, 3, 31))
+    account, march, outside, _ = sealed_march
+    scratch.row(account, "2026-03-31")
 
-    april, april_name = ledger.period(account, "2026-04-01", "2026-04-30", outside)
-    ledger.row(account, ledger.at(2026, 3, 31, 23, 59))  # a draft next statement seals nothing
-    client.post(f"/reconciliations/{april}/complete")
+    april = scratch.statement(account, *APRIL, balances=_soles(-1000))
+    scratch.assign(outside["id"], april["id"])
+    # A draft next statement seals nothing.
+    scratch.row(account, "2026-03-31", date=scratch.at("2026-03-31", 23, 59))
+    client.post(f"/statements/{april['id']}/complete")
 
     for hour, minute in ((0, 0), (12, 0), (23, 59)):
-        err = ledger.refused_row(account, ledger.at(2026, 3, 31, hour, minute))
-        assert reason_on(err, "date") == "SEALED_PERIOD"
-        assert march_name in err.fields["date"]
-        assert april_name not in err.fields["date"]
-    err = ledger.refused_row(account, ledger.at(2026, 4, 1, 0, 0))
-    assert april_name in err.fields["date"]
-    ledger.row(account, ledger.at(2026, 4, 30, 23, 59))
+        err = scratch.refused_row(account, scratch.at("2026-03-31", hour, minute))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+        assert march["name"] in err.fields["date"]
+        assert april["name"] not in err.fields["date"]
+    err = scratch.refused_row(account, scratch.at("2026-04-01", 0, 0))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    assert april["name"] in err.fields["date"]
+    scratch.row(account, "2026-04-30", date=scratch.at("2026-04-30", 23, 59))
 
-    client.post(f"/reconciliations/{april}/revert")
-    ledger.row(account, ledger.at(2026, 3, 31))
-
-
-def test_the_wall_on_moving_a_row_in(client, ledger, sealed_march):
-    """Moving the date in names `date`; moving the account in names `account_id`
-    (Home's bulk `b` reports that key)."""
-    account, _, _, outside = sealed_march
-    err = _refused(
-        client.put, f"/transactions/{outside}", json_body={"date": ledger.at(2026, 3, 15)}
-    )
-    assert "date" in err.fields
-
-    other = ledger.account()
-    stray = ledger.row(other, ledger.at(2026, 3, 15))
-    err = _refused(client.put, f"/transactions/{stray}", json_body={"account_id": account})
-    assert "account_id" in err.fields
+    client.post(f"/statements/{april['id']}/revert")
+    scratch.row(account, "2026-03-31")
 
 
-def test_the_wall_on_an_opening_balance(client, ledger, sealed_march):
-    account, *_ = sealed_march
-    seed = str(uuid4())
-    ledger.rows.append(seed)
-    err = _refused(
-        client.post,
-        f"/accounts/{account}/opening-balance",
-        json_body={
-            "transaction_id": seed,
-            "amount_cents": 1000,
-            "date": ledger.at(2026, 3, 20),
-        },
-    )
-    assert "date" in err.fields
+def _unwritten_refusal(client, path: str, body: dict, keys: set[str], name: str) -> None:
+    """`body` sent to `path` is `422` `SEALED_PERIOD` on exactly `keys`, each field naming
+    the statement `name`, and the resource reads as before."""
+    before = client.get(path, params={"debit_as_negative": "true"})
+    err = refused(lambda: client.put(path, json_body=body))
+    assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(keys, "SEALED_PERIOD"))
+    assert all(name in err.fields[key] for key in keys), err.fields
+    assert client.get(path, params={"debit_as_negative": "true"}) == before
 
 
-def test_revert_opens_the_wall(client, ledger, sealed_march):
-    account, period, _, _ = sealed_march
-    client.post(f"/reconciliations/{period}/revert")
-    ledger.row(account, ledger.at(2026, 3, 15))
+def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
+    """Moving the date in names `date`; moving the account, the currency or both in names
+    each of `account_id` and `currency_code` sent (Home's bulk `b` reports those keys);
+    moving the date with them names `date` alone; `PUT /bank-lines/{id}` moving the line in
+    answers as `PUT /transactions/{id}`. Each leaves the row as it was
+    (contract: "Transactions (Ledger)", "Sealed periods")
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")."""
+    account, march, outside, loose = sealed_march
+    name = march["name"]
+    other = scratch.account("PEN", "USD")
+    stray = scratch.row(other, "2026-03-15")
+
+    cases = [
+        (outside["id"], {"date": scratch.at("2026-03-15")}, {"date"}),
+        (stray["id"], {"account_id": account}, {"account_id"}),
+        (loose["id"], {"currency_code": "USD"}, {"currency_code"}),
+        (
+            stray["id"],
+            {"account_id": account, "currency_code": "USD"},
+            {"account_id", "currency_code"},
+        ),
+        (stray["id"], {"date": scratch.at("2026-03-16"), "account_id": account}, {"date"}),
+    ]
+    for tx_id, body, keys in cases:
+        _unwritten_refusal(client, f"/transactions/{tx_id}", body, keys, name)
+
+    line = client.get(f"/transactions/{stray['id']}")["bank_line_id"]
+    held = client.get(f"/bank-lines/{line}")
+    body = {"account_id": account, "currency_code": "PEN"}
+    err = refused(lambda: client.put(f"/bank-lines/{line}", json_body=body))
+    assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(body, "SEALED_PERIOD"))
+    assert client.get(f"/bank-lines/{line}") == held
+    assert read_signed(client, stray["id"])["account_id"] == other
 
 
-def test_a_draft_seals_nothing(client, ledger):
-    account = ledger.account()
-    ledger.period(account, "2026-03-01", "2026-03-31")
-    ledger.row(account, ledger.at(2026, 3, 15))
+def test_the_wall_on_an_opening_balance(client, scratch, sealed_march):
+    account, march, _, _ = sealed_march
+    err = refused(lambda: scratch.opening_balance(account, "2026-03-20"))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    assert march["name"] in err.fields["date"]
 
 
-def test_a_row_filed_nowhere_does_not_stop_complete_and_its_day_seals(client, ledger):
-    """A line in no reconciliation is not a refusal of complete
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete): the period
-    completes, its answer flags the unfiled row's line in `review_lines`, and the
-    unfiled row's day is sealed with the rest."""
-    account = ledger.account()
-    filed = ledger.row(account, ledger.at(2026, 3, 10))
-    unfiled = ledger.row(account, ledger.at(2026, 3, 11))
-    period, name = ledger.period(account, "2026-03-01", "2026-03-31", filed)
+def test_revert_opens_the_wall(client, scratch, sealed_march):
+    account, march, _, _ = sealed_march
+    client.post(f"/statements/{march['id']}/revert")
+    scratch.row(account, "2026-03-15")
 
-    done = client.post(f"/reconciliations/{period}/complete")
+
+def test_a_draft_seals_nothing(client, scratch):
+    account = scratch.account()
+    scratch.statement(account, *MARCH)
+    scratch.row(account, "2026-03-15")
+
+
+def test_a_row_filed_nowhere_does_not_stop_complete_and_its_day_seals(client, scratch):
+    """A line in no statement is not a refusal of complete
+    (contract: POST /v1/statements/{statement_id}/complete): the statement
+    completes, its answer flags the unfiled row's line in `review_lines` of its
+    soles balance, and the unfiled row's day is sealed with the rest."""
+    account = scratch.account()
+    filed = scratch.row(account, "2026-03-10")
+    unfiled = scratch.row(account, "2026-03-11")
+    statement = scratch.statement(account, *MARCH, balances=_soles(-1000))
+    scratch.assign(filed["id"], statement["id"])
+
+    done = client.post(f"/statements/{statement['id']}/complete")
     assert done["status"] == 2
-    assert done["review_lines"] == [client.get(f"/transactions/{unfiled}")["bank_line_id"]]
-    err = ledger.refused_row(account, ledger.at(2026, 3, 11))
-    assert reason_on(err, "date") == "SEALED_PERIOD"
-    assert name in err.fields["date"]
+    assert balance_of(done, "PEN")["review_lines"] == [unfiled["bank_line_id"]]
+    err = scratch.refused_row(account, scratch.at("2026-03-11"))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+    assert statement["name"] in err.fields["date"]
 
 
-def test_a_skipped_stretch_is_reported_and_a_clean_one_is_not(client, ledger):
-    account = ledger.account()
-    jan_row = ledger.row(account, ledger.at(2026, 1, 10))
-    ledger.row(account, ledger.at(2026, 2, 10))  # filed nowhere, in the gap: unfiled_count 1
-    mar_row = ledger.row(account, ledger.at(2026, 3, 10))
-    jan, _ = ledger.period(account, "2026-01-01", "2026-01-31", jan_row)
-    mar, _ = ledger.period(account, "2026-03-01", "2026-03-31", mar_row)
+def test_a_skipped_stretch_is_reported_and_a_clean_one_is_not(client, scratch):
+    account = scratch.account()
+    jan_row = scratch.row(account, "2026-01-10")
+    scratch.row(account, "2026-02-10")  # filed nowhere, in the gap: unfiled_count 1
+    mar_row = scratch.row(account, "2026-03-10")
+    jan = scratch.statement(account, *JANUARY, balances=_soles(-1000))["id"]
+    mar = scratch.statement(account, *MARCH, balances=_soles(-1000))["id"]
+    scratch.assign(jan_row["id"], jan)
+    scratch.assign(mar_row["id"], mar)
 
-    first = client.post(f"/reconciliations/{jan}/complete")
+    first = balance_of(client.post(f"/statements/{jan}/complete"), "PEN")
     assert first["warnings"] == []
     assert first["coverage_gap"] is None
 
-    second = client.post(f"/reconciliations/{mar}/complete")
+    second = balance_of(client.post(f"/statements/{mar}/complete"), "PEN")
     assert len(second["warnings"]) == 1
     assert second["coverage_gap"] == {
         "first_uncovered_day": "2026-02-01",
@@ -299,33 +226,27 @@ def test_a_skipped_stretch_is_reported_and_a_clean_one_is_not(client, ledger):
         "unfiled_count": 1,
     }
 
-    reverted = client.post(f"/reconciliations/{mar}/revert")
-    assert "warnings" not in reverted
-    assert "coverage_gap" not in reverted
+    reverted = client.post(f"/statements/{mar}/revert")
+    for entry in reverted["balances"]:
+        assert "warnings" not in entry
+        assert "coverage_gap" not in entry
 
 
-def test_periods_may_not_share_a_day_or_run_backwards(client, ledger):
-    account = ledger.account()
-    march, march_name = ledger.period(account, "2026-03-01", "2026-03-31")
-    april, _ = ledger.period(account, "2026-04-01", "2026-04-30")
+def test_statements_may_not_share_a_day_or_run_backwards(client, scratch):
+    account = scratch.account()
+    march = scratch.statement(account, *MARCH)
+    april = scratch.statement(account, *APRIL)
 
-    err = _refused(
-        client.post,
-        "/reconciliations",
-        json_body={
-            "id": str(uuid4()),
-            "account_id": account,
-            "name": "overlaps march",
-            "date_start": "2026-02-15",
-            "date_end": "2026-03-01",
-            "beginning_balance_cents": 0,
-        },
+    err = refused(lambda: scratch.statement(account, "2026-02-15", "2026-03-01"))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date_start", "PERIOD_OVERLAPS")
+    assert march["name"] in err.fields["date_start"]
+
+    err = refused(
+        lambda: client.put(f"/statements/{april['id']}", json_body={"date_start": "2026-03-31"})
     )
-    assert "date_start" in err.fields
-    assert march_name in err.fields["date_start"] or march_name in err.message
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date_start", "PERIOD_OVERLAPS")
 
-    err = _refused(client.put, f"/reconciliations/{april}", json_body={"date_start": "2026-03-31"})
-    assert "date_start" in err.fields
-
-    err = _refused(client.put, f"/reconciliations/{march}", json_body={"date_end": "2026-02-01"})
-    assert "date_end" in err.fields
+    err = refused(
+        lambda: client.put(f"/statements/{march['id']}", json_body={"date_end": "2026-02-01"})
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "RANGE_INVERTED")

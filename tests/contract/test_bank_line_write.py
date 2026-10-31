@@ -11,16 +11,22 @@ keeps, takes and refuses. Pinned here:
     fields, the dropped one is deleted, and the answer is the line as read plus
     `created_part_ids` and `deleted_part_ids`;
   · a line taken back to one part, the other deleted;
-  · the total: outside a completed reconciliation the parts may add up to a new
-    total and the account's balance moves by the difference; inside one the parts
-    may be redistributed, mixing directions, a part created there joining it and a
-    part dropped there deleted, while a set that misses the line's total is
+  · the total: outside a completed statement the parts may add up to a new total and
+    the account's balance in the line's currency moves by the difference; inside one the
+    parts may be redistributed, mixing directions, a part created there joining it and
+    a part dropped there deleted, while a set that misses the line's total is
     `SPLIT_TOTAL_MISMATCH` on `parts` and every `parts.<i>.amount_cents`, beside
     `SEALED_PERIOD` on the `parts.<i>.id` of a part it would create, nothing written;
-  · the locked line fields on a line in a completed reconciliation: each of `title`,
-    `date`, `account_id`, `operation_code` and `reconciliation_id` sent is `LOCKED`,
-    at its current value too, every one named when sent together, and the parts'
-    refusal answered beside the lock; an empty `operation_code` may be filled once;
+  · the locked line fields on a line in a completed statement: each of `title`,
+    `date`, `account_id`, `currency_code`, `operation_code` and `statement_id` sent is
+    `LOCKED`, at its current value too, every one named when sent together, and the
+    parts' refusal answered beside the lock; an empty `operation_code` may be filled once;
+  · a move: a line moved by `currency_code` alone, by `account_id` alone and by both,
+    through `PUT /bank-lines/{id}` and through `PUT /transactions/{id}`, every part and
+    its money with it; `CURRENCY_NOT_HELD` on `account_id` for the account alone onto an
+    account lacking the currency and on `currency_code` when it is sent; a line in a
+    draft statement refused as `ASSIGNED_TO_RECONCILIATION` until the move settles its
+    statement, then kept in it or left out of it;
   · a kept part's hashtags: a part sent with every value as held and no
     `hashtag_ids` is not written, one sent with its own `hashtag_ids` unchanged is,
     `[]` puts it on the pending hashtag, and the app's own `kept_part` sends the
@@ -42,12 +48,24 @@ target and the real-ledger guard: conftest.py.
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from expense import http as http_module
 from expense.bank_line_write import kept_part, line_body
 from expense.errors import EngineError
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
-from tests.contract.conftest import read_signed, refused
+from tests.contract.conftest import (
+    account_balance,
+    assert_refusal,
+    assert_refusals,
+    balance_of,
+    read_signed,
+    refused,
+)
+
+APRIL = ("2026-04-01", "2026-04-30")
+MARCH = ("2026-03-01", "2026-03-31")
 
 #: The keys the write's answer adds to the line as `GET /bank-lines/{id}` reads it
 #: (contract: PUT /v1/bank-lines/{bank_line_id}, "Response").
@@ -108,7 +126,15 @@ def test_one_write_keeps_a_part_adds_one_and_drops_one(client, scratch):
     assert mine["version"] == before[kept]["version"] + 1
     new = read_signed(client, added)
     assert new["amount_cents"] == -5000
-    for key in ("bank_line_id", "line_code", "title", "date", "account_id", "operation_code"):
+    for key in (
+        "bank_line_id",
+        "line_code",
+        "title",
+        "date",
+        "account_id",
+        "currency_code",
+        "operation_code",
+    ):
         assert new[key] == before[kept][key], key
     err = refused(lambda: client.get(f"/transactions/{dropped}"))
     assert err.status == 404
@@ -130,15 +156,16 @@ def test_a_line_goes_back_to_one_part(client, scratch):
     assert [t["id"] for t in listed] == [kept]
 
 
-def test_outside_a_completed_reconciliation_the_total_may_change(client, scratch):
+def test_outside_a_completed_statement_the_total_may_change(client, scratch):
     """In a draft the parts may add up to a new total: the line takes it, and the
-    account's balance moves by the difference
+    account's balance in the line's currency moves by the difference
     (contract: PUT /v1/bank-lines/{bank_line_id}, "The total")."""
     account = scratch.account()
-    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
-    line = scratch.line(account, "2026-03-07", -6000, -4000, recon=recon)
+    statement = scratch.statement(account, *MARCH)["id"]
+    line = scratch.line(account, "2026-03-07", -6000, -4000)
     one, two = scratch.transactions[-2:]
-    balance = client.get(f"/accounts/{account}")["current_balance_cents"]
+    scratch.assign(one, statement)
+    balance = account_balance(client, account)
 
     answer = _write(
         client,
@@ -146,25 +173,24 @@ def test_outside_a_completed_reconciliation_the_total_may_change(client, scratch
         {"parts": [{"id": one, "amount_cents": -7000}, {"id": two, "amount_cents": -5000}]},
     )
     assert answer["net_cents"] == -12000
-    assert client.get(f"/accounts/{account}")["current_balance_cents"] == balance - 2000
-    assert {p["reconciliation_id"] for p in answer["parts"]} == {recon}
+    assert account_balance(client, account) == balance - 2000
+    assert {p["statement_id"] for p in answer["parts"]} == {statement}
 
 
-def test_inside_a_completed_reconciliation_the_total_is_kept(client, scratch):
-    """Inside a completed reconciliation the parts' signed sum must equal the line's
+def test_inside_a_completed_statement_the_total_is_kept(client, scratch):
+    """Inside a completed statement the parts' signed sum must equal the line's
     total: redistributed amounts are taken, directions may mix, a part created there
-    joins the reconciliation and a part dropped there is deleted. A set that misses the
+    joins the statement and a part dropped there is deleted. A set that misses the
     total is `422` `SPLIT_TOTAL_MISMATCH` on `parts` and every `parts.<i>.amount_cents`,
     the message stating both totals, and a part it would create is `SEALED_PERIOD` on
     its `parts.<i>.id`, in the same answer; nothing is written
     (contract: PUT /v1/bank-lines/{bank_line_id}, "The total")
-    (contract: PUT /v1/bank-lines/{bank_line_id}, "Sealed periods")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")."""
     account = scratch.account()
-    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
-    line = scratch.line(account, "2026-03-08", -6000, -4000, recon=recon)
+    line = scratch.line(account, "2026-03-08", -6000, -4000)
     one, two = scratch.transactions[-2:]
-    client.post(f"/reconciliations/{recon}/complete")
+    statement = scratch.completed(account, *MARCH, one, two)["id"]
 
     def amounts() -> dict[str, int]:
         return {p["id"]: signed_cents(p) for p in _line(client, line)["parts"]}
@@ -189,7 +215,7 @@ def test_inside_a_completed_reconciliation_the_total_is_kept(client, scratch):
         {"parts": [{"id": one, "amount_cents": -5000}, {"id": added, "amount_cents": -5000}]},
     )
     assert (answer["created_part_ids"], answer["deleted_part_ids"]) == ([added], [two])
-    assert client.get(f"/transactions/{added}")["reconciliation_id"] == recon
+    assert client.get(f"/transactions/{added}")["statement_id"] == statement
     assert _line(client, line)["net_cents"] == -10000
 
     before = _line(client, line)
@@ -205,12 +231,16 @@ def test_inside_a_completed_reconciliation_the_total_is_kept(client, scratch):
             },
         )
     )
-    assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-    assert err.reasons == {
-        "parts": "SPLIT_TOTAL_MISMATCH",
-        "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH",
-        "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
-    }
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "parts": "SPLIT_TOTAL_MISMATCH",
+            "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH",
+            "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
+        },
+    )
     assert "-10000" in err.fields["parts"] and "-11000" in err.fields["parts"]
 
     extra = _new_id(scratch)
@@ -227,26 +257,36 @@ def test_inside_a_completed_reconciliation_the_total_is_kept(client, scratch):
             },
         )
     )
-    assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-    assert err.reasons["parts"] == "SPLIT_TOTAL_MISMATCH"
-    assert err.reasons["parts.2.id"] == "SEALED_PERIOD"
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "parts": "SPLIT_TOTAL_MISMATCH",
+            "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH",
+            "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
+            "parts.2.amount_cents": "SPLIT_TOTAL_MISMATCH",
+            "parts.2.id": "SEALED_PERIOD",
+        },
+    )
     assert _line(client, line) == before
+    assert refused(lambda: client.get(f"/transactions/{extra}")).status == 404
 
 
-def test_a_line_in_a_completed_reconciliation_keeps_its_line_fields(client, scratch):
-    """On a line in a completed reconciliation every line field sent is `422`
-    `LOCKED` on its key, at its current value too, and all of them are named when sent
-    together; with `parts` the parts' refusal is answered beside the lock. A
-    `null` `operation_code` may be filled, and once set it is locked like the rest.
-    Nothing is written on a refusal
+def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
+    """On a line in a completed statement every line field sent is `422` `LOCKED` on its
+    key, at its current value too, `account_id` and `currency_code` each on its own key
+    when sent alone or together, and all of them are named when sent together; with
+    `parts` the parts' refusal is answered beside the lock. A `null` `operation_code` may
+    be filled, and once set it is locked like the rest. Nothing is written on a refusal
     (contract: PUT /v1/transactions/{transaction_id}, "Field locking")
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")."""
-    account = scratch.account()
-    other = scratch.account()
-    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
-    line = scratch.line(account, "2026-03-09", -6000, -4000, recon=recon)
+    account = scratch.account("PEN", "USD")
+    other = scratch.account("PEN", "USD")
+    line = scratch.line(account, "2026-03-09", -6000, -4000)
     one, two = scratch.transactions[-2:]
-    client.post(f"/reconciliations/{recon}/complete")
+    statement = scratch.completed(account, *MARCH, one, two)["id"]
     title = _line(client, line)["parts"][0]["title"]
 
     code = f"OP-{uuid4().hex[:10]}"
@@ -259,38 +299,177 @@ def test_a_line_in_a_completed_reconciliation_keeps_its_line_fields(client, scra
         ({"title": "renamed"}, "title"),
         ({"date": scratch.noon("2026-03-10")}, "date"),
         ({"account_id": other}, "account_id"),
+        ({"account_id": account}, "account_id"),
+        ({"currency_code": "USD"}, "currency_code"),
+        ({"currency_code": "PEN"}, "currency_code"),
         ({"operation_code": code}, "operation_code"),
         ({"operation_code": None}, "operation_code"),
-        ({"reconciliation_id": recon}, "reconciliation_id"),
-        ({"reconciliation_id": None}, "reconciliation_id"),
+        ({"statement_id": statement}, "statement_id"),
+        ({"statement_id": None}, "statement_id"),
     ]
     for body, key in sent_alone:
         err = refused(lambda body=body: _write(client, line, body))
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR"), body
-        assert err.reasons == {key: "LOCKED"}, (body, err.reasons)
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "LOCKED")
+
+    for body in (
+        {"account_id": other, "currency_code": "USD"},
+        {"account_id": account, "currency_code": "PEN"},
+    ):
+        err = refused(lambda body=body: _write(client, line, body))
+        assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(body, "LOCKED"))
 
     together = {
         "title": "renamed",
         "date": scratch.noon("2026-03-10"),
         "account_id": other,
+        "currency_code": "USD",
         "operation_code": f"{code}-b",
-        "reconciliation_id": None,
+        "statement_id": None,
     }
     err = refused(lambda: _write(client, line, together))
-    assert err.reasons == dict.fromkeys(together, "LOCKED")
+    assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(together, "LOCKED"))
 
     beside = {
         "title": "renamed",
         "parts": [{"id": one, "amount_cents": -8000}, {"id": two, "amount_cents": -3000}],
     }
     err = refused(lambda: _write(client, line, beside))
-    assert err.reasons == {
-        "title": "LOCKED",
-        "parts": "SPLIT_TOTAL_MISMATCH",
-        "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH",
-        "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
-    }
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "title": "LOCKED",
+            "parts": "SPLIT_TOTAL_MISMATCH",
+            "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH",
+            "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
+        },
+    )
     assert _line(client, line) == before
+
+
+def _placed(client, line_id: str) -> tuple[str, str]:
+    """The line's account and currency as the line answers them, every part being on that
+    pair too (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    read = _line(client, line_id)
+    pair = (read["account_id"], read["currency_code"])
+    assert {(p["account_id"], p["currency_code"]) for p in read["parts"]} == {pair}
+    return pair
+
+
+@pytest.mark.parametrize("route", ["bank-lines", "transactions"])
+def test_a_line_moves_by_currency_by_account_or_both(client, scratch, route):
+    """A move names where the line goes by `currency_code` alone (that currency of its own
+    account), by `account_id` alone (the same currency on that account) or by both, and
+    moves every part of the line, its money with it: the account's balance in each currency
+    follows. The same through `PUT /bank-lines/{id}` and through `PUT /transactions/{id}`
+    on one part, whose `changed_parts` lists both parts, none having left a statement
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")
+    (contract: PUT /v1/transactions/{transaction_id}, "Response")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+    visa = scratch.account("PEN", "USD")
+    other = scratch.account("PEN", "USD")
+    line = scratch.line(visa, "2026-03-13", -6000, -4000)
+    one, two = scratch.transactions[-2:]
+    path = f"/bank-lines/{line}" if route == "bank-lines" else f"/transactions/{one}"
+    assert _placed(client, line) == (visa, "PEN")
+
+    here = (visa, "PEN")
+    for body, there in (
+        ({"currency_code": "USD"}, (visa, "USD")),
+        ({"account_id": other}, (other, "USD")),
+        ({"account_id": visa, "currency_code": "PEN"}, (visa, "PEN")),
+    ):
+        answer = client.put(path, json_body=body)
+        assert _placed(client, line) == there, body
+        assert {c["transaction"]["id"] for c in answer["changed_parts"]} == {one, two}, body
+        assert {c["left_statement"] for c in answer["changed_parts"]} == {False}, body
+        assert account_balance(client, *here) == 0, body
+        assert account_balance(client, *there) == -10000, body
+        here = there
+
+
+@pytest.mark.parametrize("route", ["bank-lines", "transactions"])
+def test_a_move_onto_an_account_lacking_the_currency_is_refused(client, scratch, route):
+    """`account_id` alone onto an account that holds none of the line's currency is
+    `422` `CURRENCY_NOT_HELD` on `account_id`, the message naming the currency; with
+    `currency_code` sent, alone or beside `account_id`, it is on `currency_code` alone.
+    Nothing is written: the line and both accounts' balances read as before
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+    visa = scratch.account("PEN", "USD")
+    soles = scratch.account()
+    dollars = scratch.line(visa, "2026-03-14", -6000, -4000, currency="USD")
+    dollar_part = scratch.transactions[-2]
+    loose = scratch.line(soles, "2026-03-14", -2000)
+    loose_part = scratch.transactions[-1]
+
+    def route_path(line: str, part: str) -> str:
+        return f"/bank-lines/{line}" if route == "bank-lines" else f"/transactions/{part}"
+
+    def balances() -> list[int]:
+        return [
+            account_balance(client, visa, "PEN"),
+            account_balance(client, visa, "USD"),
+            account_balance(client, soles),
+        ]
+
+    cases = [
+        (dollars, dollar_part, {"account_id": soles}, "account_id"),
+        (dollars, dollar_part, {"account_id": soles, "currency_code": "USD"}, "currency_code"),
+        (loose, loose_part, {"currency_code": "USD"}, "currency_code"),
+        (loose, loose_part, {"account_id": soles, "currency_code": "USD"}, "currency_code"),
+    ]
+    for line, part, body, key in cases:
+        held_line, held_balances = _line(client, line), balances()
+        path = route_path(line, part)
+        err = refused(lambda path=path, body=body: client.put(path, json_body=body))
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "CURRENCY_NOT_HELD")
+        if key == "account_id":
+            assert err.fields[key] == "The account holds no USD."
+        assert _line(client, line) == held_line, body
+        assert balances() == held_balances, body
+
+
+def test_a_move_of_an_assigned_line_settles_its_statement(client, scratch):
+    """A line in a draft statement moved to another account or currency without a
+    `statement_id` is `422` `ASSIGNED_TO_RECONCILIATION` on each of `account_id` and
+    `currency_code` sent, nothing written. Sent `statement_id` of its own draft, it moves
+    to another currency of its account and stays in it, the draft gaining the currency's
+    balances blank; sent `statement_id` `null`, it moves to another account and leaves the
+    statement, each part's `left_statement` true
+    (contract: "Statements", "Assigning transactions")
+    (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
+    visa = scratch.account("PEN", "USD")
+    other = scratch.account("PEN", "USD")
+    statement = scratch.statement(visa, *APRIL)["id"]
+    line = scratch.line(visa, "2026-04-06", -6000, -4000)
+    one, two = scratch.transactions[-2:]
+    scratch.assign(one, statement)
+
+    held = _line(client, line)
+    for body in (
+        {"currency_code": "USD"},
+        {"account_id": other},
+        {"account_id": other, "currency_code": "USD"},
+    ):
+        err = refused(lambda body=body: _write(client, line, body))
+        reasons = dict.fromkeys(body, "ASSIGNED_TO_RECONCILIATION")
+        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+        assert _line(client, line) == held, body
+
+    kept = _write(client, line, {"currency_code": "USD", "statement_id": statement})
+    assert (kept["account_id"], kept["currency_code"]) == (visa, "USD")
+    assert {p["statement_id"] for p in kept["parts"]} == {statement}
+    assert {c["left_statement"] for c in kept["changed_parts"]} == {False}
+    usd = balance_of(client.get(f"/statements/{statement}"), "USD")
+    assert (usd["beginning_balance_cents"], usd["ending_balance_cents"]) == (None, None)
+
+    left = _write(client, line, {"account_id": other, "statement_id": None})
+    assert _placed(client, line) == (other, "USD")
+    assert {c["transaction"]["id"] for c in left["changed_parts"]} == {one, two}
+    assert {c["left_statement"] for c in left["changed_parts"]} == {True}
+    assert {p["statement_id"] for p in left["parts"]} == {None}
 
 
 def test_a_kept_parts_hashtags_are_written_whenever_sent(client, scratch):
@@ -385,5 +564,4 @@ def test_a_replay_answers_the_same_and_writes_once(client, scratch, monkeypatch)
     assert replayed == first
     assert (first["created_part_ids"], first["deleted_part_ids"]) == ([added], [dropped])
     assert _versions(client, line) == {kept: versions[kept] + 1, added: 1}
-    assert (err.status, err.code) == (409, "CONFLICT")
-    assert err.reasons == {"X-Idempotency-Key": "IDEMPOTENCY_KEY_REUSED"}
+    assert_refusal(err, 409, "CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED")

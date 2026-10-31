@@ -713,7 +713,7 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
         "date     2026-01-01",
         "title    Saldo inicial",
         "account  Sueldo Soles · PEN  read-only",
-        "account: Must not move an opening balance to another account.",
+        "account: Must not move an opening balance to another account or currency.",
         "",
         "       amount    category       hashtags        note",
         "  1  3,200.00    @Opening       —",

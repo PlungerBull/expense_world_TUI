@@ -294,7 +294,9 @@ def import_part(
 LOCK_MESSAGES = {
     "LOCKED": "Locked by completed statement.",
     "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
-    "OPENING_BALANCE_ACCOUNT_FIXED": "Must not move an opening balance to another account.",
+    "OPENING_BALANCE_ACCOUNT_FIXED": (
+        "Must not move an opening balance to another account or currency."
+    ),
     "SPLIT_TOTAL_MISMATCH": "The parts must add up to the line's total.",
     "OPENING_BALANCE_CATEGORY_FIXED": (
         "Must not move an opening balance out of the opening-balance category."

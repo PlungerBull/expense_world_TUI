@@ -93,19 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-5. **Moves and the closed days (builder).**
-   [test_bank_line_write.py](../../tests/contract/test_bank_line_write.py),
-   [test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py) and
-   [test_sealed_periods.py](../../tests/contract/test_sealed_periods.py) on `statement_id` and
-   `left_statement`: a line moved by `currency_code` alone, by `account_id` alone and by both
-   (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"); `account_id` alone
-   onto an account lacking the line's currency `CURRENCY_NOT_HELD` on `account_id`; a move onto
-   a closed day `SEALED_PERIOD` on both keys sent; `edit_limits` naming `currency_code` exactly
-   when it names `account_id` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields");
-   [test_create_into_reconciliation.py](../../tests/contract/test_create_into_reconciliation.py)
-   replaced by one test that `statement_id` on `POST /transactions` and on a batch item is
-   `UNKNOWN_FIELD` (contract: POST /v1/transactions, "No `statement_id`").
-   *Passes if:* those files pass live and none names `reconciliation_id`.
 6. **The bank download and the sheet (builder).**
    [test_bank_import.py](../../tests/contract/test_bank_import.py): a card's download to one
    account, each row to the currency in its own `Moneda`; a soles download to a soles and
@@ -214,6 +201,10 @@ completed statement gaining a currency. Each held as the contract states it.
   `POST`/`PUT /statements` landing between the upload's read and its write reaches it. Either drop
   it from the upload's refusals, or state that it comes only from a concurrent statement write and
   name it under the upload's "Concurrency" part.
+  `GET /bank-lines/{id}`'s "Response fields" (`is_opening_balance`) still says "a
+  `PUT /statements/{id}/statement-order` that lists it is refused on its entry
+  (`OPENING_BALANCE_NOT_PLACED`)", but no such route exists: `GET …/statement-order` is the only
+  operation on that path, and no route sets the order by hand. Drop the sentence.
 
 ## Found along the way
 
