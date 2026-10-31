@@ -95,6 +95,23 @@ The owner approved both specs. Part 6a's drafted tasks 1, 2, 6 and 7 now follow 
 
 The owner approves the task list before any build.
 
+### Part 6a task 1 — Manage ▸ Accounts, one row per account
+- **What changed:** one row per account, with the columns Name, Type, Code, Color, a column per
+  supported currency and Status. A dim `—` shows where a currency is not held, the `Cur` column
+  is gone, and an archived account is dimmed whole.
+- **Where:** `expense/tui/screens/accounts.py`; tests in `test_tui_accounts.py` and five other
+  screen test files whose cursor keys are now account ids; tui.md §2.
+- **Interim narrowing, accepted by the reviewer:** `e` opens the Edit form on the account's
+  first currency, so a second currency's opening balance is out of reach until task 5.
+  decisions.md says so.
+- **Review:** approved on the first round. The 15 test files touching the screen pass (396
+  tests).
+- **The `x` mockup** (`expense-world-currencies-remove-key.html`), drawn for task 7, rides along
+  in the same commit, waiting for the owner's OK.
+- **Not done:** the outbox reply `to-engine/reply-f82426fb0a099676-1-reads-and-writes.md`
+  line 35 still speaks of "either row" and "the dollars row" of Manage ▸ Accounts. It is left
+  as sent, being a record of what part 1 shipped.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

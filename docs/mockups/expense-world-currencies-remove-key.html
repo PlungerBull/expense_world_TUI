@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Removing a currency · x on the account's row</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  :root[data-theme=dark]{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick,.qs{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:100ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:30px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code,.qs code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,700px),1fr));gap:16px}
+  .opt.three{grid-template-columns:repeat(auto-fit,minmax(min(100%,470px),1fr))}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .qs{margin-top:46px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs b{color:var(--text)}
+  .pick{margin-top:46px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+  .opt.wide{grid-template-columns:1fr}
+  .qs .rec-why{color:var(--pos)}
+</style>
+
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>Removing a currency · x on the account&#x27;s row</h1>
+  <p>An account holds one or more currencies. You picked <b>1 C</b> for Manage ▸ Accounts (one row per account, a <code>PEN</code> and a <code>USD</code> column) and <b>6 A</b> for adding a currency (<code>c</code> on the account&#x27;s row lists what it does not hold). This page draws how a currency is <b>removed</b>, as your answer to question 7 of <code>catch-up-currencies-6-main-views.md</code> says: a key of its own on the account&#x27;s row, <code>x</code>, footer word <code>Remove currency</code>, mirroring <code>c</code>. It lists the account&#x27;s currencies; the pick asks first, and only <code>y</code> removes it. <code>d</code> on the row still deletes the whole account.</p>
+  <p>A refused removal reads in the <b>engine&#x27;s words alone</b>, with no line of the app&#x27;s added: the account&#x27;s last currency (<code>LAST_CURRENCY</code>), a currency holding transactions (<code>HAS_TRANSACTIONS</code>, without the &quot;archive it: press a&quot; line, your answer 4 A), a currency in a live statement (<code>IN_LIVE_STATEMENT</code>) and an archived account (<code>ACCOUNT_ARCHIVED</code>). Panes 4 and 5 draw the first two; the other two read the same way. After a removal the list reads fresh from the engine.</p>
+  <p>This is <b>one design to approve</b>, not options to pick between. Every name and amount is made up: <b>Banco Inventado</b> (PEN, USD), <b>Visa Inventada</b> (PEN, USD, statement code <code>VIN</code>), <b>Caja Chica</b> (PEN), <b>Cuenta Prueba</b> (PEN, nothing in it), the archived <b>Ahorro Viejo</b> (PEN, USD) and the people <b>Ana Ejemplo</b>, <b>Rosa Modelo</b> and <b>Luis Ficticio</b>. The button at the top right switches between a light and a dark terminal.</p>
+</div>
+
+<div class="pane"><div class="lbl">1 · Manage ▸ Accounts <span>– the cursor on Visa Inventada</span></div><div class="opt wide"><div><div class="oh">the list, its footer with c and x</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name              Type    Code  Color           PEN         USD   Status  
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+    Banco Inventado   bank    <span class="d">—</span>     <span class="a">██</span>         <span class="p">8,420.00</span>      <span class="p">615.30</span>   active
+<span class="rev">    Visa Inventada    bank    VIN   ██        -2,340.50     -185.20   active          </span>
+    Caja Chica        bank    <span class="d">—</span>     <span class="d">—</span>            <span class="p">350.00</span>           <span class="d">—</span>   active
+    Cuenta Prueba     bank    <span class="d">—</span>     <span class="d">—</span>              0.00           <span class="d">—</span>   active
+<span class="d">    Ahorro Viejo      bank    —     —              0.00       12.40   archived</span>
+    Ana Ejemplo       person  <span class="d">—</span>     <span class="d">—</span>           <span class="n">-150.00</span>       <span class="p">40.00</span>   active
+    Rosa Modelo       person  <span class="d">—</span>     <span class="d">—</span>              0.00      <span class="n">-25.00</span>   active
+    Luis Ficticio     person  <span class="d">—</span>     <span class="d">—</span>              0.00        0.00   active
+
+  <span class="d">balances are native currency</span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">c</span> Currency  <span class="a">x</span> Remove currency  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><div class="cap">As 1 C. The footer now carries <code>c Currency</code> and <code>x Remove currency</code> beside the keys it has today; <code>d Delete</code> still deletes the whole account.</div></div></div></div>
+
+<div class="pane"><div class="lbl">2 · x on Visa Inventada <span>– the pick lists its currencies</span></div><div class="opt"><div><div class="oh">the pick</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+    <span class="b">Remove a currency · Visa Inventada</span>
+
+    Visa Inventada · bank · PEN -2,340.50 · USD -185.20
+
+      PEN
+      <span class="rev">USD                           </span>
+
+    <span class="d">[enter] pick    [esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+ <span class="a">esc</span> Cancel</pre></div></div><div class="cap">Mirrors <code>c</code>&#x27;s pick (6 A), listing the currencies the account holds: PEN and USD. <code>↑</code> <code>↓</code> move the highlight (here moved to USD); <code>⏎</code> takes it to the question, nothing sent yet; <code>esc</code> leaves the list as it was.</div></div></div></div>
+
+<div class="pane"><div class="lbl">3 · USD picked <span>– the question first</span></div><div class="opt"><div><div class="oh">the question</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+    <span class="b">Remove USD from Visa Inventada?</span>
+
+    Visa Inventada · bank · USD -185.20
+
+    Visa Inventada keeps PEN.
+
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><div class="cap">Names the account and the currency, in the delete question&#x27;s style. Only <code>y</code> sends the removal; <code>⏎</code>, <code>n</code>, <code>esc</code> and any other key keep it. The body line is illustrative.</div></div></div></div>
+
+<div class="pane"><div class="lbl">4 · y, and the engine refuses <span>– Visa Inventada&#x27;s USD holds transactions</span></div><div class="opt wide"><div><div class="oh">HAS_TRANSACTIONS · the engine&#x27;s words alone</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name              Type    Code  Color           PEN         USD   Status  
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+    Banco Inventado   bank    <span class="d">—</span>     <span class="a">██</span>         <span class="p">8,420.00</span>      <span class="p">615.30</span>   active
+<span class="rev">    Visa Inventada    bank    VIN   ██        -2,340.50     -185.20   active          </span>
+    Caja Chica        bank    <span class="d">—</span>     <span class="d">—</span>            <span class="p">350.00</span>           <span class="d">—</span>   active
+    Cuenta Prueba     bank    <span class="d">—</span>     <span class="d">—</span>              0.00           <span class="d">—</span>   active
+<span class="d">    Ahorro Viejo      bank    —     —              0.00       12.40   archived</span>
+    Ana Ejemplo       person  <span class="d">—</span>     <span class="d">—</span>           <span class="n">-150.00</span>       <span class="p">40.00</span>   active
+    Rosa Modelo       person  <span class="d">—</span>     <span class="d">—</span>              0.00      <span class="n">-25.00</span>   active
+    Luis Ficticio     person  <span class="d">—</span>     <span class="d">—</span>              0.00        0.00   active
+
+  <span class="d">balances are native currency</span>
+
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> CONFLICT — A currency that holds transactions cannot be removed.
+                                    <span class="n">▌</span>   currency_code: USD holds 14 transactions on this account.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">c</span> Currency  <span class="a">x</span> Remove currency  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><div class="cap">Nothing is removed; the list is as it was, the cursor still on Visa Inventada. The &quot;Failed&quot; note shows the refusal and nothing more: no &quot;archive it: press a&quot; line (<i>engine&#x27;s words, wording illustrative</i>).</div></div></div></div>
+
+<div class="pane"><div class="lbl">5 · x on Cuenta Prueba <span>– its only currency, PEN</span></div><div class="opt"><div><div class="oh">the pick</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+    <span class="b">Remove a currency · Cuenta Prueba</span>
+
+    Cuenta Prueba · bank · PEN 0.00
+
+      <span class="rev">PEN                           </span>
+
+    <span class="d">[enter] pick    [esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+ <span class="a">esc</span> Cancel</pre></div></div><div class="cap">The list holds its one currency, PEN; <code>⏎</code> picks it.</div></div><div><div class="oh">the question</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+    <span class="b">Remove PEN from Cuenta Prueba?</span>
+
+    Cuenta Prueba · bank · PEN 0.00
+
+    It is the account&#x27;s only currency.
+
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="d">──────────────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><div class="cap">Asked as in pane 3; only <code>y</code> sends it. The body line is illustrative.</div></div><div><div class="oh">LAST_CURRENCY · the engine&#x27;s words alone</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name              Type    Code  Color           PEN         USD   Status  
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+    Banco Inventado   bank    <span class="d">—</span>     <span class="a">██</span>         <span class="p">8,420.00</span>      <span class="p">615.30</span>   active
+    Visa Inventada    bank    VIN   <span class="w">██</span>        <span class="n">-2,340.50</span>     <span class="n">-185.20</span>   active
+    Caja Chica        bank    <span class="d">—</span>     <span class="d">—</span>            <span class="p">350.00</span>           <span class="d">—</span>   active
+<span class="rev">    Cuenta Prueba     bank    —     —              0.00           —   active          </span>
+<span class="d">    Ahorro Viejo      bank    —     —              0.00       12.40   archived</span>
+    Ana Ejemplo       person  <span class="d">—</span>     <span class="d">—</span>           <span class="n">-150.00</span>       <span class="p">40.00</span>   active
+    Rosa Modelo       person  <span class="d">—</span>     <span class="d">—</span>              0.00      <span class="n">-25.00</span>   active
+    Luis Ficticio     person  <span class="d">—</span>     <span class="d">—</span>              0.00        0.00   active
+
+  <span class="d">balances are native currency</span>
+
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> CONFLICT — An account holds at least one currency.
+                                    <span class="n">▌</span>   currency_code: PEN is the account&#x27;s last currency.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">c</span> Currency  <span class="a">x</span> Remove currency  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div><div class="cap">Nothing is removed, and the app adds no line of its own (<i>engine&#x27;s words, wording illustrative</i>). Deleting the account is <code>d</code> on its row, a choice of its own.</div></div></div></div>
+
+<div class="pick">To answer, say: <b>approved</b>, or what to change (the key <code>x</code>, the footer word <code>Remove currency</code>, the pick&#x27;s title or the question&#x27;s words).</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

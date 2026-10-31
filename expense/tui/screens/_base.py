@@ -548,7 +548,7 @@ class SectionScreen(
     # ---- shared write helpers ----------------------------------------------
     def selected_key(self) -> object | None:
         """The key of the list row under the cursor: the record's id, or whatever
-        key the screen's rows carry (Accounts: an account and a currency)."""
+        key the screen's rows carry."""
         from expense.tui.widgets.cursor_list import CursorList
 
         try:

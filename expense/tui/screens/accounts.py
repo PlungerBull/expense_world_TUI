@@ -1,72 +1,73 @@
 """Accounts screen — banks & people.
 
-Built on SectionScreen + the shared CursorList. One row per account and currency
-it holds, named "<account> · <code>" (`reads.held_currencies` is the walk), the
-Cur and Balance cells that currency's and the Type, Code, Color and Status cells
-the account's, in the engine's order. Includes people and archived accounts
-(archived rows dimmed); the Code column shows the account's statement code, a dim
-`—` when it has none (a person always); the Color column renders the account's hex
-color as a swatch. Balances are native currency — no surface converts an account
-balance to the home currency. `n` creates; `e` edits the cursor row's account
-(prefilled EditAccountScreen); `a` toggles its archive immediately — a second `a`
-undoes; `t` turns a bank account into a person (`t Make person`) or a person into a
-bank account (`t Make bank`) immediately, the footer naming the one the cursor row
+Built on SectionScreen + the shared CursorList. One row per account, in the
+engine's order, keyed by the account's id: Name, Type, Code, Color, a column per
+currency the client knows (`SUPPORTED_CURRENCIES`, in its order) and Status. Each
+currency column holds the account's balance in that currency, never summed with
+another, or a dim `—` when the account does not hold it. Includes people and
+archived accounts (archived rows dimmed whole); the Code column shows the account's
+statement code, a dim `—` when it has none (a person always); the Color column
+renders the account's hex color as a swatch. Balances are native currency — no
+surface converts an account balance to the home currency. `n` creates; `e` edits
+the cursor row's account (prefilled EditAccountScreen, opened on the account's
+first currency); `a` toggles its archive immediately — a second `a` undoes; `t`
+turns a bank account into a person (`t Make person`) or a person into a bank
+account (`t Make bank`) immediately, the footer naming the one the cursor row
 takes, and is off on an archived row; `d` deletes the cursor row's account after a
 question (`a` puts an account away, `d` is for one made by mistake). Each acts on
 the whole account, every currency at once, through one call with the account's id.
-After `a` or `t` the list reloads with the cursor on the same row, so a second press
-undoes it. `enter` does nothing.
+After `a` or `t` the list reloads with the cursor on the same account, so a second
+press undoes it. `enter` does nothing.
 """
 
 from collections.abc import Callable
 
+from rich.text import Text
 from textual.binding import Binding
 
 from expense import reads
+from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import format_error
-from expense.formatting import currency_label, format_cents
+from expense.formatting import format_cents
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, list_refusal_text
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
 from expense.tui.widgets.refusal import toast
 
-_HEADERS = ["Name", "Type", "Cur", "Code", "Color", "Balance", "Status"]
+#: Name, Type, Code, Color, a balance column per supported currency, then Status.
+_HEADERS = ["Name", "Type", "Code", "Color", *SUPPORTED_CURRENCIES, "Status"]
 
 
-def _row_entries(items: list[dict]) -> list[tuple[dict, str, dict | None]]:
-    """`(account, name, currency entry)` per list row, in the engine's order: one per
-    currency an account holds (`reads.held_currencies`), and one with no entry for an
-    account that holds none, so it stays reachable."""
-    entries: list[tuple[dict, str, dict | None]] = []
-    for account in items:
-        if not account.get("id"):
-            continue
-        held = reads.held_currencies([account])
-        entries.extend(held or [(account, account.get("name") or "(unnamed)", None)])
-    return entries
+def _balance_cells(account: dict, palette: Palette | None) -> list[str | Text]:
+    """One cell per supported currency, in `SUPPORTED_CURRENCIES` order: the
+    account's balance in it, or a dim `—` when the account does not hold it."""
+    held = {h["currency_code"]: h for _, _, h in reads.held_currencies([account])}
+    return [
+        amount_cell(held[code].get("current_balance_cents"), palette, AMOUNT_RULE)
+        if code in held
+        else code_cell(None)
+        for code in SUPPORTED_CURRENCIES
+    ]
 
 
 def account_rows(items: list[dict], palette: Palette | None = None) -> list:
-    """Pure (key, cells, base_style) rows for a CursorList, one per account and
-    currency, the key `(account id, currency code)`; an account holding no currency
-    has one row, its name alone, a dim `—` for Cur and Balance, and the key
-    `(account id, None)`. Unit-testable."""
+    """Pure (key, cells, base_style) rows for a CursorList, one per account in the
+    order given, the key the account's id; id-less records are skipped. An archived
+    account's row is dimmed whole. Unit-testable."""
     rows = []
-    for account, name, held in _row_entries(items):
+    for account in items:
+        if not account.get("id"):
+            continue
         archived = bool(account.get("is_archived"))
-        code = held["currency_code"] if held else None
         cells = [
-            currency_label(name, code) if code else name,
+            account.get("name") or "(unnamed)",
             "person" if account.get("is_person") else "bank",
-            code_cell(code),
             code_cell(account.get("statement_code")),
             swatch(account.get("color")),
-            amount_cell(held.get("current_balance_cents"), palette, AMOUNT_RULE)
-            if held
-            else code_cell(None),
+            *_balance_cells(account, palette),
             "archived" if archived else "active",
         ]
-        rows.append(((account["id"], code), cells, "dim" if archived else ""))
+        rows.append((account["id"], cells, "dim" if archived else ""))
     return rows
 
 
@@ -77,7 +78,7 @@ class AccountsScreen(ResourceListScreen):
     HEADERS = _HEADERS
     EMPTY = "(no accounts)"
     LEGEND = "balances are native currency"
-    ALIGN_RIGHT = {5}
+    ALIGN_RIGHT = {_HEADERS.index(code) for code in SUPPORTED_CURRENCIES}
     RESOURCE = "accounts"
     # Accounts are the only archivable resource, so the `a` toggle lives here,
     # not on the shared scaffold. `t` is two bindings of one key, one per
@@ -94,15 +95,9 @@ class AccountsScreen(ResourceListScreen):
     def fetch_items(self, cfg, **kw):
         return reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
 
-    def index_items(self, items: list) -> dict:
-        return {
-            (account["id"], held["currency_code"] if held else None): account
-            for account, _, held in _row_entries(items)
-        }
-
     def delete_question(self, item: dict) -> tuple[str, str, str]:
-        """The whole account, whichever of its rows the cursor is on: its name, its
-        kind, then each currency it holds with that currency's balance."""
+        """The whole account: its name, its kind, then each currency it holds with
+        that currency's balance."""
         kind = "person" if item.get("is_person") else "bank"
         held = [
             f"{h['currency_code']} {format_cents(h.get('current_balance_cents'))}"
@@ -183,9 +178,8 @@ class AccountsScreen(ResourceListScreen):
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        key = self.selected_key()
-        code = key[1] if isinstance(key, tuple) else None
-        return EditAccountScreen(item, code)
+        held = reads.held_currencies([item])
+        return EditAccountScreen(item, held[0][2]["currency_code"] if held else None)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen

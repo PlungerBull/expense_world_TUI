@@ -263,8 +263,8 @@ VISA = account_with_currencies(
 )
 
 
-def test_the_dollars_row_posts_its_own_opening_balance_and_leaves_the_soles_one(fake_client):
-    """Opened on the dollars row, the form reads no opening balance (the soles
+def test_dollars_posts_its_own_opening_balance_and_leaves_the_soles_one(fake_client):
+    """Opened on dollars, the form reads no opening balance (the soles
     one is not its), and the one typed is sent for USD alone."""
 
     async def body(pilot, app, screen):
@@ -814,7 +814,7 @@ def test_screen_7_each_refusal_shows_in_the_engines_words(
 
 
 def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
-    # the list reads an account holding its currencies; the form is opened on that row's account
+    # the list reads an account holding its currencies; the form is opened on the row's account
     accounts = [SUELDO, EFECTIVO]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
     seen: dict = {}
@@ -846,14 +846,14 @@ def test_screen_8_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, 
     seen = _list_then_edit(
         fake_client, monkeypatch, [("opening", "350.00"), ("as_of", "2026-01-01")], save=True
     )
-    assert seen["cursor"] == ("acc-sue", "PEN")  # first page, cursor on row 1
+    assert seen["cursor"] == "acc-sue"  # first page, cursor on row 1
     assert ("Saved.", {}) in notes
     assert ("POST", "/accounts/acc-efe/opening-balance") in fake_client.requests
 
 
 def test_leaving_without_a_save_keeps_the_row(fake_client, notes, monkeypatch):
     seen = _list_then_edit(fake_client, monkeypatch, [], save=False)
-    assert seen["cursor"] == ("acc-efe", "PEN")
+    assert seen["cursor"] == "acc-efe"
     assert fake_client.requests == []
 
 

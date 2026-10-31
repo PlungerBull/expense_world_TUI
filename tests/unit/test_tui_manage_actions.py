@@ -46,12 +46,12 @@ def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
     assert ("POST", "/accounts/a1/archive") in fake_client.requests
 
 
-def test_archive_on_either_row_of_a_two_currency_account_sends_one_call_and_dims_both(
+def test_archive_on_a_two_currency_account_sends_one_call_and_dims_its_row(
     fake_client, monkeypatch
 ):
-    """`a` on the dollars row sends one `POST /accounts/{id}/archive` with the account's
-    id, never one per currency; the reload dims both rows and the cursor is back on the
-    dollars row."""
+    """`a` on a two-currency account's one row sends one `POST /accounts/{id}/archive`
+    with the account's id, never one per currency; the reload dims the row whole and the
+    cursor is back on it."""
     visa = account_with_currencies(
         id="visa", name="Visa", currencies=[held_currency("PEN", 100), held_currency("USD", 5)]
     )
@@ -63,14 +63,14 @@ def test_archive_on_either_row_of_a_two_currency_account_sends_one_call_and_dims
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
-        cursor_list.set_cursor(cursor_list.index_of(("visa", "USD")))
+        cursor_list.set_cursor(cursor_list.index_of("visa"))
         served[:] = [{**visa, "is_archived": True}]  # what the engine reads after the write
         await pilot.press("a")
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == ("visa", "USD")
-        assert [row.base_style for row in cursor_list._rows] == ["dim", "dim"]
+        assert cursor_list.cursor_key == "visa"
+        assert [row.base_style for row in cursor_list._rows] == ["dim"]
 
     run_app(scenario)
     assert [r for r in fake_client.requests if r[0] == "POST"] == [
@@ -78,7 +78,7 @@ def test_archive_on_either_row_of_a_two_currency_account_sends_one_call_and_dims
     ]
 
 
-def _edit_two_currency_account(fake_client, monkeypatch, key, row="USD"):
+def _edit_two_currency_account(fake_client, monkeypatch, key):
     visa = account_with_currencies(
         id="visa",
         name="Visa",
@@ -102,7 +102,7 @@ def _edit_two_currency_account(fake_client, monkeypatch, key, row="USD"):
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
-        cursor_list.set_cursor(cursor_list.index_of(("visa", row)))
+        cursor_list.set_cursor(cursor_list.index_of("visa"))
         await pilot.press("e")
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
         await wait_for(pilot, lambda: not app.screen._opening_loading)
@@ -119,25 +119,19 @@ def _edit_two_currency_account(fake_client, monkeypatch, key, row="USD"):
     return seen
 
 
-def test_e_on_the_dollars_row_edits_the_account_and_a_cancel_keeps_the_row(
+def test_e_edits_the_account_on_its_first_currency_and_a_cancel_keeps_the_row(
     fake_client, monkeypatch
 ):
+    """`e` on a two-currency account's one row opens the form on the account's first
+    currency, as the engine lists them: its code and its own opening balance."""
     seen = _edit_two_currency_account(fake_client, monkeypatch, "escape")
-    assert seen["name"] == "Visa" and seen["cursor"] == ("visa", "USD")
+    assert seen["name"] == "Visa" and seen["cursor"] == "visa"
     assert fake_client.calls == []
-    # the form opened on the dollars row: its currency and its own opening balance
-    assert seen["currency"] == "USD" and seen["opening_id"] == "tx-usd"
-    assert seen["asked"] == ["tx-usd"]
-
-
-def test_e_on_the_soles_row_opens_the_form_on_soles(fake_client, monkeypatch):
-    seen = _edit_two_currency_account(fake_client, monkeypatch, "escape", row="PEN")
-    assert seen["cursor"] == ("visa", "PEN")
     assert seen["currency"] == "PEN" and seen["opening_id"] == "tx-pen"
     assert seen["asked"] == ["tx-pen"]
 
 
-def test_e_on_the_dollars_row_saves_the_account_by_its_id(fake_client, monkeypatch):
+def test_e_on_a_two_currency_account_saves_it_by_its_id(fake_client, monkeypatch):
     _edit_two_currency_account(fake_client, monkeypatch, "ctrl+s")
     assert "/accounts/visa" in dict(fake_client.puts)
 
@@ -171,7 +165,7 @@ def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)  # reload landed
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == ("a2", "PEN")
+        assert cursor_list.cursor_key == "a2"
 
     run_app(scenario)
     assert ("POST", "/accounts/a2/archive") in fake_client.requests
@@ -192,12 +186,12 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
-        cursor_list.set_cursor(cursor_list.index_of(("a22", "PEN")))
+        cursor_list.set_cursor(cursor_list.index_of("a22"))
         await pilot.press("a")
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)  # reload landed
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == ("a22", "PEN")
+        assert cursor_list.cursor_key == "a22"
         assert cursor_list.page_status == "rows 21-25 of 25 · page 2 of 2"
 
     run_app(scenario, size=(120, 40))
@@ -288,11 +282,6 @@ _EDIT_LISTS = {
 }
 
 
-def _row_key(which, row):
-    """The key of a list row: an account's rows are keyed by account and currency."""
-    return (row["id"], "PEN") if which == "accounts" else row["id"]
-
-
 def _edit_second_row(fake_client, monkeypatch, which, key):
     make, rows, fetch = _EDIT_LISTS[which]
     monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole(rows))
@@ -319,11 +308,11 @@ def _edit_second_row(fake_client, monkeypatch, which, key):
 def test_a_saved_edit_reloads_the_list_from_row_1(fake_client, monkeypatch, which):
     cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "ctrl+s")
     assert fake_client.puts  # the save wrote
-    assert cursor == _row_key(which, rows[0])
+    assert cursor == rows[0]["id"]
 
 
 @pytest.mark.parametrize("which", list(_EDIT_LISTS))
 def test_a_cancelled_edit_keeps_the_row(fake_client, monkeypatch, which):
     cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "escape")
     assert fake_client.calls == []
-    assert cursor == _row_key(which, rows[1])
+    assert cursor == rows[1]["id"]

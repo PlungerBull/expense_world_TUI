@@ -406,8 +406,8 @@ _REFUSED_LINES = {
 class EditAccountScreen(NewAccountScreen):
     """Edit an account — a bank account or a person — and its opening balance.
 
-    The form opens on one row of the list, so on one of the account's currencies
-    (`currency_code`, `None` on an account holding none). CURRENCY shows it,
+    The form opens on one of the account's currencies (`currency_code`, the
+    account's first on Manage ▸ Accounts, `None` on an account holding none). CURRENCY shows it,
     read-only, and the form ends with two optional lines after COLOR: OPENING
     (the signed amount, in that currency, taken as typed) and AS OF (its day).
     A person's form has them as a bank account's does, and its opening balance

@@ -62,8 +62,8 @@ def _cuenta(i: int) -> dict:
 
 
 def _key(resource: str, i: int) -> object:
-    """The key of row `i`: an account's rows are keyed by account and currency."""
-    return (f"a{i}", "PEN") if resource == "accounts" else f"{resource[0]}{i}"
+    """The key of row `i`: the record's id."""
+    return f"{resource[0]}{i}"
 
 
 def _category(i: int) -> dict:
@@ -531,9 +531,7 @@ def test_a_refusal_shows_the_engine_words_and_what_to_do(
         await pilot.press("y")
         await wait_for(pilot, lambda: notes)
         assert notes == [("Failed", note)]
-        assert screen.query_one(CursorList).cursor_key == (
-            (row["id"], "PEN") if make is AccountsScreen else row["id"]
-        )
+        assert screen.query_one(CursorList).cursor_key == row["id"]
 
     with respx.mock() as engine:
         engine.delete(f"{ENGINE_URL}/v1/{path}").mock(
@@ -640,7 +638,7 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("account", "cursor_code", "line"),
+    ("account", "line"),
     [
         (
             account_with_currencies(
@@ -648,40 +646,27 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
                 name="Prueba",
                 currencies=[held_currency("PEN", 0), held_currency("USD", 0)],
             ),
-            "PEN",
-            "Prueba · bank · PEN 0.00 · USD 0.00",
-        ),
-        (
-            account_with_currencies(
-                id="p1",
-                name="Prueba",
-                currencies=[held_currency("PEN", 0), held_currency("USD", 0)],
-            ),
-            "USD",
             "Prueba · bank · PEN 0.00 · USD 0.00",
         ),
         (
             account_with_currencies(
                 id="p1", name="Efectivo", currencies=[held_currency("PEN", 35000)]
             ),
-            "PEN",
             "Efectivo · bank · PEN 350.00",
         ),
         (
             account_with_currencies(id="p1", name="Prueba", currencies=[]),
-            None,
             "Prueba · bank",
         ),
     ],
-    ids=["two-on-soles-row", "two-on-dollars-row", "one", "none"],
+    ids=["two", "one", "none"],
 )
 def test_the_delete_question_names_the_whole_account_and_each_currency(
-    configured, monkeypatch, account, cursor_code, line
+    configured, monkeypatch, account, line
 ):
     """Pane A of expense-world-currencies-delete.html: the question's second line is the
-    account, its kind, then each currency it holds with its balance, the same whichever of
-    the account's rows the cursor is on, then today's sentence; one DELETE with the
-    account's id."""
+    account, its kind, then each currency it holds with its balance, then today's
+    sentence; one DELETE with the account's id."""
     _stub_manage(monkeypatch, "accounts", [account])
 
     async def scenario(pilot, app):
@@ -689,7 +674,7 @@ def test_the_delete_question_names_the_whole_account_and_each_currency(
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         listing = screen.query_one(CursorList)
-        listing.set_cursor(listing.index_of(("p1", cursor_code)))
+        listing.set_cursor(listing.index_of("p1"))
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == "Delete this account?"
@@ -755,16 +740,16 @@ def test_a_cancelled_delete_keeps_the_archive_re_selection(configured, monkeypat
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        screen._restore_key = ("a2", "PEN")  # what `a` on row a2 leaves for its reload
+        screen._restore_key = "a2"  # what `a` on row a2 leaves for its reload
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("n")
         await wait_for(pilot, lambda: app.screen is screen)
-        assert screen._restore_key == ("a2", "PEN")
+        assert screen._restore_key == "a2"
         screen._load()  # the toggle's reload lands
         await wait_for(pilot, lambda: screen._restore_key is None)
         await pilot.pause()
-        assert screen.query_one(CursorList).cursor_key == ("a2", "PEN")
+        assert screen.query_one(CursorList).cursor_key == "a2"
 
     run_app(scenario, size=SIZE)
 

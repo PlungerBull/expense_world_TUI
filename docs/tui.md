@@ -901,20 +901,19 @@ other row they end the footer as usual. A built-in category's colour is not chan
 from this app either. Under the list a legend says so: `System categories cannot be renamed
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
-**Manage ▸ Accounts is a table of Name, Type, Cur, Code, Color, Balance and Status** (screen
-4 B in [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
-for Code), banks and people together, archived rows dimmed, under the legend `balances are
-native currency`. It has one row per account and currency the account holds, named
-`<account> · <code>`: Cur and Balance are that currency's, Type, Code, Color and Status the
-account's, accounts as the engine sends them and each one's currencies as sent
-(`reads.held_currencies`; contract: GET /v1/accounts, "Ordering")
-(contract: "Bank Accounts", "Per-currency order"). An account holding no currency has one row,
-its name alone and a dim `—` for Cur and Balance. `e`, `a`, `t` and `d` act on the account under
-the cursor, every currency at once, through one call with the account's id
-(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"), so `a` dims every
-row of the account; after `a` or `t` the cursor is back on the same row. Code is the account's
-statement code, or a dim `—` when it has none. Balance is the one
-right-aligned column (`account_rows` in
+**Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**
+(pane 1 C in [expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html),
+and screen 4 B in [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
+for Code), banks and people together, under the legend `balances are native currency`. It has
+one row per account, named by the account's name alone, in the engine's order ("Accounts stand
+in the engine's order everywhere" above). The currency columns are the currencies the client knows,
+`PEN` then `USD` (`SUPPORTED_CURRENCIES` in [currencies.py](../expense/currencies.py)): each
+holds the account's balance in that currency, right-aligned and never summed with another, or a
+dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
+when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
+account under the cursor, every currency at once, through one call with the account's id
+(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"); after `a` or `t`
+the cursor is back on the same account (`account_rows` in
 [accounts.py](../expense/tui/screens/accounts.py)).
 
 **`t` turns an account into a person and back** (screens 1 A, 2 A, 3 and 5 B in
@@ -956,7 +955,7 @@ away and can be undone, delete is for something made by mistake.
 
 On Accounts the delete acts on the whole account (contract: "What an account is", "An account is deleted whole"):
 the body's first line is the account, its kind, then each currency it holds with that
-currency's balance, the same whichever of the account's rows the cursor is on; a one-currency
+currency's balance; a one-currency
 account reads `Efectivo · bank · PEN 350.00`, one holding none `Prueba · bank`
 ([expense-world-currencies-delete.html](mockups/expense-world-currencies-delete.html), pane A).
 
@@ -1207,8 +1206,9 @@ such line.
   line with what was typed on the Edit form; every refusal of a code, `STATEMENT_CODE_EXISTS` included, reads in the engine's
   words alone (the table in "When the engine says no").
 
-**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on one
-of the account's rows: the form's currency is that row's, and an account holding none opens with
+**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on the
+account's first currency as the engine lists them (contract: "Bank Accounts", "Per-currency order"),
+and an account holding none opens with
 `opening` and `as of` read-only; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html), and a
 person's in pane A of

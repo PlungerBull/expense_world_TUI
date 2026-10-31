@@ -331,13 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-1. **Manage ▸ Accounts, one row per account** (point 1; question 1). `account_rows` and
-   `_HEADERS` in [accounts.py](../../expense/tui/screens/accounts.py) and its tests; tui.md §2
-   "Manage ▸ Accounts is a table of …". *Passes if:* a fake engine's Visa in PEN and USD and
-   ALEJO in PEN and USD each draw as one row of the columns Name, Type, Code, Color, PEN, USD
-   and Status (answer 1 C, drawn in pane 1 C), each balance in its own column and none summed,
-   a dim `—` where the account does not hold the currency, the `Cur` column gone, archived ones
-   dimmed whole; the unit tests pin it; tui.md says so.
 2. **Home's BANK ACCOUNTS and PEOPLE** (point 2; question 2). The account rows of
    [home.py](../../expense/tui/screens/home.py) and its tests; tui.md §2 "Home is four months of
    the ledger". *Passes if:* `/dashboard` rows `{id, name, currencies}` draw as the

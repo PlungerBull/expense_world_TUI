@@ -1071,12 +1071,13 @@ currencies in one balance* — a total across currencies has no meaning.
 **Decision.** Every list and picker that showed one row per per-currency account shows one row
 per account and currency, labelled with the account's name and the code ("VISA Infinite
 Sapphire · USD", `formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT
-line, the ledger's Account column and bulk `b`, Home's balances, and Manage ▸ Accounts. A pick
-carries the account's id and the currency's code, and every write sends both. On Manage ▸
-Accounts, `e`, `a`, `t` and `d` act on the whole account from any of its rows; `d` names the
-account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`), and Edit
-account opened on a row gives that currency's opening balance. An account the engine reads with
-no currency keeps one row, its name alone, so it can still be found and deleted.
+line, the ledger's Account column and bulk `b`, and Home's balances. A pick carries the
+account's id and the currency's code, and every write sends both. Manage ▸ Accounts is the first
+screen redrawn: one row per account with a column per currency (question 1 C of
+[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)), `d`
+naming the account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`).
+Its `e` opens the Edit form on the account's first currency, so a second currency's opening
+balance is out of reach until that spec's task 5 gives each currency its own pair on the form.
 
 **Why.** It moves the app onto the engine's model with the screens as close to the ones the owner
 knows as the model allows, so the app works again before the screens are redrawn with the

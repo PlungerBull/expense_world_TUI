@@ -102,14 +102,14 @@ def _footer(screen) -> list[str]:
     ]
 
 
-async def _open(pilot, app, monkeypatch, cursor: str | tuple[str, str]):
-    """Open the list with the cursor on a row: an account (its soles row) or its row key."""
+async def _open(pilot, app, monkeypatch, cursor: str):
+    """Open the list with the cursor on an account's row."""
     screen = AccountsScreen()
     notes = _record_notes(monkeypatch, screen)
     await app.push_screen(screen)
     await wait_for_list(pilot, app)
     listing = screen.query_one(CursorList)
-    listing.set_cursor(listing.index_of(cursor if isinstance(cursor, tuple) else (cursor, "PEN")))
+    listing.set_cursor(listing.index_of(cursor))
     screen.refresh_bindings()
     await pilot.pause()
     return screen, notes
@@ -119,12 +119,12 @@ async def _open(pilot, app, monkeypatch, cursor: str | tuple[str, str]):
 
 TURNS = [
     # cursor row, route, the row's kind after, the note, its index after, the label after;
-    # a two-currency account is turned from its dollar row and the cursor stays on it
-    (("a-alejo", "USD"), "make-person", True, "Now a person.", 5, "t Make bank"),
+    # a two-currency account is turned on its one row and the cursor stays on it
+    ("a-alejo", "make-person", True, "Now a person.", 4, "t Make bank"),
     # an account with an opening balance turns too, keeping it
     # (contract: POST /v1/accounts/{account_id}/make-person)
-    (("a-efectivo", "PEN"), "make-person", True, "Now a person.", 5, "t Make bank"),
-    (("a-juan", "PEN"), "make-account", False, "Now a bank account.", 4, "t Make person"),
+    ("a-efectivo", "make-person", True, "Now a person.", 4, "t Make bank"),
+    ("a-juan", "make-account", False, "Now a bank account.", 3, "t Make person"),
 ]
 
 
@@ -136,7 +136,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
     nothing, and the reload keeps the cursor on the turned account in its new
     place, the note saying what it is now and the footer offering the way back,
     its opening balance, if any, still on it."""
-    ident = row[0]
+    ident = row
     rows = _rows()
     opening = next(r for r in rows if r["id"] == ident)["currencies"][0][
         "opening_balance_transaction_id"
@@ -183,7 +183,7 @@ def test_the_label_follows_the_cursor_row_and_t_sits_before_d(configured, monkey
     footers: dict = {}
 
     async def scenario(pilot, app):
-        screen, _ = await _open(pilot, app, monkeypatch, ("a-alejo", "USD"))
+        screen, _ = await _open(pilot, app, monkeypatch, "a-alejo")
         footers["bank"] = _footer(screen)
         await pilot.press("down")  # → Eliana, a person
         await pilot.pause()

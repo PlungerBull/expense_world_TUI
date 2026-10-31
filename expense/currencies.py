@@ -3,7 +3,8 @@
 Provenance: only `PEN` and `USD` exist (contract: "Currencies"). When the
 contract admits another currency, update this tuple in the same change.
 
-Tuple order is meaningful: it drives the account-form currency picker.
+Tuple order is meaningful: it drives the account-form currency picker and the
+order of Manage ▸ Accounts' currency columns.
 """
 
 SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
