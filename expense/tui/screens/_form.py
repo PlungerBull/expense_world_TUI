@@ -21,6 +21,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, Static
 
+from expense.errors import format_error
 from expense.tui.screens._base import EngineWriteMixin
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
@@ -182,6 +183,12 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def _done(self) -> None:
         """Success callback (UI thread) — toast + dismiss."""
         raise NotImplementedError
+
+    def _refusal_text(self, exc: Exception) -> str:
+        """The words a refused save reads in (`run_write`'s `error_text`); a form
+        that lands the cursor on the line a refusal names overrides it. The
+        default is the shared `format_error`."""
+        return format_error(exc)
 
     # ---- layout ------------------------------------------------------------
     @property
@@ -374,6 +381,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             on_success=self._done,
             on_error=self._failed,
             on_response=self._answered,
+            error_text=self._refusal_text,
         )
 
     def _failed(self, message: str) -> None:

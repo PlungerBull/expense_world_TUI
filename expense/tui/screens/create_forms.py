@@ -7,7 +7,9 @@ ahead that can change) POSTs. Reached with `n` on the Manage list screens.
 New account covers both kinds: its first field is TYPE (`bank` / `person`,
 prefilled `bank`), and both save with `POST /accounts`; a `person` adds
 `is_person: true` to the body (contract: POST /v1/accounts, "Optional"). Editing
-cannot change it, so TYPE is locked read-only on the edit form.
+cannot change it, so TYPE is locked read-only on the edit form. Its CURRENCIES
+line picks one currency or more, as the Edit form's HASHTAGS line picks
+hashtags.
 """
 
 import uuid
@@ -21,13 +23,14 @@ from textual.widgets import Input, Static
 from expense import reads
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.dates import is_calendar_day, to_canonical_aware
-from expense.errors import EngineError, format_error, next_step
+from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.widgets.picker import matching, suggestion_list
 from expense.tui.widgets.refusal import toast
 
 _PALETTE = [
@@ -41,6 +44,9 @@ _PALETTE = [
     ("#8a8f98", "grey"),
 ]
 _CURRENCIES = [(c, c) for c in SUPPORTED_CURRENCIES]
+#: The account's CURRENCIES on New: the hashtag line's picking, a code in place
+#: of a tag.
+CURRENCIES_HINT = "type a code · ↑↓ highlight · enter adds & stays · empty enter = done"
 #: NAME's hint on Manage ▸ Accounts and Categories, New and Edit: `⏎` there goes
 #: on to the next line, never saves.
 NAME_HINT = "free text · enter to go on"
@@ -58,13 +64,33 @@ CATEGORY_COLOR_HINT = "optional · enter to save · ↑↓ another swatch"
 # Bank first: it is the prefilled default, so `enter` on an untouched TYPE field
 # keeps `bank` and adding an ordinary account still costs one keypress.
 _ACCOUNT_TYPES = [("bank", "bank"), ("person", "person")]
+#: The engine field a refusal names → the account form line it lands on, New or
+#: Edit; a line the form does not have is passed over.
+_REFUSED_LINES = {
+    "name": "name",
+    "color": "color",
+    "currencies": "currencies",
+    "amount_cents": "opening",
+    "date": "as_of",
+    "statement_code": "statement_code",
+}
+
+
+def _form_line_named(key: object) -> str | None:
+    """The account form line a refusal's key names: `_REFUSED_LINES`', and
+    CURRENCIES for any `currencies.<i>…` key."""
+    if key_index(key, "currencies") is not None:
+        return "currencies"
+    return _REFUSED_LINES.get(str(key))
 
 
 class Field:
     def __init__(self, key, label, kind="text", *, choices=None, required=False, hint=""):
         self.key = key
         self.label = label
-        self.kind = kind  # "text" | "choice" | "color"
+        # "text" | "choice" | "color" | "picks" (one or more of `choices`, the
+        # value a list of their values in the order picked)
+        self.kind = kind
         self.choices = choices or []
         self.required = required
         self.hint = hint
@@ -104,7 +130,7 @@ class BarFormScreen(FormScreen):
         return str(value)
 
     def _suggests(self, key: str) -> bool:
-        return self._field(key).kind in ("choice", "color")
+        return self._field(key).kind in ("choice", "color", "picks")
 
     def _bar_value(self, key: str) -> str:
         f = self._field(key)
@@ -113,6 +139,11 @@ class BarFormScreen(FormScreen):
     def _recompute(self, text: str) -> None:
         f = self._f
         needle = text.strip()
+        if f.kind == "picks":
+            # the hashtag line's pool: what is left to pick, the first highlighted
+            self._suggestions = matching(f.choices, needle, chosen=self._values.get(f.key, ()))
+            self._suggest_idx = 0
+            return
         if f.kind in ("choice", "color"):
             self._suggestions = [
                 (v, d) for (v, d) in f.choices if matches(needle, d) or matches(needle, v)
@@ -148,6 +179,9 @@ class BarFormScreen(FormScreen):
                 self._values[f.key] = text
             self._advance()
             return
+        if f.kind == "picks":
+            self._pick(f, text)
+            return
         # choice / color
         if self._suggest_idx < 0:  # empty, nothing highlighted: keep what the line holds
             self._advance()
@@ -159,9 +193,29 @@ class BarFormScreen(FormScreen):
         self._values[f.key] = picked[0]
         self._advance()
 
+    def _pick(self, f: Field, text: str) -> None:
+        """`⏎` on a picks line, as on the Edit form's HASHTAGS: a typed name adds
+        the highlighted choice and the bar empties for another; `⏎` with nothing
+        typed goes on."""
+        if not text:
+            self._advance()
+            return
+        picked = self._suggestions[self._suggest_idx] if self._suggestions else None
+        if picked is None:
+            toast(self, f"No {f.label.lower()} match “{text}”.", severity="error")
+            return
+        self._values[f.key] = [*self._values.get(f.key, ()), picked[0]]
+        self.query_one("#bar", Input).value = ""
+        self._recompute("")
+        self._refresh_view()
+
     # ---- render ----------------------------------------------------------
     def _suggest_renderable(self) -> RenderableType:
         f = self._f
+        if f.kind == "picks":
+            if not self._suggestions and len(self._values.get(f.key, ())) == len(f.choices):
+                return Text("")  # every choice picked: nothing left to list
+            return suggestion_list([ent[1] for ent in self._suggestions], self._suggest_idx)
         if f.kind not in ("choice", "color"):
             return Text("")
         if not self._suggestions:
@@ -187,6 +241,8 @@ class BarFormScreen(FormScreen):
                 if f.kind == "color":
                     hex_ = self._values[f.key]
                     value = Text.assemble(("██ ", hex_), (self._color_name(hex_), ""))
+                elif f.kind == "picks":
+                    value = Text(" · ".join(self._values[f.key]))
                 else:
                     value = Text(self._value_text(f.key, self._values[f.key]))
             else:
@@ -250,15 +306,22 @@ class NewAccountScreen(BarFormScreen):
     hidden"), **prefilled to `bank`** — `n`, `enter`, name… still adds an
     ordinary account without an extra decision.
 
-    The one CURRENCY goes in as `currencies: [{currency_code}]`
-    (contract: POST /v1/accounts, "Required").
+    CURRENCIES takes one currency or more, picked as the Edit form's HASHTAGS
+    picks hashtags: a typed code and `⏎` add the highlighted one and stay for
+    another, an empty `⏎` goes on. They go in as `currencies`, one
+    `{currency_code}` each, in the order picked: the account and every currency
+    in one write (contract: POST /v1/accounts, "Required").
 
-    A bank account has one more line, STATEMENT CODE, after CURRENCY: only a
+    A bank account has one more line, STATEMENT CODE, after CURRENCIES: only a
     real account carries a code here, and a person's form has no such line
     (contract: "What an account is", "Statement code"). With TYPE on person the line
     leaves the form; back on bank it returns holding what was typed. Letters
     typed there show as capitals; the engine judges the shape. Skipped, the
     key is left out of the body (contract: POST /v1/accounts).
+
+    A refusal that names one of the form's lines (`_REFUSED_LINES`; any
+    `currencies.<i>…` key names CURRENCIES) reads in the engine's words and puts
+    the cursor back on that line, with what was typed.
     """
 
     crumb = ("Manage", "Accounts", "New")
@@ -275,7 +338,12 @@ class NewAccountScreen(BarFormScreen):
         ),
         Field("name", "NAME", required=True, hint=NAME_HINT),
         Field(
-            "currency", "CURRENCY", "choice", choices=_CURRENCIES, required=True, hint="PEN or USD"
+            "currencies",
+            "CURRENCIES",
+            "picks",
+            choices=_CURRENCIES,
+            required=True,
+            hint=CURRENCIES_HINT,
         ),
         Field("statement_code", "STATEMENT CODE", hint=STATEMENT_CODE_HINT),
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
@@ -284,6 +352,8 @@ class NewAccountScreen(BarFormScreen):
     def __init__(self) -> None:
         super().__init__()
         self._values["type"] = "bank"
+        self._refused_line: str | None = None
+        self._refusal_says_next = False  # the last refusal carried its own next step
 
     @property
     def _is_person(self) -> bool:
@@ -307,7 +377,7 @@ class NewAccountScreen(BarFormScreen):
         payload = {
             "id": str(uuid.uuid4()),
             "name": self._values["name"],
-            "currencies": [{"currency_code": self._values["currency"]}],
+            "currencies": [{"currency_code": code} for code in self._values["currencies"]],
         }
         if self._is_person:
             payload["is_person"] = True
@@ -316,6 +386,33 @@ class NewAccountScreen(BarFormScreen):
         if not self._is_person and self._values.get("statement_code"):
             payload["statement_code"] = self._values["statement_code"]
         return payload
+
+    def _refusal_text(self, exc: Exception) -> str:
+        """The `error_text` of this form's writes: notes the form line the
+        refusal names, for the failure callback to land on, then reads as every
+        failed write does."""
+        self._refused_line = None
+        self._refusal_says_next = next_step(exc) is not None
+        if isinstance(exc, EngineError):
+            for field in [*(exc.reasons or {}), *(exc.fields or {})]:
+                line = _form_line_named(field)
+                if line in self._sequence() and line not in self._locked:
+                    self._refused_line = line
+                    break
+        return format_error(exc)
+
+    def _land_on_refused_line(self) -> None:
+        """Put the cursor on the line the refusal named, with what was typed in
+        the bar; a refusal that names none of the form's lines leaves it where
+        it was."""
+        line, self._refused_line = self._refused_line, None
+        if line is not None:
+            self._current = self._sequence().index(line)
+            self._refresh_bar()
+
+    def _failed(self, message: str) -> None:
+        self._land_on_refused_line()
+        super()._failed(message)
 
 
 def _edit_payload(values: dict, original_color: str | None) -> dict:
@@ -393,16 +490,6 @@ class EditCategoryScreen(NewCategoryScreen):
         self.dismiss(True)  # wrote: the list starts over (ResourceListScreen._edited)
 
 
-#: The engine field a refusal names → the account Edit form line it lands on.
-_REFUSED_LINES = {
-    "name": "name",
-    "color": "color",
-    "amount_cents": "opening",
-    "date": "as_of",
-    "statement_code": "statement_code",
-}
-
-
 class EditAccountScreen(NewAccountScreen):
     """Edit an account — a bank account or a person — and its opening balance.
 
@@ -442,9 +529,16 @@ class EditAccountScreen(NewAccountScreen):
     """
 
     BINDINGS = form_bindings("Save")
-    # New's lines, STATEMENT CODE's hint saying that emptying it clears the code
+    # New's lines, the one currency the form opens on in place of CURRENCIES,
+    # STATEMENT CODE's hint saying that emptying it clears the code
     FIELDS = [
-        _field_with_hint(f, STATEMENT_CODE_EDIT_HINT) if f.key == "statement_code" else f
+        Field(
+            "currency", "CURRENCY", "choice", choices=_CURRENCIES, required=True, hint="PEN or USD"
+        )
+        if f.key == "currencies"
+        else _field_with_hint(f, STATEMENT_CODE_EDIT_HINT)
+        if f.key == "statement_code"
+        else f
         for f in NewAccountScreen.FIELDS
     ]
 
@@ -488,8 +582,6 @@ class EditAccountScreen(NewAccountScreen):
         self._opening_loading = self._opening_id is not None
         if currency_code is None:  # no currency, no opening balance to give
             self._locked |= {"opening", "as_of"}
-        self._refused_line: str | None = None
-        self._refusal_says_next = False  # the last refusal carried its own next step
         currency = currency_code or "?"
         self.FIELDS = [
             *EditAccountScreen.FIELDS,
@@ -669,33 +761,6 @@ class EditAccountScreen(NewAccountScreen):
             )
             return
         self._send(account if send_account else None, opening)
-
-    def _refusal_text(self, exc: Exception) -> str:
-        """The `error_text` of this form's writes: notes the form line the
-        refusal names, for the failure callback to land on, then reads as every
-        failed write does."""
-        self._refused_line = None
-        self._refusal_says_next = next_step(exc) is not None
-        if isinstance(exc, EngineError):
-            for field in [*(exc.reasons or {}), *(exc.fields or {})]:
-                line = _REFUSED_LINES.get(field)
-                if line in self._sequence() and line not in self._locked:
-                    self._refused_line = line
-                    break
-        return format_error(exc)
-
-    def _land_on_refused_line(self) -> None:
-        """Put the cursor on the line the refusal named, with what was typed in
-        the bar; a refusal that names none of the form's lines leaves it where
-        it was."""
-        line, self._refused_line = self._refused_line, None
-        if line is not None:
-            self._current = self._sequence().index(line)
-            self._refresh_bar()
-
-    def _failed(self, message: str) -> None:
-        self._land_on_refused_line()
-        super()._failed(message)
 
     def _send(self, account: dict | None, opening: tuple[str, str, dict | None] | None) -> None:
         self._submitting = True

@@ -94,7 +94,8 @@ expense/tui/
                     #   statement.py)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
-                    #   bank): both save with POST /accounts, a person with `is_person: true`; the
+                    #   bank) and a CURRENCIES line (§2): both save with one
+                    #   POST /accounts, a person with `is_person: true`; the
                     #   account Edit form carries the opening balance (§2).
                     #   COLOR is optional on New account and New category
                     #   (hints: §4 "The bar forms' keys"): a skipped
@@ -1177,10 +1178,33 @@ SETTINGS_MISSING — User settings have not been provisioned.
 Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.
 ```
 
+**The New form makes an account and its currencies in one write** (`n` on Manage ▸ Accounts;
+question 3 A of
+[expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)).
+Its lines are `type` (`bank` or `person`, prefilled `bank`), `name`, **`currencies`**, a bank
+account's `statement code` (below) and `color`.
+
+- **`currencies` takes one currency or more,** picked as a part's HASHTAGS line on the Edit
+  form picks hashtags: the list under the bar holds the currencies not yet picked, in the
+  app's order (`SUPPORTED_CURRENCIES`), the first highlighted; a code typed and `⏎` add the
+  highlighted one, the bar empties and the line stays for another; `⏎` with nothing typed
+  goes on. A code nothing matches says `No currencies match “…”.` and stays. Once every
+  currency is picked the list is empty. The hint reads `type a code · ↑↓ highlight · enter
+  adds & stays · empty enter = done`, and the summary lists the picks as `PEN · USD`.
+- **The save is one `POST /accounts`:** `currencies` holds one `{currency_code}` per pick, in
+  the order picked, and a person adds `is_person: true`
+  (contract: POST /v1/accounts, "Required")
+  (contract: POST /v1/accounts, "Optional"). The line is required, as `name` is: with
+  nothing picked the save says `Currencies is required.` and sends nothing.
+- **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
+  the line it names, holding what was typed: `name`, `currencies` (any `currencies.<i>…` key
+  too), `statement code` or `color`.
+
 **A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,
 2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
 [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
-**`statement code`** sits right after `currency`, on a bank account only. The engine lets a
+**`statement code`** sits right after `currencies` on New and `currency` on Edit, on a bank
+account only. The engine lets a
 person carry a code too
 (contract: "What an account is", "A person carries a code like any account"); these forms
 offer it none. On New, TYPE turned to `person` takes the line off the form and the save sends no code;
@@ -1194,16 +1218,14 @@ such line.
   which `FormBar` applies to every edit of the bar); no other line of any form changes what
   is typed. The app checks nothing else about the code: the engine judges its shape, and a
   digit, a missing letter or a fourth one comes back refused in its words.
-- **On New,** the one CURRENCY goes in as `currencies: [{currency_code}]` and a person adds
-  `is_person: true` (contract: POST /v1/accounts, "Optional"); a code typed is sent as
-  `statement_code` on `POST /accounts`; skipped, the key
+- **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
   is left out of the body, never sent as `null` (contract: POST /v1/accounts).
 - **On Edit,** the line opens holding the account's code. The save sends `statement_code`
   only when it differs from the account's own, and `null` when the line was emptied, which
   clears the code with no question: nothing is lost, since typing the code again brings
   every statement line back (contract: PUT /v1/accounts/{account_id}).
 - **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
-  line with what was typed on the Edit form; every refusal of a code, `STATEMENT_CODE_EXISTS` included, reads in the engine's
+  line with what was typed, on New and Edit; every refusal of a code, `STATEMENT_CODE_EXISTS` included, reads in the engine's
   words alone (the table in "When the engine says no").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts, opened on the

@@ -126,6 +126,19 @@ The owner approves the task list before any build.
 - **Note for review:** the reviewer judged the fold rule display logic, not business logic. An
   engine-sent "settled" flag per person would be a possible engine ask.
 
+### Part 6a task 3 — the New form's currencies line
+- **What changed:** CURRENCY becomes a `currencies` line, picked as the Edit form's HASHTAGS line
+  picks (the shared `picker.matching` and `suggestion_list`).
+- **What is sent:** one `POST /accounts` with `currencies` in the order picked, `is_person: true`
+  for a person, and `statement_code` only on a bank account.
+- **Refusals:** the cursor lands on the line the engine names, through a new `_refusal_text`
+  hook on `FormScreen` that defaults to `format_error`. Edit account inherits the landing.
+- **The line is required on the client,** as the old CURRENCY line was; the reviewer judged that
+  a well-formedness check.
+- **Review:** approved on the first round, with 762 tests passing.
+- **Follow-ups** under part 6's "Found along the way": no un-pick, `ctrl+s` dropping a typed
+  code, and an untested `color` refusal.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

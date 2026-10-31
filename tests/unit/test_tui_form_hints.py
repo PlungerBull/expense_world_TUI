@@ -137,7 +137,7 @@ def _open(screen, body):
 
 
 def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
-    """New: `⏎` keeps bank on TYPE; NAME reads "enter to go on"; past CURRENCY,
+    """New: `⏎` keeps bank on TYPE; NAME reads "enter to go on"; past CURRENCIES,
     STATEMENT CODE reads "enter to go on" and COLOR "enter keeps it"."""
 
     async def body(pilot, screen):
@@ -145,8 +145,8 @@ def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
         assert screen._key == "name"
         assert _hint(screen) == NAME_GOES_ON
         await pilot.press(*"BCP Oro", "enter")
-        assert screen._key == "currency"
-        await pilot.press(*"PEN", "enter")
+        assert screen._key == "currencies"
+        await pilot.press(*"PEN", "enter", "enter")  # PEN, then an empty enter goes on
         assert screen._key == "statement_code"
         assert _hint(screen) == CODE_GOES_ON
         await pilot.press("enter")

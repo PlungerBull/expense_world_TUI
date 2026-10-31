@@ -1,7 +1,7 @@
 """The account form's STATEMENT CODE line, New and Edit.
 
 The screens are docs/mockups/expense-world-statement-code-field.html: 1 A (the
-line after CURRENCY, on a bank account only), 1b A (its hint), 2 A (emptied and
+line after CURRENCIES, on a bank account only), 1b A (its hint), 2 A (emptied and
 saved clears the code, no question), 3·1 B (small letters show as capitals while
 typing), 3·2 B (a taken code gets the app's line under the engine's words) and
 3·3, 3·4 (the engine's words alone). The code is optional on `POST /accounts`,
@@ -68,7 +68,7 @@ async def _to_code(pilot, screen):
     """A new bank account, typed up to its STATEMENT CODE line."""
     await pilot.press("enter")  # TYPE keeps bank
     await pilot.press(*"Signature Soles", "enter")
-    await pilot.press(*"PEN", "enter")
+    await pilot.press(*"PEN", "enter", "enter")  # PEN, then an empty enter goes on
     await pilot.pause()
     assert screen._key == "statement_code"
 
@@ -82,12 +82,12 @@ async def _save(pilot, screen, fake_client):
 # ---- New ----------------------------------------------------------------------------
 
 
-def test_new_bank_account_line_sits_after_currency_and_sends_the_code(fake_client):
+def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_client):
     screen = NewAccountScreen()
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
-        assert screen._sequence() == ["type", "name", "currency", "statement_code", "color"]
+        assert screen._sequence() == ["type", "name", "currencies", "statement_code", "color"]
         await _to_code(pilot, screen)
         assert str(screen.query_one("#field").content) == "STATEMENT CODE"
         assert _hint(screen) == NEW_HINT
@@ -131,7 +131,7 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
         _on(screen, "type")
         await pilot.press(*"person", "enter")
         await pilot.pause()
-        assert screen._sequence() == ["type", "name", "currency", "color"]
+        assert screen._sequence() == ["type", "name", "currencies", "color"]
         assert "statement code" not in _summary(screen)
         _on(screen, "type")
         await pilot.press(*"bank", "enter")
@@ -161,7 +161,7 @@ def test_small_letters_typed_or_pasted_show_as_capitals_on_the_code_line_only(fa
         await pilot.press("enter")  # TYPE keeps bank
         await pilot.press(*"Signature soles")
         assert _bar(screen).value == "Signature soles"  # NAME takes what is typed
-        await pilot.press("enter", *"PEN", "enter")
+        await pilot.press("enter", *"PEN", "enter", "enter")
         await pilot.pause()
         await pilot.press(*"sig")
         assert _bar(screen).value == "SIG"
@@ -355,6 +355,7 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
         assert screen.is_attached
+        assert screen._key == "statement_code" and _bar(screen).value == "SIG"
 
     run_app(scenario)
     assert notes[0][0] == _engine_words(TAKEN)  # nothing after the engine's words

@@ -331,12 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-3. **The New form** (point 3; question 3). `NewAccountScreen` in
-   [create_forms.py](../../expense/tui/screens/create_forms.py) and its tests; tui.md §2 "A bank
-   account's statement code is a line of its own on New and Edit". *Passes if:* a bank account
-   and a person are each one `POST /accounts` with `currencies`, the person with `is_person:
-   true` and no code line, nothing sends `currency_code` at the top or `/people`; each refusal
-   the form meets shows the engine's words with the cursor on its line; the tests pin each.
 4. **The Edit form's account write** (point 4). The account Edit form in
    [create_forms.py](../../expense/tui/screens/create_forms.py), the `STATEMENT_CODE_EXISTS` line
    in [errors.py](../../expense/errors.py) and their tests; tui.md §2 "A bank account's statement
@@ -432,3 +426,10 @@ Not built in this spec; drafted into a new spec when it is done.
 - The currency pickers read the app's own list of the supported currencies, PEN and USD, since no
   route lists them; the engine ask "A read lists the supported currencies" would let every
   client read the list from the engine instead.
+
+- **A currency picked by mistake on the New form cannot be un-picked**, as on the hashtag line;
+  `esc` and starting over is the way out. Put to the owner on 2026-10-31.
+- **`ctrl+s` drops a code typed but not added on the New form's CURRENCIES line**, where the
+  Edit form's HASHTAGS line keeps it (`_keep_typed`); the old CURRENCY line did the same.
+- **No test pins a `color` refusal landing on the New form's COLOR line**, though the code maps
+  it.
