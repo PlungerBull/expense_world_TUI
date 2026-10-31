@@ -595,6 +595,127 @@ def savings_paper(
     return pdf_file(pages)
 
 
+#: A card's table by its stated columns (contract: POST /v1/statements/import, "The paper's
+#: layout"): the processing date from column 0, the purchase date from column 9, the
+#: description (or an undated line's label) from column 18, the type from column 73, the soles
+#: figure ending in column 93 and the dollars figure ending in column 105, each followed by `-`
+#: in the next column for a credit. `SALDO ANTERIOR` starts in column 18 as the layout asks, so
+#: the grid's cell 0 is column 0. The two header lines read word for word.
+_CARD_PROCESSED, _CARD_PURCHASED, _CARD_TEXT, _CARD_TYPE = 0, 9, 18, 73
+_CARD_END = {"PEN": 93, "USD": 105}
+_CARD_HEADERS = (
+    _cells(
+        (0, "Fecha de"),
+        (9, "Fecha de"),
+        (18, "Descripción"),
+        (73, "Tipo de"),
+        (86, "Soles"),
+        (98, "Dólares"),
+    ),
+    _cells((0, "proceso"), (9, "consumo"), (73, "Operación")),
+)
+
+
+@dataclass(frozen=True)
+class CardRow:
+    """One dated row of a made-up card paper: its purchase day, description, type
+    (`CONSUMO`, `PAGO`, …) and amount in cents in `currency`, as the paper prints it: positive
+    a purchase or charge, negative a credit (printed with `-`). The processing date is the
+    purchase day unless `processed` is given."""
+
+    day: date
+    description: str
+    type: str
+    amount_cents: int
+    currency: str = "PEN"
+    processed: date | None = None
+
+
+@dataclass(frozen=True)
+class CardCharge:
+    """One undated line of a made-up card paper (interest, a fee): its label and amount in
+    cents in `currency`, positive a charge, negative a credit."""
+
+    label: str
+    amount_cents: int
+    currency: str = "PEN"
+
+
+def _card_figure(currency: str, cents: int) -> list[tuple[int, str]]:
+    """A card's figure in `currency`'s column: the amount ending in the column, `-` after it
+    when `cents` is negative."""
+    end = _CARD_END[currency]
+    return [_ending(end, paper_amount(cents)), *([(end + 1, "-")] if cents < 0 else [])]
+
+
+def card_paper(
+    rows: list[CardRow],
+    *,
+    start: date,
+    end: date,
+    owed_before: tuple[int, int] = (0, 0),
+    charges: list[CardCharge] | None = None,
+    fees: list[CardCharge] | None = None,
+) -> bytes:
+    """A made-up BCP Visa statement (`Estado de Cuenta Tarjeta Visa`) of one page over the
+    cycle `start` to `end`, holding what the contract says such a paper holds (contract:
+    POST /v1/statements/import, "The paper's layout"): `SALDO ANTERIOR` of the debts
+    `owed_before` (soles, dollars; debt as the paper prints it, negative a balance in the
+    owner's favour), the dated `rows` of both currencies in paper order, the undated
+    `charges` before `SUB TOTAL` (interest) and the `fees` after it, and `MONTO TOTAL
+    FACTURADO`. Its `SUB TOTAL` and total billed are the lines' own, so it reads. A currency
+    nothing is owed in and no line is in prints `0.00` in every figure, so the paper shows it at
+    zero with no row. Never one of the owner's real statements: this repo is public; every
+    name and number in it is made up by the test."""
+    charges, fees = charges or [], fees or []
+    assert all(len(row.description) <= 55 for row in rows), "a description too long"
+
+    def totals(*lines: CardRow | CardCharge) -> list[int]:
+        return [sum(line.amount_cents for line in lines if line.currency == c) for c in _CARD_END]
+
+    subtotal = [
+        before + by_rows + by_charges
+        for before, by_rows, by_charges in zip(
+            owed_before, totals(*rows), totals(*charges), strict=True
+        )
+    ]
+    billed = [owed + by_fees for owed, by_fees in zip(subtotal, totals(*fees), strict=True)]
+
+    def figures(owed: Iterable[int]) -> list[tuple[int, str]]:
+        return [
+            cell
+            for c, cents in zip(_CARD_END, owed, strict=True)
+            for cell in _card_figure(c, cents)
+        ]
+
+    def undated(line: CardCharge) -> str:
+        return _cells((_CARD_TEXT, line.label), *_card_figure(line.currency, line.amount_cents))
+
+    lines = [
+        _cells((100, "Pag 1 de 1")),
+        "Estado de Cuenta Tarjeta Visa",
+        _cells((60, "Del"), (70, "Al")),
+        _cells((60, f"{start:%d/%m/%y} {end:%d/%m/%y}")),
+        *_CARD_HEADERS,
+        _cells((_CARD_TEXT, "SALDO ANTERIOR"), *figures(owed_before)),
+    ]
+    for row in rows:
+        lines.append(
+            _cells(
+                (_CARD_PROCESSED, paper_day(row.processed or row.day).title()),
+                (_CARD_PURCHASED, paper_day(row.day).title()),
+                (_CARD_TEXT, row.description),
+                (_CARD_TYPE, row.type),
+                *_card_figure(row.currency, row.amount_cents),
+            )
+        )
+    lines += [undated(charge) for charge in charges]
+    lines.append(_cells((_CARD_TEXT, "SUB TOTAL"), *figures(subtotal)))
+    lines += [undated(fee) for fee in fees]
+    lines.append(_cells((_CARD_TEXT, "MONTO TOTAL FACTURADO"), *figures(billed)))
+    return pdf_file([[[(line, 0)] for line in lines]])
+
+
 def statement_body(account_id: str, paper: bytes, *, dry_run: bool) -> dict:
     """The `POST /statements/import` body for `paper`: exactly its three keys, the
     file in standard base64 (contract: POST /v1/statements/import), built by the
