@@ -47,6 +47,28 @@ def _by_left(rows):
     return {r.left.strip(): r for r in _live(rows)}
 
 
+def _accounts(rows):
+    """`(left as drawn, id, right, dim)` of every account row and currency line."""
+    return [
+        (r.left, r.id, _plain(r.right), r.dim)
+        for r in _live(rows)
+        if r.id and r.id.startswith(home.ACCOUNT_PREFIX)
+    ]
+
+
+def _people(*people):
+    return {**DATA, "dashboard": {**HOME_DASHBOARD, "people": list(people)}}
+
+
+def _person(ident, name, *balances):
+    codes = ("PEN", "USD")
+    held = [
+        {"currency_code": code, "current_balance_cents": cents}
+        for code, cents in zip(codes, balances, strict=False)
+    ]
+    return {"id": ident, "name": name, "currencies": held}
+
+
 # ---- small helpers -----------------------------------------------------------
 
 
@@ -74,9 +96,9 @@ def test_rows_run_categories_totals_accounts_people_screens():
     lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
     assert lefts[:3] == ["CATEGORIES", "▶ @Pendiente", "▶ WANTS"]
     assert lefts[3:7] == ["", "inflow", "outflow", "net"]
-    assert lefts[7:10] == ["BANK ACCOUNTS", "BCP PEN · PEN", "BCP USD · USD"]
-    assert lefts[10:11] == ["PEOPLE"]
-    assert lefts[11:] == [x.strip() for x in SECTIONS]
+    assert lefts[7:12] == ["BANK ACCOUNTS", "BCP PEN", "PEN", "BCP USD", "USD"]
+    assert lefts[12:13] == ["PEOPLE"]
+    assert lefts[13:] == [x.strip() for x in SECTIONS]
 
 
 def test_a_category_with_nothing_in_the_window_is_hidden():
@@ -244,39 +266,27 @@ def test_a_combo_of_several_hashtags_cannot_filter():
     assert rows["#A + #B"].hashtag is None and rows["#A + #B"].id == "tag:c-x:#0"
 
 
-def test_balances_are_native_with_the_code_beside_them():
-    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
-    assert _plain(rows["BCP PEN · PEN"].right) == "5,145.82 PEN"
-    assert _plain(rows["BCP USD · USD"].right) == "1.30 USD"
-    assert rows["BCP USD · USD"].id == "account:a-usd:USD"
-    assert _plain(rows["BANK ACCOUNTS"].right) == "balance today"
-
-
-def test_people_say_none_and_fold_the_settled():
-    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
-    assert _plain(rows["PEOPLE"].right) == "none"
-    people = [
-        {
-            "id": "p-1",
-            "name": "Juan",
-            "currencies": [{"currency_code": "USD", "current_balance_cents": -4500}],
-        },
-        {
-            "id": "p-2",
-            "name": "Majo",
-            "currencies": [{"currency_code": "PEN", "current_balance_cents": 0}],
-        },
+def test_a_one_currency_account_is_its_row_and_one_indented_line():
+    shown = _accounts(home.home_rows(DATA, palette=PALETTE))
+    assert shown == [
+        ("  BCP PEN", "account:a-pen", "", False),
+        ("    PEN", "account:a-pen:PEN", "5,145.82", False),
+        ("  BCP USD", "account:a-usd", "", False),
+        ("    USD", "account:a-usd:USD", "1.30", False),
     ]
-    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "people": people}}
-    rows = _by_left(home.home_rows(data, palette=PALETTE))
-    juan = rows["Juan · USD"]
-    assert _plain(juan.right) == "-45.00 USD" and juan.id == "account:p-1:USD"
-    assert "Majo · PEN" not in rows and rows["▶ 1 settled"].id == home.SETTLED_ID
-    rows = _by_left(home.home_rows(data, home.HomeState(settled_open=True), PALETTE))
-    assert rows["Majo · PEN"].id == "account:p-2:PEN" and rows["Majo · PEN"].dim
+    rows = home.home_rows(DATA, palette=PALETTE)
+    pen = next(r for r in _live(rows) if r.id == "account:a-pen:PEN")
+    assert pen.name == "BCP PEN" and pen.right.style == PALETTE.success
+    assert _plain(_by_left(rows)["BANK ACCOUNTS"].right) == "balance today"
 
 
-def test_a_two_currency_account_is_two_rows_in_the_engines_order():
+def test_no_row_on_home_is_named_account_and_code():
+    rows = home.home_rows(_people(_person("p-1", "Majo", 0, -4500)), palette=PALETTE)
+    opened = home.home_rows(DATA, home.HomeState(settled_open=True), PALETTE)
+    assert not [r.left for r in _live(rows) + _live(opened) if " · " in r.left]
+
+
+def test_a_two_currency_account_is_its_row_then_a_line_per_currency_in_the_engines_order():
     accounts = [
         {
             "id": "a-1",
@@ -293,30 +303,57 @@ def test_a_two_currency_account_is_two_rows_in_the_engines_order():
         },
     ]
     data = {**DATA, "dashboard": {**HOME_DASHBOARD, "bank_accounts": accounts}}
-    rows = [r for r in _live(home.home_rows(data, palette=PALETTE)) if r.id and ":" in r.id]
-    shown = [(r.left.strip(), r.id, _plain(r.right)) for r in rows if r.id.startswith("account:")]
-    assert shown == [
-        ("VISA · PEN", "account:a-1:PEN", "1.00 PEN"),
-        ("VISA · USD", "account:a-1:USD", "-2.50 USD"),
-        ("Caja · PEN", "account:a-0:PEN", "0.05 PEN"),
+    assert _accounts(home.home_rows(data, palette=PALETTE)) == [
+        ("  VISA", "account:a-1", "", False),
+        ("    PEN", "account:a-1:PEN", "1.00", False),
+        ("    USD", "account:a-1:USD", "-2.50", False),
+        ("  Caja", "account:a-0", "", False),
+        ("    PEN", "account:a-0:PEN", "0.05", False),
     ]
 
 
-def test_a_person_settled_in_soles_and_owing_in_dollars_shows_in_both_places():
-    person = {
-        "id": "p-1",
-        "name": "Majo",
-        "currencies": [
-            {"currency_code": "PEN", "current_balance_cents": 0},
-            {"currency_code": "USD", "current_balance_cents": -4500},
-        ],
-    }
-    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "people": [person]}}
-    closed = _by_left(home.home_rows(data, palette=PALETTE))
-    assert _plain(closed["Majo · USD"].right) == "-45.00 USD"
-    assert "Majo · PEN" not in closed and closed["▶ 1 settled"].id == home.SETTLED_ID
-    opened = _by_left(home.home_rows(data, home.HomeState(settled_open=True), PALETTE))
-    assert opened["Majo · PEN"].dim and opened["Majo · USD"].id == "account:p-1:USD"
+def test_people_say_none_and_fold_the_settled():
+    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
+    assert _plain(rows["PEOPLE"].right) == "none"
+    data = _people(_person("p-1", "Juan", -4500), _person("p-2", "Majo", 0))
+    closed = home.home_rows(data, palette=PALETTE)
+    people = [a for a in _accounts(closed) if a[1].startswith("account:p-")]
+    assert people == [
+        ("  Juan", "account:p-1", "", False),
+        ("    PEN", "account:p-1:PEN", "-45.00", False),
+    ]
+    assert _by_left(closed)["▶ 1 settled"].id == home.SETTLED_ID
+    opened = home.home_rows(data, home.HomeState(settled_open=True), PALETTE)
+    assert [a for a in _accounts(opened) if a[1].startswith("account:p-2")] == [
+        ("      Majo", "account:p-2", "", True),
+        ("        PEN", "account:p-2:PEN", "0.00", True),
+    ]
+    assert _by_left(opened)["▼ 1 settled"].id == home.SETTLED_ID
+
+
+def test_a_person_settled_in_one_currency_and_owing_in_another_stays_whole():
+    data = _people(_person("p-1", "Rosa", 0, -2500), _person("p-2", "Luis", 0, 0))
+    closed = home.home_rows(data, palette=PALETTE)
+    assert _accounts(closed)[-3:] == [
+        ("  Rosa", "account:p-1", "", False),
+        ("    PEN", "account:p-1:PEN", "0.00", False),
+        ("    USD", "account:p-1:USD", "-25.00", False),
+    ]
+    assert "account:p-2" not in [a[1] for a in _accounts(closed)]
+    assert _by_left(closed)["▶ 1 settled"].id == home.SETTLED_ID  # people, not lines
+
+
+def test_a_person_with_every_currency_at_zero_folds_whole():
+    data = _people(_person("p-2", "Luis", 0, 0))
+    closed = home.home_rows(data, palette=PALETTE)
+    assert not [a for a in _accounts(closed) if a[1].startswith("account:p-")]
+    assert _by_left(closed)["▶ 1 settled"].id == home.SETTLED_ID
+    opened = home.home_rows(data, home.HomeState(settled_open=True), PALETTE)
+    assert [a[:2] for a in _accounts(opened) if a[1].startswith("account:p-")] == [
+        ("      Luis", "account:p-2"),
+        ("        PEN", "account:p-2:PEN"),
+        ("        USD", "account:p-2:USD"),
+    ]
 
 
 def test_screens_stand_before_the_fetch_and_after_a_failure():
@@ -358,7 +395,13 @@ def test_month_columns_and_balances_end_on_the_same_column():
     widths = {
         row.left.strip(): len(option.prompt.plain)
         for row, option in zip(rows, home.home_options(rows), strict=True)
-        if row is not None and (isinstance(row.right, list) or row.id and "account:" in row.id)
+        if row is not None
+        and (
+            isinstance(row.right, list)
+            or row.id
+            and row.id.count(":") == 2
+            and "account:" in row.id
+        )
     }
     assert len(set(widths.values())) == 1, widths
 

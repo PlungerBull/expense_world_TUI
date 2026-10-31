@@ -7,10 +7,11 @@ Home is the month grid. One worker reads `/dashboard` for the balances and
   activity. A category with nothing in the whole window is not drawn at all
   (`build_range_grid` already drops it). `→` unfolds a category's
   hashtag rows, `←` folds them. Under the categories: inflow, outflow, net.
-- **BANK ACCOUNTS** one row per account and currency, with today's balance in
-  that currency (contract: GET /v1/dashboard, "Balances are native only").
-- **PEOPLE** the same way, a currency settled when its balance is exactly zero,
-  settled ones folded behind `▶ N settled`.
+- **BANK ACCOUNTS** one row per account, then an indented line per currency it
+  holds with today's balance in that currency, never summed with another
+  (contract: GET /v1/dashboard, "Balances are native only").
+- **PEOPLE** the same way, a person settled when every currency's balance is
+  exactly zero; settled people fold behind `▶ N settled`, counting people.
 - **LEDGER / MANAGE / SYSTEM** — section headers with their screens always
   listed under them; they never collapse.
 
@@ -22,7 +23,8 @@ endpoint, which is why the accounts header says `balance today`.
 
 - on a category — that category, every month;
 - on a hashtag row — that category and that hashtag;
-- on an account or a person — that account and that currency.
+- on an account or a person, its row or one of its currency lines — that
+  account, every currency.
 
 Every hashtag row is one row of the engine's `hashtag_breakdown`, whose
 `hashtag_ids` is never empty: a transaction still waiting for a hashtag counts
@@ -105,7 +107,7 @@ _SCREENS: dict[str, type[Screen]] = {
 #: Option-id prefixes; the rest of the id is the engine row.
 CATEGORY_PREFIX = "category:"
 TAG_PREFIX = "tag:"  # tag:<category id>:<hashtag id>, or tag:<category id>:#<n>
-ACCOUNT_PREFIX = "account:"  # account:<account id>:<currency code>
+ACCOUNT_PREFIX = "account:"  # account:<account id>, or account:<account id>:<currency code>
 SETTLED_ID = "fold:settled"
 
 _MIN_NAME_WIDTH = 14
@@ -176,12 +178,6 @@ def _grid_cell(value: object, palette: Palette | None, rule: str = AMOUNT_RULE) 
     return _as_text(aggregate_cell(value.get("cents"), value.get("unconverted"), palette, rule))
 
 
-def _balance_cell(item: dict, palette: Palette | None) -> Text:
-    """A balance in its own currency, the code beside it."""
-    cell = _as_text(amount_cell(item.get("current_balance_cents"), palette, AMOUNT_RULE))
-    return Text.assemble(cell, " ", (item.get("currency_code") or "?", "dim"))
-
-
 def tag_label(ids: list[str], names: dict[str, str]) -> str:
     """`#SALIDAS` or `#A + #B`, each under the name `GET /hashtags` gives it."""
     return " + ".join("#" + names.get(i, i) for i in ids)
@@ -241,25 +237,26 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
     return rows
 
 
-def _balance_rows(accounts: list[dict]) -> list[dict]:
-    """One row per account and currency, in the engine's order
-    (contract: GET /v1/dashboard, "`bank_accounts`"): `id` and `name` beside the
-    currency's own `currency_code` and `current_balance_cents`."""
-    return [
-        {"id": account["id"], "name": name, **held}
-        for account, name, held in reads.held_currencies(accounts)
-    ]
+def _account_rows(
+    account: dict, indent: str, palette: Palette | None, dim: bool = False
+) -> list[HomeRow]:
+    """One account as Home draws it: its row, its name alone, then an indented
+    line per currency it holds, in the engine's order
+    (contract: GET /v1/dashboard, "`bank_accounts`"): the code, then that
+    currency's own `current_balance_cents`, never summed with another. Every
+    row's `name` is the account's, what the ledger's crumb says."""
+    name = account.get("name") or "(unnamed)"
+    head = f"{ACCOUNT_PREFIX}{account['id']}"
+    rows = [HomeRow(head, indent + name, name=name, dim=dim)]
+    for _, _, held in reads.held_currencies([account]):
+        code = held["currency_code"]
+        cell = _as_text(amount_cell(held.get("current_balance_cents"), palette, AMOUNT_RULE))
+        rows.append(HomeRow(f"{head}:{code}", indent + "  " + code, cell, name=name, dim=dim))
+    return rows
 
 
-def _balance_row(row: dict, indent: str, palette, dim: bool = False) -> HomeRow:
-    label = formatting.currency_label(row["name"], row["currency_code"])
-    return HomeRow(
-        f"{ACCOUNT_PREFIX}{row['id']}:{row['currency_code']}",
-        indent + label,
-        _balance_cell(row, palette),
-        name=label,
-        dim=dim,
-    )
+def _with_id(accounts: list[dict]) -> list[dict]:
+    return [account for account in accounts if account.get("id")]
 
 
 def home_rows(
@@ -279,21 +276,21 @@ def home_rows(
         rows.append(None)
         dashboard = data.get("dashboard") or {}
         rows.append(HomeRow(None, "BANK ACCOUNTS", Text("balance today", style="dim"), dim=True))
-        for acct in _balance_rows(dashboard.get("bank_accounts") or []):
-            rows.append(_balance_row(acct, "  ", palette))
-        people = _balance_rows(dashboard.get("people") or [])
+        for acct in _with_id(dashboard.get("bank_accounts") or []):
+            rows.extend(_account_rows(acct, "  ", palette))
+        people = _with_id(dashboard.get("people") or [])
         outstanding, settled = split_settled(people)
         caption = Text("none" if not people else "", style="dim")
         rows.append(HomeRow(None, "PEOPLE", caption, dim=True))
         for person in outstanding:
-            rows.append(_balance_row(person, "  ", palette))
+            rows.extend(_account_rows(person, "  ", palette))
         if settled:
             caret = "▼ " if state.settled_open else "▶ "
             label = settled_label(len(settled))
             rows.append(HomeRow(SETTLED_ID, "  " + caret + label, dim=True))
             if state.settled_open:
                 for person in settled:
-                    rows.append(_balance_row(person, "      ", palette, dim=True))
+                    rows.extend(_account_rows(person, "      ", palette, dim=True))
         rows.append(None)
     elif error is not None:
         rows.append(HomeRow(None, f"could not load the month — {error}", dim=True))
@@ -587,8 +584,10 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
             cat = option_id[len(TAG_PREFIX) :].split(":", 1)[0]
             flt = LedgerFilter("category", cat, row.name, hashtag_id=row.hashtag)
         elif row is not None and option_id.startswith(ACCOUNT_PREFIX):
-            account_id, code = option_id[len(ACCOUNT_PREFIX) :].rsplit(":", 1)
-            flt = LedgerFilter("account", account_id, row.name, currency_code=code)
+            # The account's row and each of its currency lines: the account,
+            # every currency.
+            account_id = option_id[len(ACCOUNT_PREFIX) :].split(":", 1)[0]
+            flt = LedgerFilter("account", account_id, row.name)
         if flt is not None:
             self.app.push_screen(TransactionsScreen(filter=flt))
             return

@@ -112,6 +112,20 @@ The owner approves the task list before any build.
   line 35 still speaks of "either row" and "the dollars row" of Manage ▸ Accounts. It is left
   as sent, being a record of what part 1 shipped.
 
+### Part 6a task 2 — Home's BANK ACCOUNTS and PEOPLE
+- **What changed:** each account is a row with an indented line per currency, balances as sent.
+  A person folds into `▶ N settled` only when every currency is exactly 0, counted per person
+  (`split_settled` in formatting.py).
+- **`⏎`** on the row or on a currency's line opens the ledger on the whole account. Before, it
+  filtered by account and currency; filtering a currency's line by that currency comes back in
+  task 12.
+- **Review:** rejected in round 1 for a stale test (`test_tui_bracketed_names.py`), approved in
+  round 2. 409 tests pass across the 14 files that drive Home.
+- **decisions.md:** three stale lines updated (the settled rule, Home's rows, and the "one row
+  named <account> · <code>" entry).
+- **Note for review:** the reviewer judged the fold rule display logic, not business logic. An
+  engine-sent "settled" flag per person would be a possible engine ask.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

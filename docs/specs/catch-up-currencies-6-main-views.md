@@ -331,13 +331,6 @@ question, the files named, and the tui.md section named.
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
 
-2. **Home's BANK ACCOUNTS and PEOPLE** (point 2; question 2). The account rows of
-   [home.py](../../expense/tui/screens/home.py) and its tests; tui.md §2 "Home is four months of
-   the ledger". *Passes if:* `/dashboard` rows `{id, name, currencies}` draw as the
-   account's row with an indented line per currency under it (answer 2 B), a person folding into
-   `▶ N settled` only when every currency reads `0.00`; `⏎` on the account's row or on a
-   currency's line opens the ledger on the account (a currency's line opening that currency
-   alone is task 12's); the tests pin each.
 3. **The New form** (point 3; question 3). `NewAccountScreen` in
    [create_forms.py](../../expense/tui/screens/create_forms.py) and its tests; tui.md §2 "A bank
    account's statement code is a line of its own on New and Edit". *Passes if:* a bank account

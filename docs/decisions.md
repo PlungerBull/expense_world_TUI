@@ -198,7 +198,7 @@ Decisions whose why lives elsewhere:
 
 **Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; both post to `POST /accounts`, `person` adding `is_person: true`, so one route makes either kind and the client keeps no second create path; TYPE is read-only on the edit form.
 
-**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
+**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in every currency the person holds, so a person folds whole or not at all (question 2 of [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)). `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
 **Rejected.** *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
 
@@ -312,7 +312,7 @@ the bar is where the right file gets dropped next.
 
 ## Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key (2026-09-12)
 
-**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories (see "Home draws four months"), then accounts and people **in their own currency with the code beside the figure**, then LEDGER, MANAGE and SYSTEM as always-open section headers with every screen a row. A failed read is one dim row with the reason. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=` — crumbed `Ledger ▸ NAME`. (3) **Bulk is select + one key**: `space` selects, `a` selects every loaded row, `c` / `b` / `h` open the bulk pick for the selection (or the cursor row) — a full screen listing the rows it changes above its bar, since a surface that carries rows is a screen and a pop-up only asks — and write **one `PUT /transactions/{id}` per row on its own worker**, then reload. A refused row is named by number and does not stop the others — which is why this is not `run_write`'s drop-on-error queue. The one refusal that ends a run is missing settings ("Missing settings stop a multi-write run"). (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
+**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories (see "Home draws four months"), then accounts and people, **each account's row with a line per currency under it, each balance in its own currency, never summed**, then LEDGER, MANAGE and SYSTEM as always-open section headers with every screen a row. A failed read is one dim row with the reason. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=` — crumbed `Ledger ▸ NAME`. (3) **Bulk is select + one key**: `space` selects, `a` selects every loaded row, `c` / `b` / `h` open the bulk pick for the selection (or the cursor row) — a full screen listing the rows it changes above its bar, since a surface that carries rows is a screen and a pop-up only asks — and write **one `PUT /transactions/{id}` per row on its own worker**, then reload. A refused row is named by number and does not stop the others — which is why this is not `run_write`'s drop-on-error queue. The one refusal that ends a run is missing settings ("Missing settings stop a multi-write run"). (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
 
 **Rejected.** *A categorising mode with history suggestions* — a second way to edit a category and a guess the engine would have to learn. *Spreading a category to every row with the same title* — same title, different payees; the selection is the spread. *Native balances with a converted figure beside them* — the balance you act on is the native one. *Bulk through `run_write`'s FIFO* — one refusal would drop every row behind it. *Folding the section rows* — the owner wants every screen visible. *`esc` stepping back to the unfiltered ledger* — two keys for "back".
 
@@ -1071,12 +1071,15 @@ currencies in one balance* — a total across currencies has no meaning.
 **Decision.** Every list and picker that showed one row per per-currency account shows one row
 per account and currency, labelled with the account's name and the code ("VISA Infinite
 Sapphire · USD", `formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT
-line, the ledger's Account column and bulk `b`, and Home's balances. A pick carries the
-account's id and the currency's code, and every write sends both. Manage ▸ Accounts is the first
-screen redrawn: one row per account with a column per currency (question 1 C of
-[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)), `d`
+line, and the ledger's Account column and bulk `b`. A pick carries the account's id and the
+currency's code, and every write sends both. Manage ▸ Accounts and Home are redrawn: Manage ▸
+Accounts one row per account with a column per currency (question 1 C of
+[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)), Home
+the account's row with a line per currency (question 2 B), its `⏎` opening the ledger on the
+account until that spec's task 12 opens a currency's line on that currency alone. Manage ▸
+Accounts' `d`
 naming the account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`).
-Its `e` opens the Edit form on the account's first currency, so a second currency's opening
+Manage ▸ Accounts' `e` opens the Edit form on the account's first currency, so a second currency's opening
 balance is out of reach until that spec's task 5 gives each currency its own pair on the form.
 
 **Why.** It moves the app onto the engine's model with the screens as close to the ones the owner

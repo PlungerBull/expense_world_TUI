@@ -250,21 +250,25 @@ def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
     run_app(scenario, size=(100, 40))
 
 
-def test_enter_on_an_account_filters_the_ledger_by_it(monkeypatch):
+@pytest.mark.parametrize("option_id", ["account:a-pen", "account:a-pen:PEN"])
+def test_enter_on_an_account_or_its_currency_line_opens_the_ledger_on_the_account(
+    monkeypatch, option_id
+):
     _stub_month(monkeypatch)
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _select(app, pilot, "account:a-pen:PEN")
+        await _select(app, pilot, option_id)
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter(
-            "account", "a-pen", "BCP PEN · PEN", currency_code="PEN"
-        )
+        assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
 
     run_app(scenario)
 
 
-def test_enter_on_a_second_currency_hands_the_ledger_that_account_and_currency(monkeypatch):
+@pytest.mark.parametrize("option_id", ["account:a-visa", "account:a-visa:USD"])
+def test_enter_on_a_second_currency_line_opens_the_ledger_on_the_whole_account(
+    monkeypatch, option_id
+):
     two = {
         "id": "a-visa",
         "name": "VISA",
@@ -278,11 +282,9 @@ def test_enter_on_a_second_currency_hands_the_ledger_that_account_and_currency(m
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _select(app, pilot, "account:a-visa:USD")
+        await _select(app, pilot, option_id)
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter(
-            "account", "a-visa", "VISA · USD", currency_code="USD"
-        )
+        assert app.screen._filter == LedgerFilter("account", "a-visa", "VISA")
 
     run_app(scenario)
 

@@ -225,15 +225,17 @@ def format_hashtag_cell(
 
 
 def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Split person rows into `(outstanding, settled)`. Shared by every People panel.
+    """Split person accounts into `(outstanding, settled)`, in the order given.
+    Shared by every People panel.
 
-    "Settled" is **exactly zero in that row's own currency**
-    (`current_balance_cents == 0`); a row is one person's one currency, so a
-    person settled in soles and owing in dollars stands in both groups. Two parts
-    of that are load-bearing:
+    A person is "settled" when it holds at least one currency and **every**
+    currency's balance is exactly zero in that currency (`current_balance_cents
+    == 0` on each entry of its `currencies`); a person owing in one currency and
+    settled in another is outstanding, whole. Two parts of that are load-bearing:
 
     * **Only an `int` counts.** A missing or non-numeric balance is *unknown*, not
-      zero, so it stays in `outstanding` where it is visible.
+      zero, so its person stays in `outstanding` where it is visible; so does a
+      person whose `currencies` holds no entry.
     * **Settled is folded, never dropped.** The engine returns every person and
       explicitly refuses to filter on a computed balance: a
       settled person and a never-recorded loan must not look alike, and a
@@ -247,8 +249,10 @@ def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
     outstanding: list[dict] = []
     settled: list[dict] = []
     for person in people:
-        balance = person.get("current_balance_cents")
-        is_settled = whole_number(balance) == 0
+        held = [h for h in person.get("currencies") or [] if h.get("currency_code")]
+        is_settled = bool(held) and all(
+            whole_number(h.get("current_balance_cents")) == 0 for h in held
+        )
         (settled if is_settled else outstanding).append(person)
     return outstanding, settled
 

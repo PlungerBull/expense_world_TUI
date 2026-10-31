@@ -593,43 +593,58 @@ def test_fetch_all_cursor_pages_never_sends_offset(configured):
 # --------------------------------------------------------------------------- #
 
 
+def _person(name: str, *balances: object) -> dict:
+    codes = ("PEN", "USD")
+    return {
+        "name": name,
+        "currencies": [
+            {"currency_code": code, "current_balance_cents": cents}
+            for code, cents in zip(codes, balances, strict=False)
+        ],
+    }
+
+
 def test_split_settled_partitions_on_the_native_balance():
-    people = [
-        {"name": "Eliana", "current_balance_cents": 20000},
-        {"name": "Ana", "current_balance_cents": 0},
-        {"name": "Marco", "current_balance_cents": -45000},
-    ]
+    people = [_person("Eliana", 20000), _person("Ana", 0), _person("Marco", -45000)]
     outstanding, settled = split_settled(people)
     assert [p["name"] for p in outstanding] == ["Eliana", "Marco"]
     assert [p["name"] for p in settled] == ["Ana"]
 
 
-def test_split_settled_reads_each_currency_row_on_its_own_balance():
-    """One person, two currencies, two rows: settled in one, outstanding in the other."""
-    rows = [
-        {"name": "Majo", "currency_code": "PEN", "current_balance_cents": 0},
-        {"name": "Majo", "currency_code": "USD", "current_balance_cents": -4500},
-    ]
-    outstanding, settled = split_settled(rows)
-    assert [r["currency_code"] for r in outstanding] == ["USD"]
-    assert [r["currency_code"] for r in settled] == ["PEN"]
+def test_split_settled_folds_a_person_only_when_every_currency_is_zero():
+    """Settled in soles and owing in dollars is outstanding, whole; zero in both
+    is settled. People are counted, not currencies."""
+    rosa, luis = _person("Rosa", 0, -2500), _person("Luis", 0, 0)
+    outstanding, settled = split_settled([rosa, luis])
+    assert outstanding == [rosa]
+    assert settled == [luis]
 
 
 def test_split_settled_treats_an_unknown_balance_as_outstanding():
-    """Missing or non-numeric is *unknown*, not zero — it stays visible."""
+    """Missing or non-numeric is *unknown*, not zero — it stays visible; so does a
+    person holding no currency."""
     people = [
-        {"name": "NoKey"},
-        {"name": "Null", "current_balance_cents": None},
-        {"name": "Text", "current_balance_cents": "0"},
-        {"name": "Bool", "current_balance_cents": False},  # not an int balance
+        {"name": "NoKey", "currencies": [{"currency_code": "PEN"}]},
+        _person("Null", None),
+        _person("Text", "0"),
+        _person("Bool", False),  # not an int balance
+        _person("HalfKnown", 0, None),
+        {"name": "None", "currencies": []},
     ]
     outstanding, settled = split_settled(people)
-    assert [p["name"] for p in outstanding] == ["NoKey", "Null", "Text", "Bool"]
+    assert [p["name"] for p in outstanding] == [
+        "NoKey",
+        "Null",
+        "Text",
+        "Bool",
+        "HalfKnown",
+        "None",
+    ]
     assert settled == []
 
 
-def test_split_settled_never_drops_a_row():
-    people = [{"current_balance_cents": n} for n in (0, 1, 0, -2, 0)]
+def test_split_settled_never_drops_a_person():
+    people = [_person(str(n), n) for n in (0, 1, 0, -2, 0)]
     outstanding, settled = split_settled(people)
     assert len(outstanding) + len(settled) == len(people)
 

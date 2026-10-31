@@ -92,7 +92,8 @@ def test_home_month_populates_from_worker(monkeypatch):
         ]
         assert ids[:2] == ["category:c-pend", "category:c-wants"]
         assert "category:c-hogar" not in ids  # nothing in the window: hidden
-        assert "account:a-pen:PEN" in ids and "account:a-usd:USD" in ids
+        assert ids.index("account:a-pen") + 1 == ids.index("account:a-pen:PEN")
+        assert ids.index("account:a-usd") + 1 == ids.index("account:a-usd:USD")
         assert ids[-7:] == [
             "transactions",
             "reconciliations",
