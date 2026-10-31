@@ -176,6 +176,18 @@ The owner approves the task list before any build.
   live test.
 - **Waiting on the owner:** three wording points, under part 6's "Found along the way".
 
+### Part 6a task 8 — `a`, `t` and `d` on the whole account; the holder mockups go
+- **Already met by the handlers:** `a`, `t` and `d` act on the account by id. New tests pin one
+  request each and the whole row redrawn; the delete question names each currency as pane 1
+  draws it; `IN_LIVE_STATEMENT` reads in the engine's words alone.
+- **Removed:** `HAS_STATEMENT_CODE` from tui.md's refusal table, errors.py and the unit tests.
+  It stays in part 4's contract test and runtime.md line 94 until part 4 rewrites them.
+- **Mockups deleted:** the 11 holder-era mockups and `expense-world-person-opening-hint.html`.
+  Part 6's spec link was repointed to the 5 A panes.
+- **Still on the holder routes,** untouched by this task: `reads.fetch_holders` and
+  `reconciliations.py`. Part 7 replaces them.
+- **Review:** approved on the first round.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

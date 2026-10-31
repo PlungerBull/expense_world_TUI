@@ -199,8 +199,8 @@ _APP_FAULT = (
 #: `KIND_UNCHANGED`, whose words already say the account is of that kind
 #: (contract: POST /v1/accounts/{account_id}/make-person)
 #: (contract: POST /v1/accounts/{account_id}/make-account),
-#: `HAS_STATEMENT_CODE`, whose message already names the code and says to clear it
-#: first (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"),
+#: `IN_LIVE_STATEMENT`, whose words show alone: a live statement holds the account
+#: (contract: DELETE /v1/accounts/{account_id}, "Refusals"),
 #: `HAS_RECONCILIATION`, whose words show alone: the engine refuses an account that
 #: has ever been in a statement, a deleted one included (contract: "Error reasons"),
 #: `STATEMENT_MONTH_TAKEN`, whose words already name the statement holding that month

@@ -102,6 +102,12 @@ def _footer(screen) -> list[str]:
     ]
 
 
+def _cells(screen) -> list[str]:
+    """The cursor row's cells as the list draws them, each as its words."""
+    listing = screen.query_one(CursorList)
+    return [str(cell) for cell in listing._rows[listing.cursor_index].cells]
+
+
 async def _open(pilot, app, monkeypatch, cursor: str):
     """Open the list with the cursor on an account's row."""
     screen = AccountsScreen()
@@ -147,6 +153,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
     async def scenario(pilot, app):
         screen, notes = await _open(pilot, app, monkeypatch, row)
         before = screen.query_one(CursorList).cursor_index
+        seen["cells_before"] = _cells(screen)
         await pilot.press("t")
         assert not isinstance(app.screen, ConfirmModal)
         await wait_for(pilot, lambda: ("", note) in notes)
@@ -155,6 +162,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         listing = screen.query_one(CursorList)
         seen.update(before=before, after=listing.cursor_index, key=listing.cursor_key)
         seen["footer"] = _footer(screen)
+        seen["cells"] = _cells(screen)
         seen["kind"] = screen.selected_record()["is_person"]
         seen["opening"] = screen.selected_record()["currencies"][0][
             "opening_balance_transaction_id"
@@ -172,6 +180,11 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
     assert seen["key"] == row
     assert seen["after"] == index != seen["before"]
     assert seen["kind"] is person
+    # the whole account turned on its one row: its Type changed, every currency
+    # column (PEN, USD) holding the balance it held before
+    assert seen["cells"][1] == ("person" if person else "bank") != seen["cells_before"][1]
+    assert seen["cells"][4:6] == seen["cells_before"][4:6]
+    assert seen["cells"][0] == seen["cells_before"][0]
     assert seen["opening"] == opening
     assert label in seen["footer"]
 
@@ -295,11 +308,6 @@ _RECON_WORDS = (
     "Delete its reconciliations first."
 )
 _RECON_FIELD = "Must be an account without reconciliations: a person cannot have one."
-_CODE_WORDS = (
-    "The account has the statement code 'SJN', which a person account cannot carry. "
-    "Clear the code first."
-)
-_CODE_FIELD = "Must be an account without a statement code: a person cannot carry one."
 
 REFUSALS = [
     # cursor row, route, the engine's message, field words, reason, the whole note
@@ -337,14 +345,6 @@ REFUSALS = [
         "ACCOUNT_ARCHIVED",
         f"CONFLICT — {_ARCHIVED_WORDS}\n  account_id: {_ARCHIVED_WORDS}",
     ),
-    (
-        "a-sueldo",
-        "make-person",
-        _CODE_WORDS,
-        _CODE_FIELD,
-        "HAS_STATEMENT_CODE",
-        f"CONFLICT — {_CODE_WORDS}\n  account_id: {_CODE_FIELD}",
-    ),
 ]
 
 
@@ -356,18 +356,16 @@ REFUSALS = [
         "already-person",
         "already-bank",
         "archived",
-        "statement-code",
     ],
 )
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
     """The "Failed" note is the engine's words alone, with no line of the app's,
-    `HAS_RECONCILIATION` and `HAS_STATEMENT_CODE` among them
-    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). Nothing
-    changes: the account keeps its kind (`_by_id` holds `is_person`) and the list
-    is not read again. Nothing
-    but the turn is sent, and `t` sends again."""
+    for each of `t`'s refusals: `HAS_RECONCILIATION`, `KIND_UNCHANGED` and
+    `ACCOUNT_ARCHIVED` (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
+    Nothing changes: the account keeps its kind (`_by_id` holds `is_person`) and the
+    list is not read again. Nothing but the turn is sent, and `t` sends again."""
     rows = _rows()
     reads: list[int] = []
 

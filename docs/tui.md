@@ -931,8 +931,11 @@ account with an opening balance keeps it as a person, the same transaction under
 so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). While
 one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the footer and does
 nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
-as it was and `t` works again; the "Failed" note is the engine's words whole (the table in
-"When the engine says no"). A person never has statements, so `t Make person` on an
+as it was and `t` works again; the "Failed" note is the engine's words alone, with no line of
+the app's, for each of its refusals: `KIND_UNCHANGED`, `ACCOUNT_ARCHIVED` and
+`HAS_RECONCILIATION`, as the table in "When the engine says no" lists them
+(contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). An account in two currencies turns on its one row, every
+currency with it, each balance still in its column. A person never has statements, so `t Make person` on an
 account that has ever been in one, a deleted one included, is refused with
 `HAS_RECONCILIATION` (contract: "Error reasons"), and the note is the engine's words alone
 (screen 1 B in
@@ -976,9 +979,14 @@ away and can be undone, delete is for something made by mistake.
 
 On Accounts the delete acts on the whole account (contract: "What an account is", "An account is deleted whole"):
 the body's first line is the account, its kind, then each currency it holds with that
-currency's balance; a one-currency
-account reads `Efectivo · bank · PEN 350.00`, one holding none `Prueba · bank`
+currency's balance, as pane "1 · d on an account" of
+[expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)
+draws it: a two-currency account reads `Visa Inventada · bank · PEN -2,340.50 · USD -185.20`,
+a one-currency account `Efectivo · bank · PEN 350.00`, one holding none `Prueba · bank`
 ([expense-world-currencies-delete.html](mockups/expense-world-currencies-delete.html), pane A).
+`y` sends one `DELETE /accounts/{id}`. An account a live statement holds is refused with
+`IN_LIVE_STATEMENT`, its note the engine's words alone, the list as it was
+(contract: DELETE /v1/accounts/{account_id}, "Refusals").
 
 Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
 and send nothing). The question names the row, then says the part that matters: **no
@@ -1051,7 +1059,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account that has ever been in a statement, a deleted one included | none: the engine's words alone |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
-| `HAS_STATEMENT_CODE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a statement code (contract: POST /v1/accounts/{account_id}/make-person, "Refusals") | none: the engine's message already names the code and says to clear it first |
+| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |

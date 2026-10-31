@@ -174,8 +174,8 @@ the screens show what the engine now holds:
   8 of the cards spec): `Created 4 accounts, 3 categories, 2 hashtags.`, built by
   part 2 of the currencies catch-up (done on 2026-10-30).
 - **The opening balance's words** (owner, 2026-10-28, the owner's design for a person's
-  `opening` line, drawn in
-  [expense-world-person-opening-hint.html](../mockups/expense-world-person-opening-hint.html)):
+  `opening` line, now drawn in the 5 A panes of
+  [expense-world-currencies-accounts-picks.html](../mockups/expense-world-currencies-accounts-picks.html)):
   no line under the amount; on its right `debt` when negative and `credit` when positive, then
   the currency; a, nothing on the right while the line is empty or `0.00`; b, the same word on
   every account.
@@ -340,14 +340,6 @@ already holds every currency.`) and `x` as task 7's key (footer `x Remove curren
    (without the app's archive line, answer 4 A), `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` each
    read in the engine's words alone, nothing written; the list reads fresh after a removal; the
    tests pin each.
-8. **`a`, `t` and `d` on the whole account; the holder mockups go** (points 8 and 15). Their
-   handlers in [accounts.py](../../expense/tui/screens/accounts.py), `test_tui_account_kind.py`;
-   tui.md §2 "`t` turns an account into a person and back", "`d` is the TUI's one destructive
-   key" and the "When the engine says no" table. *Passes if:* each key sends its one request on
-   `/accounts/{id}…` and the list shows the whole account changed; the delete question names its
-   currencies as question 1's mockup draws; `HAS_STATEMENT_CODE` is in no table or test; the
-   holder mockups are deleted and no doc links to them.
-
 **6b, the currency as its own field**
 
 9. **The quick-add grammar's currency** (point 9; question 8). [expense/quickadd/](../../expense/quickadd/)

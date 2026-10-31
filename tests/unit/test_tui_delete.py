@@ -431,6 +431,21 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  account_id: stand-in field words\n\n"
             "To retire it instead, archive it: press a.",
         ),
+        # a live statement holds the account: the engine's words alone
+        # (contract: DELETE /v1/accounts/{account_id}, "Refusals")
+        (
+            AccountsScreen,
+            "fetch_accounts",
+            _cuenta(1),
+            "accounts/a1",
+            409,
+            "CONFLICT",
+            "A live statement holds the account's balances.",
+            "account_id",
+            "IN_LIVE_STATEMENT",
+            "CONFLICT — A live statement holds the account's balances.\n"
+            "  account_id: stand-in field words",
+        ),
         (
             CategoriesScreen,
             "fetch_categories",
@@ -509,6 +524,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
     ],
     ids=[
         "account-has-transactions",
+        "account-in-live-statement",
         "category-has-transactions",
         "system-category",
         "system-hashtag",
@@ -646,6 +662,14 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
         (
             account_with_currencies(
                 id="p1",
+                name="Visa Inventada",
+                currencies=[held_currency("PEN", -234050), held_currency("USD", -18520)],
+            ),
+            "Visa Inventada · bank · PEN -2,340.50 · USD -185.20",
+        ),
+        (
+            account_with_currencies(
+                id="p1",
                 name="Prueba",
                 currencies=[held_currency("PEN", 0), held_currency("USD", 0)],
             ),
@@ -662,14 +686,15 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
             "Prueba · bank",
         ),
     ],
-    ids=["two", "one", "none"],
+    ids=["visa", "two", "one", "none"],
 )
 def test_the_delete_question_names_the_whole_account_and_each_currency(
     configured, monkeypatch, account, line
 ):
-    """Pane A of expense-world-currencies-delete.html: the question's second line is the
+    """Pane "1 · d on an account" of expense-world-currencies-accounts-picks.html and
+    pane A of expense-world-currencies-delete.html: the question's second line is the
     account, its kind, then each currency it holds with its balance, then today's
-    sentence; one DELETE with the account's id."""
+    sentence; `y` sends one DELETE with the account's id, never one per currency."""
     _stub_manage(monkeypatch, "accounts", [account])
 
     async def scenario(pilot, app):

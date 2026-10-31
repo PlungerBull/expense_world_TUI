@@ -46,17 +46,27 @@ def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
     assert ("POST", "/accounts/a1/archive") in fake_client.requests
 
 
-def test_archive_on_a_two_currency_account_sends_one_call_and_dims_its_row(
-    fake_client, monkeypatch
+@pytest.mark.parametrize(
+    ("archived", "verb", "status", "style"),
+    [(False, "archive", "archived", "dim"), (True, "unarchive", "active", "")],
+)
+def test_a_on_a_two_currency_account_sends_one_call_and_redraws_the_whole_row(
+    fake_client, monkeypatch, archived, verb, status, style
 ):
     """`a` on a two-currency account's one row sends one `POST /accounts/{id}/archive`
-    with the account's id, never one per currency; the reload dims the row whole and the
-    cursor is back on it."""
+    (or `/unarchive` on an archived row) with the account's id, never one per currency
+    (contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"); the
+    reload draws the row whole, dimmed or not, its Status turned and both currency
+    columns still holding their balances, and the cursor is back on it."""
     visa = account_with_currencies(
-        id="visa", name="Visa", currencies=[held_currency("PEN", 100), held_currency("USD", 5)]
+        id="visa",
+        name="Visa",
+        is_archived=archived,
+        currencies=[held_currency("PEN", 100), held_currency("USD", 5)],
     )
     served = [visa]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(list(served)))
+    seen: dict = {}
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
@@ -64,18 +74,22 @@ def test_archive_on_a_two_currency_account_sends_one_call_and_dims_its_row(
         await wait_for_list(pilot, app)
         cursor_list = screen.query(CursorList).first()
         cursor_list.set_cursor(cursor_list.index_of("visa"))
-        served[:] = [{**visa, "is_archived": True}]  # what the engine reads after the write
+        served[:] = [{**visa, "is_archived": not archived}]  # what the engine reads after
         await pilot.press("a")
         await wait_for(pilot, lambda: fake_client.calls)
         await wait_for(pilot, lambda: not screen._toggle_busy)
         cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == "visa"
-        assert [row.base_style for row in cursor_list._rows] == ["dim"]
+        seen["key"] = cursor_list.cursor_key
+        seen["styles"] = [row.base_style for row in cursor_list._rows]
+        seen["cells"] = [str(cell) for cell in cursor_list._rows[0].cells]
 
     run_app(scenario)
     assert [r for r in fake_client.requests if r[0] == "POST"] == [
-        ("POST", "/accounts/visa/archive")
+        ("POST", f"/accounts/visa/{verb}")
     ]
+    assert seen["key"] == "visa"
+    assert seen["styles"] == [style]
+    assert seen["cells"][4:] == ["1.00", "0.05", status]
 
 
 def _edit_two_currency_account(fake_client, monkeypatch, key):
