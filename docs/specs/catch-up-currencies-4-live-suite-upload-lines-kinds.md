@@ -98,7 +98,7 @@ has no practice engine, and the owner runs the live tests on their machine: the 
 pushes to `main`, gives the owner one command for the round's live tests, and reads back the
 results. A task leaves this list only once its live tests pass. The rounds, in order:
 
-1. Task 3 alone.
+1. Task 3 alone (done 2026-10-31).
 2. Tasks 4 and 5 together (both bank lines).
 3. Task 6.
 4. Tasks 7 and 8 together.
@@ -109,13 +109,6 @@ Each task still gets its own build, review and commit; a round only groups the l
 tasks touch separate test files, and share only `tests/contract/conftest.py`, so a broken
 shared helper can fail more than one task of a round.
 
-3. **A card paper with dollars at zero (builder).** A card paper drawn in
-   [conftest.py](../../tests/contract/conftest.py) to the stated layout, its dollars at zero
-   with no row: sent to a soles-only account it closes in soles only
-   (contract: POST /v1/statements/import, "Every currency the paper shows something in must be one the account holds");
-   sent to a soles and dollar account whose dollars hold money at the start it is
-   `MONEY_AT_START_NOT_COVERED` on `file`, on the dry run too, nothing written.
-   *Passes if:* both tests pass live and the paper is drawn by the test's own code.
 4. **Bank lines and the review list (builder).**
    [test_bank_lines.py](../../tests/contract/test_bank_lines.py): every line and part reading
    `account_id` and `currency_code`; `?account_id=` covering every currency, `?currency_code=`
@@ -234,3 +227,9 @@ completed statement gaining a currency. Each held as the contract states it.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **runtime.md's contract-suite paragraph cites the holder-era contract.** The live citation
+  test, run on 2026-10-31, names four citations on [runtime.md](../runtime.md) line 94 the live
+  contract does not hold (`"Reconciliations", "A statement's order"`, `GET /v1/reconciliations`,
+  `PUT /v1/reconciliations/{reconciliation_id}`, `POST /v1/reconciliations/import`). No task of
+  this spec or of spec 7 names that line.
