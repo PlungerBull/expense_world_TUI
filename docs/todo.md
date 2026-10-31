@@ -56,7 +56,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): approved on 2026-10-30; tasks 1 to 3 done, tasks 4 to 9 left;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
-6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31, with one task of review notes left; its second half, 6b, waits on your approval of its tasks;
+6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31, with one task of review notes left; its second half, 6b, approved on 2026-10-31, runs after part 4;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),

@@ -19,8 +19,8 @@ The seven specs of this catch-up, run in this order:
 **Status:** approved by the owner on 2026-10-31, its questions answered that day. At the
 owner's ask it runs before part 4's tasks 4 to 8 and before
 [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md),
-which need the practice engine. Its first half, 6a, is done; its second half, 6b, waits on the
-owner's approval of its tasks.
+which need the practice engine. Its first half, 6a, is done; its second half, 6b, had its tasks
+approved by the owner on 2026-10-31, and runs after part 4's tasks 4 to 9.
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md) runs
 after it. Every screen task waits on its question's mockup, picked by the owner.
 
@@ -401,6 +401,8 @@ left these notes:
     passes; a test pins `esc` after a half-saved save landing on row 1; the unit suite passes.
 
 **6b, the currency as its own field**
+
+Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
 9. **The quick-add grammar's currency** (point 9; question 8). [expense/quickadd/](../../expense/quickadd/)
    (`parse.py`, `payload.py`) and its tests. *Passes if:* a line naming an account and a currency
