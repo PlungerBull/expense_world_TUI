@@ -374,31 +374,7 @@ picks' titles naming the account (`Add a currency · <account>`, `Remove a curre
 
 **6a's acceptance check** passed on the owner's machine on 2026-10-31, against the practice
 engine: the drift check, the unit suite, and checks 1 to 8 of "How the owner knows it is done"
-tried in the app. Its doc sweep followed. A review of its tasks on 2026-10-31 approved them and
-left these notes:
-
-16. **6a's review notes (builder).**
-    - The drift check passes: the keys the two currency test files make up for themselves
-      (`check`, `held`, `key`, `notes`, `screen`, in
-      [test_tui_account_currencies.py](../../tests/unit/test_tui_account_currencies.py) and
-      [test_tui_account_currency_removal.py](../../tests/unit/test_tui_account_currency_removal.py))
-      no longer read as engine fields, by `KNOWN_LOCAL` in
-      [check_fixture_drift.py](../../scripts/check_fixture_drift.py) or by reshaping the tests.
-    - When an opening balance saves and a later write of the same save is refused, `esc` takes
-      the list back to row 1, as after any write (`_opening_saved` and `action_cancel` in
-      [create_forms.py](../../expense/tui/screens/create_forms.py)).
-    - The New form's refusal test in
-      [test_tui_create_forms.py](../../tests/unit/test_tui_create_forms.py) uses the contract's
-      reasons on `currencies` (`DUPLICATE_CURRENCY`, `UNSUPPORTED_VALUE`, `OUT_OF_RANGE`) in place
-      of `INVALID_VALUE`, and the `c` and `x` refusal tests send the contract's own words
-      (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
-    - tui.md's "When the engine says no" table has a row for `c` on an archived account
-      (`INVALID_REFERENCE` on `account_id`), its `CONCURRENT_CHANGE` row on a list names `c` and
-      `x`, and its `ACCOUNT_ARCHIVED` row no longer files `x` under a screen read before the
-      archive, since `x` is offered on archived rows.
-
-    *Passes if:* `python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002`
-    passes; a test pins `esc` after a half-saved save landing on row 1; the unit suite passes.
+tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-31 approved them.
 
 **6b, the currency as its own field**
 

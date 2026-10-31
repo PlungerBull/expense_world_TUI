@@ -619,7 +619,7 @@ class EditAccountScreen(NewAccountScreen):
         # The account half as last saved: once it matches, a save sends only
         # the opening balances.
         self._account_sent = self._payload()
-        self._account_saved = False
+        self._wrote = False  # any write of the save landed: the list reloads
         self._openings: dict[str, _OpeningBalance] = {}
         for h in held:
             opening_id = h.get("opening_balance_transaction_id")
@@ -867,7 +867,7 @@ class EditAccountScreen(NewAccountScreen):
                 self._account_sent = self._account_body(
                     {"statement_code": self._original_code, **account}
                 )
-                self._account_saved = True
+                self._wrote = True
                 if not openings:
                     self._done()
 
@@ -898,6 +898,7 @@ class EditAccountScreen(NewAccountScreen):
         as saved, so a later refusal's next save sends only what is unsaved."""
 
         def saved() -> None:
+            self._wrote = True
             opening = self._openings[code]
             if sent["opening"] is None:  # deleted
                 opening.id, opening.original = None, {}
@@ -929,7 +930,7 @@ class EditAccountScreen(NewAccountScreen):
         self._refresh_view()
 
     def action_cancel(self) -> None:
-        self.dismiss(True if self._account_saved else None)
+        self.dismiss(True if self._wrote else None)
 
     def _done(self) -> None:
         self.notify("Saved.")

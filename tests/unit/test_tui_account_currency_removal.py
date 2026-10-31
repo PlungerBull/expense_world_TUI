@@ -210,7 +210,8 @@ def test_x_on_an_account_holding_no_currency_says_so_and_writes_nothing(configur
         sent = engine.delete(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen == {"notes": [("", "Prueba holds no currency.")], "screen": True}
+    assert seen["notes"] == [("", "Prueba holds no currency.")]
+    assert seen["screen"]
 
 
 def test_x_is_off_on_an_empty_list(configured, monkeypatch):
@@ -227,7 +228,8 @@ def test_x_is_off_on_an_empty_list(configured, monkeypatch):
         seen["screen"] = app.screen is screen
 
     run_app(scenario, size=SIZE)
-    assert seen == {"check": None, "screen": True}
+    assert seen["check"] is None
+    assert seen["screen"]
 
 
 # ---- the question ------------------------------------------------------------------
@@ -284,7 +286,8 @@ def test_esc_on_the_pick_sends_nothing(configured, monkeypatch):
         sent = engine.delete(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen == {"notes": [], "key": "a-visa"}
+    assert seen["notes"] == []
+    assert seen["key"] == "a-visa"
 
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter", "q"])
@@ -352,7 +355,9 @@ def test_y_removes_the_currency_and_the_list_reads_fresh(configured, monkeypatch
     request = sent.calls.last.request
     assert request.content == b""
     assert request.headers["X-Idempotency-Key"]
-    assert seen == {"key": "a-visa", "held": ["PEN"], "screen": True}
+    assert seen["key"] == "a-visa"
+    assert seen["held"] == ["PEN"]
+    assert seen["screen"]
 
 
 def test_a_second_x_or_c_while_the_write_is_in_flight_does_nothing(configured, monkeypatch):
@@ -412,10 +417,14 @@ def test_the_guard_holds_until_the_engine_answers(configured, monkeypatch):
 
 # ---- refusals: the engine's words alone ------------------------------------------
 
-_LAST = "An account holds at least one currency."
-_HELD = "A currency that holds transactions cannot be removed."
-_LIVE = "The account is in a live statement."
-_ARCHIVED = "The account is archived."
+# the contract's own words for each refusal
+# (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")
+_LAST = "Must not be the account's last currency: delete the account instead."
+_HELD = "Must not be used by any active transaction."
+_LIVE = (
+    "Must be an account no live statement holds, draft or completed: delete the statement first."
+)
+_ARCHIVED = "The account is archived. Unarchive it first."
 
 REFUSALS = [
     (
@@ -426,10 +435,10 @@ REFUSALS = [
             409,
             "CONFLICT",
             _LAST,
-            {"currency_code": "PEN is the account's last currency."},
+            {"currency_code": _LAST},
             {"currency_code": "LAST_CURRENCY"},
         ),
-        f"CONFLICT — {_LAST}\n  currency_code: PEN is the account's last currency.",
+        f"CONFLICT — {_LAST}\n  currency_code: {_LAST}",
     ),
     # the account delete's archive line stays off (answer 4 A)
     (
@@ -440,10 +449,10 @@ REFUSALS = [
             409,
             "CONFLICT",
             _HELD,
-            {"account_id": "USD holds 14 transactions on this account."},
+            {"account_id": _HELD},
             {"account_id": "HAS_TRANSACTIONS"},
         ),
-        f"CONFLICT — {_HELD}\n  account_id: USD holds 14 transactions on this account.",
+        f"CONFLICT — {_HELD}\n  account_id: {_HELD}",
     ),
     (
         "a-visa",

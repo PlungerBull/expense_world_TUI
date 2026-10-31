@@ -451,7 +451,7 @@ def test_after_the_account_half_saves_the_old_colour_picked_again_is_sent(fake_c
         await pilot.press("enter")  # the last line: saves both halves
         await wait_for(pilot, lambda: len(fake_client.calls) == 2)
         await wait_for(pilot, lambda: not screen._submitting)
-        assert screen.is_attached and screen._account_saved
+        assert screen.is_attached and screen._wrote
         fake_client.errors.clear()
         for _ in range(len(screen._sequence())):
             if screen._key == "color":
@@ -1133,13 +1133,26 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
     [
         (
             _keyed(
-                "VALIDATION_ERROR", "currencies.1.currency_code", "INVALID_VALUE", "Invalid value."
+                "VALIDATION_ERROR",
+                "currencies.1.currency_code",
+                "DUPLICATE_CURRENCY",
+                "stand-in",
             ),
             "currencies",
             "",
         ),
         (
-            _keyed("VALIDATION_ERROR", "currencies", "INVALID_VALUE", "Invalid value."),
+            _keyed(
+                "VALIDATION_ERROR",
+                "currencies.1.currency_code",
+                "UNSUPPORTED_VALUE",
+                "stand-in",
+            ),
+            "currencies",
+            "",
+        ),
+        (
+            _keyed("VALIDATION_ERROR", "currencies", "OUT_OF_RANGE", "stand-in"),
             "currencies",
             "",
         ),
@@ -1149,7 +1162,7 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
             "Visa Inventada",
         ),
     ],
-    ids=["a-currency", "currencies", "name"],
+    ids=["duplicate-currency", "unsupported-currency", "currencies", "name"],
 )
 def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
     fake_client, monkeypatch, refusal, line, bar

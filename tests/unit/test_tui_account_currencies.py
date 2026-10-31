@@ -211,7 +211,9 @@ def test_enter_adds_the_picked_currency_and_the_list_reads_fresh(configured, mon
     request = sent.calls.last.request
     assert json.loads(request.content) == {"currency_code": "USD"}
     assert request.headers["X-Idempotency-Key"]
-    assert seen == {"key": "a-caja", "held": ["PEN", "USD"], "screen": True}
+    assert seen["key"] == "a-caja"
+    assert seen["held"] == ["PEN", "USD"]
+    assert seen["screen"]
 
 
 def test_the_highlight_moves_and_enter_takes_the_highlighted_one(configured, monkeypatch):
@@ -254,7 +256,8 @@ def test_esc_leaves_the_list_as_it_was_and_sends_nothing(configured, monkeypatch
         sent = engine.post(url__startswith=ENGINE_URL).mock(httpx.Response(201, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen == {"notes": [], "key": "a-caja"}
+    assert seen["notes"] == []
+    assert seen["key"] == "a-caja"
 
 
 # ---- an account holding every currency ------------------------------------------
@@ -276,7 +279,8 @@ def test_c_on_an_account_holding_every_currency_says_so_and_writes_nothing(confi
         sent = engine.post(url__startswith=ENGINE_URL).mock(httpx.Response(201, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen == {"notes": [("", "Visa Inventada already holds every currency.")], "screen": True}
+    assert seen["notes"] == [("", "Visa Inventada already holds every currency.")]
+    assert seen["screen"]
 
 
 def test_the_note_shows_a_bracketed_name_whole(configured, monkeypatch):
@@ -317,13 +321,16 @@ def test_c_is_off_on_an_empty_list(configured, monkeypatch):
         seen["screen"] = app.screen is screen
 
     run_app(scenario, size=SIZE)
-    assert seen == {"check": None, "screen": True}
+    assert seen["check"] is None
+    assert seen["screen"]
 
 
 # ---- refusals: the engine's words alone ------------------------------------------
 
-_DUPLICATE = "account already holds currency USD."
-_ARCHIVED = "account is archived."
+# the contract's own words for each refusal
+# (contract: POST /v1/accounts/{account_id}/currencies, "Refusals")
+_DUPLICATE = "Must be a currency the account does not hold."
+_ARCHIVED = "Must reference an active, non-archived account."
 
 REFUSALS = [
     # the account got the currency meanwhile

@@ -1010,6 +1010,46 @@ def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, 
     )
 
 
+def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fake_client, notes):
+    """Only the opening balances are written: the dollars' is refused after the
+    soles' landed. A write went through, so `esc` closes the form with `True`,
+    the answer that makes the list reload. That the list then starts on row 1 is
+    pinned in test_tui_manage_actions.py ("after an edit")."""
+    plain = account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")])
+    sent = fake_client.post
+
+    def post(path, json_body=None):
+        if json_body and json_body.get("currency_code") == "USD":
+            fake_client.calls.append(("POST", path, json_body))
+            raise FUTURE
+        return sent(path, json_body)
+
+    fake_client.post = post
+    result: list = []
+
+    async def scenario(pilot, app):
+        screen = EditAccountScreen(plain)
+        await app.push_screen(screen, result.append)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await wait_for(pilot, lambda: not screen._openings_loading)
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")
+        _type(screen, "opening:USD", "40.00")
+        _type(screen, "as_of:USD", "2026-11-01")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert screen.is_attached
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: result)
+
+    run_app(scenario)
+    assert [c[0:2] for c in fake_client.calls if c[0] == "POST"] == [
+        ("POST", "/accounts/acc-visa/opening-balance"),
+        ("POST", "/accounts/acc-visa/opening-balance"),
+    ]
+    assert result == [True]
+
+
 def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     fake_client.errors["POST"] = FUTURE
     result: list = []
