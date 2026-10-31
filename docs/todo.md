@@ -68,8 +68,8 @@ specs are retired. The catch-up is seven specs, run in this order:
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): approved on 2026-10-30, running now;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
-6. [the main views](specs/catch-up-currencies-6-main-views.md): 15 tasks in two halves (6a the accounts, 6b the currency as its own field), 11 questions, 10 with a mockup;
-7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): 9 tasks, part 2's Statements screens among them, so it may split in two; 3 questions left (questions 2 and 3 answered on 2026-10-30), 2 with a mockup. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
+6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31, its questions answered; at your ask it runs next, in the cloud session, ahead of part 4's last tasks and part 5;
+7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
 [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),

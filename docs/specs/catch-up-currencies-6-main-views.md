@@ -16,9 +16,13 @@ The seven specs of this catch-up, run in this order:
 6. this one
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)
 
-**Status:** draft, written 2026-10-29 for the owner to approve. It runs after
+**Status:** approved by the owner on 2026-10-31, its questions answered that day. At the
+owner's ask it runs before part 4's tasks 4 to 8 and before
 [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md),
-and [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md) runs
+which wait for a session with the practice engine; it is built in a cloud session with none,
+the owner trying the app against the practice engine on their machine
+([cloud-session-review.md](../cloud-session-review.md)).
+[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md) runs
 after it. Every screen task waits on its question's mockup, picked by the owner.
 
 **Split:** fifteen tasks, more than one spec's eight, so it runs as two halves, each closed by
@@ -327,13 +331,17 @@ question, the files named, and the tui.md section named.
 1. **Manage ▸ Accounts, one row per account** (point 1; question 1). `account_rows` and
    `_HEADERS` in [accounts.py](../../expense/tui/screens/accounts.py) and its tests; tui.md §2
    "Manage ▸ Accounts is a table of …". *Passes if:* a fake engine's Visa in PEN and USD and
-   ALEJO in PEN and USD each draw as one account in the picked layout, each balance in its own
-   currency and none summed, archived ones dimmed whole; the unit tests pin it; tui.md says so.
+   ALEJO in PEN and USD each draw as one row of the columns Name, Type, Code, Color, PEN, USD
+   and Status (answer 1 C, drawn in pane 1 C), each balance in its own column and none summed,
+   a dim `—` where the account does not hold the currency, the `Cur` column gone, archived ones
+   dimmed whole; the unit tests pin it; tui.md says so.
 2. **Home's BANK ACCOUNTS and PEOPLE** (point 2; question 2). The account rows of
    [home.py](../../expense/tui/screens/home.py) and its tests; tui.md §2 "Home is four months of
-   the ledger". *Passes if:* `/dashboard` rows `{id, name, currencies}` draw as question 2
-   picks, the settled fold follows its answer, `⏎` opens the ledger on the account; the tests
-   pin each.
+   the ledger". *Passes if:* `/dashboard` rows `{id, name, currencies}` draw as the
+   account's row with an indented line per currency under it (answer 2 B), a person folding into
+   `▶ N settled` only when every currency reads `0.00`; `⏎` on the account's row or on a
+   currency's line opens the ledger on the account (a currency's line opening that currency
+   alone is task 12's); the tests pin each.
 3. **The New form** (point 3; question 3). `NewAccountScreen` in
    [create_forms.py](../../expense/tui/screens/create_forms.py) and its tests; tui.md §2 "A bank
    account's statement code is a line of its own on New and Edit". *Passes if:* a bank account
@@ -352,15 +360,21 @@ question, the files named, and the tui.md section named.
    saves with `currency_code` in its own request; the word on the right reads `debt`, `credit`
    or nothing as settled; a refusal names its currency's line; the tests pin each.
 6. **Adding a currency** (point 6; question 6). [accounts.py](../../expense/tui/screens/accounts.py)
-   (or the Edit form, as question 6 picks) and its tests; tui.md §4 for a new key. *Passes if:*
-   one `POST /accounts/{id}/currencies` adds the picked currency and the list reads fresh;
-   `DUPLICATE_CURRENCY` and `INVALID_REFERENCE` show the engine's words; the tests pin each.
+   and its tests; tui.md §4 for the new key. *Passes if:* `c` on an account's row (footer
+   `c Currency`) lists the supported currencies the account does not hold, as pane 6 A draws, and
+   `⏎` sends one `POST /accounts/{id}/currencies` for the picked one, the list reading fresh; on
+   an account holding every supported currency `c` writes nothing and shows a note naming the
+   account; `DUPLICATE_CURRENCY` and an archived account show the engine's words; the tests pin
+   each.
 7. **Removing a currency** (point 7; questions 4 and 7). [accounts.py](../../expense/tui/screens/accounts.py),
    [errors.py](../../expense/errors.py) and their tests; tui.md §2 "`d` is the TUI's one
-   destructive key". *Passes if:* only `y` sends `DELETE /accounts/{id}/currencies/{code}`; each
-   of `LAST_CURRENCY`, `HAS_TRANSACTIONS`, `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` reads as
-   questions 4 and 7 pick, nothing written; the list reads fresh after a removal; the tests pin
-   each.
+   destructive key". Waits on its mockup: answer 7 gives it a key of its own on the account's
+   row, mirroring `c`, whose pick, question and key are drawn and picked first. *Passes if:* the
+   key lists the account's currencies; only `y` on the question naming the account and the
+   currency sends `DELETE /accounts/{id}/currencies/{code}`; `LAST_CURRENCY`, `HAS_TRANSACTIONS`
+   (without the app's archive line, answer 4 A), `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` each
+   read in the engine's words alone, nothing written; the list reads fresh after a removal; the
+   tests pin each.
 8. **`a`, `t` and `d` on the whole account; the holder mockups go** (points 8 and 15). Their
    handlers in [accounts.py](../../expense/tui/screens/accounts.py), `test_tui_account_kind.py`;
    tui.md §2 "`t` turns an account into a person and back", "`d` is the TUI's one destructive

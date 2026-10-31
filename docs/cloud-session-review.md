@@ -86,6 +86,15 @@ both "for now". Since 6.1 C leaves no currency line, a currency is removed throu
 on the account's row (6.7), mirroring the add key; that pick is not drawn yet. The placeholder
 keys `c`, `%` and `m` stay.
 
+### Parts 6 and 7 approved; part 6a's tasks revised (2026-10-31)
+The owner approved both specs. Part 6a's drafted tasks 1, 2, 6 and 7 now follow the answers:
+- task 1: the columns Name, Type, Code, Color, PEN, USD and Status;
+- task 2: Home's line per currency and the settled fold;
+- task 6: `c` on the account's row;
+- task 7: its own remove key, waiting on its mockup.
+
+The owner approves the task list before any build.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two
