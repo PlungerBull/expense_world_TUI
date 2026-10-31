@@ -31,4 +31,5 @@ since the contract states every amount in cents with no per-currency exponent to
 ## What this client removes once it lands
 
 The terminal app's own list of supported currencies and the rule that it must be edited by hand
-whenever the contract admits a new currency; its currency pickers read the list from the engine.
+whenever the contract admits a new currency; its currency pickers, and its accounts list's
+column per currency, read the list from the engine.

@@ -93,22 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-**How the tasks run (owner, 2026-10-31).** Builds and reviews happen in a cloud session that
-has no practice engine, and the owner runs the live tests on their machine: the orchestrator
-pushes to `main`, gives the owner one command for the round's live tests, and reads back the
-results. A task leaves this list only once its live tests pass. The rounds, in order:
-
-1. Task 3 alone (done 2026-10-31).
-2. Tasks 4 and 5 together (both bank lines).
-3. Task 6.
-4. Tasks 7 and 8 together.
-5. The acceptance check: the whole live suite once, then the librarian's sweep and the reply
-   to the engine.
-
-Each task still gets its own build, review and commit; a round only groups the live run. The
-tasks touch separate test files, and share only `tests/contract/conftest.py`, so a broken
-shared helper can fail more than one task of a round.
-
 4. **Bank lines and the review list (builder).**
    [test_bank_lines.py](../../tests/contract/test_bank_lines.py): every line and part reading
    `account_id` and `currency_code`; `?account_id=` covering every currency, `?currency_code=`
@@ -181,7 +165,21 @@ shared helper can fail more than one task of a round.
    read the order and the statement lines the upload sets, every currency of the account in one
    order (contract: GET /v1/statements/{statement_id}/statement-order), with no order written.
    *Passes if:* the three files pass live and none sends `PUT …/statement-order`, `POST /people`
-   or `HAS_STATEMENT_CODE`.
+   or `HAS_STATEMENT_CODE`, and [runtime.md](../runtime.md)'s line on the contract suite no longer
+   names `HAS_STATEMENT_CODE`, which no operation sends.
+9. **Task 3's review notes (builder).** In
+   [test_statement_import.py](../../tests/contract/test_statement_import.py), the card's
+   `MONEY_AT_START_NOT_COVERED` is checked by its key and reason and by the currency and amount
+   its message names (`USD`, `30000`), not by the whole sentence, which the contract states for
+   `POST /statements` only (contract: POST /v1/statements, "Order"); the comment on
+   `SOLES_ONLY_MARCH` names what the data holds (two purchases, a payment, interest and a fee).
+   In [conftest.py](../../tests/contract/conftest.py), `card_paper` asserts a row's type fits in
+   10 characters and an undated row's label in 66, as it already does the description's 55, and
+   the comment above the made-up PDFs describes the card's columns beside the savings ones.
+   [runtime.md](../runtime.md)'s line on the contract suite introduces the statement upload as run
+   on drawn savings and card papers and the published samples.
+   *Passes if:* `test_statement_import.py` passes live, the message check names only the
+   currency and the amount, and an over-long type or label in `card_paper` fails its assert.
 
 ## Reply to the engine
 

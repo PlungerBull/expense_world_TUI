@@ -19,9 +19,8 @@ The seven specs of this catch-up, run in this order:
 **Status:** approved by the owner on 2026-10-31, its questions answered that day. At the
 owner's ask it runs before part 4's tasks 4 to 8 and before
 [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md),
-which wait for a session with the practice engine; it is built in a cloud session with none,
-the owner trying the app against the practice engine on their machine
-([cloud-session-review.md](../cloud-session-review.md)).
+which need the practice engine. Its first half, 6a, is done; its second half, 6b, waits on the
+owner's approval of its tasks.
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md) runs
 after it. Every screen task waits on its question's mockup, picked by the owner.
 
@@ -338,7 +337,31 @@ picks' titles naming the account (`Add a currency · <account>`, `Remove a curre
 
 **6a's acceptance check** passed on the owner's machine on 2026-10-31, against the practice
 engine: the drift check, the unit suite, and checks 1 to 8 of "How the owner knows it is done"
-tried in the app. Its doc sweep follows.
+tried in the app. Its doc sweep followed. A review of its tasks on 2026-10-31 approved them and
+left these notes:
+
+16. **6a's review notes (builder).**
+    - The drift check passes: the keys the two currency test files make up for themselves
+      (`check`, `held`, `key`, `notes`, `screen`, in
+      [test_tui_account_currencies.py](../../tests/unit/test_tui_account_currencies.py) and
+      [test_tui_account_currency_removal.py](../../tests/unit/test_tui_account_currency_removal.py))
+      no longer read as engine fields, by `KNOWN_LOCAL` in
+      [check_fixture_drift.py](../../scripts/check_fixture_drift.py) or by reshaping the tests.
+    - When an opening balance saves and a later write of the same save is refused, `esc` takes
+      the list back to row 1, as after any write (`_opening_saved` and `action_cancel` in
+      [create_forms.py](../../expense/tui/screens/create_forms.py)).
+    - The New form's refusal test in
+      [test_tui_create_forms.py](../../tests/unit/test_tui_create_forms.py) uses the contract's
+      reasons on `currencies` (`DUPLICATE_CURRENCY`, `UNSUPPORTED_VALUE`, `OUT_OF_RANGE`) in place
+      of `INVALID_VALUE`, and the `c` and `x` refusal tests send the contract's own words
+      (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
+    - tui.md's "When the engine says no" table has a row for `c` on an archived account
+      (`INVALID_REFERENCE` on `account_id`), its `CONCURRENT_CHANGE` row on a list names `c` and
+      `x`, and its `ACCOUNT_ARCHIVED` row no longer files `x` under a screen read before the
+      archive, since `x` is offered on archived rows.
+
+    *Passes if:* `python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002`
+    passes; a test pins `esc` after a half-saved save landing on row 1; the unit suite passes.
 
 **6b, the currency as its own field**
 
@@ -424,6 +447,10 @@ Not built in this spec; drafted into a new spec when it is done.
 - **Two of `x`'s words wait on the owner** (asked 2026-10-31): the receipt `Currency removed:
   USD.` and `<account> holds no currency.` for `x` on an account holding none. Built with these
   words.
+- **After a half-saved save, the note does not say which opening balances went through**:
+  when the dollars' opening balance is refused after the soles' saved, the screen shows the
+  engine's words alone. Its words go to the owner. The engine ask "An account and its opening
+  balances save in one write" removes the half save.
 - **No test pins the `?` card's new rule** (`⏎ never changes data, except on a currency pick`)
   or its wrap; and the busy guard's in-flight path is tested for `x` only, `c`'s test setting
   the guard by hand.

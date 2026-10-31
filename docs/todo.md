@@ -28,18 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Review the cloud session's work
-Asked 2026-10-31 · Blocks: nothing
-
-The work done in a cloud session, which had no practice engine and left the live runs to you,
-is logged commit by commit in [cloud-session-review.md](cloud-session-review.md). Once local
-credits are back, a local session reviews it, files what it keeps, and deletes the file.
-- **A.** Review it with a local session.
-- **B.** Skip the review and delete the file.
-
-**Recommended:** A, because the cloud builds were reviewed by agents briefed by hand, not by the
-loop's own worker definitions.
-
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 
@@ -66,9 +54,9 @@ specs are retired. The catch-up is seven specs, run in this order:
 1. the app's reads and writes: done on 2026-10-30;
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
-4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): approved on 2026-10-30; tasks 1 to 3 done, tasks 4 to 8 wait for a session with the practice engine;
+4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): approved on 2026-10-30; tasks 1 to 3 done, tasks 4 to 9 left;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
-6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31 in the cloud session; its second half, 6b, waits on your approval of its tasks;
+6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31, with one task of review notes left; its second half, 6b, waits on your approval of its tasks;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
