@@ -330,11 +330,19 @@ question, the files named, and the tui.md section named.
 
 Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
 already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
+On 2026-10-31 the owner also approved the `x` mockup
+([expense-world-currencies-remove-key.html](../mockups/expense-world-currencies-remove-key.html)),
+the opening balance's words as built in task 5, `c`'s receipt `Currency added: USD.`, both
+picks' titles naming the account (`Add a currency · <account>`, `Remove a currency ·
+<account>`), and the `?` card naming `⏎`'s exception on a currency pick.
 
 7. **Removing a currency** (point 7; questions 4 and 7). [accounts.py](../../expense/tui/screens/accounts.py),
    [errors.py](../../expense/errors.py) and their tests; tui.md §2 "`d` is the TUI's one
    destructive key". Waits on its mockup: answer 7 gives it a key of its own on the account's
-   row, `x`, mirroring `c`, whose pick and question are drawn and picked first. *Passes if:* the
+   row, `x`, mirroring `c`, drawn in
+   [expense-world-currencies-remove-key.html](../mockups/expense-world-currencies-remove-key.html).
+   It also brings `c` in line: its pick's title names the account (`Add a currency · <account>`),
+   and the `?` card's `⏎ never changes data` names the exception of a currency pick. *Passes if:* the
    key lists the account's currencies; only `y` on the question naming the account and the
    currency sends `DELETE /accounts/{id}/currencies/{code}`; `LAST_CURRENCY`, `HAS_TRANSACTIONS`
    (without the app's archive line, answer 4 A), `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` each
@@ -412,19 +420,10 @@ Not built in this spec; drafted into a new spec when it is done.
   [test_tui_statement_code.py](../../tests/unit/test_tui_statement_code.py) and tui.md cite
   "3·2 B" of `expense-world-statement-code-field.html`, the pane with the app's line; the engine's
   words alone are pane 3·2 A.
-- **The opening balance's new words wait on the owner** (asked 2026-10-31): `Delete these
-  opening balances?` with a row per currency and `They leave the account's balance, and no
-  screen can bring them back.`; `PEN opening: a signed decimal, e.g. -350.00`, `PEN as of: use
-  YYYY-MM-DD.` and `PEN as of is required.`; a refusal naming no line landing on its currency's
-  `opening` line. Built with these words; changing them is one small task.
 - **Two opening-balance notes do not name their currency**: `The opening balance is not:` and
   `The opening balance is still loading.`, though more than one currency may be involved.
 - **The 5 A mockup colours the summary's amounts by sign**; the Edit form draws them plain, as
   before.
-- **`c`'s words wait on the owner** (asked 2026-10-31): the receipt `Currency added: USD.`; the
-  pick's title `Add a currency`, against the remove mockup's `Remove a currency · <account>`
-  (recommended: both name the account); and the `?` card's `⏎ never changes data`, which this
-  pick's `⏎` breaks (recommended: name the exception on the card).
 - **A second `c` while the first add is in flight** offers the same currency again, and the
   engine refuses it; `a` and `t` guard with `_toggle_busy`.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived

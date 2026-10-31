@@ -188,6 +188,13 @@ The owner approves the task list before any build.
   `reconciliations.py`. Part 7 replaces them.
 - **Review:** approved on the first round.
 
+### The owner's answers on part 6a's words (2026-10-31)
+- **Approved:** the `x` mockup, the opening balance's words as built, and `c`'s receipt.
+- **To change, folded into task 7:** both picks' titles name the account, and the `?` card
+  names `⏎`'s exception on a currency pick.
+- **Not yet answered:** un-picking a currency on the New form. It stays as built, matching the
+  hashtag line.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two
