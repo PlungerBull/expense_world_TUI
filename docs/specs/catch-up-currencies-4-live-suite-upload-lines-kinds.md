@@ -93,6 +93,22 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
+**How the tasks run (owner, 2026-10-31).** Builds and reviews happen in a cloud session that
+has no practice engine, and the owner runs the live tests on their machine: the orchestrator
+pushes to `main`, gives the owner one command for the round's live tests, and reads back the
+results. A task leaves this list only once its live tests pass. The rounds, in order:
+
+1. Task 3 alone.
+2. Tasks 4 and 5 together (both bank lines).
+3. Task 6.
+4. Tasks 7 and 8 together.
+5. The acceptance check: the whole live suite once, then the librarian's sweep and the reply
+   to the engine.
+
+Each task still gets its own build, review and commit; a round only groups the live run. The
+tasks touch separate test files, and share only `tests/contract/conftest.py`, so a broken
+shared helper can fail more than one task of a round.
+
 3. **A card paper with dollars at zero (builder).** A card paper drawn in
    [conftest.py](../../tests/contract/conftest.py) to the stated layout, its dollars at zero
    with no row: sent to a soles-only account it closes in soles only
