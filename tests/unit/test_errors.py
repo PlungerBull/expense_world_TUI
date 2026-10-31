@@ -702,7 +702,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
             assert code in REFUSAL_CODES
         assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
         assert isinstance(step, NextStep)
-        for field_key in (*step.by_key, *step.no_line_on):
+        for field_key in (*step.by_key, *step.no_line_on, *step.no_line_on_one_currency):
             assert re.fullmatch(r"[a-z_]+", field_key)
     assert {reason for _code, reason in NEXT_STEPS} == {
         "HAS_TRANSACTIONS",
@@ -724,6 +724,28 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "RESERVED_NAME",
         "SYSTEM_NAME_FIXED",
     }
+
+
+def test_has_transactions_on_one_currency_reads_in_the_engine_words_alone():
+    """Answer 4 A of catch-up-currencies-6-main-views.md: removing a currency
+    that holds a transaction is refused with the account delete's reason on the
+    same key (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
+    and archiving would put away every currency, so the archive line stays off
+    a write acting on one currency and stays on the account's delete."""
+    from expense.errors import next_step
+
+    err = _refusal("CONFLICT", "account_id", "HAS_TRANSACTIONS")
+    archive = "To retire it instead, archive it: press a."
+    assert next_step(err, on_list=True) == archive
+    assert next_step(err, on_list=True, one_currency=True) is None
+    assert format_error(err, on_list=True, one_currency=True) == (
+        "CONFLICT — stand-in\n  account_id: stand-in field words"
+    )
+    # the category's line has nothing to do with a currency and is untouched
+    category = _refusal("CONFLICT", "category_id", "HAS_TRANSACTIONS")
+    assert next_step(category, one_currency=True) == (
+        "Move its transactions to another category first."
+    )
 
 
 def test_a_missing_ending_balance_says_press_c_again():

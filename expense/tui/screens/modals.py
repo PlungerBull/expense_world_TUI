@@ -52,7 +52,8 @@ class PickModal(ModalScreen[str | None]):
     `suggestion_list`, the highlight on the first), then `[enter] <verb>    [esc]
     cancel`. `↑↓` move the highlight, `⏎` dismisses with the highlighted choice,
     `esc` with None. It writes nothing: the caller acts on what it dismisses
-    with. Manage ▸ Accounts' `c` picks the currency to add through it."""
+    with. Manage ▸ Accounts' `c` picks the currency to add through it, and `x`
+    the currency to remove."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),

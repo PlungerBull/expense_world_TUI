@@ -195,6 +195,19 @@ The owner approves the task list before any build.
 - **Not yet answered:** un-picking a currency on the New form. It stays as built, matching the
   hashtag line.
 
+### Part 6a task 7 — `x` removes a currency
+- **The key:** `x` on Manage ▸ Accounts opens `PickModal` with the account's currencies, then a
+  `ConfirmModal`. Only `y` sends `DELETE /accounts/{id}/currencies/{code}`, and the list reads
+  fresh.
+- **One busy guard** now covers `c`, `x`, `a` and `t`.
+- **Keeping `HAS_TRANSACTIONS`'s archive line off a currency's removal:** a `one_currency` flag
+  through errors.py (like `on_list`) and `currency_refusal_text`. The account delete keeps the
+  line.
+- **Also changed:** `c`'s title names the account, and the `?` card names `⏎`'s exception.
+- **Review:** approved on the first round, with 1064 tests passing.
+- **Waiting on the owner:** two of `x`'s words.
+- **Part 6a's code is complete;** its acceptance check runs on the owner's machine.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two

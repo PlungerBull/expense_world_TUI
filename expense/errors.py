@@ -156,16 +156,21 @@ class NextStep:
     saving again is the retry. `by_key` picks the line by the reason's key, for
     a reason two resources share (contract: "Error reasons") or a line that suits
     one key alone; with no `line`, every other key draws none. A key in
-    `no_line_on` draws no line at all.
+    `no_line_on` draws no line at all, and a key in `no_line_on_one_currency`
+    none on a write acting on one currency of an account (adding or removing
+    it), where a line about the whole account does not fit.
     """
 
     line: str | None = None
     on_list: str | None = None
     by_key: Mapping[str, str] = field(default_factory=dict)
     no_line_on: frozenset[str] = frozenset()
+    no_line_on_one_currency: frozenset[str] = frozenset()
 
-    def pick(self, key: str, *, on_list: bool) -> str | None:
+    def pick(self, key: str, *, on_list: bool, one_currency: bool = False) -> str | None:
         if key in self.no_line_on:
+            return None
+        if one_currency and key in self.no_line_on_one_currency:
             return None
         if key in self.by_key:
             return self.by_key[key]
@@ -201,6 +206,8 @@ _APP_FAULT = (
 #: (contract: POST /v1/accounts/{account_id}/make-account),
 #: `IN_LIVE_STATEMENT`, whose words show alone: a live statement holds the account
 #: (contract: DELETE /v1/accounts/{account_id}, "Refusals"),
+#: `LAST_CURRENCY`, whose words show alone: deleting the account is a choice of its own
+#: (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
 #: `HAS_RECONCILIATION`, whose words show alone: the engine refuses an account that
 #: has ever been in a statement, a deleted one included (contract: "Error reasons"),
 #: `STATEMENT_MONTH_TAKEN`, whose words already name the statement holding that month
@@ -211,11 +218,17 @@ _APP_FAULT = (
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {
+    # The engine sends it on `account_id` both for an account's delete and for
+    # removing a currency that holds a transaction
+    # (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals");
+    # archiving puts away every currency, not the one, so a currency's removal
+    # shows the engine's words alone.
     ("CONFLICT", "HAS_TRANSACTIONS"): NextStep(
         by_key={
             "account_id": "To retire it instead, archive it: press a.",
             "category_id": "Move its transactions to another category first.",
-        }
+        },
+        no_line_on_one_currency=frozenset({"account_id"}),
     ),
     ("FORBIDDEN", "SYSTEM_CATEGORY"): NextStep(SYSTEM_HINT),
     # The built-in pending hashtag is never deleted (contract: DELETE /v1/hashtags/{hashtag_id})
@@ -295,19 +308,20 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
 }
 
 
-def next_step(err: Exception, *, on_list: bool = False) -> str | None:
+def next_step(err: Exception, *, on_list: bool = False, one_currency: bool = False) -> str | None:
     """The line saying what to do after `err`, or None when it has none.
 
     Chosen by the error's `code` and `reasons` alone, as a pair: the same
     reason under another code has no line. The first refused key with a line
-    wins. `on_list` is for a refusal met on a list screen.
+    wins. `on_list` is for a refusal met on a list screen, `one_currency` for
+    one met by a write acting on one currency of an account.
     """
     if not isinstance(err, EngineError):
         return None
     for key, reason in (err.reasons or {}).items():
         step = NEXT_STEPS.get((err.code, str(reason)))
         if step is not None:
-            line = step.pick(str(key), on_list=on_list)
+            line = step.pick(str(key), on_list=on_list, one_currency=one_currency)
             if line is not None:
                 return line
     return None
@@ -343,14 +357,15 @@ def engine_text(err: Exception) -> str:
     return format_error(err)
 
 
-def app_lines(err: EngineError, *, on_list: bool = False) -> list[str]:
+def app_lines(err: EngineError, *, on_list: bool = False, one_currency: bool = False) -> list[str]:
     """The app's lines `format_error` puts under the engine's words, each after
-    a blank line: `next_step`'s line (`on_list` on a list screen), then a hint
+    a blank line: `next_step`'s line (`on_list` on a list screen, `one_currency`
+    on a write acting on one currency of an account), then a hint
     chosen by the status or the error code. Empty when the refusal has none. A
     screen that lays the engine's words out itself (the Edit form, under its
     parts) adds these under them."""
     lines: list[str] = []
-    step = next_step(err, on_list=on_list)
+    step = next_step(err, on_list=on_list, one_currency=one_currency)
     if step is not None:
         lines.append(step)
     if err.status == 401:
@@ -398,16 +413,19 @@ def key_field(key: object, collection: str) -> str | None:
     return bits[2] if len(bits) == 3 else None
 
 
-def format_error(err: Exception, *, on_list: bool = False) -> str:
+def format_error(err: Exception, *, on_list: bool = False, one_currency: bool = False) -> str:
     """Human-readable error text for the app's toasts, notes and banners.
 
     The engine's words, then, after a blank line, the app's line saying what to
-    do: `next_step`'s for a refusal (`on_list` on a list screen), or a hint
+    do: `next_step`'s for a refusal (`on_list` on a list screen, `one_currency`
+    on a write acting on one currency of an account), or a hint
     chosen by the status or the error code, never by `message` or the `fields`
     texts. The sheet import prints `engine_text` instead.
     """
     if isinstance(err, EngineError):
-        return "\n\n".join([engine_words(err), *app_lines(err, on_list=on_list)])
+        return "\n\n".join(
+            [engine_words(err), *app_lines(err, on_list=on_list, one_currency=one_currency)]
+        )
     if isinstance(err, EngineConnectionError):
         return f"could not reach engine at {err.url} (is it running?)"
     # ConfigMissing/ConfigInvalid render as their message, same as any other

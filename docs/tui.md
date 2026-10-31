@@ -913,9 +913,9 @@ holds the account's balance in that currency, right-aligned and never summed wit
 dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
 when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
 account under the cursor, every currency at once, through one call with the account's id
-(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"); after `a` or `t`
-the cursor is back on the same account (`account_rows` in
-[accounts.py](../expense/tui/screens/accounts.py)).
+(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"); `c` and `x` add
+and remove one currency of it. After `a`, `t`, `c` or `x` the cursor is back on the same
+account (`account_rows` in [accounts.py](../expense/tui/screens/accounts.py)).
 
 **`t` turns an account into a person and back** (screens 1 A, 2 A, 3 and 5 B in
 [expense-world-account-to-person.html](mockups/expense-world-account-to-person.html)). On
@@ -948,7 +948,7 @@ PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read
 [expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)).
 On Manage ▸ Accounts the footer reads `c Currency` after `e Edit`, on every row, a person's
 and an archived account's too, and is off on an empty list. `c` opens the pick
-`Add a currency` (`PickModal` in [modals.py](../expense/tui/screens/modals.py)): the account on
+`Add a currency · <account>`, naming the account (`PickModal` in [modals.py](../expense/tui/screens/modals.py)): the account on
 one line as the delete question names it (`Caja Chica · bank · PEN 350.00`), the supported
 currencies it does not hold in `SUPPORTED_CURRENCIES` order (`currencies_to_add` in
 [accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
@@ -964,6 +964,32 @@ the engine's words alone: `DUPLICATE_CURRENCY` on a list read before the account
 currency elsewhere, and an archived account's, which the engine refuses rather than the app
 (contract: POST /v1/accounts/{account_id}/currencies, "Refusals").
 
+**`x` removes a currency from an account**
+([expense-world-currencies-remove-key.html](mockups/expense-world-currencies-remove-key.html)).
+The footer reads `x Remove currency` after `c Currency`, on every row, a person's and an
+archived account's too, and is off on an empty list. `x` opens the pick
+`Remove a currency · <account>`: the account on one line as `c`'s pick names it, the
+currencies it holds in the engine's order (`currencies_held` in
+[accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
+`[enter] pick    [esc] cancel`; the footer is `esc Cancel`, and `esc` leaves the list as it
+was. `⏎` sends nothing yet: it asks first with `ConfirmModal`, as a delete does, the question
+naming the account and the currency (`removal_question`): `Remove USD from Visa Inventada?`,
+its body the account with that currency's balance alone, then what the account keeps
+(`Visa Inventada · bank · USD -185.20` · `Visa Inventada keeps PEN.`), or, for its only
+currency, `It is the account's only currency.`. Only `y` sends
+`DELETE /accounts/{id}/currencies/{code}`, with no body, through `run_write`
+(contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}); `⏎`, `n`, `esc` and
+any other key send nothing. The note says `Currency removed: USD.` and the list reads again
+with the cursor on the same account, the removed currency's column a dim `—`. On an account
+holding no currency `x` opens nothing, sends nothing and notes `Prueba holds no currency.`.
+A refusal leaves the list as it was, and the "Failed" note is the engine's words alone, with
+no line of the app's: `LAST_CURRENCY` (deleting the account is `d`, a choice of its own),
+`HAS_TRANSACTIONS` without the account delete's archive line, since archiving puts away every
+currency and not the one, `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED`
+(contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
+`c` and `x` send one write at a time, sharing `a` and `t`'s guard: while one is in flight,
+`c`, `x`, `a` and `t` do nothing until the list reads again or the engine refuses.
+
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
@@ -975,7 +1001,9 @@ draws it. Cursor row only, never a selection: on the ledger `d` is off, and out
 of the footer, while rows are selected (`esc` clears the selection and it is back),
 while a bulk write runs and on an archived account's row (above). On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
-away and can be undone, delete is for something made by mistake.
+away and can be undone, delete is for something made by mistake. Removing one currency of an
+account is `x`, which asks first the same way, only `y` sending it ("`x` removes a currency
+from an account" above).
 
 On Accounts the delete acts on the whole account (contract: "What an account is", "An account is deleted whole"):
 the body's first line is the account, its kind, then each currency it holds with that
@@ -1054,14 +1082,16 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
 |---|---|---|
 | `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
+| `HAS_TRANSACTIONS` on `account_id`, removing a currency | `x` on Manage ▸ Accounts, on a currency holding a transaction | none: the engine's words alone, since archiving puts away every currency, not the one |
+| `LAST_CURRENCY` on `currency_code` | `x` on Manage ▸ Accounts, on the account's only currency (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals") | none: the engine's words alone; deleting the account is `d`, a choice of its own |
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account that has ever been in a statement, a deleted one included | none: the engine's words alone |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
-| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
+| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` and `x` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
@@ -1100,7 +1130,11 @@ apply by `changed_meanwhile` in [statement_upload.py](../expense/tui/screens/sta
 each shows its line in place of `format_error`'s, since what follows is `⏎ Preview again`.
 `RECONCILIATION_NOT_DRAFT` picks its line by its key: `file` (a statement PDF) or any other. A write sent from a list (every
 `d`, and `t` on Manage ▸ Accounts) asks for the list's line (`list_refusal_text` in
-[_base.py](../expense/tui/screens/_base.py)). The ending balance saved at `c` asks for none:
+[_base.py](../expense/tui/screens/_base.py)); a write acting on one currency of an account
+(`c` and `x` on Manage ▸ Accounts) asks for the list's line too, with no line about the whole
+account (`currency_refusal_text` in [accounts.py](../expense/tui/screens/accounts.py), and
+`no_line_on_one_currency` on the reason's row of `NEXT_STEPS`), so `HAS_TRANSACTIONS` on
+`account_id` draws the archive line on an account's delete and none on a currency's removal. The ending balance saved at `c` asks for none:
 the engine lists `CONCURRENT_CHANGE` on a statement's delete, not on its save
 (contract: DELETE /v1/statements/{statement_id}) (contract: PUT /v1/statements/{statement_id}). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, the keys
@@ -1425,9 +1459,12 @@ them — they are hand-written into the `?` card
   `f Flagged`, on only while lines its complete flagged are left ("The lines a complete
   flagged for review" below).
 
-  One pick writes on `⏎`: Manage ▸ Accounts' `Add a currency`, opened by `c`, adds the
+  A currency pick is the exception, and the card says so (`⏎ never changes data, except on a
+  currency pick`): Manage ▸ Accounts' `Add a currency · <account>`, opened by `c`, adds the
   highlighted currency at once, as `a` writes, with no question (§2 "`c` adds a currency to
-  an account"). Its footer is `esc Cancel` alone; the hint line under its list names `⏎`.
+  an account"), and `Remove a currency · <account>`, opened by `x`, takes the highlighted
+  currency to the question whose `y` removes it (§2 "`x` removes a currency from an
+  account"). Each pick's footer is `esc Cancel` alone; the hint line under its list names `⏎`.
 
 **The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
 `FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its

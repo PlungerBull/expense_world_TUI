@@ -21,7 +21,9 @@ from tests.unit.helpers import run_app, wait_for
 _MODALS = [
     lambda: ConfirmModal("Archive account?", "Archive BCP USD."),
     lambda: PromptModal("Rename", "New name"),
-    lambda: PickModal("Add a currency", "Caja Chica · bank · PEN 350.00", ["USD"], verb="add"),
+    lambda: PickModal(
+        "Add a currency · Caja Chica", "Caja Chica · bank · PEN 350.00", ["USD"], verb="add"
+    ),
 ]
 
 

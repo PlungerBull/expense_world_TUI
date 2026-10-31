@@ -224,7 +224,15 @@ def test_d_is_off_on_an_empty_list(configured, monkeypatch, resource):
     [
         (
             "accounts",
-            ["n New", "e Edit", "c Currency", "a Archive", "t Make person", "d Delete"],
+            [
+                "n New",
+                "e Edit",
+                "c Currency",
+                "x Remove currency",
+                "a Archive",
+                "t Make person",
+                "d Delete",
+            ],
         ),
         ("categories", ["n New", "e Edit", "d Delete"]),
         ("hashtags", ["n New", "e Edit", "d Delete"]),

@@ -228,6 +228,7 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
             "New",
             "Edit",
             "Add a currency",
+            "Remove a currency",
             "Archive / unarchive",
             "Make person",
             "Make bank",

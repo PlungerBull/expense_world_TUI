@@ -336,18 +336,6 @@ the opening balance's words as built in task 5, `c`'s receipt `Currency added: U
 picks' titles naming the account (`Add a currency · <account>`, `Remove a currency ·
 <account>`), and the `?` card naming `⏎`'s exception on a currency pick.
 
-7. **Removing a currency** (point 7; questions 4 and 7). [accounts.py](../../expense/tui/screens/accounts.py),
-   [errors.py](../../expense/errors.py) and their tests; tui.md §2 "`d` is the TUI's one
-   destructive key". Waits on its mockup: answer 7 gives it a key of its own on the account's
-   row, `x`, mirroring `c`, drawn in
-   [expense-world-currencies-remove-key.html](../mockups/expense-world-currencies-remove-key.html).
-   It also brings `c` in line: its pick's title names the account (`Add a currency · <account>`),
-   and the `?` card's `⏎ never changes data` names the exception of a currency pick. *Passes if:* the
-   key lists the account's currencies; only `y` on the question naming the account and the
-   currency sends `DELETE /accounts/{id}/currencies/{code}`; `LAST_CURRENCY`, `HAS_TRANSACTIONS`
-   (without the app's archive line, answer 4 A), `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` each
-   read in the engine's words alone, nothing written; the list reads fresh after a removal; the
-   tests pin each.
 **6b, the currency as its own field**
 
 9. **The quick-add grammar's currency** (point 9; question 8). [expense/quickadd/](../../expense/quickadd/)
@@ -429,3 +417,9 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.
+- **Two of `x`'s words wait on the owner** (asked 2026-10-31): the receipt `Currency removed:
+  USD.` and `<account> holds no currency.` for `x` on an account holding none. Built with these
+  words.
+- **No test pins the `?` card's new rule** (`⏎ never changes data, except on a currency pick`)
+  or its wrap; and the busy guard's in-flight path is tested for `x` only, `c`'s test setting
+  the guard by hand.

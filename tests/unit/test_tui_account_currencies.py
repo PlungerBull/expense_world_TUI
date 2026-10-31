@@ -1,7 +1,7 @@
 """`c` on Manage ▸ Accounts adds a currency to the account under the cursor.
 
 Pane 6 A of docs/mockups/expense-world-currencies-accounts-picks.html: `c Currency`
-opens the pick `Add a currency`, the account on one line, the supported currencies
+opens the pick `Add a currency · <account>`, the account on one line, the supported currencies
 it does not hold in `SUPPORTED_CURRENCIES` order and `[enter] add    [esc] cancel`.
 `⏎` sends one `POST /accounts/{id}/currencies` naming the picked currency, with no
 question, and the list reads again with the cursor on the same account
@@ -135,7 +135,7 @@ def test_c_lists_the_currencies_the_account_does_not_hold(
         run_app(scenario, size=SIZE)
     assert not sent.called
     title, account, listed, hint = seen["text"]
-    assert title == "Add a currency"
+    assert title == f"Add a currency · {line.split(' · ')[0]}"
     assert account == line
     assert listed.split() == choices
     assert hint == "[enter] add    [esc] cancel"
@@ -155,10 +155,11 @@ def test_c_sits_after_e_in_the_footer(configured, monkeypatch):
         ]
 
     run_app(scenario, size=SIZE)
-    assert seen["footer"][-6:] == [
+    assert seen["footer"][-7:] == [
         "n New",
         "e Edit",
         "c Currency",
+        "x Remove currency",
         "a Archive",
         "t Make person",
         "d Delete",

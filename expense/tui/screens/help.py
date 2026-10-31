@@ -28,6 +28,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Footer, Static
 
 from expense.tui.theme import ACCENT
+from expense.tui.widgets.refusal import under_itself
 
 #: Only BINDINGS declared by classes under this package reach the card. Textual's
 #: own widget keys are not ours to document — see the module docstring.
@@ -46,7 +47,7 @@ FOLD_INTO = {"move(-1)": "move(1)"}
 CONVENTIONS = (
     ("r", "refreshes, everywhere"),
     ("y", "alone confirms"),
-    ("⏎", "never changes data"),
+    ("⏎", "never changes data, except on a currency pick"),
 )
 
 #: Textual's own keys — all that is app-wide.
@@ -260,10 +261,11 @@ def _render_group(group: HelpGroup, width: int, accent: str, pad_to: int) -> Ric
     if group.inline:
         table.add_column("line", width=width)
         for row in group.rows:
-            line = Text("  ")
-            line.append(row.keys, style=accent)
-            line.append(f" {row.description}")
-            table.add_row(line)
+            head = Text("  ")
+            head.append(row.keys, style=accent)
+            head.append(" ")
+            # A long rule wraps under its own words, never under its key.
+            table.add_row(under_itself(head, Text(row.description)))
     else:
         # Sized to the widest key string rather than a constant: `. / pgdn` is
         # three cells wider than `esc`, and a fixed column either clipped the
