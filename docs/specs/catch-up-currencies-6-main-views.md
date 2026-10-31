@@ -160,6 +160,10 @@ the screens show what the engine now holds:
 
 - **The currency is picked as its own field, like any other field** (owner, 2026-10-29): in the
   LOG bar, the Edit form, the ledger's filters and bulk edit and the account forms.
+- **One currency shows, several are picked** (owner, 2026-10-31): wherever a line names an
+  account, an account holding one currency shows no currency picker, its currency just shown;
+  an account holding several makes the owner pick one. Questions 12 to 14 draw what that means
+  for the Edit form and `b`.
 - **A new account is made in one form, sent as one write** (owner, 2026-10-28, question 2 C of
   the cards spec): its name, its statement code typed once and its currencies (the Visa: PEN and
   USD).
@@ -317,6 +321,31 @@ the screens show what the engine now holds:
     **Recommended:** A: one key per field, as the owner asked.
 
    **Answered A** (owner, 2026-10-31): drawn as `m`, a placeholder the owner kept.
+
+12. **The Edit form on an account holding one currency** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+    - **A.** The currency line is shown dim with why, and the bar skips it.
+    - **B.** A picker holding the one currency, as 9 A drew it.
+
+    **Recommended:** A: the owner's rule, and a list of one leaves nothing to choose.
+
+13. **The Edit form when the account changes to one holding two currencies** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+    A change to a one-currency account follows question 12.
+    - **A.** The currency empties and the bar steps to it; nothing saves until one is picked.
+    - **B.** It keeps the line's currency when the new account holds it, the bar stopping on it.
+
+    **Recommended:** A: the owner's rule word for word.
+
+14. **`b` moving selected rows to another account** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+    To a one-currency account:
+    - **A.** Every row takes that currency.
+    - **B.** Each row keeps its currency; a row the account lacks is refused in the engine's words.
+
+    To an account holding two currencies:
+    - **C.** Each row keeps its own currency.
+    - **D.** A second pick asks the currency for every row.
+
+    **Recommended:** B and C: no amount changes currency on several rows at once without being
+    asked, and `m` is the currency's own key.
 
 ---
 

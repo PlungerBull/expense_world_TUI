@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>One currency or several</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --mag:#c39bd3; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --mag:#7d3c98; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --mag:#7d3c98; --line:#d6d6d0;
+  }
+  :root[data-theme=dark]{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --mag:#c39bd3; --line:#26262d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick,.qs,.why{width:min(1700px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:100ch}
+  .head b,.blurb b,.cap b,.pick b,.why b{color:var(--text)}
+  .pane{margin-top:30px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:0 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code,.qs code,.lbl code,.why code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)} .cu{color:var(--mag)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,820px),1fr));gap:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+       font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .tag{color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-left:8px;
+       font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .why{margin-top:16px;color:var(--muted);font-size:13px;line-height:1.7}
+  .why .rec{margin:0 8px 0 0}
+  .qs{margin-top:56px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs b{color:var(--text)}
+  .pick{margin-top:56px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>One currency or several · three picks</h1>
+  <p>Your rule: <b>an account holding one currency shows no currency picker</b>, the currency is just shown; <b>an account holding several makes you pick one</b>.</p>
+  <p>The LOG bar already works this way as you picked it (8 A and 8·i). The pages you picked from drew two places differently: <b>the Edit form</b> (question 9 A) stops on a currency picker even when the account holds one currency, and <b>moving selected rows with <code>b</code></b> (question 11 A) keeps each row's currency. This page draws those places under your rule, as questions 12 to 14.</p>
+  <p>Every drawing uses made-up accounts: <b>Banco Inventado</b> (PEN and USD), <b>Caja Chica</b> (PEN only) and <b>Visa Inventada</b> (PEN and USD). Today is Saturday 31 October 2026. Red refusal lines stand for the engine's own words; the sentences drawn are illustrative. Purple marks a currency that changed. <b>Moving a row to another currency never converts its amount:</b> -23.00 in dollars becomes -23.00 in soles.</p>
+  <p>Pick <b>one letter per question</b>. The button at the top right switches between a light and a dark terminal.</p>
+</div>
+
+<div class="qs"><h2>Already your rule · the LOG bar</h2>Nothing to pick here: this is how 8 A and 8·i draw it, shown so you can check it against your rule.</div>
+<div class="pane"><div class="lbl">The LOG bar <span>– one currency fills in by itself; two make you pick</span></div><div class="opt"><div><div class="oh">One currency <span>· typing <code>Pan $caja chica @comida -4.50 hoy</code> then ↵</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LOG</span>  <span class="a">▍</span>
+  <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+  <span class="d">$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+  <span class="d">     date     title            amount  cur  account           category     tags</span>
+  <span class="a">•</span><span class="d"> 1</span>  <span class="d">31 Oct   </span><span class="b">Panadería Luna </span><span class="n">    -8.40</span>  PEN  Caja Chica        COMIDA       <span class="a">casa</span>
+  <span class="a">•</span><span class="d"> 2</span>  <span class="d">31 Oct   </span><span class="b">Pan            </span><span class="n">    -4.50</span>  PEN  Caja Chica        COMIDA       —
+
+  <span class="d">2 staged · </span><span class="n">-12.90</span><span class="d"> PEN</span>
+
+ <span class="a">esc</span> Back  <span class="a">^s</span> Save</pre></div></div><div class="cap">Caja Chica holds only PEN, so no currency is typed or picked: the line stages in PEN (row 2).</div></div><div><div class="oh">Two currencies <span>· typing <code>Streamly $visa inventada @suscripcion -12.99 hoy</code> then ↵, no <code>%</code></span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LOG</span>  Streamly <span class="a">$visa inventada</span> <span class="w">@suscripcion</span> <span class="n">-12.99</span> hoy<span class="a">▍</span>
+  <span class="d">not staged — pick a currency and press ↵ again</span>
+  <span class="d">$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+  <span class="n">! not staged — Visa Inventada holds PEN and USD: pick one</span>
+  <span class="rev">  PEN  </span>
+    USD
+
+  <span class="d">     date     title            amount  cur  account           category     tags</span>
+  <span class="a">•</span><span class="d"> 1</span>  <span class="d">31 Oct   </span><span class="b">Panadería Luna </span><span class="n">    -8.40</span>  PEN  Caja Chica        COMIDA       <span class="a">casa</span>
+
+  <span class="d">1 staged · </span><span class="n">-8.40</span><span class="d"> PEN</span>
+
+ <span class="a">esc</span> Back  <span class="a">^s</span> Save</pre></div></div><div class="cap">Visa Inventada holds PEN and USD, so the line is not staged until you pick one. ↑↓ and ↵ write it into the line as <code>%usd</code>; ↵ again stages it.</div></div></div></div>
+
+<div class="qs"><h2>Question 12 · The Edit form on an account holding one currency</h2><code>⏎</code> on the row <b>Pan -4.50</b>, on Caja Chica, which holds only PEN.</div>
+<div class="pane"><div class="lbl">12 <span>– the currency line on a one-currency account</span></div><div class="opt"><div><div class="oh">12 A <span>· shown, no picker</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span><span class="n">-4.50</span><span class="a">▍</span>
+   <span class="d">a signed amount · enter next</span>
+
+   date      2026-10-31
+   title     Pan
+   account   Caja Chica
+   <span class="d">currency  PEN  · Caja Chica holds only PEN</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="a">▌</span> 1   <span class="n">-4.50</span>    COMIDA         —               —
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">The currency line is shown dim, with why: Caja Chica holds only PEN. <code>⇥</code> and <code>⏎</code> skip it, going from ACCOUNT straight to the part's amount.</div></div><div><div class="oh">12 B <span>· a picker of one</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">CURRENCY         </span><span class="a">▍</span>
+   <span class="rev">  PEN  </span>
+   <span class="d">pick a currency Caja Chica holds · ↑↓ highlight · enter select</span>
+
+   date      2026-10-31
+   title     Pan
+   account   Caja Chica
+   <span class="b">currency  </span>PEN
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-4.50</span>    COMIDA         —               —
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">As question 9 A drew it: the bar stops on CURRENCY, whose list holds PEN alone; <code>⏎</code> takes it.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span>12 A: it is your rule, and a list of one leaves nothing to choose.</div>
+
+<div class="qs"><h2>Question 13 · The Edit form when you change the account</h2>The row is <b>Librería Nube -23.00</b>, on Banco Inventado, <b>in dollars</b>. You change its account.</div>
+<div class="pane"><div class="lbl">13 · To a one-currency account <span>– account changed to Caja Chica, which holds only PEN</span></div><div class="blurb">Whichever letter you pick for 13, a move to a one-currency account follows question 12.</div><div class="opt"><div><div class="oh">Under 12 A <span>· the currency follows</span> <span class="tag">follows 12</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span><span class="n">-23.00</span><span class="a">▍</span>
+   <span class="d">a signed amount · enter next</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Caja Chica
+   <span class="d">currency  </span><span class="cu">PEN</span><span class="d">  · Caja Chica holds only PEN · was USD</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="a">▌</span> 1   <span class="n">-23.00</span>    OCIO           —               cuadernos
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">Caja Chica holds only PEN, so the currency becomes PEN by itself and the line says it was USD. Nothing to pick. The amount stays -23.00, now in soles. Under 12 B the bar would stop on a CURRENCY list holding PEN alone.</div></div></div></div>
+<div class="pane"><div class="lbl">13 · To an account holding two currencies <span>– account changed to Visa Inventada, which holds PEN and USD</span></div><div class="opt"><div><div class="oh">13 A <span>· you must pick</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">CURRENCY         </span><span class="a">▍</span>
+   <span class="rev">  PEN  </span>
+     USD
+   <span class="d">pick a currency Visa Inventada holds · ↑↓ highlight · enter select</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Visa Inventada
+   <span class="b">currency  </span><span class="d">— pick one</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-23.00</span>    OCIO           —               cuadernos
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">The currency empties and the bar steps to CURRENCY: nothing is chosen until you press <code>⏎</code> on one, even though the Visa also holds USD.</div></div><div><div class="oh">13 A · then ctrl+s with none picked <span>· not saved</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">CURRENCY         </span><span class="a">▍</span>
+   <span class="rev">  PEN  </span>
+     USD
+   <span class="d">pick a currency Visa Inventada holds · ↑↓ highlight · enter select</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Visa Inventada
+   <span class="b">currency  </span><span class="d">— pick one</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-23.00</span>    OCIO           —               cuadernos
+
+   <span class="n">! currency: pick one — Visa Inventada holds PEN and USD.</span>
+   <span class="d">Nothing was saved.</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">Saving before you pick stops on the currency line; nothing is sent to the engine.</div></div><div><div class="oh">13 B <span>· it keeps USD, the bar stops so you see it</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">CURRENCY         </span><span class="a">▍</span>
+     PEN
+   <span class="rev">  USD  </span>
+   <span class="d">pick a currency Visa Inventada holds · ↑↓ highlight · enter select</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Visa Inventada
+   <span class="b">currency  </span>USD
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-23.00</span>    OCIO           —               cuadernos
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">The Visa holds USD too, so the line keeps USD and the highlight starts on it: <code>⏎</code> keeps it, ↑ picks PEN.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span>13 A: it is your rule word for word, “make me select one”. 13 B is one key less when the currency stays the same.</div>
+
+<div class="qs"><h2>Question 14 · Moving selected rows to another account with <code>b</code></h2>Three rows are selected: <b>Streamly</b> and <b>Librería Nube</b> in dollars, <b>Taxi Rápido</b> in soles. You press <code>b</code> and pick an account. <code>m</code> still changes the currency alone.</div>
+<div class="pane"><div class="lbl">14 · To a one-currency account <span>– <code>b</code>, then Caja Chica, which holds only PEN</span></div><div class="opt"><div><div class="oh">14 A <span>· every row takes PEN</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="d">Title             Description     Amount  Cur  Date        Account          Cat          Hashtags</span>
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Streamly                        <span class="n">  -12.99</span>  <span class="cu">PEN</span>  2026-10-30  Caja Chica       SUSCRIPCION  casa
+      Librería Nube     cuadernos     <span class="n">  -23.00</span>  <span class="cu">PEN</span>  2026-10-29  Caja Chica       OCIO         —
+      Taxi Rápido       al centro     <span class="n">  -18.00</span>  PEN  2026-10-28  Caja Chica       TRANSPORTE   —
+      Café Brújula                    <span class="n">  -11.50</span>  PEN  2026-10-25  Visa Inventada   COMIDA       —
+     <span class="d">no filter · 4 of 112 loaded</span>
+                                                          <span class="a">▌</span> 3 rows → Caja Chica · PEN
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">m</span> Currency</pre></div></div><div class="cap">All three rows move to Caja Chica in PEN: the two dollar rows change currency too, their amounts unchanged (-12.99 and -23.00, now soles).</div></div><div><div class="oh">14 B <span>· each row keeps its currency</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="d">Title             Description     Amount  Cur  Date        Account          Cat          Hashtags</span>
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="a">●</span> Streamly                        <span class="n">  -12.99</span>  USD  2026-10-30  Visa Inventada   SUSCRIPCION  casa
+    <span class="a">●</span> Librería Nube     cuadernos     <span class="n">  -23.00</span>  USD  2026-10-29  Banco Inventado  OCIO         —
+      Taxi Rápido       al centro     <span class="n">  -18.00</span>  PEN  2026-10-28  Caja Chica       TRANSPORTE   —
+      Café Brújula                    <span class="n">  -11.50</span>  PEN  2026-10-25  Visa Inventada   COMIDA       —
+     <span class="d">no filter · 4 of 112 loaded · 2 selected</span>
+                                                          <span class="a">▌</span> 1 row → Caja Chica
+                                                          <span class="a">▌</span> <span class="n">2 of 3 refused</span>
+                                                          <span class="a">▌</span> <span class="n">account_id: The account holds no USD.</span>
+                                                          <span class="a">▌</span> rows 1 and 2
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">m</span> Currency</pre></div></div><div class="cap">As question 11 A drew it: Taxi Rápido moves; the two dollar rows are refused in the engine's words and stay selected. To move them, change their currency with <code>m</code> first.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span>14 B: a currency changing on several rows at once, with no conversion, is easy to miss, and <code>m</code> is already the key for the currency. Under your rule, 14 A is the one that matches the Edit form's 13 one-currency move.</div>
+<div class="pane"><div class="lbl">14 · To an account holding two currencies <span>– <code>b</code>, then Visa Inventada, which holds PEN and USD</span></div><div class="opt"><div><div class="oh">14 C <span>· each row keeps its own currency</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="d">Title             Description     Amount  Cur  Date        Account          Cat          Hashtags</span>
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Streamly                        <span class="n">  -12.99</span>  USD  2026-10-30  Visa Inventada   SUSCRIPCION  casa
+      Librería Nube     cuadernos     <span class="n">  -23.00</span>  USD  2026-10-29  Visa Inventada   OCIO         —
+      Taxi Rápido       al centro     <span class="n">  -18.00</span>  PEN  2026-10-28  Visa Inventada   TRANSPORTE   —
+      Café Brújula                    <span class="n">  -11.50</span>  PEN  2026-10-25  Visa Inventada   COMIDA       —
+     <span class="d">no filter · 4 of 112 loaded</span>
+                                                          <span class="a">▌</span> 3 rows → Visa Inventada
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">m</span> Currency</pre></div></div><div class="cap">The Visa holds both currencies, so each row keeps its own: no question.</div></div><div><div class="oh">14 D <span>· you pick one for all the rows</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Currency for 3 rows</span>
+
+    <span class="d">the 3 rows it moves to Visa Inventada</span>
+      <span class="d">Title             Description     Amount  Cur  Date        Account          Cat          Hashtags</span>
+      Streamly                          <span class="n">-12.99</span>  USD  2026-10-30  Visa Inventada   SUSCRIPCION  casa
+      Librería Nube     cuadernos       <span class="n">-23.00</span>  USD  2026-10-29  Banco Inventado  OCIO         —
+      Taxi Rápido       al centro       <span class="n">-18.00</span>  PEN  2026-10-28  Banco Inventado  TRANSPORTE   —
+
+   <span class="ab">CURRENCY         </span><span class="a">▍</span>
+   <span class="d">Visa Inventada holds PEN and USD: pick one for the 3 rows · ↑↓ highlight · enter · esc cancels</span>
+   <span class="rev">  PEN  </span>
+     USD
+
+ <span class="a">esc</span> Cancel</pre></div></div><div class="cap">After the account, a second pick asks the currency, and every row goes to it: Taxi Rápido would become dollars, or the two dollar rows soles.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span>14 C: every row already has a currency the Visa holds, and moving rows to another account should not quietly change what their amounts mean. 14 D follows your rule to the letter.</div>
+
+<div class="pick">To answer, say:<ul>
+  <li><b>Question 12, the Edit form on a one-currency account:</b> A or B</li>
+  <li><b>Question 13, the Edit form when the account changes to one with two currencies:</b> A or B</li>
+  <li><b>Question 14, <code>b</code> to a one-currency account:</b> A or B; <b>to a two-currency account:</b> C or D</li>
+</ul></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
