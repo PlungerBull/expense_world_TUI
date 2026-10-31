@@ -28,6 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Review the cloud session's work
+Asked 2026-10-31 · Blocks: nothing
+
+The work done in a cloud session, which had no practice engine and left the live runs to you,
+is logged commit by commit in [cloud-session-review.md](cloud-session-review.md). Once local
+credits are back, a local session reviews it, files what it keeps, and deletes the file.
+- **A.** Review it with a local session.
+- **B.** Skip the review and delete the file.
+
+**Recommended:** A, because the cloud builds were reviewed by agents briefed by hand, not by the
+loop's own worker definitions.
+
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 
