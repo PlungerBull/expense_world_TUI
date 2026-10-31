@@ -96,7 +96,8 @@ expense/tui/
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) and a CURRENCIES line (§2): both save with one
                     #   POST /accounts, a person with `is_person: true`; the
-                    #   account Edit form carries the opening balance (§2).
+                    #   account Edit form carries an opening balance per
+                    #   currency (§2).
                     #   COLOR is optional on New account and New category
                     #   (hints: §4 "The bar forms' keys"): a skipped
                     #   colour is left out of the body, never sent as null, and
@@ -106,8 +107,9 @@ expense/tui/
                     #   Edit category keeps it required, so a PUT never sends null;
                     #   on an Edit screen the line starts on the row's own colour
                     #   ("Stepping past COLOR keeps it", §2)
-    modals.py       # ConfirmModal, DiscardStagedModal (the LOG bar's one
-                    #   confirmation), and PromptBox — one line typed in a box —
+    modals.py       # ConfirmModal, PickModal (one choice from a short list:
+                    #   Manage ▸ Accounts' `c` and `x`), DiscardStagedModal (the
+                    #   LOG bar's one confirmation), and PromptBox — one line typed in a box —
                     #   under PromptModal (text) and AmountPromptModal (a signed
                     #   amount, read by the shared money parser)
 ```
@@ -903,12 +905,14 @@ from this app either. Under the list a legend says so: `System categories cannot
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**
-(pane 1 C in [expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html),
-and screen 4 B in [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
+(pane 1 C in
+[expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html),
+and screen 4 B in
+[expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
 for Code), banks and people together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). The currency columns are the currencies the client knows,
-`PEN` then `USD` (`SUPPORTED_CURRENCIES` in [currencies.py](../expense/currencies.py)): each
+in the engine's order everywhere" above). The currency columns are the currencies the client
+knows, `PEN` then `USD` (`SUPPORTED_CURRENCIES` in [currencies.py](../expense/currencies.py)): each
 holds the account's balance in that currency, right-aligned and never summed with another, or a
 dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
 when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
@@ -929,13 +933,14 @@ cursor on the account in its new place, among the people or the bank accounts, a
 note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. An
 account with an opening balance keeps it as a person, the same transaction under `@Opening`,
 so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). While
-one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the footer and does
-nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
-as it was and `t` works again; the "Failed" note is the engine's words alone, with no line of
-the app's, for each of its refusals: `KIND_UNCHANGED`, `ACCOUNT_ARCHIVED` and
+one is in flight, `t`, `a`, `c` and `x` do nothing. On an archived row `t` leaves the footer
+and does nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the
+list as it was and `t` works again; the "Failed" note is the engine's words alone, with no line
+of the app's, for each of its refusals: `KIND_UNCHANGED`, `ACCOUNT_ARCHIVED` and
 `HAS_RECONCILIATION`, as the table in "When the engine says no" lists them
-(contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). An account in two currencies turns on its one row, every
-currency with it, each balance still in its column. A person never has statements, so `t Make person` on an
+(contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
+An account in two currencies turns on its one row, every currency with it, each balance still
+in its column. A person never has statements, so `t Make person` on an
 account that has ever been in one, a deleted one included, is refused with
 `HAS_RECONCILIATION` (contract: "Error reasons"), and the note is the engine's words alone
 (screen 1 B in
@@ -948,8 +953,9 @@ PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read
 [expense-world-currencies-accounts-picks.html](mockups/expense-world-currencies-accounts-picks.html)).
 On Manage ▸ Accounts the footer reads `c Currency` after `e Edit`, on every row, a person's
 and an archived account's too, and is off on an empty list. `c` opens the pick
-`Add a currency · <account>`, naming the account (`PickModal` in [modals.py](../expense/tui/screens/modals.py)): the account on
-one line as the delete question names it (`Caja Chica · bank · PEN 350.00`), the supported
+`Add a currency · <account>`, naming the account (`PickModal` in
+[modals.py](../expense/tui/screens/modals.py)): the account on one line as the delete question
+names it (`Caja Chica · bank · PEN 350.00`), the supported
 currencies it does not hold in `SUPPORTED_CURRENCIES` order (`currencies_to_add` in
 [accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
 `[enter] add    [esc] cancel`; the footer is `esc Cancel`. `↑↓` move the highlight, `esc`
@@ -1134,8 +1140,9 @@ each shows its line in place of `format_error`'s, since what follows is `⏎ Pre
 (`c` and `x` on Manage ▸ Accounts) asks for the list's line too, with no line about the whole
 account (`currency_refusal_text` in [accounts.py](../expense/tui/screens/accounts.py), and
 `no_line_on_one_currency` on the reason's row of `NEXT_STEPS`), so `HAS_TRANSACTIONS` on
-`account_id` draws the archive line on an account's delete and none on a currency's removal. The ending balance saved at `c` asks for none:
-the engine lists `CONCURRENT_CHANGE` on a statement's delete, not on its save
+`account_id` draws the archive line on an account's delete and none on a currency's removal.
+The ending balance saved at `c` asks for none: the engine lists `CONCURRENT_CHANGE` on a
+statement's delete, not on its save
 (contract: DELETE /v1/statements/{statement_id}) (contract: PUT /v1/statements/{statement_id}). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, the keys
 `hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`, and
@@ -1448,8 +1455,9 @@ them — they are hand-written into the `?` card
 ([help.py](../expense/tui/screens/help.py) `CONVENTIONS`):
 
 - **`r` always refreshes**, everywhere.
-- **`y` alone confirms** — scoped to delete / revert / promote, since archive is
-  confirm-free (a reversible toggle, not destruction).
+- **`y` alone confirms** — scoped to delete / revert / promote / a currency's removal
+  (`x` on Manage ▸ Accounts), since archive is confirm-free (a reversible toggle, not
+  destruction).
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names

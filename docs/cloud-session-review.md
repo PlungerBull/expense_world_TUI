@@ -5,6 +5,68 @@ done in a Claude Code cloud session. It is a log, so unlike the other docs it re
 It is deleted once that review is done; anything the review keeps goes to its usual home
 (todo.md, a spec, decisions.md).
 
+## How to review this work (the local session's brief)
+
+**Get it.** Everything is on `main`; `git pull` brings it. The cloud work runs from `9ab470d`
+to the commit that last changed this file (`git log --oneline 9ab470d^..HEAD`). The code
+changes are in:
+- part 4's task 3 (`9ab470d`, `4ffaaa7`);
+- part 6a's tasks 1 to 8 (`598ca7b`, `f6ea37f`, `1ca2138`, `8ef649b`, `06be880`, `695ee18`,
+  `20a61bc`, `b9bdab6`);
+- the doc sweep's commit after them.
+
+The rest are docs and mockups.
+
+**Why a second look.** Every task was built and reviewed by agents briefed by hand, since the
+cloud box has no `~/.claude/agents/`. No agent could read the live contract, so contract facts
+came from the specs and the existing tests.
+
+**The review, as the loop's roles would run it:**
+
+1. **Tester, against the practice engine** (started and stopped with the practice-engine
+   script, as [runtime.md](runtime.md) "Working against the live engine" gives it):
+   - the drift check, `python scripts/check_fixture_drift.py --engine-url
+     http://127.0.0.1:8002` (version and fixture keys; the owner's run on 2026-10-31 was
+     reported as passing, but its output was not seen);
+   - `pytest tests/unit`;
+   - the live suite's `tests/contract/test_statement_import.py` (passed 22 of 22 on
+     2026-10-31);
+   - `tests/contract/test_contract_citations.py`. It is known to fail on the files parts 4
+     and 7 rewrite. Check that no citation added by the cloud commits is among its failures;
+     those are in `expense/tui/screens/accounts.py`, `create_forms.py`, `errors.py`,
+     `docs/tui.md` and `tests/unit/test_tui_account_currency_removal.py`.
+2. **Facts only the live contract settles.** For each, read `/openapi.json` and fix the code or
+   the spec:
+   - **The body of `POST /accounts/{id}/currencies`:** sent as `{"currency_code": …}`.
+   - **The refusals of adding and removing a currency,** each on its key:
+     - adding: `DUPLICATE_CURRENCY` on `currency_code`, and an archived account
+       `INVALID_REFERENCE` on `account_id`;
+     - removing: `LAST_CURRENCY`, `HAS_TRANSACTIONS` on `account_id`, `IN_LIVE_STATEMENT` and
+       `ACCOUNT_ARCHIVED`.
+   - **The keys a refusal names on `POST /accounts`:** e.g. `currencies.<i>.currency_code`.
+   - **`HAS_STATEMENT_CODE`.** Part 6's spec says no operation sends it, and part 6a removed the
+     app's handling of it. But `tests/contract/test_statement_codes.py` and runtime.md line 94
+     say `make-person` refuses with it. One of them is wrong.
+3. **Reviewer, one per task of part 6a:** read each task's commit against its "Passes if" in
+   [part 6's spec](specs/catch-up-currencies-6-main-views.md) (the tasks have left its list; `git
+   show <commit>^:docs/specs/catch-up-currencies-6-main-views.md` holds each one's text) and
+   the log below. The riskiest are:
+   - **task 5 (`06be880`):** the multi-write save of opening balances;
+   - **task 7 (`b9bdab6`):** the `one_currency` flag through errors.py;
+   - **task 3 (`1ca2138`):** the `_refusal_text` hook on `FormScreen`.
+4. **Librarian:** one sweep ran on 2026-10-31 after part 6a. Its open question is under "Points
+   for the local review".
+
+**Open for the owner** (also in [todo.md](todo.md) and part 6's spec):
+- part 6b's seven tasks and three of their choices, drafted for approval;
+- `x`'s words `Currency removed: USD.` and `<account> holds no currency.`;
+- un-picking a currency on the New form, which stays as built unless asked.
+
+**What comes next.** In order:
+1. part 4's tasks 4 to 8 and part 5, which need the live contract;
+2. part 6b once approved;
+3. part 7.
+
 ## How the cloud session works
 
 - **Where the work happens.** The cloud session has no practice engine. It builds and reviews
@@ -215,6 +277,13 @@ opening balances per currency, `a`, `t`, `c`, `x` and its refusals, Home, `d`). 
 "all worked properly". The outputs were not pasted back, so the local review may want to rerun
 the drift check.
 
+### The doc sweep after part 6a (2026-10-31)
+The librarian fixed the tui.md file tree, the shared busy guard's keys, `y`'s rule for `x`,
+over-long lines, and the outbox ask `an-account-holding-no-currency.md`'s "What this client
+removes". The orchestrator fixed three stale decisions.md entries: a person's opening balance,
+`t` keeping currencies, and the "one row named <account> · <code>" entry narrowed to the screens
+still waiting.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two
@@ -224,3 +293,7 @@ the drift check.
   `claude/expense-world-tui-status-y13c9y`, but pushes to `main` as CLAUDE.md says, at the
   owner's word (2026-10-31). The branch still exists on GitHub at commit 9ab470d. Delete it
   once this review is done.
+- **The sweep's question on an outbox reply.**
+  `to-engine/reply-f82426fb0a099676-1-reads-and-writes.md` lines 33–35 describe Manage ▸
+  Accounts as one row per account and currency, as part 1 shipped it. Leave it as a record, or
+  update it before it is handed over?

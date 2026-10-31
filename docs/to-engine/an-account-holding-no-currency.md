@@ -38,6 +38,8 @@ Make the contract say one thing:
 
 ## What this client removes once it lands
 
-If no account can hold none: the terminal app's special row on its accounts list for an account
-holding no currency (the account's name alone, with no currency and no balance), kept today only
-so that such an account can still be found and deleted.
+If no account can hold none: the terminal app's handling of an account holding no currency, kept
+today only so that such an account can still be found and deleted: its accounts list drawing it
+with a dash in every currency column, its delete question naming it with no currency
+(`Prueba · bank`), the note `x` gives on it instead of a currency pick, and the account Edit form
+opening with no opening-balance line for it.

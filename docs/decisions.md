@@ -712,7 +712,7 @@ that starting debt is an opening balance, as on a bank account.
 
 **Decision.** A person's opening balance is judged by the engine exactly as a bank account's
 (contract: POST /v1/accounts/{account_id}/opening-balance), and the app treats it the same way:
-a person's Edit form shows `opening` and `as of` after the colour, through the same code as a bank
+a person's Edit form shows a `<CODE> opening` and `<CODE> as of` pair per currency after the colour, through the same code as a bank
 account's, and `t` turns an account into a person keeping its opening balance
 (contract: POST /v1/accounts/{account_id}/make-person). The statement code line stays off a
 person.
@@ -729,7 +729,7 @@ import creates every sheet account as a bank account.
 
 **Decision.** (1) **The owner turns an account into a person in the app,** not in the import:
 `t` on Manage ▸ Accounts sends make-person or make-account at once, with no question, since it
-is reversible and keeps the account's id, name, currency, balance and transactions
+is reversible and keeps the account's id, name, currencies, balances and transactions
 (contract: POST /v1/accounts/{account_id}/make-person). The cursor stays on the account in its
 new group, and the note says what it became, so a second `t` turns it back. (2) **A refusal is
 the engine's words.** An account's opening balance goes with it both ways, since a person
@@ -1068,28 +1068,27 @@ currencies in one balance* — a total across currencies has no meaning.
 
 ## Until the screens are redrawn, a currency is one row named "<account> · <code>" (2026-10-29, owner)
 
-**Decision.** Every list and picker that showed one row per per-currency account shows one row
-per account and currency, labelled with the account's name and the code ("VISA Infinite
-Sapphire · USD", `formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT
-line, and the ledger's Account column and bulk `b`. A pick carries the account's id and the
-currency's code, and every write sends both. Manage ▸ Accounts and Home are redrawn: Manage ▸
-Accounts one row per account with a column per currency (question 1 C of
-[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)), Home
-the account's row with a line per currency (question 2 B), its `⏎` opening the ledger on the
-account until that spec's task 12 opens a currency's line on that currency alone. Manage ▸
-Accounts' `d` names the account and each currency with its balance (`Prueba · bank · PEN
-0.00 · USD 0.00`), and its `e` opens the Edit form on the account, with an opening balance pair per
-currency (question 5 A).
+**Decision.** The lists and pickers not yet redrawn show one row per account and currency,
+labelled with the account's name and the code ("VISA Infinite Sapphire · USD",
+`formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT line, and the
+ledger's Account column and bulk `b`. A pick carries the account's id and the currency's code,
+and every write sends both. Manage ▸ Accounts and Home are redrawn by
+[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md): Manage ▸
+Accounts one row per account with a column per currency (question 1 C), its `d` naming the
+account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`) and its `e`
+opening the Edit form with an opening balance pair per currency (question 5 A); Home the
+account's row with a line per currency (question 2 B), its `⏎` opening the ledger on the
+account until that spec's task 12 opens a currency's line on that currency alone.
 
-**Why.** It moves the app onto the engine's model with the screens as close to the ones the owner
-knows as the model allows, so the app works again before the screens are redrawn with the
-currency as a field of its own. A row per currency is how the screens already read, and the
-label is the name the owner gave a currency. `d` lists every currency because a delete removes
-them all, and the row it is pressed on is only one.
+**Why.** It moves the app onto the engine's model with the screens still waiting for their
+redraw as close to the ones the owner knows as the model allows, so the app works before each
+is redrawn with the currency as a field of its own. On those screens a row per currency is how
+they already read, and the label is the name the owner gave a currency. `d` lists every
+currency because a delete removes them all.
 
-**Rejected.** *One row per account at once* — it is the redraw itself, with its own mockups and
-questions. *`d` asking about the cursor row with a line saying the other currencies go too* — it
-hides the balances the delete removes.
+**Rejected.** *Redrawing every screen at once* — each redraw has its own mockups and questions,
+so the screens move one spec task at a time. *`d` naming one currency with a line saying the
+others go too* — it hides the balances the delete removes.
 
 ## The PDF upload and the two imports send the account, and the statement screens wait for their redraw (2026-10-30, owner)
 
