@@ -336,6 +336,10 @@ the opening balance's words as built in task 5, `c`'s receipt `Currency added: U
 picks' titles naming the account (`Add a currency · <account>`, `Remove a currency ·
 <account>`), and the `?` card naming `⏎`'s exception on a currency pick.
 
+**6a's acceptance check** passed on the owner's machine on 2026-10-31, against the practice
+engine: the drift check, the unit suite, and checks 1 to 8 of "How the owner knows it is done"
+tried in the app. Its doc sweep follows.
+
 **6b, the currency as its own field**
 
 9. **The quick-add grammar's currency** (point 9; question 8). [expense/quickadd/](../../expense/quickadd/)

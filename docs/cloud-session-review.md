@@ -208,6 +208,13 @@ The owner approves the task list before any build.
 - **Waiting on the owner:** two of `x`'s words.
 - **Part 6a's code is complete;** its acceptance check runs on the owner's machine.
 
+### Part 6a's acceptance check (2026-10-31)
+The owner ran it on their Mac against the practice engine: the drift check, `pytest
+tests/unit`, and the eight app checks (a two-currency account and person, the statement code,
+opening balances per currency, `a`, `t`, `c`, `x` and its refusals, Home, `d`). They reported
+"all worked properly". The outputs were not pasted back, so the local review may want to rerun
+the drift check.
+
 ## Points for the local review
 
 - **Practice keys pasted into the chat.** On 2026-10-31 the owner pasted that run's two
