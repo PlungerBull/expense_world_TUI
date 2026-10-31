@@ -328,12 +328,16 @@ the screens show what the engine now holds:
 
     **Recommended:** A: the owner's rule, and a list of one leaves nothing to choose.
 
+    **Answered A** (owner, 2026-10-31).
+
 13. **The Edit form when the account changes to one holding two currencies** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
     A change to a one-currency account follows question 12.
     - **A.** The currency empties and the bar steps to it; nothing saves until one is picked.
     - **B.** It keeps the line's currency when the new account holds it, the bar stopping on it.
 
     **Recommended:** A: the owner's rule word for word.
+
+    **Answered A** (owner, 2026-10-31).
 
 14. **`b` moving selected rows to another account** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
     To a one-currency account:
@@ -346,6 +350,9 @@ the screens show what the engine now holds:
 
     **Recommended:** B and C: no amount changes currency on several rows at once without being
     asked, and `m` is the currency's own key.
+
+    **Answered C** for a two-currency account (owner, 2026-10-31); a one-currency account is still
+    open.
 
 ---
 
