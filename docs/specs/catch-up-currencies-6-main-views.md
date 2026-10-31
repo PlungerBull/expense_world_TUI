@@ -502,6 +502,9 @@ Not built in this spec; drafted into a new spec when it is done.
   when the dollars' opening balance is refused after the soles' saved, the screen shows the
   engine's words alone. Its words go to the owner. The engine ask "An account and its opening
   balances save in one write" removes the half save.
+- **The app fills in an account's only currency itself** on the LOG bar, the Edit form's
+  account change and `b` (questions 8·i, 13 A, 14 A); the engine ask "An account's only currency
+  is taken when a write names none" moves that rule to the engine for every client.
 - **No test pins the `?` card's new rule** (`⏎ never changes data, except on a currency pick`)
   or its wrap; and the busy guard's in-flight path is tested for `x` only, `c`'s test setting
   the guard by hand.
