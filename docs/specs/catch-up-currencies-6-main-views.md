@@ -328,6 +328,9 @@ question, the files named, and the tui.md section named.
 
 **6a, the accounts**
 
+Approved by the owner on 2026-10-31, with task 6's note naming the account (`Visa Inventada
+already holds every currency.`) and `x` as task 7's key (footer `x Remove currency`).
+
 1. **Manage ▸ Accounts, one row per account** (point 1; question 1). `account_rows` and
    `_HEADERS` in [accounts.py](../../expense/tui/screens/accounts.py) and its tests; tui.md §2
    "Manage ▸ Accounts is a table of …". *Passes if:* a fake engine's Visa in PEN and USD and
@@ -369,7 +372,7 @@ question, the files named, and the tui.md section named.
 7. **Removing a currency** (point 7; questions 4 and 7). [accounts.py](../../expense/tui/screens/accounts.py),
    [errors.py](../../expense/errors.py) and their tests; tui.md §2 "`d` is the TUI's one
    destructive key". Waits on its mockup: answer 7 gives it a key of its own on the account's
-   row, mirroring `c`, whose pick, question and key are drawn and picked first. *Passes if:* the
+   row, `x`, mirroring `c`, whose pick and question are drawn and picked first. *Passes if:* the
    key lists the account's currencies; only `y` on the question naming the account and the
    currency sends `DELETE /accounts/{id}/currencies/{code}`; `LAST_CURRENCY`, `HAS_TRANSACTIONS`
    (without the app's archive line, answer 4 A), `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED` each
