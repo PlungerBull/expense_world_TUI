@@ -93,18 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-4. **Bank lines and the review list (builder).**
-   [test_bank_lines.py](../../tests/contract/test_bank_lines.py): every line and part reading
-   `account_id` and `currency_code`; `?account_id=` covering every currency, `?currency_code=`
-   narrowing with it or alone, `UNSUPPORTED_VALUE` for an unsupported code, on the list and the
-   count (contract: GET /v1/bank-lines, "Filters"); `?unassigned_in_period_of=` listing a
-   dollar line in no statement dated on a soles-only statement's days, `CONFLICTING_PARAMETERS`
-   beside `currency_code`, and read with `sort=statement` only, before and after the close; a
-   line moved to another account saying it left its statement; the docstring of
-   [test_bank_lines_by_ids.py](../../tests/contract/test_bank_lines_by_ids.py) saying the
-   flagged lines' screen reads the review list, not `ids`.
-   *Passes if:* the file passes live, names no `reconciliation_id`, and no contract test says
-   the flagged screen reads by `ids`.
 5. **Moves and the closed days (builder).**
    [test_bank_line_write.py](../../tests/contract/test_bank_line_write.py),
    [test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py) and
@@ -164,6 +152,11 @@ model until" tests/contract` finds each): the task rewriting one removes its ski
    [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
    read the order and the statement lines the upload sets, every currency of the account in one
    order (contract: GET /v1/statements/{statement_id}/statement-order), with no order written.
+   The review list's cases are task 4's, done in
+   [test_bank_lines.py](../../tests/contract/test_bank_lines.py): the old review-list tests of
+   `test_statement_order.py` go, not ported (a card's halves, a draft half beside a completed one,
+   none listed on a completed statement, an account without a code, `sort=date_asc` on the
+   review list), since the live contract no longer states them.
    *Passes if:* the three files pass live and none sends `PUT …/statement-order`, `POST /people`
    or `HAS_STATEMENT_CODE`, and [runtime.md](../runtime.md)'s line on the contract suite no longer
    names `HAS_STATEMENT_CODE`, which no operation sends.
@@ -226,6 +219,15 @@ completed statement gaining a currency. Each held as the contract states it.
 
 Not built in this spec; drafted into a new spec when it is done.
 
+- **The Edit form still says "reconciliation"** where the engine says statement: its note
+  `Saved. It left its reconciliation.` and the bank-line form's crumb `Reconciliations`
+  ([edit_form.py](../../expense/tui/screens/edit_form.py)). Words the owner sees.
+- **Two live tests in [test_bank_lines.py](../../tests/contract/test_bank_lines.py) drive the old
+  reconciliation screen's reads** (`_fetch_all_lines`, `line_rows`, `unfiled_rows`); part 7's
+  statement screen rewrite ports them, and drives the flagged screen's own review-list read,
+  which no live test drives yet.
+- **No live test has a line whose parts carry different dates** on the review list ("A line is
+  listed when any of its parts counts", GET /v1/bank-lines "Filters").
 - **runtime.md's contract-suite paragraph cites the holder-era contract.** The live citation
   test, run on 2026-10-31, names four citations on [runtime.md](../runtime.md) line 94 the live
   contract does not hold (`"Reconciliations", "A statement's order"`, `GET /v1/reconciliations`,

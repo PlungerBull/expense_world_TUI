@@ -1,9 +1,10 @@
 """Contract: the bank-line list read by its lines' ids, and listed oldest first.
 
-The flagged lines' screen reads the lines a statement's close flagged for review in one
-`GET /bank-lines?ids=…&sort=date_asc` (expense/reads.py `fetch_bank_lines_by_ids`), and
-drops a line the engine no longer has by reading the ids again
-(contract: GET /v1/bank-lines, "Filters"). Pinned here:
+`ids` reads several named lines in one call (expense/reads.py `fetch_bank_lines_by_ids`,
+which the statement upload's preview reads its lines by), and a line the engine no longer
+has is dropped by reading the ids again (contract: GET /v1/bank-lines, "Filters"). The
+flagged lines' screen does not read by `ids`: a statement's review list needs none, it is read
+whole by `?unassigned_in_period_of=` with `sort=statement` (test_bank_lines.py). Pinned here:
 
   · `?ids=`: the live lines among the ids sent, each exactly the line read by id, in the
     list's own order whatever order the ids go in, a repeated id the same filter; a
@@ -18,7 +19,7 @@ drops a line the engine no longer has by reading the ids again
     too; paged by cursors of its own, which no other order takes and which take no
     other order's (contract: GET /v1/bank-lines, "Ordering").
 
-The same order beside a statement (`reconciliation_id`, `unassigned_in_period_of`) is in
+The same order beside a statement (`statement_id`, `unassigned_in_period_of`) is in
 test_statement_order.py. Each test builds its own accounts and undoes everything
 (conftest.py `scratch`). Gating, target and the real-ledger guard: conftest.py.
 """
@@ -84,7 +85,7 @@ def test_ids_list_the_live_lines_among_them_and_the_count_agrees(client, target,
     assert _listed(client, **on_account) == [a3, a2, a1]
     assert _counted(client, **on_account) == 3
 
-    # Through the app's own reads, as the flagged lines' screen reads them.
+    # Through the app's own reads, as the statement upload's preview reads them.
     assert [line["id"] for line in fetch_bank_lines_by_ids(target, sent)] == newest_first
     oldest_first = fetch_bank_lines_by_ids(target, sent, sort="date_asc")
     assert [line["id"] for line in oldest_first] == newest_first[::-1]
@@ -102,14 +103,14 @@ def test_ids_refusals(client, scratch):
     (contract: GET /v1/bank-lines/count)."""
     account = scratch.account()
     line = scratch.line(account, "2026-03-05", -1000)
-    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
+    statement = scratch.statement(account, "2026-03-01", "2026-03-31")["id"]
     two_hundred = [line, *(str(uuid4()) for _ in range(199))]
 
     assert _listed(client, ids=_joined(two_hundred), limit=200) == [line]
     assert _counted(client, ids=_joined(two_hundred)) == 1
     beside = "unassigned_in_period_of"
     for params, key, reason in (
-        ({"ids": line, beside: recon}, beside, "CONFLICTING_PARAMETERS"),
+        ({"ids": line, beside: statement}, beside, "CONFLICTING_PARAMETERS"),
         ({"ids": _joined([*two_hundred, str(uuid4())])}, "ids", "OUT_OF_RANGE"),
         ({"ids": _joined([*two_hundred, line])}, "ids", "OUT_OF_RANGE"),
         ({"ids": ""}, "ids", "INVALID_FORMAT"),
