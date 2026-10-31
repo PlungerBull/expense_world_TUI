@@ -2,9 +2,10 @@
 
 The app sends the bank's PDF whole and shows what comes back, so what the dry run and the
 apply say is the engine's word (contract: POST /v1/statements/import). Every paper here
-is a made-up BCP savings account statement built by the test (`savings_paper` in
-conftest.py) to the stated layout (contract: POST /v1/statements/import, "The paper's
-layout"), never a real one: this repo is public. Pinned here:
+is either one of the engine's published samples or a made-up BCP savings account or card
+statement built by the test (`savings_paper` and `card_paper` in conftest.py) to the stated
+layout (contract: POST /v1/statements/import, "The paper's layout"), never a real one: this
+repo is public. Pinned here:
 
   · a dry run reads the paper and writes nothing: `statement_id` null and `creates` true for
     a statement it would make, the statement's name, days and the balances of the currencies
@@ -667,6 +668,12 @@ def test_the_drawn_savings_paper_answers_as_the_savings_sample_does(client, scra
     assert mine["name"] == published["name"]
 
 
+def _card_cents(row: dict) -> int:
+    """An answer row's unsigned amount signed as a card paper prints it: a charge
+    (`transaction_type` 1) positive, a credit negative."""
+    return row["amount_cents"] if row["transaction_type"] == 1 else -row["amount_cents"]
+
+
 def test_the_drawn_card_paper_answers_as_the_card_sample_does(client, scratch):
     """The suite's own drawing of the `card` sample's rows, days and balances is read as the
     published paper is: the same rows, days and balances (contract: POST /v1/statements/import,
@@ -681,7 +688,7 @@ def test_the_drawn_card_paper_answers_as_the_card_sample_does(client, scratch):
                 date.fromisoformat(row["date"]),
                 row["description"],
                 row["type"],
-                row["amount_cents"] if row["transaction_type"] == 1 else -row["amount_cents"],
+                _card_cents(row),
                 row["currency_code"],
                 date.fromisoformat(row["processed_on"]),
             )
@@ -691,12 +698,12 @@ def test_the_drawn_card_paper_answers_as_the_card_sample_does(client, scratch):
         end=date.fromisoformat(sample["date_end"]),
         owed_before=(owed["PEN"], owed["USD"]),
         charges=[
-            CardCharge(r["description"], r["amount_cents"], r["currency_code"])
+            CardCharge(r["description"], _card_cents(r), r["currency_code"])
             for r in undated
             if r["description"] == "INTERESES"
         ],
         fees=[
-            CardCharge(r["description"], r["amount_cents"], r["currency_code"])
+            CardCharge(r["description"], _card_cents(r), r["currency_code"])
             for r in undated
             if r["description"] != "INTERESES"
         ],
@@ -714,7 +721,7 @@ def test_the_drawn_card_paper_answers_as_the_card_sample_does(client, scratch):
 
 
 #: A soles-only Visa's March: S/ 300.00 owed, a purchase, a payment, a charge and interest,
-#: S/ 1,250.00 billed, and $0.00 everywhere (contract: POST /v1/statements/import, "Accounts").
+#: S/ 1,350.00 billed, and $0.00 everywhere (contract: POST /v1/statements/import, "Accounts").
 SOLES_ONLY_MARCH = {
     "rows": [
         CardRow(date(2026, 3, 4), "LIBRERIA INVENTADA LIMA PE", "CONSUMO", 50000),
