@@ -394,7 +394,7 @@ the bar is where the right file gets dropped next.
 
 **Decision.**
 - **The engine is the only guard.** No client checks a seal before a write or caches completed windows (they change under `revert`). The `!` flag and the bank import's `sealed` rows only report.
-- **Only a date or account change can hit a seal**: of the bulk keys only `b` can be refused by a seal; `c` and `h` stay legal inside a sealed period. The LOG bar names the sealing period on the refused row and still saves the rest; the bank import shows such a row as `✗ Closed period` and imports the rest.
+- **Only a date, account or currency change can hit a seal**: of the bulk keys only `b` and `m` can be refused by a seal; `c` and `h` stay legal inside a sealed period. The LOG bar names the sealing period on the refused row and still saves the rest; the bank import shows such a row as `✗ Closed period` and imports the rest.
 - **`revert` shows nothing extra.**
 
 **Rejected.** *A client-side seal check* — a copy of an engine rule, stale the moment another client reverts. *A "close every month" bulk command* — would seal months nobody reviewed.

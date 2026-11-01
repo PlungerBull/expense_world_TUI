@@ -912,7 +912,7 @@ class QuickAddRefs:
     the matching pool deliberately excludes.
 
     `picks` is the account pool the LOG bar, its quick-add line, the Edit form and
-    the ledger's bulk `b` pick from: one per account and currency it holds.
+    the ledger's bulk `b` and `m` pick from: one per account and currency it holds.
     """
 
     categories: list[tuple]

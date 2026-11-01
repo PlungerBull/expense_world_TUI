@@ -61,9 +61,9 @@ expense/tui/
     _growing.py     # GrowingRead — a list that grows by cursor (ledger, "no batch" pane)
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
     home.py         # four months × categories, balances today, then every screen
-    transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk
+    transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h`/`m` bulk
                     #   edits; `⏎` and `s` open the Edit form, `d` deletes the cursor row
-    bulk_pick.py    # BulkPickScreen — what `c`/`b`/`h` open: the rows they change
+    bulk_pick.py    # BulkPickScreen — what `c`/`b`/`h`/`m` open: the rows they change
                     #   over one bar and its suggestion list; writes nothing itself
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
@@ -276,15 +276,17 @@ the account's short id for one the read lacks). On Home, `⏎` on an account's r
 ledger on the account, every currency; `⏎` on a currency's line opens it on that currency alone,
 and the crumb, the legend and the empty-state text name both, `Visa Inventada · USD`
 (`currency_label`). `space` selects rows (a `●` in the
-title gutter, the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
+title gutter, the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` / `m` open
 the bulk pick for the selection — or for the cursor row when nothing is selected —
-to set the category, move to an account and currency, or **replace** the hashtag set. The
+to set the category, move to an account and currency, **replace** the hashtag set, or move to
+another currency (`m Currency`, after `h Hashtags` in the footer). The
 write is one `PUT /transactions/{id}` per row, in order, on one client, a move sending
-`account_id` and `currency_code` (`bulk_writes`), with `statement_id: null` as "A move takes a
-row out of its reconciliation" below says;
+`account_id` and `currency_code` and `m` sending `currency_code` alone (`bulk_writes`), with
+`statement_id` as "A move takes a row out of its reconciliation" and "`m` moves rows to another
+currency" below say;
 then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → BCP Oro · USD` for a move:
-the pick's label), and a refused row (an account
+the pick's label; `3 rows → USD` for `m`), and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others,
 in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
@@ -297,17 +299,18 @@ it drops out of the selection.
 **The bulk pick is a full screen** ([bulk_pick.py](../expense/tui/screens/bulk_pick.py),
 Question 6 B of [expense-world-wording-picks.html](mockups/expense-world-wording-picks.html)),
 not a pop-up: it carries rows. Its crumb adds `Category for 3 rows` (`Account for …`,
-`Hashtags for …`; `1 row` for one) to the ledger's. On top, dim, `the 3 rows it changes`, and
+`Hashtags for …`, `Currency for …`; `1 row` for one) to the ledger's. On top, dim, `the 3 rows it changes`, and
 under it those rows in the ledger's own columns, title gutter and amount colours
 (`changed_rows` in [transactions.py](../expense/tui/screens/transactions.py), drawn by
 `list_table` in [cursor_list.py](../expense/tui/widgets/cursor_list.py), the table `CursorList`
 draws), at most five, then a dim `+ N more` under their titles. Then one bar, `CATEGORY`,
-`ACCOUNT` or `HASHTAGS`, its hint, and the list under it in the engine's order (on `ACCOUNT`
-one pick per account and currency, `QuickAddRefs.picks`, labelled `<account> · <code>`), drawn
+`ACCOUNT`, `HASHTAGS` or `CURRENCY`, its hint, and the list under it in the engine's order (on `ACCOUNT`
+one pick per account and currency, `QuickAddRefs.picks`, labelled `<account> · <code>`; on `CURRENCY` every currency the accounts hold, once each, as the
+code alone), drawn
 and filtered as on the Edit form's entity lines (`suggestion_list` and `matching` in
 [picker.py](../expense/tui/widgets/picker.py)). Typing narrows the list and highlights its
 first match, `↑↓` move the highlight, and `esc` goes back to the ledger with nothing sent
-and the selection as it was; the footer is `esc Cancel` alone. On `CATEGORY` and `ACCOUNT`
+and the selection as it was; the footer is `esc Cancel` alone. On `CATEGORY`, `ACCOUNT` and `CURRENCY`
 the hint reads `type to narrow · ↑↓ highlight · enter picks it for the 3 rows · esc cancels`,
 and `⏎` picks the highlighted name for every row (with nothing typed, the first); a bar that
 matches nothing says `Nothing matches “…”.` and stays. On `HASHTAGS` it reads
@@ -318,6 +321,15 @@ the list, `⌫` on the
 empty bar drops the last pick, and `⏎` on the empty bar applies; with nothing picked it says
 `Pick at least one tag, or esc to leave the rows as they are.` rather than clear every tag.
 The screen writes nothing: the ledger sends its `PUT`s with the pick, as above.
+**`m` moves rows to another currency** and offers no account: each row's `PUT` carries
+`currency_code` alone, so the row stays on its account, and the engine refuses a row whose
+account does not hold the picked currency (`CURRENCY_NOT_HELD`, keyed on `currency_code`;
+contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"). The app filters no row
+beforehand: the refused row is named by its number, in the engine's words, the others go
+through, and it stays selected. A row in a draft statement keeps it: the write sends the row's
+own `statement_id` (`unassign_on_move` with `keep_on_currency_move`; contract: "Statements",
+"Assigning transactions"), so the receipt counts the rows the engine says moved and no row
+left its statement.
 **Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the Edit
 form the ACCOUNT line, CURRENCY and each part's CATEGORY line open with the bar empty and the whole list
@@ -1122,7 +1134,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` or `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
@@ -1237,7 +1249,7 @@ what was refused in the error colour, then the rows it hit, unstyled — `row 2`
   those rows after it. A save a refusal of every further write stopped is said once, in a
   toast, on no row ([runtime.md](runtime.md) "Bulk writes").
 
-**The ledger's bulk edit reads its refused rows the same way** (`b`, `c`, `h`; Question 5 A of
+**The ledger's bulk edit reads its refused rows the same way** (`b`, `c`, `h`, `m`; Question 5 A of
 [expense-world-wording-picks.html](mockups/expense-world-wording-picks.html)), through the same
 grouping (`refusal_notes` in [transactions.py](../expense/tui/screens/transactions.py)): one
 toast per kind of refusal, titled `Refused`, or `2 of 3 refused` when more than one row was
@@ -1526,8 +1538,8 @@ the flagged lines again, none of them in the footer.
 
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py)):
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
-rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` open the
-bulk pick for category / account / hashtags (§2 "The bulk pick is a full screen": type to
+rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` / `m` open the
+bulk pick for category / account / hashtags / currency (§2 "The bulk pick is a full screen": type to
 narrow, `↑↓`, `⏎` picks, `esc Cancel`), `esc` clears the selection if there is one,
 else goes back to the screen that opened the ledger. `s` and `d` never follow the
 selection: they are off while one exists and while a bulk write runs, and `d` is off on an

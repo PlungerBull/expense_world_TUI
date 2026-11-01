@@ -210,6 +210,24 @@ def test_bulk_writes_send_both_keys_and_unassign_only_a_row_whose_account_or_cur
     ]
 
 
+def test_bulk_writes_keep_a_rows_statement_on_a_currency_move_alone():
+    """With `keep_on_currency_move` (the currency pick) a row whose currency changes sends its own
+    `statement_id`, so a row in a draft statement stays in it; a row already in the picked
+    currency sends nothing about it (contract: PUT /v1/transactions/{transaction_id},
+    "Statement assignment")."""
+    pick = {"currency_code": "USD"}
+    by_id = {
+        "in-draft": {"currency_code": "PEN", "statement_id": "r1"},
+        "in-none": {"currency_code": "PEN", "statement_id": None},
+        "already": {"currency_code": "USD", "statement_id": "r1"},
+    }
+    assert bulk_writes(list(by_id), pick, by_id, keep_on_currency_move=True) == [
+        ("in-draft", {**pick, "statement_id": "r1"}),
+        ("in-none", {**pick, "statement_id": None}),
+        ("already", pick),
+    ]
+
+
 def test_bulk_receipt_counts_rows():
     assert bulk_receipt(3, "KORAKUEN") == "3 rows → KORAKUEN"
     assert bulk_receipt(1, "#COMIDA #CAJAS") == "1 row → #COMIDA #CAJAS"
@@ -296,7 +314,7 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
         await _open(app, pilot, screen)
         shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
         assert "Select" in shown and "All/none" in shown
-        assert {"Category", "Account", "Hashtags"} <= set(shown)
+        assert {"Category", "Account", "Hashtags", "Currency"} <= set(shown)
 
     run_app(scenario, size=(120, 30))
 
@@ -1961,5 +1979,124 @@ def test_b_picks_one_account_and_currency_and_names_the_pick_in_the_receipt(
         ]
         await wait_for(pilot, lambda: toasts)
         assert toasts[0] == "1 row → BCP Oro · USD"
+
+    run_app(scenario, size=(120, 30))
+
+
+# ---- the currency pick (`m`) -----------------------------------------------------
+
+#: acc1 (the ledger rows' account) holds PEN and USD; acc2 holds PEN and USD too; acc3, "BCP
+#: Ahorros", holds PEN alone. The currency pick lists each code once.
+TWO_CURRENCIES = QuickAddRefs(
+    **{
+        **dataclasses.asdict(REFS),
+        "picks": currency_picks(
+            [
+                account_with_currencies(
+                    id="acc1",
+                    name="BCP Signature",
+                    currencies=[held_currency("PEN"), held_currency("USD")],
+                ),
+                account_with_currencies(
+                    id="acc2",
+                    name="BCP Oro",
+                    currencies=[held_currency("PEN"), held_currency("USD")],
+                ),
+                account_with_currencies(
+                    id="acc3", name="BCP Ahorros", currencies=[held_currency("PEN")]
+                ),
+            ]
+        ),
+    }
+)
+
+
+def _answer_currency_moves(fake_client, rows: list[dict]) -> None:
+    for row in rows:
+        moved = {**row, "currency_code": "USD"}
+        fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(moved, [moved])
+
+
+def test_m_moves_the_selected_rows_to_a_currency_one_put_each(fake_client, monkeypatch):
+    """`m` opens the pick over the selection: CURRENCY lists every currency the accounts hold,
+    once each; the picked one goes as `currency_code` alone, one `PUT` per row; a row in a
+    draft statement sends its own `statement_id` back and keeps it; the receipt counts the
+    rows; the list reads fresh from the newest 10 with the cursor on row 1."""
+    rows = [{**ITEMS[0], "statement_id": "r1"}, ITEMS[1], ITEMS[2]]
+    _stub_ledger(monkeypatch, rows)
+    calls, _counts = fake_ledger(monkeypatch, rows)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TWO_CURRENCIES)
+    _answer_currency_moves(fake_client, rows)
+    toasts: list[str] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
+        await _open(app, pilot, screen)
+        await pilot.press("a", "down", "down", "m")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        pick = app.screen
+        assert pick.crumb == ("Ledger", "@Pendiente", "Currency for 3 rows")
+        assert [name for _id, name in pick._options] == ["PEN", "USD"]
+        assert pick.query_one("#field").content == "CURRENCY"
+        assert _hint(pick) == (
+            "type to narrow · ↑↓ highlight · enter picks it for the 3 rows · esc cancels"
+        )
+        reads = len(calls)
+        await pilot.press("u", "enter")
+        await wait_for(pilot, lambda: len(fake_client.puts) == 3)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"currency_code": "USD", "statement_id": "r1"}),
+            ("/transactions/t2", {"currency_code": "USD", "statement_id": None}),
+            ("/transactions/t3", {"currency_code": "USD", "statement_id": None}),
+        ]
+        await wait_for(pilot, lambda: "3 rows → USD" in toasts)
+        await wait_for(pilot, lambda: not screen._bulk_busy and len(calls) > reads)
+        assert calls[-1]["after"] is None
+        listing = screen.query_one(CursorList)
+        assert (listing.cursor_index, listing.cursor_key) == (0, "t1")
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_m_names_a_refused_row_and_the_others_still_move(fake_client, monkeypatch):
+    """A row whose account lacks the currency is refused by the engine in its own words,
+    `CURRENCY_NOT_HELD` (contract: PUT /v1/transactions/{transaction_id}, "Moving a
+    transaction"): the note names row 2, the others go, and it stays selected."""
+    # row 2 alone sits on an account holding no USD
+    _stub_ledger(monkeypatch, [ITEMS[0], {**ITEMS[1], "account_id": "acc3"}, ITEMS[2]])
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TWO_CURRENCIES)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+    words = "BCP Ahorros does not hold USD."
+
+    def put(path, json_body=None):
+        if path.endswith("/t2"):
+            fields = {"currency_code": words}
+            reasons = {"currency_code": "CURRENCY_NOT_HELD"}
+            body = error_body("VALIDATION_ERROR", words, fields, reasons)
+            raise EngineError("VALIDATION_ERROR", words, fields, 422, body, reasons=reasons)
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+    _answer_currency_moves(fake_client, [ITEMS[0], ITEMS[2]])
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "m")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("u", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
+        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
+            f"currency_code: {words}\nrow 2"
+        ]
+        assert ("", "2 rows → USD") in toasts
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t2"}
 
     run_app(scenario, size=(120, 30))

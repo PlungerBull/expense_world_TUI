@@ -1,11 +1,11 @@
-"""The bulk pick — what `c`, `b` and `h` on the ledger open.
+"""The bulk pick — what `c`, `b`, `h` and `m` on the ledger open.
 
 Drawn in docs/mockups/expense-world-wording-picks.html, Question 6. A full pushed
 screen, not a pop-up: it carries rows. The crumb adds `Category for 3 rows`
-(`Account for …`, `Hashtags for …`) to the ledger's. On top, `the 3 rows it
+(`Account for …`, `Hashtags for …`, `Currency for …`) to the ledger's. On top, `the 3 rows it
 changes` and those rows in the ledger's own columns, at most five and then
 `+ N more` (the ledger draws them: `changed_rows` in transactions.py). Under
-them one bar, CATEGORY, ACCOUNT or HASHTAGS, its hint, and the shared
+them one bar, CATEGORY, ACCOUNT, HASHTAGS or CURRENCY, its hint, and the shared
 suggestion list and its name filter ([picker.py](../widgets/picker.py):
 `suggestion_list`, `matching`), as the Edit form's entity lines look.
 
@@ -13,7 +13,7 @@ Typing narrows the list (any part of a name, case- and accent-blind) and
 highlights its first match, `↑↓` move the highlight, `esc` leaves with nothing
 picked (None).
 
-On CATEGORY and ACCOUNT, `⏎` dismisses with the highlighted id; with nothing
+On CATEGORY, ACCOUNT and CURRENCY, `⏎` dismisses with the highlighted id; with nothing
 typed that is the first name, so two keys pick. A bar that matches nothing
 says so and stays.
 
@@ -42,7 +42,12 @@ from expense.tui.widgets.picker import matching, suggestion_list
 from expense.tui.widgets.refusal import toast
 
 #: The bar's label for each bulk key's kind.
-LABELS = {"category": "CATEGORY", "account": "ACCOUNT", "hashtags": "HASHTAGS"}
+LABELS = {
+    "category": "CATEGORY",
+    "account": "ACCOUNT",
+    "hashtags": "HASHTAGS",
+    "currency": "CURRENCY",
+}
 
 
 def rows_word(count: int) -> str:
@@ -62,7 +67,7 @@ def pick_hint(kind: str, count: int) -> str:
 
 
 class BulkPickScreen(Screen[object]):
-    """Pick a category or an account, or several hashtags, for `count` rows.
+    """Pick a category, an account or a currency, or several hashtags, for `count` rows.
 
     `options` are `(id, name)` pairs in the order to offer them; `rows` is
     what the screen shows over the bar, under `the N rows it changes`.

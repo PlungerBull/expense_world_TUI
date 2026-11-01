@@ -16,7 +16,7 @@ is what must not drift between them:
   when the count cannot be read, and the host fails its list rather than show
   rows beside a missing or guessed number. `pgdn` does not recount.
 - **Any write starts the list over**: after `+`, `⏎`,
-  `c`/`b`/`h` or `d` the host calls `reset()` and reads fresh, the first
+  `c`/`b`/`h`/`m` or `d` the host calls `reset()` and reads fresh, the first
   `GROW_STEP` with the cursor on row 1, like any app's list.
 - **A `pgdn` read never lands on a list it was not for.** `reset()` drops the
   cursor, so a `pgdn` on the old list — still on screen while the fresh read

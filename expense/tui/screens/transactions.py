@@ -13,13 +13,15 @@ currencies — and it becomes `Ledger › NAME`: the same list over the engine's
 `?category_id=` / `?account_id=` (`&currency_code=`), with the
 legend saying what the filter is and how many rows it holds. `space` selects
 rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
-account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
+account (`b`), the hashtags (`h`) or the currency (`m`) of the selection — or of the cursor row
 when nothing is selected. Each opens the bulk pick (`BulkPickScreen` in
 bulk_pick.py), a full screen listing the rows it changes over its bar,
 at most five and then `+ N more` (`changed_rows`); the write is one
 `PUT /transactions/{id}` per row, in order — an account move sends `account_id`
 and `currency_code` and adds `statement_id: null` to each row whose account or
-currency changes, so it leaves its statement, and a hashtag pick that names a real
+currency changes, so it leaves its statement, and a currency move (`m`)
+sends `currency_code` alone with the row's own `statement_id`, so a row in a draft statement keeps
+it, and a hashtag pick that names a real
 hashtag drops the pending one (`hashtags_to_send`)
 (contract: PUT /v1/transactions/{transaction_id}) — and then the list reads fresh from
 the newest 10, so on a filtered list the changed rows leave at once. The receipt of a move
@@ -123,8 +125,8 @@ PICK_ROWS_SHOWN = 5
 SELECTED_MARK = "● "
 _GUTTER = "  "
 
-#: The bulk keys' kinds: the picker `c`, `b` and `h` open.
-BULK_KINDS = ("category", "account", "hashtags")
+#: The bulk keys' kinds: the picker `c`, `b`, `h` and `m` open.
+BULK_KINDS = ("category", "account", "hashtags", "currency")
 
 
 class LedgerFilter(NamedTuple):
@@ -267,17 +269,21 @@ def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     return receipt
 
 
-def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object, dict]]:
+def bulk_writes(
+    targets: list, payload: dict, by_id: dict, *, keep_on_currency_move: bool = False
+) -> list[tuple[object, dict]]:
     """(id, PUT body) per target row.
 
     Each row gets its own copy of `payload`; an account move adds
     `statement_id: None` only to the rows whose account or currency changes
     (`unassign_on_move`), so a row already on the picked account and currency
-    keeps its statement."""
+    keeps its statement. With `keep_on_currency_move` (the currency pick), a
+    row's currency move sends the row's own `statement_id` instead, so a row in a
+    draft statement stays in it."""
     writes = []
     for key in targets:
         body = dict(payload)
-        unassign_on_move(body, by_id.get(key) or {})
+        unassign_on_move(body, by_id.get(key) or {}, keep_on_currency_move=keep_on_currency_move)
         writes.append((key, body))
     return writes
 
@@ -289,6 +295,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         Binding("c", "pick('category')", "Category", tooltip="Set the category of the selection"),
         Binding("b", "pick('account')", "Account", tooltip="Move the selection to an account"),
         Binding("h", "pick('hashtags')", "Hashtags", tooltip="Replace the selection's hashtags"),
+        Binding("m", "pick('currency')", "Currency", tooltip="Move the selection to a currency"),
         Binding(
             "escape",
             "back",
@@ -634,6 +641,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             return list(refs.pickable_categories)
         if kind == "account":
             return [(_pick_key(p), p.label) for p in refs.picks]
+        if kind == "currency":
+            # every currency the accounts hold, once each; the engine judges a row
+            # whose account lacks the picked one
+            return [(code, code) for code in dict.fromkeys(p.currency_code for p in refs.picks)]
         return list(refs.hashtags)
 
     def _open_picker(self, kind: str) -> None:
@@ -657,6 +668,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                 return
             label = pick.label
             payload = {"account_id": pick.account_id, "currency_code": pick.currency_code}
+        elif kind == "currency":
+            label = names.get(picked, str(picked))
+            payload = {"currency_code": picked}
         elif kind == "hashtags":
             ids = list(picked) if isinstance(picked, list) else [picked]
             ids = hashtags_to_send(ids, self._refs.pending_hashtag_id if self._refs else None)
@@ -667,7 +681,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             payload = {"category_id": picked}
         self._bulk_busy = True
         self.refresh_bindings()
-        self._bulk_write(bulk_writes(targets, payload, self._by_id), label, kind == "account")
+        writes = bulk_writes(
+            targets, payload, self._by_id, keep_on_currency_move=kind == "currency"
+        )
+        self._bulk_write(writes, label, kind in ("account", "currency"))
 
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")

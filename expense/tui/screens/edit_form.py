@@ -232,7 +232,7 @@ def unassign_on_move(payload: dict, record: dict, *, keep_on_currency_move: bool
     Whether a part did leave its statement is the engine's answer to say
     (`moved_parts`). Mutates `payload`; shared by the Edit form, whose record is
     the bank line (with the `statement_id` of its parts), and the ledger's bulk
-    `b`, whose record is a transaction.
+    `b` and `m`, whose record is a transaction.
     """
     moved = [
         key

@@ -126,6 +126,7 @@ FOOTER_ON_AN_ACTIVE_ROW = [
     ("c", "Category"),
     ("b", "Account"),
     ("h", "Hashtags"),
+    ("m", "Currency"),
     ("s", "Edit"),
     ("d", "Delete"),
 ]
@@ -136,6 +137,7 @@ CARD_THIS_SCREEN = [
     ("c", "Set the category of the selection"),
     ("b", "Move the selection to an account"),
     ("h", "Replace the selection's hashtags"),
+    ("m", "Move the selection to a currency"),
     ("s", "Edit the transaction and its parts"),
     ("d", "Delete"),
     ("r", "Refresh"),
@@ -214,7 +216,7 @@ def test_d_leaves_the_footer_on_an_archived_accounts_row_only_and_s_stays(engine
                 message=f"{key}: {_footer(screen)}",
             )
             seen[key] = _footer(screen)
-            for always in ("Open", "Edit", "Category", "Account", "Hashtags"):
+            for always in ("Open", "Edit", "Category", "Account", "Hashtags", "Currency"):
                 assert always in seen[key], (key, always)
         assert "Delete" in seen["t-ana"] and "Delete" not in seen["t-old"]
 

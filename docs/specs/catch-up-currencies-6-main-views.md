@@ -380,13 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-13. **Moving rows to another currency in bulk** (point 12; question 11).
-    [transactions.py](../../expense/tui/screens/transactions.py), [bulk_pick.py](../../expense/tui/screens/bulk_pick.py)
-    and their tests; tui.md §2 "The bulk pick is a full screen" and §4. *Passes if:* the picked
-    currency goes as one `PUT` per row with `currency_code`; a refused row is named by number and
-    does not stop the others; the list reads fresh; a row in a draft statement keeps it, as the
-    Edit form's currency move does (`unassign_on_move(keep_on_currency_move=True)`); the tests pin
-    each.
 14. **One row per account in every picker** (point 13). `account_choices` in
     [reads.py](../../expense/reads.py) and the `b` pick, and their tests (the LOG bar's `$` picker
     and the Edit form's account line already list one row per account, pinned by
@@ -473,6 +466,10 @@ Not built in this spec; drafted into a new spec when it is done.
   `Ledger ▸ Visa Inventada · USD`, its legend `filter: account Visa Inventada · USD · 20 of 57
   loaded` and its empty text `(no transactions under Visa Inventada · USD)`, the account's name
   and code as the other screens write them.
+- **The ledger's `m` names its move on the `?` card `Move the selection to a currency`** and
+  stands before `s` and `d` in the footer with no row selected; no pane draws either.
+- **Pane 11 A·3 heads a single refused row `1 of 3 refused`**, where the app's shared rule for
+  `b`, `c`, `h` and `m` heads it `Refused`. Which should it be?
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.
