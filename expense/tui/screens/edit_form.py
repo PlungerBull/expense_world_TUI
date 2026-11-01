@@ -113,6 +113,7 @@ from textual.widgets import Input
 
 from expense import reads
 from expense.bank_line_write import kept_part, line_body, new_part
+from expense.currencies import only_currency
 from expense.dates import is_readable_date, to_canonical_aware
 from expense.errors import format_error
 from expense.formatting import (
@@ -448,8 +449,7 @@ class EditFormScreen(FormScreen):
     def _only_currency(self) -> str | None:
         """The one currency the line's account holds, when it holds exactly one: the
         CURRENCY line then shows it dim and the bar skips it."""
-        codes = self._held_codes()
-        return codes[0] if len(codes) == 1 else None
+        return only_currency(self._held_codes())
 
     def _dim_shown(self, key: str) -> bool:
         return key == "currency" and self._values.get("currency") is None
@@ -709,8 +709,8 @@ class EditFormScreen(FormScreen):
         is taken (`_take_only_currency`); several empty it, and the bar goes on to
         CURRENCY to pick one. The summary and the lock follow."""
         codes = self._held_codes()
-        if len(codes) == 1:
-            self._take_only_currency(codes[0])
+        if (only := only_currency(codes)) is not None:
+            self._take_only_currency(only)
         elif codes:
             self._set_value("currency", None)
             self._display["currency"] = NONE_PICKED
@@ -718,9 +718,7 @@ class EditFormScreen(FormScreen):
 
     def _take_only_currency(self, code: str) -> None:
         # The app fills in an account's only currency itself, and sends it with the
-        # account. Delete this method, and the `len(codes) == 1` branch above, when the
-        # engine takes it (the ask: docs/to-engine/an-accounts-only-currency-is-taken-when-
-        # a-write-names-none.md).
+        # account (listed in `currencies.FILLS_AN_ONLY_CURRENCY`).
         self._set_value("currency", code)
 
     def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:

@@ -278,15 +278,21 @@ and the crumb, the legend and the empty-state text name both, `Visa Inventada ·
 (`currency_label`). `space` selects rows (a `●` in the
 title gutter, the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` / `m` open
 the bulk pick for the selection — or for the cursor row when nothing is selected —
-to set the category, move to an account and currency, **replace** the hashtag set, or move to
+to set the category, move to an account, **replace** the hashtag set, or move to
 another currency (`m Currency`, after `h Hashtags` in the footer). The
-write is one `PUT /transactions/{id}` per row, in order, on one client, a move sending
-`account_id` and `currency_code` and `m` sending `currency_code` alone (`bulk_writes`), with
+write is one `PUT /transactions/{id}` per row, in order, on one client. `b` to an account
+holding one currency sends `account_id` and that `currency_code`, the amount as it is, no
+conversion; to an account holding several it sends `account_id` alone, so each row keeps its own
+currency, and the engine refuses a row whose currency the account lacks
+(`CURRENCY_NOT_HELD`, on `account_id`: `The account holds no USD.`), named by number in its words
+while the other rows go (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction").
+`m` sends `currency_code` alone (`bulk_writes`), with
 `statement_id` as "A move takes a row out of its reconciliation" and "`m` moves rows to another
 currency" below say;
 then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
-at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → BCP Oro · USD` for a move:
-the pick's label; `3 rows → USD` for `m`), and a refused row (an account
+at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → Caja Chica · PEN` for `b` to
+an account holding one currency, which names it; `3 rows → Visa Inventada` for one holding
+several; `3 rows → USD` for `m`), and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others,
 in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
@@ -305,7 +311,7 @@ under it those rows in the ledger's own columns, title gutter and amount colours
 `list_table` in [cursor_list.py](../expense/tui/widgets/cursor_list.py), the table `CursorList`
 draws), at most five, then a dim `+ N more` under their titles. Then one bar, `CATEGORY`,
 `ACCOUNT`, `HASHTAGS` or `CURRENCY`, its hint, and the list under it in the engine's order (on `ACCOUNT`
-one pick per account and currency, `QuickAddRefs.picks`, labelled `<account> · <code>`; on `CURRENCY` every currency the accounts hold, once each, as the
+one row per account, its name alone, `QuickAddRefs.quickadd_accounts`; on `CURRENCY` every currency the accounts hold, once each, as the
 code alone), drawn
 and filtered as on the Edit form's entity lines (`suggestion_list` and `matching` in
 [picker.py](../expense/tui/widgets/picker.py)). Typing narrows the list and highlights its
@@ -366,7 +372,7 @@ in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` co
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
 write changed and whether it left its reconciliation (`left_statement`)
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
-across the answers that landed and those flagged as leaving — `3 rows → BCP Oro · USD · 2 left
+across the answers that landed and those flagged as leaving — `3 rows → Caja Chica · PEN · 2 left
 their reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
 (`moved_parts` in [edit_form.py](../expense/tui/screens/edit_form.py)). A row already on
 the picked account and currency lists no part, so it is not counted, and a move that changes nothing shows
@@ -464,8 +470,8 @@ line's own, and sends both keys; to one holding several it empties the currency
 first, nothing chosen until `⏎` on one. `ctrl+s` with none picked sends nothing, stops the bar on
 CURRENCY and says `! currency: pick one — Visa Inventada holds PEN and USD.` and `Nothing was
 saved.` under the parts. The app fills in an account's only currency itself
-(`_take_only_currency`, the place to delete when the engine takes it; an ask waits in
-[to-engine/](to-engine/)). A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
+(`_take_only_currency`, one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists, to
+delete when the engine takes it; an ask waits in [to-engine/](to-engine/)). A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
 `currency_code` shows in its words alone under the parts. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
@@ -1844,7 +1850,7 @@ given as `(id, name, (code, …))` rows: a whole or partial code picks one by th
 every name, and a bare `%` names none yet and lists them all. A well-formed code the account does
 not hold is upper-cased and sent, and the engine refuses it (contract: POST /v1/transactions,
 "`account_id` and `currency_code`"). A line with no `%` takes the account's currency when it
-holds exactly one (`_only_currency` is the one place that fills it, until the engine ask "An
+holds exactly one (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists, until the engine ask "An
 account's only currency is taken when a write names none" lands). When the account holds several,
 the parse lists `currency` in `missing`, with `account_currencies` for the list, so routing
 refuses the line and never stages it on a guessed currency: under the bar

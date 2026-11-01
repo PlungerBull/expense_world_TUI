@@ -380,14 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-14. **One row per account in every picker** (point 13). `account_choices` in
-    [reads.py](../../expense/reads.py) and the `b` pick, and their tests (the LOG bar's `$` picker
-    and the Edit form's account line already list one row per account, pinned by
-    `test_the_account_picker_shows_the_engines_order` and the Edit form's tests); tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
-    if:* no picker lists a "<account> · <code>" row; a test fails on one; `b` to an account
-    holding one currency sends each row's `PUT` with `account_id` and that `currency_code`, the
-    amount as it is, and to an account holding two sends `account_id` alone, each row keeping its
-    currency (question 14 A and C); the tests pin each.
 15. **The mockups this half replaces go** (point 15). [mockups/](../mockups/) and every doc or
     code comment linking them. *Passes if:* each mockup replaced by a pick of questions 8 to 11
     is deleted, `expense-world-currencies-one-or-many.html` with them, and `test_docs_links.py`
@@ -470,6 +462,11 @@ Not built in this spec; drafted into a new spec when it is done.
   stands before `s` and `d` in the footer with no row selected; no pane draws either.
 - **Pane 11 A·3 heads a single refused row `1 of 3 refused`**, where the app's shared rule for
   `b`, `c`, `h` and `m` heads it `Refused`. Which should it be?
+- **The New reconciliation form's account picker draws `<name>  ?`** against the engine's
+  accounts: `account_choices` puts a `currency_code` beside each name and the account carries
+  none. The statement screens' rewrite in
+  [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md) replaces
+  that form; until then the column reads `?`.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.

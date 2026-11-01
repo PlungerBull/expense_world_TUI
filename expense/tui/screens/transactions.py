@@ -67,6 +67,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from expense import reads
+from expense.currencies import only_currency
 from expense.errors import (
     EngineError,
     format_error,
@@ -77,6 +78,7 @@ from expense.errors import (
 )
 from expense.formatting import (
     bank_line_part_count,
+    currency_label,
     format_hashtag_cell,
     format_short_date,
     grouped_refusals,
@@ -640,7 +642,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             # pending is how a wrong bulk pick is undone
             return list(refs.pickable_categories)
         if kind == "account":
-            return [(_pick_key(p), p.label) for p in refs.picks]
+            return [(account_id, name) for account_id, name, _codes in refs.quickadd_accounts]
         if kind == "currency":
             # every currency the accounts hold, once each; the engine judges a row
             # whose account lacks the picked one
@@ -663,11 +665,16 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             return
         names = dict(self._picker_options(kind))
         if kind == "account":
-            pick = next((p for p in self._refs.picks if _pick_key(p) == picked), None)
-            if pick is None:
+            held = {a: (n, codes) for a, n, codes in self._refs.quickadd_accounts}.get(picked)
+            if held is None:
                 return
-            label = pick.label
-            payload = {"account_id": pick.account_id, "currency_code": pick.currency_code}
+            name, codes = held
+            label, payload = name, {"account_id": picked}
+            # An account holding one currency takes every row in it, the amount as it is;
+            # one holding several gets `account_id` alone, so each row keeps its own and
+            # the engine refuses a row whose currency the account lacks.
+            if (only := only_currency(codes)) is not None:  # a fill: `FILLS_AN_ONLY_CURRENCY`
+                label, payload["currency_code"] = currency_label(name, only), only
         elif kind == "currency":
             label = names.get(picked, str(picked))
             payload = {"currency_code": picked}
@@ -787,12 +794,6 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         The list underneath was never rebuilt, so doing nothing keeps it."""
         if saved:
             self._reload_fresh()
-
-
-def _pick_key(pick: reads.CurrencyPick) -> str:
-    """The id a bulk pick lists an account and currency under: the bulk pick
-    takes `(id, name)` options, and one account is two of them."""
-    return f"{pick.account_id}:{pick.currency_code}"
 
 
 def _crumb_for(flt: LedgerFilter | None) -> tuple[str, ...]:

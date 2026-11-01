@@ -419,7 +419,7 @@ def test_s_and_d_are_off_on_an_empty_ledger(fake_client, monkeypatch):
     [
         ("c", "efe", {"category_id": "cat-efe"}),
         ("h", "caj", {"hashtag_ids": ["h-caja"]}),
-        ("b", "zeta", {"account_id": "acc-zeta", "currency_code": "PEN", "statement_id": None}),
+        ("b", "zeta", {"account_id": "acc-zeta", "statement_id": None}),
     ],
     ids=["category", "hashtags", "account"],
 )

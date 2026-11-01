@@ -1070,14 +1070,14 @@ currencies in one balance* — a total across currencies has no meaning.
 
 **Decision.** The lists and pickers not yet redrawn show one row per account and currency,
 labelled with the account's name and the code ("VISA Infinite Sapphire · USD",
-`formatting.currency_label`): the ledger's bulk `b` and the LOG bar's staged list. A pick
-carries the account's id and the currency's code, and every write sends both. The screens
+`formatting.currency_label`): the LOG bar's staged list. A row carries the account's id and
+the currency's code, and its write sends both. The screens
 redrawn by [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)
 show the account once and the currency as a field of its own: Manage ▸ Accounts one row per
 account with a column per currency, its `d` naming the account and each currency with its
 balance (`Prueba · bank · PEN 0.00 · USD 0.00`), Home the account's row with a line per currency, the LOG
-bar's `$` picks and `%` currency, the Edit form's ACCOUNT and CURRENCY lines, and the ledger's
-Account and Cur columns.
+bar's `$` picks and `%` currency, the Edit form's ACCOUNT and CURRENCY lines, the ledger's
+Account and Cur columns, its `b` naming the account alone and its `m` the currency alone.
 
 **Why.** It moves the app onto the engine's model with the screens still waiting for their
 redraw as close to the ones the owner knows as the model allows, so the app works before each

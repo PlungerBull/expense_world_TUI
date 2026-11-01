@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date as date_cls
 
+from expense.currencies import only_currency
 from expense.quickadd.money import parse_amount
 from expense.quickadd.names import fold
 from expense.quickadd.when import parse_date
@@ -336,7 +337,7 @@ def parse(
                 )
             )
     else:
-        currency_code = _only_currency(held)
+        currency_code = only_currency(held)  # a fill: see `FILLS_AN_ONLY_CURRENCY`
 
     title = " ".join(title_words)
     values = {
@@ -363,15 +364,6 @@ def parse(
         account_currencies=held if picked["account"] is not None else (),
         account_name=account_name,
     )
-
-
-def _only_currency(held: tuple[str, ...]) -> str | None:
-    """The currency a line with no `%` takes: the one the account holds, when it holds
-    exactly one. The engine does not yet take an account's only currency when a write
-    names none, so the client fills it here (docs/to-engine/
-    an-accounts-only-currency-is-taken-when-a-write-names-none.md); this is the one
-    place to remove when it does."""
-    return held[0] if len(held) == 1 else None
 
 
 def _pick_currency(word: str, held: tuple[str, ...]) -> tuple[str | None, tuple[str, ...]]:
