@@ -15,7 +15,7 @@ specs, run in this order:
 6. part 6, the main views (done on 2026-10-31);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
-**Status: approved by the owner on 2026-10-31; it runs now, after part 6.** its tests
+**Status: approved by the owner on 2026-10-31; it runs now, after part 6.** Its tests
 build their records through spec 3's `Scratch`. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -85,22 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-1. **Making an account (builder).** A new tests/contract/test_account_create.py: the Visa in
-   PEN and USD and ALEJO (`is_person: true`) in PEN and USD, each `201` in one write, its
-   currencies PEN before USD at `0` with no opening balance; `currency_code` and `holder_id` on
-   the body `UNKNOWN_FIELD`, and an unknown field in an entry keyed
-   `currencies.<i>.<field>`; the refusals in order, each step proven against the next by one
-   body breaking both: `OUT_OF_RANGE` on `currencies` (empty, eleven entries); then in one
-   answer `EMPTY` on `name` and `DUPLICATE_CURRENCY` on `currencies.1.currency_code`;
-   `ID_EXISTS` on `id` for a deleted account's id and for a former per-currency id, read from
-   the practice user's older activity entries (contract: GET /v1/activity, "Older and restored entries");
-   `LIMIT_REACHED` on `id` (contract: "Base Conventions", "Create caps"), by filling the cap
-   with accounts the test deletes after, if that runs in under a minute, and otherwise left out
-   with the reason in the test's docstring; `UNSUPPORTED_VALUE` on every such
-   `currencies.<i>.currency_code`; `409 NAME_EXISTS` on `name`, either kind, ignoring case;
-   `409 STATEMENT_CODE_EXISTS`.
-   *Passes if:* the file passes live, every refusal leaves no account, and its docstring says
-   which cases it leaves out and why.
 2. **Adding and removing a currency (builder).** A new
    tests/contract/test_account_currencies.py: `POST /accounts/{id}/currencies` → `201`, the new
    currency at `0`, the account's `version` unmoved; refused `404` for an unknown or deleted
