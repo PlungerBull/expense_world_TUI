@@ -1806,6 +1806,19 @@ the pick's `currency_code` with its `account_id`, and the save sends both on eve
 the label, the staged totals add up per currency from each row's `currency_code`, and the
 picker and a refusal's candidates read the label.
 
+**The line's currency is a token of its own, `%`** ([quickadd/parse.py](../expense/quickadd/parse.py)):
+`Streamly $visa inventada @suscripcion -12.99 hoy %usd`. It is first-wins like `$` and may stand
+anywhere in the line. The parse reads it against the currencies of the account the line names,
+given as `(id, name, (code, …))` rows: a whole or partial code picks one by the same matching as
+every name, and a bare `%` names none yet and lists them all. A well-formed code the account does
+not hold is upper-cased and sent, and the engine refuses it (contract: POST /v1/transactions,
+"`account_id` and `currency_code`"). A line with no `%` takes the account's currency when it
+holds exactly one (`_only_currency` is the one place that fills it, until the engine ask "An
+account's only currency is taken when a write names none" lands). When the account holds several,
+the parse lists `currency` in `missing`, with `account_currencies` for the list, so routing
+refuses the line ("the line names no currency") and never stages it on a guessed currency. The
+payload carries `account_id` and `currency_code`.
+
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,

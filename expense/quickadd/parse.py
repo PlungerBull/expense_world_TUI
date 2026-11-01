@@ -2,13 +2,20 @@
 
 The grammar:
 
-    tottus -38.60 $signature @korakuen #caja hoy
-    title  amount $account   @category #tag  when
+    tottus -38.60 $signature %usd @korakuen #caja hoy
+    title  amount $account   %cur @category #tag  when
 
 `//` opens a note that runs to the end of the line. A sign is what *makes* a
-number an amount, and the first sign wins. `$`, `@` and the date are
+number an amount, and the first sign wins. `$`, `%`, `@` and the date are
 first-wins; `#` is the only repeatable token. Whatever is left, in order, is
 the title.
+
+`%` names the currency, from the currencies of the account the line names. A
+whole or partial code picks one of them; a well-formed code the account does not
+hold is upper-cased and sent, and the engine refuses it (`CURRENCY_NOT_HELD`). A
+line with no `%` takes the account's currency when it holds exactly one, and
+is `missing` its currency when it holds several (`ParsedLine.account_currencies`
+lists them): the parser never guesses between currencies.
 
 Names are matched against the reference lists the caller already holds —
 nothing is created here, and an unmatched name is reported rather than
@@ -30,7 +37,10 @@ from expense.quickadd.when import parse_date
 # `coca-cola`, `T-800` and `covid-19` titles while `-30` is money. The `$` is
 # decoration the account already settles, so `-$1800` is `-1800`.
 _AMOUNT = re.compile(r"^[+-]\$?[0-9][0-9,.]*$")
-_SIGILS = ("$", "@", "#")
+_SIGILS = ("$", "%", "@", "#")
+# A currency code as the engine takes one: three letters. What a `%` word that
+# names none of the account's currencies may still be, to be sent as typed.
+_CODE = re.compile(r"^[A-Za-z]{3}$")
 
 # What a line needs to become a ledger row: a signed amount and an account.
 # Title and category are optional — a row with no category
@@ -43,7 +53,7 @@ REQUIRED = ("amount", "account")
 class Span:
     """One token's place in the source line, for colouring.
 
-    `kind` is amount | account | category | hashtag | note | date | title.
+    `kind` is amount | account | currency | category | hashtag | note | date | title.
     `resolved` is False only for a reference name that found no single match,
     or a date-shaped word that is not a real date — the error slot.
     """
@@ -86,9 +96,13 @@ class ParsedLine:
     # The first signed, amount-shaped token `parse_amount` could not read
     # (`-13.853,20`), as typed; it stays a title word. None when there is none.
     unreadable_amount: str | None = None
-    # The code of the currency the `$account` token named, with its account: a
-    # pick is one account and one currency it holds (`reads.CurrencyPick`).
+    # The line's currency: the `%` token's, or the one currency the account holds
+    # when none is typed. None when the line names none and the account holds
+    # several (`currency` is then in `missing`).
     currency_code: str | None = None
+    # The currencies the named account holds, in the order given; empty until the
+    # line names an account. The picker's list for `%`, and the refusal's.
+    account_currencies: tuple[str, ...] = ()
 
     @property
     def is_complete(self) -> bool:
@@ -112,12 +126,14 @@ class _Entry:
     # every currency of the account. Both empty for a category or a hashtag.
     code: str = ""
     label_key: str = ""
+    # The codes the account holds: its pick's code, or the list the row carries.
+    currencies: tuple[str, ...] = ()
 
 
 def _entries(rows: Sequence[Sequence]) -> list[_Entry]:
     """`(id, name, …)` rows -> match entries. An account row is `(account_id, name,
-    currency_code)`, a pick; a third column that is a string is that code, and
-    any other extra column is ignored."""
+    currency_code)`, a pick, or `(account_id, name, (code, …))`, the account with the
+    currencies it holds; any other extra column is ignored."""
     out: list[_Entry] = []
     for row in rows:
         if len(row) < 2:
@@ -128,7 +144,13 @@ def _entries(rows: Sequence[Sequence]) -> list[_Entry]:
         key = fold(" ".join(name.split()))
         if not key:
             continue
-        code = row[2] if len(row) > 2 and isinstance(row[2], str) else ""
+        third = row[2] if len(row) > 2 else None
+        code = third if isinstance(third, str) else ""
+        held: tuple[str, ...] = ()
+        if code:
+            held = (code,)
+        elif isinstance(third, (tuple, list)):
+            held = tuple(c for c in third if isinstance(c, str))
         label_key = fold(currency_label(" ".join(name.split()), code)) if code else ""
         out.append(
             _Entry(
@@ -138,6 +160,7 @@ def _entries(rows: Sequence[Sequence]) -> list[_Entry]:
                 words=len(label_key.split() or key.split()),
                 code=code,
                 label_key=label_key,
+                currencies=held,
             )
         )
     return out
@@ -213,13 +236,14 @@ def parse(
         "category": _entries(categories),
         "hashtag": _entries(hashtags),
     }
-    sigil_kind = {"$": "account", "@": "category", "#": "hashtag"}
+    sigil_kind = {"$": "account", "%": "currency", "@": "category", "#": "hashtag"}
 
     words = [(m.start(), m.end(), m.group()) for m in re.finditer(r"\S+", body)]
     title_words: list[str] = []
     amount_cents: int | None = None
     picked: dict[str, str | None] = {"account": None, "category": None}
-    picked_code: str | None = None
+    held: tuple[str, ...] = ()
+    typed_currency: tuple[int, int, str] | None = None
     hashtag_ids: list[str] = []
     iso: str | None = None
     bad_date = False
@@ -237,7 +261,15 @@ def parse(
         if kind == "account" and head[:1].isdigit():
             kind = None
 
-        if kind is not None and (kind == "hashtag" or picked.get(kind) is None):
+        # The currency is read once the account is known, whichever comes first.
+        if kind == "currency" and typed_currency is None:
+            typed_currency = (start, end, text)
+            index += 1
+            continue
+
+        if kind in ("account", "category", "hashtag") and (
+            kind == "hashtag" or picked.get(kind) is None
+        ):
             if head:
                 count, hits = _resolve(words, index, head, refs[kind])
             else:
@@ -263,7 +295,7 @@ def parse(
                 else:
                     picked[kind] = hits[0].id
                     if kind == "account":
-                        picked_code = hits[0].code or None
+                        held = hits[0].currencies
             else:
                 unresolved.append(
                     Unresolved(
@@ -304,11 +336,32 @@ def parse(
         spans.append(Span("title", start, end, text))
         index += 1
 
+    currency_code = None
+    if typed_currency is not None:
+        c_start, c_end, c_text = typed_currency
+        currency_code, c_hits = _pick_currency(c_text[1:], held)
+        c_span = Span("currency", c_start, c_end, c_text, resolved=currency_code is not None)
+        spans.append(c_span)
+        if currency_code is None:
+            unresolved.append(
+                Unresolved(
+                    kind="currency",
+                    text=c_text[1:],
+                    span=c_span,
+                    candidates=tuple((c, c) for c in c_hits),
+                )
+            )
+    else:
+        currency_code = _only_currency(held)
+
     title = " ".join(title_words)
     values = {
         "amount": amount_cents,
         "account": picked["account"],
     }
+    missing = [k for k in REQUIRED if values[k] is None]
+    if typed_currency is None and len(held) > 1 and picked["account"] is not None:
+        missing.append("currency")
     return ParsedLine(
         title=title,
         amount_cents=amount_cents,
@@ -320,10 +373,40 @@ def parse(
         date_given=iso is not None,
         spans=tuple(sorted(spans, key=lambda s: s.start)),
         unresolved=tuple(unresolved),
-        missing=tuple(k for k in REQUIRED if values[k] is None),
+        missing=tuple(missing),
         unreadable_amount=unreadable_amount,
-        currency_code=picked_code,
+        currency_code=currency_code,
+        account_currencies=held if picked["account"] is not None else (),
     )
+
+
+def _only_currency(held: tuple[str, ...]) -> str | None:
+    """The currency a line with no `%` takes: the one the account holds, when it holds
+    exactly one. The engine does not yet take an account's only currency when a write
+    names none, so the client fills it here (docs/to-engine/
+    an-accounts-only-currency-is-taken-when-a-write-names-none.md); this is the one
+    place to remove when it does."""
+    return held[0] if len(held) == 1 else None
+
+
+def _pick_currency(word: str, held: tuple[str, ...]) -> tuple[str | None, tuple[str, ...]]:
+    """A `%` word against the account's currencies -> (code, candidates).
+
+    The same matching as every name (`_resolve`). One hit resolves. A bare `%` names
+    nothing and offers every currency the account holds. A word that hits none of
+    them but is a well-formed code is upper-cased and carried, for the engine to
+    refuse if the account does not hold it; anything else is unresolved, with the
+    hits as candidates.
+    """
+    if not word:
+        return None, held
+    _, found = _resolve([(0, len(word), word)], 0, word, _entries([(c, c) for c in held]))
+    hits = [e.id for e in found]
+    if len(hits) == 1:
+        return hits[0], ()
+    if not hits and _CODE.match(word):
+        return word.upper(), ()
+    return None, tuple(hits)
 
 
 def _split_note(line: str) -> tuple[str, str | None, Span | None]:

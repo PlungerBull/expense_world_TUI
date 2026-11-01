@@ -22,10 +22,17 @@ from expense.quickadd.parse import ParsedLine, Unresolved
 LEDGER = "ledger"
 REFUSED = "refused"
 
-_SIGIL = {"account": "$", "category": "@", "hashtag": "#"}
+_SIGIL = {"account": "$", "currency": "%", "category": "@", "hashtag": "#"}
+_PLURAL = {
+    "account": "accounts",
+    "currency": "currencies",
+    "category": "categories",
+    "hashtag": "hashtags",
+}
 _MISSING_PHRASE = {
     "amount": "the line has no amount — a number needs a sign to be one",
     "account": "the line names no account",
+    "currency": "the line names no currency",
 }
 
 
@@ -84,7 +91,7 @@ def describe(token: Unresolved) -> str:
     if token.kind == "date":
         return f'"{token.text}" is not a real date'
 
-    plural = f"{token.kind}s" if token.kind != "category" else "categories"
+    plural = _PLURAL[token.kind]
     if not token.text:
         return f'"{_SIGIL[token.kind]}" names no {token.kind} yet'
 

@@ -380,10 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-9. **The quick-add grammar's currency** (point 9; question 8). [expense/quickadd/](../../expense/quickadd/)
-   (`parse.py`, `payload.py`) and its tests. *Passes if:* a line naming an account and a currency
-   parses to `account_id` and `currency_code` and its payload carries both; a line on a
-   one-currency account follows question 8's answer; mypy and the tests pass.
 10. **The LOG bar's currency field** (point 9; question 8). [log_bar.py](../../expense/tui/screens/log_bar.py),
     `QuickAddRefs` in [reads.py](../../expense/reads.py) and their tests; tui.md §4 "The legend
     row" and "The account peek". *Passes if:* the bar picks the currency as question 8 draws, the
@@ -468,6 +464,8 @@ Not built in this spec; drafted into a new spec when it is done.
   before.
 - **A second `c` while the first add is in flight** offers the same currency again, and the
   engine refuses it; `a` and `t` guard with `_toggle_busy`.
+- **No mockup draws the LOG bar's words for a `%` that matches nothing**: `"%xx" matches no
+  currencies` follows the `$` token's `"$x" matches no accounts`.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.

@@ -154,3 +154,29 @@ def test_a_bare_sigil_reads_as_unfinished_not_as_a_failed_match():
         candidates=(("h1", "TAXI"), ("h2", "CAJA")),
     )
     assert describe(token) == '"#" names no hashtag yet'
+
+
+# --- the currency ---------------------------------------------------------------
+
+HOLDING = [("v1", "Visa Inventada", ("PEN", "USD")), ("c1", "Caja Chica", ("PEN",))]
+
+
+def _held(line):
+    parsed = parse(line, accounts=HOLDING, categories=CATEGORIES, hashtags=HASHTAGS, today=TODAY)
+    return route(parsed, TODAY)
+
+
+def test_a_multi_currency_account_with_no_currency_is_refused_naming_it():
+    result = _held("-12.99 $visa inventada")
+    assert result.target == REFUSED
+    assert result.reasons == ("the line names no currency",)
+
+
+def test_a_currency_typed_or_a_sole_currency_reaches_the_ledger():
+    assert _held("-12.99 $visa inventada %usd").target == LEDGER
+    assert _held("-4.50 $caja chica").target == LEDGER
+
+
+def test_an_unresolved_currency_reads_as_its_token():
+    assert _held("-1 $visa inventada %xx").reasons == ('"%xx" matches no currencies',)
+    assert _held("-1 $visa inventada %").reasons == ('"%" names no currency yet',)

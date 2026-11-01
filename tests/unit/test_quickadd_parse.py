@@ -11,6 +11,7 @@ import pytest
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import fold, matches
 from expense.quickadd.parse import parse
+from expense.quickadd.payload import transaction_payload
 from expense.quickadd.when import format_date_words, parse_date
 
 TODAY = date(2026, 8, 20)
@@ -479,3 +480,115 @@ def test_the_whole_label_names_one_pick_and_the_line_carries_its_currency():
 def test_a_one_currency_account_resolves_on_its_name_alone():
     result = _picks("-10 $efectivo")
     assert (result.account_id, result.currency_code) == ("a5", "PEN")
+
+
+# --- the currency: its own token, `%`, from the account's own currencies --------
+
+BANKS = [
+    ("v1", "Visa Inventada", ("PEN", "USD")),
+    ("c1", "Caja Chica", ("PEN",)),
+]
+
+
+def _banks(line: str):
+    return parse(line, accounts=BANKS, categories=CATEGORIES, hashtags=HASHTAGS, today=TODAY)
+
+
+def test_a_line_naming_an_account_and_a_currency_carries_both():
+    result = _banks("Streamly $visa inventada @wants -12.99 hoy %usd")
+    assert (result.account_id, result.currency_code) == ("v1", "USD")
+    assert result.unresolved == () and result.missing == ()
+    assert result.account_currencies == ("PEN", "USD")
+    assert [s.kind for s in result.spans if s.kind == "currency"] == ["currency"]
+
+
+def test_the_currency_token_may_come_before_the_account():
+    result = _banks("-5 %pen $visa inventada")
+    assert (result.account_id, result.currency_code, result.unresolved) == ("v1", "PEN", ())
+
+
+def test_a_partial_code_picks_like_every_other_name():
+    assert _banks("-5 $visa %u").currency_code == "USD"
+    assert _banks("-5 $visa %E").currency_code == "PEN"
+
+
+def test_a_partial_code_two_currencies_share_is_unresolved_with_both_candidates():
+    result = parse(
+        "-5 $x %pe",
+        accounts=[("x1", "X", ("PEN", "PEX"))],
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+    )
+    assert result.currency_code is None
+    (found,) = result.unresolved
+    assert (found.kind, found.text) == ("currency", "pe")
+    assert found.candidates == (("PEN", "PEN"), ("PEX", "PEX"))
+
+
+def test_a_bare_percent_names_no_currency_and_offers_the_accounts_own():
+    result = _banks("-5 $visa %")
+    assert result.currency_code is None
+    (found,) = result.unresolved
+    assert (found.kind, found.text) == ("currency", "")
+    assert found.candidates == (("PEN", "PEN"), ("USD", "USD"))
+    assert found.span.resolved is False
+
+
+def test_a_one_currency_account_takes_its_currency_with_nothing_typed():
+    result = _banks("Pan $caja chica @wants -4.50 hoy")
+    assert (result.account_id, result.currency_code) == ("c1", "PEN")
+    assert result.missing == () and result.unresolved == ()
+
+
+def test_a_multi_currency_account_with_no_currency_is_missing_it_never_guessed():
+    result = _banks("Streamly $visa inventada -12.99")
+    assert result.account_id == "v1" and result.currency_code is None
+    assert result.missing == ("currency",)
+    assert result.account_currencies == ("PEN", "USD")
+    assert not result.is_complete
+
+
+def test_a_well_formed_code_the_account_does_not_hold_is_carried_for_the_engine():
+    result = _banks("-18 $caja chica %usd")
+    assert (result.account_id, result.currency_code, result.unresolved) == ("c1", "USD", ())
+
+
+def test_a_percent_word_that_is_no_code_and_matches_nothing_is_unresolved():
+    result = _banks("-18 $caja chica %xx")
+    assert result.currency_code is None
+    (found,) = result.unresolved
+    assert (found.kind, found.candidates) == ("currency", ())
+
+
+def test_the_currency_is_first_wins_and_a_second_percent_word_is_title():
+    result = _banks("a %pen %usd -5 $visa")
+    assert result.currency_code == "PEN" and result.title == "a %usd"
+
+
+def test_a_percent_with_no_account_still_carries_a_well_formed_code():
+    result = _banks("-5 %usd")
+    assert result.account_id is None and result.currency_code == "USD"
+    assert result.missing == ("account",)
+
+
+def test_an_account_name_does_not_swallow_the_currency_token():
+    # "caja chica %usd" would match a three-word name if `%usd` were read as a name word
+    result = parse(
+        "-5 $caja chica %usd",
+        accounts=[("c1", "Caja Chica %usd", ("PEN", "USD")), ("c2", "Caja Chica", ("PEN",))],
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+    )
+    assert (result.account_id, result.currency_code) == ("c2", "USD")
+
+
+def test_the_payload_carries_the_account_and_the_currency():
+    lines = ["-12.99 $visa inventada %usd", "-4.50 $caja chica", "-3 $visa inventada %pen"]
+    sent = [transaction_payload(_banks(line), row_id="r", date="2026-10-31") for line in lines]
+    assert [(p["account_id"], p["currency_code"]) for p in sent] == [
+        ("v1", "USD"),
+        ("c1", "PEN"),
+        ("v1", "PEN"),
+    ]
