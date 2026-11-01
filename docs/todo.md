@@ -55,7 +55,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. the live tests for the upload, bank lines and kinds: done on 2026-10-31; its reply to the engine, with part 3's results, waits in [to-engine/](to-engine/) for you to hand over;
-5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
+5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): approved on 2026-10-31, runs now;
 6. the main views: done on 2026-10-31; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
@@ -83,8 +83,8 @@ after part 5 and before part 7.
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 5 runs next (no question), then part 3's leftovers, so
-each is ready when the one before it is done, while you answer part 6's leftovers.
+**Recommended:** approve the rest; part 3's leftovers run after part 5, then part 6's once you
+answer them, so each is ready when the one before it is done.
 
 ---
 

@@ -15,7 +15,7 @@ specs, run in this order:
 6. part 6, the main views (done on 2026-10-31);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
-**Status: draft, written 2026-10-29 for the owner to approve. It runs after spec 4;** its tests
+**Status: approved by the owner on 2026-10-31; it runs now, after part 6.** its tests
 build their records through spec 3's `Scratch`. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
