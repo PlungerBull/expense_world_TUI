@@ -380,13 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-12. **The ledger's currency column and filter** (point 11; questions 2 and 10).
-    [transactions.py](../../expense/tui/screens/transactions.py) (`transaction_rows`,
-    `LedgerFilter`), the filter params in [reads.py](../../expense/reads.py), and their tests;
-    tui.md §2 "The filtered ledger is the categorising pass". *Passes if:* each row shows its
-    currency as question 10 draws; Home's `⏎` on a currency opens the ledger as question 2 picks,
-    reading `?currency_code=` with `?account_id=`, the crumb and legend naming it; the tests pin
-    each.
 13. **Moving rows to another currency in bulk** (point 12; question 11).
     [transactions.py](../../expense/tui/screens/transactions.py), [bulk_pick.py](../../expense/tui/screens/bulk_pick.py)
     and their tests; tui.md §2 "The bulk pick is a full screen" and §4. *Passes if:* the picked
@@ -476,6 +469,10 @@ Not built in this spec; drafted into a new spec when it is done.
   matches “…”.` follows the account line's `No account matches “…”.`
 - **A line on an archived account** shows its CURRENCY line `read-only` with the shared reason,
   as the engine locks it; no mockup draws it.
+- **No mockup draws the ledger filtered on one currency of an account**: its crumb reads
+  `Ledger ▸ Visa Inventada · USD`, its legend `filter: account Visa Inventada · USD · 20 of 57
+  loaded` and its empty text `(no transactions under Visa Inventada · USD)`, the account's name
+  and code as the other screens write them.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.

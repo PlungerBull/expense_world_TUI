@@ -136,7 +136,7 @@ Decisions whose why lives elsewhere:
 
 ## Ledger cells fill their columns — flex text columns, no pre-truncation (2026-09-12)
 
-**Decision.** Rows hand the table whole strings; `CursorList`'s `flex` mapping gives Transactions `{Title: 3, Description: 3, Hashtags: 2}` as Rich ratios. Amount, date, account and category keep their natural width; the text columns split the rest and are ellipsised at their real edge. Column edges depend on the terminal, not on the page's data, so the table never reflows while scrolling.
+**Decision.** Rows hand the table whole strings; `CursorList`'s `flex` mapping gives Transactions `{Title: 3, Description: 3, Hashtags: 2}` as Rich ratios. Amount, currency, date, account and category keep their natural width; the text columns split the rest and are ellipsised at their real edge. Column edges depend on the terminal, not on the page's data, so the table never reflows while scrolling.
 
 **Rejected.** *Natural width* — data-dependent layout, and on a narrow terminal Rich trims every column evenly until the amount is a bare `…`. *Bigger fixed caps* — the same bug on a bigger terminal.
 
@@ -1070,15 +1070,14 @@ currencies in one balance* — a total across currencies has no meaning.
 
 **Decision.** The lists and pickers not yet redrawn show one row per account and currency,
 labelled with the account's name and the code ("VISA Infinite Sapphire · USD",
-`formatting.currency_label`): the LOG bar's `$` picks, the Edit form's ACCOUNT line, and the
-ledger's Account column and bulk `b`. A pick carries the account's id and the currency's code,
-and every write sends both. Manage ▸ Accounts and Home are redrawn by
-[specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md): Manage ▸
-Accounts one row per account with a column per currency (question 1 C), its `d` naming the
-account and each currency with its balance (`Prueba · bank · PEN 0.00 · USD 0.00`) and its `e`
-opening the Edit form with an opening balance pair per currency (question 5 A); Home the
-account's row with a line per currency (question 2 B), its `⏎` opening the ledger on the
-account until that spec's task 12 opens a currency's line on that currency alone.
+`formatting.currency_label`): the ledger's bulk `b` and the LOG bar's staged list. A pick
+carries the account's id and the currency's code, and every write sends both. The screens
+redrawn by [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)
+show the account once and the currency as a field of its own: Manage ▸ Accounts one row per
+account with a column per currency, its `d` naming the account and each currency with its
+balance (`Prueba · bank · PEN 0.00 · USD 0.00`), Home the account's row with a line per currency, the LOG
+bar's `$` picks and `%` currency, the Edit form's ACCOUNT and CURRENCY lines, and the ledger's
+Account and Cur columns.
 
 **Why.** It moves the app onto the engine's model with the screens still waiting for their
 redraw as close to the ones the owner knows as the model allows, so the app works before each

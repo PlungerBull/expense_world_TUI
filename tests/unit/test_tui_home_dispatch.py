@@ -14,7 +14,7 @@ from expense.tui.screens._base import SectionScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
-from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
+from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen, legend_text
 from tests.unit.helpers import HOME_DASHBOARD, fake_ledger, run_app, stub_home_month, wait_for
 
 _CASES = [
@@ -250,25 +250,22 @@ def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
     run_app(scenario, size=(100, 40))
 
 
-@pytest.mark.parametrize("option_id", ["account:a-pen", "account:a-pen:PEN"])
-def test_enter_on_an_account_or_its_currency_line_opens_the_ledger_on_the_account(
-    monkeypatch, option_id
-):
+def test_enter_on_an_account_opens_the_ledger_on_every_currency(monkeypatch):
     _stub_month(monkeypatch)
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _select(app, pilot, option_id)
+        await _select(app, pilot, "account:a-pen")
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
         assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
+        assert app.screen._scope() == {"account": "a-pen"}
 
     run_app(scenario)
 
 
-@pytest.mark.parametrize("option_id", ["account:a-visa", "account:a-visa:USD"])
-def test_enter_on_a_second_currency_line_opens_the_ledger_on_the_whole_account(
-    monkeypatch, option_id
-):
+def test_enter_on_a_currency_line_opens_the_ledger_on_that_currency_alone(monkeypatch):
+    """The account's row is every currency; a currency's line reads `?account_id=` with
+    `?currency_code=`, and the crumb and the legend name the account and the currency."""
     two = {
         "id": "a-visa",
         "name": "VISA",
@@ -282,9 +279,15 @@ def test_enter_on_a_second_currency_line_opens_the_ledger_on_the_whole_account(
 
     async def scenario(pilot, app):
         await _month_loaded(app, pilot)
-        await _select(app, pilot, option_id)
+        await _select(app, pilot, "account:a-visa:USD")
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter("account", "a-visa", "VISA")
+        screen = app.screen
+        assert screen._filter == LedgerFilter(
+            "account", "a-visa", "VISA · USD", currency_code="USD"
+        )
+        assert screen._scope() == {"account": "a-visa", "currency_code": "USD"}
+        assert screen.crumb == ("Ledger", "VISA · USD")
+        assert legend_text(screen._filter, 0, None, 0) == "filter: account VISA · USD"
 
     run_app(scenario)
 

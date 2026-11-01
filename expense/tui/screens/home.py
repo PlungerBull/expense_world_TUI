@@ -23,8 +23,8 @@ endpoint, which is why the accounts header says `balance today`.
 
 - on a category — that category, every month;
 - on a hashtag row — that category and that hashtag;
-- on an account or a person, its row or one of its currency lines — that
-  account, every currency.
+- on an account or a person, its row — that account, every currency;
+- on a currency line — that account and that currency alone.
 
 Every hashtag row is one row of the engine's `hashtag_breakdown`, whose
 `hashtag_ids` is never empty: a transaction still waiting for a hashtag counts
@@ -52,7 +52,7 @@ from textual.widgets.option_list import Option
 
 from expense import formatting, reads
 from expense.errors import format_error
-from expense.formatting import settled_label, split_settled
+from expense.formatting import currency_label, settled_label, split_settled
 from expense.reads import load_hashtag_name_map
 from expense.tui.screens._base import LogTransactionMixin, screen_fetch_kwargs
 from expense.tui.screens.accounts import AccountsScreen
@@ -244,7 +244,8 @@ def _account_rows(
     line per currency it holds, in the engine's order
     (contract: GET /v1/dashboard, "`bank_accounts`"): the code, then that
     currency's own `current_balance_cents`, never summed with another. Every
-    row's `name` is the account's, what the ledger's crumb says."""
+    row's `name` is the account's; the ledger's crumb says it, and on a currency
+    line `<name> · <code>`, which the dispatch builds."""
     name = account.get("name") or "(unnamed)"
     head = f"{ACCOUNT_PREFIX}{account['id']}"
     rows = [HomeRow(head, indent + name, name=name, dim=dim)]
@@ -584,10 +585,16 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
             cat = option_id[len(TAG_PREFIX) :].split(":", 1)[0]
             flt = LedgerFilter("category", cat, row.name, hashtag_id=row.hashtag)
         elif row is not None and option_id.startswith(ACCOUNT_PREFIX):
-            # The account's row and each of its currency lines: the account,
-            # every currency.
-            account_id = option_id[len(ACCOUNT_PREFIX) :].split(":", 1)[0]
-            flt = LedgerFilter("account", account_id, row.name)
+            # The account's row: the account, every currency; a currency's
+            # line: that currency alone, named after the account in the crumb
+            # and the legend.
+            account_id, _, code = option_id[len(ACCOUNT_PREFIX) :].partition(":")
+            if code:
+                flt = LedgerFilter(
+                    "account", account_id, currency_label(row.name, code), currency_code=code
+                )
+            else:
+                flt = LedgerFilter("account", account_id, row.name)
         if flt is not None:
             self.app.push_screen(TransactionsScreen(filter=flt))
             return

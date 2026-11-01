@@ -243,7 +243,7 @@ a usable file opens on Home; changing the address or key later is System ▸ Con
 |---|---|---|
 | **CATEGORIES** · four month columns, the newest marked `▸` | every category with activity somewhere in the window, home currency, `—` for a month with none, `3 unrated` when unpriceable — **a category with nothing in the whole window is hidden**. `→` unfolds its hashtag rows, `←` folds them, `@Pendiente` included. Under them: `inflow`, `outflow`, `net` | the ledger filtered to that category, every month |
 | hashtag row (unfolded) | the category's spend on that hashtag, per month, one row per row of the engine's `hashtag_breakdown`, under the name `GET /hashtags` gives it. The rows still waiting for a hashtag are the **pending hashtag's row** (`#Pendiente`), dim like every hashtag row: the engine groups the pending hashtag like any other, so `hashtag_ids` is never empty (contract: GET /v1/dashboard) | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`); on the pending row, that category's transactions still waiting for a hashtag (contract: GET /v1/transactions). A combo of several hashtags is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag |
-| **BANK ACCOUNTS** · *balance today* | one row per account, its name alone, then an indented line per currency it holds: the code and that currency's `current_balance_cents`, in the engine's order (accounts as sent, each one's currencies as sent); balances are native only, never summed (contract: GET /v1/dashboard, "Balances are native only") | on the account's row or on any of its currency lines, the ledger filtered to that account, every currency |
+| **BANK ACCOUNTS** · *balance today* | one row per account, its name alone, then an indented line per currency it holds: the code and that currency's `current_balance_cents`, in the engine's order (accounts as sent, each one's currencies as sent); balances are native only, never summed (contract: GET /v1/dashboard, "Balances are native only") | on the account's row, the ledger filtered to that account, every currency; on a currency line, to that account and that currency alone |
 | **PEOPLE** | one row per person and its currency lines, drawn like the accounts; a person is settled when **every** currency it holds reads exactly zero (`formatting.split_settled`), so a person settled in soles and owing in dollars stays in sight whole, its zero line included; settled people fold behind `▶ N settled`, counting people (`⏎`/`→` opens it); `none` when there is nobody | as for an account |
 | **LEDGER** | Transactions · Reconciliations, each a row of its own | `⏎` on an entry pushes the screen |
 | **MANAGE** | Accounts · Categories · Hashtags | as above |
@@ -269,9 +269,13 @@ engine's own `?category_id=` / `?account_id=`, narrowed to one currency of the a
 `&currency_code=` when the filter names one (`LedgerFilter.currency_code`: the ledger on an
 account and a currency, its count asking the same two keys) (contract: GET /v1/transactions),
 and the legend says `filter: category @Pendiente · 20 of 57 loaded · 3 selected`. The
-**Account** column reads `<account> · <code>` from each row's `account_id` and
-`currency_code` (`currency_label`; `(unnamed)` for an account with no name, as the pickers
-read it, the account's short id for one the read lacks). `space` selects rows (a `●` in the
+columns are Title, Description, Amount, **Cur**, Date, Account, Cat and Hashtags: **Cur** is
+the row's own `currency_code` beside Amount (empty for a row naming none) and **Account**
+names the account alone (`(unnamed)` for an account with no name, as the pickers read it,
+the account's short id for one the read lacks). On Home, `⏎` on an account's row opens the
+ledger on the account, every currency; `⏎` on a currency's line opens it on that currency alone,
+and the crumb, the legend and the empty-state text name both, `Visa Inventada · USD`
+(`currency_label`). `space` selects rows (a `●` in the
 title gutter, the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
 the bulk pick for the selection — or for the cursor row when nothing is selected —
 to set the category, move to an account and currency, or **replace** the hashtag set. The
@@ -1965,8 +1969,8 @@ pre-layout fallback everywhere except **Transactions, which fills the window**: 
 20-row cap and its own `CARD_WIDTH`.
 
 The ledger's cells fill that width:
-`transaction_rows` hands the table whole strings and `CursorList(flex={0: 3, 1: 3, 6: 2})`
-makes Title, Description and Hashtags Rich ratio columns — Amount, Date, Account and Cat
+`transaction_rows` hands the table whole strings and `CursorList(flex={0: 3, 1: 3, 7: 2})`
+makes Title, Description and Hashtags Rich ratio columns — Amount, Cur, Date, Account and Cat
 take their natural width first, the three text columns share what is left 3:3:2, and each
 cell is cut at the edge of the column it actually has. On a narrow terminal the free text
 gives way before the numbers. Every other list leaves `flex` empty and keeps Rich's

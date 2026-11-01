@@ -54,17 +54,30 @@ HASHTAGS = {"h1": "trabajo"}
 
 def test_transaction_rows_format_and_resolve():
     by_id = dict(transaction_rows(ITEMS, ACCOUNTS, CATEGORIES, HASHTAGS))
-    # amount grouped, account/category resolved, tags resolved
-    assert by_id["t1"][2] == "6,519.00" and by_id["t1"][4] == "BCP Soles · PEN"
-    assert by_id["t1"][5] == "Ingreso" and by_id["t1"][6] == "trabajo"
+    # amount grouped, currency beside it, account/category resolved, tags resolved
+    assert by_id["t1"][2] == "6,519.00" and by_id["t1"][3] == "PEN"
+    assert by_id["t1"][5] == "BCP Soles"
+    assert by_id["t1"][6] == "Ingreso" and by_id["t1"][7] == "trabajo"
     # no tags → em dash; negative amount formatted
-    assert by_id["t2"][2] == "-432.50" and by_id["t2"][6] == "—"
+    assert by_id["t2"][2] == "-432.50" and by_id["t2"][7] == "—"
 
 
-def test_the_account_column_reads_account_and_currency_from_each_row():
-    """`<account> · <code>` from the row's `account_id` and `currency_code`: an
-    account holding both currencies reads once per currency; a row naming no
-    currency reads the account alone, and an account the read lacks its short id."""
+def test_the_ledger_has_a_cur_column_beside_amount_and_the_account_column_names_the_account():
+    """The row's `currency_code` is its own `Cur` cell right after Amount; the
+    Account cell is the account alone, and a row naming no currency leaves Cur
+    empty."""
+    from expense.tui.screens.transactions import _HEADERS
+
+    assert _HEADERS == [
+        "Title",
+        "Description",
+        "Amount",
+        "Cur",
+        "Date",
+        "Account",
+        "Cat",
+        "Hashtags",
+    ]
     items = [
         {**ITEMS[0], "id": "pen", "currency_code": "PEN"},
         {**ITEMS[0], "id": "usd", "currency_code": "USD"},
@@ -72,12 +85,39 @@ def test_the_account_column_reads_account_and_currency_from_each_row():
         {**ITEMS[0], "id": "gone", "account_id": "0123456789abcdef", "currency_code": "USD"},
     ]
     by_id = dict(transaction_rows(items, ACCOUNTS, CATEGORIES, HASHTAGS))
-    assert [by_id[k][4] for k in ("pen", "usd", "none", "gone")] == [
-        "BCP Soles · PEN",
-        "BCP Soles · USD",
-        "BCP Soles",
-        "01234567 · USD",
+    assert [(by_id[k][3], by_id[k][5]) for k in ("pen", "usd", "none", "gone")] == [
+        ("PEN", "BCP Soles"),
+        ("USD", "BCP Soles"),
+        ("", "BCP Soles"),
+        ("USD", "01234567"),
     ]
+
+
+def test_the_ledger_renders_cur_between_amount_and_date(monkeypatch):
+    """Painted, the header reads `Amount  Cur  Date` and each row its code."""
+    import expense.tui.screens.transactions as tx_mod
+
+    fake_ledger(monkeypatch, [{**ITEMS[0], "currency_code": "USD"}, ITEMS[1]])
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_list(pilot, app)
+        lst = app.screen.query_one(CursorList)
+        lines = render_text(lst._build(), width=160).splitlines()
+        assert any(
+            line.split()[:5] == ["Title", "Description", "Amount", "Cur", "Date"] for line in lines
+        )
+        first = next(line for line in lines if "6,519.00" in line)
+        second = next(line for line in lines if "-432.50" in line)
+        assert first.split()[first.split().index("6,519.00") + 1] == "USD"
+        assert second.split()[second.split().index("-432.50") + 1] == "PEN"
+        assert "BCP Soles · " not in "\n".join(lines)
+
+    run_app(scenario, size=(160, 30))
 
 
 def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypatch):
@@ -95,9 +135,11 @@ def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypa
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):
-        both = LedgerFilter("account", "acc1", "BCP Soles", currency_code="USD")
+        both = LedgerFilter("account", "acc1", "BCP Soles · USD", currency_code="USD")
         await app.push_screen(TransactionsScreen(filter=both))
         await wait_for_list(pilot, app)
+        assert app.screen.crumb == ("Ledger", "BCP Soles · USD")
+        assert app.screen._legend().startswith("filter: account BCP Soles · USD · ")
         assert calls[-1]["account"] == "acc1" and calls[-1]["currency_code"] == "USD"
         assert counts[-1] == {"account": "acc1", "currency_code": "USD", "verbose": False}
         await app.pop_screen()
@@ -106,6 +148,26 @@ def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypa
         await wait_for_list(pilot, app)
         assert calls[-1]["account"] == "acc1" and "currency_code" not in calls[-1]
         assert counts[-1] == {"account": "acc1", "verbose": False}
+
+    run_app(scenario)
+
+
+def test_an_empty_ledger_on_a_currency_names_the_account_and_the_currency(monkeypatch):
+    import expense.tui.screens.transactions as tx_mod
+    from expense.tui.screens.transactions import LedgerFilter
+
+    fake_ledger(monkeypatch, [])
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        flt = LedgerFilter("account", "acc1", "BCP Soles · USD", currency_code="USD")
+        await app.push_screen(TransactionsScreen(filter=flt))
+        await wait_for_list(pilot, app)
+        text = render_text(app.screen.query_one(CursorList)._build(), width=100)
+        assert "(no transactions under BCP Soles · USD)" in text
 
     run_app(scenario)
 
@@ -278,7 +340,7 @@ def test_transaction_rows_hand_the_table_whole_cells():
     tags = {**HASHTAGS, "h2": "x" * 30}
     (_, cells), *_ = transaction_rows(items, ACCOUNTS, CATEGORIES, tags)
     assert cells[0] == long_title and cells[1] == long_desc
-    assert cells[6] == "trabajo, " + "x" * 30
+    assert cells[7] == "trabajo, " + "x" * 30
     assert "…" not in "".join(str(c) for c in cells)
 
 
@@ -306,7 +368,7 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
     assert long_title not in first
     # the ratio columns are exactly the ones the screen names, nothing else
     table = lst._build()
-    assert [c.ratio for c in table.columns] == [3, 3, None, None, None, None, 2]
+    assert [c.ratio for c in table.columns] == [3, 3, None, None, None, None, None, 2]
 
 
 def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):

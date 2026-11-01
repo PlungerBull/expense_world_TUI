@@ -75,7 +75,6 @@ from expense.errors import (
 )
 from expense.formatting import (
     bank_line_part_count,
-    currency_label,
     format_hashtag_cell,
     format_short_date,
     grouped_refusals,
@@ -108,11 +107,11 @@ from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList, list_table
 from expense.tui.widgets.refusal import as_markup, run_stopped, toast
 
-_HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
-#: The free-text columns and their share of the width left after Amount, Date,
-#: Account and Cat take their natural size. The cells are handed to
+_HEADERS = ["Title", "Description", "Amount", "Cur", "Date", "Account", "Cat", "Hashtags"]
+#: The free-text columns and their share of the width left after Amount, Cur,
+#: Date, Account and Cat take their natural size. The cells are handed to
 #: the table whole and cut by it at the column edge, never pre-truncated.
-_FLEX = {0: 3, 1: 3, 6: 2}
+_FLEX = {0: 3, 1: 3, 7: 2}
 #: Amount, the one right-aligned column.
 _ALIGN_RIGHT = {2}
 
@@ -134,22 +133,14 @@ class LedgerFilter(NamedTuple):
     a category filter to one hashtag — `⏎` on a hashtag row under a category
     on Home; the name then reads `WANTS #SALIDAS`. `currency_code` narrows an
     account filter to one currency of the account: the ledger on an account and
-    a currency (`?account_id=&currency_code=`)."""
+    a currency (`?account_id=&currency_code=`); its `name` then reads
+    `Visa Inventada · USD` (`formatting.currency_label`)."""
 
     kind: str
     id: str
     name: str
     hashtag_id: str | None = None
     currency_code: str | None = None
-
-
-def _account_cell(item: dict, accounts: dict) -> str:
-    """`<account> · <code>` from the row's `account_id` and `currency_code`, the
-    words `reads.pick_label` gives (`formatting.currency_label`); the account
-    alone for a row naming no currency."""
-    name = resolve_name(item.get("account_id"), accounts)
-    code = item.get("currency_code")
-    return currency_label(name, code) if code else name
 
 
 def transaction_rows(
@@ -169,8 +160,9 @@ def transaction_rows(
                     it.get("title") or "—",
                     it.get("description") or "",
                     amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
+                    it.get("currency_code") or "",
                     format_short_date(it.get("date")),
-                    _account_cell(it, accounts),
+                    resolve_name(it.get("account_id"), accounts),
                     resolve_name(it.get("category_id"), categories),
                     format_hashtag_cell(it.get("hashtag_ids"), hashtags),
                 ],
