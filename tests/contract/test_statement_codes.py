@@ -1,65 +1,49 @@
-"""Contract: an account's statement code and one statement per code per month.
+"""Contract: an account's statement code and one statement per account per month.
 
 A statement code is three capital letters naming the bank product an account belongs to,
-and it begins the statement line of every line of the account in a completed
-reconciliation (contract: "What an account is", "Statement code"). Account management sets it
-and the reconciliations browse groups accounts and their statements by it, so only the
-engine can say what it takes and what it refuses. Pinned here:
+and it begins the statement line of every line of the account's completed statements, in
+every currency (contract: "What an account is", "Statement code"). The code is the
+account's, not a currency's, and a person carries one like any account. Pinned here:
 
   · it is set on the create, changed and cleared (`null`) with `PUT`, on an archived
     account too, and an account without one reads `null`;
   · `sig`, `SI`, `SIGN`, ` SIG`, `S1G` and `""` are each `422` `INVALID_FORMAT` on
     `statement_code`, on the create and on `PUT`, writing nothing;
-  · two live accounts share a code only across currencies: the same code in the same
-    currency is `409` `STATEMENT_CODE_EXISTS` on the create and on `PUT`, writing
-    nothing, and a deleted account holds no code;
-  · a person never carries one: `POST /people` refuses the field as `UNKNOWN_FIELD`,
-    `PUT` gives a person a code only as `422` `PERSON_ACCOUNT` (`null` passes), and an
-    account holding a code is not made a person (`409` `HAS_STATEMENT_CODE`) until the
-    code is cleared;
-  · one statement per code per month: a reconciliation under a code ending in a month
-    another one under the code already ends in, and not its twin over exactly the same
-    days, is `422` `STATEMENT_MONTH_TAKEN` on `date_end` from the create and the
-    update (a card moved as one, `twin.date_end` naming its other half), and on
-    `statement_code` from the account's `PUT` that would make such a pair; clearing a
-    code never clashes, and a deleted reconciliation does not count.
+  · one account per code: a second live account of the caller's with the same code, in any
+    currency, of either kind, archived or not, is `409` `STATEMENT_CODE_EXISTS` on the create
+    and on `PUT`, writing nothing, and a deleted account holds no code;
+  · a person carries a code like any account: set on the create, changed and cleared with
+    `PUT`, held against every other live account, kept when it changes kind in either
+    direction, and it begins no statement line;
+  · one statement per account per month: a statement ending in a month another live
+    statement of the account ends in, a draft or a completed one, with a code or without
+    one, is `422` `STATEMENT_MONTH_TAKEN` on `date_end` from `POST` and `PUT /statements`,
+    writing nothing; a deleted statement does not count, another account's never clashes,
+    and the account's code changes none of it.
 
 Each test builds its own accounts under codes no account of the practice user holds, and
 undoes everything (conftest.py `scratch`). Gating, target and the real-ledger guard:
 conftest.py.
 """
 
-# ruff: noqa: E402
+from datetime import date
+
 import pytest
-
-pytest.skip(
-    "on the holder model until "
-    "docs/specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md "
-    "(its tasks) rewrites it",
-    allow_module_level=True,
-)
-
-from uuid import uuid4
 
 from expense.errors import EngineError
 from tests.contract.conftest import (
+    PaperRow,
     account_body,
     assert_refusal,
-    assert_refusals,
     free_statement_codes,
-    reconciliation_body,
     refused,
+    refused_writing_nothing,
+    savings_paper,
+    send_statement,
+    statement_create_body,
 )
 
 MALFORMED = ("sig", "SI", "SIGN", " SIG", "S1G", "")
-
-
-def _gone(client, account_id: str) -> bool:
-    try:
-        client.get(f"/accounts/{account_id}")
-    except EngineError as err:
-        return err.status == 404
-    return False
 
 
 def _set_code(client, account_id: str, code: str | None) -> str | None:
@@ -69,9 +53,21 @@ def _set_code(client, account_id: str, code: str | None) -> str | None:
     ]
 
 
-def _recon_ids(client, account_id: str) -> list[str]:
-    listed = client.get("/reconciliations", params={"account_id": account_id})
-    return [item["id"] for item in listed["items"]]
+def _code_of(client, account_id: str) -> str | None:
+    return client.get(f"/accounts/{account_id}")["statement_code"]
+
+
+def _put_code(client, account_id: str, code: str):
+    """The call `PUT /accounts/{id}` giving the account `code`, for a test of its refusal."""
+    return lambda: client.put(f"/accounts/{account_id}", json_body={"statement_code": code})
+
+
+def _post_account(client, scratch, *codes: str, **kwargs):
+    """The call `POST /accounts` on a new account holding `codes`, its id taken on by
+    `scratch`, for a test of its refusal."""
+    body = account_body(*codes, **kwargs)
+    scratch.accounts.append(body["id"])
+    return lambda: client.post("/accounts", json_body=body)
 
 
 # ---- the code itself ----------------------------------------------------------
@@ -80,277 +76,205 @@ def _recon_ids(client, account_id: str) -> list[str]:
 def test_a_statement_code_is_set_changed_and_cleared(client, scratch, statuses):
     """`statement_code` is set on `POST /accounts` and set, changed or cleared with
     `PUT /accounts/{id}`, on an archived account too, and `null` when the account has
-    none (contract: "What an account is", "Statement code") (contract: POST /v1/accounts,
-    "Optional") (contract: PUT /v1/accounts/{account_id}, "`statement_code`")."""
+    none; it is the account's, so one of two currencies carries it once
+    (contract: "What an account is", "Statement code")
+    (contract: POST /v1/accounts, "Validation")."""
     first, second = free_statement_codes(client, 2)
-    coded = scratch.account("PEN", first)
+    coded = scratch.account("PEN", "USD", code=first)
     assert statuses[-1] == 201
-    plain = scratch.account("PEN")
-    assert client.get(f"/accounts/{coded}")["statement_code"] == first
-    assert client.get(f"/accounts/{plain}")["statement_code"] is None
+    plain = scratch.account()
+    held = client.get(f"/accounts/{coded}")
+    assert held["statement_code"] == first
+    assert [c["currency_code"] for c in held["currencies"]] == ["PEN", "USD"]
+    assert _code_of(client, plain) is None
 
     assert _set_code(client, coded, second) == second
-    assert client.get(f"/accounts/{coded}")["statement_code"] == second
+    assert _code_of(client, coded) == second
     assert _set_code(client, coded, None) is None
-    assert client.get(f"/accounts/{coded}")["statement_code"] is None
+    assert _code_of(client, coded) is None
     assert _set_code(client, plain, first) == first
 
-    client.post(f"/accounts/{plain}/archive")
-    client.put(f"/accounts/{plain}", json_body={"statement_code": second})
-    assert client.get(f"/accounts/{plain}")["statement_code"] == second
-    client.put(f"/accounts/{plain}", json_body={"statement_code": None})
-    assert client.get(f"/accounts/{plain}")["statement_code"] is None
+    scratch.archive(plain)
+    assert _set_code(client, plain, second) == second
+    assert _code_of(client, plain) == second
+    assert _set_code(client, plain, None) is None
+    assert _code_of(client, plain) is None
 
 
-def test_a_malformed_statement_code_isrefused(client, scratch):
+def test_a_malformed_statement_code_is_refused(client, scratch):
     """A statement code is exactly three capital letters, `A` to `Z`, compared as sent:
     `sig`, `SI`, `SIGN`, ` SIG`, `S1G` and `""` are each `422` on `statement_code`
     (`INVALID_FORMAT`) (contract: "What an account is", "Statement code"), on the create
-    (contract: POST /v1/accounts, "Validation") and on `PUT`
-    (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). Nothing is written:
-    no account is created, and the account sent to keeps its code and `version`."""
+    and on `PUT` (contract: PUT /v1/accounts/{account_id}). Nothing is written: every
+    account the caller has reads the same, `version` and `updated_at` included, after
+    each refusal."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account("PEN", code)
-    version = client.get(f"/accounts/{account}")["version"]
+    account = scratch.account(code=code)
     for value in MALFORMED:
-        body = account_body("PEN", value)
-        scratch.accounts.append(body["id"])
-        err = refused(lambda body=body: client.post("/accounts", json_body=body))
+        err = refused_writing_nothing(client, _post_account(client, scratch, code=value))
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "INVALID_FORMAT")
-        assert _gone(client, body["id"]), value
-
-        err = refused(
-            lambda value=value: client.put(
-                f"/accounts/{account}", json_body={"statement_code": value}
-            )
-        )
+        err = refused_writing_nothing(client, _put_code(client, account, value))
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "INVALID_FORMAT")
-    after = client.get(f"/accounts/{account}")
-    assert (after["statement_code"], after["version"]) == (code, version)
+    assert _code_of(client, account) == code
 
 
-def test_a_code_is_shared_only_across_currencies(client, scratch, statuses):
-    """Two live accounts share a code only when their currencies differ: a soles and a
-    dollar account take one code, and a second account in the same currency with it is
-    `409` on `statement_code` (`STATEMENT_CODE_EXISTS`), nothing written, on the
-    create and on `PUT`. A deleted account does not hold its code
-    (contract: "Bank Accounts", "Shared only across currencies")
-    (contract: POST /v1/accounts, "Validation")
-    (contract: PUT /v1/accounts/{account_id}, "`statement_code`")."""
+def test_one_account_holds_a_code_whatever_its_currencies(client, scratch):
+    """A second live account of the caller's with a code another holds is `409` on
+    `statement_code` (`STATEMENT_CODE_EXISTS`), nothing written, on the create and on
+    `PUT`, whatever its currencies: a dollar account is refused the code of a soles one.
+    The holder keeps it archived; a deleted account holds no code
+    (contract: "What an account is", "One account per code")
+    (contract: PUT /v1/accounts/{account_id})."""
     (code,) = free_statement_codes(client, 1)
-    soles = scratch.account("PEN", code)
-    dollars = scratch.account("USD", code)
-    assert statuses[-1] == 201
-    assert client.get(f"/accounts/{dollars}")["statement_code"] == code
+    holder = scratch.account("PEN", code=code)
+    other = scratch.account("PEN", "USD")
 
-    body = account_body("PEN", code)
-    scratch.accounts.append(body["id"])
-    err = refused(lambda: client.post("/accounts", json_body=body))
-    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
-    assert _gone(client, body["id"])
+    def refusals() -> None:
+        for call in (
+            _post_account(client, scratch, "PEN", code=code),
+            _post_account(client, scratch, "USD", code=code),
+            _post_account(client, scratch, "PEN", "USD", code=code),
+            _put_code(client, other, code),
+        ):
+            err = refused_writing_nothing(client, call)
+            assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
 
-    other = scratch.account("PEN")
-    version = client.get(f"/accounts/{other}")["version"]
-    err = refused(lambda: client.put(f"/accounts/{other}", json_body={"statement_code": code}))
-    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
-    after = client.get(f"/accounts/{other}")
-    assert (after["statement_code"], after["version"]) == (None, version)
-
-    client.delete(f"/accounts/{soles}")
+    refusals()
+    scratch.archive(holder)
+    refusals()
+    client.post(f"/accounts/{holder}/unarchive")
+    client.delete(f"/accounts/{holder}")
     assert _set_code(client, other, code) == code
+    assert _code_of(client, other) == code
 
 
-def test_a_person_never_carries_a_code(client, scratch):
-    """Only a real account carries a code, never a person
-    (contract: "Bank Accounts", "Only a real account carries one"): `POST /people`
-    does not take the field, `422` `UNKNOWN_FIELD` with nothing written
-    (contract: POST /v1/people, "Forbidden"); a person reads `null`, and `PUT` giving
-    it a code is `422` on `statement_code` (`PERSON_ACCOUNT`), nothing written, while
-    `null` passes (contract: PUT /v1/accounts/{account_id}, "`statement_code`")."""
-    (code,) = free_statement_codes(client, 1)
-    new_id = str(uuid4())
-    scratch.accounts.append(new_id)
-    body = {
-        "id": new_id,
-        "name": f"contract-stmt-p-{new_id[:8]}",
-        "currency_code": "PEN",
-        "statement_code": code,
-    }
-    err = refused(lambda: client.post("/people", json_body=body))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "UNKNOWN_FIELD")
-    assert _gone(client, new_id)
-
-    person = scratch.person("PEN")
+def test_a_person_carries_a_code_like_any_account(client, scratch):
+    """A person is set a code on the create, and changed and cleared it with `PUT`, as any
+    account is; it is held against every other live account of either kind
+    (`STATEMENT_CODE_EXISTS`), and it holds against a bank account's code the same way. A
+    person has no statement, so the code is a label: its lines read a `null` statement
+    line. An account keeps its code when it changes kind, in either direction
+    (contract: "What an account is", "A person carries a code like any account")."""
+    first, second, third = free_statement_codes(client, 3)
+    person = scratch.account("PEN", "USD", code=first, person=True)
     read = client.get(f"/accounts/{person}")
-    assert (read["is_person"], read["statement_code"]) == (True, None)
-    err = refused(lambda: client.put(f"/accounts/{person}", json_body={"statement_code": code}))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "PERSON_ACCOUNT")
-    after = client.get(f"/accounts/{person}")
-    assert (after["statement_code"], after["version"]) == (None, read["version"])
+    assert (read["is_person"], read["statement_code"]) == (True, first)
+    assert _set_code(client, person, second) == second
     assert _set_code(client, person, None) is None
+    assert _set_code(client, person, first) == first
+
+    bank = scratch.account(code=second)
+    err = refused_writing_nothing(client, _put_code(client, bank, first))
+    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
+    err = refused_writing_nothing(client, _put_code(client, person, second))
+    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
+    err = refused_writing_nothing(client, _post_account(client, scratch, code=first, person=True))
+    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
+
+    row = scratch.row(person, "2026-03-05")
+    line = client.get(f"/bank-lines/{row['bank_line_id']}")
+    assert (line["statement_line"], line["statement_place"]) == (None, None)
+
+    made = client.post(f"/accounts/{bank}/make-person")
+    assert (made["is_person"], made["statement_code"]) == (True, second)
+    assert _code_of(client, bank) == second
+    back = client.post(f"/accounts/{bank}/make-account")
+    assert (back["is_person"], back["statement_code"]) == (False, second)
+    assert client.post(f"/accounts/{person}/make-account")["statement_code"] == first
+    assert _set_code(client, person, third) == third
 
 
-def test_an_account_holding_a_code_is_not_made_a_person(client, scratch):
-    """`POST /accounts/{id}/make-person` on an account with a statement code is `409` on
-    `account_id` (`HAS_STATEMENT_CODE`), nothing written (no `version` bump); cleared
-    with `statement_code: null`, the account becomes a person
-    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals")."""
-    (code,) = free_statement_codes(client, 1)
-    account = scratch.account("PEN", code)
-    version = client.get(f"/accounts/{account}")["version"]
-    err = refused(lambda: client.post(f"/accounts/{account}/make-person"))
-    assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_STATEMENT_CODE")
-    after = client.get(f"/accounts/{account}")
-    assert (after["is_person"], after["statement_code"], after["version"]) == (
-        False,
-        code,
-        version,
-    )
-
-    client.put(f"/accounts/{account}", json_body={"statement_code": None})
-    made = client.post(f"/accounts/{account}/make-person")
-    assert (made["is_person"], made["statement_code"]) == (True, None)
+# ---- one statement per account per month ----------------------------------------
 
 
-# ---- one statement per code per month ----------------------------------------
+def _statements(client, account_id: str) -> list[dict]:
+    return client.get("/statements", params={"account_id": account_id})["items"]
 
 
-def test_one_statement_per_code_per_month_on_reconciliation_writes(client, scratch):
-    """Among the live accounts sharing a code, a reconciliation whose `date_end` falls
-    in the month another one's does must be that one's twin, on the other account over
-    exactly the same days; anything else is `422` on `date_end`
-    (`STATEMENT_MONTH_TAKEN`), nothing written
-    (contract: "Bank Accounts", "One statement per code per month"), from the create
-    (contract: POST /v1/reconciliations, "One statement per code per month") and the
-    update, which moves a card statement as one, both halves judged and each named,
-    `twin.date_end` for the other half, and never against each other
-    (contract: PUT /v1/reconciliations/{reconciliation_id}, "One statement per code per month")."""
-    (code,) = free_statement_codes(client, 1)
-    soles = scratch.account("PEN", code)
-    dollars = scratch.account("USD", code)
-    half = scratch.reconciliation(soles, "2026-02-26", "2026-03-25")
-
-    for account, start, end in (
-        (soles, "2026-03-26", "2026-03-31"),  # the same account, the same month
-        (dollars, "2026-03-01", "2026-03-25"),  # the other account, other days
-    ):
-        body = reconciliation_body(account, start, end)
-        scratch.reconciliations.append(body["id"])
-        err = refused(lambda body=body: client.post("/reconciliations", json_body=body))
-        assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
-    assert _recon_ids(client, soles) == [half]
-    assert _recon_ids(client, dollars) == []
-
-    twin = scratch.reconciliation(dollars, "2026-02-26", "2026-03-25")
-    assert _recon_ids(client, dollars) == [twin]
-
-    april = scratch.reconciliation(soles, "2026-03-26", "2026-04-25")
-    taken = "STATEMENT_MONTH_TAKEN"
-    for recon, change, reasons in (
-        (april, {"date_end": "2026-03-31"}, {"date_end": taken}),
-        # The card moved into April, which `april` holds under the code: both halves.
-        (
-            twin,
-            {"date_start": "2026-04-26", "date_end": "2026-04-30"},
-            {"date_end": taken, "twin.date_end": taken},
-        ),
-    ):
-        before = [client.get(f"/reconciliations/{r}") for r in (half, twin, april)]
-        err = refused(
-            lambda recon=recon, change=change: client.put(
-                f"/reconciliations/{recon}", json_body=change
-            )
-        )
-        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-        assert [client.get(f"/reconciliations/{r}") for r in (half, twin, april)] == before
-
-    # Moved as one into a month no other statement holds, from either half.
-    for recon, other, days in (
-        (twin, half, ("2026-04-26", "2026-05-25")),
-        (half, twin, ("2026-05-26", "2026-06-25")),
-    ):
-        moved = client.put(
-            f"/reconciliations/{recon}", json_body={"date_start": days[0], "date_end": days[1]}
-        )
-        assert moved["twin"]["id"] == other
-        for read in (moved, moved["twin"]):
-            assert (read["date_start"], read["date_end"]) == days
+def _refused_keeping_statements(client, account_id: str, call) -> EngineError:
+    """The refusal of `call`, with every statement of the account read the same before
+    and after it."""
+    before = _statements(client, account_id)
+    err = refused(call)
+    assert _statements(client, account_id) == before
+    return err
 
 
-def test_one_statement_per_code_per_month_on_the_accounts_code(client, scratch):
-    """`PUT /accounts/{id}` setting a code that would make two reconciliations under it
-    end in one month without being twins, one of this account's against one of the
-    other account holding the code or two of its own, is `422` on `statement_code`
-    (`STATEMENT_MONTH_TAKEN`), nothing written; clearing a code never clashes, an
-    account without a code is never judged, and a deleted reconciliation does not count
-    (contract: "Bank Accounts", "One statement per code per month")
-    (contract: PUT /v1/accounts/{account_id}, "`statement_code`")."""
+def _post_statement(client, scratch, account_id: str, start: str, end: str):
+    body = statement_create_body(account_id, start, end)
+    scratch.statements.append(body["id"])
+    return lambda: client.post("/statements", json_body=body)
+
+
+def _put_days(client, statement_id: str, start: str, end: str):
+    days = {"date_start": start, "date_end": end}
+    return lambda: client.put(f"/statements/{statement_id}", json_body=days)
+
+
+@pytest.mark.parametrize("coded", [True, False], ids=["with a code", "without a code"])
+def test_one_statement_per_account_per_month(client, scratch, coded):
+    """An account has at most one live statement in each calendar month, the month its
+    `date_end` falls in: another one is `422` on `date_end` (`STATEMENT_MONTH_TAKEN`),
+    from the create and from `PUT /statements` moving the days, nothing written, the
+    message naming the statement it clashes with. A draft and a completed statement count
+    alike, with a code or without one; a statement keeps its own month on an edit, another
+    account's statement never clashes, a deleted statement does not count, and setting or
+    changing the account's code judges no month
+    (contract: "Statements", "The days")
+    (contract: POST /v1/statements, "Order")."""
     first, second = free_statement_codes(client, 2)
-    holder = scratch.account("PEN", first)
-    holders = scratch.reconciliation(holder, "2026-03-01", "2026-03-20")
-    joiner = scratch.account("USD")
-    scratch.reconciliation(joiner, "2026-03-05", "2026-03-31")
-    own = scratch.account("PEN")
-    scratch.reconciliation(own, "2026-03-01", "2026-03-10")
-    scratch.reconciliation(own, "2026-03-11", "2026-03-31")
-
-    for account, code in ((joiner, first), (own, second)):
-        version = client.get(f"/accounts/{account}")["version"]
-        err = refused(
-            lambda account=account, code=code: client.put(
-                f"/accounts/{account}", json_body={"statement_code": code}
-            )
+    account = scratch.account(code=first) if coded else scratch.account()
+    march = scratch.statement(account, "2026-03-01", "2026-03-20")
+    named = march["name"]
+    row = scratch.row(account, "2026-04-05")
+    if coded:  # a coded account completes only with the order its bank's paper sets
+        paper = savings_paper(
+            [PaperRow(date(2026, 4, 5), "COMPRA", -1000)],
+            start=date(2026, 4, 1),
+            end=date(2026, 4, 20),
+            before_cents=100000,
         )
-        assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "STATEMENT_MONTH_TAKEN")
-        after = client.get(f"/accounts/{account}")
-        assert (after["statement_code"], after["version"]) == (None, version)
+        scratch.took(send_statement(client, account, paper, dry_run=False))
+        april = client.get(f"/statements/{scratch.statements[-1]}")
+    else:
+        april = scratch.completed(account, "2026-04-01", "2026-04-20", row["id"])
+    assert april["status"] == 2
+    may = scratch.statement(account, "2026-05-01", "2026-05-10")["id"]
 
-    assert _set_code(client, holder, None) is None
-    client.put(f"/accounts/{holder}", json_body={"statement_code": first})
-    client.delete(f"/reconciliations/{holders}")
-    assert _set_code(client, joiner, first) == first
+    for start, end in (("2026-03-21", "2026-03-31"), ("2026-04-21", "2026-04-30")):
+        err = _refused_keeping_statements(
+            client, account, _post_statement(client, scratch, account, start, end)
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
+    err = _refused_keeping_statements(
+        client, account, _put_days(client, may, "2026-03-21", "2026-03-31")
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
+    assert named in err.fields["date_end"]
+    err = _refused_keeping_statements(
+        client, account, _put_days(client, may, "2026-04-21", "2026-04-30")
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
+    assert april["name"] in err.fields["date_end"]
 
+    # Its own month on an edit, and another account's days in a month taken here.
+    moved = _put_days(client, may, "2026-05-02", "2026-05-20")()
+    assert (moved["date_start"], moved["date_end"]) == ("2026-05-02", "2026-05-20")
+    neighbour = scratch.account()
+    scratch.statement(neighbour, "2026-03-21", "2026-03-31")
 
-# ---- the card's other account --------------------------------------------------
+    # The code is the account's: setting or changing it judges no month and leaves the
+    # statements, their order included, as they were. An account without a code reads its
+    # statements' `unplaced_count` and `shared_place_count` `null`, so those two follow it.
+    def comparable(items: list[dict]) -> list[dict]:
+        gone = () if coded else ("unplaced_count", "shared_place_count")
+        return [{k: v for k, v in item.items() if k not in gone} for item in items]
 
+    before = comparable(_statements(client, account))
+    assert _set_code(client, account, second) == second
+    assert comparable(_statements(client, account)) == before
 
-def _partners(client, *account_ids: str) -> dict[str, str | None]:
-    """`statement_partner_id` of each named account, as `GET /accounts` lists it,
-    archived ones included."""
-    listed = client.get("/accounts", params={"include_archived": "true"})
-    read = {item["id"]: item["statement_partner_id"] for item in listed["items"]}
-    return {account_id: read[account_id] for account_id in account_ids}
-
-
-def test_a_cards_two_accounts_name_each_other_and_no_other_account_names_one(client, scratch):
-    """`statement_partner_id` is the card's other account: the other live account of
-    the caller's holding this account's statement code, so a soles and a dollar account
-    sharing a code each name the other; it is `null` on an account with no code and on
-    one whose code no other account holds (contract: "Bank Accounts", "Statement partner")
-    (contract: GET /v1/accounts). The Reconciliations browse pairs a card's two accounts
-    by this field alone."""
-    card, lone = free_statement_codes(client, 2)
-    soles = scratch.account("PEN", card)
-    dollars = scratch.account("USD", card)
-    plain = scratch.account("PEN")
-    alone = scratch.account("USD", lone)
-    assert _partners(client, soles, dollars, plain, alone) == {
-        soles: dollars,
-        dollars: soles,
-        plain: None,
-        alone: None,
-    }
-
-
-def test_an_archived_card_account_leaves_both_with_no_partner(client, scratch):
-    """While one of a card's two accounts is archived both read `null`, and
-    unarchiving it restores both
-    (contract: "Bank Accounts", "While one of the two accounts is archived").
-    The browse's new-statement form keeps to one account then."""
-    (card,) = free_statement_codes(client, 1)
-    soles = scratch.account("PEN", card)
-    dollars = scratch.account("USD", card)
-    scratch.archive(dollars)
-    assert _partners(client, soles, dollars) == {soles: None, dollars: None}
-    client.post(f"/accounts/{dollars}/unarchive")
-    assert _partners(client, soles, dollars) == {soles: dollars, dollars: soles}
+    # A deleted statement does not count.
+    client.delete(f"/statements/{march['id']}")
+    moved = _put_days(client, may, "2026-03-21", "2026-03-31")()
+    assert (moved["date_start"], moved["date_end"]) == ("2026-03-21", "2026-03-31")

@@ -87,34 +87,8 @@ None.
 
 Drafted 2026-10-29. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it. Each builds its records through spec 3's `Scratch` and fixes the
-`(contract: …)` citations of the files it touches. Three of its files skip whole until it
-rewrites them, since spec 3 removed the helpers they import (`test_statement_codes.py`,
-`test_statement_order.py`, `test_line_codes_and_statement_lines.py`; `grep -rn "on the holder
-model until" tests/contract` finds each): the task rewriting one removes its skip and its
-`# ruff: noqa: E402` line.
+`(contract: …)` citations of the files it touches.
 
-8. **Codes, and the order read only (builder).**
-   [test_statement_codes.py](../../tests/contract/test_statement_codes.py) on `POST` and
-   `PUT /accounts`: set, changed and cleared; `INVALID_FORMAT`; `STATEMENT_CODE_EXISTS` for any
-   second live account (contract: "What an account is", "One account per code"); a person
-   carrying a code like any account (contract: "What an account is", "A person carries a code like any account");
-   `STATEMENT_MONTH_TAKEN` from `POST` and `PUT /statements` on one account, a deleted statement
-   not counting. `test_a_code_is_shared_only_across_currencies`,
-   `test_a_cards_two_accounts_name_each_other_and_no_other_account_names_one`,
-   `test_an_archived_card_account_leaves_both_with_no_partner` and
-   `test_one_statement_per_code_per_month_on_the_accounts_code` go.
-   [test_statement_order.py](../../tests/contract/test_statement_order.py) and
-   [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
-   read the order and the statement lines the upload sets, every currency of the account in one
-   order (contract: GET /v1/statements/{statement_id}/statement-order), with no order written.
-   The review list's cases are task 4's, done in
-   [test_bank_lines.py](../../tests/contract/test_bank_lines.py): the old review-list tests of
-   `test_statement_order.py` go, not ported (a card's halves, a draft half beside a completed one,
-   none listed on a completed statement, an account without a code, `sort=date_asc` on the
-   review list), since the live contract no longer states them.
-   *Passes if:* the three files pass live and none sends `PUT …/statement-order`, `POST /people`
-   or `HAS_STATEMENT_CODE`, and [runtime.md](../runtime.md)'s line on the contract suite no longer
-   names `HAS_STATEMENT_CODE`, which no operation sends.
 9. **Task 3's review notes (builder).** In
    [test_statement_import.py](../../tests/contract/test_statement_import.py), the card's
    `MONEY_AT_START_NOT_COVERED` is checked by its key and reason and by the currency and amount
