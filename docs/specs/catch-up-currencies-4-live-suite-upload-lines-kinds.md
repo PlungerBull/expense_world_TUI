@@ -93,25 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-7. **Kinds and archiving on the account (builder).**
-   [test_account_kind.py](../../tests/contract/test_account_kind.py) and
-   [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) on
-   `/accounts/{id}/…`: a person made with `POST /accounts` and `is_person: true`, two
-   currencies in one write; `make-person` and `make-account` turning the whole account, its id,
-   currencies, balances and opening balances kept (each currency's
-   `opening_balance_transaction_id` the same before and after); their refusals in the engine's
-   order: `404`, then on `account_id` `ACCOUNT_ARCHIVED`, `KIND_UNCHANGED` and
-   `HAS_RECONCILIATION`, a deleted statement counting
-   (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"); `PUT /accounts/{id}`
-   refusing `is_person` as `UNKNOWN_FIELD`; archive and unarchive acting on every currency at
-   once, and a transaction in any currency of an archived account `INVALID_REFERENCE` on
-   `account_id` (contract: "Bank Accounts", "No new rows on it"); a person refused
-   `POST /statements` as `PERSON_TAKES_NO_STATEMENT` on `account_id`
-   (contract: "What an account is", "A person takes no statement"). `HAS_OPENING_BALANCE` goes
-   from the cases, the order and the docstrings; `_transaction_ids` becomes conftest.py's
-   `live_ids`; [runtime.md](../runtime.md)'s clauses on people follow.
-   *Passes if:* both files pass live, each refusal writing nothing, in the engine's order, with
-   no `HAS_OPENING_BALANCE`, and no test sends `/people`.
 8. **Codes, and the order read only (builder).**
    [test_statement_codes.py](../../tests/contract/test_statement_codes.py) on `POST` and
    `PUT /accounts`: set, changed and cleared; `INVALID_FORMAT`; `STATEMENT_CODE_EXISTS` for any
@@ -192,6 +173,14 @@ completed statement gaining a currency. Each held as the contract states it.
   `PUT /statements/{id}/statement-order` that lists it is refused on its entry
   (`OPENING_BALANCE_NOT_PLACED`)", but no such route exists: `GET …/statement-order` is the only
   operation on that path, and no route sets the order by hand. Drop the sentence.
+  `POST /accounts` says `is_person` that is `null` or "a value that is not a boolean is `422`
+  (`INVALID_FORMAT`)", but the engine takes `"yes"`, `"no"`, `"true"`, `1` and `0` as booleans (checked
+  live on 2026-10-31 with a body missing `name`, so nothing was written: `"maybe"` and `null`
+  are refused on `is_person`, those five are not). Refuse them, or state which values count.
+  `make-account` lists `HAS_RECONCILIATION`, but no person ever holds a statement (a person is
+  refused every statement write, and an account that has had one never becomes a person), and a
+  bank account with a statement is answered `KIND_UNCHANGED` first; the refusal cannot be
+  reached. Drop it from `make-account`'s refusals, or say when it comes.
 
 ## Found along the way
 

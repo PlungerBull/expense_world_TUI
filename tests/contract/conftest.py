@@ -281,8 +281,7 @@ def free_statement_codes(client: ExpenseClient, count: int) -> list[str]:
     codes clash with nothing but what it builds itself, whatever an earlier run left.
     A deleted account holds no code; an archived account and a person are read too
     (contract: "What an account is", "One account per code")."""
-    listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
-    held = {item["statement_code"] for item in listed["items"]}
+    held = {item["statement_code"] for item in all_accounts(client)}
     rng = random.SystemRandom()
     codes: list[str] = []
     while len(codes) < count:
@@ -311,6 +310,23 @@ def account_balance(client: ExpenseClient, account_id: str, code: str = "PEN") -
     return next(c for c in held["currencies"] if c["currency_code"] == code)[
         "current_balance_cents"
     ]
+
+
+def all_accounts(client: ExpenseClient) -> list[dict]:
+    """Every account the caller has, as `GET /accounts` lists them: bank accounts and people,
+    archived ones included, each whole with its currencies."""
+    params = {"include_people": "true", "include_archived": "true"}
+    return client.get("/accounts", params=params)["items"]
+
+
+def refused_writing_nothing(client: ExpenseClient, call) -> EngineError:
+    """The engine's refusal of `call`, with every account the caller has (`all_accounts`:
+    version, `updated_at`, kind, archive state, every currency's balance and opening
+    balance) read the same before and after it."""
+    before = all_accounts(client)
+    err = refused(call)
+    assert all_accounts(client) == before
+    return err
 
 
 def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str, str]) -> None:
@@ -739,10 +755,10 @@ def send_statement(client: ExpenseClient, account_id: str, paper: bytes, *, dry_
     )
 
 
-def account_body(*codes: str, code: str | None = None, person: bool = False) -> dict:
+def account_body(*codes: str, code: str | None = None, person: bool = False, **fields) -> dict:
     """A `POST /accounts` body under a fresh id holding one entry per currency code in
-    `codes` (PEN when none), with `statement_code` when given, a person when `person`
-    (contract: POST /v1/accounts, "Required")."""
+    `codes` (PEN when none), with `statement_code` when given, a person when `person`;
+    `fields` replace or add keys (contract: POST /v1/accounts, "Required")."""
     new_id = str(uuid4())
     body: dict = {
         "id": new_id,
@@ -753,7 +769,7 @@ def account_body(*codes: str, code: str | None = None, person: bool = False) -> 
         body["statement_code"] = code
     if person:
         body["is_person"] = True
-    return body
+    return {**body, **fields}
 
 
 def statement_create_body(
@@ -801,10 +817,11 @@ class Scratch:
         self.categories: list[str] = []
         self.hashtags: list[str] = []
 
-    def account(self, *codes: str, code: str | None = None, person: bool = False) -> str:
+    def account(self, *codes: str, code: str | None = None, person: bool = False, **fields) -> str:
         """A bank account, or a person with `person`, holding one currency per code in
-        `codes` (PEN when none), made in one write; its id."""
-        body = account_body(*codes, code=code, person=person)
+        `codes` (PEN when none), made in one write (`fields` replace or add keys of the
+        body, `account_body`); its id."""
+        body = account_body(*codes, code=code, person=person, **fields)
         self.accounts.append(body["id"])
         self.client.post("/accounts", json_body=body)
         return body["id"]
