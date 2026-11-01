@@ -85,19 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-2. **Adding and removing a currency (builder).** A new
-   tests/contract/test_account_currencies.py: `POST /accounts/{id}/currencies` → `201`, the new
-   currency at `0`, the account's `version` unmoved; refused `404` for an unknown or deleted
-   account, `UNSUPPORTED_VALUE`, `409 DUPLICATE_CURRENCY` on `currency_code`, and on an archived
-   account `422 INVALID_REFERENCE` on `account_id`
-   (contract: POST /v1/accounts/{account_id}/currencies, "Refusals"). `DELETE
-   /accounts/{id}/currencies/{code}` → `200`, the currency gone, `version` unmoved; refused in
-   order: `404` "account not found.", `404` "currency <code> not found." (`EUR`, `usd`, one
-   removed before), `ACCOUNT_ARCHIVED` on `account_id`, `LAST_CURRENCY` on `currency_code`,
-   `HAS_TRANSACTIONS` on `account_id` while its opening balance stands and `200` once it is
-   deleted, `IN_LIVE_STATEMENT` on `account_id` while a draft holds its balances; the removed
-   code added back `201` at `0`.
-   *Passes if:* the file passes live, every refusal writing nothing, in the engine's order.
 3. **Editing and deleting the account (builder).** In test_account_currencies.py:
    `PUT /accounts/{id}` with `{"name": …, "statement_code": …}` → one write, `version` up by one;
    `statement_code: null` clearing it; `currency_code` `IMMUTABLE`; `currencies`, `is_person`,
@@ -174,3 +161,7 @@ Written into [to-engine/](../to-engine/) when this spec is done, with the tester
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **No unit test shows how `x` on Manage ▸ Accounts draws the remove's two `404`s**, "account
+  not found." and "currency <code> not found.", which the live engine answers before any other
+  refusal (found by task 2 on 2026-10-31).
