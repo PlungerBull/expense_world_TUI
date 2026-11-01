@@ -1,4 +1,5 @@
-"""Contract: a currency is added to an account and removed from it, against a real engine.
+"""Contract: a currency is added to an account and removed from it, and the account is edited
+and deleted, against a real engine.
 
 `POST /accounts/{id}/currencies` takes `{currency_code}` and `DELETE
 /accounts/{id}/currencies/{code}` takes the code in the path; Manage ▸ Accounts sends both
@@ -35,6 +36,30 @@ What it pins:
    statement (reverted, still a draft) holds the currency's balances, and `200` once each is
    gone; the other currency's opening balance and draft stop nothing
    (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
+5. An edit (`PUT /accounts/{id}`) is one write: `{name, statement_code}` is `200`, the name
+   trimmed, `version` up by one, every currency as it was, for a bank account and a person;
+   `statement_code: null` clears the code; a body repeating the values still bumps `version`
+   and an empty body does not; an archived account is edited and stays archived (contract:
+   PUT /v1/accounts/{account_id}, "Response").
+6. The edit's refusals, each leaving every account as it was: `currency_code` `IMMUTABLE`
+   (`NOT_NULL` for a `null`), `currencies`, `is_person`, `is_archived` and `holder_id`
+   `UNKNOWN_FIELD` whatever their value, `NOT_NULL` on `name`, `color` and `sort_order`,
+   `409 NAME_EXISTS` (either kind, any case, trimmed) and `409 STATEMENT_CODE_EXISTS` (a
+   person's and an archived account's included), an account's own name and code no conflict,
+   a deleted account's free; and in the engine's order, each step against the next by one body
+   breaking both: shape (unknown field, `null`, malformed code), malformed `color`,
+   `currency_code`, `404`, empty `name`, then a held code beside an empty name and a held name
+   beside a held code (contract: PUT /v1/accounts/{account_id}, "Refusals").
+7. A delete is `200` with the account, `deleted_at` set and the currencies it held at `0`,
+   an archived account and a person included; the account is then `404` to a read, an edit,
+   a second delete and an add, off the list, and a new account takes its name and code at
+   once (contract: DELETE /v1/accounts/{account_id}). Its refusals, each `409` on
+   `account_id` with the engine's words and every account as it was: `HAS_TRANSACTIONS` for
+   an opening balance in either currency or a row, also beside a draft holding balances
+   (the earlier rule answers), then `IN_LIVE_STATEMENT` for an account whose only hold is a
+   draft with dollar balances and no transaction, archived too, or for a completed statement
+   with none (an all-zero card paper), reverted too, and `200` once the statement is
+   deleted (contract: DELETE /v1/accounts/{account_id}, "Refusals").
 
 What it leaves out:
 
@@ -42,15 +67,20 @@ What it leaves out:
     unknown id: the former is task 5's, which sends an old name only to prove its refusal, and
     the second would need a second user holding an id, which the shared practice user's suite
     does not have (docs/decisions.md).
-  · The activity entries the two writes make (`CREATED` and `DELETED` under `currency`): the
-    activity log is read by its own tests, and the writes here are proven by the account read.
-  · Two requests sent at the same moment (`CONCURRENT_CHANGE` and the races the contract
-    lists): a live test cannot land two requests together.
+  · The activity entries the writes make (`CREATED` and `DELETED` under `currency`, `UPDATED`
+    and `DELETED` under `account`): the activity log is read by its own tests, and the writes
+    here are proven by the account read.
+  · A `color` or `sort_order` written (only a malformed colour and a `null` are refused here),
+    and an empty `name` against `NAME_EXISTS`: no held name is empty, so no body breaks both.
+  · Two requests sent at the same moment (`CONCURRENT_CHANGE`, `NAME_EXISTS` raced and the
+    other races the contract lists): a live test cannot land two requests together.
 
 Every account is fresh per run (named by its UUID) and removed by the `scratch` fixture.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
+from datetime import date
+from functools import partial
 from uuid import uuid4
 
 import pytest
@@ -58,7 +88,11 @@ import pytest
 from tests.contract.conftest import (
     all_accounts,
     assert_refusal,
+    card_paper,
+    free_statement_codes,
+    refused,
     refused_writing_nothing,
+    send_statement,
 )
 
 NO_ACCOUNT = "account not found."
@@ -436,3 +470,346 @@ def test_a_removal_judged_by_every_refusal_is_answered_by_the_first(client, scra
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "LAST_CURRENCY")
     _says(err, "LAST_CURRENCY")
+
+
+def _put(client, account_id: str, body: dict) -> dict:
+    return client.put(f"/accounts/{account_id}", json_body=body)
+
+
+def _edit_refused(client, account_id: str, body: dict):
+    """The refusal of `body` sent as an edit, with every account read the same after."""
+    return refused_writing_nothing(client, lambda: _put(client, account_id, body))
+
+
+def _delete_refused(client, account_id: str):
+    """The refusal of deleting the account, with every account read the same after."""
+    return refused_writing_nothing(client, lambda: client.delete(f"/accounts/{account_id}"))
+
+
+def _fresh(client, account_id: str) -> dict:
+    """The account as its read gives it, the answer of a write shown by the list too."""
+    held = client.get(f"/accounts/{account_id}")
+    assert [a for a in all_accounts(client) if a["id"] == account_id] == [held]
+    return held
+
+
+def _name() -> str:
+    return f"contract-stmt-edit-{uuid4().hex[:8]}"
+
+
+@pytest.mark.parametrize("person", [False, True])
+def test_an_edit_writes_the_account_once_and_no_currency(client, statuses, scratch, person):
+    """`{name, statement_code}` is one write, `200` with the account: the name trimmed, the
+    code set, `version` up by one, `updated_at` not before it was, every currency as it was
+    (balance and opening balance) and the kind, colour, order, archive state kept; the read
+    of the account is the answer (contract: PUT /v1/accounts/{account_id}, "Response")."""
+    old, new = free_statement_codes(client, 2)
+    account_id = scratch.account("PEN", "USD", person=person, code=old)
+    scratch.opening_balance(account_id, "2026-01-02", "USD")
+    before = client.get(f"/accounts/{account_id}")
+    name = _name()
+
+    made = _put(client, account_id, {"name": f"  {name}  ", "statement_code": new})
+
+    assert statuses[-1] == 200
+    assert (made["name"], made["statement_code"]) == (name, new)
+    assert made["version"] == before["version"] + 1
+    assert made["updated_at"] >= before["updated_at"]
+    assert made["currencies"] == before["currencies"]
+    kept = {"id", "user_id", "color", "is_person", "is_archived", "sort_order", "created_at"}
+    assert {k: made[k] for k in kept} == {k: before[k] for k in kept}
+    assert made["deleted_at"] is None
+    assert _fresh(client, account_id) == made
+
+
+def test_a_statement_code_is_cleared_by_null_and_the_name_alone_leaves_it(client, scratch):
+    """`statement_code: null` clears the code, `version` up by one; a body with the name alone
+    leaves a code as it was; clearing an account with none still writes (`version` up), as does
+    a body repeating the values it holds, while an empty body returns the account unchanged
+    with no bump; the cleared code is then taken back (contract: PUT
+    /v1/accounts/{account_id})."""
+    code = free_statement_codes(client, 1)[0]
+    account_id = scratch.account("PEN", code=code)
+    start = client.get(f"/accounts/{account_id}")
+
+    renamed = _put(client, account_id, {"name": _name()})
+    assert renamed["statement_code"] == code
+    assert renamed["version"] == start["version"] + 1
+
+    cleared = _put(client, account_id, {"statement_code": None})
+    assert cleared["statement_code"] is None
+    assert cleared["version"] == start["version"] + 2
+    assert _fresh(client, account_id) == cleared
+
+    again = _put(client, account_id, {"statement_code": None})
+    assert again["version"] == cleared["version"] + 1
+    assert again["statement_code"] is None
+
+    same = _put(client, account_id, {"name": again["name"]})
+    assert same["version"] == again["version"] + 1
+
+    empty = _put(client, account_id, {})
+    assert empty == same
+    assert _fresh(client, account_id) == same
+
+    free = _put(client, account_id, {"statement_code": code})
+    assert free["statement_code"] == code
+
+
+def test_an_archived_account_is_edited_and_stays_archived(client, scratch):
+    """An archived account takes a new name and code and a cleared one, and its `is_archived`
+    stays true (contract: PUT /v1/accounts/{account_id})."""
+    code = free_statement_codes(client, 1)[0]
+    account_id = scratch.account("PEN", "USD")
+    scratch.archive(account_id)
+    before = client.get(f"/accounts/{account_id}")
+    name = _name()
+
+    made = _put(client, account_id, {"name": name, "statement_code": code})
+    assert (made["name"], made["statement_code"], made["is_archived"]) == (name, code, True)
+    assert made["version"] == before["version"] + 1
+    assert made["currencies"] == before["currencies"]
+    assert _fresh(client, account_id) == made
+
+    assert _put(client, account_id, {"statement_code": None})["is_archived"] is True
+
+
+def test_a_currency_is_no_field_of_the_edit_and_nor_are_the_kind_and_archive_state(client, scratch):
+    """`currency_code` is `422` `IMMUTABLE` on its key, a `null` there `NOT_NULL` like any
+    other; `currencies`, `is_person`,
+    `is_archived` and `holder_id` are `UNKNOWN_FIELD`, whatever their value (their own, the
+    other, `null`); each leaves every account as it was, and a change of kind or archive state
+    goes through its own route (contract: PUT /v1/accounts/{account_id})."""
+    account_id = scratch.account("PEN", "USD")
+
+    for code in ("PEN", "USD", "EUR"):
+        err = _edit_refused(client, account_id, {"currency_code": code})
+        assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "IMMUTABLE")
+    err = _edit_refused(client, account_id, {"currency_code": None})
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "NOT_NULL")
+
+    held = [{"currency_code": "PEN"}, {"currency_code": "USD"}]
+    values = {
+        "currencies": [held, [], None],
+        "is_person": [False, True, None],
+        "is_archived": [False, True, None],
+        "holder_id": [str(uuid4()), None],
+    }
+    for key, sent in values.items():
+        for value in sent:
+            err = _edit_refused(client, account_id, {key: value})
+            assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNKNOWN_FIELD")
+
+
+def test_a_null_is_refused_on_every_field_but_the_statement_code(client, scratch):
+    """`null` on `name`, `color` or `sort_order` is `422` `NOT_NULL` on that key, even beside
+    an edit that would be good; the statement code is the one field it clears
+    (contract: PUT /v1/accounts/{account_id})."""
+    account_id = scratch.account("PEN")
+
+    for key in ("name", "color", "sort_order"):
+        err = _edit_refused(client, account_id, {key: None})
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "NOT_NULL")
+        err = _edit_refused(client, account_id, {key: None, "statement_code": None})
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "NOT_NULL")
+
+
+def test_an_edit_is_refused_in_the_engines_order_each_step_before_the_next(client, scratch):
+    """Each pair is one body breaking both rules: the request's shape (an unknown field, a
+    `null`, a malformed `statement_code`) before a malformed `color`, a malformed `color`
+    before `currency_code`, `currency_code` before the `404` of an account that does not
+    exist, that `404` before an empty `name`, `NAME_EXISTS` before `STATEMENT_CODE_EXISTS`;
+    `EMPTY` and `NAME_EXISTS` are not paired, as no empty name is held by an account
+    (contract: PUT /v1/accounts/{account_id}, "Refusals")."""
+    held_code = free_statement_codes(client, 1)[0]
+    account_id = scratch.account("PEN", code=held_code)
+    other = scratch.account("PEN")
+    other_name = client.get(f"/accounts/{other}")["name"]
+    third = scratch.account("PEN")
+    gone = str(uuid4())
+    bad_color = "red"
+
+    cases = [
+        ({"bogus": 1, "color": bad_color}, "bogus", "UNKNOWN_FIELD", account_id),
+        ({"name": None, "color": bad_color}, "name", "NOT_NULL", account_id),
+        ({"statement_code": "ab", "color": bad_color}, "statement_code", "INVALID_FORMAT", gone),
+        (
+            {"statement_code": "ab", "currency_code": "PEN"},
+            "statement_code",
+            "INVALID_FORMAT",
+            gone,
+        ),
+        ({"color": bad_color, "currency_code": "PEN"}, "color", "INVALID_FORMAT", account_id),
+        ({"color": bad_color}, "color", "INVALID_FORMAT", gone),
+        ({"currency_code": "PEN", "name": ""}, "currency_code", "IMMUTABLE", account_id),
+        ({"currency_code": "PEN"}, "currency_code", "IMMUTABLE", gone),
+        ({"name": ""}, None, "NOT_FOUND", gone),
+        ({"name": other_name}, None, "NOT_FOUND", gone),
+        ({"statement_code": held_code, "name": ""}, "name", "EMPTY", third),
+        ({"name": other_name, "statement_code": held_code}, "name", "NAME_EXISTS", third),
+    ]
+    for body, key, reason, target in cases:
+        err = _edit_refused(client, target, body)
+        if key is None:
+            assert (err.status, err.code, err.message) == (404, reason, NO_ACCOUNT)
+            continue
+        status = 409 if reason == "NAME_EXISTS" else 422
+        code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
+        assert_refusal(err, status, code, key, reason)
+
+
+def test_a_name_or_code_another_account_holds_is_a_conflict_and_its_own_is_not(client, scratch):
+    """A name another live account holds, of either kind, upper case or trimmed, is `409`
+    `NAME_EXISTS` on `name`; a code another holds, an archived account's and a person's
+    included, is `409` `STATEMENT_CODE_EXISTS` on `statement_code`; an account's own name
+    (also in other letters) and code are not a conflict; a deleted account's are free
+    (contract: PUT /v1/accounts/{account_id}, "Refusals")."""
+    bank_code, person_code, own_code, archived_code = free_statement_codes(client, 4)
+    bank = scratch.account("PEN", code=bank_code)
+    person = scratch.account("USD", person=True, code=person_code)
+    scratch.archive(scratch.account("PEN", code=archived_code))
+    mine = scratch.account("PEN", code=own_code)
+    names = {k: client.get(f"/accounts/{k}")["name"] for k in (bank, person)}
+
+    for held in names.values():
+        for sent in (held, held.upper(), f"  {held}  "):
+            err = _edit_refused(client, mine, {"name": sent})
+            assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
+
+    for held in (bank_code, person_code):
+        err = _edit_refused(client, mine, {"statement_code": held})
+        assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
+
+    err = _edit_refused(client, mine, {"statement_code": archived_code})
+    assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
+
+    own_name = client.get(f"/accounts/{mine}")["name"]
+    made = _put(client, mine, {"name": own_name.upper(), "statement_code": own_code})
+    assert (made["name"], made["statement_code"]) == (own_name.upper(), own_code)
+
+    client.delete(f"/accounts/{bank}")
+    taken = _put(client, mine, {"name": names[bank], "statement_code": bank_code})
+    assert (taken["name"], taken["statement_code"]) == (names[bank], bank_code)
+
+
+def test_an_account_edit_that_does_not_exist_is_not_found(client, scratch):
+    """An unknown id and a deleted account's are `404` "account not found." for an edit that
+    would be good (contract: PUT /v1/accounts/{account_id})."""
+    for gone in (str(uuid4()), _deleted(client, scratch)):
+        _not_found(_edit_refused(client, gone, {"name": _name()}), NO_ACCOUNT)
+        _not_found(_edit_refused(client, gone, {}), NO_ACCOUNT)
+
+
+@pytest.mark.parametrize("person", [False, True])
+def test_a_deleted_account_is_gone_with_its_currencies_and_releases_its_name_and_code(
+    client, statuses, scratch, person
+):
+    """The delete is `200` with the account, `deleted_at` set, the currencies it held each at
+    `0`; `GET` is then `404`, the list lacks it, an edit, a second delete and an add are
+    `404`, and a new account takes its name and code at once; an archived account is deleted
+    like any other (contract: DELETE /v1/accounts/{account_id}, "Response")."""
+    for archived in (False, True):
+        code = free_statement_codes(client, 1)[0]
+        account_id = scratch.account("PEN", "USD", person=person, code=code)
+        if archived:
+            scratch.archive(account_id)
+        before = client.get(f"/accounts/{account_id}")
+
+        gone = client.delete(f"/accounts/{account_id}")
+
+        assert statuses[-1] == 200
+        assert gone["deleted_at"] is not None
+        assert gone["id"] == account_id
+        assert _codes(gone) == ["PEN", "USD"]
+        assert [c["current_balance_cents"] for c in gone["currencies"]] == [0, 0]
+        assert (gone["name"], gone["is_person"]) == (before["name"], person)
+        assert account_id not in {a["id"] for a in all_accounts(client)}
+        _not_found(refused(partial(client.get, f"/accounts/{account_id}")), NO_ACCOUNT)
+        _not_found(refused(partial(_put, client, account_id, {})), NO_ACCOUNT)
+        _not_found(refused(partial(client.delete, f"/accounts/{account_id}")), NO_ACCOUNT)
+        _not_found(_add_refused(client, account_id, {"currency_code": "EUR"}), NO_ACCOUNT)
+
+        again = client.get(
+            f"/accounts/{scratch.account('PEN', name=before['name'], code=code, person=person)}"
+        )
+        assert (again["name"], again["statement_code"]) == (before["name"], code)
+
+
+def test_a_delete_of_an_account_that_does_not_exist_is_not_found(client, scratch):
+    """An unknown id and an id a delete already took are `404` "account not found."
+    (contract: DELETE /v1/accounts/{account_id})."""
+    for gone in (str(uuid4()), _deleted(client, scratch)):
+        _not_found(_delete_refused(client, gone), NO_ACCOUNT)
+
+
+def test_a_transaction_in_any_currency_stops_the_delete_before_a_statement(client, scratch):
+    """An opening balance in either currency of the account is `409` `HAS_TRANSACTIONS` on
+    `account_id`; so is a row, and so is one beside a draft holding balances for the account
+    (the earlier rule is the one answered); the account is deleted once the row is gone
+    (contract: DELETE /v1/accounts/{account_id}, "Refusals")."""
+    for code in ("PEN", "USD"):
+        account_id = scratch.account("PEN", "USD")
+        scratch.opening_balance(account_id, "2026-01-02", code)
+        err = _delete_refused(client, account_id)
+        assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
+        _says(err, "HAS_TRANSACTIONS")
+
+        scratch.statement(account_id, "2026-02-01", "2026-02-28", "PEN", "USD")
+        err = _delete_refused(client, account_id)
+        assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
+        _says(err, "HAS_TRANSACTIONS")
+
+    account_id = scratch.account("PEN", "USD")
+    row = scratch.row(account_id, "2026-01-05", -1000, "USD")["id"]
+    err = _delete_refused(client, account_id)
+    assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
+    _says(err, "HAS_TRANSACTIONS")
+
+    client.delete(f"/transactions/{row}")
+    assert client.delete(f"/accounts/{account_id}")["deleted_at"] is not None
+
+
+def test_a_statement_alone_stops_the_delete_until_it_is_deleted(client, scratch):
+    """An account whose only hold is a draft with dollar balances and no transaction is `409`
+    `IN_LIVE_STATEMENT` on `account_id`, archived too; a deleted statement does not count and
+    the account is then deleted (contract: DELETE /v1/accounts/{account_id}, "Refusals")."""
+    account_id = scratch.account("PEN", "USD")
+    draft = scratch.statement(account_id, "2026-02-01", "2026-02-28", "USD")["id"]
+    err = _delete_refused(client, account_id)
+    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
+    _says(err, "IN_LIVE_STATEMENT")
+
+    scratch.archive(account_id)
+    err = _delete_refused(client, account_id)
+    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
+
+    client.post(f"/accounts/{account_id}/unarchive")
+    client.delete(f"/statements/{draft}")
+    assert client.delete(f"/accounts/{account_id}")["deleted_at"] is not None
+
+
+def test_a_completed_statement_with_no_transaction_stops_the_delete(client, scratch):
+    """An all-zero card paper uploaded to a soles and dollars account with a statement code
+    completes a statement holding no transaction; the delete is `409` `IN_LIVE_STATEMENT`
+    on `account_id`, also once reverted, and `200` once the statement is deleted (contract:
+    DELETE /v1/accounts/{account_id}, "Refusals")."""
+    code = free_statement_codes(client, 1)[0]
+    account_id = scratch.account("PEN", "USD", code=code)
+    paper = card_paper([], start=date(2026, 3, 1), end=date(2026, 3, 31))
+    done = send_statement(client, account_id, paper, dry_run=False)
+    # no answer rows, so `[]` alone proves little: that no transaction stands is the refusal
+    # below being IN_LIVE_STATEMENT, not HAS_TRANSACTIONS, which the engine judges first
+    assert scratch.took(done) == []
+    statement = done["statement_id"]
+    assert client.get(f"/statements/{statement}")["status"] == 2
+
+    err = _delete_refused(client, account_id)
+    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
+    _says(err, "IN_LIVE_STATEMENT")
+
+    client.post(f"/statements/{statement}/revert")
+    err = _delete_refused(client, account_id)
+    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
+
+    client.delete(f"/statements/{statement}")
+    assert client.delete(f"/accounts/{account_id}")["deleted_at"] is not None

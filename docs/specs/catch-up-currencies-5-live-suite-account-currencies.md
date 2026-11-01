@@ -85,15 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-3. **Editing and deleting the account (builder).** In test_account_currencies.py:
-   `PUT /accounts/{id}` with `{"name": …, "statement_code": …}` → one write, `version` up by one;
-   `statement_code: null` clearing it; `currency_code` `IMMUTABLE`; `currencies`, `is_person`,
-   `is_archived` and `holder_id` `UNKNOWN_FIELD`; `NOT_NULL` on `name`; `409 NAME_EXISTS` and
-   `409 STATEMENT_CODE_EXISTS`. `DELETE /accounts/{id}` → `200` with `deleted_at` and the
-   currencies it held, `GET` then `404`, its name and code taken at once by a new account;
-   refused `HAS_TRANSACTIONS` before `IN_LIVE_STATEMENT`, the second on an account whose only
-   hold is a statement with USD balances and no transaction.
-   *Passes if:* those tests pass live, each refusal writing nothing.
 4. **A transaction's currency (builder).** A new tests/contract/test_transaction_currency.py:
    `POST /transactions` echoing `account_id` and `currency_code`; `currency_code` missing
    `REQUIRED`; `UNSUPPORTED_VALUE`; USD on a soles-only account `CURRENCY_NOT_HELD` on
