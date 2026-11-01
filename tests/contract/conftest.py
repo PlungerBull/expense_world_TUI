@@ -427,7 +427,8 @@ def sheet_file(rows: list[list]) -> bytes:
 #
 # The contract states what a BCP paper holds and where (contract: POST /v1/statements/import,
 # "The paper's layout"): lines read left to right within 1 point of a line's first character,
-# a savings account's table a fixed-width record of columns 0 to 72 in one fixed-pitch font.
+# a savings account's table a fixed-width record of columns 0 to 72 and a card's of columns 0 to
+# 106, in one fixed-pitch font.
 
 #: Every character of a made-up paper is Courier, whose characters are all one width, at
 #: this size, so a line is a row of character cells, each cell a column of the stated table.
@@ -694,6 +695,8 @@ def card_paper(
     name and number in it is made up by the test."""
     charges, fees = charges or [], fees or []
     assert all(len(row.description) <= 55 for row in rows), "a description too long"
+    assert all(len(row.type) <= 10 for row in rows), "a type too long"
+    assert all(len(line.label) <= 66 for line in (*charges, *fees)), "a label too long"
 
     def totals(*lines: CardRow | CardCharge) -> list[int]:
         return [sum(line.amount_cents for line in lines if line.currency == c) for c in _CARD_END]

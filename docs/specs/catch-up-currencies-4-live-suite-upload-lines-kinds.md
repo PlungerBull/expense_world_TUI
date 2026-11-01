@@ -89,19 +89,7 @@ Drafted 2026-10-29. Each needs the practice engine, which the orchestrator start
 task and stops after it. Each builds its records through spec 3's `Scratch` and fixes the
 `(contract: …)` citations of the files it touches.
 
-9. **Task 3's review notes (builder).** In
-   [test_statement_import.py](../../tests/contract/test_statement_import.py), the card's
-   `MONEY_AT_START_NOT_COVERED` is checked by its key and reason and by the currency and amount
-   its message names (`USD`, `30000`), not by the whole sentence, which the contract states for
-   `POST /statements` only (contract: POST /v1/statements, "Order"); the comment on
-   `SOLES_ONLY_MARCH` names what the data holds (two purchases, a payment, interest and a fee).
-   In [conftest.py](../../tests/contract/conftest.py), `card_paper` asserts a row's type fits in
-   10 characters and an undated row's label in 66, as it already does the description's 55, and
-   the comment above the made-up PDFs describes the card's columns beside the savings ones.
-   [runtime.md](../runtime.md)'s line on the contract suite introduces the statement upload as run
-   on drawn savings and card papers and the published samples.
-   *Passes if:* `test_statement_import.py` passes live, the message check names only the
-   currency and the amount, and an over-long type or label in `card_paper` fails its assert.
+Every task is done; the spec's acceptance check comes next.
 
 ## Reply to the engine
 
@@ -169,8 +157,3 @@ Not built in this spec; drafted into a new spec when it is done.
   which no live test drives yet.
 - **No live test has a line whose parts carry different dates** on the review list ("A line is
   listed when any of its parts counts", GET /v1/bank-lines "Filters").
-- **runtime.md's contract-suite paragraph cites the holder-era contract.** The live citation
-  test, run on 2026-10-31, names four citations on [runtime.md](../runtime.md) line 94 the live
-  contract does not hold (`"Reconciliations", "A statement's order"`, `GET /v1/reconciliations`,
-  `PUT /v1/reconciliations/{reconciliation_id}`, `POST /v1/reconciliations/import`). No task of
-  this spec or of spec 7 names that line.

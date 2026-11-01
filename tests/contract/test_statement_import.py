@@ -720,7 +720,7 @@ def test_the_drawn_card_paper_answers_as_the_card_sample_does(client, scratch):
     assert mine["name"] == published["name"]
 
 
-#: A soles-only Visa's March: S/ 300.00 owed, a purchase, a payment, a charge and interest,
+#: A soles-only Visa's March: S/ 300.00 owed, two purchases, a payment, interest and a fee,
 #: S/ 1,350.00 billed, and $0.00 everywhere (contract: POST /v1/statements/import, "Accounts").
 SOLES_ONLY_MARCH = {
     "rows": [
@@ -800,7 +800,5 @@ def test_a_card_paper_with_dollars_at_zero_is_refused_where_the_dollars_hold_mon
         "file",
         "MONEY_AT_START_NOT_COVERED",
     )
-    assert err.fields["file"] == (
-        "Holds 30000 USD cents at the start of the statement "
-        "(its balance at the end of 2026-02-28), so the statement needs its USD balances."
-    )
+    assert "USD" in err.fields["file"]
+    assert "30000" in err.fields["file"]
