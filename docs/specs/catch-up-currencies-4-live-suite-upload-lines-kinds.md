@@ -93,19 +93,6 @@ rewrites them, since spec 3 removed the helpers they import (`test_statement_cod
 model until" tests/contract` finds each): the task rewriting one removes its skip and its
 `# ruff: noqa: E402` line.
 
-6. **The bank download and the sheet (builder).**
-   [test_bank_import.py](../../tests/contract/test_bank_import.py): a card's download to one
-   account, each row to the currency in its own `Moneda`; a soles download to a soles and
-   dollar account leaving dollars untouched; a dollar row to a soles-only account
-   `CURRENCY_NOT_HELD` on `rows.<row>.account_id`, nothing written; every answer row and
-   `day_mismatches` entry reading `account_id` and `currency_code`; the statement that stops a
-   move named through the app's own read.
-   [test_sheet_import.py](../../tests/contract/test_sheet_import.py): `names.accounts` one entry
-   per account name, mapped to an account; `--create-names` making one account per name holding
-   the currencies its rows use; an account lacking one `CURRENCY_NOT_HELD` on
-   `names.accounts.<i>.account_id`; a renamed account found under its rename.
-   *Passes if:* both files pass live through the app's own modules, and neither sends
-   `currency_code` in `names.accounts`.
 7. **Kinds and archiving on the account (builder).**
    [test_account_kind.py](../../tests/contract/test_account_kind.py) and
    [test_people_lifecycle.py](../../tests/contract/test_people_lifecycle.py) on
