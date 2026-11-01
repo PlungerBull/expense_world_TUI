@@ -85,19 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-4. **A transaction's currency (builder).** A new tests/contract/test_transaction_currency.py:
-   `POST /transactions` echoing `account_id` and `currency_code`; `currency_code` missing
-   `REQUIRED`; `UNSUPPORTED_VALUE`; USD on a soles-only account `CURRENCY_NOT_HELD` on
-   `currency_code`; a batch with one bad item refused on `transactions.<i>.currency_code`,
-   nothing written; a line group whose items differ in `currency_code`
-   `LINE_GROUP_FIELDS_DIFFER` (contract: POST /v1/transactions/batch, "Line groups"); one
-   operation code taken in each currency of one account
-   (contract: POST /v1/transactions, "Unique per currency of an account among live bank lines");
-   `GET /transactions` and `/count` by `?account_id=` covering both currencies,
-   `?currency_code=` with it or alone, `UNSUPPORTED_VALUE` for an unsupported code, and a
-   cursor sent with `currency_code` changed `INVALID_CURSOR` on `after`
-   (contract: "Base Conventions", "Cursors, on every cursor-paged list").
-   *Passes if:* the file passes live and every refusal leaves the account's count unchanged.
 5. **The old names refused (builder).** In test_transaction_currency.py: a former per-currency
    id, read as in task 1, `404` on `GET`, `PUT` and `DELETE /accounts/{id}`,
    `INVALID_REFERENCE` on `account_id` of `POST /transactions`, and an empty list and count `0`
@@ -145,6 +132,19 @@ Written into [to-engine/](../to-engine/) when this spec is done, with the tester
   unarchiving, turning into a person and back, and deleting act on the account, all its
   currencies at once; a transaction in a currency the account does not hold is refused,
   nothing written. `CONCURRENT_CHANGE` is not tested live, and why.
+- **Contract problems found:** `OPERATION_CODE_EXISTS` on a second bank line with a taken
+  operation code (contract: POST /v1/transactions, "Unique per currency of an account among live bank lines").
+  The contract gives it "on `operation_code` (`OPERATION_CODE_EXISTS`) with `"Another bank line
+  on this account already has operation code '<code>'."`", a phrasing that everywhere else in the
+  contract names the field's own text. The engine sends that sentence as `error.message`, and
+  `fields["operation_code"]` as "Must not be an operation code already on this account.", which
+  the contract never states. Ask: either move the sentence into `fields`, or reword the contract
+  to "(message `"…"`)" and state the field's own text. The live suite tests neither side until
+  then; the tester confirms both engine answers in this note before the reply is written. Also: a batch with two items sharing one operation code on one currency is
+  `DUPLICATE_IN_REQUEST` on `transactions.<i>.operation_code`
+  (contract: POST /v1/transactions/batch), but the contract does not say which item `<i>` is. The
+  engine names the second. A statement's repeated currency names "the later entry"; ask the
+  contract to say the same here. The live suite accepts either item until then.
 - **The asks it closes:** none; "An account holds its currencies: the holder becomes the
   account, and each account becomes one of its currencies" closes with
   [spec 7](catch-up-currencies-7-statement-screen.md).
