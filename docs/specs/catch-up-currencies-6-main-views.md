@@ -380,8 +380,12 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-Its tasks were all done on 2026-10-31. Its first acceptance check that day found two things, a
-live Edit form test and two drift flags, both fixed; it runs again.
+Its tasks were all done on 2026-10-31. **6b's acceptance check** passed on 2026-10-31, after a
+first run's two findings were fixed, against the practice engine: the version check, the unit
+suite (3585 passed), the live suite (256 passed, the one failure the repo-wide citation test on
+citations part 7 rewrites, nothing left on either practice user), checks 9 to 13 of "How the
+owner knows it is done" tried in the app, and the drift check flagging only part 7's holder-era
+statement fixtures. Its doc sweep follows.
 
 ## Reply to the engine
 
