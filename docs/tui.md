@@ -1795,16 +1795,14 @@ of the bar's own cut. The footer reads `esc Cancel  ^s Save  ⇥ Field  ^n Add p
 `^x Drop part` where it works. There is no `?`: the Edit form is a bar form (`FormScreen`), and
 forms take no `HelpBindingMixin`, so there is no `?` card; the bar takes `?` as a character.
 
-**The LOG bar's account is a pick: an account and one currency it holds.** `QuickAddRefs.picks`
-([reads.py](../expense/reads.py), `currency_picks`) holds one pick per account and currency,
-labelled "<account> · <code>", in the engine's order. `$name` matches the account's name, an exact name still winning outright, so a name two currencies share (a card holding
-soles and dollars) matches both picks and opens the picker with each; the whole label typed,
-`$VISA Infinite Sapphire · USD`, names that one pick, which is what `↵` on the picker completes
-to when the name is shared (an unshared name completes as the name). The parsed line carries
-the pick's `currency_code` with its `account_id`, and the save sends both on every batch item
-(contract: POST /v1/transactions/batch). The staged table's account cell reads
-the label, the staged totals add up per currency from each row's `currency_code`, and the
-picker and a refusal's candidates read the label.
+**The LOG bar's account is one row per account.** `QuickAddRefs.quickadd_accounts`
+(reads.py) hands the parse one row per account, `(id, name, (code, …))`, in the engine's
+order, the currencies each holds as the engine gives them. `$name` matches the account's name,
+an exact name still winning outright, so a card holding soles and dollars is one match and the
+picker lists accounts by name alone. The currency is the `%` token below. The save sends
+`account_id` and `currency_code` on every batch item (contract: POST /v1/transactions/batch).
+The staged table's account cell reads "<account> · <code>" and the staged totals add up per
+currency from each row's `currency_code`.
 
 **The line's currency is a token of its own, `%`** ([quickadd/parse.py](../expense/quickadd/parse.py)):
 `Streamly $visa inventada @suscripcion -12.99 hoy %usd`. It is first-wins like `$` and may stand
@@ -1816,29 +1814,38 @@ not hold is upper-cased and sent, and the engine refuses it (contract: POST /v1/
 holds exactly one (`_only_currency` is the one place that fills it, until the engine ask "An
 account's only currency is taken when a write names none" lands). When the account holds several,
 the parse lists `currency` in `missing`, with `account_currencies` for the list, so routing
-refuses the line ("the line names no currency") and never stages it on a guessed currency. The
-payload carries `account_id` and `currency_code`.
+refuses the line and never stages it on a guessed currency: under the bar
+`! not staged — Visa Inventada holds PEN and USD: pick one` (`route.py`), the hint reads `not
+staged — pick a currency and press ↵ again`, and the account's currencies stand under it as a
+picker open at the end of the line, so `↑↓` and `↵` write ` %USD` into it and `↵` again stages it.
+`%` is pickable like `$`, `@` and `#`: it is painted in the accent, a bare `%` (or a partial code
+matching several) opens the picker on the account's own currencies, and `↵` writes the code
+(`%USD`) into the line. A `%` word matching none of them (`%zz`) is refused as `"%zz" matches no
+currencies`, with nothing to pick. A line missing its amount as well gets the plain hint `not
+staged — fix the line and press ↵ again`. The payload carries `account_id` and `currency_code`.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
-does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
+does: `$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,
 the resolved date in words, how many names a token matches, loading/writing) is the
 `#hint` row above it.
 
 **The account peek.** The moment the typed line names an account, that pick's posted
-ledger fills the room under the staged list — `AccountPeek`, five columns (date, title,
-amount, category, tags; no account column, every row names the same one), titled with the
-pick's label.
+ledger fills the room under the staged list once the line has its currency, the one typed
+or the account's only one — `AccountPeek`, five columns (date, title, amount, category, tags;
+no account column, every row names the same one), titled with the pick's label.
 
 * **Elastic.** `#peek` is `height: 1fr` and everything above it is `height: auto`, so the
   panel gets exactly the rows the staged list leaves and draws that many; it re-renders on
   its own `Resize`. The empty-state invitation stands down while it is up.
-* **The pick is the bar's**, never a staged row's — the highlighted candidate while a
-  picker is open, nothing at all when the token resolves to nothing.
+* **The pick is the bar's**, never a staged row's — while a `%` picker is open, the account
+  the line names with the highlighted currency, so the panel swaps as you arrow; while a `$`
+  picker is open, the highlighted account if it holds one currency; nothing at all when the
+  token resolves to nothing, or the account holds several and none is typed yet.
 * **It stays put.** `↵` clears the bar; the panel keeps the last pick the bar named.
 
 Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
-`GET /transactions?account_id=…&currency_code=…` and its count per pick, cached for the life of the screen, and a
+`GET /transactions?account_id=…&currency_code=…` (contract: GET /v1/transactions) and its count per pick, cached for the life of the screen, and a
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),

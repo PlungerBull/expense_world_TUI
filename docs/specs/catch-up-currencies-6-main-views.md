@@ -380,15 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-10. **The LOG bar's currency field** (point 9; question 8). [log_bar.py](../../expense/tui/screens/log_bar.py),
-    `QuickAddRefs` in [reads.py](../../expense/reads.py) and their tests; tui.md §4 "The legend
-    row" and "The account peek". *Passes if:* the bar picks the currency as question 8 draws, the
-    legend names it, the peek reads `?currency_code=` beside `?account_id=`, and a
-    `CURRENCY_NOT_HELD` refusal shows under the row, nothing written; a line on an account
-    holding two currencies with none picked is not staged, the account's currencies listed under
-    it, as the LOG bar pane of
-    [expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)
-    draws; the tests pin each.
 11. **The Edit form's currency line** (point 10; question 9). [edit_form.py](../../expense/tui/screens/edit_form.py),
     `LINE_FIELDS` in [bank_line_write.py](../../expense/bank_line_write.py) and their tests;
     tui.md §2 "On top, the line's shared fields". *Passes if:* a move to the other currency is one
@@ -411,8 +402,9 @@ Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
     currency goes as one `PUT` per row with `currency_code`; a refused row is named by number and
     does not stop the others; the list reads fresh; the tests pin each.
 14. **One row per account in every picker** (point 13). `account_choices` in
-    [reads.py](../../expense/reads.py), the `$` picker, the Edit form's account line and the `b`
-    pick, and their tests; tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
+    [reads.py](../../expense/reads.py), the Edit form's account line and the `b` pick, and their
+    tests (the LOG bar's `$` picker already lists one row per account, pinned by
+    `test_the_account_picker_shows_the_engines_order`); tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
     if:* no picker lists a "<account> · <code>" row; a test fails on one; `b` to an account
     holding one currency sends each row's `PUT` with `account_id` and that `currency_code`, the
     amount as it is, and to an account holding two sends `account_id` alone, each row keeping its
@@ -466,6 +458,22 @@ Not built in this spec; drafted into a new spec when it is done.
   engine refuses it; `a` and `t` guard with `_toggle_busy`.
 - **No mockup draws the LOG bar's words for a `%` that matches nothing**: `"%xx" matches no
   currencies` follows the `$` token's `"$x" matches no accounts`.
+- **No mockup draws the LOG bar's words for an account holding three or more currencies** with
+  none picked: the bar says `Multi holds PEN, USD and EUR: pick one`, extending the two-currency
+  pane's `holds PEN and USD`.
+- **The LOG bar writes a picked currency as `%USD`**, as `$` and `@` write the engine's own
+  name, where the one-or-many pane's caption writes `%usd`.
+- **The LOG bar's staged list has no `cur` column**, which pane 8 A says follows question 10;
+  task 12 gives the ledger its column, and the staged list's account cell still reads
+  "<account> · <code>".
+- **A LOG bar line naming an account that matches nothing, `↵` pressed inside the token**, now
+  shows the plain hint `not staged — fix the line and press ↵ again` and the refusal `! not
+  staged — "$zzz" matches no accounts` under the bar, as it already did with the caret outside
+  the token; before, the hint named the match and the bar showed `no matches — pick something
+  that exists`.
+- **A LOG bar line refused for its currency and another reason** (`taxi -5 $visa @zzz`) gets the
+  hint `not staged — pick a currency and press ↵ again`, naming only the currency; the refusal
+  line names both.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.

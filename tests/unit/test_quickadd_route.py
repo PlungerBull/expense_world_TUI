@@ -22,9 +22,9 @@ from expense.quickadd.route import (
 )
 
 ACCOUNTS = [
-    ("a-pen", "BCP Signature PEN", "PEN"),
-    ("a-usd", "BCP Signature USD", "USD"),
-    ("a-bcp", "BCP PEN", "PEN"),
+    ("a-pen", "BCP Signature PEN", ("PEN",)),
+    ("a-usd", "BCP Signature USD", ("USD",)),
+    ("a-bcp", "BCP PEN", ("PEN",)),
 ]
 CATEGORIES = [("c-kor", "KORAKUEN"), ("c-tra", "TRANSPORTE")]
 HASHTAGS = [("h-caja", "CAJA CHICA"), ("h-taxi", "TAXI")]
@@ -169,7 +169,18 @@ def _held(line):
 def test_a_multi_currency_account_with_no_currency_is_refused_naming_it():
     result = _held("-12.99 $visa inventada")
     assert result.target == REFUSED
-    assert result.reasons == ("the line names no currency",)
+    assert result.reasons == ("Visa Inventada holds PEN and USD: pick one",)
+
+
+def test_the_refusal_lists_three_currencies_in_words():
+    parsed = parse(
+        "-1 $multi",
+        accounts=[("m1", "Multi", ("PEN", "USD", "EUR"))],
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+    )
+    assert route(parsed, TODAY).reasons == ("Multi holds PEN, USD and EUR: pick one",)
 
 
 def test_a_currency_typed_or_a_sole_currency_reaches_the_ledger():

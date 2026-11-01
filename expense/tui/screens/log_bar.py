@@ -86,7 +86,6 @@ from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_tran
 from expense.dates import now_local_iso, to_canonical_aware, today_local
 from expense.errors import EngineConnectionError, format_error, row_note
 from expense.formatting import (
-    currency_label,
     format_cents,
     format_hashtag_cell,
     format_short_date,
@@ -120,7 +119,7 @@ from expense.tui.widgets.windowed import CURSOR_STYLE
 #: Sigil per reference kind — the character a completion writes back into the
 #: line. Same table the grammar reads with; kept here because this module goes
 #: the other way, from a resolved name to the text that names it.
-SIGIL = {"account": "$", "category": "@", "hashtag": "#"}
+SIGIL = {"account": "$", "currency": "%", "category": "@", "hashtag": "#"}
 
 #: Reference kinds a completion picker can open on.
 PICKABLE = frozenset(SIGIL)
@@ -159,13 +158,14 @@ STAGE_HINT = "↵ stages the line"
 #: `↵` does on the same line. It never changes:
 #: it describes the grammar, not the moment, and the moment is the `#hint` row
 #: above it. Constant width, so nothing below it ever moves.
-LEGEND = "$account · @category · #tag · ±amount · //note · when"
+LEGEND = "$account · %currency · @category · #tag · ±amount · //note · when"
 LEGEND_LINE = f"{LEGEND}     {STAGE_HINT}"
 STAGED_HINT = "↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty"
 SAVING_HINT = "writing…"
 PICKER_HINT = "↑↓ moves, ↵ writes the full name into the line"
 COMPLETED_HINT = "↵ completed the token in place — the line always says what will be saved"
 REFUSED_HINT = "not staged — fix the line and press ↵ again"
+CURRENCY_REFUSED_HINT = "not staged — pick a currency and press ↵ again"
 EDIT_HINT = "the row came back as the line that made it · ↵ puts it back · esc leaves it alone"
 SIGN_HINT = "a sign is what makes a number an amount"
 LOADING_HINT = "loading accounts, categories and tags…"
@@ -334,12 +334,6 @@ def format_date_cell(iso: str, today_iso: str) -> str:
 
 #: A pick of a currency: `(account_id, currency_code)`.
 Pick = tuple[str, str]
-
-
-def _candidate_label(candidate: tuple[str, ...]) -> str:
-    """A picker row: an account's pick reads "<account> · <code>" (the engine's name
-    for a currency); a category or a hashtag reads as its name."""
-    return currency_label(candidate[1], candidate[2]) if len(candidate) > 2 else candidate[1]
 
 
 def _account_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> str | Text:
@@ -771,6 +765,8 @@ class LogBarScreen(Screen):
         # the last `↵` that was refused — the line is still in the bar, and
         # this is what says why until the next keystroke
         self._refused: Routing | None = None
+        # the picker of the refused line's currencies is open (`_offer_currencies`)
+        self._offered = False
         self._refs: QuickAddRefs | None = None
         self._parsed: ParsedLine | None = None
         self._picker: _Picker | None = None
@@ -840,6 +836,7 @@ class LogBarScreen(Screen):
         nothing quick-add draws from the parse can react to it.
         """
         self._refused = None  # any edit is a new attempt
+        self._offered = False
         self._file_problem = None
         files = dropped_bank_files(text)
         if files is not None:
@@ -1190,13 +1187,14 @@ class LogBarScreen(Screen):
         if not candidates:
             return
         chosen = candidates[min(self._suggest_idx, len(candidates) - 1)]
-        # an account's name alone names every currency it holds, so a name two
-        # candidates share is completed as the whole "<account> · <code>"
         line = self.query_one("#bar", Input).value
-        shared = len(chosen) > 2 and sum(c[1] == chosen[1] for c in candidates) > 1
-        token = SIGIL[picker.kind] + (_candidate_label(chosen) if shared else chosen[1])
+        before = line[: picker.span.start]
+        # a token added at the end of the line (the currency a refusal asks for)
+        # needs the space that sets it apart
+        gap = " " if picker.span.start == picker.span.end and not before.endswith(" ") else ""
+        token = gap + SIGIL[picker.kind] + chosen[1]
         self._set_bar(
-            line[: picker.span.start] + token + line[picker.span.end :],
+            before + token + line[picker.span.end :],
             caret=picker.span.start + len(token),
         )
         self._completed = True
@@ -1218,6 +1216,7 @@ class LogBarScreen(Screen):
         routing = route(parsed, today_local())
         if routing.refused:
             self._refused = routing
+            self._offer_currencies(parsed, len(line))
             return
         # A finished batch clears the moment the next one starts: the list only
         # ever shows rows you are about to write, and what the save wrote lives
@@ -1242,6 +1241,20 @@ class LogBarScreen(Screen):
         self._editing = None
         self._set_bar("")
         self._completed = False
+
+    def _offer_currencies(self, parsed: ParsedLine, end: int) -> None:
+        """A line refused for its currency opens the picker on the account's own
+        currencies, at the end of the line: `↑↓` and `↵` write `%USD` into it, and
+        `↵` again stages it. `_offered` marks this picker, so the hint and the list
+        under the refusal know it from one a refused line merely has open."""
+        if "currency" not in parsed.missing:
+            return
+        self._offered = True
+        span = Span("currency", end, end, "", resolved=False)
+        candidates = tuple((code, code) for code in parsed.account_currencies)
+        token = Unresolved(kind="currency", text="", span=span, candidates=candidates)
+        self._picker = _Picker(span=span, kind="currency", token=token, candidates=list(candidates))
+        self._suggest_idx = 0
 
     def _lift(self, index: int) -> None:
         """Put a staged row back in the bar as the raw line that made it.
@@ -1289,11 +1302,15 @@ class LogBarScreen(Screen):
     def _peek_target(self) -> Pick | None:
         """Which pick (account and currency) the peek shows — the bar's, never a staged row's.
 
-        Four cases:
+        Five cases:
 
         * a **picker open on an account** — the highlighted candidate, so the
-          peek swaps as you arrow and the disambiguation answers itself;
-        * a **resolved `$account`** — that one;
+          peek swaps as you arrow and the disambiguation answers itself; an
+          account holding several currencies has no one ledger to show, so none;
+        * a **picker open on a currency** of the account the line names — that
+          account with the highlighted currency;
+        * a **resolved `$account`** — that one with the line's currency, none
+          while an account holding several has none yet;
         * an **account token that resolves to nothing** — none: the line will
           be refused and there is no ledger to show;
         * **no account token at all**, including the empty bar `↵` leaves
@@ -1303,16 +1320,29 @@ class LogBarScreen(Screen):
         picker = self._picker
         if picker is not None and picker.kind == "account" and picker.candidates:
             index = min(self._suggest_idx, len(picker.candidates) - 1)
-            candidate = picker.candidates[index]
-            return (candidate[0], candidate[2])
+            return self._only_pick(picker.candidates[index][0])
         parsed = self._parsed
         if parsed is None:
             return self._peek_account
-        if parsed.account_id and parsed.currency_code:
-            return (str(parsed.account_id), parsed.currency_code)
+        if picker is not None and picker.kind == "currency" and parsed.account_id:
+            if not picker.candidates:
+                return None
+            index = min(self._suggest_idx, len(picker.candidates) - 1)
+            return (str(parsed.account_id), picker.candidates[index][0])
+        if parsed.account_id:
+            # the currency picked, or none yet: the peek shows a currency's rows
+            return (str(parsed.account_id), parsed.currency_code) if parsed.currency_code else None
         if any(token.kind == "account" for token in parsed.unresolved):
             return None
         return self._peek_account
+
+    def _only_pick(self, account_id: str) -> Pick | None:
+        """The account's pick when it holds one currency; none when it holds several,
+        for the peek shows one currency's rows."""
+        for ident, _name, codes in self._refs.quickadd_accounts if self._refs else ():
+            if ident == account_id and len(codes) == 1:
+                return (ident, codes[0])
+        return None
 
     def _sync_peek(self) -> None:
         """Point the panel at that account, fetching its page once."""
@@ -1415,10 +1445,13 @@ class LogBarScreen(Screen):
             return LOADING_HINT
         if self._editing is not None:
             return EDIT_HINT
+        if self._refused is not None:
+            # a line missing its amount too is fixed first: the hint is the plain one
+            if self._offered and "amount" not in (self._parsed.missing if self._parsed else ()):
+                return CURRENCY_REFUSED_HINT
+            return REFUSED_HINT
         if self._picker is not None:
             return f"{describe(self._picker.token)} — {PICKER_HINT}"
-        if self._refused is not None:
-            return REFUSED_HINT
         if self._completed:
             return COMPLETED_HINT
         parsed = self._parsed
@@ -1436,9 +1469,9 @@ class LogBarScreen(Screen):
 
     def _suggest_renderable(self) -> RenderableType:
         picker = self._picker
-        if picker is None:
+        if picker is None or self._refused is not None:
             return self._refusal_renderable()
-        return suggestion_list([_candidate_label(c) for c in picker.candidates], self._suggest_idx)
+        return suggestion_list([c[1] for c in picker.candidates], self._suggest_idx)
 
     def _refusal_renderable(self) -> RenderableType:
         """`! not staged — the line names no account`, in the error colour,
@@ -1452,7 +1485,10 @@ class LogBarScreen(Screen):
         head.append(", ".join(refused.reasons), style=PALETTE.error)
         rows.append(head)
         for token in parsed.unresolved:
-            rows.extend(Text(f"    {_candidate_label(c)}", style="dim") for c in token.candidates)
+            rows.extend(Text(f"    {c[1]}", style="dim") for c in token.candidates)
+        picker = self._picker
+        if picker is not None and self._offered:
+            rows.append(suggestion_list([c[1] for c in picker.candidates], self._suggest_idx))
         return Group(*rows)
 
     def _staged_renderable(self) -> RenderableType | None:

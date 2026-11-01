@@ -32,7 +32,6 @@ _PLURAL = {
 _MISSING_PHRASE = {
     "amount": "the line has no amount — a number needs a sign to be one",
     "account": "the line names no account",
-    "currency": "the line names no currency",
 }
 
 
@@ -68,6 +67,11 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
         if field == "amount" and parsed.unreadable_amount is not None:
             reasons.append(f"can't read {parsed.unreadable_amount} as an amount")
             continue
+        if field == "currency":
+            reasons.append(
+                f"{parsed.account_name} holds {_and(parsed.account_currencies)}: pick one"
+            )
+            continue
         reasons.append(_MISSING_PHRASE[field])
 
     for token in parsed.unresolved:
@@ -77,6 +81,11 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
         reasons.append("it is dated ahead")
 
     return Routing(REFUSED if reasons else LEDGER, tuple(reasons))
+
+
+def _and(codes: tuple[str, ...]) -> str:
+    """`PEN and USD`, `PEN, USD and EUR`."""
+    return " and ".join([", ".join(codes[:-1]), codes[-1]] if len(codes) > 2 else codes)
 
 
 def describe(token: Unresolved) -> str:

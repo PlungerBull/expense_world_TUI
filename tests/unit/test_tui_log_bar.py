@@ -385,7 +385,7 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "tottus porongoche -38.60 $sig")
-        assert [name for _, name, _ in screen._picker.candidates] == [
+        assert [name for _, name in screen._picker.candidates] == [
             "BCP Signature PEN",
             "BCP Signature USD",
         ]
@@ -398,19 +398,19 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
 
 
 def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
-    """A bare `$` lists the picks exactly as `GET /accounts` returned them — the
-    accounts not alphabetical, not by `sort_order`, the person after every bank, each
-    account's currencies PEN before USD — each as "<account> · <code>"."""
+    """A bare `$` lists the accounts exactly as `GET /accounts` returned them — not
+    alphabetical, not by `sort_order`, the person after every bank — one row each,
+    by its name alone."""
     _patch(monkeypatch)
     monkeypatch.setattr(
         "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS)
     )
-    labels = [f"{n} · {c}" for n in ("Zeta Visa", "Alfa Ahorros", "Ana") for c in ("PEN", "USD")]
+    labels = ["Zeta Visa", "Alfa Ahorros", "Ana"]
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "almuerzo -20 $")
-        assert [f"{n} · {c}" for _, n, c in screen._picker.candidates] == labels
+        assert [n for _, n in screen._picker.candidates] == labels
         assert in_order(_text(screen._suggest_renderable()), labels)
 
     run_app(scenario)
@@ -737,24 +737,28 @@ def test_every_batch_item_names_its_account_and_its_currency(fake_client, monkey
     run_app(scenario)
 
 
-def test_dollar_visa_offers_both_of_a_two_currency_accounts_picks(fake_client, monkeypatch):
-    """`$visa` names an account holding two currencies, so it offers both picks, each
-    "<account> · <code>"; completing the dollar one resolves to it, and the save sends
-    that account with that currency."""
+def test_dollar_visa_is_one_account_and_the_currency_is_a_token_of_its_own(
+    fake_client, monkeypatch
+):
+    """`$visa` names one account holding two currencies; `%usd` picks the dollars, and
+    the save sends that account with that currency."""
     _patch(monkeypatch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "-12.50 $visa")
-        labels = ["VISA Infinite Sapphire · PEN", "VISA Infinite Sapphire · USD"]
-        assert [f"{n} · {c}" for _, n, c in screen._picker.candidates] == labels
+        assert screen._picker is None  # one account, however many currencies it holds
+        assert screen._parsed.account_id == "acc-visa"
+        _type(screen, "-12.50 $visa %")
+        labels = ["PEN", "USD"]
+        assert [c for c, _ in screen._picker.candidates] == labels
         assert in_order(_text(screen._suggest_renderable()), labels)
-        assert '"$visa" matches 2 accounts' in screen._hint()
+        assert '"%" names no currency yet' in screen._hint()
 
         screen.action_move(1)  # the USD one
         screen.on_input_submitted()
-        assert _bar(screen).value == "-12.50 $VISA Infinite Sapphire · USD"
+        assert _bar(screen).value == "-12.50 $visa %USD"
         assert screen._picker is None
         assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc-visa", "USD")
 
@@ -764,6 +768,146 @@ def test_dollar_visa_offers_both_of_a_two_currency_accounts_picks(fake_client, m
         await wait_for(pilot, lambda: len(fake_client.posts) == 1)
         item = fake_client.posts[0][1]["transactions"][0]
         assert (item["account_id"], item["currency_code"]) == ("acc-visa", "USD")
+
+    run_app(scenario)
+
+
+def test_the_currency_token_is_listed_in_the_legend_and_painted_as_a_pick(fake_client, monkeypatch):
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        assert "$account · %currency · @category" in _legend(screen)
+        _type(screen, "-12.50 $visa %usd")
+        (span,) = [s for s in screen._parsed.spans if s.kind == "currency"]
+        assert span_style(span, screen._parsed, PALETTE) == ACCENT
+
+    run_app(scenario)
+
+
+def test_a_two_currency_account_with_none_picked_is_not_staged_and_lists_its_currencies(
+    fake_client, monkeypatch
+):
+    """The words of the LOG bar pane of expense-world-currencies-one-or-many.html; `↑↓`
+    and `↵` write the pick into the line as `%USD`, and `↵` again stages it."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Streamly -12.99 $visa")
+        screen.on_input_submitted()
+        assert screen._staged == []
+        assert screen._hint() == "not staged — pick a currency and press ↵ again"
+        shown = _text(screen._suggest_renderable())
+        assert [line.strip() for line in shown.splitlines()] == [
+            "! not staged — VISA Infinite Sapphire holds PEN and USD: pick one",
+            "PEN",
+            "USD",
+        ]
+        screen.action_move(1)
+        screen.on_input_submitted()
+        assert _bar(screen).value == "Streamly -12.99 $visa %USD"
+        assert screen._staged == []
+        screen.on_input_submitted()
+        assert [e.parsed.currency_code for e in screen._staged] == ["USD"]
+
+    run_app(scenario)
+
+
+def test_a_one_currency_account_stages_with_its_currency_and_nothing_typed(
+    fake_client, monkeypatch
+):
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, "Pan -4.50 $BCP PEN")
+        assert [(e.parsed.account_id, e.parsed.currency_code) for e in screen._staged] == [
+            ("acc3", "PEN")
+        ]
+
+    run_app(scenario)
+
+
+def test_the_peek_reads_the_currency_beside_the_account(fake_client, monkeypatch):
+    peek = _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "-12.50 $visa")
+        assert screen._peek_target() is None  # no currency picked: no ledger to show
+        _type(screen, "-12.50 $visa %usd")
+        await wait_for(pilot, lambda: peek.accounts and peek.counted)
+        assert (peek.accounts, peek.currencies) == (["acc-visa"], ["USD"])
+        assert (peek.counted, peek.counted_currencies) == (["acc-visa"], ["USD"])
+
+    run_app(scenario)
+
+
+def test_the_peek_follows_the_highlighted_currency_of_the_percent_picker(fake_client, monkeypatch):
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "-12.50 $visa %")
+        assert screen._peek_target() == ("acc-visa", "PEN")
+        screen.action_move(1)
+        assert screen._peek_target() == ("acc-visa", "USD")
+
+    run_app(scenario)
+
+
+def test_a_line_refused_for_an_unknown_account_keeps_its_own_hint(fake_client, monkeypatch):
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "taxi -5 $zzz")
+        screen.on_input_submitted()
+        assert screen._staged == []
+        assert '"$zzz" matches no accounts' in " ".join(screen._refused.reasons)
+        assert screen._hint() == "not staged — fix the line and press ↵ again"
+        assert "pick something that exists" not in _text(screen._suggest_renderable())
+        assert "pick a currency" not in _text(screen._suggest_renderable())
+
+    run_app(scenario)
+
+
+def test_a_line_missing_its_amount_and_its_currency_gets_the_plain_hint(fake_client, monkeypatch):
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "taxi $visa")
+        screen.on_input_submitted()
+        assert screen._hint() == "not staged — fix the line and press ↵ again"
+
+    run_app(scenario)
+
+
+def test_a_currency_the_account_does_not_hold_is_refused_under_the_row_and_nothing_is_written(
+    fake_client, monkeypatch
+):
+    """`CURRENCY_NOT_HELD`: the engine's words under the row, the row kept unsaved, the
+    batch's other rows refused too (a refused batch writes none)."""
+    _patch(monkeypatch)
+    words = "BCP PEN does not hold USD."
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, "Taxi -18 $BCP PEN %usd")
+        _script(fake_client, [_refused(0, "currency_code", words, "CURRENCY_NOT_HELD")])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+        shown = _text(screen._staged_renderable(), width=200)
+        assert f"currency_code: {words}" in shown and "row 1" in shown
+        assert [e.saved for e in screen._staged] == [False]
+        assert len(fake_client.posts) == 1  # the one refused batch, nothing else sent
 
     run_app(scenario)
 
@@ -791,9 +935,9 @@ def test_the_staged_totals_add_up_per_currency_from_each_rows_pick(fake_client, 
         screen = await _open(app, pilot)
         _stage_lines(
             screen,
-            "a -10 $VISA Infinite Sapphire · PEN",
-            "b -5 $VISA Infinite Sapphire · USD",
-            "c -2.50 $VISA Infinite Sapphire · PEN",
+            "a -10 $VISA Infinite Sapphire %pen",
+            "b -5 $VISA Infinite Sapphire %usd",
+            "c -2.50 $VISA Infinite Sapphire %pen",
         )
         summary = _text(screen._staged_renderable())
         assert "3 staged" in summary

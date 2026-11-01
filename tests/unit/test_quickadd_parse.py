@@ -19,11 +19,11 @@ TODAY = date(2026, 8, 20)
 # Two accounts share "Signature" so `$sig` is genuinely ambiguous;
 # "CAJA" is a prefix of "CAJA CHICA" so exact-beats-contains gets exercised.
 ACCOUNTS = [
-    ("a1", "BCP Signature USD", "USD"),
-    ("a2", "BCP PEN", "PEN"),
-    ("a3", "Mi Signature", "PEN"),
-    ("a4", "Nico", "PEN"),
-    ("a5", "Efectivo", "PEN"),
+    ("a1", "BCP Signature USD", ("USD",)),
+    ("a2", "BCP PEN", ("PEN",)),
+    ("a3", "Mi Signature", ("PEN",)),
+    ("a4", "Nico", ("PEN",)),
+    ("a5", "Efectivo", ("PEN",)),
 ]
 CATEGORIES = [("c1", "KORAKUEN"), ("c2", "TRANSPORTE"), ("c3", "WANTS")]
 HASHTAGS = [("t1", "CAJA"), ("t2", "TAXI"), ("t3", "CAJA CHICA"), ("t4", "Viajes")]
@@ -321,9 +321,10 @@ def test_a_multi_word_span_covers_every_word_it_took():
 
 
 def test_extra_columns_on_a_reference_row_are_ignored():
-    """account_choices() hands back (id, name, currency) — it passes straight
-    through, unconverted."""
-    assert _p("x -5 $bcp pen").account_id == "a2"
+    """A row's columns past the currencies are ignored."""
+    rows = [("a2", "BCP PEN", ("PEN",), "extra", 7)]
+    result = parse("x -5 $bcp pen", accounts=rows, categories=[], hashtags=[], today=TODAY)
+    assert (result.account_id, result.currency_code) == ("a2", "PEN")
 
 
 def test_malformed_reference_rows_are_skipped_not_crashed_on():
@@ -424,7 +425,9 @@ def test_a_bare_sigil_opens_the_picker_even_when_one_candidate_exists():
     reference list of one, which is the ordinary state of a new ledger. It
     must not pick that sole entry and skip the picker it was typed to open."""
     one_each = dict(
-        accounts=[("a1", "BCP PEN", "PEN")], categories=[("c1", "WANTS")], hashtags=[("t1", "TAXI")]
+        accounts=[("a1", "BCP PEN", ("PEN",))],
+        categories=[("c1", "WANTS")],
+        hashtags=[("t1", "TAXI")],
     )
     for sigil, kind in (("$", "account"), ("@", "category"), ("#", "hashtag")):
         result = parse(f"tottus -5 {sigil}", today=TODAY, **one_each)
@@ -448,37 +451,18 @@ def test_parse_amount_refuses_an_amount_whose_cents_overflow():
         assert parse_amount(text) is None
 
 
-# --- an account pick: one account and one currency it holds ---------------------
+# --- an account is one row, holding its currencies ----------------------------------
 
 
-VISA_PICKS = [
-    ("v1", "VISA Infinite Sapphire", "PEN"),
-    ("v1", "VISA Infinite Sapphire", "USD"),
-    ("a5", "Efectivo", "PEN"),
-]
-
-
-def _picks(line: str):
-    return parse(line, accounts=VISA_PICKS, categories=CATEGORIES, hashtags=HASHTAGS, today=TODAY)
-
-
-def test_a_name_two_currencies_share_is_ambiguous_with_a_candidate_per_currency():
-    result = _picks("-10 $visa")
-    assert result.account_id is None and result.currency_code is None
-    (found,) = result.unresolved
-    assert found.candidates == (
-        ("v1", "VISA Infinite Sapphire", "PEN"),
-        ("v1", "VISA Infinite Sapphire", "USD"),
-    )
-
-
-def test_the_whole_label_names_one_pick_and_the_line_carries_its_currency():
-    result = _picks("-10 $VISA Infinite Sapphire · USD")
-    assert (result.account_id, result.currency_code, result.unresolved) == ("v1", "USD", ())
+def test_a_name_resolves_to_its_one_account_whatever_it_holds():
+    result = _banks("-10 $visa")
+    assert (result.account_id, result.account_name) == ("v1", "Visa Inventada")
+    assert result.unresolved == ()
+    assert result.account_currencies == ("PEN", "USD")
 
 
 def test_a_one_currency_account_resolves_on_its_name_alone():
-    result = _picks("-10 $efectivo")
+    result = _p("-10 $efectivo")
     assert (result.account_id, result.currency_code) == ("a5", "PEN")
 
 

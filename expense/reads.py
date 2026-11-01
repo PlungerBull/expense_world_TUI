@@ -936,10 +936,13 @@ class QuickAddRefs:
     picks: list[CurrencyPick] = field(default_factory=list)
 
     @property
-    def quickadd_accounts(self) -> list[tuple[str, str, str]]:
-        """The picks as `quickadd.parse()` takes its accounts:
-        `(account_id, name, currency_code)`."""
-        return [(p.account_id, p.name, p.currency_code) for p in self.picks]
+    def quickadd_accounts(self) -> list[tuple[str, str, tuple[str, ...]]]:
+        """The accounts as `quickadd.parse()` takes them: one row per account, in the
+        picks' order, `(account_id, name, (currency_code, …))`."""
+        held: dict[str, tuple[str, list[str]]] = {}
+        for pick in self.picks:
+            held.setdefault(pick.account_id, (pick.name, []))[1].append(pick.currency_code)
+        return [(account_id, name, tuple(codes)) for account_id, (name, codes) in held.items()]
 
     @property
     def pending_hashtag_id(self) -> str | None:
