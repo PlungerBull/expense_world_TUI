@@ -789,7 +789,7 @@ def test_the_currency_token_is_listed_in_the_legend_and_painted_as_a_pick(fake_c
 def test_a_two_currency_account_with_none_picked_is_not_staged_and_lists_its_currencies(
     fake_client, monkeypatch
 ):
-    """The words of the LOG bar pane of expense-world-currencies-one-or-many.html; `↑↓`
+    """The words of the LOG bar's currency pick; `↑↓`
     and `↵` write the pick into the line as `%USD`, and `↵` again stages it."""
     _patch(monkeypatch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))

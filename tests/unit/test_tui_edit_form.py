@@ -721,8 +721,7 @@ def test_the_account_and_currency_lines_start_on_the_records_own(fake_client, mo
 
 
 # ---- the CURRENCY line follows the account: questions 9, 12 and 13 of -------------------
-# catch-up-currencies-6-main-views.md (expense-world-currencies-transaction-picks.html,
-# expense-world-currencies-one-or-many.html)
+# catch-up-currencies-6-main-views.md (expense-world-currencies-transaction-picks.html)
 
 ONE_CURRENCY_LINE = "currency  PEN  · Ahorros holds only PEN"
 

@@ -322,7 +322,7 @@ the screens show what the engine now holds:
 
    **Answered A** (owner, 2026-10-31): drawn as `m`, a placeholder the owner kept.
 
-12. **The Edit form on an account holding one currency** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+12. **The Edit form on an account holding one currency**.
     - **A.** The currency line is shown dim with why, and the bar skips it.
     - **B.** A picker holding the one currency, as 9 A drew it.
 
@@ -330,7 +330,7 @@ the screens show what the engine now holds:
 
     **Answered A** (owner, 2026-10-31).
 
-13. **The Edit form when the account changes to one holding two currencies** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+13. **The Edit form when the account changes to one holding two currencies**.
     A change to a one-currency account follows question 12.
     - **A.** The currency empties and the bar steps to it; nothing saves until one is picked.
     - **B.** It keeps the line's currency when the new account holds it, the bar stopping on it.
@@ -339,7 +339,7 @@ the screens show what the engine now holds:
 
     **Answered A** (owner, 2026-10-31).
 
-14. **`b` moving selected rows to another account** ([expense-world-currencies-one-or-many.html](../mockups/expense-world-currencies-one-or-many.html)).
+14. **`b` moving selected rows to another account**.
     To a one-currency account:
     - **A.** Every row takes that currency.
     - **B.** Each row keeps its currency; a row the account lacks is refused in the engine's words.
@@ -380,10 +380,7 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-15. **The mockups this half replaces go** (point 15). [mockups/](../mockups/) and every doc or
-    code comment linking them. *Passes if:* each mockup replaced by a pick of questions 8 to 11
-    is deleted, `expense-world-currencies-one-or-many.html` with them, and `test_docs_links.py`
-    passes.
+Its tasks were all done on 2026-10-31; its acceptance check follows.
 
 ## Reply to the engine
 
@@ -433,7 +430,7 @@ Not built in this spec; drafted into a new spec when it is done.
   none picked: the bar says `Multi holds PEN, USD and EUR: pick one`, extending the two-currency
   pane's `holds PEN and USD`.
 - **The LOG bar writes a picked currency as `%USD`**, as `$` and `@` write the engine's own
-  name, where the one-or-many pane's caption writes `%usd`.
+  name, where the LOG bar pane the owner picked wrote `%usd`.
 - **The LOG bar's staged list has no `cur` column**, which pane 8 A says follows question 10;
   task 12 gives the ledger its column, and the staged list's account cell still reads
   "<account> · <code>".
@@ -448,8 +445,8 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The Edit form's CURRENCY line carries no `changes every part of the transaction` hint** on a
   transaction of two parts or more, where ACCOUNT, date and title do; the engine writes the
   currency onto every part. No mockup draws it.
-- **The 13 A pane marks a currency the account change took in purple**; the Edit form draws the
-  line dim. Is the purple meant for the app, or only a mark on the page?
+- **The picked drawing of question 13 marked a currency the account change took in purple**; the
+  Edit form draws the line dim. Was the purple meant for the app, or only a mark on the page?
 - **No mockup draws the Edit form's toast for a currency that matches nothing**: `No currency
   matches “…”.` follows the account line's `No account matches “…”.`
 - **A line on an archived account** shows its CURRENCY line `read-only` with the shared reason,
