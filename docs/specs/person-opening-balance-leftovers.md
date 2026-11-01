@@ -7,7 +7,7 @@ account form.
 
 **Status: approved by the owner on 2026-10-28.** Its tasks are drafted when the owner names it
 the current spec. It runs after
-[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 which puts the live suite's people on the account and its currencies. When done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
 

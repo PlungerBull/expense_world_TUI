@@ -1151,6 +1151,30 @@ and a check that only finds the field's name somewhere in the answer proves less
 contract states. *Repeating the cleaner's pass until nothing more deletes* — a second full read
 that the cursor rule makes needless.
 
+## A live test's data passes only for the reason it states, and the suite tests the contract as it stands (2026-10-31)
+
+**Decision.** (1) **A live test's data can pass only for the reason the test states.** A test of
+an order uses rows whose stated order differs from date order and from a grouping by currency,
+and ties each place to its row by date or amount. A test of which refusal comes first sets up a
+case where both apply, pair by pair. A test that something is left alone puts a look-alike beside
+it, such as a dollar line on the same day and amount as a soles row. (2) **A case the live
+contract no longer states is dropped, not ported**: card partners and twins, `PUT …/statement-order`
+and its refusals, `POST /people`, `HAS_STATEMENT_CODE`, `HAS_OPENING_BALANCE`. A case it still
+states stays, moved to the file that owns it now; the review list's cases live with the bank
+lines. (3) **Where the engine and its contract disagree, the suite tests neither side**: it
+tests what both agree on, and the disagreement goes to the engine in the catch-up's reply, such
+as `is_person` taking `"yes"` and `1` against the contract's `INVALID_FORMAT`.
+
+**Why.** A test whose data a wrong engine also passes proves nothing, and the suite exists to
+catch the engine drifting from its contract before a second client is built. A case the contract
+dropped would pin behaviour the engine is free to change. Pinning the engine's behaviour where it
+breaks its contract would make the suite defend the bug, and pinning the contract's words would
+fail every run until the engine answers.
+
+**Rejected.** *Porting every old case onto the new shapes* — it keeps rules the engine no longer
+states. *Pinning what the engine does today where it breaks its contract* — the suite would then
+fail the day the engine is fixed.
+
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to

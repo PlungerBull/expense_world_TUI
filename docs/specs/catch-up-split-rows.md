@@ -10,7 +10,7 @@ import's counts say how many sheet rows its split lines come from"; the rename d
 it. The rest of that range is caught up in the app's reads and writes, its statement screens
 and the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
-3 (done on 2026-10-30), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+3 (done on 2026-10-30), 4 (done on 2026-10-31),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and
 screens.

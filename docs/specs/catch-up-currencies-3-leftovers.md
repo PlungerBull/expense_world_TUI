@@ -5,7 +5,7 @@ foundation (done on 2026-10-30), turned up while it ran.
 
 **Status: approved by the owner on 2026-10-30; no question.** Its tasks are drafted when the
 owner names it the current spec. It runs after
-[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 which rewrites [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 

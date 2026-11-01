@@ -28,7 +28,7 @@ rework) in
 part 3 of the currencies catch-up, the live tests' foundation (done on 2026-10-30);
 `_transaction_ids`, the create-into-a-statement test going and the import test naming its
 stopping statement in
-[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md);
+part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31);
 the statement head shown whole in
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 The points on things the engine no longer has are dropped: a card statement's create answer

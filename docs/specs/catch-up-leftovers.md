@@ -3,7 +3,7 @@
 **Status: approved by the owner on 2026-10-28; no question open. It runs after the catch-up to
 contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
-3 (done on 2026-10-30), [4](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+3 (done on 2026-10-30), 4 (done on 2026-10-31),
 [5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
 [7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files. Its tasks are drafted when the owner names it the current spec.** When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.

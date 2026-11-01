@@ -54,9 +54,9 @@ specs are retired. The catch-up is seven specs, run in this order:
 1. the app's reads and writes: done on 2026-10-30;
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
-4. [the live tests for the upload, bank lines and kinds](specs/catch-up-currencies-4-live-suite-upload-lines-kinds.md): approved on 2026-10-30; tasks 1 to 3 done, tasks 4 to 9 left;
+4. the live tests for the upload, bank lines and kinds: done on 2026-10-31; its reply to the engine, with part 3's results, waits in [to-engine/](to-engine/) for you to hand over;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
-6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31, with one task of review notes left; its second half, 6b, approved on 2026-10-31, runs after part 4;
+6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31; its second half, 6b, approved on 2026-10-31, runs next;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
@@ -71,13 +71,16 @@ New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-
 (2 questions, one with a mockup to draw), after part 6.
 
 New, from part 3: [what the live tests' foundation turned up](specs/catch-up-currencies-3-leftovers.md)
-(no question, approved on 2026-10-30), after part 4.
+(no question, approved on 2026-10-30), after part 6b.
+
+New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
+(1 question, on the Edit form's words), after part 7.
 
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest, and start part 5 next, so each is ready when the one before it
-is done.
+**Recommended:** approve the rest; part 6b runs next, then part 5, so each is ready when the one
+before it is done.
 
 ---
 

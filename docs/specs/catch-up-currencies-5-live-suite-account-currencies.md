@@ -10,7 +10,7 @@ specs, run in this order:
 1. part 1, the app's reads and writes (done on 2026-10-30);
 2. part 2, the PDF upload and the two imports (done on 2026-10-30);
 3. part 3, the live tests' foundation (done on 2026-10-30);
-4. [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md);
+4. part 4, the live tests for the upload, bank lines and kinds (done on 2026-10-31);
 5. this one;
 6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
@@ -164,15 +164,17 @@ its `currencies` unchanged.
 8. **The last citations (builder).** Every citation left in tests/, scripts/ and runtime.md
    moved to the live contract, and runtime.md's paragraph on what the suite does saying what
    it proves on the account model, specs 3 and 4 included.
-   *Passes if:* the citation test names no file of tests/, scripts/ or runtime.md, and
-   runtime.md names no `/reconciliations`, `twin`, holder or `POST /people`.
+   *Passes if:* the citation test names no file of tests/contract/, scripts/ or runtime.md, and
+   runtime.md names no `/reconciliations`, `twin`, holder or `POST /people`. The unit tests'
+   holder-era citations go with the statement screens they test, in
+   [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)'s task 9.
 
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when this spec is done, with the tester's results.
 
 - **Range:** `e020782e3579d011` → `f82426fb0a099676`, shared by the seven specs (the versions
-  are listed in [spec 4](catch-up-currencies-4-live-suite-upload-lines-kinds.md)'s reply).
+  are listed in part 4's reply to the engine).
 - **The engine's "Done when" checks this spec reports on,** as the live suite proves them (the
   app's half of each is [spec 6](catch-up-currencies-6-main-views.md)'s): `GET /accounts` lists
   an account holding PEN and USD, a balance for each, and no route or field names a holder; an

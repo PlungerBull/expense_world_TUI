@@ -10,7 +10,7 @@ answered; paused until the catch-up to `f82426fb0a099676` lands.** The upload is
 to the account and its currencies is
 part 2 of the currencies catch-up (done on 2026-10-30),
 its live tests and the card's in
-[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 and the statement screen after a close in
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md). Every pick
 the owner made here stands. When done, the why moves to [decisions.md](../decisions.md) and this
@@ -199,12 +199,12 @@ Approved by the owner on 2026-10-27. The screens are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
 screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and the upload in
 the app, are built; their move to contract `f82426fb0a099676` is
-part 2 of the currencies catch-up (done on 2026-10-30), and in [catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md).
+part 2 of the currencies catch-up (done on 2026-10-30), and in part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31).
 Task 4, the statement screen after a close, is in
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md), with
 screen 4 redrawn for a statement with a balance per currency it covers. Task 6, the card's live
 tests, is in
-[catch-up-currencies-4-live-suite-upload-lines-kinds.md](catch-up-currencies-4-live-suite-upload-lines-kinds.md),
+part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 built on the engine's sample PDFs. The one task left runs after
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
