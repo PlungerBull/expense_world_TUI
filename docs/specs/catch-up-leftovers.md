@@ -4,7 +4,7 @@
 contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
 3 (done on 2026-10-30), 4 (done on 2026-10-31),
-[5](catch-up-currencies-5-live-suite-account-currencies.md), [6](catch-up-currencies-6-main-views.md),
+[5](catch-up-currencies-5-live-suite-account-currencies.md), 6 (done on 2026-10-31),
 [7](catch-up-currencies-7-statement-screen.md)), which rewrites the same files. Its tasks are drafted when the owner names it the current spec.** When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -23,7 +23,8 @@ footer, the "no batch" list's order and the card statement's drawing, with both 
 to [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md); the
 import door's account list, with its drawing `expense-world-import-door.html` ("not a BCP bank
 file", and a movement count on its account list), to
-[catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md). The ids read's bound
+part 6 of the currencies catch-up, the main views (done on 2026-10-31), which left the list to
+[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md). The ids read's bound
 needs no point: the engine itself states that bound as the list's largest page
 (contract: GET /v1/bank-lines, "At most 200 ids").
 

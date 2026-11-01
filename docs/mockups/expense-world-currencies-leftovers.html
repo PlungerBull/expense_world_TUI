@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Currencies · what part 6 turned up</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --mag:#c39bd3; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --mag:#7d3c98; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --mag:#7d3c98; --line:#d6d6d0;
+  }
+  :root[data-theme=dark]{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --mag:#c39bd3; --line:#26262d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick,.qs,.why{width:min(1700px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:100ch}
+  .head b,.blurb b,.cap b,.pick b,.why b{color:var(--text)}
+  .pane{margin-top:30px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:0 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code,.qs code,.lbl code,.why code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)} .cu{color:var(--mag)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,820px),1fr));gap:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+       font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .tag{color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-left:8px;
+       font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .why{margin-top:16px;color:var(--muted);font-size:13px;line-height:1.7}
+  .why .rec{margin:0 8px 0 0}
+  .qs{margin-top:56px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs b{color:var(--text)}
+  .pick{margin-top:56px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>Part 6 leftovers · four small picks</h1>
+  <p>These are the open questions of <b>“What part 6 of the currencies catch-up turned up”</b> (<code>docs/specs/catch-up-currencies-6-leftovers.md</code>): four places where the app as built differs from an earlier drawing, or was never drawn. Each pane is today's screen, changed only by the option it shows; the words are the app's own as it renders now.</p>
+  <p>Every drawing uses made-up accounts: <b>Banco Inventado</b> (PEN and USD), <b>Caja Chica</b> (PEN only) and <b>Visa Inventada</b> (PEN and USD). Today is Saturday 31 October 2026. The engine's sentence in question 4 is drawn as the engine words it.</p>
+  <p>Please pick <b>one letter per question</b>. The button at the top right switches between a light and a dark terminal.</p>
+</div>
+
+<div class="qs"><h2>Question 1 · The LOG bar's staged list and the currency</h2>The ledger has a <code>Cur</code> column of its own; the LOG bar's staged list writes the currency inside the account cell. Two lines are staged here: <code>Panadería Luna -8.40 $Caja Chica @COMIDA #casa</code> (soles, filled in by the app) and <code>Streamly -12.99 $Visa Inventada %USD @SUSCRIPCION #casa</code> (dollars).</div>
+<div class="pane"><div class="lbl">1 · The staged list <span>– Capture &amp; ledger ▸ Log, two lines staged</span></div><div class="opt"><div><div class="oh">1 A <span>· a Cur column of its own, the account named alone</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LOG</span>  <span class="a">▍</span>
+  <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+  <span class="d">$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">     date    title           amount  cur  account         category     tags </span>
+<span class="a">•</span> <span class="d">1</span>  <span class="d">31 Oct</span>  <span class="b">Panadería Luna</span>  <span class="n"> -8.40</span>  PEN  Caja Chica      COMIDA       <span class="a">#casa</span>
+<span class="a">•</span> <span class="d">2</span>  <span class="d">31 Oct</span>  <span class="b">Streamly      </span>  <span class="n">-12.99</span>  USD  Visa Inventada  SUSCRIPCION  <span class="a">#casa</span>
+
+  <span class="d">2 staged · </span><span class="n">-8.40</span><span class="d"> PEN · </span><span class="n">-12.99</span><span class="d"> USD</span>
+
+ <span class="a">esc</span> Back  <span class="a">^s</span> Save</pre></div></div><div class="cap">The ledger's own way: <code>Cur</code> beside the amount, the account cell naming the account alone. The currency is its own field everywhere else.</div></div><div><div class="oh">1 B <span>· the account cell reading “account · code”</span> <span class="tag">as built</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LOG</span>  <span class="a">▍</span>
+  <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+  <span class="d">$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">     date    title           amount  account               category     tags </span>
+<span class="a">•</span> <span class="d">1</span>  <span class="d">31 Oct</span>  <span class="b">Panadería Luna</span>  <span class="n"> -8.40</span>  Caja Chica · PEN      COMIDA       <span class="a">#casa</span>
+<span class="a">•</span> <span class="d">2</span>  <span class="d">31 Oct</span>  <span class="b">Streamly      </span>  <span class="n">-12.99</span>  Visa Inventada · USD  SUSCRIPCION  <span class="a">#casa</span>
+
+  <span class="d">2 staged · </span><span class="n">-8.40</span><span class="d"> PEN · </span><span class="n">-12.99</span><span class="d"> USD</span>
+
+ <span class="a">esc</span> Back  <span class="a">^s</span> Save</pre></div></div><div class="cap">As built: the code rides inside the account cell.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span> <b>1 A</b>: the ledger's own way, and the currency is its own field everywhere else.</div>
+<div class="qs"><h2>Question 2 · The Edit form when a change of account takes a currency</h2>Librería Nube was in dollars on Banco Inventado; its account is changed to Caja Chica, which holds only soles. The app takes <code>PEN</code> by itself and the bar goes on to part 1's amount. How does the CURRENCY line show the currency it took?</div>
+<div class="pane"><div class="lbl">2 · The CURRENCY line <span>– Transactions ▸ Edit, right after the account is changed</span></div><div class="opt"><div><div class="oh">2 A <span>· dim, as built</span> <span class="rec">recommended</span> <span class="tag">as built</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT  </span>-23<span class="a">▍</span>
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Caja Chica
+   <span class="d">currency  PEN  · Caja Chica holds only PEN · was USD</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -23.00    OCIO           —               cuadernos</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">The whole line dim, as every line the bar passes over is. It says why (<code>Caja Chica holds only PEN</code>) and what it was (<code>was USD</code>).</div></div><div><div class="oh">2 B <span>· the taken currency in magenta</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT  </span>-23<span class="a">▍</span>
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+   date      2026-10-29
+   title     Librería Nube
+   account   Caja Chica
+   <span class="d">currency  </span><span class="cu">PEN</span><span class="d">  · Caja Chica holds only PEN · was USD</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -23.00    OCIO           —               cuadernos</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><div class="cap">The taken <code>PEN</code> in the theme's magenta, the “changed currency” colour of the earlier drawing; the rest stays dim. It is then the only coloured spot on a line the bar skips.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span> <b>2 A</b>: B does not read clearly better. The sentence already says the currency changed, and dim is how every line the bar skips reads.</div>
+<div class="qs"><h2>Question 3 · The opening balances' amounts on an account holding two currencies</h2>Manage ▸ Accounts ▸ Edit lists each currency's opening balance in the summary under the bar. Today the amounts are plain; an earlier drawing coloured them by sign. Banco Inventado opens with -3,200.00 in soles and 40.00 in dollars; the bar is on <code>USD opening</code>.</div>
+<div class="pane"><div class="lbl">3 · The summary <span>– Manage ▸ Accounts ▸ Banco Inventado ▸ Edit</span></div><div class="opt"><div><div class="oh">3 A <span>· plain, as built</span> <span class="tag">as built</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Banco Inventado  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">USD OPENING</span>     40<span class="a">▍</span>                                                       <span class="d">credit</span>
+
+
+
+
+<span class="d">   type            </span>bank<span class="d">  read-only</span>
+   name            Banco Inventado
+<span class="d">   currencies      </span>PEN · USD<span class="d">  read-only</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="a">██ </span>blue
+   PEN opening     -3,200.00
+   PEN as of       2026-01-01
+   <span class="b">USD opening</span>     40.00
+   USD as of       2026-02-01
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><div class="cap">Both amounts in the text colour. The word on the bar's right (<code>credit</code> for the 40.00 being typed) is the only mark of side.</div></div><div><div class="oh">3 B <span>· coloured by sign</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Banco Inventado  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">USD OPENING</span>     40<span class="a">▍</span>                                                       <span class="d">credit</span>
+
+
+
+
+<span class="d">   type            </span>bank<span class="d">  read-only</span>
+   name            Banco Inventado
+<span class="d">   currencies      </span>PEN · USD<span class="d">  read-only</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="a">██ </span>blue
+   PEN opening     <span class="n">-3,200.00</span>
+   PEN as of       2026-01-01
+   <span class="b">USD opening</span>     <span class="p">40.00</span>
+   USD as of       2026-02-01
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><div class="cap">Negative in the error colour (<code>-3,200.00</code>), positive in the success colour (<code>40.00</code>).</div></div></div></div>
+<div class="why"><span class="rec">recommended</span> <b>3 B</b>: every other amount the app draws is coloured by sign (<code>amount_cell</code> under the <code>sign</code> rule: the ledger, the LOG bar's staged list and summary, account balances). Only reconciliation checkpoints are plain. An opening balance is a transaction's amount, as the ledger shows it.</div>
+<div class="qs"><h2>Question 4 · The head of a single refused row in a bulk move</h2>In the ledger three rows are selected (Panadería Luna, Taxi Rápido, Mercado Sol) and <code>m</code> moves them to USD. Caja Chica holds no dollars, so the engine refuses row 2, Panadería Luna, in its words; the other two move. What does the refusal's toast head read?</div>
+<div class="pane"><div class="lbl">4 · The toast after <code>m</code> <span>– Transactions, after the write; the receipt toast is above the refusal's</span></div><div class="opt"><div><div class="oh">4 A <span>· <code>Refused</code></span> <span class="rec">recommended</span> <span class="tag">as built</span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Title             Description     Amount  Cur  Date        Account          Cat          Hashtags
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">  Streamly                          -12.99  USD  2026-10-30  Visa Inventada   SUSCRIPCION  casa </span>
+    <span class="a">● Panadería Luna    pan y leche      -8.40  PEN  2026-10-30  Caja Chica       COMIDA       casa</span>
+      Librería Nube     cuadernos     <span class="n">  -23.00</span>  USD  2026-10-29  Banco Inventado  OCIO         —
+      Taxi Rápido       al centro     <span class="n">  -18.00</span>  USD  2026-10-28  Banco Inventado  TRANSPORTE   —
+      Mercado Sol       semana        <span class="n"> -142.60</span>  USD  2026-10-27  Visa Inventada   COMIDA       casa
+      Pago cliente      factura 031   <span class="p">  850.00</span>  USD  2026-10-26  Banco Inventado  INGRESOS     trabajo
+      Café Brújula                    <span class="n">  -11.50</span>  PEN  2026-10-25  Visa Inventada   COMIDA       —
+
+     <span class="d">no filter · 7 of 112 loaded · 1 selected</span>
+
+                                                          <span class="p">▌</span> 2 rows → USD
+                                                          
+                                                          <span class="n">▌</span> <span class="b">Refused</span>
+                                                          <span class="n">▌</span> <span class="n">currency_code: Must be a currency the account holds.</span>
+                                                          <span class="n">▌</span> row 2
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">m</span> Currency</pre></div></div><div class="cap">The shared rule: a single refused row heads its note <code>Refused</code>, as the LOG bar and every bulk write read one. The count is already in the receipt (<code>2 rows → USD</code>) and the note names the row (<code>row 2</code>).</div></div><div><div class="oh">4 B <span>· <code>1 of 3 refused</code></span></div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Title             Description     Amount  Cur  Date        Account          Cat          Hashtags
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">  Streamly                          -12.99  USD  2026-10-30  Visa Inventada   SUSCRIPCION  casa </span>
+    <span class="a">● Panadería Luna    pan y leche      -8.40  PEN  2026-10-30  Caja Chica       COMIDA       casa</span>
+      Librería Nube     cuadernos     <span class="n">  -23.00</span>  USD  2026-10-29  Banco Inventado  OCIO         —
+      Taxi Rápido       al centro     <span class="n">  -18.00</span>  USD  2026-10-28  Banco Inventado  TRANSPORTE   —
+      Mercado Sol       semana        <span class="n"> -142.60</span>  USD  2026-10-27  Visa Inventada   COMIDA       casa
+      Pago cliente      factura 031   <span class="p">  850.00</span>  USD  2026-10-26  Banco Inventado  INGRESOS     trabajo
+      Café Brújula                    <span class="n">  -11.50</span>  PEN  2026-10-25  Visa Inventada   COMIDA       —
+
+     <span class="d">no filter · 7 of 112 loaded · 1 selected</span>
+
+                                                          <span class="p">▌</span> 2 rows → USD
+                                                          
+                                                          <span class="n">▌</span> <span class="b">1 of 3 refused</span>
+                                                          <span class="n">▌</span> <span class="n">currency_code: Must be a currency the account holds.</span>
+                                                          <span class="n">▌</span> row 2
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">m</span> Currency</pre></div></div><div class="cap">The head carries the count, as it does when two or more rows are refused (<code>2 of 3 refused</code>). Here it repeats what 2 landed plus row 2 already say.</div></div></div></div>
+<div class="why"><span class="rec">recommended</span> <b>4 A</b>: the count is already in the receipt and the row is named, so a head that counts again adds nothing, and one head stays one word for a single refusal.</div>
+<div class="qs"><h2>The questions · one letter each</h2><ul style="margin:4px 0 0;padding-left:20px">
+  <li><b>1 · The LOG bar's staged list and the currency:</b> A (a <code>Cur</code> column) or B (“account · code”)</li>
+  <li><b>2 · The Edit form's currency taken by a change of account:</b> A (dim) or B (magenta)</li>
+  <li><b>3 · The opening balances' amounts on a two-currency account:</b> A (plain) or B (coloured by sign)</li>
+  <li><b>4 · The head of a single refused row in a bulk move:</b> A (<code>Refused</code>) or B (<code>1 of 3 refused</code>)</li>
+</ul></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

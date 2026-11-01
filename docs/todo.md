@@ -56,7 +56,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. the live tests for the upload, bank lines and kinds: done on 2026-10-31; its reply to the engine, with part 3's results, waits in [to-engine/](to-engine/) for you to hand over;
 5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): 8 tasks, no question;
-6. [the main views](specs/catch-up-currencies-6-main-views.md): approved on 2026-10-31; its first half, 6a the accounts, done on 2026-10-31; its second half, 6b, approved on 2026-10-31, runs next;
+6. the main views: done on 2026-10-31; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
@@ -71,16 +71,20 @@ New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-
 (2 questions, one with a mockup to draw), after part 6.
 
 New, from part 3: [what the live tests' foundation turned up](specs/catch-up-currencies-3-leftovers.md)
-(no question, approved on 2026-10-30), after part 6b.
+(no question, approved on 2026-10-30), after part 5.
 
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
+New, from part 6: [what the main views turned up](specs/catch-up-currencies-6-leftovers.md)
+(9 questions, the first with a mockup drawn: [expense-world-currencies-leftovers.html](mockups/expense-world-currencies-leftovers.html)),
+after part 5 and before part 7.
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 6b runs next, then part 5, so each is ready when the one
-before it is done.
+**Recommended:** approve the rest; part 5 runs next (no question), then part 3's leftovers, so
+each is ready when the one before it is done, while you answer part 6's leftovers.
 
 ---
 

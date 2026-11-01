@@ -1,9 +1,8 @@
 # A person's opening balance: the sheet import's live test
 
 A small thing the catch-up on a person's opening balance (contract `4ac20e42cf8566ee`) turned up.
-Its other point, the words of a person's `opening` line, and the owner's answers on them, live in
-[catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md), which redraws the
-account form.
+Its other point, the words of a person's `opening` line, was settled by the owner and built by
+part 6 of the currencies catch-up, the main views (done on 2026-10-31).
 
 **Status: approved by the owner on 2026-10-28.** Its tasks are drafted when the owner names it
 the current spec. It runs after

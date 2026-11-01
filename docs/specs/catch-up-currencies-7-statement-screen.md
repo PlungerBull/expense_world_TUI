@@ -14,14 +14,14 @@ The seven specs of this catch-up, run in this order:
 3. part 3, the live tests' foundation (done on 2026-10-30)
 4. part 4, the live tests for the upload, bank lines and kinds (done on 2026-10-31)
 5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md)
-6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md)
+6. part 6, the main views (done on 2026-10-31)
 7. this one
 
 **Status:** draft, written 2026-10-29 for the owner to approve; on 2026-10-30, at the owner's
 ask, it took over the Statements screens' reads and writes from
 part 2 of the currencies catch-up (done on 2026-10-30)
-(point 15, tasks 2 and 9). It runs after
-[catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md), last of the seven.
+(point 15, tasks 2 and 9). It runs last of the seven, after
+part 6 of the currencies catch-up, the main views (done on 2026-10-31).
 Its screens are drawn as mockups when it is named the current spec, every option
 its own pane: panes 2A, 3A, 4A, 6A, 7A, 9B, 10B and 11B of
 [expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html)
@@ -99,8 +99,7 @@ What the engine now holds, and today's screens do not show:
    (contract: POST /v1/statements/{statement_id}/complete, "Every currency adds up").
 7. **After a line joins or moves,** the screen reads the statement again, so a currency it gained,
    blank, shows to be filled. A line moved to its account's other currency stays in its open
-   statement (question 8 A), as the Edit form of
-   [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md) sends it.
+   statement (question 8 A), as the Edit form sends it.
 8. **The close's notes show,** each covered currency's under its balances as today, and each
    `not_covered` entry's as question 4 picks.
 9. **The flagged lines show whenever a statement has any** (question 6 A), open or completed,
@@ -371,3 +370,8 @@ part 7 of 7 of the reply to `f82426fb0a099676`, the last.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The New reconciliation form's account picker draws `<name>  ?`** against the engine's
+  accounts: `account_choices` in [reads.py](../../expense/reads.py) puts a `currency_code` beside
+  each name and the account carries none (found by part 6 on 2026-10-31). This spec's rewrite of
+  the Statements screens replaces the form; check its picker lists the account alone.

@@ -727,7 +727,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
 
 
 def test_has_transactions_on_one_currency_reads_in_the_engine_words_alone():
-    """Answer 4 A of catch-up-currencies-6-main-views.md: removing a currency
+    """Removing a currency shows the engine's words alone: removing a currency
     that holds a transaction is refused with the account delete's reason on the
     same key (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
     and archiving would put away every currency, so the archive line stays off

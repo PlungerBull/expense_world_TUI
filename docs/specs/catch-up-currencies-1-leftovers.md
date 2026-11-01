@@ -5,9 +5,9 @@ an account and a currency (done on 2026-10-30), turned up while it ran.
 
 **Status: draft, written 2026-10-30 for the owner to rewrite or approve, with two questions.**
 Its tasks are drafted when the owner approves it. It runs after
-[catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md), which redraws the
-LOG bar and the account forms it touches; if spec 6 settles question 1's words or question 2's
-CODE line on its own, that part leaves this spec. When done, the why moves to
+part 6 of the currencies catch-up, the main views (done on 2026-10-31), which redrew the
+LOG bar and the account forms it touches; whatever of question 1's words or question 2's CODE
+line that part settled leaves this spec when it is planned. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---

@@ -12,7 +12,7 @@ specs, run in this order:
 3. part 3, the live tests' foundation (done on 2026-10-30);
 4. part 4, the live tests for the upload, bank lines and kinds (done on 2026-10-31);
 5. this one;
-6. [catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md);
+6. part 6, the main views (done on 2026-10-31);
 7. [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 
 **Status: draft, written 2026-10-29 for the owner to approve. It runs after spec 4;** its tests
@@ -176,7 +176,7 @@ Written into [to-engine/](../to-engine/) when this spec is done, with the tester
 - **Range:** `e020782e3579d011` → `f82426fb0a099676`, shared by the seven specs (the versions
   are listed in part 4's reply to the engine).
 - **The engine's "Done when" checks this spec reports on,** as the live suite proves them (the
-  app's half of each is [spec 6](catch-up-currencies-6-main-views.md)'s): `GET /accounts` lists
+  app's half of each is part 6's, done on 2026-10-31): `GET /accounts` lists
   an account holding PEN and USD, a balance for each, and no route or field names a holder; an
   account in soles and dollars, and a person in soles and dollars, are each created in one
   write, a currency is added later and one with nothing booked is removed; archiving,

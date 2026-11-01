@@ -282,7 +282,8 @@ to set the category, move to an account, **replace** the hashtag set, or move to
 another currency (`m Currency`, after `h Hashtags` in the footer). The
 write is one `PUT /transactions/{id}` per row, in order, on one client. `b` to an account
 holding one currency sends `account_id` and that `currency_code`, the amount as it is, no
-conversion; to an account holding several it sends `account_id` alone, so each row keeps its own
+conversion (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists with the engine ask
+that retires them); to an account holding several it sends `account_id` alone, so each row keeps its own
 currency, and the engine refuses a row whose currency the account lacks
 (`CURRENCY_NOT_HELD`, on `account_id`: `The account holds no USD.`), named by number in its words
 while the other rows go (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction").
@@ -336,9 +337,9 @@ through, and it stays selected. A row in a draft statement keeps it: the write s
 own `statement_id` (`unassign_on_move` with `keep_on_currency_move`; contract: "Statements",
 "Assigning transactions"), so the receipt counts the rows the engine says moved and no row
 left its statement.
-**Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
+**Stepping past ACCOUNT, CURRENCY or CATEGORY keeps them** (Question 1 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the Edit
-form the ACCOUNT line, CURRENCY and each part's CATEGORY line open with the bar empty and the whole list
+form the ACCOUNT and CURRENCY lines and each part's CATEGORY line open with the bar empty and the whole list
 in its usual order, the highlight on the line's own account, the line's own currency or the part's own
 category, so `⏎` with nothing typed keeps it and moves on: `⏎` on every line (a one-currency CURRENCY
 line is skipped) and then `ctrl+s` send nothing and say `No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
@@ -407,7 +408,7 @@ The Edit form reads all of it from the line's `edit_limits` ("What is read-only 
 dimmed under a dim `category  read-only` and `hashtags  read-only`, each with the engine's
 sentence for it, every field move (`tab`,
 `shift+tab` and the arrows) skips them, the save never sends them, and there is no `^n` or
-`^x`; date, title, amount and note save as on any line. `b`, `c` and `h` send such a row like any other, and the engine
+`^x`; date, title, amount and note save as on any line. `b`, `c`, `h` and `m` send such a row like any other, and the engine
 refuses it: its "Refused" note is the engine's words for the field, the row, then the line saying what to do
 ("When the engine says no" below), the other rows still go, and the refused row stays
 selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
@@ -421,14 +422,15 @@ account, and says nothing more on a part's lines; screen 1 B in
 [expense-world-edit-part.html](mockups/expense-world-edit-part.html). On a line of one part
 the hints are as on any form.
 The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected
-parts, and `b` on one part moves the whole transaction, every part leaving its reconciliation
-with it, in the engine's one write
+parts, `b` on one part moves the whole transaction, every part leaving its reconciliation
+with it, and `m` on one part moves every part to the currency, each keeping its reconciliation,
+in the engine's one write
 (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
 The app sends one `PUT` per selected row either way and fans nothing out itself. With every
 part of a split transaction selected, each part gets its own `PUT`; a later one finds the line
 already moved and the engine accepts it as it is, since the `PUT` carries no `version`. `b`
-counts the parts the engine says moved, so one part of a 60 + 40 transaction in a draft
-reconciliation reads `2 rows → … · 2 left their reconciliation`, and both parts selected still
+and `m` count the parts the engine says moved, so `b` on one part of a 60 + 40 transaction in a
+draft reconciliation reads `2 rows → … · 2 left their reconciliation`, and both parts selected still
 read `2 rows`; `c` and `h` count the rows they wrote.
 **`⏎` and `s` open the Edit form** ([edit_form.py](../expense/tui/screens/edit_form.py),
 [expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html),
@@ -470,8 +472,8 @@ line's own, and sends both keys; to one holding several it empties the currency
 first, nothing chosen until `⏎` on one. `ctrl+s` with none picked sends nothing, stops the bar on
 CURRENCY and says `! currency: pick one — Visa Inventada holds PEN and USD.` and `Nothing was
 saved.` under the parts. The app fills in an account's only currency itself
-(`_take_only_currency`, one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists, to
-delete when the engine takes it; an ask waits in [to-engine/](to-engine/)). A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
+(`_take_only_currency`, one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists
+with the engine ask that retires them). A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
 `currency_code` shows in its words alone under the parts. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
@@ -484,7 +486,7 @@ parts' amounts summed against the engine's total. It never stops a save.
 **The bar walks every line**: the shared fields, then each part's `PART 1 AMOUNT`,
 `PART 1 CATEGORY`, `PART 1 HASHTAGS` and `PART 1 NOTE`, then part 2's, one line per `⏎`, `⇥`
 or arrow, as on every bar form ("The bar forms' keys", §4). AMOUNT and NOTE open on what the
-part holds; ACCOUNT and a part's CATEGORY and HASHTAGS open with the bar empty and the list
+part holds; ACCOUNT, CURRENCY and a part's CATEGORY and HASHTAGS open with the bar empty and the list
 under it (below). `⏎` on HASHTAGS with a name typed adds that hashtag and stays for another;
 with nothing typed it moves on. A part's NOTE hint reads `optional · enter to go on` where `⏎`
 goes on to the next part, and `optional · enter saves · (ctrl+s anytime)` on the last line. An
@@ -640,7 +642,7 @@ in `DELETE /transactions/{id}`.
 [expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html);
 `BankLineEditFormScreen` in [edit_form.py](../expense/tui/screens/edit_form.py)). It is the
 ledger's Edit form ("`⏎` and `s` open the Edit form" above) with OPERATION among the shared
-fields, `date › title › operation › account`, then every part, and its crumb reads
+fields, `date › title › operation › account › currency`, then every part, and its crumb reads
 `Capture & ledger ▸ Reconciliations ▸ Edit`. Over the bar, the line as the list shows it:
 its title, then its signed `net_cents` and the line's own `currency_code`
 (`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, its
@@ -888,9 +890,10 @@ browse, the new-reconciliation form and the bank import's "Which account is this
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account field and the
-ledger's `b` pick offer no archived account (`QuickAddRefs.picks` in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
+ledger's `b` pick offer no archived account (`QuickAddRefs.quickadd_accounts` in [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
-its name and code ("Old bank · PEN"), read-only on its Edit form (below).
+its name in the ledger's Account column and on its Edit form's ACCOUNT line, and its code in
+Cur and on CURRENCY, read-only on its Edit form (below).
 
 **On an archived account's row the ledger offers no `d`** (the row and `d` as screen 1 A of
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) draws them;
@@ -901,7 +904,7 @@ does nothing and sends nothing; on the next row of an active account or a person
 the footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where
 only what the line's `edit_limits` leaves open changes ("On an archived account's line the Edit
 form changes the categorisation alone" below). The row is drawn as any other, with nothing on
-it saying why, and `s`, `c`, `b`, `h`, `⏎` and every other key stay; the engine still judges
+it saying why, and `s`, `c`, `b`, `h`, `m`, `⏎` and every other key stay; the engine still judges
 each write they send. The ledger learns which accounts are archived from the same
 `GET /accounts` that gives it the names, one read per load (`reads.load_account_index`), so an
 account unarchived on Manage ▸ Accounts gets its `d` back at the ledger's next read (`r`, or
@@ -1120,7 +1123,7 @@ like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field; a LOG bar row the engine names reads
 `key: …` for each refused field, without the code and message, and so does a ledger row
-refused by `b`, `c` or `h`, "Saved" below), and for the
+refused by `b`, `c`, `h` or `m`, "Saved" below), and for the
 reasons below a blank line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
@@ -1136,7 +1139,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, or on a statement its holder, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
@@ -1145,8 +1148,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
-| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or, for a statement PDF, `Nothing was written.` |
-| `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
+| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
+| `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no batch" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; `c` and `x` on an account's currencies | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
@@ -1156,7 +1159,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
 | `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
-| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
+| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` or `m` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
 | `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
@@ -1850,8 +1853,8 @@ given as `(id, name, (code, …))` rows: a whole or partial code picks one by th
 every name, and a bare `%` names none yet and lists them all. A well-formed code the account does
 not hold is upper-cased and sent, and the engine refuses it (contract: POST /v1/transactions,
 "`account_id` and `currency_code`"). A line with no `%` takes the account's currency when it
-holds exactly one (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists, until the engine ask "An
-account's only currency is taken when a write names none" lands). When the account holds several,
+holds exactly one (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists with the
+engine ask that retires them). When the account holds several,
 the parse lists `currency` in `missing`, with `account_currencies` for the list, so routing
 refuses the line and never stages it on a guessed currency: under the bar
 `! not staged — Visa Inventada holds PEN and USD: pick one` (`route.py`), the hint reads `not

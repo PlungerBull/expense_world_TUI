@@ -4,7 +4,7 @@ Small things the statement screens' catch-up (contract `e020782e3579d011`) turne
 what it found belongs to other specs: the dropped routes' words and citations, to
 part 1, the app's reads and writes (done on 2026-10-30) and
 todo.md's backlog item for them; `t` on an account, to
-[catch-up-currencies-6-main-views.md](catch-up-currencies-6-main-views.md); an account with no
+part 6 of the currencies catch-up, the main views (done on 2026-10-31); an account with no
 statement code, and the New statement form, to
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md); the
 edit-part mockup's refusal, to [catch-up-leftovers.md](catch-up-leftovers.md).

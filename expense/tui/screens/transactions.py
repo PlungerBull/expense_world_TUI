@@ -44,7 +44,7 @@ deletes as any row does. `s` and `d` never act on a selection: while rows are
 selected they are off and out of the footer. `d` is off too, and out of the
 footer, while the cursor is on a row of an archived account, whose transactions
 cannot be deleted (contract: POST /v1/accounts/{account_id}/archive); the row is
-drawn as any other, and `s`, `c`, `b`, `h` and `⏎` stay, `s` opening the Edit
+drawn as any other, and `s`, `c`, `b`, `h`, `m` and `⏎` stay, `s` opening the Edit
 form, which reads what is read-only from the line's `edit_limits`. The archived
 ids come with the account names, from the one accounts read of each load
 (`reads.load_account_index`).

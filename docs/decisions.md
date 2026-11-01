@@ -198,7 +198,7 @@ Decisions whose why lives elsewhere:
 
 **Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; both post to `POST /accounts`, `person` adding `is_person: true`, so one route makes either kind and the client keeps no second create path; TYPE is read-only on the edit form.
 
-**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in every currency the person holds, so a person folds whole or not at all (question 2 of [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)). `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
+**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in every currency the person holds, so a person folds whole or not at all (owner, 2026-10-31). `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
 **Rejected.** *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
 
@@ -1066,28 +1066,55 @@ hides the same split, and pairing, unpairing and person holders stay for the own
 name, colour, kind and move keeps the duplication under new names. *One account mixing
 currencies in one balance* — a total across currencies has no meaning.
 
-## Until the screens are redrawn, a currency is one row named "<account> · <code>" (2026-10-29, owner)
+## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31, owner)
 
-**Decision.** The lists and pickers not yet redrawn show one row per account and currency,
-labelled with the account's name and the code ("VISA Infinite Sapphire · USD",
-`formatting.currency_label`): the LOG bar's staged list. A row carries the account's id and
-the currency's code, and its write sends both. The screens
-redrawn by [specs/catch-up-currencies-6-main-views.md](specs/catch-up-currencies-6-main-views.md)
-show the account once and the currency as a field of its own: Manage ▸ Accounts one row per
-account with a column per currency, its `d` naming the account and each currency with its
-balance (`Prueba · bank · PEN 0.00 · USD 0.00`), Home the account's row with a line per currency, the LOG
-bar's `$` picks and `%` currency, the Edit form's ACCOUNT and CURRENCY lines, the ledger's
-Account and Cur columns, its `b` naming the account alone and its `m` the currency alone.
+**Decision.**
+- **An account shows once.** Manage ▸ Accounts has one row per account with a column per
+  currency. Home has the account's row and a line per currency. Every account picker lists the
+  account alone. `d` names the account and each currency with its balance
+  (`Prueba · bank · PEN 0.00 · USD 0.00`), since a delete removes them all.
+- **The currency is picked as its own field,** like any other field:
+  - the LOG bar's `%` token;
+  - the Edit form's CURRENCY line;
+  - the ledger's `Cur` column and its filter (Home's `⏎` on a currency line);
+  - the ledger's `m`, which moves selected rows to another currency.
+- **One currency shows, several are picked.**
+  - **Typing or editing:** an account holding one currency asks for none and its currency is
+    just shown, dim on the Edit form. An account holding several makes the person pick: a LOG
+    bar line with none picked is not staged, and an account change on the Edit form empties the
+    currency and stops `ctrl+s` until one is picked.
+  - **Moving rows with `b`:** to an account holding one currency, every row takes it, the amount
+    as it is (no conversion). To an account holding several, each row keeps its own.
+- **A currency move keeps a draft statement; an account move takes the row out.** A currency
+  move sends the statement's own id, and an account move sends `statement_id: null`, as the
+  engine leaves the assignment to the client (contract: "Statements", "Assigning
+  transactions").
+- **The app fills an account's only currency itself** in three places, listed once in
+  `currencies.FILLS_AN_ONLY_CURRENCY` and guarded by a test, until the engine ask "An account's
+  only currency is taken when a write names none" lands. `currencies.only_currency` is the
+  display rule and stays.
+- **The LOG bar's staged list** still labels a row "<account> · <code>"
+  (`formatting.currency_label`). Whether it gains a `Cur` column is a question in
+  [specs/catch-up-currencies-6-leftovers.md](specs/catch-up-currencies-6-leftovers.md).
 
-**Why.** It moves the app onto the engine's model with the screens still waiting for their
-redraw as close to the ones the owner knows as the model allows, so the app works before each
-is redrawn with the currency as a field of its own. On those screens a row per currency is how
-they already read, and the label is the name the owner gave a currency. `d` lists every
-currency because a delete removes them all.
+**Why.** In the engine an account holds its currencies and a transaction names both, so the
+screens show the account the owner thinks of, once, and the currency where it is chosen. Asking
+for a currency an account cannot have is a question with one answer. Moving rows to a
+one-currency account cannot keep their currency, so they take its, and the owner's rule is that
+an amount moves as it is. A row moved within its account still belongs to the same statement;
+one moved to another account does not.
 
-**Rejected.** *Redrawing every screen at once* — each redraw has its own mockups and questions,
-so the screens move one spec task at a time. *`d` naming one currency with a line saying the
-others go too* — it hides the balances the delete removes.
+**Rejected.**
+- *One row per account and currency everywhere* ("<account> · <code>"): it splits the account the
+  owner thinks of into pieces.
+- *The currency typed after the amount* (`-45.50 USD`): a field of its own is picked like every
+  other field, and the legend names it.
+- *A second pick for `b` asking every row's currency:* to a two-currency account each row's own
+  currency is already held, and `m` is the currency's own key.
+- *Converting the amount on a currency move:* the app holds no rates, and the owner moves an
+  amount as it is.
+- *`d` naming one currency with a line saying the others go too:* it hides the balances the
+  delete removes.
 
 ## The PDF upload and the two imports send the account, and the statement screens wait for their redraw (2026-10-30, owner)
 

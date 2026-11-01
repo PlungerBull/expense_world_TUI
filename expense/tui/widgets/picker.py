@@ -2,14 +2,15 @@
 
 The LOG bar, the bar-cycle edit form and the ledger's bulk pick offer different
 things from different sources — the bar picks a span out of a parsed line, the
-form picks a field's entity, the bulk pick a category, account or hashtags for
-the rows it changes — but under the input they draw the same widget: a scrolling window of
-at most `PICKER_WINDOW` names, the cursor kept near the middle, and a dim
-`↑ n more` / `↓ n more` when the pool runs past the edge.
+form picks a field's entity, the bulk pick a category, account, currency or
+hashtags for the rows it changes — but under the input they draw the same
+widget: a scrolling window of at most `PICKER_WINDOW` names, the cursor kept near
+the middle, and a dim `↑ n more` / `↓ n more` when the pool runs past the edge.
 
 All draw through this one copy of that arithmetic: the window is a named
 constant and the cursor is `CURSOR_STYLE`. The label is the only thing that
-genuinely differs — the bar appends a currency, the form whatever third field
+genuinely differs — the bar's `$` list names an account alone (the currency is its own
+`%` token), the form whatever third field
 the entity tuple carries, the bulk pick the name alone — so the caller formats
 the labels and this draws them.
 
