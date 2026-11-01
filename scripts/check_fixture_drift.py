@@ -181,6 +181,9 @@ KNOWN_LOCAL = frozenset(
         # over it), compared as `if how == "left":`, which reads like a dict key
         "covered",
         "left",
+        # the QuickAddRefs field holding the account pool (expense/reads.py), set by
+        # keyword in the fixtures that build refs; a client dataclass, not an engine field
+        "picks",
     }
 )
 

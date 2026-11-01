@@ -380,16 +380,8 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-Its tasks were all done on 2026-10-31. Its acceptance check on 2026-10-31 found two things,
-the task below; everything else passed.
-
-16. **What 6b's acceptance check found** (point 14). [test_bank_lines.py](../../tests/contract/test_bank_lines.py),
-    [test_tui_bulk_edit.py](../../tests/unit/test_tui_bulk_edit.py) and `KNOWN_LOCAL` in
-    [check_fixture_drift.py](../../scripts/check_fixture_drift.py). *Passes if:*
-    `test_the_no_batch_edit_form_writes_the_line_in_one_write_and_moves_it` sets the Edit form's
-    account line as an id alone and asserts the body the form sends now, passing live against the
-    practice engine; the drift check flags neither `already` nor `picks` in
-    test_tui_bulk_edit.py.
+Its tasks were all done on 2026-10-31. Its first acceptance check that day found two things, a
+live Edit form test and two drift flags, both fixed; it runs again.
 
 ## Reply to the engine
 

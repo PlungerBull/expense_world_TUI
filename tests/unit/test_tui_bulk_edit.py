@@ -212,12 +212,12 @@ def test_bulk_writes_keep_a_rows_statement_on_a_currency_move_alone():
     by_id = {
         "in-draft": {"currency_code": "PEN", "statement_id": "r1"},
         "in-none": {"currency_code": "PEN", "statement_id": None},
-        "already": {"currency_code": "USD", "statement_id": "r1"},
+        "in-usd": {"currency_code": "USD", "statement_id": "r1"},
     }
     assert bulk_writes(list(by_id), pick, by_id, keep_on_currency_move=True) == [
         ("in-draft", {**pick, "statement_id": "r1"}),
         ("in-none", {**pick, "statement_id": None}),
-        ("already", pick),
+        ("in-usd", pick),
     ]
 
 

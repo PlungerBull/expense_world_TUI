@@ -1337,7 +1337,9 @@ def test_the_no_batch_edit_form_writes_the_line_in_one_write_and_moves_it(client
     assert save(line_id, operation=None) == {"operation_code": None}
     assert fetch_bank_line(target, line_id)["operation_code"] is None
 
-    sent = save(line_id, account=(other, "PEN"))
+    # `currency` stands in for the form's fill of `other`'s only currency (it holds PEN alone);
+    # it is not sent, because the line is already in PEN
+    sent = save(line_id, account=other, currency="PEN")
     assert sent == {"account_id": other, "statement_id": None}
     moved = fetch_bank_line(target, line_id)
     assert {(p["account_id"], p["currency_code"]) for p in moved["parts"]} == {(other, "PEN")}
