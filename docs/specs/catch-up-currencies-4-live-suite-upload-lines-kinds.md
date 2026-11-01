@@ -89,7 +89,11 @@ Drafted 2026-10-29. Each needs the practice engine, which the orchestrator start
 task and stops after it. Each builds its records through spec 3's `Scratch` and fixes the
 `(contract: …)` citations of the files it touches.
 
-Every task is done; the spec's acceptance check comes next.
+Every task is done. The acceptance check passed on 2026-10-31 against the practice engine:
+contract version unmoved; the live suite 256 passed, the one failure the repo-wide citation test,
+on citations outside this spec's files that parts 5 and 7 rewrite; the upload tested on the
+three published samples and drawn papers, no real statement in the repo; nothing left on either
+practice user; the unit suite 3542 passed. The doc sweep comes next.
 
 ## Reply to the engine
 
