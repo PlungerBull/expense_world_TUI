@@ -316,10 +316,10 @@ empty bar drops the last pick, and `⏎` on the empty bar applies; with nothing 
 The screen writes nothing: the ledger sends its `PUT`s with the pick, as above.
 **Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the Edit
-form the ACCOUNT line and each part's CATEGORY line open with the bar empty and the whole list
-in its usual order, the highlight on the line's own account or the part's own category, so `⏎`
-with nothing typed keeps it and moves on: `⏎` on every line and then `ctrl+s` send nothing and
-say `No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
+form the ACCOUNT line, CURRENCY and each part's CATEGORY line open with the bar empty and the whole list
+in its usual order, the highlight on the line's own account, the line's own currency or the part's own
+category, so `⏎` with nothing typed keeps it and moves on: `⏎` on every line (a one-currency CURRENCY
+line is skipped) and then `ctrl+s` send nothing and say `No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
 another, and a bar emptied again puts the highlight back on the line's or part's own.
 CATEGORY's list is the one the ledger's `c` offers (`pickable_categories` in
 [reads.py](../expense/reads.py)): `@Pendiente` is in it, where the engine lists it, so on a
@@ -343,7 +343,8 @@ a row in a draft reconciliation unless the write also says what happens to the a
 (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"), so `b` adds
 `statement_id: null` to each row whose account or currency changes, and only to those: a row
 already on the picked account and currency keeps its reconciliation. The Edit form adds
-`statement_id: null` beside its parts the same way when the line's account or currency changes
+`statement_id: null` beside its parts the same way when the line's account changes, and a move of
+its currency alone sends the line's own statement instead
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
@@ -425,15 +426,31 @@ total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}, "Respo
 Each part comes as a magnitude and its `transaction_type`, signed by `signed_cents` in
 [formatting.py](../expense/formatting.py). Until both reads are in the form takes nothing
 typed; a failed read says why in a toast (`format_error`) and the form saves nothing.
-**On top, the line's shared fields**: `date`, `title` and `account`, as the summary of any bar
-form. ACCOUNT picks one account and one currency it holds, the list one pick per account and
-currency (`QuickAddRefs.picks`), each labelled "<account> · <code>" (`currency_label`), and
-opens on the line's own `account_id` and `currency_code`. A save sends only the key that moved:
-`account_id` alone for another account in the same currency, `currency_code` alone for the same
-account's other currency, both for another account's other currency, neither for the pick the
-line already has (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); a move of either also
-sends `statement_id: null`. A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
-`currency_code` shows in its words alone. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
+**On top, the line's shared fields**: `date`, `title`, `account` and `currency`, as the summary of
+any bar form. ACCOUNT picks one account,
+its name alone, the list one row per account (`QuickAddRefs.quickadd_accounts`); CURRENCY, the
+line right after it, picks one of the currencies that account holds, read from the same rows
+(`EditFormScreen._codes`), its hint `pick a currency <account> holds · ↑↓ highlight · enter
+select`. Each opens on the line's own `account_id` and `currency_code`. A save sends only the
+key that moved: `account_id` alone for another account in the same currency, `currency_code`
+alone for the same account's other currency, both for another account's other currency, neither
+for what the line already has (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); a move of
+the account also sends `statement_id: null`, while a move of the currency alone sends the
+statement the line is in, so a line in a draft statement stays in it
+(contract: "Statements", "Assigning transactions"). Where
+`edit_limits` names `currency_code` (it names it exactly when it names `account_id`) the line
+reads `read-only` with the engine's sentence, as the account does. **One currency shows, several
+are picked:** on an account holding one currency the line is shown dim with why,
+`currency  PEN  · Caja Chica holds only PEN`, and the bar skips it. A change of account to one
+holding one currency takes that currency, the line adding `· was USD` when it differs from the
+line's own, and sends both keys; to one holding several it empties the currency
+(`currency  — pick one`) and `⏎` on ACCOUNT steps the bar to CURRENCY, whose list opens on the
+first, nothing chosen until `⏎` on one. `ctrl+s` with none picked sends nothing, stops the bar on
+CURRENCY and says `! currency: pick one — Visa Inventada holds PEN and USD.` and `Nothing was
+saved.` under the parts. The app fills in an account's only currency itself
+(`_take_only_currency`, the place to delete when the engine takes it; an ask waits in
+[to-engine/](to-engine/)). A `CURRENCY_NOT_HELD` the engine keys on `account_id` or
+`currency_code` shows in its words alone under the parts. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
 (no category is `@Pendiente`, the pending hashtag alone is no hashtag); no note reads blank.
@@ -499,8 +516,8 @@ the set it has
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
 A part added here goes under a fresh id with what it holds, its hashtags through
 `hashtags_to_send` with `pending_alone=False`, so a part with only the pending hashtag sends
-none; a part dropped with `^x` is left out, so the engine deletes it. An account or currency
-changed also sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
+none; a part dropped with `^x` is left out, so the engine deletes it. An account changed also
+sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
 line field changed, the same parts and each kept part holding only its id and amount, the form
 says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
 `Saved. It left its reconciliation.` when the answer flags a part as leaving, closes, and the

@@ -56,13 +56,18 @@ on a retry), its body built by
 - the line fields the owner changed, and only those, so a read-only one is
   never sent: `date`, `title`, `account_id` and `currency_code`, and on the
   "no batch" form `operation_code`, whose `null` clears it. The ACCOUNT line
-  picks one account and currency (`currency_picks`, labelled "<account> · <code>"),
-  starting on the line's own, and sends only the key that changed: the account
-  alone for the same currency on another account, the currency alone for
-  another currency of the same account, both for another account's other
-  currency, neither for the pick the line already has. A move of either also
-  sends `statement_id: null`, so it takes the line out of its statement
-  (`unassign_on_move`);
+  picks one account (one row each), the CURRENCY line after it one of the
+  currencies that account holds (`_codes`); each starts on the line's own, and
+  only the key that changed is sent: the account alone for the same currency on
+  another account, the currency alone for another currency of the same account,
+  both for another account's other currency, neither for what the line already
+  has. A move of the account also sends `statement_id: null`, so it takes the line
+  out of its statement; a move of the currency alone sends the statement the line is
+  in, so it stays there (`unassign_on_move`)
+  (contract: "Statements", "Assigning transactions"). CURRENCY is dim, with why, and the
+  bar skips it while the account holds one currency; a change of account to one
+  holding one currency takes it (`_take_only_currency`), to one holding several
+  empties it, and `ctrl+s` with none picked stops on the line, sending nothing;
 - `parts`, the line's complete set: each part read from the line under its own
   id, with its current signed amount always and its category, note and
   hashtags only when changed (`kept_part`), a part added under a fresh id
@@ -112,6 +117,7 @@ from expense.dates import is_readable_date, to_canonical_aware
 from expense.errors import format_error
 from expense.formatting import (
     bank_line_columns,
+    codes_and,
     resolve_name,
     signed_cents,
     whole_number,
@@ -126,6 +132,7 @@ from expense.tui.widgets.cells import amount_text
 from expense.tui.widgets.parts_table import (
     ENGINE_FIELDS,
     FIELDS,
+    NOTHING_SAVED,
     Part,
     count_line,
     flagged_parts,
@@ -139,7 +146,7 @@ from expense.tui.widgets.parts_table import (
     refusal_lines,
 )
 from expense.tui.widgets.picker import matching, suggestion_list
-from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.refusal import hanging, toast
 
 _LABELS = {
     "date": "DATE",
@@ -147,6 +154,7 @@ _LABELS = {
     "amount": "AMOUNT",
     "operation": "OPERATION",
     "account": "ACCOUNT",
+    "currency": "CURRENCY",
     "category": "CATEGORY",
     "hashtags": "HASHTAGS",
     "note": "NOTE",
@@ -169,6 +177,8 @@ TITLE_SAVES = "free text · enter to save"
 #: The note when DATE holds what the save's reader cannot read; the words the
 #: app's other dates use ("Date Start: use YYYY-MM-DD.", "As of: use YYYY-MM-DD.").
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
+#: The CURRENCY line's value while an account holding several has none picked.
+NONE_PICKED = "— pick one"
 # The fields every part of a line shares, and what the hint adds on them while
 # the line has two parts or more.
 _EVERY_PART = {"date", "title", "account"}
@@ -181,9 +191,9 @@ _ENGINE_FIELD = {
     "title": "title",
     "operation": "operation_code",
     "account": "account_id",
+    "currency": "currency_code",
 }
 _FORM_KEY = {engine: key for key, engine in _ENGINE_FIELD.items()}
-_FORM_KEY["currency_code"] = "account"  # a locked currency locks the whole ACCOUNT line
 # Each part field's attribute on `Part`.
 _PART_ATTR = {
     "amount": "amount_cents",
@@ -204,8 +214,8 @@ def split_key(key: str) -> tuple[int, str] | None:
     return (int(head), field) if field and head.isdigit() else None
 
 
-def unassign_on_move(payload: dict, record: dict) -> None:
-    """Make an account move take the row out of its statement.
+def unassign_on_move(payload: dict, record: dict, *, keep_on_currency_move: bool = False) -> None:
+    """Make an account or currency move take the row out of its statement.
 
     A write that changes `account_id` or `currency_code` on a row assigned to a
     draft statement must say what happens to the assignment, or the engine
@@ -215,15 +225,23 @@ def unassign_on_move(payload: dict, record: dict) -> None:
     `statement_id: None` — the move unassigns. A key equal to the record's is
     not a move and gains nothing, so the row keeps its statement.
 
+    With `keep_on_currency_move`, a move of the currency alone sends the record's own
+    `statement_id` instead, so the row stays in its statement: the statement is the
+    account's, and the account is the same.
+
     Whether a part did leave its statement is the engine's answer to say
     (`moved_parts`). Mutates `payload`; shared by the Edit form, whose record is
-    the bank line, and the ledger's bulk `b`, whose record is a transaction.
+    the bank line (with the `statement_id` of its parts), and the ledger's bulk
+    `b`, whose record is a transaction.
     """
-    if any(
-        key in payload and payload[key] != record.get(key)
+    moved = [
+        key
         for key in ("account_id", "currency_code")
-    ):
-        payload["statement_id"] = None
+        if key in payload and payload[key] != record.get(key)
+    ]
+    if moved:
+        stays = keep_on_currency_move and moved == ["currency_code"]
+        payload["statement_id"] = record.get("statement_id") if stays else None
 
 
 def moved_parts(answers: list[dict]) -> tuple[int, int]:
@@ -295,6 +313,8 @@ class EditFormScreen(FormScreen):
         super().__init__()
         self._record = record
         self._picks: list = []
+        # each account's currencies, in the order the engine lists them
+        self._codes: dict[str, tuple[str, ...]] = {}
         self._categories: list = []
         self._hashtags: list = []
         self._acc_names: dict = {}
@@ -310,13 +330,14 @@ class EditFormScreen(FormScreen):
         self._original: dict = {}
         self._refusal: Exception | None = None  # the engine's, until something changes
         self._left_statement = False  # the save's answer flags a part as leaving
+        self._pick_note: str | None = None  # a save stopped on the CURRENCY line with none picked
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
 
     # ---- the line's own fields -------------------------------------------
     def _line_keys(self) -> list[str]:
-        return ["date", "title", "account"]
+        return ["date", "title", "account", "currency"]
 
     def _prefill(self, rec: dict) -> None:
         self._values = {}
@@ -327,9 +348,10 @@ class EditFormScreen(FormScreen):
         if rec.get("title"):
             self._values["title"] = self._display["title"] = rec["title"]
         if rec.get("account_id"):
-            # the pick: an account and one currency it holds
-            self._values["account"] = (rec["account_id"], rec.get("currency_code"))
+            self._values["account"] = rec["account_id"]
             self._display["account"] = rec["account_id"][:8]  # resolved once entities load
+        if rec.get("currency_code"):
+            self._values["currency"] = self._display["currency"] = rec["currency_code"]
         if "operation" in self._line_keys() and rec.get("operation_code"):
             self._values["operation"] = self._display["operation"] = rec["operation_code"]
         # deep: the baseline never shares a value with `_values`
@@ -348,16 +370,15 @@ class EditFormScreen(FormScreen):
 
     def _take_refs(self, refs: QuickAddRefs) -> None:
         self._refs = refs
-        self._picks = [((p.account_id, p.currency_code), p.label) for p in refs.picks]
+        accounts = refs.quickadd_accounts
+        self._picks = [(account_id, name) for account_id, name, _codes in accounts]
+        self._codes = {account_id: codes for account_id, _name, codes in accounts}
         self._categories = refs.pickable_categories
         self._hashtags = refs.hashtags
         self._acc_names = refs.account_names
         self._pending_tag = refs.pending_hashtag_id
         if "account" in self._values:
-            account_id, code = self._values["account"]
-            self._display["account"] = reads.pick_label(refs, account_id, code) or resolve_name(
-                account_id, self._acc_names
-            )
+            self._display["account"] = resolve_name(self._values["account"], self._acc_names)
 
     @property
     def _ready(self) -> bool:
@@ -401,8 +422,9 @@ class EditFormScreen(FormScreen):
         return out
 
     def _relock(self) -> None:
-        """The read-only lines, from the line's `edit_limits` alone, each line
-        field's with the engine's sentence for it."""
+        """The read-only lines: each line field the line's `edit_limits` names, with the
+        engine's sentence for it, each part field it names, and CURRENCY when the
+        account holds one currency (dim, with its own reason, no sentence)."""
         keys = set(self._line_keys())
         named = self._limits.get("locked_fields") or {}
         self._line_reasons = {
@@ -411,10 +433,38 @@ class EditFormScreen(FormScreen):
             if _FORM_KEY.get(field) in keys
         }
         locked = set(self._line_reasons)
+        if self._only_currency():
+            locked.add("currency")
         for index, fields in self._part_locks().items():
             locked |= {part_key(index, field) for field in fields}
             self._parts[index] = self._as_read(self._parts[index], fields)
         self._locked = locked
+
+    def _held_codes(self) -> tuple[str, ...]:
+        """The currencies the line's account holds; none when the account is not in the
+        pool (an archived one) or the reference lists are not in yet."""
+        return self._codes.get(self._values.get("account"), ())
+
+    def _only_currency(self) -> str | None:
+        """The one currency the line's account holds, when it holds exactly one: the
+        CURRENCY line then shows it dim and the bar skips it."""
+        codes = self._held_codes()
+        return codes[0] if len(codes) == 1 else None
+
+    def _dim_shown(self, key: str) -> bool:
+        return key == "currency" and self._values.get("currency") is None
+
+    def _locked_word(self, key: str) -> str:
+        """`read-only` for what the engine locks; on CURRENCY of an account holding one
+        currency, why it is skipped, and what the line held before a change of account."""
+        if key != "currency" or key in self._line_reasons:
+            return super()._locked_word(key)
+        name = self._display.get("account", "")
+        word = f"· {name} holds only {self._only_currency()}"
+        was = self._original.get("currency")
+        if was and was != self._values.get("currency"):
+            word += f" · was {was}"
+        return word
 
     def _reason_lines(self) -> list[RenderableType]:
         """Under the shared fields, each sentence once, naming the read-only
@@ -458,6 +508,7 @@ class EditFormScreen(FormScreen):
     def _set_value(self, key: str, value: object, display: object = None) -> None:
         if value != self._values.get(key):
             self._refusal = None  # something changed
+            self._pick_note = None
         if value is None:
             self._values[key] = None
             self._display.pop(key, None)
@@ -500,6 +551,7 @@ class EditFormScreen(FormScreen):
         self._take_refs(refs)
         if self._line is not line:
             self._take_line(line)
+        self._relock()  # the account's currencies are known now
         if self._key in self._locked:
             self._current = self._first_editable()
         self._refresh_bar()
@@ -519,6 +571,9 @@ class EditFormScreen(FormScreen):
             return NOTE_GOES_ON if self._goes_on(key) else NOTE_SAVES
         if key == "title" and not self._goes_on(key):
             return TITLE_SAVES
+        if key == "currency":
+            name = self._display.get("account", "")
+            return f"pick a currency {name} holds · ↑↓ highlight · enter select"
         return _HINTS.get(field, "")
 
     def _hint_line(self, key: str) -> Text:
@@ -528,7 +583,9 @@ class EditFormScreen(FormScreen):
 
     def _suggests(self, key: str) -> bool:
         bits = split_key(key)
-        return key == "account" or (bits is not None and bits[1] in ("category", "hashtags"))
+        return key in ("account", "currency") or (
+            bits is not None and bits[1] in ("category", "hashtags")
+        )
 
     def _bar_value(self, key: str) -> str:
         at = self._part_at(key)
@@ -560,6 +617,9 @@ class EditFormScreen(FormScreen):
         if key == "account":
             pool = matching(self._picks, needle)
             own = self._values.get("account")
+        elif key == "currency":
+            pool = matching([(code, code) for code in self._held_codes()], needle)
+            own = self._values.get("currency")
         elif at is not None and at[1] == "category":
             pool = matching(self._categories, needle)
             own = at[2].category_id
@@ -632,8 +692,36 @@ class EditFormScreen(FormScreen):
             if picked is None:
                 toast(self, f"No account matches “{text}”.", severity="error")
                 return False
-            self._set_value("account", picked[0], picked[1])  # ((account, code), label)
+            before = self._values.get("account")
+            self._set_value("account", picked[0], picked[1])  # (account_id, name)
+            if picked[0] != before:
+                self._account_changed()
+        elif key == "currency":
+            picked = self._picked()
+            if picked is None:
+                toast(self, f"No currency matches “{text}”.", severity="error")
+                return False
+            self._set_value("currency", picked[0])
         return True
+
+    def _account_changed(self) -> None:
+        """The line's account is another: its currency follows the account. One held
+        is taken (`_take_only_currency`); several empty it, and the bar goes on to
+        CURRENCY to pick one. The summary and the lock follow."""
+        codes = self._held_codes()
+        if len(codes) == 1:
+            self._take_only_currency(codes[0])
+        elif codes:
+            self._set_value("currency", None)
+            self._display["currency"] = NONE_PICKED
+        self._relock()
+
+    def _take_only_currency(self, code: str) -> None:
+        # The app fills in an account's only currency itself, and sends it with the
+        # account. Delete this method, and the `len(codes) == 1` branch above, when the
+        # engine takes it (the ask: docs/to-engine/an-accounts-only-currency-is-taken-when-
+        # a-write-names-none.md).
+        self._set_value("currency", code)
 
     def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:
         if field == "amount":
@@ -761,6 +849,12 @@ class EditFormScreen(FormScreen):
             blocks += [Text(""), count_line(self._parts, self._total, palette=PALETTE)]
         if self._refusal is not None:
             blocks += [Text(""), *refusal_lines(self._refusal, palette=PALETTE)]
+        if self._pick_note is not None:
+            blocks += [
+                Text(""),
+                hanging(Text(self._pick_note, style=PALETTE.error)),
+                Text(NOTHING_SAVED, style="dim"),
+            ]
         return Group(*blocks)
 
     # ---- submit ----------------------------------------------------------
@@ -769,7 +863,7 @@ class EditFormScreen(FormScreen):
         a read-only one is never sent."""
         fields: dict = {}
         for key in self._line_keys():
-            if key in self._locked or self._values.get(key) == self._original.get(key):
+            if key in self._line_reasons or self._values.get(key) == self._original.get(key):
                 continue
             new = self._values.get(key)
             if key == "date":
@@ -779,17 +873,33 @@ class EditFormScreen(FormScreen):
                 # `null` clears the line's operation code
                 # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
                 fields["operation_code"] = new or None
-            elif key == "account":
-                # only the key that moved: either alone keeps the other as the line has it
-                # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
-                old = self._original.get(key) or (None, None)
-                if new[0] != old[0]:
-                    fields["account_id"] = new[0]
-                if new[1] != old[1]:
-                    fields["currency_code"] = new[1]
             else:
+                # only the key that moved: either account or currency alone keeps the other
+                # as the line has it (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
                 fields[_ENGINE_FIELD[key]] = new
         return fields
+
+    def _statement_id(self) -> str | None:
+        """The statement the line is in, read from its parts (a line is in one whole)."""
+        parts = (self._line or {}).get("parts") or []
+        return next((p["statement_id"] for p in parts if p.get("statement_id")), None)
+
+    def _currency_unpicked(self) -> bool:
+        """The account holds several currencies and none is picked."""
+        return (
+            "currency" not in self._locked
+            and self._values.get("currency") is None
+            and bool(self._held_codes())
+        )
+
+    def _stop_on_currency(self) -> None:
+        """A save with no currency picked sends nothing: the bar goes to CURRENCY and the
+        note says what to pick from."""
+        name = self._display.get("account", "")
+        self._pick_note = f"! currency: pick one — {name} holds {codes_and(self._held_codes())}."
+        self._current = self._sequence().index("currency")
+        self._refresh_bar()
+        self._refresh_view()
 
     def _submit_request(self) -> tuple[str, str, dict, str] | None:
         """The one `PUT /bank-lines/{id}`: the changed line fields and the
@@ -798,11 +908,16 @@ class EditFormScreen(FormScreen):
         line = self._line
         if line is None:
             return None
+        if self._currency_unpicked():
+            self._stop_on_currency()
+            return None
         pending = self._pending_tag
         parts = [p for p in self._parts if not part_empty(p, pending)]
         entries = [part_payload(p, self._held.get(p.id) if p.id else None, pending) for p in parts]
         fields = self._line_fields()
-        unassign_on_move(fields, line)
+        unassign_on_move(
+            fields, {**line, "statement_id": self._statement_id()}, keep_on_currency_move=True
+        )
         kept_ids = {p.id for p in parts if p.id}
         unchanged = set(self._held) == kept_ids and all(
             _changes_nothing(entry, self._held.get(str(entry["id"]))) for entry in entries
@@ -874,7 +989,7 @@ class BankLineEditFormScreen(EditFormScreen):
         self._take_line(line)
 
     def _line_keys(self) -> list[str]:
-        return ["date", "title", "operation", "account"]
+        return ["date", "title", "operation", "account", "currency"]
 
     def _heading(self) -> RenderableType:
         line = self._line or {}

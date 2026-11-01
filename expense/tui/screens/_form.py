@@ -149,6 +149,16 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         """A field's name in the summary; the bar label in lower case by default."""
         return self._label(key).lower()
 
+    def _dim_shown(self, key: str) -> bool:
+        """Whether a field's value in the summary reads dim though it can change: a
+        form whose value is a prompt (`— pick one`) says so here."""
+        return False
+
+    def _locked_word(self, key: str) -> str:
+        """The words after a read-only field's value in the summary; `read-only` by
+        default. A form whose field is skipped for a reason of its own says it here."""
+        return "read-only"
+
     def _required_note(self, key: str) -> str:
         """The note when a required field is empty at save."""
         return f"{self._label(key).title()} is required."
@@ -327,7 +337,8 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def _summary_table(self, seq: list[str]) -> Table:
         """The summary's table, one line per field of `seq`: its name, then its
-        value, `read-only` and dimmed while locked, `—` while empty."""
+        value, dimmed with `_locked_word` after it while locked (`read-only` by default),
+        `—` while empty."""
         required = self._required()
         current_key = self._key
         t = Table(box=None, pad_edge=False, show_header=False, expand=False)
@@ -340,9 +351,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
                 continue
             locked = key in self._locked
             if locked:
-                value = Text(f"{shown or '—'}  read-only", style="dim")
+                value = Text(f"{shown or '—'}  {self._locked_word(key)}".rstrip(), style="dim")
             elif shown:
-                value = Text(str(shown))
+                value = Text(str(shown), style="dim" if self._dim_shown(key) else "")
             else:
                 tag = "  *" if key in required else "  (optional)"
                 value = Text("—" + tag, style="dim")

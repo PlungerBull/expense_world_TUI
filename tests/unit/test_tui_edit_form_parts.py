@@ -159,7 +159,7 @@ LINES = {
 }
 OPERATION = {"bl-9": "47391026"}
 
-_LOCKED = ("title", "date", "account_id", "statement_id")
+_LOCKED = ("title", "date", "account_id", "currency_code", "statement_id")
 #: What the engine answers for each line's state (test_bank_line_edit_limits.py).
 LIMITS = {
     "bl-9": edit_limits(),
@@ -174,7 +174,10 @@ LIMITS = {
         },
     ),
     "bl-o": edit_limits(
-        locked_fields={"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
+        locked_fields={
+            "account_id": "OPENING_BALANCE_ACCOUNT_FIXED",
+            "currency_code": "OPENING_BALANCE_ACCOUNT_FIXED",
+        },
         parts_fixed=True,
         locked_part_fields={
             "o1": {
@@ -428,9 +431,10 @@ def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key
     assert hint.plain == f"YYYY-MM-DD · enter to accept, or type a date · {EVERY_PART_NOTE}"
     assert _styles_of(hint, EVERY_PART_NOTE) == {ACCENT}
     assert summary == [
-        "date     2026-10-11",
-        "title    Tottus Jockey Plaza",
-        "account  Sueldo Soles · PEN",
+        "date      2026-10-11",
+        "title     Tottus Jockey Plaza",
+        "account   Sueldo Soles",
+        "currency  PEN  · Sueldo Soles holds only PEN",
         "",
         "      amount    category       hashtags        note",
         "  1   -60.00    COMIDA         #casa           verduras",
@@ -451,7 +455,7 @@ def test_s_opens_the_same_form_on_date(engine):
 
     kind, key, summary, footer = run_app(scenario, size=SIZE)
     assert kind is EditFormScreen and key == "date"
-    assert summary[5:7] == [
+    assert summary[6:8] == [
         "  1   -60.00    COMIDA         #casa           verduras",
         "  2   -40.00    HOGAR          —               lejía y papel",
     ]
@@ -549,7 +553,7 @@ def test_a_line_never_split_shows_one_part_and_no_line_adding_up(engine):
         return one, (_summary(screen), _label(screen).strip(), await _settle_footer(pilot, screen))
 
     (summary, hint, footer), (two, label, footer_two) = run_app(scenario, size=SIZE)
-    assert summary[4:] == [
+    assert summary[5:] == [
         "      amount    category       hashtags        note",
         "  1   -28.00    OCIO           #salidas        con Ana",
     ]
@@ -661,10 +665,11 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
     key, summary, footer, rows = run_app(scenario, size=SIZE)
     assert key == "0.category"
     assert summary == [
-        "date     2026-10-11  read-only",
-        "title    Tottus Jockey Plaza  read-only",
-        "account  Ahorro viejo · PEN  read-only",
-        "date, title, account: The account is archived. Unarchive it first.",
+        "date      2026-10-11  read-only",
+        "title     Tottus Jockey Plaza  read-only",
+        "account   Ahorro viejo  read-only",
+        "currency  PEN  read-only",
+        "date, title, account, currency: The account is archived. Unarchive it first.",
         "",
         "      amount    category       hashtags        note",
         "▌ 1   -60.00    COMIDA         —               verduras",
@@ -710,10 +715,11 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
     (key, summary, footer, rows), moved = run_app(scenario, size=SIZE)
     assert key == "date"
     assert summary == [
-        "date     2026-01-01",
-        "title    Saldo inicial",
-        "account  Sueldo Soles · PEN  read-only",
-        "account: Must not move an opening balance to another account or currency.",
+        "date      2026-01-01",
+        "title     Saldo inicial",
+        "account   Sueldo Soles  read-only",
+        "currency  PEN  read-only",
+        "account, currency: Must not move an opening balance to another account or currency.",
         "",
         "       amount    category       hashtags        note",
         "  1  3,200.00    @Opening       —",
@@ -736,12 +742,13 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
 
 #: Each line opened, and exactly the lines its `edit_limits` makes read-only.
 READ_ONLY = {
-    "c1": {"date", "title", "account"},
-    "s1": {"date", "title", "account", "0.amount"},
-    "a1": {"date", "title", "account", "0.amount", "1.amount"},
-    "o1": {"account", "0.category", "0.hashtags"},
-    "p1": set(),
-    "t1": set(),
+    "c1": {"date", "title", "account", "currency"},
+    "s1": {"date", "title", "account", "currency", "0.amount"},
+    "a1": {"date", "title", "account", "currency", "0.amount", "1.amount"},
+    "o1": {"account", "currency", "0.category", "0.hashtags"},
+    # Sueldo Soles holds one currency: the line is skipped, shown dim with why, not `read-only`
+    "p1": {"currency"},
+    "t1": {"currency"},
 }
 
 
@@ -767,9 +774,12 @@ def test_check_6_a_line_shows_read_only_exactly_what_its_edit_limits_names(engin
     assert locked == READ_ONLY[key]
     line = next(tx for tx in LEDGER if tx["id"] == key)["bank_line_id"]
     assert requests == [("GET", f"/bank-lines/{line}")]
-    shared = {row.split()[0] for row in summary[:3] if row.endswith("read-only")}
-    assert shared == {k for k in READ_ONLY[key] if "." not in k}
-    marked = {row.split()[0] for row in summary[3:] if "  read-only" in row}
+    on_one_currency = READ_ONLY[key] == {"currency"}
+    shared = {row.split()[0] for row in summary[:4] if row.endswith("read-only")}
+    assert shared == {k for k in READ_ONLY[key] if "." not in k} - (
+        {"currency"} if on_one_currency else set()
+    )
+    marked = {row.split()[0] for row in summary[4:] if "  read-only" in row}
     assert marked == {k.split(".")[1] for k in READ_ONLY[key] if "." in k}
 
 
@@ -779,14 +789,15 @@ def test_check_6_a_completed_reconciliations_split_line_opens_on_part_1s_amount(
 
     async def scenario(pilot, app):
         _ledger, screen = await _open(pilot, app, "c1")
-        return screen._key, _summary(screen)[:3], await _settle_footer(pilot, screen)
+        return screen._key, _summary(screen)[:4], await _settle_footer(pilot, screen)
 
     key, shared, footer = run_app(scenario, size=SIZE)
     assert key == "0.amount"
     assert shared == [
-        "date     2026-10-11  read-only",
-        "title    Tottus Jockey Plaza  read-only",
-        "account  Sueldo Soles · PEN  read-only",
+        "date      2026-10-11  read-only",
+        "title     Tottus Jockey Plaza  read-only",
+        "account   Sueldo Soles  read-only",
+        "currency  PEN  read-only",
     ]
     assert footer[-2:] == [("^n", "Add part"), ("^x", "Drop part")]
 
@@ -800,7 +811,7 @@ def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine
 
     async def scenario(pilot, app):
         _ledger, screen = await _open(pilot, app, "s1")
-        one = (screen._key, _summary(screen)[5:], _rows(screen)[1])
+        one = (screen._key, _summary(screen)[6:], _rows(screen)[1])
         await pilot.press("ctrl+n")
         await pilot.pause()
         return one, set(screen._locked), _summary(screen)
@@ -813,7 +824,7 @@ def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine
         "amount  read-only · The parts must add up to the line's total.",
     ]
     assert _styles_of(row, "-28.00") == {"dim"}
-    assert locked == {"date", "title", "account"}
+    assert locked == {"date", "title", "account", "currency"}
     assert "amount  read-only" not in two
 
 
@@ -1250,7 +1261,8 @@ def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(e
         "date       2026-10-11",
         "title      Tottus Jockey Plaza",
         "operation  47391026",
-        "account    Sueldo Soles · PEN",
+        "account    Sueldo Soles",
+        "currency   PEN  · Sueldo Soles holds only PEN",
         "",
         "      amount    category       hashtags        note",
         "  1   -60.00    COMIDA         #casa           verduras",

@@ -401,7 +401,8 @@ def test_title_says_save_only_when_it_is_the_one_line_left():
     every_field = ("amount_cents", "category_id", "hashtag_ids", "description")
     limits = edit_limits(
         locked_fields=dict.fromkeys(
-            ("date", "account_id", "statement_id", "operation_code"), "ACCOUNT_ARCHIVED"
+            ("date", "account_id", "currency_code", "statement_id", "operation_code"),
+            "ACCOUNT_ARCHIVED",
         ),
         total_fixed=True,
         parts_fixed=True,

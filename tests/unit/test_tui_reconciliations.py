@@ -1079,7 +1079,7 @@ PART_FIELDS = ["amount", "category", "hashtags", "note"]
 
 
 def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_client):
-    """A row never split: date, title, operation and account, then part 1's
+    """A row never split: date, title, operation, account and currency, then part 1's
     amount, category, hashtags and note, all editable; the heading is the row
     as listed; the crumb is `… ▸ Reconciliations ▸ Edit`."""
     from expense.tui.widgets.header import Breadcrumb
@@ -1093,9 +1093,10 @@ def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_cli
             "title",
             "operation",
             "account",
+            "currency",
             *(f"0.{f}" for f in PART_FIELDS),
         ]
-        assert not form._locked
+        assert form._locked == {"currency"}  # BCP PEN holds one currency: shown dim, skipped
         assert form._key == "date"
         assert form.query_one("#crumb", Breadcrumb)._trail == (
             "Capture & ledger",
@@ -1107,7 +1108,8 @@ def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_cli
             "date       2026-03-20",
             "title      UBER *TRIP",
             "operation  —  (optional)",
-            "account    BCP PEN · PEN",
+            "account    BCP PEN",
+            "currency   PEN  · BCP PEN holds only PEN",
             "",
             "      amount    category       hashtags        note",
             "  1   -24.50    —              —",
@@ -1128,13 +1130,14 @@ def test_a_split_transaction_opens_the_line_and_every_part(monkeypatch, fake_cli
 
     async def scenario(pilot, app):
         _screen, form = await _open_form(pilot, app, "bl-farm")
-        assert form._sequence()[4:] == [f"{i}.{f}" for i in (0, 1) for f in PART_FIELDS]
+        assert form._sequence()[5:] == [f"{i}.{f}" for i in (0, 1) for f in PART_FIELDS]
         assert _heading_text(form) == "FARMACIA  ·  -100.00 PEN"
         assert _summary_lines(form) == [
             "date       2026-03-10",
             "title      FARMACIA",
             "operation  48201764",
-            "account    BCP PEN · PEN",
+            "account    BCP PEN",
+            "currency   PEN  · BCP PEN holds only PEN",
             "",
             "      amount    category       hashtags        note",
             "  1   -60.00    —              —",

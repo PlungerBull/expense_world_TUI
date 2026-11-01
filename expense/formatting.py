@@ -6,7 +6,7 @@ through these, so a figure reads the same wherever it appears.
 """
 
 import re
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 
 from expense.currencies import MINOR_UNIT_SCALE
 
@@ -462,6 +462,11 @@ def currencies_phrase(codes: Iterable[str]) -> str:
     """An account's currency codes as `PEN`, or `PEN + USD`, in the order given
     (the engine's; nothing is sorted)."""
     return " + ".join(codes)
+
+
+def codes_and(codes: Sequence[str]) -> str:
+    """`PEN and USD`, `PEN, USD and EUR`: the codes an account holds, as the notes name them."""
+    return " and ".join([", ".join(codes[:-1]), codes[-1]] if len(codes) > 2 else codes)
 
 
 def currency_label(name: str, code: str) -> str:

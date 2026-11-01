@@ -380,15 +380,6 @@ tried in the app. Its doc sweep followed, and a review of its tasks on 2026-10-3
 
 Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
 
-11. **The Edit form's currency line** (point 10; question 9). [edit_form.py](../../expense/tui/screens/edit_form.py),
-    `LINE_FIELDS` in [bank_line_write.py](../../expense/bank_line_write.py) and their tests;
-    tui.md §2 "On top, the line's shared fields". *Passes if:* a move to the other currency is one
-    `PUT /bank-lines/{id}` with `currency_code`, keeping a draft statement's `statement_id`;
-    `edit_limits` naming `currency_code` makes the line read-only; on an account holding one
-    currency the line is shown dim with why and the bar skips it (question 12 A); a change of
-    account to one holding one currency takes it, the line saying what it was, and to one
-    holding two empties the currency and steps the bar to it, `ctrl+s` stopping on the line with
-    none picked, nothing sent (question 13 A); the tests pin each.
 12. **The ledger's currency column and filter** (point 11; questions 2 and 10).
     [transactions.py](../../expense/tui/screens/transactions.py) (`transaction_rows`,
     `LedgerFilter`), the filter params in [reads.py](../../expense/reads.py), and their tests;
@@ -400,11 +391,13 @@ Approved by the owner on 2026-10-31, with questions 12 to 14 answered.
     [transactions.py](../../expense/tui/screens/transactions.py), [bulk_pick.py](../../expense/tui/screens/bulk_pick.py)
     and their tests; tui.md §2 "The bulk pick is a full screen" and §4. *Passes if:* the picked
     currency goes as one `PUT` per row with `currency_code`; a refused row is named by number and
-    does not stop the others; the list reads fresh; the tests pin each.
+    does not stop the others; the list reads fresh; a row in a draft statement keeps it, as the
+    Edit form's currency move does (`unassign_on_move(keep_on_currency_move=True)`); the tests pin
+    each.
 14. **One row per account in every picker** (point 13). `account_choices` in
-    [reads.py](../../expense/reads.py), the Edit form's account line and the `b` pick, and their
-    tests (the LOG bar's `$` picker already lists one row per account, pinned by
-    `test_the_account_picker_shows_the_engines_order`); tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
+    [reads.py](../../expense/reads.py) and the `b` pick, and their tests (the LOG bar's `$` picker
+    and the Edit form's account line already list one row per account, pinned by
+    `test_the_account_picker_shows_the_engines_order` and the Edit form's tests); tui.md §2 "Accounts stand in the engine's order everywhere". *Passes
     if:* no picker lists a "<account> · <code>" row; a test fails on one; `b` to an account
     holding one currency sends each row's `PUT` with `account_id` and that `currency_code`, the
     amount as it is, and to an account holding two sends `account_id` alone, each row keeping its
@@ -474,6 +467,15 @@ Not built in this spec; drafted into a new spec when it is done.
 - **A LOG bar line refused for its currency and another reason** (`taxi -5 $visa @zzz`) gets the
   hint `not staged — pick a currency and press ↵ again`, naming only the currency; the refusal
   line names both.
+- **The Edit form's CURRENCY line carries no `changes every part of the transaction` hint** on a
+  transaction of two parts or more, where ACCOUNT, date and title do; the engine writes the
+  currency onto every part. No mockup draws it.
+- **The 13 A pane marks a currency the account change took in purple**; the Edit form draws the
+  line dim. Is the purple meant for the app, or only a mark on the page?
+- **No mockup draws the Edit form's toast for a currency that matches nothing**: `No currency
+  matches “…”.` follows the account line's `No account matches “…”.`
+- **A line on an archived account** shows its CURRENCY line `read-only` with the shared reason,
+  as the engine locks it; no mockup draws it.
 - **The body of `POST /accounts/{id}/currencies`** (`{"currency_code": …}`) and its archived
   refusal (`INVALID_REFERENCE` on `account_id`) are taken from part 5's plan; part 5's live test
   confirms them.

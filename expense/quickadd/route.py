@@ -17,6 +17,7 @@ parser's job ends at "what does this line say".
 from dataclasses import dataclass
 from datetime import date as date_cls
 
+from expense.formatting import codes_and
 from expense.quickadd.parse import ParsedLine, Unresolved
 
 LEDGER = "ledger"
@@ -69,7 +70,7 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
             continue
         if field == "currency":
             reasons.append(
-                f"{parsed.account_name} holds {_and(parsed.account_currencies)}: pick one"
+                f"{parsed.account_name} holds {codes_and(parsed.account_currencies)}: pick one"
             )
             continue
         reasons.append(_MISSING_PHRASE[field])
@@ -81,11 +82,6 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
         reasons.append("it is dated ahead")
 
     return Routing(REFUSED if reasons else LEDGER, tuple(reasons))
-
-
-def _and(codes: tuple[str, ...]) -> str:
-    """`PEN and USD`, `PEN, USD and EUR`."""
-    return " and ".join([", ".join(codes[:-1]), codes[-1]] if len(codes) > 2 else codes)
 
 
 def describe(token: Unresolved) -> str:
