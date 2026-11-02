@@ -100,10 +100,6 @@ None.
 
 ## Tasks
 
-1. **The LOG bar's staged list has a `Cur` column (1 A).** The account cell names the account
-   alone, the currency in a `Cur` column beside the amount, as pane 1 A of
-   [expense-world-currencies-leftovers.html](../mockups/expense-world-currencies-leftovers.html)
-   draws; code in [log_bar.py](../../expense/tui/screens/log_bar.py), tui.md's LOG bar lines.
 2. **The opening balances' summary colours its amounts by sign (1 C)** on an account holding two
    currencies, as pane 3 B of the same mockup draws (Manage ▸ Accounts ▸ Edit).
 3. **The Edit form's CURRENCY line shows `changes every part of the transaction`** on a
@@ -128,3 +124,9 @@ None.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The LOG bar's staged list cuts cells at 80 columns** with ordinary names (`BCP Signature
+  PEN`), against tui.md §5 "80×24 — everything correct"; with a long title Rich shrinks the
+  `cur` column to nothing at 80 wide, and at 60 wide even with short titles. It cut cells
+  before the `Cur` column too. A minimum width for `cur`, or title and tags as the columns that
+  give way, as the ledger does, would fix it.

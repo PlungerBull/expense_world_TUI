@@ -1843,8 +1843,10 @@ order, the currencies each holds as the engine gives them. `$name` matches the a
 an exact name still winning outright, so a card holding soles and dollars is one match and the
 picker lists accounts by name alone. The currency is the `%` token below. The save sends
 `account_id` and `currency_code` on every batch item (contract: POST /v1/transactions/batch).
-The staged table's account cell reads "<account> · <code>" and the staged totals add up per
-currency from each row's `currency_code`.
+The staged table's columns are `date  title  amount  cur  account  category  tags`: `cur` is
+the row's `currency_code`, as the Transactions ledger's `Cur` column draws it, and the account
+cell names the account alone. The staged totals add up per currency from each row's
+`currency_code`.
 
 **The line's currency is a token of its own, `%`** ([quickadd/parse.py](../expense/quickadd/parse.py)):
 `Streamly $visa inventada @suscripcion -12.99 hoy %usd`. It is first-wins like `$` and may stand

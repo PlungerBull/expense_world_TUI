@@ -237,7 +237,8 @@ def test_the_log_bar_shows_a_bracketed_account_and_category_whole(
         assert re.split(r"\s{2,}", row.strip())[2:] == [
             "almuerzo",
             "-20.00",
-            f"{account} · PEN",
+            "PEN",
+            account,
             category,
             "#TAXI",
         ], row

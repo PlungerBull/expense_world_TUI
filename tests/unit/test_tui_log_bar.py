@@ -202,6 +202,22 @@ def test_ledger_row_is_marked():
     assert "-38.60" in out and "BCP Signature PEN" in out and "#CAJA CHICA" in out
 
 
+def test_the_staged_list_has_a_cur_column_and_the_account_cell_names_the_account_alone():
+    """Header `date title amount cur account category tags`; a PEN row and a USD
+    row each hold their own code in `cur`, and no account cell reads "<name> · <code>"."""
+    pen = _stage(LEDGER_LINE)
+    usd = _stage("netflix -9.99 $BCP Signature USD @KORAKUEN")
+    out = _text(staged_table([pen, usd], REFS, today=TODAY.isoformat()))
+    header = out.splitlines()[0].split()
+    assert header == ["date", "title", "amount", "cur", "account", "category", "tags"]
+    rows = staged_rows([pen, usd], REFS, palette=PALETTE, today=TODAY.isoformat())
+    assert [(r[4], r[5]) for r in rows] == [
+        ("PEN", "BCP Signature PEN"),
+        ("USD", "BCP Signature USD"),
+    ]
+    assert " · PEN" not in out and " · USD" not in out
+
+
 def test_a_line_with_no_account_is_refused_not_staged():
     """Routing's answer for the line `↵` refuses — the screen never builds a
     row from it."""
@@ -763,7 +779,9 @@ def test_dollar_visa_is_one_account_and_the_currency_is_a_token_of_its_own(
         assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc-visa", "USD")
 
         screen.on_input_submitted()
-        assert "VISA Infinite Sapphire · USD" in _text(screen._staged_renderable())
+        shown = _text(screen._staged_renderable())
+        assert "VISA Infinite Sapphire" in shown and "VISA Infinite Sapphire · USD" not in shown
+        assert staged_rows(screen._staged, screen._refs, palette=PALETTE)[0][4] == "USD"
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: len(fake_client.posts) == 1)
         item = fake_client.posts[0][1]["transactions"][0]

@@ -126,7 +126,7 @@ PICKABLE = frozenset(SIGIL)
 
 #: The marker and the row number share one cell (`• 1`) — two columns of
 #: Rich padding for three characters is width this table does not have.
-HEADERS = ("", "date", "title", "amount", "account", "category", "tags")
+HEADERS = ("", "date", "title", "amount", "cur", "account", "category", "tags")
 
 EMPTY_LINES = (
     "Nothing staged. Type a line and press ↵ — nothing reaches the engine",
@@ -337,9 +337,10 @@ Pick = tuple[str, str]
 
 
 def _account_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> str | Text:
-    """The pick as "<account> · <code>", or `— account?` in the error colour."""
+    """The account's name alone (its currency has the `cur` column), or
+    `— account?` in the error colour."""
     if parsed.account_id:
-        return pick_label(refs, parsed.account_id, parsed.currency_code)
+        return resolve_name(parsed.account_id, refs.account_names)
     return Text("— account?", style=palette.error if palette else "")
 
 
@@ -409,6 +410,7 @@ def staged_rows(
                 date,
                 _title_cell(parsed),
                 amount,
+                parsed.currency_code or "",
                 _account_cell(parsed, refs, palette),
                 _category_cell(parsed, refs, palette),
                 _tags_cell(parsed, refs, palette),

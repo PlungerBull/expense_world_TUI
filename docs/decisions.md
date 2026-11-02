@@ -1093,9 +1093,8 @@ currencies in one balance* — a total across currencies has no meaning.
   `currencies.FILLS_AN_ONLY_CURRENCY` and guarded by a test, until the engine ask "An account's
   only currency is taken when a write names none" lands. `currencies.only_currency` is the
   display rule and stays.
-- **The LOG bar's staged list** still labels a row "<account> · <code>"
-  (`formatting.currency_label`). Whether it gains a `Cur` column is a question in
-  [specs/catch-up-currencies-6-leftovers.md](specs/catch-up-currencies-6-leftovers.md).
+- **The LOG bar's staged list has a `Cur` column of its own,** as the ledger has, and its
+  account cell names the account alone: the currency is its own field on every list.
 
 **Why.** In the engine an account holds its currencies and a transaction names both, so the
 screens show the account the owner thinks of, once, and the currency where it is chosen. Asking
