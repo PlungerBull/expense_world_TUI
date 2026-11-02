@@ -61,15 +61,7 @@ None.
 Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it.
 
-1. **The transaction and resource lifecycle tests do the same (builder).**
-   [test_transactions_lifecycle.py](../../tests/contract/test_transactions_lifecycle.py) and
-   [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py) build each
-   transaction through the `Scratch` helpers, a row dated now a minute ago in the display
-   timezone, keeping the route each test proves (`POST /transactions` alone or in a batch).
-   A date sent on an edit rather than a new row is not in scope; the builder reports each one.
-   *Passes if:* neither file builds a transaction body by hand or dates a new row in UTC; both
-   pass live twice and leave nothing.
-2. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
+1. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
    [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py), `_body` in
    [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
    and the batch items in [test_bank_lines.py](../../tests/contract/test_bank_lines.py)'s
@@ -83,3 +75,6 @@ Not built in this spec; drafted into a new spec when it is done.
 
 - `Scratch._item` types its extra fields as text, though callers pass lists such as
   `hashtag_ids`; `row_at` adds those after the item is built to get past it.
+- Two edits in test_resources_lifecycle.py send a date read in UTC (the frozen-fields edit's
+  "yesterday" and the bank-line split's date); they are edits, not new rows, so this spec leaves
+  them.

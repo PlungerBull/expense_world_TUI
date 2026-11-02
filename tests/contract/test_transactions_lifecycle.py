@@ -6,41 +6,25 @@ the row is in, and every answer echoes both (contract: POST /v1/transactions, "F
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from datetime import UTC, datetime
-from uuid import uuid4
-
 import pytest
 
 from expense.errors import EngineError
 from tests.contract.conftest import assert_refusal, refused
 
 
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def _row(account_id: str, category_id: str, currency: str, **fields) -> dict:
-    """A `POST /transactions` body under a fresh id, in `currency` of the account."""
-    return {
-        "id": str(uuid4()),
-        "amount_cents": -500,
-        "account_id": account_id,
-        "currency_code": currency,
-        "category_id": category_id,
-        "date": _now_iso(),
-        **fields,
-    }
+def _recent(scratch) -> str:
+    """A minute ago in the display timezone, as `recent_row` dates a row, for the bodies
+    built from `scratch._item` and for a refused create."""
+    return scratch.recent_moment().isoformat(timespec="seconds")
 
 
 def test_transactions_lifecycle(client, scratch):
     account_id = scratch.account("PEN", "USD")
     category_id = scratch.category()
-    body = _row(account_id, category_id, "USD", title="coffee")
-    tx_id = body["id"]
-    scratch.transactions.append(tx_id)
-
-    created = client.post("/transactions", json_body=body)
-    assert created["id"] == tx_id
+    created = scratch.recent_row(
+        account_id, -500, "USD", alone=True, category_id=category_id, title="coffee"
+    )
+    tx_id = created["id"]
     assert (created["account_id"], created["currency_code"]) == (account_id, "USD")
 
     fetched = client.get(f"/transactions/{tx_id}")
@@ -81,14 +65,14 @@ def test_a_create_names_a_currency_the_account_holds(client, scratch):
     account_id = scratch.account("PEN")
     category_id = scratch.category()
 
-    missing = _row(account_id, category_id, "PEN")
+    # `_item` and not `refused_row`: the body must lack `currency_code`, which every helper sets.
+    missing = scratch._item(account_id, _recent(scratch), -500, "PEN", category_id=category_id)
     del missing["currency_code"]
+    scratch.transactions.append(missing["id"])
     err = refused(lambda: client.post("/transactions", json_body=missing))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
 
-    err = refused(
-        lambda: client.post("/transactions", json_body=_row(account_id, category_id, "USD"))
-    )
+    err = scratch.refused_row(account_id, _recent(scratch), "USD", category_id=category_id)
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
     assert err.fields["currency_code"] == "Must be a currency the account holds."
     assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
@@ -100,10 +84,14 @@ def test_an_empty_description_empties_the_note_and_null_is_refused(client, scrat
     (contract: PUT /v1/transactions/{transaction_id})."""
     account_id = scratch.account()
     category_id = scratch.category()
-    body = _row(account_id, category_id, "PEN", title="pharmacy", description="receta")
-    tx_id = body["id"]
-    scratch.transactions.append(tx_id)
-    client.post("/transactions", json_body=body)
+    tx_id = scratch.recent_row(
+        account_id,
+        -500,
+        alone=True,
+        category_id=category_id,
+        title="pharmacy",
+        description="receta",
+    )["id"]
 
     emptied = client.put(f"/transactions/{tx_id}", json_body={"description": ""})
     assert emptied["description"] == ""
@@ -120,15 +108,14 @@ def test_batch_create(client, scratch):
     account_id = scratch.account("PEN", "USD")
     category_id = scratch.category()
     currencies = ["PEN", "USD", "PEN"]
+    # Three rows in one batch: `_create` sends a list, `recent_row` only one row.
+    when = _recent(scratch)
     items = [
-        _row(account_id, category_id, currency, title=title, amount_cents=-100 * n)
+        scratch._item(account_id, when, -100 * n, currency, category_id=category_id, title=title)
         for n, (title, currency) in enumerate(zip("abc", currencies, strict=True), start=1)
     ]
-    scratch.transactions.extend(item["id"] for item in items)
 
-    body = client.post("/transactions/batch", json_body={"transactions": items})
-
-    created = body.get("created", [])
+    created = scratch._create(items)
     assert {item["id"] for item in created} == {item["id"] for item in items}
     echoed = {item["id"]: (item["account_id"], item["currency_code"]) for item in created}
     assert echoed == {item["id"]: (account_id, item["currency_code"]) for item in items}
@@ -139,7 +126,8 @@ def test_a_batch_item_without_a_currency_is_refused(client, scratch):
     batch writes nothing (contract: POST /v1/transactions/batch)."""
     account_id = scratch.account()
     category_id = scratch.category()
-    item = _row(account_id, category_id, "PEN")
+    # `_item`: the item must lack `currency_code`, which every helper sets.
+    item = scratch._item(account_id, _recent(scratch), -500, "PEN", category_id=category_id)
     del item["currency_code"]
     scratch.transactions.append(item["id"])
 
