@@ -55,12 +55,7 @@ None.
 Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it.
 
-1. **The reports' tests pass in a month's first minute (builder).** Each report test reads the
-   month its row is dated in, taken from the one moment the row is dated at, not from a second
-   reading of the clock.
-   *Passes if:* no report test reads the clock twice for a row and its month, a unit test
-   proves a moment in a month's first minute, in the display timezone, gives that row's month
-   as the month read, and the file passes live twice.
+None left.
 
 ## Found along the way
 
@@ -77,3 +72,7 @@ Not built in this spec; drafted into a new spec when it is done.
   batch tests.
 - `Scratch._item`'s docstring calls its result a batch item, though `refused_row` also sends it
   alone to `POST /transactions`.
+- `minute_before` in tests/contract/conftest.py turns to the display zone before it takes the
+  minute off, so in the first minute after a daylight-saving jump it gives a time that does not
+  exist, read as an hour ahead (`FUTURE_DATE`); taking the minute off first avoids it. Lima has
+  no daylight saving.

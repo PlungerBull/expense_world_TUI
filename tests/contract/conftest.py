@@ -16,7 +16,7 @@ import random
 from collections.abc import Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -45,6 +45,17 @@ LIVE = os.environ.get("PYTEST_LIVE") == "1"
 
 #: scripts/clean_practice_user.py: what a test may leave behind, and how it is removed.
 CLEANER = load_script("clean_practice_user.py")
+
+
+def minute_before(now: datetime, zone: ZoneInfo) -> datetime:
+    """The moment a minute before `now`, in `zone`: the moment a recent row is dated at."""
+    return now.astimezone(zone) - timedelta(minutes=1)
+
+
+def month_of(moment: datetime) -> dict[str, str]:
+    """The `year` and `month` a report is asked for to hold a row dated at `moment`, read in
+    `moment`'s own zone (the zone a month is cut in), so a row and its month share one reading."""
+    return {"year": str(moment.year), "month": str(moment.month)}
 
 
 def reason_on(err: EngineError, field: str) -> str | None:
@@ -930,16 +941,27 @@ class Scratch:
         """`row_at` noon on `day` (a past day: noon today is `FUTURE_DATE` before noon)."""
         return self.row_at(account_id, self.noon(day), amount, currency, **fields)
 
+    def recent_moment(self) -> datetime:
+        """The moment `recent_row` dates a row at: a minute ago in the display timezone, read
+        from the clock once. A test that also needs the row's month takes it from this
+        moment (`month_of`), never from a second clock reading."""
+        return minute_before(datetime.now(UTC), self.zone)
+
     def recent_row(
-        self, account_id: str, amount: int = -1000, currency: str = "PEN", **fields
+        self,
+        account_id: str,
+        amount: int = -1000,
+        currency: str = "PEN",
+        *,
+        moment: datetime | None = None,
+        **fields,
     ) -> dict:
-        """A new transaction dated a minute ago in the user's display timezone, the zone a
-        month is cut in (contract: GET /v1/dashboard, "Field rules"); a transaction may not be
-        dated ahead. The created item, as `row_at` makes it."""
-        past = datetime.now(self.zone) - timedelta(minutes=1)
-        return self.row_at(
-            account_id, past.isoformat(timespec="seconds"), amount, currency, **fields
-        )
+        """A new transaction dated at `moment` (default `recent_moment`: a minute ago in the
+        user's display timezone, the zone a month is cut in; contract: GET /v1/dashboard,
+        "Field rules"); a transaction may not be dated ahead. The created item, as `row_at`
+        makes it."""
+        when = (moment or self.recent_moment()).isoformat(timespec="seconds")
+        return self.row_at(account_id, when, amount, currency, **fields)
 
     def refused_row(
         self,
