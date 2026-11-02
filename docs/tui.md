@@ -1366,6 +1366,8 @@ holding no currency has no pair.
   the same on every account, bank or person, with no currency after it. An `as of` line takes
   `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the account held this`), starts empty, and is
   marked `*` once its currency has an amount.
+  The summary draws each `opening` amount coloured by sign, as the ledger does (negative in
+  the error colour, positive, `0.00` included, in the success colour); `as of` lines stay plain.
 - **A currency that has one opens with its pair filled.** Each currency's entry in the
   account's `currencies` names its opening balance by id, or `null` when it has none
   (contract: "Bank Accounts", "`currencies`"),

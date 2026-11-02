@@ -31,6 +31,8 @@ from expense.quickadd.names import matches
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.theme import AMOUNT_RULE, PALETTE
+from expense.tui.widgets.cells import amount_text
 from expense.tui.widgets.picker import matching, suggestion_list
 from expense.tui.widgets.refusal import toast
 
@@ -129,6 +131,10 @@ class BarFormScreen(FormScreen):
     def _value_text(self, key: str, value: object) -> str:
         """How a text field's value reads in the summary."""
         return str(value)
+
+    def _value_cell(self, key: str, value: object) -> Text:
+        """A text field's value as the summary draws it; `_value_text` unstyled."""
+        return Text(self._value_text(key, value))
 
     def _suggests(self, key: str) -> bool:
         return self._field(key).kind in ("choice", "color", "picks")
@@ -245,7 +251,7 @@ class BarFormScreen(FormScreen):
                 elif f.kind == "picks":
                     value = Text(" · ".join(self._values[f.key]) or "—")
                 else:
-                    value = Text(self._value_text(f.key, self._values[f.key]))
+                    value = self._value_cell(f.key, self._values[f.key])
             else:
                 tag = "  *" if self._field_required(f) else "  (optional)"
                 value = Text("—" + tag, style="dim")
@@ -653,9 +659,12 @@ class EditAccountScreen(NewAccountScreen):
             return _pair_key("opening", pair[1]) in self._values  # an amount needs its day
         return f.required
 
-    def _value_text(self, key: str, value: object) -> str:
+    def _value_cell(self, key: str, value: object) -> Text:
+        """An `opening` amount is drawn coloured by sign, as the ledger draws it."""
         pair = _pair_line(key)
-        return format_cents(value) if pair and pair[0] == "opening" else str(value)
+        if pair and pair[0] == "opening":
+            return amount_text(value, PALETTE, AMOUNT_RULE)
+        return super()._value_cell(key, value)
 
     def _bar_value(self, key: str) -> str:
         pair = _pair_line(key)

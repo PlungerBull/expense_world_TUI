@@ -16,6 +16,8 @@ through `POST /accounts/{id}/opening-balance`, `PUT /transactions/{id}` and
 import threading
 
 import pytest
+from rich.color import ColorSystem
+from rich.style import Style
 from textual.widgets import Input, Label, Static
 
 from expense.dates import to_canonical_aware
@@ -23,6 +25,7 @@ from expense.errors import EngineError
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.theme import PALETTE
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     LOCK_MESSAGES,
@@ -104,6 +107,11 @@ def _summary(screen) -> str:
     """The summary, one line per field, its spacing squeezed to single spaces."""
     text = render_text(screen._summary_renderable(), width=100)
     return "\n".join(" ".join(line.split()) for line in text.splitlines())
+
+
+def _sgr(style: str) -> str:
+    """The escape codes a rendered `style` opens with, for a test reading ansi output."""
+    return Style.parse(style).render("x", color_system=ColorSystem.EIGHT_BIT).split("x")[0]
 
 
 def _hint(screen) -> str:
@@ -336,6 +344,21 @@ def test_each_currency_has_its_pair_in_the_engines_order(fake_client, reads_log)
 
     _form(VISA, body)
     assert reads_log == ["tx-open"]  # the dollars name none: nothing to read
+
+
+def test_the_summary_colours_each_opening_amount_by_sign(fake_client, reads_log):
+    reads_log.rows = {"tx-usd": USD_ROW}
+
+    async def body(pilot, app, screen):
+        out = render_text(screen._summary_renderable(), width=100, ansi=True)
+        lines = {line.split()[0] + " " + line.split()[1]: line for line in out.splitlines() if line}
+        assert _sgr(PALETTE.error) + "-3,200.00" in lines["PEN opening"]
+        assert _sgr(PALETTE.success) + "40.00" in lines["USD opening"]
+        # the day lines carry no sign colour
+        assert _sgr(PALETTE.error) not in lines["PEN as"]
+        assert _sgr(PALETTE.success) not in lines["USD as"]
+
+    _form(VISA_BOTH, body)
 
 
 def test_each_pair_reads_its_own_opening_balance(fake_client, reads_log):
