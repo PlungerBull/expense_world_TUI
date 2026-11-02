@@ -817,21 +817,12 @@ def test_the_review_list_is_read_with_sort_statement_only(client, scratch):
 
 def test_a_line_group_whose_items_differ_is_line_group_fields_differ(client, scratch):
     account = scratch.account()
-    ids = [str(uuid4()), str(uuid4())]
-    scratch.transactions.extend(ids)
     date = scratch.noon("2026-04-11")
     items = [
-        {
-            "id": tx_id,
-            "title": title,
-            "amount_cents": amount,
-            "account_id": account,
-            "currency_code": "PEN",
-            "date": date,
-            "line_group": "g1",
-        }
-        for tx_id, title, amount in zip(ids, ("CHARGE A", "CHARGE B"), (-100, -200), strict=True)
+        scratch._item(account, date, amount, "PEN", title=title, line_group="g1")
+        for title, amount in (("CHARGE A", -100), ("CHARGE B", -200))
     ]
+    scratch.transactions.extend(item["id"] for item in items)
     err = refused(lambda: client.post("/transactions/batch", json_body={"transactions": items}))
     assert (err.status, err.code) == (422, "VALIDATION_ERROR")
     for key in ("transactions.0.title", "transactions.1.title"):
@@ -844,27 +835,13 @@ def test_a_line_group_is_one_line_and_a_re_import_matches_it(client, scratch):
     matches the group by its total on its account and day
     (contract: POST /v1/transactions/batch, "Line groups")."""
     account = scratch.account()
-    ids = [str(uuid4()), str(uuid4())]
-    scratch.transactions.extend(ids)
     date = scratch.noon("2026-04-15")
-    created = client.post(
-        "/transactions/batch",
-        json_body={
-            "transactions": [
-                {
-                    "id": tx_id,
-                    "title": "MERCADO GRUPO",
-                    "amount_cents": amount,
-                    "account_id": account,
-                    "currency_code": "PEN",
-                    "date": date,
-                    "line_group": "g1",
-                }
-                for tx_id, amount in zip(ids, (-6000, -4000), strict=True)
-            ]
-        },
-    )
-    items = created["created"]
+    sent = [
+        scratch._item(account, date, amount, "PEN", title="MERCADO GRUPO", line_group="g1")
+        for amount in (-6000, -4000)
+    ]
+    ids = [item["id"] for item in sent]
+    items = scratch._create(sent)
     assert [t["id"] for t in items] == ids
     (line,) = {t["bank_line_id"] for t in items}
     assert line

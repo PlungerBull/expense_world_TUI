@@ -61,13 +61,7 @@ None.
 Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it.
 
-1. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
-   [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py), `_body` in
-   [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
-   and the batch items in [test_bank_lines.py](../../tests/contract/test_bank_lines.py)'s
-   line-group tests build their bodies with the `Scratch` helpers.
-   *Passes if:* no live file builds a transaction body by hand (the grep in the report); the
-   three files pass live twice and leave nothing.
+None left.
 
 ## Found along the way
 
@@ -78,3 +72,7 @@ Not built in this spec; drafted into a new spec when it is done.
 - Two edits in test_resources_lifecycle.py send a date read in UTC (the frozen-fields edit's
   "yesterday" and the bank-line split's date); they are edits, not new rows, so this spec leaves
   them.
+- Five more live files build a new transaction's body by hand instead of through `Scratch`:
+  test_freshman_flow.py (its end-to-end walk), test_pending_hashtag.py,
+  test_refusal_reasons.py (dated at midnight UTC), test_create_sent_again.py and
+  test_transaction_currency.py (each with its own copy of `Scratch._item`).

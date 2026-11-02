@@ -63,22 +63,6 @@ from tests.contract.conftest import (
 LINE_CODE = re.compile(r"^#\d{6}$")
 
 
-def _body(scratch, account_id: str, day: str, amount: int, **extra) -> dict:
-    """A PEN transaction body of `amount` on `day` (a past day), its id taken on by
-    `scratch`'s cleanup."""
-    item = {
-        "id": str(uuid4()),
-        "title": "contract line fields",
-        "amount_cents": amount,
-        "account_id": account_id,
-        "currency_code": "PEN",
-        "date": scratch.noon(day),
-        **extra,
-    }
-    scratch.transactions.append(item["id"])
-    return item
-
-
 # ---- line_code ---------------------------------------------------------------
 
 
@@ -89,10 +73,10 @@ def test_a_line_group_reads_one_line_code_and_new_parts_keep_it(client, scratch)
     only new parts makes no new line: every new part reads the line's code
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts")."""
     account = scratch.account()
-    group = [_body(scratch, account, "2026-04-06", a, line_group="g1") for a in (-6000, -4000)]
-    single = _body(scratch, account, "2026-04-06", -2500)
-    created = client.post("/transactions/batch", json_body={"transactions": [*group, single]})
-    first, second, third = created["created"]
+    when = scratch.noon("2026-04-06")
+    group = [scratch._item(account, when, a, "PEN", line_group="g1") for a in (-6000, -4000)]
+    single = scratch._item(account, when, -2500, "PEN")
+    first, second, third = scratch._create([*group, single])
     assert first["bank_line_id"] == second["bank_line_id"] != third["bank_line_id"]
     code = first["line_code"]
     assert LINE_CODE.match(code)
@@ -128,16 +112,25 @@ def _writes_sending(
         "amount_cents": 100,
         "date": scratch.noon(day),
     }
+
+    def item() -> dict:
+        return scratch._item(account, scratch.noon(day), -100, "PEN", **{key: value})
+
     new_parts = [
         {"id": str(uuid4()), "amount_cents": -60, key: value},
         {"id": str(uuid4()), "amount_cents": -40},
     ]
     return [
-        ("POST", "/transactions", _body(scratch, account, day, -100, **{key: value}), key),
+        (
+            "POST",
+            "/transactions",
+            item(),
+            key,
+        ),
         (
             "POST",
             "/transactions/batch",
-            {"transactions": [_body(scratch, account, day, -100, **{key: value})]},
+            {"transactions": [item()]},
             f"transactions.0.{key}",
         ),
         (
@@ -185,7 +178,7 @@ def test_line_code_is_in_no_request_body(client, scratch):
     (contract: POST /v1/transactions/import, "Body"). Nothing is written, and the code
     the line has stays."""
     account = scratch.account()
-    original = client.post("/transactions", json_body=_body(scratch, account, "2026-04-07", -100))
+    original = scratch.row(account, "2026-04-07", -100, alone=True)
     writes = _writes_sending(scratch, "line_code", "#000001", account, "2026-04-07", original)
     writes += _line_writes_sending("line_code", "#000001", original)
     _take_on_ids(scratch, writes)
@@ -216,7 +209,7 @@ def test_statement_line_is_in_no_request_body(client, scratch):
     `statement_line` and `statement_place`
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
     account = scratch.account()
-    original = client.post("/transactions", json_body=_body(scratch, account, "2026-04-11", -100))
+    original = scratch.row(account, "2026-04-11", -100, alone=True)
     value = "SIG-202604-001"
     writes = _writes_sending(scratch, "statement_line", value, account, "2026-04-11", original)
     writes += [
@@ -249,7 +242,7 @@ def test_statement_place_is_in_no_request_body(client, scratch):
     `null`; and so do a statement's create and update (contract: POST /v1/statements,
     "Required"). Nothing is written, and the line reads no place."""
     account = scratch.account()
-    original = client.post("/transactions", json_body=_body(scratch, account, "2026-04-12", -100))
+    original = scratch.row(account, "2026-04-12", -100, alone=True)
     writes = _writes_sending(scratch, "statement_place", 1, account, "2026-04-12", original)
     writes += [
         *_line_writes_sending("statement_place", 1, original),
@@ -345,12 +338,13 @@ def test_an_operation_code_in_another_letter_case_is_another_code(client, scratc
     (contract: POST /v1/transactions, "Case counts")."""
     account = scratch.account()
     upper = f"ABC{_upper_fragment()}"
-    first = _body(scratch, account, "2026-04-15", -1000, operation_code=upper)
-    second = _body(scratch, account, "2026-04-15", -2000, operation_code=upper.lower())
+    when = scratch.noon("2026-04-15")
+    first = scratch._item(account, when, -1000, "PEN", operation_code=upper)
+    second = scratch._item(account, when, -2000, "PEN", operation_code=upper.lower())
     again = [
-        _body(scratch, account, "2026-04-15", -3000, operation_code=v)
-        for v in (upper, upper.lower())
+        scratch._item(account, when, -3000, "PEN", operation_code=v) for v in (upper, upper.lower())
     ]
+    scratch.transactions.extend(body["id"] for body in (first, second, *again))
     lines = []
     for body in (first, second):
         made = client.post("/transactions", json_body=body)

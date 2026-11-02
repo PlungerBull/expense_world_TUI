@@ -119,23 +119,18 @@ def _refused_writing_nothing(
 
 
 def _row(made: Scratch, account_id: str, **fields) -> dict:
-    return {
-        "id": str(uuid4()),
-        "title": "contract reserved row",
-        "amount_cents": AMOUNT,
-        "account_id": account_id,
-        "currency_code": "PEN",
-        "date": made.noon(DAY),
-        **fields,
-    }
+    """A body on `DAY` for a refused create; its id joins the scratch."""
+    body = made._item(account_id, made.noon(DAY), AMOUNT, "PEN", **fields)
+    made.transactions.append(body["id"])
+    return body
 
 
 def _tagged_row(made: Scratch, account_id: str, category: str, hashtag: str) -> dict:
     """A transaction with a category and a hashtag of the test's own, which needs no
     system row; its read."""
-    row = _row(made, account_id, category_id=category, hashtag_ids=[hashtag])
-    made.transactions.append(row["id"])
-    return made.client.post("/transactions", json_body=row)
+    return made.row(
+        account_id, DAY, AMOUNT, alone=True, category_id=category, hashtag_ids=[hashtag]
+    )
 
 
 def test_a_create_needing_the_pending_hashtag_or_pendiente_is_refused(reserved_client, made):
@@ -144,7 +139,6 @@ def test_a_create_needing_the_pending_hashtag_or_pendiente_is_refused(reserved_c
         (_row(made, account, category_id=category), "hashtag_ids"),
         (_row(made, account, hashtag_ids=[hashtag]), "category_id"),
     ):
-        made.transactions.append(body["id"])
         _refused_writing_nothing(
             reserved_client,
             account,
@@ -159,7 +153,6 @@ def test_a_batch_needing_the_pending_hashtag_or_pendiente_is_refused(reserved_cl
         (_row(made, account, category_id=category), "hashtag_ids"),
         (_row(made, account, hashtag_ids=[hashtag]), "category_id"),
     ):
-        made.transactions.append(body["id"])
         batch = {"transactions": [body]}
         _refused_writing_nothing(
             reserved_client,
