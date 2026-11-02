@@ -1190,16 +1190,27 @@ states stays, moved to the file that owns it now; the review list's cases live w
 lines. (3) **Where the engine and its contract disagree, the suite tests neither side**: it
 tests what both agree on, and the disagreement goes to the engine in the catch-up's reply, such
 as `is_person` taking `"yes"` and `1` against the contract's `INVALID_FORMAT`.
+(4) **Where the contract leaves a detail open, the suite accepts every answer it allows**: a
+batch's repeated operation code is refused on one or both items' `operation_code`, since the
+contract names no item, and the question goes to the engine in the reply. (5) **A case no request
+can build is tested as what the contract says it equals, or left out with its reason**: no read
+carries a former per-currency id, so an unknown id stands in, since the contract refuses a former
+one as it refuses an unknown one; two writes landing at the same moment cannot be arranged, so
+`CONCURRENT_CHANGE` has no live test.
 
 **Why.** A test whose data a wrong engine also passes proves nothing, and the suite exists to
 catch the engine drifting from its contract before a second client is built. A case the contract
 dropped would pin behaviour the engine is free to change. Pinning the engine's behaviour where it
 breaks its contract would make the suite defend the bug, and pinning the contract's words would
-fail every run until the engine answers.
+fail every run until the engine answers. Pinning a detail the contract leaves open would fail the
+day the engine picks another answer the contract allows. A test that claims to build a case it
+cannot build proves less than it says.
 
 **Rejected.** *Porting every old case onto the new shapes* — it keeps rules the engine no longer
 states. *Pinning what the engine does today where it breaks its contract* — the suite would then
-fail the day the engine is fixed.
+fail the day the engine is fixed. *Pinning the item the engine names today* — the contract does
+not promise it. *Building a former per-currency id from the old shapes* — the engine holds none,
+so the test would prove only an unknown id while saying more.
 
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 

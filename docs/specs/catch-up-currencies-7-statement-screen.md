@@ -13,7 +13,7 @@ The seven specs of this catch-up, run in this order:
 2. part 2, the PDF upload and the two imports (done on 2026-10-30)
 3. part 3, the live tests' foundation (done on 2026-10-30)
 4. part 4, the live tests for the upload, bank lines and kinds (done on 2026-10-31)
-5. [catch-up-currencies-5-live-suite-account-currencies.md](catch-up-currencies-5-live-suite-account-currencies.md)
+5. part 5, the live tests for an account's currencies (done on 2026-11-02)
 6. part 6, the main views (done on 2026-10-31)
 7. this one
 

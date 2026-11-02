@@ -55,7 +55,7 @@ specs are retired. The catch-up is seven specs, run in this order:
 2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
 4. the live tests for the upload, bank lines and kinds: done on 2026-10-31; its reply to the engine, with part 3's results, waits in [to-engine/](to-engine/) for you to hand over;
-5. [the live tests for an account's currencies](specs/catch-up-currencies-5-live-suite-account-currencies.md): approved on 2026-10-31, runs now;
+5. the live tests for an account's currencies: done on 2026-11-02; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 6. the main views: done on 2026-10-31; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
 7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
 
@@ -71,20 +71,23 @@ New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-
 (2 questions, one with a mockup to draw), after part 6.
 
 New, from part 3: [what the live tests' foundation turned up](specs/catch-up-currencies-3-leftovers.md)
-(no question, approved on 2026-10-30), after part 5.
+(no question, approved on 2026-10-30), runs next.
 
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
 New, from part 6: [what the main views turned up](specs/catch-up-currencies-6-leftovers.md)
 (9 questions, the first with a mockup drawn: [expense-world-currencies-leftovers.html](mockups/expense-world-currencies-leftovers.html)),
-after part 5 and before part 7.
+after part 3's leftovers and before part 7.
+
+New, from part 5: [what the live tests for an account's currencies turned up](specs/catch-up-currencies-5-leftovers.md)
+(no question; two missing tests), after part 6's leftovers and before part 7.
 
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 3's leftovers run after part 5, then part 6's once you
-answer them, so each is ready when the one before it is done.
+**Recommended:** approve the rest; part 3's leftovers run now, then part 6's once you answer
+them, then part 5's, so each is ready when the one before it is done.
 
 ---
 
