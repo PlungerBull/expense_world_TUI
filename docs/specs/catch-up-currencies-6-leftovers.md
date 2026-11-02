@@ -5,7 +5,7 @@ turned up while it ran.
 
 **Status: drafted on 2026-10-31 for the owner to rewrite or approve; nine questions, the first
 with a mockup.** It runs after
-[catch-up-currencies-3-leftovers.md](catch-up-currencies-3-leftovers.md) and before [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
+part 3's leftovers (done on 2026-11-02) and before [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---

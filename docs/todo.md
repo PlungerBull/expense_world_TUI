@@ -70,15 +70,15 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (2 questions, one with a mockup to draw), after part 6.
 
-New, from part 3: [what the live tests' foundation turned up](specs/catch-up-currencies-3-leftovers.md)
-(no question, approved on 2026-10-30), the current spec: its three tasks wait for your approval.
+New, from part 3's leftovers (done on 2026-11-02): [what part 3's leftovers turned up](specs/catch-up-currencies-3b-leftovers.md)
+(no question; live tests only), waiting on no other spec.
 
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
 New, from part 6: [what the main views turned up](specs/catch-up-currencies-6-leftovers.md)
 (9 questions, the first with a mockup drawn: [expense-world-currencies-leftovers.html](mockups/expense-world-currencies-leftovers.html)),
-after part 3's leftovers and before part 7.
+before part 7.
 
 New, from part 5: [what the live tests for an account's currencies turned up](specs/catch-up-currencies-5-leftovers.md)
 (no question; two missing tests), after part 6's leftovers and before part 7.
@@ -86,8 +86,9 @@ New, from part 5: [what the live tests for an account's currencies turned up](sp
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 3's leftovers run now, then part 6's once you answer
-them, then part 5's, so each is ready when the one before it is done.
+**Recommended:** approve the rest; part 6's leftovers run next once you answer them, then
+part 5's, so each is ready when the one before it is done; part 3b's can run whenever you name
+it.
 
 ---
 

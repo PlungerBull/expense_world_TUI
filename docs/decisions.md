@@ -1212,6 +1212,26 @@ fail the day the engine is fixed. *Pinning the item the engine names today* — 
 not promise it. *Building a former per-currency id from the old shapes* — the engine holds none,
 so the test would prove only an unknown id while saying more.
 
+## A live test dates a recent row and reads its month from one moment (2026-11-02)
+
+**Decision.** (1) **A live test that needs a plain transaction dated now logs it with
+`Scratch.recent_row`**, dated a minute ago in the practice user's display timezone
+([tests/contract/conftest.py](../tests/contract/conftest.py)). (2) **Every `Scratch` helper
+sends a row's moment once**: `_item` takes the moment, `row_at` makes a row at one, and `row`
+makes one at noon of its day through it, so no call passes a day that a `date` then overrides.
+(3) **A test that reads the month of a row it logged takes both from one clock reading**
+(`Scratch.recent_moment`, `month_of`), proven for a month's first minute by
+[test_contract_month_of_a_recent_row.py](../tests/unit/test_contract_month_of_a_recent_row.py).
+
+**Why.** Noon today is in the future before noon, and the engine refuses a future date, so
+"now" needs its own helper; a copy per file drifts. A day passed and then overridden says one
+thing and sends another. Two clock readings straddle a month's turn in its first minute, when
+the row lands in the old month and the report reads the new one.
+
+**Rejected.** *Dating recent rows at noon of yesterday* — the reports' tests need a row in the
+current month, which yesterday is not on a month's first day. *Reading the month from a second
+clock reading a minute earlier* — it repeats the arithmetic instead of sharing the moment.
+
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to
