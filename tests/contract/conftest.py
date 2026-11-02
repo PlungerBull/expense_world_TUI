@@ -16,7 +16,7 @@ import random
 from collections.abc import Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -921,6 +921,21 @@ class Scratch:
         made = self._create([{**item, **fields}])[0]
         assert (made["account_id"], made["currency_code"]) == (account_id, currency)
         return made
+
+    def recent_row(
+        self, account_id: str, amount: int = -1000, currency: str = "PEN", **fields
+    ) -> dict:
+        """A new transaction dated a minute ago in the user's display timezone, the zone a
+        month is cut in (contract: GET /v1/dashboard, "Field rules"); a transaction may not be
+        dated ahead. Built as `row` builds one; the created item."""
+        past = datetime.now(self.zone) - timedelta(minutes=1)
+        return self.row(
+            account_id,
+            "2026-01-01",
+            amount,
+            currency,
+            **{"date": past.isoformat(timespec="seconds"), **fields},
+        )
 
     def refused_row(
         self,

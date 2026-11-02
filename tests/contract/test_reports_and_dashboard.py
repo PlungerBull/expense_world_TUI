@@ -16,8 +16,7 @@ depended on its contents would depend on run order.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from datetime import datetime, timedelta
-from uuid import uuid4
+from datetime import datetime
 
 import pytest
 
@@ -26,35 +25,9 @@ from expense.reads import pending_hashtag_of
 from .conftest import Scratch
 
 
-def _a_minute_ago(scratch: Scratch) -> str:
-    """A moment just past, in the caller's display timezone, the zone the month is cut in
-    (contract: GET /v1/dashboard, "Field rules"); a transaction may not be dated ahead."""
-    past = datetime.now(scratch.zone) - timedelta(minutes=1)
-    return past.isoformat(timespec="seconds")
-
-
 def _month(scratch: Scratch) -> dict[str, str]:
     now = datetime.now(scratch.zone)
     return {"year": str(now.year), "month": str(now.month)}
-
-
-def _spend(scratch: Scratch, account_id: str, amount: int, **fields: str) -> str:
-    """A signed transaction of today in the account's PEN, written whole; its id."""
-    tx_id = str(uuid4())
-    scratch.transactions.append(tx_id)
-    scratch.client.post(
-        "/transactions",
-        json_body={
-            "id": tx_id,
-            "title": "report row",
-            "amount_cents": amount,
-            "account_id": account_id,
-            "currency_code": "PEN",
-            "date": _a_minute_ago(scratch),
-            **fields,
-        },
-    )
-    return tx_id
 
 
 def _row(rows: list[dict] | None, account_id: str) -> dict:
@@ -131,7 +104,7 @@ def test_a_two_currency_account_and_person_are_one_row_each_with_a_balance_per_c
     scratch.opening_balance(card, "2026-01-01", "PEN")
     scratch.opening_balance(card, "2026-01-01", "USD")
     scratch.opening_balance(friend, "2026-01-01", "USD")
-    _spend(scratch, card, -1200)
+    scratch.recent_row(card, -1200)
 
     body = client.get("/dashboard")
 
@@ -226,7 +199,7 @@ def test_the_aggregates_are_home_currency_with_an_unconverted_count(client, scra
     (contract: GET /v1/dashboard, "Aggregates are home-currency only")."""
     account_id = scratch.account("PEN", "USD")
     scratch.opening_balance(account_id, "2026-01-01", "USD")
-    _spend(scratch, account_id, -1200)
+    scratch.recent_row(account_id, -1200)
 
     body = client.get("/dashboard")
 
@@ -311,7 +284,7 @@ def test_a_months_categories_sum_to_its_net(client, scratch):
     transaction created here guarantees there is something to add up.
     """
     account_id = scratch.account()
-    _spend(scratch, account_id, -3300)
+    scratch.recent_row(account_id, -3300)
 
     body = client.get("/reports/monthly", params=_month(scratch))
     if body["totals"]["unconverted_count"]:
@@ -330,7 +303,7 @@ def test_an_uncategorised_row_lands_under_pendiente_and_counts(client, scratch):
     category-less transaction actually files there and is actually counted.
     """
     account_id = scratch.account()
-    tx_id = _spend(scratch, account_id, -4400)
+    tx_id = scratch.recent_row(account_id, -4400)["id"]
     assert client.get(f"/transactions/{tx_id}")["id"] == tx_id  # accepted without a category
 
     body = client.get("/reports/monthly", params=_month(scratch))
@@ -349,7 +322,7 @@ def test_a_row_waiting_for_a_hashtag_is_its_categorys_pending_hashtag_row(client
     """
     account_id = scratch.account()
     category_id = scratch.category()
-    tx_id = _spend(scratch, account_id, -2100, category_id=category_id)
+    tx_id = scratch.recent_row(account_id, -2100, category_id=category_id)["id"]
     pending = pending_hashtag_of(client.get("/hashtags")["items"])
     assert pending is not None, "an untagged write did not make the pending hashtag exist"
 
@@ -386,7 +359,7 @@ def test_a_write_is_signed_but_a_bare_read_is_not(client, scratch):
     fails when it changes.
     """
     account_id = scratch.account()
-    tx_id = _spend(scratch, account_id, -1200)  # signed going in
+    tx_id = scratch.recent_row(account_id, -1200)["id"]  # signed going in
 
     bare = client.get(f"/transactions/{tx_id}")
     assert bare["amount_cents"] == 1200  # magnitude coming back

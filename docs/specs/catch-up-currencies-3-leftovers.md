@@ -4,7 +4,7 @@ One small thing that part 3 of the catch-up to contract `f82426fb0a099676`, the 
 foundation (done on 2026-10-30), turned up while it ran.
 
 **Status: approved by the owner on 2026-10-30; no question. The current spec since 2026-11-02;
-its tasks wait for the owner's approval.** It runs after
+its tasks approved by the owner on 2026-11-02.** It runs after
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 which rewrites [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -55,23 +55,12 @@ None.
 Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it.
 
-1. **One shared helper for a plain transaction dated a minute ago (builder).** A `Scratch` method
-   in [conftest.py](../../tests/contract/conftest.py) that logs one transaction dated a minute
-   ago in the caller's display timezone, taking a category and any other field a test needs,
-   and registering its id before it is sent. `_spend` in
-   [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py) is
-   replaced by it. [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py)
-   now dates its rows on a fixed past day and mostly builds bodies for refused writes: it uses
-   the helper only where a body is a plain row the helper makes, and the builder reports which.
-   *Passes if:* no live test builds a plain transaction dated now by hand, the two files pass
-   live twice and leave nothing, and runtime.md names the helper where it lists the suite's
-   shared helpers.
-2. **The cursor test passes no day it does not use (builder).** `_post_row` in
+1. **The cursor test passes no day it does not use (builder).** `_post_row` in
    [test_transactions_cursor.py](../../tests/contract/test_transactions_cursor.py) sends its
    moment once, through a helper that takes a moment, not a day and a date that overrides it.
    *Passes if:* no call in tests/contract/ passes a day that its own `date` overrides, and the
    file passes live twice.
-3. **The reports' tests pass in a month's first minute (builder).** Each report test reads the
+2. **The reports' tests pass in a month's first minute (builder).** Each report test reads the
    month its row is dated in, taken from the one moment the row is dated at, not from a second
    reading of the clock.
    *Passes if:* no report test reads the clock twice for a row and its month, a unit test
@@ -81,3 +70,10 @@ task and stops after it.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- Four more live files build a transaction dated now by hand, in UTC rather than a minute ago in
+  the display timezone, instead of `Scratch.recent_row`: test_log_lifecycle.py,
+  test_category_hashtags.py, test_transactions_lifecycle.py and test_resources_lifecycle.py
+  (each with its own `datetime.now(UTC)` helper or body).
+- `_tagged_row` in test_reserved_name_held.py builds by hand a plain row with a category and a
+  hashtag on its fixed past day, which `Scratch.row` already makes.
