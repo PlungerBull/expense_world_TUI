@@ -1374,8 +1374,9 @@ holding no currency has no pair.
   and the form reads each named row with `GET /transactions/{id}?debit_as_negative=true`
   (`reads.fetch_transaction`), one at a time, so the amount arrives signed and nothing reads
   the sign off `transaction_type` (contract: "Base Conventions", "Sign convention — responses").
-  A save waits for those reads; a read that fails shows its "Failed" note and leaves that
-  currency's pair read-only, so the rest still saves.
+  A save waits for those reads, saying `The PEN opening balance is still loading.` (the first
+  currency still loading, in the form's order); a read that fails shows its "Failed" note and
+  leaves that currency's pair read-only, so the rest still saves.
 - **A save sends, in order:** the account's own changes (`PUT /accounts/{id}`), then one write
   per currency whose pair changed, in the pairs' order — `POST /accounts/{id}/opening-balance`
   with a client `transaction_id`, that currency's `currency_code`, the signed `amount_cents`
@@ -1395,10 +1396,10 @@ holding no currency has no pair.
   names: a name, statement code or colour on its own line; an opening balance's refusal on its
   currency's lines, a date on its `as of` and anything else on its `opening`, so the cursor
   always says whose it was. When the account saved and an opening balance was refused, the
-  note says so: `The account's changes are saved. The opening balance is not:`, the engine's
-  words, then `It is still in the form: fix it and save again.`, or, for a refusal with a line
-  of its own ("When the engine says no" above), that line instead. The next save sends only
-  what is still unsaved; `esc` just leaves.
+  note says so: `The account's changes are saved. The PEN opening balance is not:` (the refused
+  write's own currency), the engine's words, then `It is still in the form: fix it and save
+  again.`, or, for a refusal with a line of its own ("When the engine says no" above), that
+  line instead. The next save sends only what is still unsaved; `esc` just leaves.
 - **Saved,** the form closes with `Saved.` and the account list reads again from its first
   page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
   this way: one that wrote dismisses with `True` and the list starts over; one closed with

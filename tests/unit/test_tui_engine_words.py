@@ -469,7 +469,7 @@ def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole
         _type_account(screen, "opening:PEN", "350.00")
         _type_account(screen, "as_of:PEN", "2026-01-01")
         shown = await toast_with_words(pilot, app)
-        assert "The opening balance is not:" in shown and whole_in(shown)
+        assert "The PEN opening balance is not:" in shown and whole_in(shown)
 
     run_app(scenario, toasts=True)
 

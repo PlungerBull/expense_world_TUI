@@ -734,7 +734,37 @@ def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
         await wait_for(pilot, lambda: not screen._openings_loading)
 
     run_app(scenario)
-    assert ("The opening balance is still loading.", {"severity": "error"}) in notes
+    assert (
+        "The PEN opening balance is still loading.",
+        {"severity": "error", "markup": False},
+    ) in notes
+
+
+def test_the_loading_note_names_the_currency_still_loading(fake_client, notes, monkeypatch):
+    """Soles with no opening balance, dollars with one being read: the note
+    names the dollars, the first currency still loading, not the first one."""
+    release = threading.Event()
+
+    def slow(cfg, transaction_id, **kw):
+        release.wait(2)
+        return USD_ROW
+
+    monkeypatch.setattr("expense.reads.fetch_transaction", slow)
+
+    async def scenario(pilot, app):
+        screen = EditAccountScreen(VISA_USD_OPENED)
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        screen.action_submit()
+        assert fake_client.calls == []
+        release.set()
+        await wait_for(pilot, lambda: not screen._openings_loading)
+
+    run_app(scenario)
+    assert (
+        "The USD opening balance is still loading.",
+        {"severity": "error", "markup": False},
+    ) in notes
 
 
 def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_log):
@@ -978,7 +1008,7 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
     message, kw = notes[0]
     assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message == (
-        "The account's changes are saved. The opening balance is not:\n"
+        "The account's changes are saved. The PEN opening balance is not:\n"
         "VALIDATION_ERROR — Validation failed\n"
         "  date: Date cannot be in the future.\n\n"
         "It is still in the form: fix it and save again."
@@ -1028,7 +1058,7 @@ def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, 
     message, kw = notes[0]
     assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message == (
-        "The account's changes are saved. The opening balance is not:\n"
+        "The account's changes are saved. The PEN opening balance is not:\n"
         f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
     )
 
@@ -1071,6 +1101,34 @@ def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fa
         ("POST", "/accounts/acc-visa/opening-balance"),
     ]
     assert result == [True]
+
+
+def test_the_half_saved_note_names_the_currency_refused(fake_client, notes):
+    """The account saves, the soles' opening balance lands and the dollars' is
+    refused: the note names the dollars."""
+    plain = account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")])
+    sent = fake_client.post
+
+    def post(path, json_body=None):
+        if json_body and json_body.get("currency_code") == "USD":
+            raise FUTURE
+        return sent(path, json_body)
+
+    fake_client.post = post
+
+    async def body(pilot, app, screen):
+        _type(screen, "color", "green")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")
+        _type(screen, "opening:USD", "40.00")
+        _type(screen, "as_of:USD", "2026-11-01")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+
+    _form(plain, body)
+    assert notes[0][0].startswith(
+        "The account's changes are saved. The USD opening balance is not:\n"
+    )
 
 
 def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):

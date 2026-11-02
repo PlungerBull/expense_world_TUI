@@ -626,6 +626,7 @@ class EditAccountScreen(NewAccountScreen):
         # the opening balances.
         self._account_sent = self._payload()
         self._wrote = False  # any write of the save landed: the list reloads
+        self._refused_currency: str | None = None  # the currency of the last refused write
         self._openings: dict[str, _OpeningBalance] = {}
         for h in held:
             opening_id = h.get("opening_balance_transaction_id")
@@ -798,6 +799,7 @@ class EditAccountScreen(NewAccountScreen):
         """As New's; a currency's refusal that names none of its lines lands
         on its `opening` line, so the cursor always says whose it was."""
         text = super()._refusal_text(exc, currency)
+        self._refused_currency = currency
         if currency is not None and self._refused_line is None:
             line = _pair_key("opening", currency)
             if line not in self._locked:
@@ -826,7 +828,8 @@ class EditAccountScreen(NewAccountScreen):
         if self._submitting:
             return
         if self._openings_loading:
-            self.notify("The opening balance is still loading.", severity="error")
+            code = next(c for c in self._codes if self._openings[c].loading)
+            toast(self, f"The {code} opening balance is still loading.", severity="error")
             return
         if not self._required_met():
             return
@@ -930,9 +933,10 @@ class EditAccountScreen(NewAccountScreen):
         closing = (
             "" if self._refusal_says_next else "\n\nIt is still in the form: fix it and save again."
         )
+        saved = f"The account's changes are saved. The {self._refused_currency} opening balance"
         toast(
             self,
-            f"The account's changes are saved. The opening balance is not:\n{message}{closing}",
+            f"{saved} is not:\n{message}{closing}",
             title="Failed",
             severity="error",
         )

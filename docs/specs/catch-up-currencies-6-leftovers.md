@@ -44,61 +44,6 @@ When done, the why moves to [decisions.md](../decisions.md) and this file is del
 1. **The LOG bar's staged list, a fill's colour, the summary's amounts and a single refusal's
    head** follow questions 1 A to 1 D.
 2. **The undrawn words** stay or change as question 2 picks.
-4. **The two opening-balance notes** name their currency as question 4 picks.
-5. **A currency picked by mistake on the New form** can be taken back as question 5 picks.
-6. **The LOG bar's hint** on a line refused for more than one reason follows question 6.
-7. **`x`'s two sentences**, **the note after a half-saved save** and **the opening balance's
-   line on `m`** follow questions 7 to 9.
-8. **`ctrl+s` keeps a code typed on the New form's CURRENCIES line,** as the HASHTAGS line does.
-9. **`c` guards against a second add in flight,** as `a` and `t` do.
-10. **The missing tests** are written: the `color` refusal, the `?` card's rule, the busy guard
-    for `c`, and the statement-code test citing pane 3·2 A, with tui.md.
-
-## How the owner knows it is done
-
-1. The LOG bar, the Edit form and the bulk moves read as questions 1 to 9 pick.
-2. A code typed on the New form's CURRENCIES line and not yet added is kept on `ctrl+s`.
-3. Pressing `c` twice quickly adds the currency once.
-4. The unit suite and the drift check pass.
-
-## What the owner settled
-
-All answered 2026-11-02 ([expense-world-currencies-leftovers.html](../mockups/expense-world-currencies-leftovers.html)
-for question 1); questions 2 to 4 as recommended, the owner taking the recommendation where no
-letter was given:
-
-- **Question 1:**
-  - **1 A, A:** the LOG bar's staged list has a `Cur` column of its own, as the ledger has, in
-    place of "<account> · <code>".
-  - **1 B, A:** a currency an account change took on the Edit form is drawn dim, as built.
-  - **1 C, B:** the opening balances' summary on a two-currency account colours its amounts by
-    sign.
-  - **1 D, A:** a bulk move with one row refused heads it `Refused`, as built.
-- **Question 2 A:** the words no drawing showed stay as built, each following a pattern already
-  approved.
-- **Question 3 A:** the Edit form's CURRENCY line shows `changes every part of the transaction` on
-  a transaction of two parts or more, as ACCOUNT, the date and the title do.
-- **Question 4 A:** the two opening-balance notes name their currency: `The PEN opening balance
-  is not:` and `The PEN opening balance is still loading.`
-- **Question 5 A:** a currency picked by mistake on the New form stays picked, as on the hashtags
-  line; `esc` and starting over is the way out.
-- **Question 6 A:** the LOG bar's hint on a line refused for more than one reason is the plain
-  `not staged — fix the line and press ↵ again`.
-- **Question 7 A:** `x` keeps its two sentences, `Currency removed: USD.` and `<account> holds no
-  currency.`
-- **Question 8 A:** the half-saved save keeps the engine's words alone until the engine ask "An
-  account and its opening balances save in one write" lands.
-- **Question 9 A:** on `m`, an opening balance's `OPENING_BALANCE_ACCOUNT_FIXED` shows the
-  engine's words alone; the app's line stays for `b` and the Edit form's account.
-
-## Questions for the owner
-
-None.
-
----
-
-## Tasks
-
 3. **The Edit form's CURRENCY line** carries the split hint as question 3 picks.
 4. **The two opening-balance notes** name their currency as question 4 picks.
 5. **A currency picked by mistake on the New form** can be taken back as question 5 picks.
@@ -155,14 +100,6 @@ None.
 
 ## Tasks
 
-2. **The opening balances' summary colours its amounts by sign (1 C)** on an account holding two
-   currencies, as pane 3 B of the same mockup draws (Manage ▸ Accounts ▸ Edit).
-3. **The Edit form's CURRENCY line shows `changes every part of the transaction`** on a
-   transaction of two parts or more (question 3), as ACCOUNT, the date and the title do
-   ([edit_form.py](../../expense/tui/screens/edit_form.py) `EVERY_PART_NOTE`).
-4. **The two opening-balance notes name their currency (question 4):** `The PEN opening balance
-   is not:` and `The PEN opening balance is still loading.`
-   ([create_forms.py](../../expense/tui/screens/create_forms.py)).
 5. **Two lines drop back to plain words (questions 6 and 9):** the LOG bar's hint on a line
    refused for more than one reason is `REFUSED_HINT`; on `m`, an opening balance's
    `OPENING_BALANCE_ACCOUNT_FIXED` shows the engine's words alone, the app's line staying for `b`
