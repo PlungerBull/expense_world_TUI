@@ -3,8 +3,8 @@
 One small thing that part 3 of the catch-up to contract `f82426fb0a099676`, the live tests'
 foundation (done on 2026-10-30), turned up while it ran.
 
-**Status: approved by the owner on 2026-10-30; no question.** Its tasks are drafted when the
-owner names it the current spec. It runs after
+**Status: approved by the owner on 2026-10-30; no question. The current spec since 2026-11-02;
+its tasks wait for the owner's approval.** It runs after
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 which rewrites [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -52,7 +52,31 @@ None.
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
+task and stops after it.
+
+1. **One shared helper for a plain transaction dated a minute ago (builder).** A `Scratch` method
+   in [conftest.py](../../tests/contract/conftest.py) that logs one transaction dated a minute
+   ago in the caller's display timezone, taking a category and any other field a test needs,
+   and registering its id before it is sent. `_spend` in
+   [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py) is
+   replaced by it. [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py)
+   now dates its rows on a fixed past day and mostly builds bodies for refused writes: it uses
+   the helper only where a body is a plain row the helper makes, and the builder reports which.
+   *Passes if:* no live test builds a plain transaction dated now by hand, the two files pass
+   live twice and leave nothing, and runtime.md names the helper where it lists the suite's
+   shared helpers.
+2. **The cursor test passes no day it does not use (builder).** `_post_row` in
+   [test_transactions_cursor.py](../../tests/contract/test_transactions_cursor.py) sends its
+   moment once, through a helper that takes a moment, not a day and a date that overrides it.
+   *Passes if:* no call in tests/contract/ passes a day that its own `date` overrides, and the
+   file passes live twice.
+3. **The reports' tests pass in a month's first minute (builder).** Each report test reads the
+   month its row is dated in, taken from the one moment the row is dated at, not from a second
+   reading of the clock.
+   *Passes if:* no report test reads the clock twice for a row and its month, a unit test
+   proves a moment in a month's first minute, in the display timezone, gives that row's month
+   as the month read, and the file passes live twice.
 
 ## Found along the way
 
