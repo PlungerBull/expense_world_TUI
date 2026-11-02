@@ -39,3 +39,13 @@ def test_a_minute_that_stays_in_the_month_reads_that_month():
     moment = minute_before(datetime(2026, 3, 1, 0, 1, 30, tzinfo=LIMA), LIMA)
 
     assert month_of(moment) == {"year": "2026", "month": "3"}
+
+
+def test_the_first_minute_after_a_daylight_saving_jump_gives_a_minute_that_exists():
+    new_york = ZoneInfo("America/New_York")
+    now = datetime(2026, 3, 8, 7, 0, 30, tzinfo=UTC)  # 03:00:30 EDT, a minute after the jump
+
+    moment = minute_before(now, new_york)
+
+    assert moment.astimezone(UTC).astimezone(new_york).isoformat() == moment.isoformat()
+    assert (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds() == 60

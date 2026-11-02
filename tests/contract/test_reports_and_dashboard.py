@@ -5,7 +5,7 @@ grid do arithmetic *on top of* their shape (four months side by side, a hashtag
 breakdown folded under each category, balances in each account's own currency).
 Every fixture behind that arithmetic is one we wrote, so the unit suite proves
 the grid renders `HOME_MONTHS` correctly and nothing more. If the engine renames
-`spent_home_cents` or stops nesting `hashtag_breakdown`, 1232 unit tests stay
+`spent_home_cents` or stops nesting `hashtag_breakdown`, the unit tests stay
 green and Home draws zeros.
 
 So these tests assert *shape*, not values: the keys the renderers index by, the

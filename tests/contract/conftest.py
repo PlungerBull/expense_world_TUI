@@ -48,8 +48,10 @@ CLEANER = load_script("clean_practice_user.py")
 
 
 def minute_before(now: datetime, zone: ZoneInfo) -> datetime:
-    """The moment a minute before `now`, in `zone`: the moment a recent row is dated at."""
-    return now.astimezone(zone) - timedelta(minutes=1)
+    """The moment a minute before `now`, in `zone`: the moment a recent row is dated at. The
+    minute comes off in real time, then the result is read in `zone`, so a wall clock that
+    just jumped forward still gives a time that exists."""
+    return (now - timedelta(minutes=1)).astimezone(zone)
 
 
 def month_of(moment: datetime) -> dict[str, str]:
@@ -898,7 +900,8 @@ class Scratch:
         return self.at(day)
 
     def _item(self, account_id: str, when: str, amount: int, currency: str, **fields: str) -> dict:
-        """One batch item dated `when` (`at`); the one body shape every helper sends."""
+        """One transaction body dated `when` (`at`), sent alone or in a batch; the one body shape
+        every helper sends."""
         return {
             "id": str(uuid4()),
             "title": "contract statement line",
@@ -960,7 +963,8 @@ class Scratch:
         user's display timezone, the zone a month is cut in; contract: GET /v1/dashboard,
         "Field rules"); a transaction may not be dated ahead. The created item, as `row_at`
         makes it."""
-        when = (moment or self.recent_moment()).isoformat(timespec="seconds")
+        at = moment if moment is not None else self.recent_moment()
+        when = at.isoformat(timespec="seconds")
         return self.row_at(account_id, when, amount, currency, **fields)
 
     def refused_row(
