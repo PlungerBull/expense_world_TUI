@@ -22,7 +22,16 @@ engine:
     its line in `review_lines`, and its day seals with the rest;
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
     when there is none; revert carries neither;
-  · statements of one account may not share a day, and may not run backwards.
+  · statements of one account may not share a day, and may not run backwards;
+  · the account's closed days hold for a currency added later: a soles-only account with
+    a completed statement takes dollars (`201`), the statement still holding soles only;
+    a dollar row on a sealed day is `SEALED_PERIOD` as a soles row is, one the day after
+    the statement is taken, nothing written by the refusal; reverted, the statement still
+    holds soles only and the dollar row on that day is taken.
+
+Left out: a dollar line placed in a draft giving it dollar balances and the close's
+`not_covered` notes for a currency the statement holds no balances for (both in
+test_statement_currencies.py), and a statement that holds the added currency.
 
 Each test builds its own accounts (conftest.py `scratch`), and every row it sends, a
 refused one included, is in its cleanup before the call, so a row the engine takes after
@@ -32,11 +41,15 @@ all is still removed. Gating, target and the real-ledger guard: conftest.py.
 import pytest
 
 from tests.contract.conftest import (
+    all_accounts,
     assert_refusal,
     assert_refusals,
     balance_of,
+    live_ids,
     read_signed,
     refused,
+    statement_codes,
+    transaction_count,
 )
 
 MARCH = ("2026-03-01", "2026-03-31")
@@ -177,6 +190,105 @@ def test_revert_opens_the_wall(client, scratch, sealed_march):
     account, march, _, _ = sealed_march
     client.post(f"/statements/{march['id']}/revert")
     scratch.row(account, "2026-03-15")
+
+
+@pytest.fixture
+def soles_march_then_dollars(client, scratch):
+    """A soles-only account whose March 2026 is completed with one soles row, then given
+    dollars: the account and the completed statement. Sealed days: March 1 to 30; April 1 is
+    after the statement."""
+    account = scratch.account("PEN")
+    inside = scratch.row(account, "2026-03-10")
+    march = scratch.completed(account, *MARCH, inside["id"])
+    assert statement_codes(march) == ["PEN"]
+    client.post(f"/accounts/{account}/currencies", json_body={"currency_code": "USD"})
+    return account, march
+
+
+def test_a_soles_account_with_a_completed_statement_takes_dollars(client, scratch):
+    """Builds its own account (the fixture adds the dollars at once; this test needs the
+    account and the statement as they were before the add). The add is `201` with the
+    account's currencies soles then dollars at `0`, its `version` unmoved, and the
+    completed statement is read as it was: soles only, still completed
+    (contract: POST /v1/accounts/{account_id}/currencies)."""
+    account = scratch.account("PEN")
+    inside = scratch.row(account, "2026-03-10")
+    march = scratch.completed(account, *MARCH, inside["id"])
+    assert (march["status"], statement_codes(march)) == (2, ["PEN"])
+    before = client.get(f"/accounts/{account}")
+    assert [c["currency_code"] for c in before["currencies"]] == ["PEN"]
+
+    added = client.post(f"/accounts/{account}/currencies", json_body={"currency_code": "USD"})
+
+    assert [c["currency_code"] for c in added["currencies"]] == ["PEN", "USD"]
+    assert added["currencies"][1]["current_balance_cents"] == 0
+    assert added["version"] == before["version"]
+    assert client.get(f"/accounts/{account}") == added
+    assert client.get(f"/statements/{march['id']}") == march
+
+
+def test_a_dollar_row_on_a_sealed_day_is_refused_and_one_after_it_is_taken(
+    client, scratch, soles_march_then_dollars
+):
+    """March 15 is sealed for the dollars added after March was completed, named under
+    March's own statement, as it is for soles (the control: the same row in soles is refused
+    in the same words); the same dollar row with only its date moved to April 1, the day after
+    the statement, is taken, so the seal is the only thing the refused row broke. The
+    refusal writes nothing: the account, the statement and the account's rows read the
+    same after
+    (contract: "Transactions (Ledger)", "Sealed periods")
+    (contract: POST /v1/accounts/{account_id}/currencies)."""
+    account, march = soles_march_then_dollars
+    before = (
+        all_accounts(client),
+        client.get(f"/statements/{march['id']}"),
+        live_ids(client, account),
+        transaction_count(client, account),
+    )
+    sealed = scratch.at("2026-03-15")
+
+    errors = [scratch.refused_row(account, sealed, code) for code in ("USD", "PEN")]
+    errors.append(scratch.refused_row(account, sealed, "USD", batch=True))
+    for err, key in zip(errors, ("date", "date", "transactions.0.date"), strict=True):
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "SEALED_PERIOD")
+        assert march["name"] in err.fields[key]
+    assert errors[0].fields == errors[1].fields
+
+    after = (
+        all_accounts(client),
+        client.get(f"/statements/{march['id']}"),
+        live_ids(client, account),
+        transaction_count(client, account),
+    )
+    assert after == before
+
+    taken = scratch.row(account, "2026-04-01", -100, "USD", title="contract statement line")
+    assert taken["date"].startswith("2026-04-01")
+    assert transaction_count(client, account) == before[3] + 1
+    assert statement_codes(client.get(f"/statements/{march['id']}")) == ["PEN"]
+
+
+def test_the_completed_statement_holds_soles_only_after_a_revert(
+    client, scratch, soles_march_then_dollars
+):
+    """The completed statement holds soles only; reverted, it still holds soles only
+    while the dollars have nothing in it, its days are open again, and the dollar row
+    refused on March 15 is taken (the control: the refusal was the seal)
+    (contract: "Statements", "Which currencies a statement covers")
+    (contract: "Transactions (Ledger)", "What is sealed is read at each write")."""
+    account, march = soles_march_then_dollars
+    err = scratch.refused_row(account, scratch.at("2026-03-15"), "USD")
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
+
+    reverted = client.post(f"/statements/{march['id']}/revert")
+
+    assert reverted["status"] == 1
+    assert statement_codes(reverted) == ["PEN"]
+    assert statement_codes(client.get(f"/statements/{march['id']}")) == ["PEN"]
+    taken = scratch.row(account, "2026-03-15", currency="USD")
+    assert taken["date"].startswith("2026-03-15")
+    # A row in the draft's days that is in no statement gives it nothing.
+    assert statement_codes(client.get(f"/statements/{march['id']}")) == ["PEN"]
 
 
 def test_a_draft_seals_nothing(client, scratch):

@@ -85,12 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-6. **The account's closed days (builder).** In
-   [test_sealed_periods.py](../../tests/contract/test_sealed_periods.py): a soles-only account
-   with a completed statement takes USD (`201`); a USD transaction dated on a day it seals
-   `SEALED_PERIOD`, one dated after it accepted; the completed statement still holding PEN
-   only, and still after a revert.
-   *Passes if:* those tests pass live and leave nothing.
 7. **The reads (builder).** A new tests/contract/test_account_reads.py: `GET /accounts` and
    `GET /accounts/{id}` keys exactly `id, user_id, name, color, is_person, statement_code,
    is_archived, sort_order, currencies, created_at, updated_at, version, deleted_at`, each

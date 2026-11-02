@@ -303,6 +303,11 @@ def balance_of(statement: dict, code: str) -> dict:
     return next(b for b in statement["balances"] if b["currency_code"] == code)
 
 
+def statement_codes(statement: dict) -> list[str]:
+    """The currency codes the statement holds balances for, in the engine's order."""
+    return [entry["currency_code"] for entry in statement["balances"]]
+
+
 def account_balance(client: ExpenseClient, account_id: str, code: str = "PEN") -> int:
     """The account's current balance in the currency `code`, in cents
     (contract: "Bank Accounts", "Account response")."""

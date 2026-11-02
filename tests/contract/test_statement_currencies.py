@@ -24,7 +24,13 @@ test_statements_lifecycle.py. Gating, target resolution and the real-ledger guar
 conftest.py.
 """
 
-from tests.contract.conftest import assert_refusal, assert_refusals, balance_of, refused
+from tests.contract.conftest import (
+    assert_refusal,
+    assert_refusals,
+    balance_of,
+    refused,
+    statement_codes,
+)
 
 APRIL = ("2026-04-01", "2026-04-30")
 MAY = ("2026-05-01", "2026-05-31")
@@ -44,10 +50,6 @@ def _entry(code: str, beginning: int, ending: int | None) -> dict:
     }
 
 
-def _codes(statement: dict) -> list[str]:
-    return [b["currency_code"] for b in statement["balances"]]
-
-
 def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, scratch):
     """An account of PEN and USD has one statement for April, not two. Its balances come back
     in the account's currency order whatever order the request listed them in, and a
@@ -61,7 +63,7 @@ def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, s
         account, *APRIL, balances=[_entry("USD", 5000, 4700), _entry("PEN", 10000, 8800)]
     )
     sid = created["id"]
-    assert _codes(created) == ["PEN", "USD"]
+    assert statement_codes(created) == ["PEN", "USD"]
     assert client.get("/statements", params={"account_id": account}) == {"items": [created]}
 
     scratch.assign(pen_tx, sid)
@@ -74,7 +76,7 @@ def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, s
     assert [b["difference_cents"] for b in read["balances"]] == [0, 0]
 
     completed = client.post(f"/statements/{sid}/complete")
-    assert (completed["status"], _codes(completed), completed["not_covered"]) == (
+    assert (completed["status"], statement_codes(completed), completed["not_covered"]) == (
         2,
         ["PEN", "USD"],
         [],
@@ -94,10 +96,10 @@ def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covere
     pen_tx = scratch.row(account, "2026-04-15", -1200)["id"]
     sid = scratch.statement(account, *APRIL, balances=[_entry("PEN", 10000, 8800)])["id"]
     scratch.assign(pen_tx, sid)
-    assert _codes(client.get(f"/statements/{sid}")) == ["PEN"]
+    assert statement_codes(client.get(f"/statements/{sid}")) == ["PEN"]
 
     quiet = client.post(f"/statements/{sid}/complete")
-    assert (quiet["status"], _codes(quiet)) == (2, ["PEN"])
+    assert (quiet["status"], statement_codes(quiet)) == (2, ["PEN"])
     assert quiet["not_covered"] == [
         {"currency_code": "USD", "warnings": [], "coverage_gap": None, "review_lines": []}
     ]
@@ -106,7 +108,7 @@ def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covere
     client.post(f"/statements/{sid}/revert")
     stray = scratch.row(account, "2026-04-20", -300, "USD")
     flagged = client.post(f"/statements/{sid}/complete")
-    assert _codes(flagged) == ["PEN"]
+    assert statement_codes(flagged) == ["PEN"]
     assert flagged["not_covered"] == [
         {
             "currency_code": "USD",
@@ -232,7 +234,7 @@ def test_a_put_naming_one_currency_keeps_the_others(client, scratch):
     )
     assert balance_of(put, "PEN") == balance_of(created, "PEN")
     assert balance_of(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
-    assert (put["version"], _codes(put)) == (created["version"] + 1, ["PEN", "USD"])
+    assert (put["version"], statement_codes(put)) == (created["version"] + 1, ["PEN", "USD"])
 
     put = client.put(
         f"/statements/{sid}",
@@ -388,7 +390,7 @@ def test_a_create_leaving_out_a_currency_with_money_at_the_start_is_refused(clie
     created = scratch.statement(
         account, *APRIL, balances=[_entry("PEN", 0, 0), _entry("USD", 30000, 30000)]
     )
-    assert _codes(created) == ["PEN", "USD"]
+    assert statement_codes(created) == ["PEN", "USD"]
 
 
 def test_a_close_refuses_a_currency_with_money_at_the_start_until_its_balances_are_added(
@@ -406,7 +408,7 @@ def test_a_close_refuses_a_currency_with_money_at_the_start_until_its_balances_a
     scratch.assign(pen_tx, sid)
     scratch.row(account, "2026-03-20", 30000, "USD")
     before = client.get(f"/statements/{sid}")
-    assert _codes(before) == ["PEN"]
+    assert statement_codes(before) == ["PEN"]
 
     err = refused(lambda: client.post(f"/statements/{sid}/complete"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "MONEY_AT_START_NOT_COVERED")
@@ -414,9 +416,9 @@ def test_a_close_refuses_a_currency_with_money_at_the_start_until_its_balances_a
     assert client.get(f"/statements/{sid}") == before
 
     put = client.put(f"/statements/{sid}", json_body={"balances": [_entry("USD", 30000, 30000)]})
-    assert _codes(put) == ["PEN", "USD"]
+    assert statement_codes(put) == ["PEN", "USD"]
     completed = client.post(f"/statements/{sid}/complete")
-    assert (completed["status"], _codes(completed), completed["not_covered"]) == (
+    assert (completed["status"], statement_codes(completed), completed["not_covered"]) == (
         2,
         ["PEN", "USD"],
         [],
@@ -444,7 +446,7 @@ def test_a_line_placed_in_a_draft_lacking_its_currency_gives_it_that_currencys_b
 
     scratch.assign(usd_tx, sid)
     placed = client.get(f"/statements/{sid}")
-    assert _codes(placed) == ["PEN", "USD"]
+    assert statement_codes(placed) == ["PEN", "USD"]
     assert balance_of(placed, "USD") == {**_entry("USD", None, None), "difference_cents": None}
     assert balance_of(placed, "PEN") == balance_of(draft, "PEN")
     assert placed["version"] == draft["version"] + 1
@@ -489,4 +491,4 @@ def test_a_completed_statement_gains_no_currency(client, scratch):
         assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "LOCKED")
         assert err.fields == {"balances.USD": LOCKED}
         assert client.get(f"/statements/{sid}") == before
-    assert _codes(before) == ["PEN"]
+    assert statement_codes(before) == ["PEN"]
