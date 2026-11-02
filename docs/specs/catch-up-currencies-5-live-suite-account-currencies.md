@@ -85,17 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-7. **The reads (builder).** A new tests/contract/test_account_reads.py: `GET /accounts` and
-   `GET /accounts/{id}` keys exactly `id, user_id, name, color, is_person, statement_code,
-   is_archived, sort_order, currencies, created_at, updated_at, version, deleted_at`, each
-   currency exactly `{currency_code, current_balance_cents, opening_balance_transaction_id}`,
-   PEN before USD, no home value; every bank account before every person
-   (contract: GET /v1/accounts, "Ordering"); an archived account's currencies listed with
-   `?include_archived=true`; `GET /activity?resource_id=<account id>` reading one `account` and
-   two `currency` entries for a create, the `account` entry alone for a `PUT`, an archive and a
-   kind change, one `currency` entry for an add or a removal, each snapshot with the contract's
-   keys (contract: "What an account is", "Account snapshot").
-   *Passes if:* the file passes live and names no `holder`.
 8. **The last citations (builder).** Every citation left in tests/, scripts/ and runtime.md
    moved to the live contract, and runtime.md's paragraph on what the suite does saying what
    it proves on the account model, specs 3 and 4 included.
@@ -142,3 +131,6 @@ Not built in this spec; drafted into a new spec when it is done.
 - **No unit test shows how `x` on Manage ▸ Accounts draws the remove's two `404`s**, "account
   not found." and "currency <code> not found.", which the live engine answers before any other
   refusal (found by task 2 on 2026-10-31).
+- **No live test reads the activity entries of an account's delete, unarchive or turn back into
+  a bank account** (`make-account`); task 7 reads those of a create, an edit, an archive, a turn
+  into a person, and a currency added and removed (found by task 7 on 2026-11-02).
