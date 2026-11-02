@@ -414,11 +414,11 @@ refuses it: its "Refused" note is the engine's words for the field, the row, the
 selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
 @Opening.
 **A split transaction says what reaches every part.** The engine writes a line's date,
-title and account onto every part of it, in one go, while amount, category, hashtags and note
+title, account and currency onto every part of it, in one go, while amount, category, hashtags and note
 stay each part's own (contract: "Transactions (Ledger)", "Bank lines"). So while the Edit form's
 table holds two parts or more, its hint under the bar adds
-`· changes every part of the transaction`, in the accent, while the bar is on date, title or
-account, and says nothing more on a part's lines; screen 1 B in
+`· changes every part of the transaction`, in the accent, while the bar is on date, title,
+account or currency, and says nothing more on a part's lines; screen 1 B in
 [expense-world-edit-part.html](mockups/expense-world-edit-part.html). On a line of one part
 the hints are as on any form.
 The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected

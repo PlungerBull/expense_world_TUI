@@ -44,7 +44,6 @@ When done, the why moves to [decisions.md](../decisions.md) and this file is del
 1. **The LOG bar's staged list, a fill's colour, the summary's amounts and a single refusal's
    head** follow questions 1 A to 1 D.
 2. **The undrawn words** stay or change as question 2 picks.
-3. **The Edit form's CURRENCY line** carries the split hint as question 3 picks.
 4. **The two opening-balance notes** name their currency as question 4 picks.
 5. **A currency picked by mistake on the New form** can be taken back as question 5 picks.
 6. **The LOG bar's hint** on a line refused for more than one reason follows question 6.
@@ -186,3 +185,7 @@ Not built in this spec; drafted into a new spec when it is done.
   `cur` column to nothing at 80 wide, and at 60 wide even with short titles. It cut cells
   before the `Cur` column too. A minimum width for `cur`, or title and tags as the columns that
   give way, as the ledger does, would fix it.
+- **The Reconciliations "no batch" form's OPERATION line** has no `changes every part of the
+  transaction` note, though every part shares it as it shares the date, title, account and
+  currency (`_EVERY_PART` in edit_form.py holds no `operation`). Whether it carries the note is
+  the owner's call.

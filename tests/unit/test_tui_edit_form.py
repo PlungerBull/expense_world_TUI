@@ -1604,8 +1604,8 @@ def test_a_line_of_one_part_shows_each_fields_hint_alone(fake_client, monkeypatc
         assert str(hints[key].style) == "dim" and not hints[key].spans
 
 
-def test_a_line_of_two_parts_notes_every_part_on_date_title_and_account(fake_client, monkeypatch):
-    """Two parts: date, title and account read their hint, then
+def test_a_line_of_two_parts_notes_every_part_on_four_lines(fake_client, monkeypatch):
+    """Two parts: date, title, account and currency read their hint, then
     `· changes every part of the transaction` in the accent; a part's fields
     read their hint alone."""
     other = {**TXN, "id": "tx2", "amount_cents": -1000}
@@ -1617,7 +1617,7 @@ def test_a_line_of_two_parts_notes_every_part_on_date_title_and_account(fake_cli
     hints = _open(scenario_steps=steps)
     for key, hint in FIELD_HINTS:
         shown = hints[key]
-        if key in ("date", "title", "account"):
+        if key in ("date", "title", "account", "currency"):
             assert shown.plain == f"{hint} · {EVERY_PART_NOTE}"
             note = shown.plain.index(EVERY_PART_NOTE)
             styles = {str(s.style) for s in shown.spans if s.start <= note < s.end}
