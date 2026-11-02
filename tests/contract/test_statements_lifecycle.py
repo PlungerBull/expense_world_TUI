@@ -29,7 +29,6 @@ why each is a contract claim rather than a client one:
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from datetime import datetime
 from uuid import uuid4
 
 from tests.contract.conftest import (
@@ -273,8 +272,7 @@ def test_the_review_read_includes_a_row_late_on_the_last_day(client, scratch):
     at 23:30 local on `date_end` (contract: GET /v1/bank-lines)."""
     account = scratch.account()
     statement = scratch.statement(account, *APRIL, balances=OPENING)
-    night = datetime(2026, 4, 30, 23, 30, tzinfo=scratch.zone).isoformat(timespec="seconds")
-    late = scratch.row(account, "2026-04-30", -1200, date=night)
+    late = scratch.row_at(account, scratch.at("2026-04-30", 23, 30), -1200)
     page = client.get(
         "/bank-lines",
         params={

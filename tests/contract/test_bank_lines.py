@@ -1201,8 +1201,8 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
         return line_rows(assigned, available)
 
     purchase = scratch.row(account, "2026-04-11", -10000, title="FARMACIA", operation_code=code)
-    late = datetime(2026, 4, 30, 23, 30, tzinfo=scratch.zone).isoformat(timespec="seconds")
-    last_day = scratch.row(account, "2026-04-30", -4200, title="UBER *TRIP", date=late)
+    late = scratch.at("2026-04-30", 23, 30)
+    last_day = scratch.row_at(account, late, -4200, title="UBER *TRIP")
     after = scratch.row(account, "2026-05-01", -2500, title="TAXI")
     parts = replace_parts(client, purchase["bank_line_id"], [-6000, -4000], scratch.transactions)
     split_line = parts[0]["bank_line_id"]

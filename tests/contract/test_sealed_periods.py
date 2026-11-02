@@ -103,7 +103,7 @@ def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_
     account, *_ = sealed_march
     err = scratch.refused_row(account, scratch.at("2026-03-30", 23, 59))
     assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
-    scratch.row(account, "2026-03-31", date=scratch.at("2026-03-31", 0, 0))
+    scratch.row_at(account, scratch.at("2026-03-31", 0, 0))
 
 
 def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch, sealed_march):
@@ -117,7 +117,7 @@ def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch
     april = scratch.statement(account, *APRIL, balances=_soles(-1000))
     scratch.assign(outside["id"], april["id"])
     # A draft next statement seals nothing.
-    scratch.row(account, "2026-03-31", date=scratch.at("2026-03-31", 23, 59))
+    scratch.row_at(account, scratch.at("2026-03-31", 23, 59))
     client.post(f"/statements/{april['id']}/complete")
 
     for hour, minute in ((0, 0), (12, 0), (23, 59)):
@@ -128,7 +128,7 @@ def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch
     err = scratch.refused_row(account, scratch.at("2026-04-01", 0, 0))
     assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
     assert april["name"] in err.fields["date"]
-    scratch.row(account, "2026-04-30", date=scratch.at("2026-04-30", 23, 59))
+    scratch.row_at(account, scratch.at("2026-04-30", 23, 59))
 
     client.post(f"/statements/{april['id']}/revert")
     scratch.row(account, "2026-03-31")

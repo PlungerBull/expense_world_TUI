@@ -29,13 +29,8 @@ ROWS = 7
 
 def _post_row(scratch, account_id: str, when: datetime, currency: str = "PEN") -> str:
     """A `-100` row of `account_id` in `currency` at `when`; its id."""
-    made = scratch.row(
-        account_id,
-        "2026-01-01",
-        -100,
-        currency,
-        title="cursor row",
-        date=when.isoformat(timespec="seconds"),
+    made = scratch.row_at(
+        account_id, when.isoformat(timespec="seconds"), -100, currency, title="cursor row"
     )
     return made["id"]
 

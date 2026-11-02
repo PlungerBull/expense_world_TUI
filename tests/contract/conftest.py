@@ -886,14 +886,15 @@ class Scratch:
     def noon(self, day: str) -> str:
         return self.at(day)
 
-    def _item(self, account_id: str, day: str, amount: int, currency: str, **fields: str) -> dict:
+    def _item(self, account_id: str, when: str, amount: int, currency: str, **fields: str) -> dict:
+        """One batch item dated `when` (`at`); the one body shape every helper sends."""
         return {
             "id": str(uuid4()),
             "title": "contract statement line",
             "amount_cents": amount,
             "account_id": account_id,
             "currency_code": currency,
-            "date": self.noon(day),
+            "date": when,
             **fields,
         }
 
@@ -907,34 +908,37 @@ class Scratch:
         """A new bank line on `day` in `currency` holding one part per amount (a batch
         `line_group` for more than one); its id."""
         group = {"line_group": "g"} if len(amounts) > 1 else {}
-        items = [self._item(account_id, day, amount, currency, **group) for amount in amounts]
+        when = self.noon(day)
+        items = [self._item(account_id, when, amount, currency, **group) for amount in amounts]
         return self._create(items)[0]["bank_line_id"]
 
-    def row(
-        self, account_id: str, day: str, amount: int = -1000, currency: str = "PEN", **fields
+    def row_at(
+        self, account_id: str, when: str, amount: int = -1000, currency: str = "PEN", **fields
     ) -> dict:
-        """A new transaction on `day` (a past day: noon today is `FUTURE_DATE` before noon)
-        in `currency` with no title, category or operation code unless `fields` give them;
-        the created item, which must name the account and the currency sent."""
-        item = self._item(account_id, day, amount, currency)
+        """A new transaction dated `when` (`at`; it may not be ahead of now) in `currency`
+        with no title, category or operation code unless `fields` give them; the created
+        item, which must name the account and the currency sent."""
+        item = self._item(account_id, when, amount, currency)
         del item["title"]
         made = self._create([{**item, **fields}])[0]
         assert (made["account_id"], made["currency_code"]) == (account_id, currency)
         return made
+
+    def row(
+        self, account_id: str, day: str, amount: int = -1000, currency: str = "PEN", **fields
+    ) -> dict:
+        """`row_at` noon on `day` (a past day: noon today is `FUTURE_DATE` before noon)."""
+        return self.row_at(account_id, self.noon(day), amount, currency, **fields)
 
     def recent_row(
         self, account_id: str, amount: int = -1000, currency: str = "PEN", **fields
     ) -> dict:
         """A new transaction dated a minute ago in the user's display timezone, the zone a
         month is cut in (contract: GET /v1/dashboard, "Field rules"); a transaction may not be
-        dated ahead. Built as `row` builds one; the created item."""
+        dated ahead. The created item, as `row_at` makes it."""
         past = datetime.now(self.zone) - timedelta(minutes=1)
-        return self.row(
-            account_id,
-            "2026-01-01",
-            amount,
-            currency,
-            **{"date": past.isoformat(timespec="seconds"), **fields},
+        return self.row_at(
+            account_id, past.isoformat(timespec="seconds"), amount, currency, **fields
         )
 
     def refused_row(
@@ -950,7 +954,7 @@ class Scratch:
         sent to `POST /transactions` or, with `batch`, as the one item of
         `POST /transactions/batch`. Its id joins the scratch before the call, so a row the
         engine takes after all is still removed."""
-        item = self._item(account_id, "2026-01-01", -100, currency, date=when, **fields)
+        item = self._item(account_id, when, -100, currency, **fields)
         self.transactions.append(item["id"])
         if batch:
             body = {"transactions": [item]}
