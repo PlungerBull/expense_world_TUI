@@ -3,9 +3,9 @@
 What part 3's leftovers, one helper for a plain transaction dated a minute ago (done on
 2026-11-02), turned up while they ran.
 
-**Status: drafted on 2026-11-02 for the owner to rewrite or approve; no questions.** It waits
-on no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
-deleted.
+**Status: drafted on 2026-11-02; no questions. The current spec since 2026-11-02, the owner
+naming it; its tasks approved by the owner on 2026-11-02.** It waits on no other spec. When
+done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -53,3 +53,48 @@ Nothing you see changes. Only the live tests change.
 ## Questions for the owner
 
 None.
+
+---
+
+## Tasks
+
+Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
+task and stops after it.
+
+1. **A minute ago is never in the future, and the two descriptions hold (builder).**
+   `minute_before` in [conftest.py](../../tests/contract/conftest.py) takes the minute off
+   before it turns to the display timezone; `Scratch._item`'s description says it is one
+   transaction body, sent alone or in a batch; the opening description of
+   [test_reports_and_dashboard.py](../../tests/contract/test_reports_and_dashboard.py) names no
+   count of unit tests.
+   *Passes if:* a unit test in
+   [test_contract_month_of_a_recent_row.py](../../tests/unit/test_contract_month_of_a_recent_row.py)
+   proves a moment in the first minute after a daylight-saving jump gives a minute ago that
+   exists and is a minute before it in real time; both descriptions read true; the reports file
+   passes live.
+2. **The log and category-hashtag tests date their rows through the shared helpers (builder).**
+   [test_log_lifecycle.py](../../tests/contract/test_log_lifecycle.py) and
+   [test_category_hashtags.py](../../tests/contract/test_category_hashtags.py) log each plain
+   transaction dated now through `Scratch.recent_row`, or another `Scratch` helper where the
+   test proves a route `recent_row` does not send, keeping what each test proves.
+   *Passes if:* neither file reads the clock or builds a transaction body by hand; both pass
+   live twice and leave nothing.
+3. **The transaction and resource lifecycle tests do the same (builder).**
+   [test_transactions_lifecycle.py](../../tests/contract/test_transactions_lifecycle.py) and
+   [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py) build each
+   transaction through the `Scratch` helpers, a row dated now a minute ago in the display
+   timezone, keeping the route each test proves (`POST /transactions` alone or in a batch).
+   A date sent on an edit rather than a new row is not in scope; the builder reports each one.
+   *Passes if:* neither file builds a transaction body by hand or dates a new row in UTC; both
+   pass live twice and leave nothing.
+4. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
+   [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py), `_body` in
+   [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
+   and the batch items in [test_bank_lines.py](../../tests/contract/test_bank_lines.py)'s
+   line-group tests build their bodies with the `Scratch` helpers.
+   *Passes if:* no live file builds a transaction body by hand (the grep in the report); the
+   three files pass live twice and leave nothing.
+
+## Found along the way
+
+Not built in this spec; drafted into a new spec when it is done.

@@ -71,7 +71,7 @@ New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-
 (2 questions, one with a mockup to draw), after part 6.
 
 New, from part 3's leftovers (done on 2026-11-02): [what part 3's leftovers turned up](specs/catch-up-currencies-3b-leftovers.md)
-(no question; live tests only), waiting on no other spec.
+(no question; live tests only), the current spec, its four tasks approved on 2026-11-02.
 
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
