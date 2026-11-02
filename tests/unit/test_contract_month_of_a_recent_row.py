@@ -43,7 +43,8 @@ def test_a_minute_that_stays_in_the_month_reads_that_month():
 
 def test_the_first_minute_after_a_daylight_saving_jump_gives_a_minute_that_exists():
     new_york = ZoneInfo("America/New_York")
-    now = datetime(2026, 3, 8, 7, 0, 30, tzinfo=UTC)  # 03:00:30 EDT, a minute after the jump
+    # 03:00:30 EDT: 30 s into the first minute after the jump
+    now = datetime(2026, 3, 8, 7, 0, 30, tzinfo=UTC)
 
     moment = minute_before(now, new_york)
 

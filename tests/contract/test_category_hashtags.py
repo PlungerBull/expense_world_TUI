@@ -18,7 +18,6 @@ Every test writes to its own fresh account, category and tags, made through `scr
 real-ledger guard: conftest.py.
 """
 
-from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -26,10 +25,6 @@ import pytest
 from expense.errors import EngineError
 from expense.reads import pending_hashtag_of
 from tests.contract.conftest import reason_on
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _make_hashtag(scratch, label: str, **extra) -> dict:
@@ -43,22 +38,14 @@ def _make_hashtag(scratch, label: str, **extra) -> dict:
 
 
 def _post_row(scratch, account_id: str, category_id: str, hashtag_ids: list[str]) -> str:
-    new_id = str(uuid4())
-    scratch.transactions.append(new_id)
-    scratch.client.post(
-        "/transactions",
-        json_body={
-            "id": new_id,
-            "title": "category tags row",
-            "amount_cents": -100,
-            "account_id": account_id,
-            "currency_code": "PEN",
-            "category_id": category_id,
-            "date": _now_iso(),
-            "hashtag_ids": hashtag_ids,
-        },
+    row = scratch.recent_row(
+        account_id,
+        -100,
+        title="category tags row",
+        category_id=category_id,
+        hashtag_ids=hashtag_ids,
     )
-    return new_id
+    return row["id"]
 
 
 def _category_tags(client, category_id: str) -> list[dict]:

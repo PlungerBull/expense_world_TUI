@@ -61,14 +61,7 @@ None.
 Drafted 2026-11-02. Each needs the practice engine, which the orchestrator starts before the
 task and stops after it.
 
-1. **The log and category-hashtag tests date their rows through the shared helpers (builder).**
-   [test_log_lifecycle.py](../../tests/contract/test_log_lifecycle.py) and
-   [test_category_hashtags.py](../../tests/contract/test_category_hashtags.py) log each plain
-   transaction dated now through `Scratch.recent_row`, or another `Scratch` helper where the
-   test proves a route `recent_row` does not send, keeping what each test proves.
-   *Passes if:* neither file reads the clock or builds a transaction body by hand; both pass
-   live twice and leave nothing.
-2. **The transaction and resource lifecycle tests do the same (builder).**
+1. **The transaction and resource lifecycle tests do the same (builder).**
    [test_transactions_lifecycle.py](../../tests/contract/test_transactions_lifecycle.py) and
    [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py) build each
    transaction through the `Scratch` helpers, a row dated now a minute ago in the display
@@ -76,7 +69,7 @@ task and stops after it.
    A date sent on an edit rather than a new row is not in scope; the builder reports each one.
    *Passes if:* neither file builds a transaction body by hand or dates a new row in UTC; both
    pass live twice and leave nothing.
-3. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
+2. **The three bodies built by hand go through `Scratch` (builder).** `_tagged_row` in
    [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py), `_body` in
    [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py)
    and the batch items in [test_bank_lines.py](../../tests/contract/test_bank_lines.py)'s
@@ -87,3 +80,6 @@ task and stops after it.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- `Scratch._item` types its extra fields as text, though callers pass lists such as
+  `hashtag_ids`; `row_at` adds those after the item is built to get past it.

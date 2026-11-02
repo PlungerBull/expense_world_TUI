@@ -927,15 +927,32 @@ class Scratch:
         return self._create(items)[0]["bank_line_id"]
 
     def row_at(
-        self, account_id: str, when: str, amount: int = -1000, currency: str = "PEN", **fields
+        self,
+        account_id: str,
+        when: str,
+        amount: int = -1000,
+        currency: str = "PEN",
+        *,
+        alone: bool = False,
+        **fields,
     ) -> dict:
         """A new transaction dated `when` (`at`; it may not be ahead of now) in `currency`
-        with no title, category or operation code unless `fields` give them; the created
-        item, which must name the account and the currency sent."""
+        with no title, category or operation code unless `fields` give them, sent in a batch
+        or, with `alone`, by itself to `POST /transactions`; its id joins the scratch before
+        the call. The created item, which must name the id, the account and the currency sent."""
         item = self._item(account_id, when, amount, currency)
         del item["title"]
-        made = self._create([{**item, **fields}])[0]
-        assert (made["account_id"], made["currency_code"]) == (account_id, currency)
+        item.update(fields)
+        if alone:
+            self.transactions.append(item["id"])
+            made = self.client.post("/transactions", json_body=item)
+        else:
+            made = self._create([item])[0]
+        assert (made["id"], made["account_id"], made["currency_code"]) == (
+            item["id"],
+            account_id,
+            currency,
+        )
         return made
 
     def row(
@@ -957,15 +974,16 @@ class Scratch:
         currency: str = "PEN",
         *,
         moment: datetime | None = None,
+        alone: bool = False,
         **fields,
     ) -> dict:
         """A new transaction dated at `moment` (default `recent_moment`: a minute ago in the
         user's display timezone, the zone a month is cut in; contract: GET /v1/dashboard,
         "Field rules"); a transaction may not be dated ahead. The created item, as `row_at`
-        makes it."""
+        makes it, sent in a batch or, with `alone`, by itself."""
         at = moment if moment is not None else self.recent_moment()
         when = at.isoformat(timespec="seconds")
-        return self.row_at(account_id, when, amount, currency, **fields)
+        return self.row_at(account_id, when, amount, currency, alone=alone, **fields)
 
     def refused_row(
         self,
