@@ -85,14 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-8. **The last citations (builder).** Every citation left in tests/, scripts/ and runtime.md
-   moved to the live contract, and runtime.md's paragraph on what the suite does saying what
-   it proves on the account model, specs 3 and 4 included.
-   *Passes if:* the citation test names no file of tests/contract/, scripts/ or runtime.md, and
-   runtime.md names no `/reconciliations`, `twin`, holder or `POST /people`. The unit tests'
-   holder-era citations go with the statement screens they test, in
-   [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)'s task 9.
-
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when this spec is done, with the tester's results.
