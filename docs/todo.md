@@ -70,8 +70,8 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (2 questions, one with a mockup to draw), after part 6.
 
-New, from part 3's leftovers (done on 2026-11-02): [what part 3's leftovers turned up](specs/catch-up-currencies-3b-leftovers.md)
-(no question; live tests only), the current spec, its four tasks approved on 2026-11-02.
+New, from part 3b's leftovers (done on 2026-11-02): [what part 3b's leftovers turned up](specs/catch-up-currencies-3c-leftovers.md)
+(no question; live tests only), waiting on no other spec.
 
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
@@ -87,7 +87,7 @@ Every question is in its spec; the ones marked "mockup to draw" get their mockup
 pick.
 
 **Recommended:** approve the rest; part 6's leftovers run next once you approve them, then
-part 5's, so each is ready when the one before it is done; part 3b's can run whenever you name
+part 5's, so each is ready when the one before it is done; part 3c's can run whenever you name
 it.
 
 ---

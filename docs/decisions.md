@@ -1222,15 +1222,28 @@ makes one at noon of its day through it, so no call passes a day that a `date` t
 (3) **A test that reads the month of a row it logged takes both from one clock reading**
 (`Scratch.recent_moment`, `month_of`), proven for a month's first minute by
 [test_contract_month_of_a_recent_row.py](../tests/unit/test_contract_month_of_a_recent_row.py).
+(4) **A minute ago is taken off in real time, then read in the display timezone**, so the
+first minute after a daylight-saving jump still gives a time that exists, a minute back.
+(5) **A new transaction's body comes only from `Scratch._item`**: a test proving the single
+create sends its row with `alone`, a batch of several goes through `_create`, and a body the
+helpers cannot send, such as one missing its currency to draw a refusal, is still built by
+`_item` and changed. `row_at` checks on every create that the answer keeps the id, account and
+currency sent. The live files that still build a body by hand are
+[catch-up-currencies-3c-leftovers.md](specs/catch-up-currencies-3c-leftovers.md)'s work.
 
 **Why.** Noon today is in the future before noon, and the engine refuses a future date, so
 "now" needs its own helper; a copy per file drifts. A day passed and then overridden says one
 thing and sends another. Two clock readings straddle a month's turn in its first minute, when
-the row lands in the old month and the report reads the new one.
+the row lands in the old month and the report reads the new one. A minute taken off the wall
+clock lands, after a daylight-saving jump, on an hour that does not exist, which the engine
+reads as the future. One body shape means one place to change when the engine's shape changes,
+and a check every create makes cannot be dropped by one test moving to a helper.
 
 **Rejected.** *Dating recent rows at noon of yesterday* — the reports' tests need a row in the
 current month, which yesterday is not on a month's first day. *Reading the month from a second
-clock reading a minute earlier* — it repeats the arithmetic instead of sharing the moment.
+clock reading a minute earlier* — it repeats the arithmetic instead of sharing the moment. *A
+separate helper for a row sent alone* — it repeats the body `row_at` builds; a switch keeps one
+copy, as `refused_row`'s `batch` does.
 
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
