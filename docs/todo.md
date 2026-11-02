@@ -77,7 +77,7 @@ New, from part 4: [what the live tests for the upload, bank lines and kinds turn
 (1 question, on the Edit form's words), after part 7.
 
 New, from part 6: [what the main views turned up](specs/catch-up-currencies-6-leftovers.md)
-(9 questions, the first with a mockup drawn: [expense-world-currencies-leftovers.html](mockups/expense-world-currencies-leftovers.html)),
+(its 9 questions answered on 2026-11-02; it waits for your approval),
 before part 7.
 
 New, from part 5: [what the live tests for an account's currencies turned up](specs/catch-up-currencies-5-leftovers.md)
@@ -86,7 +86,7 @@ New, from part 5: [what the live tests for an account's currencies turned up](sp
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 6's leftovers run next once you answer them, then
+**Recommended:** approve the rest; part 6's leftovers run next once you approve them, then
 part 5's, so each is ready when the one before it is done; part 3b's can run whenever you name
 it.
 

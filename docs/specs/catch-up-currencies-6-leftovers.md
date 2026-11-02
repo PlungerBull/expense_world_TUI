@@ -3,8 +3,8 @@
 What part 6 of the catch-up to contract `f82426fb0a099676`, the main views (done on 2026-10-31),
 turned up while it ran.
 
-**Status: drafted on 2026-10-31 for the owner to rewrite or approve; nine questions, the first
-with a mockup.** It runs after
+**Status: drafted on 2026-10-31; its nine questions answered by the owner on 2026-11-02; it
+waits for the owner's approval.** It runs after
 part 3's leftovers (done on 2026-11-02) and before [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -62,100 +62,39 @@ When done, the why moves to [decisions.md](../decisions.md) and this file is del
 3. Pressing `c` twice quickly adds the currency once.
 4. The unit suite and the drift check pass.
 
+## What the owner settled
+
+All answered 2026-11-02 ([expense-world-currencies-leftovers.html](../mockups/expense-world-currencies-leftovers.html)
+for question 1); questions 2 to 4 as recommended, the owner taking the recommendation where no
+letter was given:
+
+- **Question 1:**
+  - **1 A, A:** the LOG bar's staged list has a `Cur` column of its own, as the ledger has, in
+    place of "<account> · <code>".
+  - **1 B, A:** a currency an account change took on the Edit form is drawn dim, as built.
+  - **1 C, B:** the opening balances' summary on a two-currency account colours its amounts by
+    sign.
+  - **1 D, A:** a bulk move with one row refused heads it `Refused`, as built.
+- **Question 2 A:** the words no drawing showed stay as built, each following a pattern already
+  approved.
+- **Question 3 A:** the Edit form's CURRENCY line shows `changes every part of the transaction` on
+  a transaction of two parts or more, as ACCOUNT, the date and the title do.
+- **Question 4 A:** the two opening-balance notes name their currency: `The PEN opening balance
+  is not:` and `The PEN opening balance is still loading.`
+- **Question 5 A:** a currency picked by mistake on the New form stays picked, as on the hashtags
+  line; `esc` and starting over is the way out.
+- **Question 6 A:** the LOG bar's hint on a line refused for more than one reason is the plain
+  `not staged — fix the line and press ↵ again`.
+- **Question 7 A:** `x` keeps its two sentences, `Currency removed: USD.` and `<account> holds no
+  currency.`
+- **Question 8 A:** the half-saved save keeps the engine's words alone until the engine ask "An
+  account and its opening balances save in one write" lands.
+- **Question 9 A:** on `m`, an opening balance's `OPENING_BALANCE_ACCOUNT_FIXED` shows the
+  engine's words alone; the app's line stays for `b` and the Edit form's account.
+
 ## Questions for the owner
 
-1. **Four drawings** ([expense-world-currencies-leftovers.html](../mockups/expense-world-currencies-leftovers.html)):
-   - **1 A.** The LOG bar's staged list: a `Cur` column of its own, as the ledger has, or
-     "<account> · <code>" as today.
-   - **1 B.** A currency an account change took on the Edit form: dim, as built, or purple.
-   - **1 C.** The opening balances' summary on a two-currency account: plain, as built, or
-     coloured by sign.
-   - **1 D.** A bulk move with one row refused: headed `Refused`, as built, or `1 of 3 refused`.
-
-   **Recommended:** as the mockup marks each.
-
-2. **The words no drawing showed.** Each is built with these words, following the pattern beside
-   it:
-   - a `%` matching none of the account's currencies: `"%xx" matches no currencies` (as
-     `"$x" matches no accounts`);
-   - an account holding three or more currencies with none picked: `Multi holds PEN, USD and
-     EUR: pick one` (as the two-currency `holds PEN and USD`);
-   - a picked currency written into the line in capitals, `%USD`, as `$` and `@` write the
-     engine's own name; the drawing wrote `%usd`;
-   - the Edit form's toast for a currency matching nothing: `No currency matches “…”.` (as
-     `No account matches “…”.`);
-   - a line on an archived account: its CURRENCY line `read-only` with the shared reason;
-   - the ledger on one currency of an account: crumb `Ledger ▸ Visa Inventada · USD`, legend
-     `filter: account Visa Inventada · USD · 20 of 57 loaded`, empty text `(no transactions
-     under Visa Inventada · USD)`;
-   - the ledger's `m` on the `?` card: `Move the selection to a currency`, and `m Currency`
-     standing before `s` and `d` in the footer with no row selected;
-   - a LOG bar line naming an account that matches nothing, `↵` pressed inside the token: the
-     hint `not staged — fix the line and press ↵ again` and, under the bar, `! not staged —
-     "$zzz" matches no accounts`, as with the caret outside the token.
-
-   - **A.** Keep them all.
-   - **B.** Change some: tell me which, and to what.
-
-   **Recommended:** A: each follows words you already approved.
-
-3. **The Edit form's CURRENCY line on a transaction of two parts or more.** ACCOUNT, the date and
-   the title show `changes every part of the transaction`; the engine writes the currency onto
-   every part too.
-   - **A.** CURRENCY shows it too.
-   - **B.** It stays without.
-
-   **Recommended:** A: it does change every part.
-
-4. **Two opening-balance notes that do not say which currency:** `The opening balance is not:`
-   and `The opening balance is still loading.`, on an account that may hold two.
-   - **A.** They name the currency: `The PEN opening balance is not:`, `The PEN opening balance
-     is still loading.`
-   - **B.** They stay as they are.
-
-   **Recommended:** A: with two opening balances on the form, the note should say which.
-
-5. **A currency picked by mistake on the New form.** Today, as on the hashtags line, it cannot be
-   taken back; `esc` and starting over is the way out.
-   - **A.** It stays so, as the hashtags line.
-   - **B.** `⏎` on a picked currency takes it back, on both lines.
-
-   **Recommended:** A: one rule for every list line, and a new account is quick to start over.
-
-6. **The LOG bar's hint on a line refused for its currency and something else** (`taxi -5
-   $visa @zzz`). Today it says `not staged — pick a currency and press ↵ again`; the line under
-   the bar names both reasons.
-   - **A.** The plain hint, `not staged — fix the line and press ↵ again`, whenever there is more
-     than one reason.
-   - **B.** As today.
-
-   **Recommended:** A: the hint should not send you to fix one thing when two are wrong.
-
-7. **`x`'s two sentences:** the receipt `Currency removed: USD.`, and `<account> holds no
-   currency.` for `x` on an account holding none. Built with these words.
-   - **A.** Keep them.
-   - **B.** Other words: tell me which.
-
-   **Recommended:** A: they mirror `c`'s `Currency added: USD.`
-
-8. **The note after a half-saved save:** when the dollars' opening balance is refused after the
-   soles' saved, the screen shows the engine's words alone, not which balance went through.
-   - **A.** Leave it until the engine ask "An account and its opening balances save in one
-     write" lands, which removes the half save.
-   - **B.** Add a line now naming what saved.
-
-   **Recommended:** A: the engine ask removes the case for every client.
-
-9. **An opening balance refused on `m`.** `m` moving an opening balance to another currency is
-   refused (`OPENING_BALANCE_ACCOUNT_FIXED`, "Must not move an opening balance to another account
-   or currency."), and the app adds its line `To move an opening balance, set it on the other
-   account's Edit form.`, written for a move to another account.
-   - **A.** On `m`, the engine's words alone; the line stays for `b` and the Edit form's account.
-   - **B.** One line for both: `To change an opening balance's account or currency, set it on
-     that account's Edit form.`
-
-   **Recommended:** A: the engine's words already say what is refused, and the line's advice is
-   about another account.
+None.
 
 ---
 
