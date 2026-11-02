@@ -85,14 +85,6 @@ task and stops after it. Each builds its records through spec 3's `Scratch`, cit
 contract, and proves each refusal wrote nothing by reading the account back, its `version` and
 its `currencies` unchanged.
 
-5. **The old names refused (builder).** In test_transaction_currency.py: a former per-currency
-   id, read as in task 1, `404` on `GET`, `PUT` and `DELETE /accounts/{id}`,
-   `INVALID_REFERENCE` on `account_id` of `POST /transactions`, and an empty list and count `0`
-   as `?account_id=` on `/transactions` and `/bank-lines`; `GET /holders`, `GET /holders/{id}`,
-   `POST /accounts/{id}/move` and `POST /people` answering exactly as a made-up route does;
-   `?holder_id=` `UNKNOWN_PARAMETER` on `GET /statements`, `/transactions`, `/bank-lines` and
-   `/bank-lines/count` (contract: "Base Conventions", "Unknown query parameters").
-   *Passes if:* the tests pass live, and no test sends an old name but to prove its refusal.
 6. **The account's closed days (builder).** In
    [test_sealed_periods.py](../../tests/contract/test_sealed_periods.py): a soles-only account
    with a completed statement takes USD (`201`); a USD transaction dated on a day it seals

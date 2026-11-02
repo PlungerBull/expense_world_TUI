@@ -43,6 +43,15 @@ What it pins:
 8. A cursor sent back with `currency_code` changed, added or dropped is `422` `INVALID_CURSOR`
    on `after`, naming the filter; with the filters unchanged it pages on
    (contract: "Base Conventions", "Cursors, on every cursor-paged list").
+9. The old names, sent only to prove their refusal: a former per-currency account id (an unknown
+   UUID, see below) is `404` on `GET`, `PUT` and `DELETE /accounts/{id}`, `422`
+   `INVALID_REFERENCE` on `account_id` of a create, and an empty list and a count of `0` as
+   `?account_id=` on `/transactions` and `/bank-lines`, where the same lists find a real
+   account's row; `GET /holders`, `GET /holders/{id}`, `POST /accounts/{id}/move` and
+   `POST /people` answer exactly as a route that was never made does (status, code, message,
+   `fields`, `reasons` and the whole envelope); `?holder_id=` is `422` `UNKNOWN_PARAMETER` on
+   `GET /statements`, `/transactions`, `/bank-lines` and `/bank-lines/count`
+   (contract: "Base Conventions", "Unknown query parameters").
 
 Every refused write is read before and after: the account's count and its list (every
 currency), and every account the caller has (`all_accounts`), are the same. The refused reads
@@ -54,8 +63,13 @@ What it leaves out:
     so the order between them is not a currency rule; `SEALED_PERIOD` on a currency's days
     is test_sealed_periods.py's.
   · A move of a row to another currency by `PUT`: test_bank_line_write.py's.
-  · The old per-currency ids and the holder names: task 5's, which sends an old name only to
-    prove its refusal.
+  · A real former per-currency id: the contract says no response carries one and no route reads
+    it, and the practice user's activity log holds no older entry naming one
+    (contract: GET /v1/activity, "Older and restored entries"), so a test would have to guess
+    one. The tests of the old names send a fresh random UUID, which the contract says is
+    refused the same way (a per-currency account's `id` sent anywhere is refused as an unknown
+    account is): they prove an unknown account id's answer, which the contract says a former id
+    gets too, not that a former id was once read.
   · The sentence of `OPERATION_CODE_EXISTS`: the contract gives it as the field's text and the
     engine puts a different one there (the contract's sentence is in `error.message`), so the
     suite pins neither; reported to the engine.
@@ -549,3 +563,107 @@ def test_a_cursor_is_bound_to_the_currency_it_was_issued_under(client, scratch):
     second = page(after=pen, currency_code="PEN")
     assert len(second["items"]) == 1
     assert {row["currency_code"] for row in second["items"]} == {"PEN"}
+
+
+OLD_FOUND = "account not found."
+
+
+def test_an_unknown_account_id_is_refused_as_not_found_on_the_account_routes(client, scratch):
+    """An id that names no live account is `404` `NOT_FOUND` "account not found." on `GET`,
+    `PUT` and `DELETE /accounts/{id}`, with no `fields`, and every account the caller has is as
+    it was after each (contract: GET /v1/accounts/{account_id}) (contract: PUT
+    /v1/accounts/{account_id}, "Refusals") (contract: DELETE /v1/accounts/{account_id},
+    "Refusals"). The contract says a per-currency account's `id` is refused as an unknown
+    account is; no real one can be read (the module docstring), so a fresh UUID stands for it."""
+    live = scratch.account("PEN")
+    former = str(uuid4())
+    calls = {
+        "GET": partial(client.get, f"/accounts/{former}"),
+        "PUT": partial(client.put, f"/accounts/{former}", json_body={"name": f"n-{uuid4()}"}),
+        "DELETE": partial(client.delete, f"/accounts/{former}"),
+    }
+    for method, call in calls.items():
+        err = _refused_writing_nothing(client, [live], call)
+        assert (err.status, err.code, err.message) == (404, "NOT_FOUND", OLD_FOUND), method
+        assert err.fields is None and err.reasons is None, method
+
+
+def test_an_unknown_account_id_is_refused_as_the_account_of_a_create(client, scratch):
+    """A create naming it as `account_id` is `422` `INVALID_REFERENCE` on `account_id` alone,
+    with the engine's words, nothing written (contract: POST /v1/transactions,
+    "Validation")."""
+    live = scratch.account("PEN")
+    body = _body(scratch, str(uuid4()))
+    err = _refused_writing_nothing(client, [live], partial(_post, client, body))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
+    assert err.fields["account_id"] == WORDS["INVALID_REFERENCE"]
+
+
+def test_an_unknown_account_id_lists_nothing_where_a_real_account_lists_its_rows(client, scratch):
+    """`?account_id=` naming no account is `200` with `items` `[]`, no further page and a count
+    of `0` on `/transactions` and `/bank-lines`, no refusal; the same lists for a real account
+    with one row list it and count it, so the empty answer is not an empty ledger
+    (contract: GET /v1/transactions) (contract: GET /v1/bank-lines, "Filters")."""
+    live = scratch.account("PEN")
+    scratch.row(live, DAY, -100)
+    former = str(uuid4())
+    for path in ("/transactions", "/bank-lines"):
+        found = client.get(path, params={"account_id": live})
+        assert len(found["items"]) == 1, path
+        assert client.get(f"{path}/count", params={"account_id": live}) == {"count": 1}
+        gone = client.get(path, params={"account_id": former})
+        assert gone["items"] == [] and gone["next_cursor"] is None, path
+        assert client.get(f"{path}/count", params={"account_id": former}) == {"count": 0}
+
+
+def test_the_holder_routes_the_move_and_the_people_route_answer_as_an_unknown_route(
+    client, scratch
+):
+    """`GET /holders`, `GET /holders/{id}`, `POST /accounts/{id}/move` and `POST /people` are
+    `404` `NOT_FOUND` with `fields` and `reasons` `null`, the whole envelope the same as the
+    answer of a route that was never made, sent as the same method with the same body; no
+    account changes. The contract states these routes gone: there is no `/people` route, and no
+    write moves a currency onto another account. The 404 and the null `fields` and `reasons`
+    are the envelope's (contract: "Base Conventions", "Every failure is the envelope")
+    (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+    live = scratch.account("PEN")
+    some = str(uuid4())
+    scratch.accounts.append(some)
+    cases = [
+        (partial(client.get, "/holders"), partial(client.get, "/never-made")),
+        (partial(client.get, f"/holders/{some}"), partial(client.get, f"/never-made/{some}")),
+        (
+            partial(client.post, f"/accounts/{live}/move", json_body={"holder_id": some}),
+            partial(client.post, f"/accounts/{live}/never-made", json_body={"holder_id": some}),
+        ),
+        (
+            partial(client.post, "/people", json_body={"id": some, "name": "x"}),
+            partial(client.post, "/never-made", json_body={"id": some, "name": "x"}),
+        ),
+    ]
+    for old, never_made in cases:
+        err = _refused_writing_nothing(client, [live], old)
+        control = refused(never_made)
+        assert (control.status, control.code) == (404, "NOT_FOUND")
+        assert err.fields is None and err.reasons is None
+        assert (err.status, err.code, err.message) == (404, "NOT_FOUND", control.message)
+        assert (err.fields, err.reasons) == (control.fields, control.reasons)
+        assert err.raw_body == control.raw_body
+
+
+@pytest.mark.parametrize(
+    "path", ["/statements", "/transactions", "/bank-lines", "/bank-lines/count"]
+)
+def test_holder_id_is_an_unknown_parameter_on_the_lists(client, scratch, path):
+    """`?holder_id=` on `GET /statements`, `/transactions`, `/bank-lines` and
+    `/bank-lines/count` is `422` `UNKNOWN_PARAMETER` on `holder_id` alone, with the contract's
+    words, whether it names a real account or nothing, and also beside a filter the route does
+    take; the refused read writes nothing (contract: "Base Conventions", "Unknown query
+    parameters")."""
+    live = scratch.account("PEN")
+    for value in (live, str(uuid4())):
+        for extra in ({}, {"account_id": live}):
+            call = partial(client.get, path, params={"holder_id": value, **extra})
+            err = _refused_writing_nothing(client, [live], call)
+            assert_refusal(err, 422, "VALIDATION_ERROR", "holder_id", "UNKNOWN_PARAMETER")
+            assert err.fields["holder_id"] == "Not a parameter of this endpoint."
