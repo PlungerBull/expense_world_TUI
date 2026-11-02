@@ -3,8 +3,8 @@
 What part 6 of the catch-up to contract `f82426fb0a099676`, the main views (done on 2026-10-31),
 turned up while it ran.
 
-**Status: drafted on 2026-10-31; its nine questions answered by the owner on 2026-11-02; it
-waits for the owner's approval.** It runs after
+**Status: drafted on 2026-10-31; its nine questions answered and the spec and its tasks
+approved by the owner on 2026-11-02.** It runs after
 part 3's leftovers (done on 2026-11-02) and before [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -100,7 +100,30 @@ None.
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+1. **The LOG bar's staged list has a `Cur` column (1 A).** The account cell names the account
+   alone, the currency in a `Cur` column beside the amount, as pane 1 A of
+   [expense-world-currencies-leftovers.html](../mockups/expense-world-currencies-leftovers.html)
+   draws; code in [log_bar.py](../../expense/tui/screens/log_bar.py), tui.md's LOG bar lines.
+2. **The opening balances' summary colours its amounts by sign (1 C)** on an account holding two
+   currencies, as pane 3 B of the same mockup draws (Manage ▸ Accounts ▸ Edit).
+3. **The Edit form's CURRENCY line shows `changes every part of the transaction`** on a
+   transaction of two parts or more (question 3), as ACCOUNT, the date and the title do
+   ([edit_form.py](../../expense/tui/screens/edit_form.py) `EVERY_PART_NOTE`).
+4. **The two opening-balance notes name their currency (question 4):** `The PEN opening balance
+   is not:` and `The PEN opening balance is still loading.`
+   ([create_forms.py](../../expense/tui/screens/create_forms.py)).
+5. **Two lines drop back to plain words (questions 6 and 9):** the LOG bar's hint on a line
+   refused for more than one reason is `REFUSED_HINT`; on `m`, an opening balance's
+   `OPENING_BALANCE_ACCOUNT_FIXED` shows the engine's words alone, the app's line staying for `b`
+   and the Edit form's account ([errors.py](../../expense/errors.py)).
+6. **`ctrl+s` keeps a code typed but not added on the New form's CURRENCIES line,** as the Edit
+   form's HASHTAGS line keeps one.
+7. **`c` guards against a second add in flight,** as `a` and `t` do, with the busy guard's
+   in-flight test for `c`.
+8. **The missing tests:** a `color` refusal landing on the New form's COLOR line; the `?` card's
+   rule `⏎ never changes data, except on a currency pick`; and
+   `test_a_taken_code_on_edit_shows_the_engines_words_alone` with tui.md citing pane 3·2 A of
+   `expense-world-statement-code-field.html`.
 
 ## Found along the way
 
