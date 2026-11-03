@@ -242,8 +242,8 @@ def test_moved_parts_counts_each_part_once_across_the_answers():
 
 def test_bulk_receipt_counts_the_rows_that_left_their_reconciliation():
     assert bulk_receipt(3, "BCP USD", 0) == "3 rows → BCP USD"
-    assert bulk_receipt(3, "BCP USD", 1) == "3 rows → BCP USD · 1 left its reconciliation"
-    assert bulk_receipt(3, "BCP USD", 2) == "3 rows → BCP USD · 2 left their reconciliation"
+    assert bulk_receipt(3, "BCP USD", 1) == "3 rows → BCP USD · 1 left its statement"
+    assert bulk_receipt(3, "BCP USD", 2) == "3 rows → BCP USD · 2 left their statement"
 
 
 # ---- selection ---------------------------------------------------------------
@@ -979,7 +979,7 @@ MIXED = [
 
 def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatch):
     """The receipt counts what the engine's answers list: t1 and t3 moved, t1
-    left its reconciliation; t2 was already on acc2, so its answer lists nothing."""
+    left its statement; t2 was already on acc2, so its answer lists nothing."""
     _stub_ledger(monkeypatch, MIXED)
     _answer_moves(fake_client, [MIXED[0], MIXED[2]], left=("t1",))
     _answer_unchanged(fake_client, MIXED[1])
@@ -1007,7 +1007,7 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
         ]
         await wait_for(pilot, lambda: toasts)
         # t3 was in no reconciliation, t2 never moved: two rows, one left
-        assert toasts[0] == "2 rows → BCP Oro · PEN · 1 left its reconciliation"
+        assert toasts[0] == "2 rows → BCP Oro · PEN · 1 left its statement"
 
     run_app(scenario, size=(120, 30))
 
@@ -1835,7 +1835,7 @@ def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, 
     assert seen["fresh"][0]["after"] is None and seen["fresh"][0]["limit"] == 10
     assert seen["cursor"] == (0, "t-net")
     if key == "b":
-        assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their reconciliation"
+        assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
 
 
 # ---- b: the receipt counts what the engine says moved ------------------------
@@ -1862,7 +1862,7 @@ def test_b_on_one_part_of_a_reconciled_line_counts_both_parts_and_both_leavings(
     their reconciliation, so the receipt says 2 rows and 2 left."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", select, cursor="p2")
     assert fake_client.puts == [("/transactions/p2", ON_PARTS["b"][1])]
-    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their reconciliation"
+    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
     _asked_nothing_but_the_puts(seen)
 
 
@@ -1871,7 +1871,7 @@ def test_b_on_both_parts_counts_each_part_once(fake_client, monkeypatch):
     parts, the second listing none. The receipt says 2 rows, not 3 or 4."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", ["p1", "p2"], cursor="p1")
     assert [path for path, _body in fake_client.puts] == ["/transactions/p1", "/transactions/p2"]
-    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their reconciliation"
+    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
     _asked_nothing_but_the_puts(seen)
 
 
@@ -1923,7 +1923,7 @@ def test_b_counts_only_the_answers_that_landed(fake_client, monkeypatch):
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert ("", "2 rows → BCP Oro · PEN · 2 left their reconciliation") in toasts
+        assert ("", "2 rows → BCP Oro · PEN · 2 left their statement") in toasts
         assert _plain(next(m for t, m in toasts if t == "Refused")) == (
             "CONFLICT — Operation code already exists.\nrow 2"
         )

@@ -10,6 +10,7 @@ tests that matter here are the ones that fail when the derivation drifts:
 """
 
 import importlib
+import inspect
 import pkgutil
 
 from textual.binding import Binding
@@ -439,3 +440,41 @@ def test_every_bar_form_takes_the_form_keymap_not_textuals_focus_cycling():
         assert merged["tab"][0].action == "field(1)", cls.__name__
         assert merged["shift+tab"][0].action == "field(-1)", cls.__name__
         assert merged["ctrl+c"][0].action == "screen.copy_text", cls.__name__
+
+
+# ---------------------------------------------------------------------------
+# the title: a screen's own words, never a class name that says "reconciliation"
+# ---------------------------------------------------------------------------
+
+
+def _screen_classes():
+    """Every Screen subclass defined under expense.tui."""
+    from textual.screen import Screen
+
+    for info in pkgutil.walk_packages(tui_pkg.__path__, f"{tui_pkg.__name__}."):
+        module = importlib.import_module(info.name)
+        for obj in vars(module).values():
+            if isinstance(obj, type) and issubclass(obj, Screen) and obj.__module__ == info.name:
+                yield obj
+
+
+def test_a_screen_whose_class_name_says_reconciliation_sets_its_crumb():
+    """The `?` title falls back to the class name when a screen has no crumb, so a
+    class named for a reconciliation would print that word to the person."""
+    bare = [
+        cls.__name__
+        for cls in _screen_classes()
+        if "reconcil" in cls.__name__.lower()
+        and not getattr(cls, "crumb", None)
+        and "self.crumb = " not in inspect.getsource(cls)
+    ]
+    assert bare == []
+
+
+def test_the_help_title_on_a_statements_own_screen_says_statements():
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+
+    screen = ReconciliationDetailScreen({"id": "r1", "name": "Octubre BCP"})
+    title, _ = screen_inventory(screen)
+    assert title == "Keys — Octubre BCP"
+    assert "reconcil" not in title.lower()

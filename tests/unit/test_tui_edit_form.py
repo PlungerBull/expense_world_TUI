@@ -560,7 +560,7 @@ def _moved(part: dict, *, left: bool) -> dict:
 @pytest.mark.parametrize(
     ("changed", "note"),
     [
-        pytest.param([_moved(TXN, left=True)], "Saved. It left its reconciliation.", id="flagged"),
+        pytest.param([_moved(TXN, left=True)], "Saved. It left its statement.", id="flagged"),
         pytest.param([_moved(TXN, left=False)], "Saved.", id="listed-not-flagged"),
         pytest.param([], "Saved.", id="lists-none"),
     ],
@@ -568,7 +568,7 @@ def _moved(part: dict, *, left: bool) -> dict:
 def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, changed, note):
     """Typed key by key: `⏎` past date and title, `Ahorros` on ACCOUNT, `ctrl+s`.
     Every account change sends `statement_id: null` beside the parts, and
-    the note says the line left its reconciliation only when the answer's
+    the note says the line left its statement only when the answer's
     `changed_parts` flags a part (contract: PUT /v1/bank-lines/{bank_line_id}, "Response")."""
     _patch(monkeypatch)
     notices = _record_notices(monkeypatch)

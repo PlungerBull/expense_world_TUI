@@ -972,9 +972,9 @@ def test_cs_question_counts_the_ticked_rows_in_written_english(
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         texts = [str(s.visual) for s in app.screen.query(Static)]
-        assert texts[0] == "Complete reconciliation?"
+        assert texts[0] == "Complete statement?"
         assert texts[1] == (
-            "Locks the amount, date, title, account, operation number and reconciliation"
+            "Locks the amount, date, title, account, operation number and statement"
             f" of the {count}."
         )
         assert fake_client.posts == []
@@ -1456,7 +1456,7 @@ def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch)
         )
         run_app(scenario)
     assert read.call_count == 1
-    assert notices == [("This reconciliation no longer exists.", "error")]
+    assert notices == [("This statement no longer exists.", "error")]
 
 
 def test_r_refused_otherwise_shows_the_engines_words_and_stays(fake_client, monkeypatch):
@@ -1497,7 +1497,7 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
         await _wait_list(screen, pilot)
         await pilot.press("d")  # delete → confirm modal
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == "Delete reconciliation?"
+        assert app.screen._title == "Delete statement?"
         assert app.screen._message == (
             "Detaches its transactions and removes the batch. Its transactions stay. "
             "No screen can bring it back."
@@ -1633,7 +1633,7 @@ def test_c_without_an_ending_balance_opens_the_box_as_drawn(fake_client, monkeyp
 
 def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_client, monkeypatch):
     """Screens A1 → A2 → 5: `enter` PUTs the balance as typed, the header shows the
-    engine's saved end and diff, then "Complete reconciliation?" and only `y`
+    engine's saved end and diff, then "Complete statement?" and only `y`
     completes."""
     _patch(monkeypatch)
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
@@ -1652,15 +1652,15 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         head = str(screen.query_one("#rhead", Static).visual)
         assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
         texts = [str(s.visual) for s in app.screen.query(Static)]
-        assert texts[0] == "Complete reconciliation?"
+        assert texts[0] == "Complete statement?"
         assert texts[1] == (
-            "Locks the amount, date, title, account, operation number and reconciliation"
+            "Locks the amount, date, title, account, operation number and statement"
             " of the 1 ticked row."
         )
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
         assert fake_client.posts == [(COMPLETE_PATH, None)]
-        await wait_for(pilot, lambda: any(m == "Reconciliation completed." for _, m, _ in notices))
+        await wait_for(pilot, lambda: any(m == "Statement completed." for _, m, _ in notices))
 
     run_app(scenario)
 
@@ -1904,7 +1904,7 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
         await wait_for(pilot, lambda: notices)
         assert notices[0] == (
             "Couldn't complete",
-            "The ending balance is saved. The reconciliation is not completed:\n"
+            "The ending balance is saved. The statement is not completed:\n"
             f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}\n"
             "  balances.acc1.transactions: At least one transaction must be assigned.",
             "error",

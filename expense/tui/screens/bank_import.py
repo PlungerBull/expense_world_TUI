@@ -883,9 +883,7 @@ class ImportPreviewScreen(PreviewScreen):
         )
         if self._names_error:
             lines.append(
-                Text(
-                    f"! could not read the reconciliations' names: {self._names_error}", style="dim"
-                )
+                Text(f"! could not read the statements' names: {self._names_error}", style="dim")
             )
         return lines
 

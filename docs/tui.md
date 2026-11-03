@@ -39,7 +39,7 @@ expense/tui/
                     #   + list_cell() — a list cell as drawn: plain words as
                     #   text, `[` and all; a styled Text as built
                     #   + CursorOptionList — the home menu
-    checklist.py    # CheckList — the reconciliation tick-list, one bank line per row
+    checklist.py    # CheckList — the statement tick-list, one bank line per row
     picker.py       # suggestion_list() — the scrolling name list the quick-add
                     #   surfaces and the bulk pick drop under their input
     refusal.py      # hanging() — the `! …` line a screen keeps under a refusal
@@ -128,8 +128,8 @@ plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 
 **One reader for every typed amount.** `parse_amount` in
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
-form, an account's opening balance, a new reconciliation's two balances and
-the reconciliation's `Ending balance first` box. It takes a signed decimal with a dot for its
+form, an account's opening balance, a new statement's two balances and
+the statement's `Ending balance first` box. It takes a signed decimal with a dot for its
 decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13,853.20`,
 `1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
 `-12.50,`) is unreadable, never read as 13.85: each form field refuses it with its own note and
@@ -247,7 +247,7 @@ a usable file opens on Home; changing the address or key later is System ▸ Con
 | hashtag row (unfolded) | the category's spend on that hashtag, per month, one row per row of the engine's `hashtag_breakdown`, under the name `GET /hashtags` gives it. The rows still waiting for a hashtag are the **pending hashtag's row** (`#Pendiente`), dim like every hashtag row: the engine groups the pending hashtag like any other, so `hashtag_ids` is never empty (contract: GET /v1/dashboard) | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`); on the pending row, that category's transactions still waiting for a hashtag (contract: GET /v1/transactions). A combo of several hashtags is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag |
 | **BANK ACCOUNTS** · *balance today* | one row per account, its name alone, then an indented line per currency it holds: the code and that currency's `current_balance_cents`, in the engine's order (accounts as sent, each one's currencies as sent); balances are native only, never summed (contract: GET /v1/dashboard, "Balances are native only") | on the account's row, the ledger filtered to that account, every currency; on a currency line, to that account and that currency alone |
 | **PEOPLE** | one row per person and its currency lines, drawn like the accounts; a person is settled when **every** currency it holds reads exactly zero (`formatting.split_settled`), so a person settled in soles and owing in dollars stays in sight whole, its zero line included; settled people fold behind `▶ N settled`, counting people (`⏎`/`→` opens it); `none` when there is nobody | as for an account |
-| **LEDGER** | Transactions · Reconciliations, each a row of its own | `⏎` on an entry pushes the screen |
+| **LEDGER** | Transactions · Statements, each a row of its own | `⏎` on an entry pushes the screen |
 | **MANAGE** | Accounts · Categories · Hashtags | as above |
 | **SYSTEM** | Config · Auth & profile | as above |
 
@@ -290,13 +290,13 @@ currency, and the engine refuses a row whose currency the account lacks
 (`CURRENCY_NOT_HELD`, on `account_id`: `The account holds no USD.`), named by number in its words
 while the other rows go (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction").
 `m` sends `currency_code` alone (`bulk_writes`), with
-`statement_id` as "A move takes a row out of its reconciliation" and "`m` moves rows to another
+`statement_id` as "A move takes a row out of its statement" and "`m` moves rows to another
 currency" below say;
 then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt (`3 rows → Caja Chica · PEN` for `b` to
 an account holding one currency, which names it; `3 rows → Visa Inventada` for one holding
 several; `3 rows → USD` for `m`), and a refused row (an account
-move a completed reconciliation locks) is named by number and does not stop the others,
+move a completed statement locks) is named by number and does not stop the others,
 in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
 ([runtime.md](runtime.md) "Bulk writes"): the rows after it are never sent, and stay
@@ -363,25 +363,25 @@ nothing and `⏎` keeps it, on a category too, where COLOR is required; the summ
 its hex. The save sends `color` only when another swatch was picked, so `⏎` down every line
 saves the name alone and the engine keeps the colour (`_edit_payload` in
 [create_forms.py](../expense/tui/screens/create_forms.py)).
-**A move takes a row out of its reconciliation.** The engine refuses an account change on
-a row in a draft reconciliation unless the write also says what happens to the assignment
+**A move takes a row out of its statement.** The engine refuses an account change on
+a row in a draft statement unless the write also says what happens to the assignment
 (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"), so `b` adds
 `statement_id: null` to each row whose account or currency changes, and only to those: a row
-already on the picked account and currency keeps its reconciliation. The Edit form adds
+already on the picked account and currency keeps its statement. The Edit form adds
 `statement_id: null` beside its parts the same way when the line's account changes, and a move of
 its currency alone sends the line's own statement instead
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
-write changed and whether it left its reconciliation (`left_statement`)
+write changed and whether it left its statement (`left_statement`)
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
 across the answers that landed and those flagged as leaving — `3 rows → Caja Chica · PEN · 2 left
-their reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
+their statement` (`· 1 left its statement` for one) — with nothing read to count them
 (`moved_parts` in [edit_form.py](../expense/tui/screens/edit_form.py)). A row already on
 the picked account and currency lists no part, so it is not counted, and a move that changes nothing shows
 no receipt; a refused row is still named. The Edit form reads its save's answer the same way
 (`moved_parts`; contract: PUT /v1/bank-lines/{bank_line_id}, "Response"): it says
-`Saved. It left its reconciliation.` when the answer flags any part as leaving, and `Saved.`
+`Saved. It left its statement.` when the answer flags any part as leaving, and `Saved.`
 when `changed_parts` is `[]` or flags none, never judging from the line as read before the
 save.
 **An emptied note empties it.** `⏎` on a part's emptied NOTE empties the note: the save sends
@@ -393,7 +393,7 @@ On a part with no note it is no change. No field the form sends is `null` except
 and from "no batch" alike, `⏎` checks the bar with the reader the save uses
 (`is_readable_date` in [dates.py](../expense/dates.py)): a day `2026-10-23`, with or without
 a time (`2026-10-23 14:30`), is taken, and an emptied bar commits today. Anything else, `abc`
-say, notes `Date: use YYYY-MM-DD.` as an error, the words New reconciliation's dates and the
+say, notes `Date: use YYYY-MM-DD.` as an error, the words New statement's dates and the
 opening balance's `as of` use; the bar keeps what was typed, the cursor stays on DATE, and the
 line keeps its value, so a `ctrl+s` after it never sends the unread date.
 **An opening balance stays on its account and in @Opening.** The engine refuses to move
@@ -426,15 +426,15 @@ operation, account or currency, and says nothing more on a part's lines; screen 
 [expense-world-edit-part.html](mockups/expense-world-edit-part.html). On a line of one part
 the hints are as on any form.
 The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected
-parts, `b` on one part moves the whole transaction, every part leaving its reconciliation
-with it, and `m` on one part moves every part to the currency, each keeping its reconciliation,
+parts, `b` on one part moves the whole transaction, every part leaving its statement
+with it, and `m` on one part moves every part to the currency, each keeping its statement,
 in the engine's one write
 (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
 The app sends one `PUT` per selected row either way and fans nothing out itself. With every
 part of a split transaction selected, each part gets its own `PUT`; a later one finds the line
 already moved and the engine accepts it as it is, since the `PUT` carries no `version`. `b`
 and `m` count the parts the engine says moved, so `b` on one part of a 60 + 40 transaction in a
-draft reconciliation reads `2 rows → … · 2 left their reconciliation`, and both parts selected still
+draft statement reads `2 rows → … · 2 left their statement`, and both parts selected still
 read `2 rows`; `c` and `h` count the rows they wrote.
 **`⏎` and `s` open the Edit form** ([edit_form.py](../expense/tui/screens/edit_form.py),
 [expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html),
@@ -525,7 +525,7 @@ sentence. The "no batch" Edit form shows the same, OPERATION among the lines it 
 field move skips them, and the form opens on its first line that can change. Where
 `parts_fixed` holds (an opening balance's line, a line on an archived account) neither `^n` nor
 `^x` shows. Where `total_fixed` holds and `parts_fixed` does not (a line in a completed
-reconciliation), an amount `locked_part_fields` names is a one-part line's total: it holds while
+statement), an amount `locked_part_fields` names is a one-part line's total: it holds while
 the table has one part, and opens once a part is added, since amounts may be redistributed with
 the total kept (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). A field that turns
 read-only again (the added part dropped) goes back to the value read from the line, so a
@@ -545,10 +545,10 @@ the set it has
 A part added here goes under a fresh id with what it holds, its hashtags through
 `hashtags_to_send` with `pending_alone=False`, so a part with only the pending hashtag sends
 none; a part dropped with `^x` is left out, so the engine deletes it. An account changed also
-sends `statement_id: null` ("A move takes a row out of its reconciliation" above). With no
+sends `statement_id: null` ("A move takes a row out of its statement" above). With no
 line field changed, the same parts and each kept part holding only its id and amount, the form
 says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
-`Saved. It left its reconciliation.` when the answer flags a part as leaving, closes, and the
+`Saved. It left its statement.` when the answer flags a part as leaving, closes, and the
 ledger reads fresh from the newest 10, cursor on row 1.
 **A refused save stays under the parts** until something changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
@@ -599,18 +599,18 @@ rather than a partial total. Opening balances are excluded engine-side. Home's g
 builder, `formatting.build_range_grid`, is covered by
 [test_range_grid.py](../tests/unit/test_range_grid.py).
 
-**`u` on the Reconciliations browse — the account's bank lines in no batch** (pane 2d of
+**`u` on the Statements browse — the account's bank lines in no batch** (pane 2d of
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)).
 The **panel swaps**: same screen, same place, and the open account's statements
 are replaced by its bank lines assigned to no statement, any day: `GET /bank-lines`
 with `account_id` and `unreconciled=true` and no dates (contract: GET /v1/bank-lines), through
 `fetch_bank_lines` in [reads.py](../expense/reads.py). `u` works only while an account's
 panel is open — on the plain account list it does nothing and is not in the footer.
-It is deliberately not a filtered ledger: reconciliation work stays in the reconciliation
+It is deliberately not a filtered ledger: statement work stays in the statement
 view.
 
 Every row is **one line of the bank's own columns**, `Date · Title · Operation · Amount`,
-as on a reconciliation's batch screen (below): `bank_line_columns` in
+as on a statement's batch screen (below): `bank_line_columns` in
 [formatting.py](../expense/formatting.py) gives the day and title of the line's parts, its
 `operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured. A
 transaction split into parts is **one row**, its title alone and its total; nothing on the row
@@ -647,7 +647,7 @@ in `DELETE /transactions/{id}`.
 `BankLineEditFormScreen` in [edit_form.py](../expense/tui/screens/edit_form.py)). It is the
 ledger's Edit form ("`⏎` and `s` open the Edit form" above) with OPERATION among the shared
 fields, `date › title › operation › account › currency`, then every part, and its crumb reads
-`Capture & ledger ▸ Reconciliations ▸ Edit`. Over the bar, the line as the list shows it:
+`Capture & ledger ▸ Statements ▸ Edit`. Over the bar, the line as the list shows it:
 its title, then its signed `net_cents` and the line's own `currency_code`
 (`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, its
 `edit_limits` included, so the form reads no line: the day and title off its first part, its
@@ -709,7 +709,7 @@ that it is left out, `·` (dim) a row of `0`:
 | ✓ | `New` (success colour) | the engine's `new`: created on `⏎` |
 | ✓ | `Already in the ledger` (dim) | `matched`, and the apply writes nothing onto its line |
 | ✓ | `Modified existing transaction` | `matched`, and the apply writes the file's operation number onto the line (`backfill_code`), the bank's title (`retitled`), or moves the line to the bank's day (`redated`) |
-| ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed statement stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
+| ✗ | `Not moved: <statement> is completed` | `matched`, and a completed statement stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
 | ✗ | `Closed period` | the engine's `sealed`: on a sealed day, never created |
 | · | `Skipped: amount 0` (dim) | the engine's `skipped`: a row of `0`, never matched or created |
 
@@ -718,8 +718,8 @@ statement's id only, so the preview's worker reads each distinct one once by its
 (`statement_names` in [flow.py](../expense/bank_import/flow.py)), never a list of statements
 and never while drawing
 (contract: GET /v1/statements/{statement_id}).
-When a read fails, its rows read `Not moved: a reconciliation is reconciled`, the other ids are
-still read, and a dim `! could not read the reconciliations' names: <why>` sits under the
+When a read fails, its rows read `Not moved: its statement is completed`, the other ids are
+still read, and a dim `! could not read the statements' names: <why>` sits under the
 counts with the first failure's reason.
 
 **The counts** under the table: `14 rows · 5 new · 6 in the ledger · 1 moves to the bank's day ·
@@ -756,7 +756,7 @@ counts on that day, so the move leaves no day disagreeing
 after importing shows no days.
 
 The upload does nothing to a ledger row no file row claimed: it removes nothing and asks
-nothing. Such a row stays out of that month's reconciliation, where it is deleted.
+nothing. Such a row stays out of that month's statement, where it is deleted.
 
 A preview with nothing new keeps the table and the counts and adds dim `nothing to import`.
 On the last (or only) file `⏎` does nothing and the footer is `esc Back`. With a file still
@@ -890,8 +890,8 @@ their failure, `⏎ Preview again` and `esc` steps (`PreviewScreen` in
 `⏎` and `esc` (`ResultScreen`).
 
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
-picker, the Edit form's account field, the ledger's `b` pick, the Reconciliations
-browse, the new-reconciliation form and the bank import's "Which account is this file?"
+picker, the Edit form's account field, the ledger's `b` pick, the Statements
+browse, the new-statement form and the bank import's "Which account is this file?"
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account field and the
@@ -1050,7 +1050,7 @@ closing), and another write's refusal, neither lift nor hold the guard.
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
-the ledger (whole or filtered from Home), in the reconciliation's "no batch" list and on a
+the ledger (whole or filtered from Home), in the statement's "no batch" list and on a
 statement's flagged lines, always as the last entry of the screen's footer keys but on the
 flagged lines, whose footer ends `d Delete  ↑↓ Move` as pane 1A of
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)
@@ -1084,7 +1084,7 @@ screen can bring it back.**
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
 | Ledger, and a line never split in the "no batch" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
 | Ledger, on a part of a split transaction; a split transaction in the "no batch" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
-| A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
+| A statement's batch screen (`d` deletes the batch itself) | `Delete statement?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
@@ -1105,13 +1105,13 @@ many parts the line holds, so `d` on a row first reads its line once with the sh
 `reads.fetch_bank_line` (contract: GET /v1/bank-lines/{bank_line_id}). With `part_count`
 above 1 the row is a part of a split transaction: the question names the real part count, its
 body is the bank line (its date, title and signed total `net_cents` exactly as the
-reconciliation lists show them, through the shared `formatting.bank_line_columns`, then its
+statement lists show them, through the shared `formatting.bank_line_columns`, then its
 account), and `y` sends one `DELETE /bank-lines/{id}`, which deletes every
 part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}), through the same
 `confirm_delete`; the note reads `Transaction deleted.` and the ledger reads its newest ten
 again, cursor on row 1, every part gone. A line of one part is a row never split: the
 ledger's own question and `DELETE /transactions/{id}`, as above. A line in a completed
-reconciliation is refused, `IN_COMPLETED_RECONCILIATION` on `bank_line_id`, and nothing is
+statement is refused, `IN_COMPLETED_RECONCILIATION` on `bank_line_id`, and nothing is
 deleted; the "Failed" note is the engine's words whole, as for a single row (the table in
 "When the engine says no"). A line that cannot be read asks nothing and sends nothing: the
 "Failed" note carries the engine's words, and `d` again reads again. While the read runs,
@@ -1148,30 +1148,30 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a statement's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` or `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
-| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new reconciliation (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
+| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no batch" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; `c` and `x` on an account's currencies | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a statement; `c` and `x` on an account's currencies | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
 | `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
-| `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
+| `RECONCILIATION_NOT_DRAFT` | `d` on a statement's batch screen | `Press u to revert it, then d again.` |
 | `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) on `currency_code` | `m` on ledger rows that include an opening balance, which moves a currency alone; its Edit form, on a change of currency alone | none: the engine's words show alone |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
-| `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
+| `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a statement's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
 | `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
 | `RESERVED_NAME` (a `VALIDATION_ERROR`) on `name` | a new category, or a category renamed on its Edit form, named like a system category (`@Opening`, `@Pendiente`); a new hashtag, or a hashtag renamed on its Edit form, named `Pendiente` in any letter case | `That name belongs to a system row: pick another.` |
 | `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance | `Leave the opening balance out of the selection.` |
@@ -1205,7 +1205,7 @@ engine's words alone (the last screen of
 [expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html)). The three
 opening-balance reasons, `ENDING_BALANCE_REQUIRED`, `SYSTEM_NAME_FIXED` and `RESERVED_NAME`
 are the table's only `VALIDATION_ERROR` rows with a line; any other validation error,
-`ACCOUNT_ARCHIVED` and `LOCKED` included (the field lock answers first in a completed reconciliation), has no line. The lines for
+`ACCOUNT_ARCHIVED` and `LOCKED` included (the field lock answers first in a completed statement), has no line. The lines for
 `SYSTEM_HASHTAG`, `SYSTEM_NAME_FIXED` and `OPENING_BALANCE_NOT_TAGGED` are screens 4 B, 5 B
 and 7 B in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html);
@@ -1220,7 +1220,7 @@ as markup and never vanishes. Lines drawn on a screen (under the parts, the impo
 preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
 Rich `Text`. Lists show names and titles as the engine holds them: the lists handing their
 table plain cells — `list_table` in [cursor_list.py](../expense/tui/widgets/cursor_list.py)
-(every `CursorList` and the bulk pick's rows), the reconciliation tick list and the LOG
+(every `CursorList` and the bulk pick's rows), the statement tick list and the LOG
 bar's staged rows — draw them through `list_cell` there, which draws a plain cell as
 `Text`, so `BCP [like this]`, a `[/]` or a lone `[` shows as typed; a cell the app styles
 itself (a swatch, a coloured amount, a mark) is a `Text` it builds and is drawn as built.
@@ -1446,8 +1446,8 @@ explicit style**: Rich's default `rule.line` resolves to a literal green that
 renders.
 
 ⚠️ **One exception.** A title that is *chrome* disappears; one that is *information*
-becomes a line of content above the rule. The Reconciliations browse stacks two lists once
-a panel is open, and its caption (`Reconciliations · BCP PEN · oldest → newest`) is the
+becomes a line of content above the rule. The Statements browse stacks two lists once
+a panel is open, and its caption (`Statements · BCP PEN · oldest → newest`) is the
 only thing tying the lower rows to an account above. Ask "would the screen still be
 unambiguous without this?" — not "is this a title?".
 
@@ -1521,7 +1521,7 @@ them — they are hand-written into the `?` card
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names
   the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
-  `check_action` allows it, as the footer does: the Reconciliations panel's `⏎ Open` and
+  `check_action` allows it, as the footer does: the Statements panel's `⏎ Open` and
   `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
   `f Flagged`, on only while lines its complete flagged are left ("The lines a complete
   flagged for review" below).
@@ -1555,7 +1555,7 @@ the flagged lines again, none of them in the footer.
   `… N more · pgdn` / `… N above · pgup` line under the table says where more rows are; the
   footer keeps to `esc` and `⏎`.
 - **No `r` on the import screens.** Each reads once, when it opens — the account list, the
-  preview's dry run and the names of the reconciliations that stop a move, or a statement's
+  preview's dry run and the names of the statements that stop a move, or a statement's
   lines taken out (read again only by `⏎ Preview again`); dropping the file
   on the LOG bar again reads them all afresh.
 - **No `?` on the import screens.** They do not take `HelpBindingMixin`; the footer is their
@@ -1581,7 +1581,7 @@ screenful ([decisions.md](decisions.md) "Long lists grow, they do not page"). In
 other list it is the next page of rows already loaded (§5). On Home it walks the month
 window one month older, `pgup` one newer (§2).
 
-**The Reconciliations browse** opens on
+**The Statements browse** opens on
 the **account list alone**, full height, and reads no statements. The list is the bank
 accounts of one `GET /accounts`, people left out; an archived account is not in that read, so
 it and its statements are not offered until its holder is unarchived. A holder is archived
@@ -1589,12 +1589,12 @@ whole, so a listed account's holder is live and so is each of its accounts
 (contract: "Holders", "A holder is archived whole"). One `GET /holders` beside it gives each
 holder's statement code (`fetch_holders` in [reads.py](../expense/reads.py)): the code is the
 holder's, never an account's (contract: "Holders", "Statement code"). Nothing about statements is
-read until `⏎`, so moving the account cursor costs nothing. `⏎ Its reconciliations` reads
+read until `⏎`, so moving the account cursor costs nothing. `⏎ Its statements` reads
 the statements of that account's holder in **one read**, `GET /statements?holder_id=<id>`
 (`fetch_statements`), whole, in the engine's order (`date_start` ascending, then creation
 time, oldest first (contract: "Statements", "Ordering")), and opens the **panel** under the
 accounts, halving the height, with the cursor in it; the open account keeps an accent `▸`,
-and the breadcrumb grows to `Reconciliations ▸ <account>`. An account with none says
+and the breadcrumb grows to `Statements ▸ <account>`. An account with none says
 `none yet · n to create one` inside the panel; a read that fails toasts the engine's words
 and leaves the panel closed. Coming back from a statement, or `r`, reads the same list again
 and lands on the same row. A holder's accounts are the accounts of the one accounts read
@@ -1606,7 +1606,7 @@ each row shows the open account's from it.
 
 - **A holder with no statement code** lists one row per statement:
   `Name · Period · Begin · End · Diff · Status`, Begin, End and Diff the open account's,
-  titled `Reconciliations · BCP PEN   ·   oldest → newest`.
+  titled `Statements · BCP PEN   ·   oldest → newest`.
 - **A holder with a statement code** lists **one row per statement** (pane 1 A of
   [expense-world-card-statement.html](mockups/expense-world-card-statement.html), and its
   task 6 question 3 B for a holder of one account) with a column per account of the holder
@@ -1614,14 +1614,14 @@ each row shows the open account's from it.
   The columns are `Name · Period`, one `Diff <CUR>` per account of the holder in the
   accounts' order (`Diff PEN · Diff USD`; `Diff` alone on a holder of one account), then
   `Status · Order`. Each Diff is that account's `difference_cents`, read from its own entry
-  in `balances` by its id, by the rule of every reconciliation list (a dim `—` when it adds
+  in `balances` by its id, by the rule of every statement list (a dim `—` when it adds
   up, the figure when off, blank with no ending balance). Status is the statement's one
   status, `completed` or `draft`, the same for every account of the holder
   (contract: "Statements"); Order is `in order` when the engine's `unplaced_count` and
   `shared_place_count` both read 0 and `not in order` (warning) otherwise
   (contract: "Statements", "A statement's order"). A completed statement is dim, as a
-  completed reconciliation is. The title names every account of the holder, then the code:
-  `Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
+  completed statement is. The title names every account of the holder, then the code:
+  `Statements · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
   listed one carries the `▸`, so opening either card account shows the identical list.
 
 On either, `⏎` opens the row's statement on the batch screen as the open account's: the
@@ -1632,16 +1632,16 @@ in the account's currency.
 batch — for the open account, or with no panel for the account under the cursor, and once
 saved the panel opens on the new one (on a card account, the card statement's form below); `u` swaps the panel to the account's rows in no
 batch (panel open only); `d` deletes the cursor row **in that pane only** (a no-op on the
-reconciliation list, where a batch's own delete lives one screen deeper); `esc` retreats
+statement list, where a batch's own delete lives one screen deeper); `esc` retreats
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
-**The begin balance's hint takes two lines** on the new-reconciliation form, the whole hint
+**The begin balance's hint takes two lines** on the new-statement form, the whole hint
 dim as every hint is (panes 1 B and 2 B of
 [expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html)):
 `signed decimal · your statement's opening balance`, then directly under it
 `0.00 if it holds the account's opening balance, which already counts it`. The engine sums
-every transaction assigned to a reconciliation, an account's opening balance included, into
+every transaction assigned to a statement, an account's opening balance included, into
 its add-up check (contract: "Statements", "`difference_cents` — the add-up check"), so
 the statement holding that line begins at 0.00; the form cannot know which statement that is,
 so the line is always there. Each half's begin on a card's form carries the same second line.
@@ -1653,7 +1653,7 @@ holder, one balance for each of its accounts (contract: "Statements", "A stateme
 The browse finds the other account among the accounts it already holds, the one naming the same
 `holder_id` (`holder_mates` in [reconciliations.py](../expense/tui/screens/reconciliations.py)),
 and the code on the holder it read; an account alone on its holder keeps the one-account form.
-`n` opens one form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line
+`n` opens one form, `Statements ▸ <account> ▸ New`: `name`, then the line
 `accounts  Signature PEN + Signature USD · SIG` (stated, never edited; `· <code>` left off on a
 holder with no code), `date start`, `date end`, then the open account's `begin balance <CUR>`
 and `end balance <CUR>`, then the other account's. Each balance's hint names its half by
@@ -1671,7 +1671,7 @@ of the app's is added (a taken id keeps its app-fault line), and the form stays 
 typed. Saved, it says `Statement created.` and, as the one-account form does, the panel opens
 on the open account's statements, the cursor on the new one.
 
-**A reconciliation's batch screen** (`⏎` on one in the panel; screens 2a–2c in
+**A statement's batch screen** (`⏎` on one in the panel; screens 2a–2c in
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is a
 statement opened on the account whose panel it came from. Its header — name, account,
 period, then `begin`, `end`, `diff` and `status` — is the statement's own fields with that
@@ -1703,14 +1703,14 @@ ticking down a statement (`space`, `↓`, `space`…) never lands on another row
 tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
 reads the statement and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
-`Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks the
-amount, date, title, account, operation number and reconciliation of the N ticked rows.` (N
+`Couldn't …` note. `c` completes, after the question `Complete statement?` · `Locks the
+amount, date, title, account, operation number and statement of the N ticked rows.` (N
 the rows ticked, and `1 ticked row` for one): completing makes those six read-only on each
 ticked row, an empty title or operation number staying fillable
 (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
-`u` reverts, `d` deletes the reconciliation, `r` reads the statement again by its id and its
+`u` reverts, `d` deletes the statement, `r` reads the statement again by its id and its
 lines, `esc` goes back. A statement deleted elsewhere reads as a `404`
-(contract: GET /v1/statements/{statement_id}), so the screen says `This reconciliation no
+(contract: GET /v1/statements/{statement_id}), so the screen says `This statement no
 longer exists.` and goes back; any other refused read shows the engine's words and stays.
 `c`, `u` and `d` act on the whole statement, every account of its holder, in one write:
 `POST /statements/{id}/complete`, `POST /statements/{id}/revert` and
@@ -1737,13 +1737,13 @@ nothing is sent. `esc` closes it with nothing saved. `enter` saves it with
 the opened account's entry with `ending_balance_cents`, every other entry with no balance,
 so the engine keeps that account's (`ending_balance_body`)
 (contract: PUT /v1/statements/{statement_id}). The header shows the engine's saved `end`
-and `diff` from the opened account's entry, and then the usual `Complete reconciliation?`
+and `diff` from the opened account's entry, and then the usual `Complete statement?`
 asks; only `y` completes, and any other answer leaves a draft with its balance saved, so
 the next `c` goes straight to the question. A draft that already has its ending balance
 goes straight to the question too. A refused save shows `Couldn't save` with the engine's
 words and, for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try
 again.`. A refused complete shows `Couldn't complete` with the engine's words — after a
-save in the same `c`, under the line `The ending balance is saved. The reconciliation is
+save in the same `c`, under the line `The ending balance is saved. The statement is
 not completed:` — and the screen reads the statement fresh, so the header and the next
 `c` go by what the engine holds. A complete's answer carries the close's notes on each
 balance, its account's `warnings` and `coverage_gap`
@@ -1759,7 +1759,7 @@ of the statement, each oldest first
 (contract: POST /v1/statements/{statement_id}/complete, "Response"). The app
 keeps no rule of which lines those are, and nothing in it treats them as a refusal of
 complete. When the answer names any, the app pushes a full screen right after the
-complete, `Reconciliations ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
+complete, `Statements ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
 [reconciliations.py](../expense/tui/screens/reconciliations.py)); when it names none,
 nothing new shows. The screen opens on the statement's id, not the lines' ids: it reads the
 statement's review list, the lines its close flagged and still unresolved, whole, page by
@@ -1914,7 +1914,7 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
-one copy for the Edit form, the create/edit forms, the new-reconciliation and card statement
+one copy for the Edit form, the create/edit forms, the new-statement and card statement
 forms and Setup; the Edit form adds the keys "The Edit form's own keys" above names):
 `⏎` keeps the field and moves one line on, to the next field that can change; when no field
 ahead can change (on the last field, or with only read-only fields after it) it saves the form
@@ -1937,14 +1937,14 @@ line.
 **No hint says "save" on a line where `⏎` moves on, and none says "go on" on a line where
 `⏎` saves** (`FormScreen._goes_on`; guard: [test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py),
 which walks every bar form). NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit)
-and the Edit forms' TITLE read `free text · enter to go on`, and a new reconciliation's NAME
+and the Edit forms' TITLE read `free text · enter to go on`, and a new statement's NAME
 `e.g. “April 2026” · enter to go on`. A bank account's STATEMENT CODE reads
 `optional · three capital letters, e.g. SIG · enter to go on`, with `· empty clears it` before
 `· enter to go on` on Edit. The account's COLOR, New and Edit, reads
 `optional · enter keeps it · ↑↓ another swatch`, though on New it is the last line and `⏎`
 there saves. Some lines where `⏎` saves say so: a new category's COLOR
 (`optional · enter to save · ↑↓ another swatch`), the Edit form's last NOTE (a part's NOTE
-with another part after it reads `optional · enter to go on`), a new reconciliation's END
+with another part after it reads `optional · enter to go on`), a new statement's END
 BALANCE, and the Edit form's TITLE when no line after it can change, which reads
 `free text · enter to save`; others, such as Edit category's COLOR (`pick a swatch`) and
 Setup's last line, leave it unsaid.
@@ -2032,11 +2032,11 @@ the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with
 not a write: nothing is read and the list comes back as it was — the rows `pgdn` loaded
 and the cursor on its row; the form dismisses with `True` only on a
 save. The "no batch" list on
-Reconciliations grows through the same `GrowingRead`, newest first — one copy of the
+Statements grows through the same `GrowingRead`, newest first — one copy of the
 cursor, the count, the `pgdn` read and the rule that a `pgdn` read never lands on a list a
 fresh read replaced.
 
-**Full-data screens window locally** — Manage, the Reconciliations account list (full
+**Full-data screens window locally** — Manage, the Statements account list (full
 height alone, an equal split with the open panel), the recon checklist at what fits —
 with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑`/`↓` walk
 through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,

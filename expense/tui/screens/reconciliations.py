@@ -58,7 +58,7 @@ delete is draft-only and just detaches the transactions. Completing also needs
 every ending balance (contract: POST /v1/statements/{statement_id}/complete,
 "Every ending balance must be entered"): `c` on a draft whose opened account has
 none first asks for it in a box, saves it in the statement's `balances` with
-PUT /statements/{id}, then asks the usual "Complete reconciliation?". A complete
+PUT /statements/{id}, then asks the usual "Complete statement?". A complete
 whose answer flags lines for review (each balance's `review_lines`, every
 account's of the holder) opens FlaggedLinesScreen on the statement's review list
 (pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
@@ -414,7 +414,7 @@ class _AccountList(CursorList):
     """The browse's account list. Only `enter` changes: on this list it opens
     the account's panel, so the footer names that instead of `Open`."""
 
-    BINDINGS = [Binding("enter", "select", "Its reconciliations")]
+    BINDINGS = [Binding("enter", "select", "Its statements")]
 
 
 class _PanelList(CursorList):
@@ -472,7 +472,7 @@ class ReconciliationsScreen(SectionScreen):
     holders are one read, for each one's statement code.
     """
 
-    crumb = ("Capture & ledger", "Reconciliations")
+    crumb = ("Capture & ledger", "Statements")
     CARD_WIDTH = 100
     BINDINGS = [
         # Two bindings on one key: Textual takes the first whose `check_action`
@@ -541,9 +541,9 @@ class ReconciliationsScreen(SectionScreen):
         statement = self._open_statement()
         if statement is not None:
             names = " + ".join(name for _aid, name, _currency in statement.accounts)
-            return f"Reconciliations · {names} · {statement.code}   ·   oldest → newest"
+            return f"Statements · {names} · {statement.code}   ·   oldest → newest"
         acct = self._open_account()
-        return f"Reconciliations · {acct[1] if acct else '—'}   ·   oldest → newest"
+        return f"Statements · {acct[1] if acct else '—'}   ·   oldest → newest"
 
     def _panel_headers(self) -> tuple[list[str], set[int]]:
         statement = self._open_statement()
@@ -624,7 +624,7 @@ class ReconciliationsScreen(SectionScreen):
         )
         self._accts_list.id = "accts"
         widgets: list[Widget] = [
-            Static(Text("Reconciliations — pick an account"), classes="section-title"),
+            Static(Text("Statements — pick an account"), classes="section-title"),
             self._accts_list,
         ]
         self._batch_list = None
@@ -1022,9 +1022,9 @@ class NewReconciliationScreen(FormScreen):
         if account_id:  # created from within an account — don't ask for it again
             self._values["account"] = account_id
             self._display["account"] = account_name or account_id[:8]
-            self.crumb = ("Reconciliations", account_name or "—", "New")
+            self.crumb = ("Statements", account_name or "—", "New")
         else:
-            self.crumb = ("Reconciliations", "New")
+            self.crumb = ("Statements", "New")
 
     def _sequence(self) -> list[str]:
         seq = ["name"] if self._preset_account else ["name", "account"]
@@ -1177,7 +1177,7 @@ class NewReconciliationScreen(FormScreen):
     def _done(self) -> None:
         """Dismiss with the new id — minted here, in `_payload` — so the browse
         can land its cursor on the statement just made."""
-        self.notify("Reconciliation created.")
+        self.notify("Statement created.")
         self.dismiss(self._new_id)
 
 
@@ -1331,7 +1331,7 @@ _UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
 
 #: The first line of a refused complete that follows the ending balance's save:
 #: which half went through, above the engine's words.
-_BALANCE_SAVED = "The ending balance is saved. The reconciliation is not completed:"
+_BALANCE_SAVED = "The ending balance is saved. The statement is not completed:"
 
 
 class ReconciliationDetailScreen(
@@ -1383,8 +1383,13 @@ class ReconciliationDetailScreen(
     def _completed(self) -> bool:
         return self._record.get("status") == 2
 
+    @property
+    def crumb(self) -> tuple[str, ...]:
+        """The trail, which `?` also reads for its title."""
+        return ("Statements", self._record.get("name") or "—")
+
     def compose(self) -> ComposeResult:
-        yield Breadcrumb(("Reconciliations", self._record.get("name") or "—"), id="crumb")
+        yield Breadcrumb(self.crumb, id="crumb")
         yield Static("", id="rhead")
         yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
         yield Static("", id="rflag")  # the flagged lines; hidden until a complete flags one
@@ -1603,7 +1608,7 @@ class ReconciliationDetailScreen(
         self._load_txns(refresh_record=True)
 
     def _record_gone(self) -> None:
-        self.notify("This reconciliation no longer exists.", severity="error")
+        self.notify("This statement no longer exists.", severity="error")
         self.dismiss()
 
     def action_complete(self) -> None:
@@ -1626,8 +1631,8 @@ class ReconciliationDetailScreen(
         n = len(self._list.checked) if self._list else 0
         rows = "row" if n == 1 else "rows"
         self._confirm(
-            "Complete reconciliation?",
-            "Locks the amount, date, title, account, operation number and reconciliation"
+            "Complete statement?",
+            "Locks the amount, date, title, account, operation number and statement"
             f" of the {n} ticked {rows}.",
             lambda: self._status_action(
                 "POST",
@@ -1699,7 +1704,7 @@ class ReconciliationDetailScreen(
         # with the line naming `u` (thin wrapper). Sent from this screen, where
         # `r` reads it again, so a refusal's line is the list one.
         self._confirm(
-            "Delete reconciliation?",
+            "Delete statement?",
             "Detaches its transactions and removes the batch. Its transactions stay. "
             "No screen can bring it back.",
             lambda: self._status_action(
@@ -1830,7 +1835,7 @@ class ReconciliationDetailScreen(
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False
-        toast(self, f"Reconciliation {verb}.")
+        toast(self, f"Statement {verb}.")
         if verb == "deleted":
             self.dismiss()
             return
@@ -1949,7 +1954,7 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
         super().__init__()
         self._statement_id = statement_id
         self._statement = statement
-        self.crumb = ("Reconciliations", statement, "Flagged")
+        self.crumb = ("Statements", statement, "Flagged")
         self._lines: list[dict] = []
         #: How many lines the review list holds, as the engine last counted
         #: them; None until a read lands.

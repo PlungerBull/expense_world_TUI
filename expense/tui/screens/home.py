@@ -78,7 +78,7 @@ _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "ledger",
         "LEDGER",
-        [("transactions", "Transactions"), ("reconciliations", "Reconciliations")],
+        [("transactions", "Transactions"), ("reconciliations", "Statements")],
     ),
     (
         "manage",

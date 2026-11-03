@@ -186,7 +186,7 @@ NO_CODE = [
 
 STATEMENTS = [*CARD, *AHO, *NO_CODE]
 
-CARD_TITLE = "Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest"
+CARD_TITLE = "Statements · Signature PEN + Signature USD · SIG   ·   oldest → newest"
 CARD_HEADERS = ["Name", "Period", "Diff PEN", "Diff USD", "Status", "Order"]
 
 #: Pane 1 A's rows, cell by cell.
@@ -475,7 +475,7 @@ def test_a_code_on_a_holder_of_one_account_lists_its_statements_with_one_diff(mo
 
     run_app(scenario, size=(140, 50))
     assert _statement_reads(client) == [{"holder_id": "h-aho"}]
-    assert seen["panel"].caption == "Reconciliations · Ahorro Soles · AHO   ·   oldest → newest"
+    assert seen["panel"].caption == "Statements · Ahorro Soles · AHO   ·   oldest → newest"
     assert seen["panel"].headers == ["Name", "Period", "Diff", "Status", "Order"]
     assert seen["panel"].keys == ["aho-ago", "aho-sep", "aho-oct"]
     assert seen["panel"].cells == [
@@ -500,7 +500,7 @@ def test_a_holder_with_no_code_keeps_todays_list(monkeypatch):
 
     run_app(scenario, size=(140, 50))
     assert _statement_reads(client) == [{"holder_id": "h-sue"}]
-    assert seen["panel"].caption == "Reconciliations · Sueldo Soles   ·   oldest → newest"
+    assert seen["panel"].caption == "Statements · Sueldo Soles   ·   oldest → newest"
     assert seen["panel"].headers == ["Name", "Period", "Begin", "End", "Diff", "Status"]
     assert seen["panel"].cells == [
         ["Octubre 2026", "2026-10-01 → 2026-10-31", "0.00", "0.00", "—", "draft"]
@@ -607,7 +607,7 @@ STATUS_KEYS = {
         3,
         "oct",
         ("POST", "/statements/oct/complete"),
-        "Reconciliation completed.",
+        "Statement completed.",
         "completed",
         [*CARD_ROWS[:3], [*CARD_ROWS[3][:4], "completed", "not in order"]],
         ["dim", "dim", "", "dim"],
@@ -616,7 +616,7 @@ STATUS_KEYS = {
         1,
         "ago",
         ("POST", "/statements/ago/revert"),
-        "Reconciliation reverted to draft.",
+        "Statement reverted to draft.",
         "draft",
         [CARD_ROWS[0], [*CARD_ROWS[1][:4], "draft", "in order"], *CARD_ROWS[2:]],
         ["dim", "", "", ""],
@@ -625,7 +625,7 @@ STATUS_KEYS = {
         3,
         "oct",
         ("DELETE", "/statements/oct"),
-        "Reconciliation deleted.",
+        "Statement deleted.",
         None,
         CARD_ROWS[:3],
         ["dim", "dim", ""],

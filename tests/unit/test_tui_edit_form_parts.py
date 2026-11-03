@@ -969,7 +969,7 @@ def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
             },
         )
     ]
-    assert ("", "Saved. It left its reconciliation.") in notes
+    assert ("", "Saved. It left its statement.") in notes
 
 
 def test_an_emptied_note_goes_as_an_empty_description(engine):
@@ -1271,7 +1271,7 @@ def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(e
         "2 parts  ·  -100.00 of -100.00  ✓",
     ]
     assert footer[-1] == ("^n", "Add part")
-    assert crumb == ("Capture & ledger", "Reconciliations", "Edit")
+    assert crumb == ("Capture & ledger", "Statements", "Edit")
     assert reads == []
 
 

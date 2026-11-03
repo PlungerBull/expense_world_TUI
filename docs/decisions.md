@@ -374,7 +374,7 @@ the bar is where the right file gets dropped next.
 
 ## Reconciliations opens on the accounts (2026-09-25, owner)
 
-**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its holder's statements (`GET /statements?holder_id=`, whole, in the engine's order: [tui.md](tui.md) "The Reconciliations browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its holder's statements (`GET /statements?holder_id=`, whole, in the engine's order: [tui.md](tui.md) "The Statements browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
 
 **Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
@@ -443,7 +443,7 @@ the bar is where the right file gets dropped next.
 
 **Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` in Home.
 
-**Decision.** Both paths send `statement_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `statement_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
+**Decision.** Both paths send `statement_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `statement_id` and keeps its reconciliation. A short note says so: `Saved. It left its statement.` in the edit form, `3 rows → BCP USD · 2 left their statement` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
 
 The counts are the engine's: each move's answer lists every part of the bank line it changed and whether each left its reconciliation (contract: PUT /v1/transactions/{transaction_id}, "Response"), and the note counts the distinct parts listed across the answers that landed. A move that changes nothing shows no note. A line field reaches every part of a split transaction, so one request can move several rows, and two requests on one line can list the same rows; only the engine knows what moved.
 
@@ -473,7 +473,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Context.** The contract states each list's order with its direction: accounts come every real account first, then every person, each group by `sort_order` ascending, then creation time, oldest first (contract: GET /v1/accounts, "Ordering"). Every client shows a list as the engine returns it.
 
-**Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([tui.md](tui.md) "The Reconciliations browse" for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen sorts a list the engine orders.
+**Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([tui.md](tui.md) "The Statements browse" for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen sorts a list the engine orders.
 
 **Rejected.** *SQL-style shorthand* (a column name followed by a sort keyword) — it names columns the contract does not publish and reads as knowledge of the engine's insides. *Stating the order wherever the list appears* — the copies drift.
 
@@ -497,7 +497,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
 
-**Decision.** `c` on a draft with no ending balance opens a box for it; `enter` saves it, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A reconciliation's batch screen"). Saving and completing stay two writes and two answers, so a balance can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No reconciliation was completed without an ending balance, so the app offers no revert-and-fill path.
+**Decision.** `c` on a draft with no ending balance opens a box for it; `enter` saves it, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A statement's batch screen"). Saving and completing stay two writes and two answers, so a balance can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No reconciliation was completed without an ending balance, so the app offers no revert-and-fill path.
 
 **Rejected.** *One box that saves and completes on a single `enter`* — completing is the step that seals rows, and it keeps its own `y`. *Refusing `c` with the engine's words only* — the user then has to find where the balance is typed. *A `Failed` title for this flow* — the screen's other refusals say `Couldn't …`.
 
@@ -569,7 +569,7 @@ the row ([tui.md](tui.md) "The import door"). (2) **✓ means the row is in the 
 import** (new, already there, or changed); **✗ means it needs looking at**: left out, or a move
 to the bank's day stopped. (3) **A move to the bank's day is one more "Modified existing
 transaction"**; the counts line says how many move. (4) **A move stopped by a completed
-reconciliation is ✗ `Not moved: <reconciliation> is reconciled`**: with a reconciliation done
+reconciliation is ✗ `Not moved: <statement> is completed`**: with a reconciliation done
 right the bank's day and the ledger's agree, so the row points at a reconciliation completed
 wrong. It says "not moved", because the bank's title and operation number still land on it
 (contract: POST /v1/transactions/import). (5) **The days where the file and the ledger disagree
@@ -887,7 +887,7 @@ complete, revert, delete or `PUT` on either half writes both
 (contract: "Statements", "Every write acts on the whole statement"). (2) **A card lists its statements from one
 `GET /statements?holder_id=`**, one row per statement, each account's balances from its entry in
 `balances`, never matched by days or names; what the row
-shows is in [tui.md](tui.md) "The Reconciliations browse". The owner picked 1 A and question 3 B
+shows is in [tui.md](tui.md) "The Statements browse". The owner picked 1 A and question 3 B
 in [expense-world-card-statement.html](mockups/expense-world-card-statement.html). (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
 **No screen orders a statement, ticks the lines it still needs or edits a statement's name, days

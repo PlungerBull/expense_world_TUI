@@ -281,7 +281,7 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
     async def scenario(pilot, app):
         await _complete(pilot, app, PLAIN)
         screen = await _flagged_screen(pilot, app)
-        assert screen.crumb == ("Reconciliations", "Octubre BCP", "Flagged")
+        assert screen.crumb == ("Statements", "Octubre BCP", "Flagged")
         head = _text(screen, "#fhead")
         assert head == (
             "Octubre BCP is completed. 2 lines dated up to its last day are in no statement.\n"
@@ -382,7 +382,7 @@ def test_enter_opens_the_line_in_the_ledgers_edit_form(fake_client, monkeypatch)
         form = app.screen
         assert type(form) is EditFormScreen
         assert form._record["bank_line_id"] == "l-uber"
-        assert form.crumb == ("Reconciliations", "Octubre 2026", "Flagged", "Edit")
+        assert form.crumb == ("Statements", "Octubre 2026", "Flagged", "Edit")
         assert engine.reads == [_review("s-sig")]
         form.dismiss(None)
         await wait_for(pilot, lambda: app.screen is screen)

@@ -75,7 +75,7 @@ on a retry), its body built by
   (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
 
 A save that changes nothing says `No changes to save.` and sends nothing.
-Saved, the note says `Saved. It left its reconciliation.` when the engine's
+Saved, the note says `Saved. It left its statement.` when the engine's
 answer flags a part `left_statement`, and `Saved.` otherwise (`moved_parts`)
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). A refused save
 stays under the parts until something changes: the engine's words, each
@@ -959,7 +959,7 @@ class EditFormScreen(FormScreen):
 
     def _done(self) -> None:
         left = self._left_statement
-        self.notify("Saved. It left its reconciliation." if left else "Saved.")
+        self.notify("Saved. It left its statement." if left else "Saved.")
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 
 
@@ -984,7 +984,7 @@ class BankLineEditFormScreen(EditFormScreen):
             "operation_code": line.get("operation_code"),
         }
         super().__init__(record=record)
-        self.crumb = ("Capture & ledger", "Reconciliations", "Edit")
+        self.crumb = ("Capture & ledger", "Statements", "Edit")
         self._take_line(line)
 
     def _line_keys(self) -> list[str]:

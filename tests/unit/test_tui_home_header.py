@@ -20,7 +20,7 @@ DATA = dict(dashboard=HOME_DASHBOARD, grid=build_range_grid(HOME_MONTHS), names=
 SECTIONS = [
     "LEDGER",
     "  Transactions",
-    "  Reconciliations",
+    "  Statements",
     "MANAGE",
     "  Accounts",
     "  Categories",
@@ -383,7 +383,7 @@ def test_the_sections_never_fold():
 
 def test_the_ledger_section_no_longer_holds_overview():
     ledger = [r.left.strip() for r in _live(home.home_rows(None))][1:3]
-    assert ledger == ["Transactions", "Reconciliations"]
+    assert ledger == ["Transactions", "Statements"]
     assert "overview" not in home._SCREENS
 
 

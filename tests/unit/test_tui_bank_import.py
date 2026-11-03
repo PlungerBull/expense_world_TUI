@@ -662,7 +662,7 @@ def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_p
                 "TAMBO MIRAFLORES",
                 "-7.50",
                 "✗",
-                "Not moved: Septiembre 2026 is reconciled",
+                "Not moved: Septiembre 2026 is completed",
             ],
             ["8", "2026-08-29", "SHELL SAN ISIDRO", "-120.00", "✗", "Closed period"],
             ["9", "2026-10-15", "—", "-15.40", "✓", "New"],
@@ -731,10 +731,8 @@ def test_a_statement_that_cannot_be_read_leaves_the_move_unnamed(
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
-        assert lines[2].endswith("✗  Not moved: a reconciliation is reconciled")
-        assert any(
-            line.startswith("! could not read the reconciliations' names:") for line in lines
-        )
+        assert lines[2].endswith("✗  Not moved: its statement is completed")
+        assert any(line.startswith("! could not read the statements' names:") for line in lines)
         assert asked == ["st-sep"]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 3 rows"}
 

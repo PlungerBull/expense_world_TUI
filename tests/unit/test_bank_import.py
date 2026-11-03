@@ -204,12 +204,12 @@ def test_each_row_is_read_by_its_spreadsheet_row_and_signed():
         (
             {"outcome": "matched", "redate_blocked_by": "r1", "retitled": True},
             Verdict.NOT_MOVED,
-            "Not moved: Septiembre 2026 is reconciled",
+            "Not moved: Septiembre 2026 is completed",
         ),
         (
             {"outcome": "matched", "redate_blocked_by": "gone"},
             Verdict.NOT_MOVED,
-            "Not moved: a reconciliation is reconciled",
+            "Not moved: its statement is completed",
         ),
         ({"outcome": "sealed", "sealed_by": "r1"}, Verdict.CLOSED, "Closed period"),
         ({"outcome": "skipped"}, Verdict.SKIPPED, "Skipped: amount 0"),
@@ -333,8 +333,8 @@ def test_each_stopping_statement_is_named_by_one_read_of_it_by_its_id(configured
     assert error is None
     assert (sep.call_count, oct_.call_count, listed.call_count) == (1, 1, 0)
     assert [preview_line(r, names).reason for r in rows[:2]] == [
-        "Not moved: Septiembre 2026 is reconciled",
-        "Not moved: Octubre 2026 is reconciled",
+        "Not moved: Septiembre 2026 is completed",
+        "Not moved: Octubre 2026 is completed",
     ]
 
 
@@ -374,6 +374,6 @@ def test_a_failed_read_leaves_its_statement_unnamed_and_the_rest_are_read(config
     assert oct_.call_count == 1
     assert error is not None and why in error
     assert [preview_line(r, names).reason for r in rows] == [
-        "Not moved: a reconciliation is reconciled",
-        "Not moved: Octubre 2026 is reconciled",
+        "Not moved: its statement is completed",
+        "Not moved: Octubre 2026 is completed",
     ]

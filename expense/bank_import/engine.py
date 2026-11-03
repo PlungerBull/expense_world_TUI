@@ -179,9 +179,9 @@ MODIFIED = "Modified existing transaction"
 CLOSED = "Closed period"
 SKIPPED = "Skipped: amount 0"
 #: A move a completed reconciliation stops; `{}` is its name.
-NOT_MOVED = "Not moved: {} is reconciled"
+NOT_MOVED = "Not moved: {} is completed"
 #: The name in NOT_MOVED when the reconciliations could not be read.
-UNNAMED_RECONCILIATION = "a reconciliation"
+UNNAMED_RECONCILIATION = "its statement"
 
 
 @dataclass(frozen=True)

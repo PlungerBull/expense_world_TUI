@@ -171,7 +171,7 @@ def test_the_form_is_drawn_as_picked(fake_client):
         screen = _form()
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        assert screen.crumb == ("Reconciliations", "Signature PEN", "New")
+        assert screen.crumb == ("Statements", "Signature PEN", "New")
         assert screen.active_bindings["ctrl+s"].binding.description == "Create both"
         for text in TYPED[:5]:
             _enter(screen, text)

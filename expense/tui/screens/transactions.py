@@ -261,13 +261,13 @@ def refusal_notes(failed: list[RefusedRow]) -> list[str]:
 
 def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     """The toast after a bulk write: `3 rows → KORAKUEN`, and with `left`
-    rows taken out of their reconciliation by an account move,
-    `3 rows → BCP USD · 2 left their reconciliation`."""
+    rows taken out of their statement by an account move,
+    `3 rows → BCP USD · 2 left their statement`."""
     receipt = f"{count} {'row' if count == 1 else 'rows'} → {label}"
     if left == 1:
-        receipt += " · 1 left its reconciliation"
+        receipt += " · 1 left its statement"
     elif left > 1:
-        receipt += f" · {left} left their reconciliation"
+        receipt += f" · {left} left their statement"
     return receipt
 
 
@@ -749,7 +749,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         stop: Exception | None = None,
     ) -> None:
         """`done` writes landed; the receipt says `count` rows (`done` when
-        not given) and `left` of them left their reconciliation. A move that
+        not given) and `left` of them left their statement. A move that
         changed nothing (`count` 0) shows no receipt; its refusals still show.
         Rows refused for their own reason (`failed`) read under `Refused`, or
         `2 of 3 refused` counting the rows that landed and those; a refusal

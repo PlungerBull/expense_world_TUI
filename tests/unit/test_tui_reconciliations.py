@@ -413,7 +413,7 @@ def test_the_browse_opens_on_the_accounts_alone_and_reads_no_statements(monkeypa
         screen._open_aid = "acc1"
         assert screen.pane_rows() < alone
         screen._open_aid = None
-        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+        assert _crumb(screen) == ("Capture & ledger", "Statements")
         # moving the account cursor costs no read either
         screen._accts_list.action_move(1)
         await wait_for(pilot, lambda: screen._acct_idx == 1)
@@ -431,9 +431,9 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
         assert reads == ["h2"]  # that account's holder, and only that one
         assert [r.key for r in screen._batch_list._rows] == ["r2"]
         assert screen._batch_list.has_focus
-        assert "Reconciliations · Interbank USD" in (screen._batch_list._caption or "")
+        assert "Statements · Interbank USD" in (screen._batch_list._caption or "")
         assert "oldest → newest" in (screen._batch_list._caption or "")
-        assert _crumb(screen) == ("Capture & ledger", "Reconciliations", "Interbank USD")
+        assert _crumb(screen) == ("Capture & ledger", "Statements", "Interbank USD")
         # the open account keeps a ▸ so you can see whose panel this is
         names = [str(r.cells[0]) for r in screen._accts_list._rows]
         assert names == ["BCP PEN", "▸ Interbank USD"]
@@ -481,7 +481,7 @@ def test_a_failed_read_leaves_the_panel_closed(monkeypatch):
         await wait_for(pilot, lambda: reads)
         await pilot.pause()
         assert screen._mode == "accts" and screen._batch_list is None
-        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+        assert _crumb(screen) == ("Capture & ledger", "Statements")
 
     run_app(scenario)
 
@@ -536,7 +536,7 @@ def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
         await wait_for(pilot, lambda: screen._mode == "accts")
         assert app.screen is screen  # the panel closed; the screen stayed
         assert screen._batch_list is None and screen._accts_list.has_focus
-        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+        assert _crumb(screen) == ("Capture & ledger", "Statements")
         assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "BCP PEN"
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is not screen)
@@ -630,7 +630,7 @@ def test_new_reconciliation_from_account_drops_account_field():
     screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
     assert "account" not in screen._sequence()  # account preset from browse
     assert screen._values["account"] == "acc1"
-    assert screen.crumb == ("Reconciliations", "BCP PEN", "New")
+    assert screen.crumb == ("Statements", "BCP PEN", "New")
 
 
 def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypatch):
@@ -1081,7 +1081,7 @@ PART_FIELDS = ["amount", "category", "hashtags", "note"]
 def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_client):
     """A row never split: date, title, operation, account and currency, then part 1's
     amount, category, hashtags and note, all editable; the heading is the row
-    as listed; the crumb is `… ▸ Reconciliations ▸ Edit`."""
+    as listed; the crumb is `… ▸ Statements ▸ Edit`."""
     from expense.tui.widgets.header import Breadcrumb
 
     _patch_form(monkeypatch)
@@ -1100,7 +1100,7 @@ def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_cli
         assert form._key == "date"
         assert form.query_one("#crumb", Breadcrumb)._trail == (
             "Capture & ledger",
-            "Reconciliations",
+            "Statements",
             "Edit",
         )
         assert _heading_text(form) == "UBER *TRIP  ·  -24.50 PEN"

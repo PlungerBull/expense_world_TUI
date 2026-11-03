@@ -271,13 +271,9 @@ And earlier:
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-1. **"Statements" everywhere** (point 1). [home.py](../../expense/tui/screens/home.py),
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py) and their tests; tui.md §2
-   and §4 where the screens are named. *Passes if:* no screen, crumb, question or note says
-   "reconciliation"; a test fails on one; tui.md says "Statements".
 2. **The browse and the list of statements** (point 2; questions 2 and 3). The browse and
    `statement_headers` in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4 "The Reconciliations browse". With it the reads under it (point 15):
+   their tests; tui.md §4 "The Statements browse". With it the reads under it (point 15):
    the statement builders in [helpers.py](../../tests/unit/helpers.py) read as the engine does
    now, `account_id`, `balances` by `currency_code` with a beginning balance that may be
    `null`, and `not_covered` on the complete; `fetch_statements` in
@@ -298,7 +294,7 @@ the question, the files named and the tui.md section named.
 4. **The statement's head and its one list** (points 3 and 4; questions 2 and 3). The detail
    screen in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
    [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) and the statement
-   tests; tui.md §4 "A reconciliation's batch screen". *Passes if:* the head shows each covered
+   tests; tui.md §4 "A statement's batch screen". *Passes if:* the head shows each covered
    currency's balances, an uncovered one and a blank one as picked, a bracketed name whole; the
    list is the paper's order, both currencies in one numbering with a currency column, the
    opening balance apart; the tests pin each.
