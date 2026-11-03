@@ -76,8 +76,8 @@ New, from part 3b's leftovers (done on 2026-11-02): [what part 3b's leftovers tu
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
-New, from part 6's leftovers (done on 2026-11-02): [what part 6's leftovers turned up](specs/catch-up-currencies-6b-leftovers.md)
-(2 questions, each with a mockup to draw), waiting on no other spec.
+New, from part 6b's leftovers (done on 2026-11-02): [what part 6b's leftovers turned up](specs/catch-up-currencies-6c-leftovers.md)
+(1 question, with a mockup to draw), waiting on no other spec.
 
 New, from part 5: [what the live tests for an account's currencies turned up](specs/catch-up-currencies-5-leftovers.md)
 (no question; two missing tests), before part 7.

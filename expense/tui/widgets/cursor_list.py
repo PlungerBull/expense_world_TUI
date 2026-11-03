@@ -224,9 +224,9 @@ class CursorList(WindowedList):
         free text: the others take their natural width first and the flex
         columns share whatever the terminal has left, in ratio, each cell cut by
         the table at the edge of the column it actually has — so a cell is never
-        pre-truncated shorter than its column. Left empty (every list but the
-        ledger), Rich spreads the slack over every column in proportion to the
-        content it measured, as before."""
+        pre-truncated shorter than its column. Left empty (every `CursorList` but
+        the ledger's), Rich spreads the slack over every column in proportion to
+        the content it measured."""
         super().__init__(
             [Row.coerce(r) for r in rows], empty=empty, page_size=page_size, caption=caption
         )

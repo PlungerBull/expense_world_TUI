@@ -180,8 +180,9 @@ TITLE_SAVES = "free text · enter to save"
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
 #: The CURRENCY line's value while an account holding several has none picked.
 NONE_PICKED = "— pick one"
-# The fields every part of a line shares (OPERATION is the "no batch" form's
-# only), and what the hint adds on them while the line has two parts or more.
+# The fields every part of a line shares (only the "no batch" form has an
+# OPERATION line), and what the hint adds on them while the line has two parts
+# or more.
 _EVERY_PART = {"date", "title", "operation", "account", "currency"}
 EVERY_PART_NOTE = "changes every part of the transaction"
 # The line fields' names in the whole-line write

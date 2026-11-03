@@ -652,8 +652,9 @@ its title, then its signed `net_cents` and the line's own `currency_code`
 (`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, its
 `edit_limits` included, so the form reads no line: the day and title off its first part, its
 `operation_code`, `account_id` and `currency_code`. An operation with nothing typed reads `—  (optional)`; its
-hint is `optional · the bank's operation number · empty clears it`, and an emptied operation
-sends `operation_code: null`, which clears the line's operation code
+hint is `optional · the bank's operation number · empty clears it` (on a line of two parts or
+more it ends as "A split transaction says what reaches every part" above says), and an emptied
+operation sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the ledger's Edit
 form does, in one `PUT /bank-lines/{id}`, and a refusal stays under its parts the same way.
 Saved, "no batch" reads its newest ten again, cursor on row 1; a row whose date or account

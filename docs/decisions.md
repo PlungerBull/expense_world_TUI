@@ -1282,6 +1282,25 @@ own aftermath says when the list is fresh.
 *Lifting it on a build with no write unanswered* — a refused `d` queued behind it never reloads,
 and the guard stays set until the list is read again.
 
+## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02, owner)
+
+**Decision.** When the LOG bar's staged rows are wider than the bar, the title and tags give
+way 3:2, as the ledger's Title and Hashtags do, and the marker, date, amount, `cur`, account and
+category keep their whole width ([tui.md](tui.md) "The LOG bar's account is one row per
+account"). On the "no batch" Edit form of a line of two parts or more, the OPERATION line's
+hint ends in `changes every part of the transaction`, as the date, title, account and currency
+lines do ([tui.md](tui.md) "A split transaction says what reaches every part").
+
+**Why.** A staged row is checked before the save: what it costs, in which currency, on which
+account and under which category are the cells read; the title is what was just typed. Rich's
+default shrinks every column at once, so the amount was cut and `cur` vanished at 80 columns,
+and on any width under a long enough title. The operation number belongs to the whole line as
+the date does, so its line says so where the others do.
+
+**Rejected.** *Title, category and tags share the cut* — similar categories read the same
+once cut. *OPERATION without the note* — the one line of the five that changes every part
+without saying so.
+
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to
