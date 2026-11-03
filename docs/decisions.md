@@ -60,7 +60,7 @@ Decisions whose why lives elsewhere:
 
 **Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. A new engine capability gets its TUI screen and its contract test, and nothing typed. The repo is `PlungerBull/expense_world_TUI` on GitHub and `expense_world_TUI` as the local folder; the command is `expense`.
 
-**Engine features with no screen.** Activity history; exchange-rate history; editing a reconciliation's details (name, dates, balances) after it is created; updating the profile and the settings; the single-month report (Home shows the four-month grid); posting a batch of transactions in one call. They are the engine's own to keep working, and the contract suite exercises them. Adding a screen for one is new work of its own, when the owner asks for it.
+**Engine features with no screen.** Activity history; exchange-rate history; editing a statement's name and dates after it is created, and its balances beyond the blank ones `c` asks for; updating the profile and the settings; the single-month report (Home shows the four-month grid); posting a batch of transactions in one call. They are the engine's own to keep working, and the contract suite exercises them. Adding a screen for one is new work of its own, when the owner asks for it.
 
 **Rejected.** *Flat commands as the canonical surface beside the TUI* — every feature built, tested and approved twice. *One generic `expense api` command for agents* — an agent acting on the ledger belongs behind an MCP server beside the engine, not behind a command in this client. *Keeping every command as JSON-only for agents* — the same double build, for no reader.
 
@@ -362,7 +362,7 @@ the bar is where the right file gets dropped next.
 
 ## Reconciliations opens on the accounts (2026-09-25)
 
-**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its statements (`GET /statements?account_id=`, whole, in the engine's order: [tui.md](tui.md) "The Statements browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its statements (`GET /statements?account_id=`, whole, in the engine's order: [tui.md](tui.md) "The Statements browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a statement reads the account's list again and lands on the same row; the statement's screen reads its statement by id, and a `404` is how it knows the statement was deleted.
 
 **Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
@@ -482,6 +482,30 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 **Decision.** `c` on a draft with any blank balance opens a box for each one, `Starting balance first` then `Ending balance first`, currency by currency; after the last box one write saves them all, naming only the currencies that change, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A statement's batch screen"). A refused complete that names a balance, or a currency with money at the start, opens the same boxes for the currency the engine names; which currency needs a balance is always the engine's call. Saving and completing stay two writes and two answers, so balances can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No statement was completed without its balances, so the app offers no revert-and-fill path.
 
 **Rejected.** *One box that saves and completes on a single `enter`* — completing is the step that seals rows, and it keeps its own `y`. *Refusing `c` with the engine's words only* — the user then has to find where the balance is typed. *A `Failed` title for this flow* — the screen's other refusals say `Couldn't …`.
+
+## The Statements screens read whole at 80×24 (2026-11-03)
+
+**Context.** The statement screens are read against the bank's paper, at the smallest terminal
+the app plans for ("A terminal too small is the user's to fix").
+
+**Decision.** (1) **Only a completed statement on an account with a statement code is
+numbered**: the numbers are the paper's places, and an open statement, or an account with no
+paper, has none. (2) **An open statement on an account with a statement code waits for its
+PDF**: no ticking and no `c`, since the PDF closes it ("A card's statement is one statement, and
+a month closes from the bank's PDF"). (3) **Lists page rather than scroll**: the browse's panel
+takes the rows the accounts leave, its caption measured as it wraps, so `#content` never
+scrolls and no scrollbar cuts a column; the lines in no batch, a growing list, draw no page line
+([tui.md](tui.md) "The Statements screens fit 80×24"). (4) **On an account with a statement code
+the statements list's columns sit one space apart, and on every account the name is the column
+that gives way**, cut with `…`: the order and the figures are what the list is read for. An
+account with no code keeps two spaces. (5) **A footer that cannot fit its keys tightens its
+spacing before it cuts one** (`FittingFooter`). (6) **`c`'s boxes open under the head**, with
+the balances they ask about in sight.
+
+**Rejected.** *Cutting the order word* (`not in …`): it is the column the list is read for.
+*Cutting every name to fit*: ordinary names would lose their month. *A centred box over the
+balances*: it hides the figures it asks about. *Scrolling the screen*: its scrollbar cuts the
+last column.
 
 ## A create leaves an empty colour to the engine (2026-10-15)
 
@@ -839,8 +863,8 @@ and every write acts on the whole statement
 `GET /statements?account_id=`**, one row per statement, each currency's balances from its entry
 in `balances`; what the row shows is in [tui.md](tui.md) "The Statements browse". (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
-**No screen orders a statement, ticks the lines it still needs or edits a statement's name, days
-and balances.** A month's reconciliation stays open until the bank's PDF statement arrives, and
+**No screen orders a statement, ticks the lines it still needs or edits a statement's name and
+days, or its balances beyond the blank ones `c` asks for at complete.** A month's reconciliation stays open until the bank's PDF statement arrives, and
 uploading the PDF closes it, the engine reading, matching and completing
 ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 
@@ -1053,7 +1077,7 @@ by its name, keys of one name going to two ledger names stop the run before anyt
 until `--account-name` for that name replaces them, and two sheet names may be renamed onto one
 account, the engine judging what may share it ([commands.md](commands.md) "`expense import
 sheet`"). (5) **A statement is one per account**, covering its currencies
-([specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)).
+("A close flags lines instead of refusing, and a statement is the account's").
 
 **Why.** An account holds its currencies (contract: "Bank Accounts", "`currencies`"), so a
 name in the sheet, a pick in a door and a statement are each the account's.

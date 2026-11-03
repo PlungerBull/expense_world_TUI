@@ -5,7 +5,7 @@ after the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
 3 (done on 2026-10-30), 4 (done on 2026-10-31),
 5 (done on 2026-11-02), 6 (done on 2026-10-31),
-[7](catch-up-currencies-7-statement-screen.md)) and the specs that follow it.** Turning sheet
+7 (done on 2026-11-03)) and the specs that follow it.** Turning sheet
 accounts into people is built ([decisions.md](../decisions.md) "An account becomes a person, and
 back, with one key"); the split purchases' grouping is built ([decisions.md](../decisions.md) "The
 sheet import brings a split purchase in as one split transaction"); the sheet import goes through

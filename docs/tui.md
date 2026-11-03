@@ -534,9 +534,8 @@ its title, then its signed `net_cents` and the line's own `currency_code`
 line of two parts or more it ends as "A split transaction says what reaches every part" above
 says), and an emptied operation sends `operation_code: null`, which clears the line's
 operation code (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the
-ledger's Edit form does, and a refusal stays under its parts the same way. Saved, "no batch"
-reads its oldest ten again, cursor on row 1; a row whose date or account moved it out of the
-list is gone. `esc` sends nothing and keeps the list and its cursor.
+ledger's Edit form does, and a refusal stays under its parts the same way. Saved, the list
+starts again as after any edit (above); a row whose date or account moved it out is gone. `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py)).
@@ -704,7 +703,7 @@ nothing. Its three full screens replace one another above the LOG bar, as a down
 |---|---|---|
 | **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`): every live bank account, people and archived accounts left out, each by its own name and its currencies, one holding two currencies on one line (`Visa BCP  PEN + USD`), one with no statement code too (the engine refuses it in its words when picked). Picking an account sends its id; the engine closes that account's statement, every currency the paper covers together (contract: POST /v1/statements/import, "Accounts") | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name with its currencies when it holds two (`BCP Signature PEN + USD`), else the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` and each `not_covered` currency's, in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` and each `not_covered` currency's, in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on the statement. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
 colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
@@ -1210,7 +1209,7 @@ it greps source rather than renders.
 
 ⚠️ **One exception.** A title that is *chrome* disappears; one that is *information*
 becomes a line of content above the rule. The Statements browse stacks two lists once
-a panel is open, and its caption (`Statements · BCP PEN · oldest → newest`) is the
+a panel is open, and its caption (`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`) is the
 only thing tying the lower rows to an account above. Ask "would the screen still be
 unambiguous without this?" — not "is this a title?".
 
@@ -1279,8 +1278,8 @@ them — they are hand-written into the `?` card
   the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
   `check_action` allows it, as the footer does: the Statements panel's `⏎ Open` and
   `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
-  `f Flagged`, on only while lines its complete flagged are left ("The lines a complete
-  flagged for review" below).
+  `space`, `c`, `u` and `f`, each on only where the statement offers it ("A statement's
+  batch screen" below).
 
   A currency pick is the exception, and the card says so (`⏎ never changes data, except on a
   currency pick`): Manage ▸ Accounts' `Add a currency · <account>`, opened by `c`, adds the
@@ -1289,12 +1288,6 @@ them — they are hand-written into the `?` card
   question whose `y` removes it (§2 "`x` removes a currency from an account"). Each pick's
   footer is `esc Cancel` alone; the hint line under its list names `⏎`. The import screens'
   `⏎ Import N rows` and `⏎ Close <name>` write too (§2 "The import screens' keys").
-
-**The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
-`FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its
-whole key list. Its list takes no focus, so the screen holds `⏎`, `d` and `↑↓` itself and the
-footer keeps that order; `pgdn`/`pgup` page and `r` reads the flagged lines again, none of
-them in the footer.
 
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py)):
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
@@ -1322,71 +1315,62 @@ each under its own name: `Account · Currencies · Balances`, the currencies as 
 a balance in each, `-234.20 PEN   -30.98 USD`, never added together, every account's first
 figure ending in one column (`browse_accounts` and `balances_cells` in
 [reconciliations.py](../expense/tui/screens/reconciliations.py)). An archived account is not
-in that read, so it and its statements are not offered until it is unarchived. The account's
-statement code is its own, read from the same answer
-(contract: "What an account is", "Statement code"); no other read is made for it. Nothing
-about statements is read until `⏎`, so moving the account cursor costs nothing. `⏎ Its
-statements` reads that account's statements in **one read**, `GET /statements?account_id=<id>`
+in that read, so its statements are not offered until it is unarchived. The statement code is
+the account's own, from the same answer
+(contract: "What an account is", "Statement code"). Moving the cursor reads nothing.
+`⏎ Its statements` reads the account's statements in **one read**,
+`GET /statements?account_id=<id>`
 (`fetch_statements`; contract: GET /v1/statements, "`?account_id=<id>` is required"), whole,
 in the engine's order (`date_start` ascending, then creation time, oldest first
-(contract: "Statements", "Ordering")), and opens the **panel** under the accounts, halving the
-height, with the cursor in it; the open account keeps an accent `▸` in a two-cell gutter
-before its name, every name staying where it is, and the breadcrumb grows to
-`Statements ▸ <account>`. An account with none says `none yet · n to create one` inside the
-panel; a read that fails toasts the engine's words and leaves the panel closed. Coming back
-from a statement, or `r`, reads the same list again and lands on the same row.
+(contract: "Statements", "Ordering")), and opens the **panel** under the accounts with the
+cursor in it; the open account keeps an accent `▸` in a two-cell gutter before its name, and
+the breadcrumb grows to `Statements ▸ <account>`. An account with none says
+`none yet · n to create one`; a read that fails toasts the engine's words and leaves the panel
+closed. Coming back from a statement, or `r`, reads the list again and lands on the same row.
 
-The panel lists **one row per statement**:
-`Name · Period`, one `Diff <CUR>` per currency the account holds in the account's order
-(`Diff PEN · Diff USD`; `Diff` alone on an account of one currency), then `Status`, and
-`Order` on an account with a statement code. Each Diff is that currency's `difference_cents`,
-read from its own entry in the statement's `balances` by `currency_code` (`statement_rows`),
-by the rule of every statement list: a dim `—` when it adds up, the figure when off, blank
-when it is not checked yet (a blank ending or beginning balance,
-contract: "Statements", "A balance not entered is `null`, never zero"). **A currency the
-statement does not cover shows nothing** in its Diff column, not a row and not a figure: a
-statement covers a currency only when something is in it
-(contract: "Statements", "Which currencies a statement covers"). Status is the statement's one
-status, `completed` or `draft`; Order is `in order` when the engine's `unplaced_count` and
+The panel lists **one row per statement** (`statement_rows`): `Name · Period`, one
+`Diff <CUR>` per currency the account holds, in the account's order (`Diff` alone on an
+account of one currency), `Status`, and `Order` on an account with a statement code. Each Diff
+is that currency's `difference_cents`, from its own entry in the statement's `balances`, by
+the rule of every statement list: a dim `—` when it adds up, the figure when off, blank when
+not checked yet
+(contract: "Statements", "A balance not entered is `null`, never zero"), and blank for a
+currency the statement does not cover
+(contract: "Statements", "Which currencies a statement covers"). Status is `completed` (the
+row dim) or `draft`; Order is `in order` when the engine's `unplaced_count` and
 `shared_place_count` both read 0 and `not in order` (warning) otherwise
-(contract: "Statements", "A statement's order"). An account with no statement code has no
-Order column: the engine sends no order there. A completed statement is dim. The title names
-the account, its currencies and its code when it has one:
-`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`, or
-`Statements · IBK Visa · PEN + USD   ·   oldest → newest` without one. Both lists are drawn
-tighter than the shared table (`gap` and `edge` on `CursorList`, `ReconciliationsScreen` in
-[app.tcss](../expense/tui/app.tcss)). The statements list's columns sit one space apart on an
-account with a statement code and two without, and its Name column is the one that gives way
-on both: only a name too long for the room left is cut with `…` (`Noviembre 2026` reads
-`Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order. The list
-does not stretch to the card's edge, so the cursor's highlight ends after the last column
-(`ORDER_GAP` and `_panel_layout` in `ReconciliationsScreen`, `gives_way` on `CursorList`).
+(contract: "Statements", "A statement's order"); the engine sends no order for an account
+with no statement code, so it has no Order column. The title names the account, its
+currencies and its code when it has one:
+`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`.
 
-`⏎` opens the row's statement on the batch screen, the whole statement: every currency it
-covers, none picked first.
+Both lists sit tighter than the shared table (`gap` and `edge` on `CursorList`,
+`ReconciliationsScreen` in [app.tcss](../expense/tui/app.tcss)): two spaces between columns,
+one on the statements list of an account with a statement code (`ORDER_GAP`). On the
+statements list the Name is the one column that gives way (`_panel_layout`, `gives_way` on
+`CursorList`): a name too long for the room left is cut with `…` (`Noviembre 2026` reads
+`Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order, and the
+list does not stretch to the card's edge, so the cursor's highlight ends after the last column.
 
-**Keys**: `n` new batch — for the open account, or with no panel for the account under the
-cursor, and once saved the panel opens on the new one; `u` swaps the panel to the account's
-rows in no batch (panel open only, and not again inside it); `d` deletes the cursor row **in
-that pane only** (off, and out of the footer, on the statement list, where a batch's own
-delete lives one screen deeper); `esc` retreats one step — no-batch rows → the panel → the
-account list (`esc Close the panel`) → Home. On the batch screen one keypress away, `u` means
-*revert*.
+**Keys**: `⏎` opens the row's statement on its batch screen, every currency it covers, none
+picked first; `n` creates a statement for the open account, or with no panel for the account
+under the cursor, and once saved the panel opens on the new one; `u` swaps the panel to the
+account's rows in no batch (§2); `d` deletes a row **in that list only** (off, and out of the
+footer, on the statements list: a statement's own delete is on its batch screen); `esc`
+retreats one step — no-batch rows → the panel → the account list (`esc Close the panel`) →
+Home. On the batch screen one keypress away, `u` means *revert*.
 
-**The New statement form** (`n` on an account, or `Statements ▸ New` alone) is one form for
-every account: `Statements ▸ <account> ▸ New`, with the lines `name`, `date start`,
-`date end`, then a `begin balance <CUR>` and an `end balance <CUR>` line for each currency the
-account holds, in the engine's order (`NewReconciliationScreen`). The account is stated, never
-edited, in the summary as `Visa BCP · PEN + USD · VIS` (`· <code>` left off on an account with
-no statement code); opened alone, the form asks for it second, after the name, a picker
-listing each bank account by its name, and the pick gives it its currencies' lines. Every
-balance line is optional, and the app decides nothing about which currency needs one: that is
-the engine's call (contract: POST /v1/statements, "`balances`").
-
-Each begin's hint takes two lines, the whole hint dim as every hint is:
-`signed decimal · the statement's opening balance in PEN · optional`, then directly under it
-`0.00 if it holds the account's opening balance, which already counts it`. The line is there
-on every currency.
+**The New statement form** (`n` on an account, or `Statements ▸ New` alone;
+`NewReconciliationScreen`) is one form for every account: `Statements ▸ <account> ▸ New`,
+with the lines `name`, `date start`, `date end`, then a `begin balance <CUR>` and an
+`end balance <CUR>` line for each currency the account holds, in the engine's order. The
+account is stated, never edited, in the summary as `Visa BCP · PEN + USD · VIS` (no
+`· <code>` on an account with no statement code); opened alone, the form asks for it second,
+after the name, from a picker listing each bank account by its name, and the pick gives it its
+currencies' lines. Every balance line is optional: which currency needs one is the engine's
+call (contract: POST /v1/statements, "`balances`"). Each begin's hint takes two lines, dim:
+`signed decimal · the statement's opening balance in PEN · optional`, then
+`0.00 if it holds the account's opening balance, which already counts it`.
 
 `^s Create`, or `⏎` on the last line, sends one `POST /statements` with `account_id` and one
 entry in `balances` per currency with a begin typed: its `currency_code`, its
@@ -1401,152 +1385,141 @@ that currency's begin (contract: POST /v1/statements, "Order"). `CONCURRENT_CHAN
 app's line `It changed at the same moment: save again.` Saved, it says `Statement created.`
 and the panel opens on the account's statements, the cursor on the new one.
 
-**A statement's batch screen** (`⏎` on one in the panel) is the whole statement. Its head —
-name, account, period and `status` on the first line, the name whole, brackets and all
-(`[VIS] Agosto`) — is followed by a `begin  end  diff` table (`balance_lines`) with one line
-for each currency the statement covers, in the engine's order; a currency it does not cover
-has no line (contract: "Statements", "Which currencies a statement covers").
-A balance not entered reads a dim `—`, never zero, and its difference, not checked yet, stays
-blank (contract: "Statements", "A balance not entered is `null`, never zero").
-Reading it again is `GET /statements/{id}` (contract: GET /v1/statements/{statement_id}),
-through `fetch_statement` in [reads.py](../expense/reads.py). Under it is a list of **bank
-lines**, read from `GET /bank-lines` (contract: GET /v1/bank-lines) through
-`fetch_bank_lines` in [reads.py](../expense/reads.py), every page of each read, by account and
-never by one currency: `account_id=` with `statement_id=`, `sort=statement`, so the
-statement's lines come in the paper's order, both currencies together, then those holding no
-place oldest first (contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. On a
-draft it is a tick-list: the statement's lines ticked and first, then the account's lines in
-no statement inside the period (`account_id`, `unreconciled=true`, the period's own days as
-`date_from` / `date_to`, `sort=date_asc`, oldest first). Once completed it is the statement's
-lines alone, read-only, with no tick box; on an account with a statement code a `#` column
-leads with each line's number, 1, 2, 3 … down the rows with no gaps, and on an account with
-none the list has no `#` column. An open statement is never numbered. Rows are the bank-line
-rows of "no batch" above (`line_rows`), a `Cur` column on every row; no category, hashtags,
-note or part count. An opening balance (`is_opening_balance`) holds no place on the paper, so
-its rows come last under a dim `Not on the paper` label, with a dim `—` for a number in a
-numbered list; every row and the page status still show at any height. The list draws without
-a rule above it, and the title is as wide as its longest title (at least 24 cells) until the
-line would not fit.
-**Keys**: `space` puts the line under the cursor in or out of the batch with one
-`PUT /transactions/{id}` of `statement_id` (or `null`) on one of its parts, which
-moves every part (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment");
-once every tick sent is answered, the screen reads the statement and its lines again,
-so the header's `diff` is the engine's, and the cursor stays on the line ticked last, now
-among the ticked ones; a read that lands while a tick is still unanswered is not drawn, so
-ticking down a statement (`space`, `↓`, `space`…) never lands on another row. A refused
-tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
-reads the statement and its lines again, the cursor on row 1; so does a refused
+**A statement's batch screen** (`⏎` on one in the panel) is the whole statement. Its head is
+the name whole, brackets and all (`[VIS] Agosto`), the account, the period and `status`, then a
+`begin  end  diff` table (`balance_lines`) with a line for each currency the statement covers,
+in the engine's order; a currency it does not cover has no line
+(contract: "Statements", "Which currencies a statement covers"). A balance not entered reads a
+dim `—`, never zero, and its difference, not checked yet, stays blank
+(contract: "Statements", "A balance not entered is `null`, never zero"). The statement is read
+again by its id, `GET /statements/{id}` (`fetch_statement` in [reads.py](../expense/reads.py))
+(contract: GET /v1/statements/{statement_id}); one deleted elsewhere reads as a `404`, so the
+screen says `This statement no longer exists.` and goes back, and any other refused read shows
+the engine's words and stays.
+
+Under the head is one list of **bank lines** (`CheckList`), read through `fetch_bank_lines` in
+[reads.py](../expense/reads.py), every page of each read, by account and never by one currency:
+`account_id=` with `statement_id=` and `sort=statement`, so the statement's lines come in the
+paper's order, both currencies together, then those holding no place oldest first
+(contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. Its rows are the "no batch"
+rows (§2; `line_rows`): no category, hashtags, note or part count. An opening balance
+(`is_opening_balance`) holds no place on the paper, so its rows come last under a dim
+`Not on the paper` label. The list holds focus, so `pgdn` and `pgup` page it on every
+statement. What it shows, and which keys the screen offers (`check_action` hides the others
+from the footer and the `?` card and leaves them dead), depends on the statement:
+
+- **A draft on an account with no statement code** is a tick-list: the statement's lines ticked
+  and first, then the account's lines
+  in no statement inside the period (`unreconciled=true`, the period's days as `date_from` /
+  `date_to`, `sort=date_asc`, oldest first). Keys: `space Toggle`, `c Complete`, `u Revert`,
+  `d Delete`.
+- **A completed statement** lists its own lines, read-only, with no tick box. On an account
+  with a statement code a `#` column leads with each line's number, 1, 2, 3 … down the rows
+  with no gaps, a dim `—` on an opening balance's row; on an account with none there is no `#`
+  column. Keys: `u Revert`, `d Delete`.
+- **An open statement on an account with a statement code waits for its PDF**: its own lines
+  alone, read-only, with no tick box and no number, and the dim line
+  `closes when its PDF is dropped on the LOG bar` under the balances (the statement code is the
+  account's, passed in from the browse). Keys: of the statement's own, `r Refresh` and
+  `d Delete` alone.
+
+Every statement also offers `r`, which reads the statement again by its id and its lines, and
+`esc`, which goes back.
+
+**`space`** puts the line under the cursor in or out of the statement with one
+`PUT /transactions/{id}` of `statement_id` (or `null`) on one of its parts, which moves every
+part (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"). Once every
+tick sent is answered the screen reads the statement and its lines again, so the head's `diff`
+is the engine's, a currency the tick gave the statement shows its balances as a dim `—` and its
+difference blank, and the cursor stays on the line ticked last, now among the ticked ones; a
+read that lands while a tick is still unanswered is not drawn, so ticking down a statement
+(`space`, `↓`, `space`…) never lands on another row. A refused tick drops the ticks queued
+behind it, shows `Couldn't update` with the engine's words and the line §2 "When the engine
+says no" gives, and reads the statement and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
-`Couldn't …` note. `c` completes, after the question `Complete statement?` · `Locks the
-amount, date, title, account, operation number and statement of the N ticked rows.` (N
-the rows ticked, and `1 ticked row` for one): completing makes those six read-only on each
-ticked row, an empty title or operation number staying fillable
-(contract: PUT /v1/transactions/{transaction_id}, "Field locking");
-`u` reverts, `d` deletes the statement, `r` reads the statement again by its id and its
-lines, `esc` goes back. A statement deleted elsewhere reads as a `404`
-(contract: GET /v1/statements/{statement_id}), so the screen says `This statement no
-longer exists.` and goes back; any other refused read shows the engine's words and stays.
-`c`, `u` and `d` act on the whole statement, every currency of its account, in one write:
-`POST /statements/{id}/complete`, `POST /statements/{id}/revert` and
-`DELETE /statements/{id}` (contract: POST /v1/statements/{statement_id}/complete)
+`Couldn't …` note.
+
+**`c`, `u` and `d`** act on the whole statement, every currency of its account, in one write:
+`POST /statements/{id}/complete`, `POST /statements/{id}/revert` and `DELETE /statements/{id}`
+(contract: POST /v1/statements/{statement_id}/complete)
 (contract: POST /v1/statements/{statement_id}/revert)
 (contract: DELETE /v1/statements/{statement_id}).
+`c` asks `Complete statement?` · `Locks the amount, date, title, account, operation number and
+statement of the N ticked rows.` (`1 ticked row` for one): completing makes those six
+read-only on each ticked row, an empty title or operation number staying fillable
+(contract: PUT /v1/transactions/{transaction_id}, "Field locking").
 On an account with a statement code the engine completes nothing until every line of the
-statement has a place in its order (contract: POST /v1/statements/{statement_id}/complete),
-and no screen sets the order ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
-A complete with no transaction on any account of the statement is refused as
-`NO_TRANSACTIONS_ASSIGNED` on each account's `balances.<account_id>.transactions`, and
-`Couldn't complete` shows the engine's words whole, the opened account's line among them.
+statement has a place in its order
+(contract: POST /v1/statements/{statement_id}/complete), and no screen sets the order
+([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
+A complete with no transaction in any currency is refused as `NO_TRANSACTIONS_ASSIGNED` on
+each currency's `balances.<currency>.transactions`, and `Couldn't complete` shows the engine's
+words whole.
+
 **`c` needs every balance**: the engine completes no statement with a balance blank
 (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
-On a draft with any blank balance, `c` first opens a box for each one, currency by
-currency in the statement's order, a currency's starting balance before its ending balance
+On a draft with any blank balance, `c` first opens a box for each one, currency by currency in
+the statement's order, a currency's starting balance before its ending one
 (`blank_balances`): `Starting balance first` (`The statement's opening figure for <account>,
-in <currency> · signed · e.g. 13,853.20`) for a blank starting balance, `Ending balance
-first` (`The statement's closing figure for <account>, in <currency> · signed · e.g.
-13,853.20`) for a blank ending balance, each with `[enter] save    [esc] cancel`.
-A balance already entered gets no box. Each figure is read by the shared money parser
-exactly as typed — the sign is the one typed, never added or flipped; text it cannot
-read keeps the box open with what was typed and notes `Begin balance: a signed decimal,
-e.g. 9580.00` or `End balance: a signed decimal, e.g. 9460.00`, and nothing is sent.
-`esc` closes the box with nothing sent. Each box, and the `Complete statement?` question
-after them, opens under the statement's head, the crumb, the head's balances and any note
-staying in sight above; it covers the screen from its first line down to the footer, and
-where the space under the head is too short it rises over the head's last lines rather than
-lose its message, input or keys (`UnderHead` in [modals.py](../expense/tui/screens/modals.py));
-every other modal stays centred.
-After the last box, one
-`PUT /statements/{id}` saves everything typed: its `balances` names only the currencies
-that change, each with only the balances typed (`balances_body`), so the engine keeps
-every other (contract: PUT /v1/statements/{statement_id}, "`balances`"). The head shows
-the engine's saved figures, and then the usual `Complete statement?` asks; only `y`
-completes, and any other answer leaves a draft with its balances saved, so the next `c`
-goes straight to the question. A draft with every balance goes straight to the question
-too. A refused complete that names a missing balance (`BEGINNING_BALANCE_REQUIRED`,
-`ENDING_BALANCE_REQUIRED`) or a currency the statement does not cover
-(`MONEY_AT_START_NOT_COVERED`) shows `Couldn't complete` with the engine's words, then
-opens the same boxes for the currency the engine names (`balances_named`, read off the
-refusal's `reasons` keys `balances.<currency>[.<field>]`; the app decides nothing about
-which currency needs a balance): the named balance's box, or for a currency not covered,
-its starting then its ending balance, each box empty. A
-currency with no movement closes the same way: its ending balance typed in an empty
-box, and the engine judges it. Then the question asks again. A refused save shows
-`Couldn't save` with the engine's words. A refused complete shows `Couldn't complete`
-with the engine's words — after a save in the same `c`, under the line `The balances
-are saved. The statement is not completed:`, whether or not the refusal then opens boxes —
-and the screen reads the statement fresh, so the header and the next `c` go by what the
-engine holds. A complete's answer carries the close's notes on each
-balance, its currency's `warnings` and `coverage_gap`
-(contract: POST /v1/statements/{statement_id}/complete, "Response"); each currency's
-`warnings` sentence shows under the head, `  ⚠ <sentence>` in the warning colour, in the
-engine's words, one after the other, until the next status change. The close also reviews
-each currency of the account the statement holds no balances for, its notes in the answer's
-`not_covered`
-(contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"): each
-such currency's `warnings` sentence follows the covered ones, led by its code,
-`  ⚠ USD: <sentence>`. At 80 columns a long head line or note wraps under its own first word
-(`under_itself`), never at column 1, and the checklist gives up the lines it takes.
+in <currency> · signed · e.g. 13,853.20`) or `Ending balance first` (`The statement's closing
+figure for <account>, in <currency> · signed · e.g. 13,853.20`), each with
+`[enter] save    [esc] cancel`. Each figure is read by the shared money parser exactly as
+typed, the sign never added or flipped; text it cannot read keeps the box open with what was
+typed and notes `Begin balance: a signed decimal, e.g. 9580.00` or
+`End balance: a signed decimal, e.g. 9460.00`, and nothing is sent. `esc` closes the box with
+nothing sent. The boxes and the `Complete statement?` question after them open under the
+statement's head, the crumb, the balances and any note staying in sight
+(`UnderHead` in [modals.py](../expense/tui/screens/modals.py)); every other modal stays
+centred. After the last box one `PUT /statements/{id}` saves everything typed: its `balances`
+names only the currencies that change, each with only the balances typed (`balances_body`), so
+the engine keeps every other (contract: PUT /v1/statements/{statement_id}, "`balances`"). The
+head shows the engine's saved figures, and then `Complete statement?` asks; only `y`
+completes, and any other answer leaves a draft with its balances saved, so the next `c` goes
+straight to the question, as it does on a draft with every balance.
 
-**Which keys a statement offers** (`check_action` hides a key from the footer and the `?`
-card and leaves it dead). A draft offers `space Toggle`, `c Complete`, `u Revert` and
-`d Delete`. A completed statement offers `u Revert` and `d Delete`: no `c` and no toggle,
-since it is read-only. An open statement on an account with a statement code waits for its
-PDF: its list is read-only with no tick box and no number, only its own lines are read (none
-from outside it), the dim line `closes when its PDF is dropped on the LOG bar` sits under the
-balances (the statement code is the account's, passed in from the browse), and of the
-statement's own keys its footer offers `r Refresh` and `d Delete`: no `c`, no toggle and no
-`u`. The list holds focus on every statement, so `pgdn` and `pgup` page a completed one too.
-A tick refused as `CONCURRENT_CHANGE` shows the engine's words under `Couldn't update`, then
-the list's line, and the statement is read again. A tick that gives the statement a currency
-it did not cover reads the statement again, and the new currency's balances show as a dim
-`—`, its difference blank.
+A refused complete that names a missing balance (`BEGINNING_BALANCE_REQUIRED`,
+`ENDING_BALANCE_REQUIRED`) or a currency the statement does not cover
+(`MONEY_AT_START_NOT_COVERED`) shows `Couldn't complete` with the engine's words, then opens
+the same boxes, empty, for the currency the engine names (`balances_named`, read off the
+refusal's `reasons` keys `balances.<currency>[.<field>]`): the named balance's box, or for a
+currency not covered its starting then its ending balance. A currency with no movement closes
+the same way, its ending balance typed and the engine judging it. Then the question asks
+again. A refused save shows `Couldn't save` with the engine's words. A refused complete after a
+save in the same `c` puts the line `The balances are saved. The statement is not completed:`
+above the engine's words, and the screen reads the statement fresh, so the head and the next
+`c` go by what the engine holds.
+
+**The close's notes.** A complete's answer carries each balance's `warnings` and
+`coverage_gap` (contract: POST /v1/statements/{statement_id}/complete, "Response"), and the
+notes of each currency of the account the statement holds no balances for in `not_covered`
+(contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"). Each `warnings`
+sentence shows under the head in the engine's words, `  ⚠ <sentence>` in the warning colour,
+those of a currency not covered after the others and led by its code, `  ⚠ USD: <sentence>`,
+until the next status change. A head line or note too long for the width wraps under its own
+first word (`under_itself`), never at column 1.
 
 **The lines a complete flagged for review.**
 A complete goes through while lines dated in the statement are in no statement: its answer
 names the bank lines it flagged for review on each balance, `review_lines`, every currency of
 the statement's account, each oldest first
-(contract: POST /v1/statements/{statement_id}/complete, "Response"). The app
-keeps no rule of which lines those are, and nothing in it treats them as a refusal of
-complete. When the answer names any, the app pushes a full screen right after the
-complete, `Statements ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
-[reconciliations.py](../expense/tui/screens/reconciliations.py)); when it names none,
-nothing new shows. The screen opens on the statement's id, not the lines' ids: it reads the
-statement's review list, the lines its close flagged and still unresolved, whole,
-`GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement` page by page, and
-how many it holds from `GET /bank-lines/count?unassigned_in_period_of=<statement id>`
-(`reads.count_bank_lines`)
-(contract: GET /v1/bank-lines, "It has no bound"). A line assigned to a statement, moved
-out of the account or the days, or deleted drops out of the engine's list. The screen
-reads `<statement> has 3 flagged lines. 3 lines dated up to its last day are in no
-statement.` (`1 flagged line. 1 line dated up to its last day is in no statement.` for one),
-the first sentence plain and the engine's count and the rest of the second in the warning
-colour. The head and the words under the list stand two cells in and wrap at 75 columns.
-Under the head, the lines in one list, the bank-line rows of "no batch" above, drawn as the
-statement's own list is (`CheckList`, read-only, no numbers), every currency of the
-account together, in the engine's order, the statement's: its lines hold no place, so they
-are oldest first, the account's currencies mixed by date
-(contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); the app sorts
-nothing itself.
+(contract: POST /v1/statements/{statement_id}/complete, "Response"). The app keeps no rule of
+which lines those are and treats none as a refusal. When the answer names any, the app pushes
+a full screen right after the complete, `Statements ▸ <statement> ▸ Flagged`
+(`FlaggedLinesScreen` in [reconciliations.py](../expense/tui/screens/reconciliations.py)). It
+opens on the statement's id, not the lines' ids, and reads the statement's review list, the
+lines its close flagged and still unresolved, whole,
+`GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement` page by page, and how
+many it holds from `GET /bank-lines/count` on the same filter (`reads.count_bank_lines`)
+(contract: GET /v1/bank-lines, "It has no bound"). A line assigned to a statement, moved out of
+the account or the days, or deleted drops out of the engine's list. The head reads
+`<statement> has 3 flagged lines. 3 lines dated up to its last day are in no statement.`
+(`1 flagged line. 1 line dated up to its last day is in no statement.` for one), the first
+sentence plain and the engine's count and the rest of the second in the warning colour; the
+head and the words under the list stand two cells in and wrap at 75 columns. Under it are the
+lines in one list, the "no batch" rows drawn as the statement's own list is (`CheckList`,
+read-only, no numbers), every currency of the account together, in the engine's order, the
+statement's: its lines hold no place, so they are oldest first, the currencies mixed by date
+(contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
 
 On an account with a statement code (the account's, passed in from the browse), the engine's
 two ways to settle a flagged line read as dim words under the list (`FLAGGED_WAYS`): when the
@@ -1557,29 +1530,30 @@ does not print it, the line waits for a later statement, or is fixed or deleted
 (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line").
 The words do none of the steps: each is done on the screen it belongs to (`u` on the
 statement, `d` on the twin, the Edit form for the day, the PDF on the LOG bar). On an account
-with no statement code no words show. The footer reads
-`esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
-the ledger's Edit form (`EditFormScreen`, which reads the line by its id), crumb
-`… ▸ Flagged ▸ Edit`; `d` asks the "no batch" list's question and deletes as it does
-(`ask_line_delete`). After a save or a delete the screen reads the review list and its count
-again, the cursor on row 1: a line the engine no longer lists leaves the list and the count,
-and with none left the screen goes back to the statement. Until the first read lands the head
-and the list are empty; a read that fails toasts the engine's words and keeps what is listed,
-and `r` reads again. `esc` hands the statement the engine's last count.
+with no statement code no words show.
 
-**On the statement**, whether it is open or completed, the line
+The screen has no `?`: it does not take `HelpBindingMixin`, so its footer,
+`esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`, is its whole key list. Its list takes
+no focus, so the screen holds `⏎`, `d` and `↑↓` itself; `pgdn`/`pgup` page and `r` reads the
+list again, none of them in the footer. `⏎` opens the line in the ledger's Edit form
+(`EditFormScreen`, which reads the line by its id), crumb `… ▸ Flagged ▸ Edit`; `d` asks the
+"no batch" list's question and deletes as it does (`ask_line_delete`). After a save or a
+delete the screen reads the review list and its count again, the cursor on row 1, and with none
+left it goes back to the statement. Until the first read lands the head and the list are empty;
+a read that fails toasts the engine's words and keeps what is listed. `esc` hands the statement
+the engine's last count.
+
+**On the statement**, open or completed, the line
 `⚑ 3 lines flagged for review: in no statement, dated up to this one's last day  · f shows them`
-sits under the header, two cells in, in the warning colour with `· f shows them` dim, and
-`f Flagged` is in the footer and on the `?` card only while the statement's review list counts
-a line; `f` opens the list. The count is the engine's, `GET /bank-lines/count` with
-`unassigned_in_period_of=<statement id>`, read each time the screen reads the statement (when
-it opens, on `r`, after a tick and after a status change; a read that fails toasts the
+sits under the head, two cells in, in the warning colour with `· f shows them` dim, and
+`f Flagged` is in the footer and on the `?` card, only while the statement's review list counts
+a line; `f` opens the flagged lines' screen. The count is the engine's, `GET /bank-lines/count`
+with `unassigned_in_period_of=<statement id>`, read each time the screen reads the statement
+(when it opens, on `r`, after a tick and after a status change; a read that fails toasts the
 engine's words), so a draft shows the lines a complete would flag, and a revert counts again.
-A complete's `review_lines` set the count at once, until that read lands; back from the
-flagged lines' screen, its last count. With none counted, neither shows. The lines stay in the
-ledger, in no statement, and show in the account's "no batch" list (`u` on the browse). The
-statement's footer is a `FittingFooter`, so a draft showing `f` keeps every key, `? Keys`
-included, whole at 80 columns.
+A complete's `review_lines` set the count until that read lands; back from the flagged lines'
+screen, its last count holds. The lines stay in the ledger, in no statement, and show in the
+account's "no batch" list.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
@@ -1782,19 +1756,22 @@ list comes back as it was, the rows `pgdn` loaded and the cursor on its row. The
 list on Statements grows through the same `GrowingRead`, oldest first.
 
 **Full-data screens window locally** — Manage, the Statements account list (full
-height alone, an equal split with the open panel), the recon checklist at what fits —
+height alone, an equal split with the open panel), a statement's list at what fits —
 with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑`/`↓` walk
 through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,
 System kv-tables.
 
-**The Statements browse's panel pages to fit, below the floor**
+**The Statements screens fit 80×24.** The browse's panel pages to fit, below the floor
 (`panel_page_rows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)):
-four accounts and three statements fit 80×24 on one page, and with five accounts the panel
-pages instead of scrolling `#content`, whose scrollbar would cut the Order column. A long
-account name wraps the captions, and the wrapped caption is counted. The no batch list has no
-page status and fills the room the accounts leave, down to the blank line above the footer;
-its caption's `N of M loaded` says the rest. The screen's footer is a `FittingFooter`, so the
-paging keys the panel adds never cut `u No batch`.
+four accounts and three statements fit on one page, and with five accounts the panel pages
+instead of scrolling `#content`, whose scrollbar would cut the Order column; a caption a long
+account name wraps is counted. The "no batch" list draws no page status
+(`UNFILED_FRAME_LINES`) and fills the room the accounts leave, down to the blank line above
+the footer; its caption's `N of M loaded` says the rest. A statement's list is measured again
+once the head and its notes have drawn at the screen's width, and the rows set apart count
+toward the page, so its page status always shows. The browse and a statement's screen use a
+`FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)), so no key is cut at 80
+columns: not `u No batch` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed

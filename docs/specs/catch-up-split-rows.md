@@ -12,7 +12,7 @@ and the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
 3 (done on 2026-10-30), 4 (done on 2026-10-31),
 5 (done on 2026-11-02), 6 (done on 2026-10-31),
-[7](catch-up-currencies-7-statement-screen.md)), which takes over the range's live tests and
+7 (done on 2026-11-03)), which takes over the range's live tests and
 screens.
 
 **Status: approved and named the current spec by the owner on 2026-10-27, its question

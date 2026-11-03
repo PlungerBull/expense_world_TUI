@@ -28,19 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### `^s` and a balance typed but not yet entered
-Asked 2026-11-03 · Blocks: nothing (part 7 is done without it; a change is one small task)
-
-On the New statement form, pane 7 shows `-234.20` typed in the bar and then sent by `^s`. In the
-app, `^s` sends only the lines already entered with `⏎`: a balance still in the bar is left out,
-and the engine then refuses the statement for the missing balance. Every form in the app works
-this way today (`⏎` keeps a line).
-- **A.** Keep it: `⏎` keeps a line, on every form.
-- **B.** `^s` also keeps what is in the bar, on every form, then saves.
-
-**Recommended:** B, because what you see typed is what you expect to be saved, and pane 7 draws
-it so; it changes every form the same way, so it becomes its own spec.
-
 ### The words when an ending balance has no starting balance
 Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
 
@@ -89,13 +76,8 @@ fixes it.
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 The engine's hand-off "An account holds its currencies: every route names an account and a
-currency code; holders are gone" (contract `f82426fb0a099676`) is planned. Every spec is
-rewritten for one account holding its currencies; the old cards, live-test and practice-engine
-specs are retired. The catch-up is seven specs: parts 1 to 6 are done, and the replies of parts
-2, 4 (with part 3's results), 5 and 6 wait in [to-engine/](to-engine/) for you to hand over.
-Part 7, [the statement screen](specs/catch-up-currencies-7-statement-screen.md), is running; its
-task 16 waits on your pick above. Until it is done the Statements screens do not work against
-the engine; a month closes from its PDF.
+currency code; holders are gone" (contract `f82426fb0a099676`) is caught up: its seven parts are
+done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
 [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
@@ -114,10 +96,15 @@ New, from part 4: [what the live tests for the upload, bank lines and kinds turn
 New, from part 6b's leftovers (done on 2026-11-02): [what part 6b's leftovers turned up](specs/catch-up-currencies-6c-leftovers.md)
 (1 question, with a mockup to draw), waiting on no other spec.
 
+New, from part 7: [the Statements screens as drawn](specs/statements-screens-as-drawn.md)
+(2 questions, one with a mockup to draw) and
+[every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
+(4 questions, two with a mockup to draw; one is the `^s` question asked earlier).
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 7 runs next.
+**Recommended:** approve the rest.
 
 ---
 
@@ -128,6 +115,22 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
+- **Part 7's test leftovers.** Nothing you see changes.
+  [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py) names
+  `PUT /statements/{id}/statement-order`, which the live contract does not hold, and its sample
+  paths read `/reconciliations/…`; balance refusals in
+  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) and
+  [test_errors.py](../tests/unit/test_errors.py) are keyed `balances.<account_id>.…` where the
+  engine keys them by currency code; two docstrings, in test_tui_bank_import.py and
+  test_tui_reconciliations.py, claim a list is "not by `sort_order`", which the fixture no longer
+  proves; the drift script's note for `l12` describes the match loosely;
+  [test_statement_codes.py](../tests/contract/test_statement_codes.py) names the account holding
+  a code `holder`. Done when each says what the code and the contract do, and both suites pass.
+- **The live "no batch" test reads newest first** while the screen reads oldest first
+  (`UNFILED_SORT`), so the screen's own order is never tested live; that test's docstring and
+  the statement-screen test's docstring miss the currency and number they check. No test pins
+  that `u` on the Statements browse brings back the shared table's edge and gap and `esc` takes
+  them away. Done when the live test reads as the screen does and the switch is pinned.
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
   [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) (the seed it sends
   twice), [test_opening_balance.py](../tests/contract/test_opening_balance.py) (`_seed_body`,
@@ -193,17 +196,16 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   footers, the split screen, the import's old preview, one currency per account). Delete each
   one that no spec, todo item or to-engine file links, removing its links from docs, code and
   test docstrings in the same change.
-- **Three more copies of the name filter.** `matching` in
+- **Two more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
-  (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
-  line 104) has a two-field version. One shared copy, with tests.
-- **The statement detail's `r` reads the account's whole list to refresh one record.**
-  The engine reads one statement by its id (contract: GET /v1/statements/{statement_id});
-  `r` should read it that way and treat a `404` as gone. Its comment and the docstring of
-  `test_r_refreshes_record_from_its_account_list_and_never_writes` still say there is no read by
-  id ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 1077,
-  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) line 1074).
-
+  (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
+  version. One shared copy, with tests.
+- **Code comments still carry mockup tags, and one module docstring is stale.** Eighteen
+  comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
+  log_bar.py point at a mockup's pane number (CLAUDE.md doc rule 5 holds for comments too); say
+  what the code does instead. reconciliations.py's module docstring still describes the old New
+  form (`› begin › end`, a required beginning balance), a complete needing a line on one
+  account of the statement, and delete as draft-only.
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
@@ -236,7 +238,7 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **A superseded read can paint on a reconciliation's checklist.** A read started mid-burst of
+- **A superseded read can paint on a statement's list.** A read started mid-burst of
   `space` ticks can still reach `_populate` after the last tick's answer empties the queue, when
   its worker passed the `is_cancelled` check just before the newer load cancelled it
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `_load_txns`, `_populate`).

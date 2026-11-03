@@ -3,7 +3,7 @@
 **Status: approved by the owner on 2026-10-28. It runs after the catch-up to contract
 `f82426fb0a099676`
 (part 1, the app's reads and writes (done on 2026-10-30) to
-[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)), which
+part 7 of the currencies catch-up (done on 2026-11-03)), which
 rewrites many of the same files, and after
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md). Its tasks are drafted
 when the owner names it the current spec.** When done, the why moves to
@@ -30,7 +30,7 @@ part 3 of the currencies catch-up, the live tests' foundation (done on 2026-10-3
 stopping statement in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31);
 the statement head shown whole in
-[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
+part 7 of the currencies catch-up (done on 2026-11-03).
 The points on things the engine no longer has are dropped: a card statement's create answer
 built by hand, a card's other half checked against its own schema, a reconciliation create's
 builders, a test docstring on the one-account create form, the browse leaving out an archived

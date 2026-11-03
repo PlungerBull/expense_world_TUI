@@ -12,7 +12,7 @@ part 2 of the currencies catch-up (done on 2026-10-30),
 its live tests and the card's in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 and the statement screen after a close in
-[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md). Every pick
+part 7 of the currencies catch-up (done on 2026-11-03). Every pick
 the owner made here stands. When done, the why moves to [decisions.md](../decisions.md) and this
 file is deleted.
 
@@ -117,7 +117,7 @@ difference of zero, on 2026-10-26.
 12. A card month with dollars owed and no dollar line still closes in dollars, with equal
     starting and ending dollar balances and no line; a month with $0 owed and no dollar line
     gives no dollar balances, shown as "nothing this month" in the words
-    [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md)'s
+    part 7 of the currencies catch-up's (done on 2026-11-03)
     question picks.
 13. The live contract suite proves the upload, each of its refusals (a future-dated line's
     words, and a savings account's paper sent to an account whose other currency has a line,
@@ -201,12 +201,12 @@ screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and
 the app, are built; their move to contract `f82426fb0a099676` is
 part 2 of the currencies catch-up (done on 2026-10-30), and in part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31).
 Task 4, the statement screen after a close, is in
-[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md), with
+part 7 of the currencies catch-up (done on 2026-11-03), with
 screen 4 redrawn for a statement with a balance per currency it covers. Task 6, the card's live
 tests, is in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 built on the engine's sample PDFs. The one task left runs after
-[catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md).
+part 7 of the currencies catch-up (done on 2026-11-03).
 
 5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) says
    the PDF closes an account's month in its statement, with no "draft spec" and no "reconciliation"
