@@ -100,11 +100,6 @@ None.
 
 ## Tasks
 
-8. **The missing tests:** a `color` refusal landing on the New form's COLOR line; the `?` card's
-   rule `⏎ never changes data, except on a currency pick`; and
-   `test_a_taken_code_on_edit_shows_the_engines_words_alone` with tui.md citing pane 3·2 A of
-   `expense-world-statement-code-field.html`.
-
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.

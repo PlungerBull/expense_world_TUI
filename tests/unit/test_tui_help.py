@@ -247,6 +247,23 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
     run_app(scenario, size=(100, 32))
 
 
+def test_the_card_says_enter_never_changes_data_except_on_a_currency_pick(monkeypatch):
+    """The card's always-true block carries the rule for `⏎` in exactly these words."""
+    _stub_engine(monkeypatch)
+
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.pause()
+        _, groups = screen_inventory(app.screen)
+        rows = _rows(groups, "Always true")
+        assert ("⏎", "never changes data, except on a currency pick") in [
+            (row.keys, row.description) for row in rows
+        ]
+
+    run_app(scenario, size=(100, 32))
+
+
 def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
     """`enter` is a literal no-op on the Manage lists (tui-plan §4.1) because no
     screen there handles CursorList.Selected. Transactions does handle it. The

@@ -373,7 +373,7 @@ def notes(monkeypatch):
 
 
 def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client, notes):
-    """3·2 B: the note, and the cursor back on the code line with what was typed."""
+    """3·2 A: the engine's words alone, and the cursor back on the code line with what was typed."""
     fake_client.errors["PUT"] = TAKEN
     screen = EditAccountScreen(NO_CODE)
 

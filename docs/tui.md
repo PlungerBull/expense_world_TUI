@@ -1320,7 +1320,7 @@ account's `statement code` (below) and `color`.
   too), `statement code` or `color`.
 
 **A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,
-2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
+2 A, 3·1 B, 3·2 A, 3·3 and 3·4 in
 [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
 **`statement code`** sits right after `currencies` on New and Edit, on a bank
 account only. The engine lets a

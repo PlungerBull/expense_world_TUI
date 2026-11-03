@@ -1226,3 +1226,38 @@ def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
 
     steps = ["", "Visa Inventada", "PEN", "USD", "", "", ""]
     _run_refused(fake_client, monkeypatch, NewAccountScreen(), steps, check, refusal=refusal)
+
+
+def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client, monkeypatch):
+    """Saved from NAME with ctrl+s, the refusal moves the cursor to COLOR; the
+    note is the engine's words and the colour picked is still held."""
+    refusal = _keyed("VALIDATION_ERROR", "color", "INVALID_COLOR", "Color must be a hex.")
+    fake_client.errors["POST"] = refusal
+    toasts: list = []
+    monkeypatch.setattr(
+        NewAccountScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
+    )
+    screen = NewAccountScreen()
+
+    async def scenario(pilot, app):
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        for text in ["", "Visa Inventada", "PEN", "USD", "", ""]:
+            _enter(screen, text)
+        assert screen._key == "color"
+        screen._values["color"] = "#5ab87a"
+        screen._current = screen._sequence().index("name")
+        screen._refresh_bar()
+        assert screen._key == "name"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: toasts, message="the form never reported the failure")
+        await pilot.pause()
+        message, kw = toasts[0]
+        assert message == format_error(refusal)
+        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+        assert screen.is_attached
+        assert screen._key == "color"
+        assert screen._values["color"] == "#5ab87a"
+        assert _highlighted(screen) == ["██ green"]
+
+    run_app(scenario)
