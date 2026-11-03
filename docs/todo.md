@@ -127,6 +127,13 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   positive, where one negative would show the sign survives too. It also leaves out a zero-amount
   `SALDO INICIAL` row dated earlier; that case waits on the engine ask "Say whether a zero-amount
   row dated earlier stops a sheet row being the opening balance".
+- **No unit test covers an apply that lists sealed rows.** Nothing you see changes. In
+  [test_cmd_import.py](../tests/unit/test_cmd_import.py), "Sealed, on a closed statement's day"
+  is asserted only on the dry run; `expense import sheet --apply` prints it through the same list
+  as the rows of zero. Done when an apply test pins that list's line.
+- **The sheet import's docstrings name screens by number.** Nothing you see changes.
+  [import_cmd.py](../expense/commands/import_cmd.py)'s docstrings and section heads say "Screen
+  1"…"Screen 5" and "screens 3 and 4", tags from a mockup; they should say what each step prints.
 - **The live sheet test's docstring cites nothing for its counts.** Nothing you see changes.
   [test_sheet_import.py](../tests/contract/test_sheet_import.py)'s module docstring says what
   `split_lines` and `split_rows` count with no citation of its own; it could cite
@@ -269,9 +276,7 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   ask). The format is used both for amounts typed and for every amount shown.
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
-  import door; the first real bank import follows the official import. Plan:
-  [file-import-plan.md](file-import-plan.md).
+- **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
