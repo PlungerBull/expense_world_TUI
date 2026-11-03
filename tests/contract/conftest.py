@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -899,12 +900,23 @@ class Scratch:
     def noon(self, day: str) -> str:
         return self.at(day)
 
-    def _item(self, account_id: str, when: str, amount: int, currency: str, **fields: str) -> dict:
+    def _item(
+        self,
+        account_id: str,
+        when: str,
+        amount: int,
+        currency: str,
+        *,
+        titled: bool = True,
+        **fields: Any,
+    ) -> dict:
         """One transaction body dated `when` (`at`), sent alone or in a batch; the one body shape
-        every helper sends."""
+        every helper sends. `fields` go in the body as given, whatever their type; it has a
+        title unless `titled` is false and `fields` give none."""
+        title = {"title": "contract statement line"} if titled else {}
         return {
             "id": str(uuid4()),
-            "title": "contract statement line",
+            **title,
             "amount_cents": amount,
             "account_id": account_id,
             "currency_code": currency,
@@ -940,9 +952,7 @@ class Scratch:
         with no title, category or operation code unless `fields` give them, sent in a batch
         or, with `alone`, by itself to `POST /transactions`; its id joins the scratch before
         the call. The created item, which must name the id, the account and the currency sent."""
-        item = self._item(account_id, when, amount, currency)
-        del item["title"]
-        item.update(fields)
+        item = self._item(account_id, when, amount, currency, titled=False, **fields)
         if alone:
             self.transactions.append(item["id"])
             made = self.client.post("/transactions", json_body=item)

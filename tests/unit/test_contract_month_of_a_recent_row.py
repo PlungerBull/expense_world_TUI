@@ -1,5 +1,6 @@
 """A recent row and the month a report reads for it come from one moment, so a row logged in
-the first minute of a month, in the display timezone, is read in the month it is dated in."""
+the first minute of a month, in the display timezone, is read in the month it is dated in, and
+the first minute after a daylight-saving jump gives a minute that exists."""
 
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
