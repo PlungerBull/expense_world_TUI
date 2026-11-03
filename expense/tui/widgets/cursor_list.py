@@ -104,6 +104,7 @@ def list_table(
     edge: bool = True,
     gap: int | None = None,
     header_rule: bool = True,
+    gives_way: Iterable[int] = (),
 ) -> Table:
     """The table a `CursorList` draws, for `rows` as given: one column per
     header, right-aligned where `align_right` says, `flex` as `CursorList`
@@ -113,11 +114,18 @@ def list_table(
     read in the ledger's own columns; `edge=False` drops the blank line above
     the header and below the last row, for a table under a caption. `gap` is the
     blank cells between two columns; left out, the table's own three. `header_rule=False`
-    draws no line under the header (and, with it, no edge lines either)."""
+    draws no line under the header (and, with it, no edge lines either). A column in
+    `gives_way` is the one that narrows when the row is too wide, its cells cut with `…`,
+    before any other column loses a letter; without one, Rich narrows the widest columns.
+    With one the table does not stretch to the room (so `flex` is left out): the others sit
+    at their natural width and only that column is cut."""
     right = set(align_right)
+    yields = set(gives_way)
     ratios = dict(flex or {})
     # the box's one blank cell between columns goes with the box, so the padding makes it up
-    t = Table(box=box.SIMPLE if header_rule else None, expand=True, pad_edge=False, show_edge=edge)
+    t = Table(
+        box=box.SIMPLE if header_rule else None, expand=not yields, pad_edge=False, show_edge=edge
+    )
     between = 0 if header_rule else 1
     if gap is not None:
         t.padding = (0, 0, 0, max(gap - 1, 0) + between)
@@ -127,13 +135,18 @@ def list_table(
         t.add_column(
             header,
             justify="right" if i in right else "left",
-            no_wrap=True,
+            no_wrap=i not in yields,
+            overflow="ellipsis",
             ratio=ratios.get(i),
         )
     for r, item in enumerate(rows):
         row = Row.coerce(item)
         style = CURSOR_STYLE if r == cursor else row.base_style
-        t.add_row(*[list_cell(c) for c in row.cells], style=style)
+        cells = [list_cell(c) for c in row.cells]
+        for i in yields & set(range(len(cells))):
+            cells[i] = cells[i].copy()
+            cells[i].no_wrap, cells[i].overflow = True, "ellipsis"
+        t.add_row(*cells, style=style)
     return t
 
 
@@ -233,11 +246,13 @@ class CursorList(WindowedList):
         edge: bool = True,
         header_rule: bool = True,
         divider: str | None = "rule",
+        gives_way: Iterable[int] = (),
     ) -> None:
         """``header_rule=False`` draws no line under the header; ``divider`` is what stands
         between the caption and the rows (`WindowedList.set_divider`).
         ``gap`` is the blank cells between two columns, three when left out.
         ``edge=False`` draws the table without its one-cell side edge (see `list_table`).
+        ``gives_way`` names the columns that narrow first when the row is too wide.
         ``flex`` maps a column index to a Rich ``ratio``. Columns named there are
         free text: the others take their natural width first and the flex
         columns share whatever the terminal has left, in ratio, each cell cut by
@@ -255,6 +270,7 @@ class CursorList(WindowedList):
         self._edge = edge
         self._header_rule = header_rule
         self._divider = divider
+        self._gives_way = set(gives_way)
         self._more: bool | None = None  # None: not growing; else "more rows exist"
 
     def set_growth(self, *, more: bool | None) -> None:
@@ -293,13 +309,14 @@ class CursorList(WindowedList):
         flex: Mapping[int, int] | None = None,
         edge: bool = True,
         header_rule: bool = True,
+        gives_way: Iterable[int] = (),
     ) -> None:
         """Relabel the columns in place — for a pane that lists two different
         things (the Reconciliations lower pane: batches, or the account's rows in
         no batch). Rebuilding the widget instead would drop the
         caption, the page size the screen computed and the focus. `align_right`,
-        `gap`, `flex`, `edge` and `header_rule` are set afresh: one left out falls back to its
-        default, it does not keep the earlier headers' value.
+        `gap`, `flex`, `edge`, `header_rule` and `gives_way` are set afresh: one left out
+        falls back to its default, it does not keep the earlier headers' value.
         """
         self._headers = list(headers)
         self._align = set(align_right)
@@ -307,6 +324,7 @@ class CursorList(WindowedList):
         self._flex = dict(flex or {})
         self._edge = edge
         self._header_rule = header_rule
+        self._gives_way = set(gives_way)
         self._refresh()
 
     def index_of(self, key: object) -> int:
@@ -342,6 +360,7 @@ class CursorList(WindowedList):
             gap=self._gap,
             edge=self._edge,
             header_rule=self._header_rule,
+            gives_way=self._gives_way,
         )
 
     def _cursor_moved(self) -> None:

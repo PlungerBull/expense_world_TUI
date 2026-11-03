@@ -1355,8 +1355,12 @@ the account, its currencies and its code when it has one:
 `Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`, or
 `Statements · IBK Visa · PEN + USD   ·   oldest → newest` without one. Both lists are drawn
 tighter than the shared table (`gap` and `edge` on `CursorList`, `ReconciliationsScreen` in
-[app.tcss](../expense/tui/app.tcss)), so a statement's name, period, both Diffs, status and
-order hold whole on 80 columns.
+[app.tcss](../expense/tui/app.tcss)). The statements list's columns sit one space apart on an
+account with a statement code and two without, and its Name column is the one that gives way
+on both: only a name too long for the room left is cut with `…` (`Noviembre 2026` reads
+`Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order. The list
+does not stretch to the card's edge, so the cursor's highlight ends after the last column
+(`ORDER_GAP` and `_panel_layout` in `ReconciliationsScreen`, `gives_way` on `CursorList`).
 
 `⏎` opens the row's statement on the batch screen, the whole statement: every currency it
 covers, none picked first.

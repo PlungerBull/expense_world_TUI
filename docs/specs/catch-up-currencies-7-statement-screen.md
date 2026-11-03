@@ -282,18 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-From the acceptance re-check of 2026-11-03 (practice engine, 80×24, against
-[expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
-
-16. **The Order column stays whole beside a long statement name.** On an account with a statement
-    code, a statement named longer than 12 letters (`Noviembre 2026`, as panes 7 and 9 name it)
-    cuts `in order` to `in or…` on every row at 80 columns. The owner picked C of
-    [expense-world-statement-not-in-order.html](../mockups/expense-world-statement-not-in-order.html)
-    on 2026-11-03: on an account with a statement code the list's columns sit one space apart
-    instead of two, so the order always shows whole, and only a name longer than the room left
-    cuts (`Noviembre 20…` at 80 columns); an account with no code keeps two spaces. *Passes if:*
-    at 80×24 the list draws as option C's two panes, for `not in order` and for a long name,
-    pinned by tests at 80 columns.
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as
@@ -398,3 +386,7 @@ Not built in this spec; drafted into a new spec when it is done.
   below the breadcrumb, which no pane draws, so `u` under four accounts fits four lines where
   pane 11 draws six; and `pgup Prev` shows on the first page of any list longer than one page
   (`CursorList.check_action`) (found by task 17's review on 2026-11-03).
+- **A long name now cuts on every account's statements list:** the name is the column that
+  gives way on an account with no statement code too, where a long name used to push out the
+  Status column and cut the Period; and the cursor's highlight stops after the last column
+  instead of running to the card's edge (found by task 16's review on 2026-11-03).

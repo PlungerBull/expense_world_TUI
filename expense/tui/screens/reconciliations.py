@@ -337,6 +337,8 @@ def balances_cells(accounts: list[BrowseAccount], palette: Palette | None) -> li
 #: The blank cells between two columns of the browse's lists (panes 2 and 3 of
 #: docs/mockups/expense-world-statements-screens.html), two where the shared table has three.
 BROWSE_GAP = 2
+#: The statements' gap on an account with a statement code, whose Order column needs the room.
+ORDER_GAP = 1
 #: The account list's headers: `Account` over the names, which stand two cells in, after
 #: the open account's `▸`. The Balances column takes the width left over.
 _ACCOUNT_HEADERS = ["  Account", "Currencies", "Balances"]
@@ -534,6 +536,16 @@ class ReconciliationsScreen(SectionScreen):
         acct = self._open_account()
         return statement_headers(acct.codes if acct else (), with_order=bool(acct and acct.code))
 
+    def _panel_layout(self) -> dict[str, object]:
+        """How the statements list sits in its room: columns `ORDER_GAP` apart on an account
+        with a statement code (`BROWSE_GAP` otherwise), the Name column the one that gives
+        way, cut with `…`, when the row is too wide."""
+        acct = self._open_account()
+        return {
+            "gap": ORDER_GAP if acct and acct.code else BROWSE_GAP,
+            "gives_way": {0},
+        }
+
     def _panel_rows(self) -> list:
         acct = self._open_account()
         return statement_rows(
@@ -622,10 +634,9 @@ class ReconciliationsScreen(SectionScreen):
             empty="none yet · n to create one",
             caption=self._batch_caption(),
             page_size=self.panel_page_rows(),
-            gap=BROWSE_GAP,
             edge=False,
             header_rule=False,
-            flex={len(headers) - 1: 1},
+            **self._panel_layout(),
         )
         batch_list.id = "batches"
         return batch_list
@@ -808,10 +819,9 @@ class ReconciliationsScreen(SectionScreen):
             self._batch_list.set_headers(
                 headers,
                 align_right=align_right,
-                gap=BROWSE_GAP,
-                flex={len(headers) - 1: 1},
                 edge=False,
                 header_rule=False,
+                **self._panel_layout(),
             )
             self._batch_list.set_divider("rule")
             self._batch_list.set_status_line(True)

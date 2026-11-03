@@ -830,17 +830,18 @@ def test_the_open_accounts_marker_stands_in_a_gutter_and_no_name_moves(monkeypat
 
 
 def test_visa_bcps_statements_at_80_columns_are_pane_3_whole(monkeypatch):
-    """Pane 3, Visa BCP: every cell whole at 80 columns, the Diff headers telling PEN
-    from USD, the statement that does not cover dollars empty under Diff USD."""
+    """Pane 3, Visa BCP, which has a statement code and so its columns one space apart:
+    every cell whole at 80 columns, the Diff headers telling PEN from USD, the
+    statement that does not cover dollars empty under Diff USD."""
     lines = _at_80(monkeypatch, VISA, PANE_3_VISA)
     assert "  Statements — pick an account" in lines
     assert "  Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest" in lines
     ours = ("  Name", "  [VIS]", "  VIS-")
     assert [line for line in lines if line.startswith(ours)] == [
-        "  Name          Period                   Diff PEN  Diff USD  Status     Order",
-        "  [VIS] Agosto  2026-07-26 → 2026-08-25         —         —  completed  in order",
-        "  VIS-202609    2026-08-26 → 2026-09-25         —            completed  in order",
-        "  VIS-202610    2026-09-26 → 2026-10-25         —         —  completed  in order",
+        "  Name         Period                  Diff PEN Diff USD Status    Order",
+        "  [VIS] Agosto 2026-07-26 → 2026-08-25        —        — completed in order",
+        "  VIS-202609   2026-08-26 → 2026-09-25        —          completed in order",
+        "  VIS-202610   2026-09-26 → 2026-10-25        —        — completed in order",
     ]
     assert "  ▸ Visa BCP      PEN + USD     -234.20 PEN   -30.98 USD" in lines
     assert "    IBK Visa      PEN + USD     -512.90 PEN   -24.99 USD" in lines
@@ -876,9 +877,60 @@ def test_a_list_keeps_three_cells_between_columns_unless_it_asks_for_fewer():
 
 
 def test_a_not_in_order_row_shows_whole_when_the_terminal_is_wide_enough(monkeypatch):
-    """`not in order` is a whole word in the Order column at 90 columns."""
+    """`not in order` is a whole word in the Order column at 90 columns, the columns one
+    space apart on an account with a statement code."""
     stray = _statement("p-nov", "acc-visa", "VIS-202611", OCT, {"PEN": 0, "USD": 0}, status=2)
     stray["unplaced_count"] = 2
     lines = _at_80(monkeypatch, VISA, [*PANE_3_VISA, stray], width=90)
     row = next(line for line in lines if line.startswith("  VIS-202611"))
-    assert row.endswith("completed  not in order")
+    assert row.endswith("completed not in order")
+
+
+NOV = ("2026-10-26", "2026-11-25")
+NOT_IN_ORDER_ITEMS = [
+    _statement("n-sep", "acc-visa", "VIS-202609", SEP, {"PEN": 0}, status=2),
+    _statement("n-oct", "acc-visa", "VIS-202610", OCT, {"PEN": 0, "USD": 0}, status=2),
+]
+
+
+def _visa_statement_lines(lines: list[str]) -> list[str]:
+    return [line for line in lines if line.startswith(("  Name", "  [VIS]", "  VIS-", "  Nov"))]
+
+
+def test_a_statement_not_in_order_shows_whole_at_80_columns_with_the_columns_one_space_apart(
+    monkeypatch,
+):
+    """On an account with a statement code the columns sit one space apart, so `not in
+    order` and every name show whole at 80 columns."""
+    draft = _statement("n-ago", "acc-visa", "VIS-202610", OCT, {"PEN": -1240, "USD": 0}, status=1)
+    draft["unplaced_count"] = 2
+    items = [PANE_3_VISA[0], NOT_IN_ORDER_ITEMS[0], draft]
+    lines = _visa_statement_lines(_at_80(monkeypatch, VISA, items))
+    assert lines == [
+        "  Name         Period                  Diff PEN Diff USD Status    Order",
+        "  [VIS] Agosto 2026-07-26 → 2026-08-25        —        — completed in order",
+        "  VIS-202609   2026-08-26 → 2026-09-25        —          completed in order",
+        "  VIS-202610   2026-09-26 → 2026-10-25   -12.40        — draft     not in order",
+    ]
+
+
+def test_a_long_statement_name_is_the_one_that_cuts_at_80_columns(monkeypatch):
+    """`Noviembre 2026` reads `Noviembre 20…`; every Order and the other names stay whole."""
+    long_name = _statement(
+        "n-nov", "acc-visa", "Noviembre 2026", NOV, {"PEN": -1240, "USD": 0}, status=1
+    )
+    long_name["unplaced_count"] = 2
+    lines = _visa_statement_lines(_at_80(monkeypatch, VISA, [*NOT_IN_ORDER_ITEMS, long_name]))
+    assert lines == [
+        "  Name          Period                  Diff PEN Diff USD Status    Order",
+        "  VIS-202609    2026-08-26 → 2026-09-25        —          completed in order",
+        "  VIS-202610    2026-09-26 → 2026-10-25        —        — completed in order",
+        "  Noviembre 20… 2026-10-26 → 2026-11-25   -12.40        — draft     not in order",
+    ]
+
+
+def test_an_account_without_a_statement_code_keeps_two_spaces_between_columns(monkeypatch):
+    """The gap of one is the Order column's; a list without one keeps `BROWSE_GAP`."""
+    lines = _at_80(monkeypatch, IBK, IBK_STATEMENTS)
+    row = next(line for line in lines if line.startswith("  Agosto 2026"))
+    assert row == "  Agosto 2026      2026-07-26 → 2026-08-25         —         —  completed"
