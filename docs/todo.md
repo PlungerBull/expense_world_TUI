@@ -79,8 +79,8 @@ The engine's hand-off "An account holds its currencies: every route names an acc
 currency code; holders are gone" (contract `f82426fb0a099676`) is caught up: its seven parts are
 done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
 
-Then, rewritten in place: [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
-[the bank download leftovers](specs/catch-up-leftovers.md),
+Then, rewritten in place: a person's opening balance in the sheet import (done on 2026-11-03),
+the bank download leftovers (done on 2026-11-03),
 [the statement screens' leftovers](specs/catch-up-cards-statements-1b-leftovers.md) (1 question),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
@@ -123,6 +123,14 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
+- **The live test of a person's opening balance proves less than it could.** Nothing you see
+  changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
+  [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads the person's
+  `currencies[]` but not the engine's own answers to the rule (`rows[].is_opening_balance` and
+  `counts.opening_balances`, on the dry run and the apply). Both of its opening balances are
+  positive, where one negative would show the sign survives too. It also leaves out a zero-amount
+  `SALDO INICIAL` row dated earlier; that case waits on the engine ask "Say whether a zero-amount
+  row dated earlier stops a sheet row being the opening balance".
 - **The live sheet test's docstring cites nothing for its counts.** Nothing you see changes.
   [test_sheet_import.py](../tests/contract/test_sheet_import.py)'s module docstring says what
   `split_lines` and `split_rows` count with no citation of its own; it could cite
@@ -223,15 +231,21 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   footers, the split screen, the import's old preview, one currency per account). Delete each
   one that no spec, todo item or to-engine file links, removing its links from docs, code and
   test docstrings in the same change. `expense-world-sheet-import-engine.html` is one: only the
-  docstrings of import_cmd.py and test_cmd_import.py still name it.
+  docstrings of import_cmd.py and test_cmd_import.py still name it. Seven more are linked from
+  nowhere: bank-import-10b, currencies-transaction-picks, no-batch-caption, opening-balance-rows,
+  pending-hashtag-home, refusal-hints and screen-map (which still draws the `s` split pane and
+  links `expense-world-split-screen.html`).
 - **Two more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
   version. One shared copy, with tests.
-- **Code comments still carry mockup tags, and one module docstring is stale.** Eighteen
+- **Code comments still carry mockup tags, and one module docstring is stale.** Sixteen
   comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
-  log_bar.py point at a mockup's pane number (import_cmd.py too: "pick 2 A", "Screen 1…5") (CLAUDE.md doc rule 5 holds for comments too); say
-  what the code does instead. reconciliations.py's module docstring still describes the old New
+  log_bar.py point at a mockup's pane number, as do the "Screen 1…4" tags in import_cmd.py and
+  test_cmd_import.py (CLAUDE.md doc rule 5 holds for comments too); say what the code does
+  instead. bank_import.py, log_bar.py and test_tui_statement_upload.py also point at two mockups
+  that do not exist, `expense-world-statement-pdf-screens.html` and
+  `expense-world-statement-pdf-upload.html`. reconciliations.py's module docstring still describes the old New
   form (`› begin › end`, a required beginning balance), a complete needing a line on one
   account of the statement, and delete as draft-only.
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about

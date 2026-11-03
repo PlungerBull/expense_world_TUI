@@ -7,7 +7,8 @@ todo.md's backlog item for them; `t` on an account, to
 part 6 of the currencies catch-up, the main views (done on 2026-10-31); an account with no
 statement code, and the New statement form, to
 part 7 of the currencies catch-up (done on 2026-11-03); the
-edit-part mockup's refusal, to [catch-up-leftovers.md](catch-up-leftovers.md).
+edit-part mockup's refusal, to the bank download and closing catch-up's leftovers (done on
+2026-11-03).
 
 **Status: draft, written 2026-10-29 for the owner to rewrite or approve, with one question.** Its
 tasks are drafted when the owner approves it. It runs after
