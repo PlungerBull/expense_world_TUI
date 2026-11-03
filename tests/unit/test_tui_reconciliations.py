@@ -150,17 +150,19 @@ def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_cl
     notes: list[str] = []
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        screen = NewReconciliationScreen(
+            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
+        )
         await app.push_screen(screen)
         screen.notify = lambda message, **kw: notes.append(message)
         _enter(screen, "April 2026")  # name
         _enter(screen, "2026-04-01")
         _enter(screen, "2026-04-30")
         _enter(screen, "9.580,00")  # begin
-        assert screen._key == "begin" and "begin" not in screen._values
+        assert screen._key == "begin:PEN" and "begin:PEN" not in screen._values
         _enter(screen, "9,580.00")
         _enter(screen, "9.460,00")  # end
-        assert screen._key == "end" and not fake_client.posts
+        assert screen._key == "end:PEN" and not fake_client.posts
         _enter(screen, "9460")  # end → submits
         await wait_for(pilot, lambda: fake_client.posts)
 
@@ -182,7 +184,9 @@ def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_c
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        screen = NewReconciliationScreen(
+            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
+        )
         await app.push_screen(screen)
         _enter(screen, "August 2026")  # name
         for bad in ("2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
@@ -209,7 +213,9 @@ def test_new_reconciliation_date_end_is_required(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        screen = NewReconciliationScreen(
+            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
+        )
         await app.push_screen(screen)
         _enter(screen, "August 2026")
         _enter(screen, "2026-08-01")
@@ -544,7 +550,7 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
-        assert form._currency == "USD"  # and the currency its balances are keyed by
+        assert form._codes == ("USD",)  # and the currencies its balance lines are named by
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
         await wait_for(pilot, lambda: screen._batch_list is not None)
@@ -558,9 +564,9 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
 
 def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     """The id is minted client-side in `_payload`; `_done` returns it."""
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currency="PEN")
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
     screen._values.update(
-        {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin": 0}
+        {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin:PEN": 0}
     )
     payload = screen._payload()
     handed: list = []
@@ -571,7 +577,7 @@ def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
 
 
 def test_new_reconciliation_from_account_drops_account_field():
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
     assert "account" not in screen._sequence()  # account preset from browse
     assert screen._values["account"] == "acc1"
     assert screen.crumb == ("Statements", "BCP PEN", "New")
@@ -606,8 +612,8 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     every modal. One matcher — `quickadd.names.matches` — for all of them."""
     screen = NewReconciliationScreen()
     screen._accounts = [
-        ("acc1", "BCP Crédito", "PEN"),
-        ("acc2", "Interbank USD", "USD"),
+        ("acc1", "BCP Crédito"),
+        ("acc2", "Interbank USD"),
     ]
     screen._current = screen._sequence().index("account")  # `_key` is derived
 
@@ -649,7 +655,7 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
 
     async def scenario(pilot, app):
         screen = NewReconciliationScreen(
-            account_id="acc1", account_name="ALEJO PEN", currency="PEN"
+            account_id="acc1", account_name="ALEJO PEN", currencies=("PEN",)
         )
         await app.push_screen(screen, handed.append)
         _enter(screen, "October 2026")  # name

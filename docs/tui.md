@@ -1638,40 +1638,38 @@ statement list, where a batch's own delete lives one screen deeper); `esc` retre
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
-**The begin balance's hint takes two lines** on the new-statement form, the whole hint
-dim as every hint is (panes 1 B and 2 B of
+**The New statement form** (`n` on an account, or `Statements ▸ New` alone; pane 7 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)) is
+one form for every account: `Statements ▸ <account> ▸ New`, with the lines `name`, `date start`,
+`date end`, then a `begin balance <CUR>` and an `end balance <CUR>` line for each currency the
+account holds, in the engine's order (`NewReconciliationScreen`). The account is stated, never
+edited, in the summary as `Visa BCP · PEN + USD · VIS` (`· <code>` left off on an account with no
+statement code); opened alone, the form asks for it second, after the name, a picker listing each bank account by
+its name, and the pick gives it its currencies' lines. Every balance line is optional, and the app
+decides nothing about which currency needs one: that is the engine's call
+(contract: POST /v1/statements, "`balances`").
+
+Each begin's hint takes two lines, the whole hint dim as every hint is (panes 1 B and 2 B of
 [expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html)):
-`signed decimal · your statement's opening balance`, then directly under it
+`signed decimal · the statement's opening balance in PEN · optional`, then directly under it
 `0.00 if it holds the account's opening balance, which already counts it`. The engine sums
 every transaction assigned to a statement, an account's opening balance included, into
 its add-up check (contract: "Statements", "`difference_cents` — the add-up check"), so
 the statement holding that line begins at 0.00; the form cannot know which statement that is,
-so the line is always there. Each half's begin on a card's form carries the same second line.
+so the line is always there on every currency.
 
-**A card statement's create form** (`n` on an account whose holder holds another account;
-pane 2 A of [expense-world-card-statement.html](mockups/expense-world-card-statement.html)).
-A card is one holder of two bank accounts, one per currency, and a statement covers its whole
-holder, one balance for each of its accounts (contract: "Statements", "A statement covers its whole holder").
-The browse finds the other account among the accounts it already holds, the one naming the same
-`holder_id` (`holder_mates` in [reconciliations.py](../expense/tui/screens/reconciliations.py)),
-and the code on the holder it read; an account alone on its holder keeps the one-account form.
-`n` opens one form, `Statements ▸ <account> ▸ New`: `name`, then the line
-`accounts  Signature PEN + Signature USD · SIG` (stated, never edited; `· <code>` left off on a
-holder with no code), `date start`, `date end`, then the open account's `begin balance <CUR>`
-and `end balance <CUR>`, then the other account's. Each balance's hint names its half by
-currency (`signed decimal · the dollar half's opening balance`; `soles half` for PEN,
-`dollar half` for USD, any other by its code, `formatting.half_name`), a begin's with the
-opening-balance line under it (above); both begins are required, both ends optional.
-`^s Create both`, or `⏎` on the last line, sends one `POST /statements` with the holder's
-`holder_id` and one entry in `balances` per account: its `account_id`, its begin and, when
-typed, its end (contract: POST /v1/statements). The one statement is created, or nothing is: a
-refusal is the form's `Failed` note with the engine's words whole, one check at a time, a key
-on an account's balance naming that account by id
-(`balances.<account_id>.beginning_balance_cents`) or by its place in the list
-(`balances.0.account_id`) (contract: "Statements", "Which account a refusal names"); no line
-of the app's is added (a taken id keeps its app-fault line), and the form stays with what was
-typed. Saved, it says `Statement created.` and, as the one-account form does, the panel opens
-on the open account's statements, the cursor on the new one.
+`^s Create`, or `⏎` on the last line, sends one `POST /statements` with `account_id` and one
+entry in `balances` per currency with a begin typed: its `currency_code`, its
+`beginning_balance_cents` and, when typed, its `ending_balance_cents`; a currency left empty is
+not sent (contract: POST /v1/statements). An entry takes its begin always, so an end typed
+without its begin is not sent: the cursor goes to that begin with a note. A refusal is the form's `Failed` note with the engine's words whole,
+and the form stays with what was typed. A refusal naming a currency's entry
+(`MONEY_AT_START_NOT_COVERED` on `balances.USD`; `CURRENCY_NOT_HELD` on
+`balances.<i>.currency_code`, the i-th entry sent) puts the cursor on that currency's begin
+(contract: POST /v1/statements, "Order"). `CONCURRENT_CHANGE` on `account_id` (a currency joining
+or leaving the account mid-write) ends the note with the app's line `It changed at the same
+moment: save again.` (`errors.NEXT_STEPS`). Saved, it says `Statement created.` and the panel
+opens on the account's statements, the cursor on the new one.
 
 **A statement's batch screen** (`⏎` on one in the panel; screens 2a–2c in
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is a

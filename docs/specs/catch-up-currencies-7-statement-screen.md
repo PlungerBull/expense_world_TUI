@@ -282,17 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-3. **The New statement form** (point 5; question 1). `NewReconciliationScreen` in
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py), already the one form for
-   every account, gains a starting and an ending balance line per currency of the account, as
-   pane 7 of [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)
-   draws; its tests; tui.md §4 "A card statement's create form", rewritten for the one form, and
-   its account picker lists the account alone (Found along the way). *Passes
-   if:* one `POST /statements` with `account_id` and an entry per currency typed; a currency left
-   empty is not sent; `MONEY_AT_START_NOT_COVERED` puts the cursor on that currency's starting
-   balance with the engine's words; a `CURRENCY_NOT_HELD` on `balances.<i>.currency_code` shows
-   in the engine's words; the retired `ACCOUNT_NOT_ON_HOLDER` and `HOLDER_ACCOUNTS_MISSING` leave
-   the tests; the tests pin each.
 4. **The statement's head and its one list** (points 3 and 4; questions 2 and 3). The detail
    screen in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
    [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) and the statement
@@ -305,7 +294,9 @@ the question, the files named and the tui.md section named.
    their tests; tui.md §4 "`c` needs the ending balance". *Passes if:* `c` asks for each blank
    balance as question 3 picks, saves them in one `PUT` naming only the changed currencies,
    then asks to complete; `BEGINNING_BALANCE_REQUIRED` and `MONEY_AT_START_NOT_COVERED` lead to
-   the same boxes; a currency with no movement closes on an empty box typed; the tests pin each.
+   the same boxes; a currency with no movement closes on an empty box typed; the tests pin each; the citation `"Every ending balance must
+   be entered"`, which the live contract no longer holds, is replaced by the live rule
+   wherever it stands (tui.md, reconciliations.py).
 6. **Re-reads, notes and the footer** (points 7, 8 and 11; questions 4 and 5). The tick and
    complete handlers in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
    their tests; tui.md §4. *Passes if:* after a tick the screen reads the statement again and a
@@ -380,3 +371,6 @@ Not built in this spec; drafted into a new spec when it is done.
 - **No test pins the "no batch" list's look switching on the Statements browse:** that `u`
   brings back the shared table's edge and gap and `esc` takes them away (found by task 2's
   review on 2026-11-03; the behaviour is right today).
+- **On a two-currency New statement form, an unreadable amount's note does not name its
+  currency:** `Begin balance: a signed decimal…` and `End balance: …` read the same for PEN and
+  USD (found by task 3's review on 2026-11-03; the cursor is on the right line).

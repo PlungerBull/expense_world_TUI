@@ -378,7 +378,6 @@ class NewAccountScreen(BarFormScreen):
     def __init__(self) -> None:
         super().__init__()
         self._values["type"] = "bank"
-        self._refused_line: str | None = None
         self._refusal_says_next = False  # the last refusal carried its own next step
 
     @property
@@ -432,19 +431,6 @@ class NewAccountScreen(BarFormScreen):
                     self._refused_line = line
                     break
         return format_error(exc)
-
-    def _land_on_refused_line(self) -> None:
-        """Put the cursor on the line the refusal named, with what was typed in
-        the bar; a refusal that names none of the form's lines leaves it where
-        it was."""
-        line, self._refused_line = self._refused_line, None
-        if line is not None:
-            self._current = self._sequence().index(line)
-            self._refresh_bar()
-
-    def _failed(self, message: str) -> None:
-        self._land_on_refused_line()
-        super()._failed(message)
 
 
 def _edit_payload(values: dict, original_color: str | None) -> dict:

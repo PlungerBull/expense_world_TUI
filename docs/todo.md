@@ -43,6 +43,21 @@ draws each way:
 
 **Recommended:** C, because nothing is ever cut and the spacing is the only change.
 
+### The words when an ending balance has no starting balance
+Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
+
+On the New statement form, the engine takes a currency's ending balance only together with its
+starting balance. When you type `END BALANCE USD` and leave `BEGIN BALANCE USD` empty, the form
+saves nothing, puts the cursor on `BEGIN BALANCE USD` and says:
+
+`Begin balance USD: an end balance needs it too.`
+
+- **A.** Keep these words.
+- **B.** Other words: tell me which.
+
+**Recommended:** A, because it names the empty line and why it is needed, and the cursor is
+already on it.
+
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 

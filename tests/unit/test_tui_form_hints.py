@@ -238,19 +238,24 @@ def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client):
     """Under BEGIN BALANCE, today's hint and a second line saying a statement
     holding the account's opening balance begins at 0.00, each whole on its own row at
     80 columns."""
-    first = "signed decimal · your statement's opening balance"
+    first = "signed decimal · the statement's opening balance in PEN · optional"
 
     async def body(pilot, screen):
         for text in ["Enero 2026", "2026-01-01", "2026-01-31"]:
             await pilot.press(*text, "enter")
-        assert screen._key == "begin"
+        assert screen._key == "begin:PEN"
         assert _hint(screen) == f"{first}\n{OPENING_NOTE}"
         hint = screen.query_one("#hint", Static)
         assert screen.size.width == 80 and hint.size.height == 2
         shown = render_text(hint.content, width=hint.content_size.width)
         assert shown.splitlines() == [first, OPENING_NOTE]
 
-    _open(NewReconciliationScreen(account_id="acc1", account_name="Sueldo Soles"), body)
+    _open(
+        NewReconciliationScreen(
+            account_id="acc1", account_name="Sueldo Soles", currencies=("PEN",)
+        ),
+        body,
+    )
 
 
 # ---- the guard: every bar form, in each of its shapes ------------------------
@@ -294,7 +299,9 @@ SHAPES = {
     ],
     NewReconciliationScreen: lambda: [
         NewReconciliationScreen(),
-        NewReconciliationScreen(account_id="acc1", account_name="BCP PEN"),
+        NewReconciliationScreen(
+            account_id="acc1", account_name="BCP PEN", currencies=("PEN", "USD")
+        ),
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
 }

@@ -950,23 +950,22 @@ class ReconciliationsScreen(SectionScreen):
             self._resume_key = new_id
             self._load()
 
-        currency = acct.codes[0] if acct.codes else None
         self.app.push_screen(
-            NewReconciliationScreen(account_id=acct.id, account_name=acct.name, currency=currency),
+            NewReconciliationScreen(
+                account_id=acct.id, account_name=acct.name, currencies=acct.codes, code=acct.code
+            ),
             saved,
         )
 
 
 # --------------------------------------------------------------------------- #
-# New batch form
+# New statement form
 # --------------------------------------------------------------------------- #
 _R_LABELS = {
     "name": "NAME",
     "account": "ACCOUNT",
     "date_start": "DATE START",
     "date_end": "DATE END",
-    "begin": "BEGIN BALANCE",
-    "end": "END BALANCE",
 }
 #: The begin balance hint's second line, on every begin field: a statement holding
 #: the account's opening balance begins at 0.00, as the engine sums every assigned
@@ -979,24 +978,44 @@ _R_HINTS = {
     "account": "pick a bank account · ↑↓ highlight · enter select",
     "date_start": "YYYY-MM-DD · the statement's first day · it orders the batch",
     "date_end": "YYYY-MM-DD · the statement's last day",
-    "begin": f"signed decimal · your statement's opening balance\n{_OPENING_NOTE}",
-    "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
-_BEGINS = {"begin"}
-_ENDS = {"end"}
 _BEGIN_UNREADABLE = "Begin balance: a signed decimal, e.g. 9580.00"
 #: The note for an ending balance the money parser cannot read — the New
-#: Reconciliation form's and the batch screen's ending-balance box.
+#: Statement form's and the batch screen's ending-balance box.
 _END_UNREADABLE = "End balance: a signed decimal, e.g. 9460.00"
 _DATES = {"date_start", "date_end"}
 
 
+def balance_key(kind: str, code: str) -> str:
+    """The form line of a currency's `begin` or `end` balance: `begin:PEN`."""
+    return f"{kind}:{code}"
+
+
+def balance_label(kind: str, code: str) -> str:
+    """The bar label of that line: `BEGIN BALANCE PEN`."""
+    return f"{kind.upper()} BALANCE {code}"
+
+
+def _balance_line(key: str) -> tuple[str, str] | None:
+    """`(kind, code)` of a currency's balance line, `None` for any other line."""
+    kind, _, code = key.partition(":")
+    return (kind, code) if code else None
+
+
+def account_line(name: str, codes: tuple[str, ...], code: str | None) -> str:
+    """The summary's account line, stated: `Visa BCP · PEN + USD · VIS`, the
+    statement code left off on an account with none."""
+    return " · ".join(part for part in (name, formatting.currencies_phrase(codes), code) if part)
+
+
 class NewReconciliationScreen(FormScreen):
     """A new statement of an account: one `POST /statements` with `account_id`
-    and an entry in `balances` for the account's currency
-    (contract: POST /v1/statements). Opened from the browse on its account
-    (`account_id`, `currency`), or alone, with the account picked on the form
-    and its first currency read off the accounts read."""
+    and an entry in `balances` for each currency of the account that has a
+    balance typed (contract: POST /v1/statements). Opened from the browse on its
+    account (`account_id`, its `currencies` and statement `code`), or alone, with
+    the account picked on the form and its currencies read off the accounts read.
+    Every balance line is optional: which currency the statement needs is the
+    engine's call."""
 
     RESOURCE = "statements"
 
@@ -1005,45 +1024,74 @@ class NewReconciliationScreen(FormScreen):
         account_id: str | None = None,
         account_name: str | None = None,
         *,
-        currency: str | None = None,
+        currencies: tuple[str, ...] = (),
+        code: str | None = None,
     ) -> None:
         super().__init__()
         self._values: dict = {}
         self._display: dict = {}
-        self._accounts: list = []
-        self._currencies: dict = {}  # account id → its first currency, from the accounts read
-        self._currency = currency
+        self._accounts: list = []  # (id, name) of each account the picker offers
+        self._browse: dict[str, BrowseAccount] = {}
+        self._codes = tuple(currencies)
         self._preset_account = account_id
         self._new_id: str | None = None
+        self._sent: list[str] = []  # the currencies of the last body's `balances`, in order
         if account_id:  # created from within an account — don't ask for it again
+            name = account_name or account_id[:8]
             self._values["account"] = account_id
-            self._display["account"] = account_name or account_id[:8]
-            self.crumb = ("Statements", account_name or "—", "New")
+            self._display["account"] = account_line(name, self._codes, code)
+            self.crumb = ("Statements", name, "New")
         else:
             self.crumb = ("Statements", "New")
 
     def _sequence(self) -> list[str]:
         seq = ["name"] if self._preset_account else ["name", "account"]
-        return seq + ["date_start", "date_end", "begin", "end"]
+        seq += ["date_start", "date_end"]
+        for code in self._codes:
+            seq += [balance_key("begin", code), balance_key("end", code)]
+        return seq
 
     def _required(self) -> tuple[str, ...]:
-        # begin: the engine never derives it, so it is typed off the paper
-        # (contract: "Statements", "Statement response"). Both dates: the
-        # engine requires them (contract: POST /v1/statements); asking here
-        # refuses an empty one at the field instead of as a 422 on save.
-        return ("name", "account", "date_start", "date_end", "begin")
+        # Both dates: the engine requires them (contract: POST /v1/statements);
+        # asking here refuses an empty one at the field instead of as a 422 on
+        # save. No balance line is required: the engine says which currency
+        # needs one.
+        return ("name", "account", "date_start", "date_end")
 
     def _label(self, key: str) -> str:
-        return _R_LABELS[key]
+        line = _balance_line(key)
+        return balance_label(*line) if line else _R_LABELS[key]
+
+    def _summary_label(self, key: str) -> str:
+        line = _balance_line(key)
+        return f"{line[0]} balance {line[1]}" if line else super()._summary_label(key)
+
+    def _summary_renderable(self):
+        """The account's line is stated in the summary even when it is preset and
+        so not a line of the bar."""
+        seq = self._sequence()
+        if self._preset_account:
+            seq.insert(1, "account")
+        return self._summary_table(seq)
 
     def _hint_for(self, key: str) -> str:
-        return _R_HINTS.get(key, "")
+        line = _balance_line(key)
+        if line is None:
+            return _R_HINTS.get(key, "")
+        kind, code = line
+        if kind == "begin":
+            return (
+                f"signed decimal · the statement's opening balance in {code} · optional"
+                f"\n{_OPENING_NOTE}"
+            )
+        hint = "signed decimal · statement's closing balance · optional"
+        return f"{hint} · enter saves" if not self._goes_on(key) else hint
 
     def _suggests(self, key: str) -> bool:
         return key == "account"
 
     def _bar_value(self, key: str) -> str:
-        if key in _BEGINS | _ENDS and key in self._values:
+        if _balance_line(key) and key in self._values:
             return amount_to_text(self._values[key])
         if key in ("name", *_DATES):
             return str(self._values.get(key, "") or "")
@@ -1063,15 +1111,11 @@ class NewReconciliationScreen(FormScreen):
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             self.app.call_from_thread(toast, self, format_error(exc), severity="error")
             return
-        items = items_of(body)
-        rows = browse_accounts(items)
-        currencies = {a.id: a.codes[0] for a in rows if a.codes}
-        accounts = [(a.id, a.name, a.codes[0] if a.codes else "?") for a in rows]
-        self.app.call_from_thread(self._set_accounts, accounts, currencies)
+        self.app.call_from_thread(self._set_accounts, browse_accounts(items_of(body)))
 
-    def _set_accounts(self, accounts: list, currencies: dict) -> None:
-        self._accounts = accounts
-        self._currencies = currencies
+    def _set_accounts(self, rows: list[BrowseAccount]) -> None:
+        self._accounts = [(a.id, a.name) for a in rows]
+        self._browse = {a.id: a for a in rows}
         self._recompute(self.query_one("#bar", Input).value)
         self._refresh_view()
 
@@ -1083,15 +1127,28 @@ class NewReconciliationScreen(FormScreen):
             # `quickadd.names.matches` — the one matcher every picker in the
             # app uses: substring, case-blind AND accent-blind, so `bcp credito`
             # finds `BCP Crédito` here as it does everywhere else.
-            self._suggestions = [(i, n, c) for (i, n, c) in self._accounts if matches(needle, n)]
+            self._suggestions = [(i, n) for (i, n) in self._accounts if matches(needle, n)]
         else:
             self._suggestions = []
         self._suggest_idx = 0
 
     # ---- commit ----------------------------------------------------------
+    def _pick_account(self, account_id: str, name: str) -> None:
+        """The account picked: its currencies give the form its balance lines, and
+        the lines of another account's currencies are dropped."""
+        acct = self._browse.get(account_id)
+        self._codes = acct.codes if acct else ()
+        for key in [k for k in self._values if _balance_line(k)]:
+            if _balance_line(key)[1] not in self._codes:
+                self._values.pop(key)
+                self._display.pop(key, None)
+        self._values["account"] = account_id
+        self._display["account"] = account_line(name, self._codes, acct.code if acct else None)
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         key = self._key
         text = self.query_one("#bar", Input).value.strip()
+        line = _balance_line(key)
         if key == "name":
             if not text:
                 self.notify("Name is required.", severity="error")
@@ -1103,9 +1160,7 @@ class NewReconciliationScreen(FormScreen):
             if picked is None:
                 toast(self, f"No account matches “{text}”.", severity="error")
                 return
-            self._values["account"] = picked[0]
-            self._display["account"] = picked[1]
-            self._currency = self._currencies.get(picked[0])
+            self._pick_account(picked[0], picked[1])
             self._advance()
         elif key in _DATES:
             # Both required. The check is the exact day shape the engine takes
@@ -1119,20 +1174,16 @@ class NewReconciliationScreen(FormScreen):
                 return
             self._values[key] = self._display[key] = text
             self._advance()
-        elif key in _BEGINS:
-            cents = parse_amount(text)
-            if cents is None:
-                toast(self, _BEGIN_UNREADABLE, severity="error")
-                return
-            self._values[key] = cents
-            self._display[key] = format_cents(cents)
-            self._advance()
-        elif key in _ENDS:
-            # optional: an empty line leaves it out (`ending_balance_cents` null)
+        elif line is not None:
+            # optional: an empty line leaves the figure out
             if text:
                 cents = parse_amount(text)
                 if cents is None:
-                    toast(self, _END_UNREADABLE, severity="error")
+                    toast(
+                        self,
+                        _BEGIN_UNREADABLE if line[0] == "begin" else _END_UNREADABLE,
+                        severity="error",
+                    )
                     return
                 self._values[key] = cents
                 self._display[key] = format_cents(cents)
@@ -1143,11 +1194,33 @@ class NewReconciliationScreen(FormScreen):
         self._refresh_view()
 
     # ---- submit ----------------------------------------------------------
+    def _submit_request(self) -> tuple[str, str, dict, str] | None:
+        """The save, unless a currency has an ending balance and no starting one: an
+        entry of `balances` takes `beginning_balance_cents` always
+        (contract: POST /v1/statements, "`balances`"), so it cannot be sent
+        well-formed. Whether a currency needs a figure at all stays the engine's call."""
+        for code in self._codes:
+            if balance_key("end", code) in self._values and balance_key("begin", code) not in (
+                self._values
+            ):
+                self._current = self._sequence().index(balance_key("begin", code))
+                self._refresh_bar()
+                self._refresh_view()
+                toast(
+                    self,
+                    f"Begin balance {code}: an end balance needs it too.",
+                    severity="error",
+                )
+                return None
+        return super()._submit_request()
+
     def _payload(self) -> dict:
-        """The statement: its id, minted here, its account, name and days, and
-        one entry in `balances` for the account's currency, keyed by its code
+        """The statement: its id, minted here, its account, name and days, and one
+        entry in `balances` per currency with a balance typed
         (contract: POST /v1/statements)."""
         self._new_id = str(uuid.uuid4())
+        entries = self._balance_entries()
+        self._sent = [entry["currency_code"] for entry in entries]
         return {
             "id": self._new_id,
             "account_id": self._values["account"],
@@ -1155,16 +1228,48 @@ class NewReconciliationScreen(FormScreen):
             # calendar days, sent as typed — the engine refuses any datetime here
             "date_start": self._values["date_start"],
             "date_end": self._values["date_end"],
-            "balances": [self._balance_entry()],
+            "balances": entries,
         }
 
-    def _balance_entry(self) -> dict:
-        """The currency's entry in `balances`: its begin, and its end when one
-        was typed (left out, it is not entered yet)."""
-        entry = {"currency_code": self._currency, "beginning_balance_cents": self._values["begin"]}
-        if self._values.get("end") is not None:
-            entry["ending_balance_cents"] = self._values["end"]
-        return entry
+    def _balance_entries(self) -> list[dict]:
+        """A currency's entry in `balances`: its begin, and its end when one was
+        typed (left out, it is not entered yet). A currency with neither typed
+        is not sent."""
+        entries = []
+        for code in self._codes:
+            begin = self._values.get(balance_key("begin", code))
+            if begin is None:
+                continue
+            entry = {"currency_code": code, "beginning_balance_cents": begin}
+            end = self._values.get(balance_key("end", code))
+            if end is not None:
+                entry["ending_balance_cents"] = end
+            entries.append(entry)
+        return entries
+
+    def _refusal_text(self, exc: Exception) -> str:
+        """The engine's words whole; a refusal naming one currency's entry
+        (`balances.USD`, or `balances.<i>.…` by its place in the body) puts the
+        cursor on that currency's begin balance."""
+        self._refused_line = None
+        if isinstance(exc, EngineError):
+            for field in [*(exc.reasons or {}), *(exc.fields or {})]:
+                code = self._currency_named(field)
+                if code is not None and balance_key("begin", code) in self._sequence():
+                    self._refused_line = balance_key("begin", code)
+                    break
+        return format_error(exc)
+
+    def _currency_named(self, field: object) -> str | None:
+        """The currency a refusal's `field` names: `balances.USD`, or
+        `balances.<i>.<field>` for the i-th entry sent."""
+        parts = str(field).split(".")
+        if len(parts) < 2 or parts[0] != "balances":
+            return None
+        if parts[1].isdigit():
+            index = int(parts[1])
+            return self._sent[index] if index < len(self._sent) else None
+        return parts[1]
 
     def _done(self) -> None:
         """Dismiss with the new id — minted here, in `_payload` — so the browse

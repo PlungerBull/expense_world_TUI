@@ -109,6 +109,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self._suggest_idx = 0
         self._submitting = False
         self._locked: set[str] = set()
+        self._refused_line: str | None = None  # the line the last refusal named, if any
 
     # ---- subclass hooks ----------------------------------------------------
     def _sequence(self) -> list[str]:
@@ -396,7 +397,17 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             error_text=self._refusal_text,
         )
 
+    def _land_on_refused_line(self) -> None:
+        """Put the cursor on the line the refusal named (`_refused_line`, set by a
+        form's `_refusal_text`), with what was typed in the bar; a refusal that
+        names none of the form's lines leaves it where it was."""
+        line, self._refused_line = self._refused_line, None
+        if line is not None:
+            self._current = self._sequence().index(line)
+            self._refresh_bar()
+
     def _failed(self, message: str) -> None:
+        self._land_on_refused_line()
         self._submitting = False
         toast(self, message, title="Failed", severity="error")
         self._refresh_view()
