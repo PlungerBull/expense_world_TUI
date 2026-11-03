@@ -14,7 +14,9 @@ of it (`MONEDA`), and an account lacking one is `CURRENCY_NOT_HELD` on its entry
 A bad row refuses the whole sheet on every step, keyed by its row, its message
 naming the row, a day after today's included, before any name is created
 (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
-The same sheet sent again matches every row and writes nothing
+The counts hold `split_lines` (the `COD_EECC` values shared by rows) and `split_rows` (the
+rows holding them), on the dry run and on the apply. The same sheet sent again matches
+every row and writes nothing
 (contract: POST /v1/transactions/import-sheet, "Matching").
 
 Every name is fresh per run, so a second run of the suite still finds every row
@@ -231,6 +233,8 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     }  # fmt: skip
     assert all(r.transaction_id is None for r in counted.rows)
     assert (counted.counts.new, counted.counts.skipped, counted.counts.split_lines) == (5, 1, 1)
+    # the one split line comes from rows 6 and 7
+    assert counted.counts.split_rows == 2
     assert CLEANER.holdings(client) == held
     assert live_ids(client, account) == set()
 
@@ -245,7 +249,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     assert rows[5].transaction_id is None
     assert rows[6].bank_line_id == rows[7].bank_line_id
     assert first.counts.new == 5 and first.counts.skipped == 1
-    assert first.counts.split_lines == 1
+    assert (first.counts.split_lines, first.counts.split_rows) == (1, 2)
     # every answer row reads the account the table gave it and the currency of its MONEDA
     assert [(r["row"], r["account_id"], r["currency_code"]) for r in first.answer["rows"]] == [
         (row, account, currency)

@@ -12,6 +12,8 @@ these facts, and the unit suite can only mock them:
     read by sending the response's `previous_date_to` back unchanged as
     `date_to`; walking back that way reads no row twice, even one created at
     the very first instant of a window.
+  · A string that is not a cursor is a 422 `INVALID_CURSOR` on `after` on every
+    cursor-paged list (bank lines are pinned in test_bank_lines.py).
   · The small lists come back whole: `{items}` and nothing else.
 
 Every transaction test writes to its own fresh account, so the reads are scoped
@@ -23,6 +25,7 @@ from datetime import datetime
 import pytest
 
 from expense.errors import EngineError
+from tests.contract.conftest import assert_refusal, refused
 
 ROWS = 7
 
@@ -114,6 +117,15 @@ def test_a_cursor_is_bound_to_its_sort(client, seeded):
         )
     assert excinfo.value.status == 422
     assert "after" in (excinfo.value.fields or {})
+
+
+@pytest.mark.parametrize("path", ["/transactions", "/activity", "/exchange-rates/history"])
+def test_a_string_that_is_not_a_cursor_is_refused_on_after(client, path):
+    """`?after=` takes only a cursor the engine issued: anything else is `422`
+    `INVALID_CURSOR` on `after` (contract: "Base Conventions", "Cursors, on every
+    cursor-paged list")."""
+    err = refused(lambda: client.get(path, params={"after": "not-a-cursor"}))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "after", "INVALID_CURSOR")
 
 
 def test_a_bare_to_day_includes_a_row_late_on_that_day(client, scratch):

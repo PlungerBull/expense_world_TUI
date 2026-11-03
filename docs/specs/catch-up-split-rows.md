@@ -77,18 +77,7 @@ None open.
 
 Approved by the owner on 2026-10-27.
 
-2. **The live suite proves the count and the cursor refusal (builder), after
-   part 3 of the currencies catch-up (done on 2026-10-30)
-   and part 2 of the currencies catch-up (done on 2026-10-30).**
-   The live sheet import checks `split_rows` beside `split_lines`
-   ([test_sheet_import.py](../../tests/contract/test_sheet_import.py)), its `names.accounts`
-   entries one per sheet account name with no `currency_code`
-   (contract: POST /v1/transactions/import-sheet, "Body"); a cursor the engine did not issue is
-   refused `422 INVALID_CURSOR` on `after` on each of the four cursor-paged lists; no test
-   expects `500` or `200` for one.
-   *Passes if:* those live tests run green against the practice engine, no `names.accounts`
-   entry the live sheet test sends carries `currency_code`, and nothing in the repo compares the
-   two reworded refusal descriptions as text.
+None left: every task is done; the acceptance check and the doc sweep follow.
 
 
 ## Reply to the engine
@@ -106,3 +95,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- The live sheet test's module docstring states what `split_lines` and `split_rows` count
+  without its own citation; it could cite (contract: POST /v1/transactions/import-sheet, "Response")
+  ([test_sheet_import.py](../../tests/contract/test_sheet_import.py), lines 17–18).
