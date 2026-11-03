@@ -57,43 +57,43 @@ FARMACIA = bank_line_row(
 )
 
 
-def _balance(account: str) -> dict:
-    """An account's balances in a draft whose ending balance is entered and adds up."""
+def _balance(currency: str) -> dict:
+    """A currency's balances in a draft whose ending balance is entered and adds up."""
     return {
-        "account_id": account,
+        "currency_code": currency,
         "beginning_balance_cents": 0,
         "ending_balance_cents": -4490,
         "difference_cents": 0,
     }
 
 
-#: Octubre 2026, a draft statement of the card holding Signature PEN and Signature USD,
-#: every ending balance entered and its order whole.
+#: Octubre 2026, a draft statement of the card covering soles and dollars, every ending
+#: balance entered and its order whole.
 CARD = statement_record(
     {
         "id": "s-sig",
-        "holder_id": "h-sig",
+        "account_id": "sig-pen",
         "name": "Octubre 2026",
         "date_start": "2026-09-26",
         "date_end": "2026-10-25",
         "unplaced_count": 0,
         "shared_place_count": 0,
-        "balances": [_balance("sig-pen"), _balance("sig-usd")],
+        "balances": [_balance("PEN"), _balance("USD")],
     }
 )
-#: The same days' statement of a holder of acc1 alone, with no statement code.
+#: The same days' statement of acc1, holding soles alone, with no statement code.
 BCP = statement_record(
     {
         "id": "s1",
         "name": "Octubre BCP",
         "date_start": "2026-09-26",
         "date_end": "2026-10-25",
-        "balances": [_balance("acc1")],
+        "balances": [_balance("PEN")],
     }
 )
-#: The card's statement opened on Signature PEN, and the plain one opened on acc1.
-SOLES = account_view(CARD, "sig-pen")
-PLAIN = account_view(BCP, "acc1")
+#: The card's statement opened on soles, and the plain one opened on soles.
+SOLES = account_view(CARD, "PEN")
+PLAIN = account_view(BCP, "PEN")
 
 
 def _conflict(field: str) -> EngineError:
@@ -197,10 +197,10 @@ def _patch(monkeypatch) -> None:
 
 def _flags(fake_client, record: dict, own: list[str], other: list[str] | None = None) -> None:
     """The complete's answer on the statement `record` is opened on: the opened
-    account's balance flags `own`, the card's other account's balance `other`."""
+    currency's balance flags `own`, the other currency's balance `other`."""
     statement = {CARD["id"]: CARD, BCP["id"]: BCP}[record["id"]]
     balances = [
-        {**b, "review_lines": own if b["account_id"] == record["account_id"] else other or []}
+        {**b, "review_lines": own if b["currency_code"] == record["currency_code"] else other or []}
         for b in statement["balances"]
     ]
     fake_client.write_responses[f"/statements/{record['id']}/complete"] = statement_complete_answer(

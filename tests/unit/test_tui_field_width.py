@@ -21,7 +21,7 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import _LABELS
-from expense.tui.screens.reconciliations import _R_LABELS, NewCardStatementScreen
+from expense.tui.screens.reconciliations import _R_LABELS
 from expense.tui.screens.setup import LABELS as SETUP_LABELS
 
 
@@ -60,23 +60,6 @@ def test_field_column_fits_every_label():
         f"#field width {width} leaves {content} content cells and clips: "
         + ", ".join(f"{k} {v!r} ({len(v)})" for k, v in clipped.items())
     )
-
-
-def test_the_card_statement_form_fits_a_balance_and_its_currency():
-    """A card statement's form names each balance's currency, `BEGIN BALANCE
-    USD`, so it widens the column on its own screen alone; a currency code is
-    always three letters."""
-    width, right_pad = _field_rule("NewCardStatementScreen")
-    form = NewCardStatementScreen(
-        account=("acc1", "Signature PEN", "PEN"),
-        partner=("acc2", "Signature USD", "USD"),
-        code="SIG",
-        holder_id="h1",
-    )
-    labels = {key: form._label(key) for key in form._sequence()}
-    clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
-    assert not clipped
-    assert max(len(v) for v in labels.values()) == width - right_pad
 
 
 def test_the_edit_form_fits_each_parts_longest_label_up_to_part_99():

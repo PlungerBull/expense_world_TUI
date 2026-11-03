@@ -35,20 +35,20 @@ S_COMPLETE = "POST /v1/statements/{statement_id}/complete"
 S_DELETE = "DELETE /v1/statements/{statement_id}"
 S_READ = "GET /v1/statements/{statement_id}"
 
-#: A card's statement create: its two accounts, the dollar one with no ending yet.
+#: A card's statement create: its two currencies, the dollar one with no ending yet.
 STATEMENT_SENT = {
     "id": "s-new",
-    "holder_id": "h-visa",
+    "account_id": "acc-visa",
     "name": "Marzo 2026",
     "date_start": "2026-02-26",
     "date_end": "2026-03-25",
     "balances": [
         {
-            "account_id": "acc-pen",
+            "currency_code": "PEN",
             "beginning_balance_cents": -124050,
             "ending_balance_cents": -38070,
         },
-        {"account_id": "acc-usd", "beginning_balance_cents": -6012},
+        {"currency_code": "USD", "beginning_balance_cents": -6012},
     ],
 }
 
@@ -142,13 +142,28 @@ def test_a_statement_create_answers_the_draft_it_was_sent():
     }
     assert (answer["status"], answer["deleted_at"]) == (1, None)
     pen, usd = answer["balances"]
-    # nothing assigned yet: each account's add-up check is its ending minus its beginning
-    assert (pen["account_id"], pen["difference_cents"]) == ("acc-pen", -38070 - -124050)
-    assert (usd["account_id"], usd["ending_balance_cents"], usd["difference_cents"]) == (
-        "acc-usd",
+    # nothing assigned yet: each currency's add-up check is its ending minus its beginning
+    assert (pen["currency_code"], pen["difference_cents"]) == ("PEN", -38070 - -124050)
+    assert (usd["currency_code"], usd["ending_balance_cents"], usd["difference_cents"]) == (
+        "USD",
         None,
         None,
     )
+
+
+def test_a_statement_read_can_hold_a_beginning_balance_not_entered():
+    """A balance not entered is `null`, never zero, and its difference is not checked
+    (contract: "Statements", "A balance not entered is `null`, never zero"): a
+    statement a line gave a new currency reads so, the create never sends one."""
+    record = {
+        "balances": [
+            {"currency_code": "USD", "beginning_balance_cents": None, "ending_balance_cents": None}
+        ]
+    }
+
+    (usd,) = statement_record(record)["balances"]
+
+    assert (usd["beginning_balance_cents"], usd["difference_cents"]) == (None, None)
 
 
 @pytest.mark.parametrize(
@@ -170,18 +185,18 @@ def test_a_statement_status_write_answers_the_statement_its_path_names(
 
 
 def _card_statement_client(status: int) -> FakeClient:
-    """A card's statement the test serves: s1 holding a soles and a dollar account."""
+    """A card's statement the test serves: s1 covering soles and dollars."""
     client = FakeClient()
     client.get_responses["/statements/s1"] = statement_record(
         {
             "id": "s1",
-            "holder_id": "h-visa",
+            "account_id": "acc-visa",
             "status": status,
             "unplaced_count": 1,
             "shared_place_count": 2,
             "balances": [
-                {"account_id": "acc-pen", "ending_balance_cents": 100, "difference_cents": 0},
-                {"account_id": "acc-usd", "ending_balance_cents": 0, "difference_cents": 0},
+                {"currency_code": "PEN", "ending_balance_cents": 100, "difference_cents": 0},
+                {"currency_code": "USD", "ending_balance_cents": 0, "difference_cents": 0},
             ],
         }
     )
@@ -191,8 +206,9 @@ def _card_statement_client(status: int) -> FakeClient:
 def test_a_statement_complete_adds_the_close_notes_to_each_balance():
     answer = _card_statement_client(1).post("/statements/s1/complete")
 
-    assert (answer["status"], answer["holder_id"]) == (2, "h-visa")
-    assert [b["account_id"] for b in answer["balances"]] == ["acc-pen", "acc-usd"]
+    assert (answer["status"], answer["account_id"]) == (2, "acc-visa")
+    assert answer["not_covered"] == []
+    assert [b["currency_code"] for b in answer["balances"]] == ["PEN", "USD"]
     for balance in answer["balances"]:
         assert (balance["warnings"], balance["coverage_gap"], balance["review_lines"]) == (
             [],
@@ -212,17 +228,17 @@ def test_a_statement_complete_keeps_the_notes_a_balance_names():
 def test_a_statement_revert_answers_it_as_a_draft_with_no_close_notes():
     answer = _card_statement_client(2).post("/statements/s1/revert")
 
-    assert (answer["status"], answer["holder_id"]) == (1, "h-visa")
+    assert (answer["status"], answer["account_id"]) == (1, "acc-visa")
     assert all("review_lines" not in b for b in answer["balances"])
 
 
 @pytest.mark.parametrize(
     ("served", "counts"),
     [({"unplaced_count": 1, "shared_place_count": 2}, (0, 0)), ({}, (None, None))],
-    ids=["holder with a statement code", "holder without one"],
+    ids=["account with a statement code", "account without one"],
 )
 def test_a_statement_delete_unassigns_its_lines(served, counts):
-    """Its lines unassigned, both counts read `0`, or `null` on a holder with no
+    """Its lines unassigned, both counts read `0`, or `null` on an account with no
     statement code (contract: DELETE /v1/statements/{statement_id})."""
     client = FakeClient()
     client.get_responses["/statements/s1"] = statement_record(served)
@@ -235,14 +251,14 @@ def test_a_statement_delete_unassigns_its_lines(served, counts):
 
 def test_a_statement_read_and_put_spread_a_test_s_record_over_the_whole_shape():
     bare = set(statement_record())
-    listed = statement_list([{"id": "s2", "balances": [{"account_id": "acc-usd"}]}])
+    listed = statement_list([{"id": "s2", "balances": [{"currency_code": "USD"}]}])
     put = statement_put_answer({"name": "Abril"})
 
     (item,) = listed["items"]
     assert set(item) == bare and set(put) == bare
     assert (item["id"], put["name"]) == ("s2", "Abril")
     assert set(item["balances"][0]) == set(statement_record()["balances"][0])
-    assert item["balances"][0]["account_id"] == "acc-usd"
+    assert item["balances"][0]["currency_code"] == "USD"
     assert [i["id"] for i in statement_list()["items"]] == ["s1"]
 
 

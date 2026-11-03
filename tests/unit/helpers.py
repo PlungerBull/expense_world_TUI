@@ -684,11 +684,13 @@ def statement_row(
     }
 
 
-#: One account's balances in a statement as `GET /statements/{id}` reads them, nothing
+#: One currency's balances in a statement as `GET /statements/{id}` reads them, nothing
 #: entered past the beginning: `difference_cents` is `null` while the ending balance is
-#: (contract: "Statements", "`difference_cents` — the add-up check").
+#: (contract: "Statements", "`difference_cents` — the add-up check"). The beginning
+#: balance may be `null` too, a balance not entered
+#: (contract: "Statements", "A balance not entered is `null`, never zero").
 _BALANCE = {
-    "account_id": "acc1",
+    "currency_code": "PEN",
     "beginning_balance_cents": 0,
     "ending_balance_cents": None,
     "difference_cents": None,
@@ -696,14 +698,14 @@ _BALANCE = {
 #: The close's notes `POST /statements/{id}/complete` adds to each balance: no warning,
 #: no gap, no line flagged (contract: POST /v1/statements/{statement_id}/complete, "Response").
 _CLOSE_NOTES = {"warnings": [], "coverage_gap": None, "review_lines": []}
-#: A draft statement as `GET /statements/{id}` reads it, every field present, on a holder
-#: of one account without a statement code, so its order counts are `null`
+#: A draft statement as `GET /statements/{id}` reads it, every field present, on an
+#: account without a statement code, so its order counts are `null`
 #: (contract: "Statements", "A statement's order"): what the statement answers below
 #: spread a test's record over.
 _STATEMENT = {
     "id": "s1",
     "user_id": "u-1",
-    "holder_id": "h1",
+    "account_id": "acc1",
     "name": "April 2026",
     "date_start": "2026-04-01",
     "date_end": "2026-04-30",
@@ -729,14 +731,14 @@ def _statement(record: dict | None, balance: dict) -> dict:
 @answer_of("GET", "/v1/statements/{statement_id}")
 def statement_record(record: dict | None = None) -> dict:
     """One statement as `GET /statements/{id}` reads it: `record` spread over a draft,
-    each of its `balances` over an account's balances nothing entered past the beginning
+    each of its `balances` over a currency's balances nothing entered past the beginning
     (contract: "Statements", "Statement response")."""
     return _statement(record, _BALANCE)
 
 
 @answer_of("GET", "/v1/statements")
 def statement_list(items: list[dict] | None = None) -> dict:
-    """`GET /statements?holder_id=`'s answer, whole and unpaged: `{items}`, each item a
+    """`GET /statements?account_id=`'s answer, whole and unpaged: `{items}`, each item a
     `statement_record` of the record a test gives (one draft by default)
     (contract: GET /v1/statements)."""
     return whole([statement_record(item) for item in (items if items is not None else [{}])])
@@ -749,7 +751,7 @@ def statement_create_answer(sent: dict | None = None) -> dict:
     yet, `null` while the ending balance is (contract: POST /v1/statements, "Response")
     (contract: "Statements", "`difference_cents` — the add-up check")."""
     sent = sent or {}
-    fields = ("id", "holder_id", "name", "date_start", "date_end", "balances")
+    fields = ("id", "account_id", "name", "date_start", "date_end", "balances")
     made = statement_record({key: sent[key] for key in fields if key in sent})
     for balance in made["balances"]:
         end = balance["ending_balance_cents"]
@@ -778,7 +780,7 @@ def statement_revert_answer(record: dict | None = None) -> dict:
 def statement_delete_answer(record: dict | None = None) -> dict:
     """`DELETE /statements/{id}`'s answer: the statement as it is after the delete,
     `record` spread over a draft, with `deleted_at` set and its lines unassigned, so both
-    order counts read `0`, or `null` on a holder with no statement code
+    order counts read `0`, or `null` on an account with no statement code
     (contract: DELETE /v1/statements/{statement_id})."""
     gone = statement_record(record)
     counts = ("unplaced_count", "shared_place_count")
@@ -792,11 +794,17 @@ def statement_delete_answer(record: dict | None = None) -> dict:
 @answer_of("POST", "/v1/statements/{statement_id}/complete")
 def statement_complete_answer(record: dict | None = None) -> dict:
     """`POST /statements/{id}/complete`'s answer: the statement after the write, `record`
-    spread over a completed one, each of its `balances` over an account's balances that
+    spread over a completed one, each of its `balances` over a currency's balances that
     add up (an ending balance and a `difference_cents` of `0`) carrying the close's notes,
     `warnings` (`[]`), `coverage_gap` (`None`) and `review_lines` (`[]`) unless the
-    balance names them (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
-    completed = {"status": 2, "updated_at": "2026-05-02T15:00:00Z", "version": 2}
+    balance names them, and `not_covered` (`[]`), the notes of each currency the statement
+    does not cover (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
+    completed = {
+        "status": 2,
+        "updated_at": "2026-05-02T15:00:00Z",
+        "version": 2,
+        "not_covered": [],
+    }
     added_up = {**_BALANCE, "ending_balance_cents": 0, "difference_cents": 0, **_CLOSE_NOTES}
     return _statement({**completed, **(record or {})}, added_up)
 

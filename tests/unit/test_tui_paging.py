@@ -720,7 +720,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
     from expense.tui.screens.reconciliations import ReconciliationDetailScreen, account_view
 
     balance = {
-        "account_id": "acc1",
+        "currency_code": "PEN",
         "beginning_balance_cents": 1248000,
         "ending_balance_cents": 921540,
         "difference_cents": -1250,
@@ -734,7 +734,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
             "balances": [balance],
         }
     )
-    record = account_view(statement, "acc1")
+    record = account_view(statement, "PEN")
     lines = [
         bank_line_row(
             f"l{i}",

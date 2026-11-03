@@ -19,13 +19,12 @@ from tests.unit.helpers import (
     SEALED_FIELD_WORDS,
     SEALED_LINE_WORDS,
     SEALED_TRANSACTION_WORDS,
-    account_record,
+    account_with_currencies,
     archived_refusal,
     archived_words,
     bank_line_row,
     cursor_page,
     held_currency,
-    holder_list,
     import_part,
     in_order,
     refusal_text,
@@ -39,28 +38,34 @@ from tests.unit.helpers import (
 )
 
 
-def _statement(sid: str, holder: str, name: str, days: tuple[str, str], **fields) -> dict:
-    """A statement of a holder with no statement code, as `GET /statements` reads it:
-    its one account's balances are `fields`'s `balances`, or nothing entered past a
-    begin of 0 on `acc1` (`statement_record`)."""
+def _statement(sid: str, account: str, name: str, days: tuple[str, str], **fields) -> dict:
+    """A statement of an account with no statement code, as `GET /statements` reads it:
+    its balances are `fields`'s `balances`, or nothing entered past a begin of 0 in soles
+    (`statement_record`)."""
     return statement_record(
-        {"id": sid, "holder_id": holder, "name": name, "date_start": days[0], "date_end": days[1]}
+        {
+            "id": sid,
+            "account_id": account,
+            "name": name,
+            "date_start": days[0],
+            "date_end": days[1],
+        }
         | fields
     )
 
 
-#: One statement on each holder: March on acc1's, completed and adding up; April on
+#: One statement on each account: March on acc1's, completed and adding up; April on
 #: acc2's, a draft with no ending balance yet, off by -35.00.
 ITEMS = [
     _statement(
         "r1",
-        "h1",
+        "acc1",
         "March 2026",
         ("2026-03-01", "2026-03-31"),
         status=2,
         balances=[
             {
-                "account_id": "acc1",
+                "currency_code": "PEN",
                 "beginning_balance_cents": 1200000,
                 "ending_balance_cents": 958000,
                 "difference_cents": 0,
@@ -69,12 +74,12 @@ ITEMS = [
     ),
     _statement(
         "r2",
-        "h2",
+        "acc2",
         "April 2026",
         ("2026-04-01", "2026-04-30"),
         balances=[
             {
-                "account_id": "acc2",
+                "currency_code": "USD",
                 "beginning_balance_cents": 958000,
                 "ending_balance_cents": None,
                 "difference_cents": -3500,
@@ -84,58 +89,15 @@ ITEMS = [
 ]
 
 
-def test_batch_rows_format():
-    from expense.tui.screens.reconciliations import batch_rows
-
-    rows = batch_rows(ITEMS[:1], "acc1")
-    assert rows[0][0] == "r1"
-    cells = rows[0][1]
-    assert cells[0] == "March 2026"
-    assert cells[1] == "2026-03-01 → 2026-03-31"
-    assert cells[2] == "12,000.00" and cells[3] == "9,580.00"
-    # a balanced batch shows a dim em dash, not 0.00
-    assert str(cells[4]) == "—" and cells[5] == "completed"
-    assert rows[0][2] == "dim"  # completed dimmed
-    # draft, null end balance — and a batch that is off by -35.00 prints the
-    # signed figure
-    off = batch_rows([ITEMS[1]], "acc2")[0][1]
-    assert off[5] == "draft"
-    assert off[1] == "2026-04-01 → 2026-04-30"
-    assert str(off[4]) == "-35.00"
-
-
-def test_batch_rows_read_the_open_accounts_entry_in_balances():
-    """Each row's Begin, End and Diff are the open account's, from its entry in the
-    statement's `balances`, whatever other entry the statement holds
-    (contract: "Statements", "Statement response")."""
-    from expense.tui.screens.reconciliations import batch_rows
-
-    two = _statement(
-        "s1",
-        "h1",
-        "May 2026",
-        ("2026-05-01", "2026-05-31"),
-        balances=[
-            {"account_id": "acc-other", "beginning_balance_cents": 500},
-            {"account_id": "acc1", "beginning_balance_cents": 100, "ending_balance_cents": 200},
-        ],
-    )
-    [(_key, cells, _style)] = batch_rows([two], "acc1")
-    assert [str(cell) for cell in cells[2:4]] == ["1.00", "2.00"]
-
-
 def _patch(monkeypatch):
     """Screen-specific patches; the client/config seams come from fake_client."""
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                account_record(id="acc1", name="BCP PEN"),
-                account_record(
-                    id="acc2",
-                    name="Interbank USD",
-                    currency_code="USD",
-                    holder_id="h2",
+                account_with_currencies(id="acc1", name="BCP PEN"),
+                account_with_currencies(
+                    id="acc2", name="Interbank USD", currencies=[held_currency("USD")]
                 ),
             ]
         ),
@@ -152,11 +114,11 @@ async def _wait_accounts(screen, pilot):
     await wait_for(pilot, lambda: screen._accounts)
 
 
-def test_new_statement_sends_its_holder_and_the_picked_accounts_balances(fake_client, monkeypatch):
-    """The form alone: the account picked, its holder is the one the accounts read
-    names on it, and one `POST /statements` sends exactly the fields the engine takes,
-    the account's typed balances its one entry in `balances`; the engine refuses any
-    other field (contract: POST /v1/statements)."""
+def test_new_statement_sends_its_account_and_the_picked_accounts_balances(fake_client, monkeypatch):
+    """The form alone: the account picked, and one `POST /statements` sends exactly the
+    fields the engine takes, the account's typed balances its one entry in `balances`,
+    keyed by the currency the accounts read gives it; the engine refuses any other
+    field (contract: POST /v1/statements)."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -164,7 +126,7 @@ def test_new_statement_sends_its_holder_and_the_picked_accounts_balances(fake_cl
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")  # name
-        _enter(screen, "Interbank")  # account → acc2, on holder h2
+        _enter(screen, "Interbank")  # account → acc2, holding dollars
         _enter(screen, "2026-04-01")  # date_start (required)
         _enter(screen, "2026-04-30")  # date_end (required)
         _enter(screen, "9580.00")  # begin
@@ -174,10 +136,10 @@ def test_new_statement_sends_its_holder_and_the_picked_accounts_balances(fake_cl
     run_app(scenario)
     [(path, body)] = fake_client.posts
     assert path == "/statements"
-    assert set(body) == {"id", "holder_id", "name", "date_start", "date_end", "balances"}
-    assert body["holder_id"] == "h2" and body["name"] == "April 2026"
+    assert set(body) == {"id", "account_id", "name", "date_start", "date_end", "balances"}
+    assert body["account_id"] == "acc2" and body["name"] == "April 2026"
     assert body["balances"] == [
-        {"account_id": "acc2", "beginning_balance_cents": 958000, "ending_balance_cents": 946000}
+        {"currency_code": "USD", "beginning_balance_cents": 958000, "ending_balance_cents": 946000}
     ]
 
 
@@ -322,50 +284,32 @@ def test_the_browse_lists_accounts_in_the_engines_order(monkeypatch):
     run_app(scenario)
 
 
-#: acc1's and acc2's holders as `GET /holders` reads them, one account each, no
-#: statement code.
-HOLDERS = [
-    {"id": "h1", "account_ids": ["acc1"]},
-    {"id": "h2", "name": "Interbank USD", "account_ids": ["acc2"]},
-]
-
-
 def _patch_browse(monkeypatch, items=None, fail=False):
-    """Two accounts, each alone on its holder with no statement code, one
-    statement each — the browse screen's standard fixture. The fake reads like
-    the engine: one holder at a time (the holder is required), the list whole,
-    never paged (contract: GET /v1/statements). Returns the holders it was asked
+    """Two accounts, one holding soles and one dollars, neither with a statement
+    code, one statement each — the browse screen's standard fixture. The fake reads
+    like the engine: one account at a time (the account is required), the list whole,
+    never paged (contract: GET /v1/statements). Returns the accounts it was asked
     for, in order."""
     reads: list = []
     rows = ITEMS if items is None else items
 
-    def fetch(_cfg, holder_id, **kw):
+    def fetch(_cfg, account_id, **kw):
         assert "limit" not in kw and "offset" not in kw, "the engine refuses paging here"
-        reads.append(holder_id)
+        reads.append(account_id)
         if fail:
             raise RuntimeError("statements unavailable")
-        return statement_list([r for r in rows if r.get("holder_id") == holder_id])
+        return statement_list([r for r in rows if r.get("account_id") == account_id])
 
     monkeypatch.setattr("expense.reads.fetch_statements", fetch)
-    monkeypatch.setattr("expense.reads.fetch_holders", lambda *a, **k: holder_list(HOLDERS))
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                account_record(
-                    id="acc1",
-                    name="BCP PEN",
-                    current_balance_cents=100,
-                    # the browse reads the per-currency shape above; the Edit form
-                    # its picks from `currencies`
-                    currencies=[held_currency("PEN")],
+                account_with_currencies(
+                    id="acc1", name="BCP PEN", currencies=[held_currency("PEN", 100)]
                 ),
-                account_record(
-                    id="acc2",
-                    name="Interbank USD",
-                    currency_code="USD",
-                    holder_id="h2",
-                    currencies=[held_currency("USD")],
+                account_with_currencies(
+                    id="acc2", name="Interbank USD", currencies=[held_currency("USD")]
                 ),
             ]
         ),
@@ -428,7 +372,7 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app, down=1)
-        assert reads == ["h2"]  # that account's holder, and only that one
+        assert reads == ["acc2"]  # that account, and only that one
         assert [r.key for r in screen._batch_list._rows] == ["r2"]
         assert screen._batch_list.has_focus
         assert "Statements · Interbank USD" in (screen._batch_list._caption or "")
@@ -436,7 +380,7 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
         assert _crumb(screen) == ("Capture & ledger", "Statements", "Interbank USD")
         # the open account keeps a ▸ so you can see whose panel this is
         names = [str(r.cells[0]) for r in screen._accts_list._rows]
-        assert names == ["BCP PEN", "▸ Interbank USD"]
+        assert names == ["  BCP PEN", "▸ Interbank USD"]
 
     run_app(scenario)
 
@@ -453,13 +397,13 @@ def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
 
 
 def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
-    """The holder's list arrives `date_start` ascending, then creation time,
+    """The account's list arrives `date_start` ascending, then creation time,
     oldest first (contract: "Statements", "Ordering"); the screen does not
     re-sort it. Served out of date order on purpose, so a re-sort would show."""
     served = [
-        _statement("b-march", "h1", "March", ("2026-03-01", "2026-03-31")),
-        _statement("b-april", "h1", "April", ("2026-04-01", "2026-04-30")),
-        _statement("b-feb", "h1", "February", ("2026-02-01", "2026-02-28")),
+        _statement("b-march", "acc1", "March", ("2026-03-01", "2026-03-31")),
+        _statement("b-april", "acc1", "April", ("2026-04-01", "2026-04-30")),
+        _statement("b-feb", "acc1", "February", ("2026-02-01", "2026-02-28")),
     ]
     _patch_browse(monkeypatch, items=served)
 
@@ -537,7 +481,7 @@ def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
         assert app.screen is screen  # the panel closed; the screen stayed
         assert screen._batch_list is None and screen._accts_list.has_focus
         assert _crumb(screen) == ("Capture & ledger", "Statements")
-        assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "BCP PEN"
+        assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "  BCP PEN"
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is not screen)
 
@@ -561,8 +505,8 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
     from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 
     two = [
-        _statement("b1", "h1", "March", ("2026-03-01", "2026-03-31"), status=2),
-        _statement("b2", "h1", "April", ("2026-04-01", "2026-04-30"), status=2),
+        _statement("b1", "acc1", "March", ("2026-03-01", "2026-03-31"), status=2),
+        _statement("b2", "acc1", "April", ("2026-04-01", "2026-04-30"), status=2),
     ]
     reads = _patch_browse(monkeypatch, items=two)
     # the working screen's own reads are not what this test is about
@@ -577,7 +521,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
         app.screen.dismiss()
         await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "batches")
         await wait_for(pilot, lambda: screen._batch_list is not None)
-        assert reads == ["h1", "h1"]  # the open account's holder, re-read
+        assert reads == ["acc1", "acc1"]  # the open account's statements, re-read
         assert screen._batch_list.cursor_key == "b2"
         assert screen._batch_list.has_focus
 
@@ -600,11 +544,11 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
-        assert form._holder_id == "h2"  # and its holder
-        rows.append(_statement("new-1", "h2", "May 2026", ("2026-05-01", "2026-05-31")))
+        assert form._currency == "USD"  # and the currency its balances are keyed by
+        rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
         await wait_for(pilot, lambda: screen._batch_list is not None)
-        assert reads == ["h2"]
+        assert reads == ["acc2"]
         assert screen._mode == "batches"
         assert screen._batch_list.cursor_key == "new-1"
         assert _crumb(screen)[-1] == "Interbank USD"
@@ -614,7 +558,7 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
 
 def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     """The id is minted client-side in `_payload`; `_done` returns it."""
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currency="PEN")
     screen._values.update(
         {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin": 0}
     )
@@ -675,13 +619,12 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     assert [a[0] for a in screen._suggestions] == ["acc2"]
 
 
-def test_a_new_statement_whose_holder_is_gone_shows_the_engine_words_alone(
+def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
     fake_client, monkeypatch
 ):
-    """The browse was read before its account became a person, which deleted the
-    holder it was alone on (contract: "Holders", "A holder is deleted with its last
-    account"), so `n` still offers it: the engine refuses the create's `holder_id`
-    (contract: POST /v1/statements). The "Failed" note is the engine's words and its
+    """The browse was read before its account was deleted, so `n` still offers it:
+    the engine refuses the create's `account_id` (contract: POST /v1/statements).
+    The "Failed" note is the engine's words and its
     field's words under them, with no line of the app's; the form stays open with what
     was typed, and nothing is handed back."""
     from expense.errors import EngineError
@@ -690,10 +633,10 @@ def test_a_new_statement_whose_holder_is_gone_shows_the_engine_words_alone(
     err = EngineError(
         "VALIDATION_ERROR",
         "Statement validation failed.",
-        {"holder_id": words},
+        {"account_id": words},
         422,
         {},
-        reasons={"holder_id": "INVALID_REFERENCE"},
+        reasons={"account_id": "INVALID_REFERENCE"},
     )
     fake_client.errors["POST"] = err
     notices: list = []
@@ -706,7 +649,7 @@ def test_a_new_statement_whose_holder_is_gone_shows_the_engine_words_alone(
 
     async def scenario(pilot, app):
         screen = NewReconciliationScreen(
-            account_id="acc1", account_name="ALEJO PEN", holder_id="h1"
+            account_id="acc1", account_name="ALEJO PEN", currency="PEN"
         )
         await app.push_screen(screen, handed.append)
         _enter(screen, "October 2026")  # name
@@ -717,7 +660,7 @@ def test_a_new_statement_whose_holder_is_gone_shows_the_engine_words_alone(
         _enter(screen, "")  # end → submits
         await wait_for(pilot, lambda: notices and not screen._submitting)
         assert notices == [
-            ("Failed", f"VALIDATION_ERROR — Statement validation failed.\n  holder_id: {words}")
+            ("Failed", f"VALIDATION_ERROR — Statement validation failed.\n  account_id: {words}")
         ]
         assert notices[0][1] == refusal_text(err, None)
         assert app.screen is screen and screen._values == typed
@@ -757,13 +700,15 @@ UNFILED = [
 ]
 
 
-def test_statement_windows_take_the_statements_holding_this_accounts_balances():
-    """A statement holds a balance per account of its holder; the `!` days are those
-    of the statements holding one of this account's."""
+def test_statement_windows_are_the_days_of_every_statement_of_the_account():
+    """The `!` days are those of the account's statements, as the one read gave them."""
     from expense.tui.screens.reconciliations import statement_windows
 
-    assert statement_windows(ITEMS, "acc1") == [("2026-03-01", "2026-03-31", "March 2026")]
-    assert statement_windows(ITEMS, "acc2") == [("2026-04-01", "2026-04-30", "April 2026")]
+    assert statement_windows(ITEMS[:1]) == [("2026-03-01", "2026-03-31", "March 2026")]
+    assert statement_windows(ITEMS) == [
+        ("2026-03-01", "2026-03-31", "March 2026"),
+        ("2026-04-01", "2026-04-30", "April 2026"),
+    ]
 
 
 def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
@@ -772,7 +717,7 @@ def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
     total; `!` on the rows dated inside a statement's days."""
     from expense.tui.screens.reconciliations import statement_windows, unfiled_rows
 
-    windows = statement_windows(ITEMS, "acc1")
+    windows = statement_windows(ITEMS[:1])
     rows = unfiled_rows(UNFILED, windows)
     assert [r[0] for r in rows] == ["bl-uber", "bl-farm", "bl-net"]  # as the engine sent them
     cells = [[str(c) for c in r[1]] for r in rows]

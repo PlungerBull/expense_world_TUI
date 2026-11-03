@@ -27,7 +27,6 @@ from expense.formatting import (
     whole_number,
 )
 from expense.reads import (
-    account_choices,
     currency_picks,
     fetch_all_cursor_pages,
     fetch_body,
@@ -391,54 +390,6 @@ def test_engine_error_attribute_access():
     assert err.status == 403
     assert err.code == "X"
     assert err.fields == {"a": "b"}
-
-
-# ---------------------------------------------------------------------------
-# account_choices
-# ---------------------------------------------------------------------------
-
-_ACCOUNT_ROWS = [
-    {
-        "id": "a1",
-        "name": "BCP",
-        "currency_code": "PEN",
-        "current_balance_cents": 100,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "a2",
-        "name": None,
-        "currency_code": None,
-        "is_person": False,
-        "opening_balance_transaction_id": None,
-    },
-    {
-        "id": "p1",
-        "name": "Mom",
-        "currency_code": "PEN",
-        "is_person": True,
-        "opening_balance_transaction_id": None,
-    },
-    {"name": "no-id row is skipped"},
-]
-
-
-def test_account_choices_includes_people_by_default():
-    rows = account_choices(_ACCOUNT_ROWS)
-    assert [r[0] for r in rows] == ["a1", "a2", "p1"]
-    assert rows[0] == ("a1", "BCP", "PEN")
-    assert rows[1] == ("a2", "(unnamed)", "?")  # null name/currency fallbacks
-
-
-def test_account_choices_can_exclude_people():
-    rows = account_choices(_ACCOUNT_ROWS, include_people=False)
-    assert [r[0] for r in rows] == ["a1", "a2"]
-
-
-def test_account_choices_with_balance_appends_cents():
-    rows = account_choices(_ACCOUNT_ROWS, include_people=False, with_balance=True)
-    assert rows[0] == ("a1", "BCP", "PEN", 100)
-    assert rows[1][3] is None  # missing balance stays None
 
 
 # ---------------------------------------------------------------------------
@@ -1084,20 +1035,27 @@ def test_the_statement_filter_goes_as_statement_id(configured, path, read, answe
 
 
 @respx.mock
-def test_the_holder_and_statement_reads_send_what_the_engine_takes(configured):
-    """`GET /holders` whole with no query (contract: GET /v1/holders); a holder's
-    statements by `holder_id` alone (contract: GET /v1/statements); one statement by
-    its id with no query (contract: GET /v1/statements/{statement_id}); each body
-    untouched."""
+def test_the_holders_read_sends_no_query(configured):
+    """`GET /holders` whole with no query (contract: GET /v1/holders), the body untouched."""
     from expense import config as config_module
-    from expense.reads import fetch_holders, fetch_statement, fetch_statements
+    from expense.reads import fetch_holders
 
     holders = holder_list([{"id": "h-sig", "account_ids": ["sig-pen", "sig-usd"]}])
-    statements = statement_list([{"id": "st-1", "holder_id": "h-sig"}])
+    route = respx.get(f"{BASE}/v1/holders").mock(return_value=httpx.Response(200, json=holders))
+    assert fetch_holders(config_module.ensure_loaded()) == holders
+    assert dict(route.calls.last.request.url.params) == {}
+
+
+@respx.mock
+def test_the_statement_reads_send_what_the_engine_takes(configured):
+    """An account's statements by `account_id` alone, and nothing else
+    (contract: GET /v1/statements, "`?account_id=<id>` is required"); one statement by its
+    id with no query (contract: GET /v1/statements/{statement_id}); each body untouched."""
+    from expense import config as config_module
+    from expense.reads import fetch_statement, fetch_statements
+
+    statements = statement_list([{"id": "st-1", "account_id": "acc-visa"}])
     one = statement_record({"id": "st-1", "name": "Octubre 2026"})
-    holders_route = respx.get(f"{BASE}/v1/holders").mock(
-        return_value=httpx.Response(200, json=holders)
-    )
     list_route = respx.get(f"{BASE}/v1/statements").mock(
         return_value=httpx.Response(200, json=statements)
     )
@@ -1105,11 +1063,9 @@ def test_the_holder_and_statement_reads_send_what_the_engine_takes(configured):
         return_value=httpx.Response(200, json=one)
     )
     cfg = config_module.ensure_loaded()
-    assert fetch_holders(cfg) == holders
-    assert fetch_statements(cfg, "h-sig") == statements
+    assert fetch_statements(cfg, "acc-visa") == statements
     assert fetch_statement(cfg, "st-1") == one
-    assert dict(holders_route.calls.last.request.url.params) == {}
-    assert dict(list_route.calls.last.request.url.params) == {"holder_id": "h-sig"}
+    assert dict(list_route.calls.last.request.url.params) == {"account_id": "acc-visa"}
     assert dict(one_route.calls.last.request.url.params) == {}
 
 

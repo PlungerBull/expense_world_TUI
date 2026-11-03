@@ -282,18 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-2. **The browse and the list of statements** (point 2; questions 2 and 3). The browse and
-   `statement_headers` in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4 "The Statements browse". With it the reads under it (point 15):
-   the statement builders in [helpers.py](../../tests/unit/helpers.py) read as the engine does
-   now, `account_id`, `balances` by `currency_code` with a beginning balance that may be
-   `null`, and `not_covered` on the complete; `fetch_statements` in
-   [reads.py](../../expense/reads.py) takes the account's id; the code is read from the account;
-   `balance_of`, `statement_columns` and their kin key by currency; `holder_of` and
-   `holder_mates` go. *Passes if:* one row per bank account with its currencies; each statement
-   row shows a difference per covered currency, its status and order, an uncovered currency and
-   a blank balance as questions 2 and 3 pick; the one read is
-   `GET /statements?account_id=`; the tests pin each.
 3. **The New statement form** (point 5; question 1). `NewReconciliationScreen` in
    [reconciliations.py](../../expense/tui/screens/reconciliations.py), already the one form for
    every account, gains a starting and an ending balance line per currency of the account, as
@@ -389,3 +377,6 @@ Not built in this spec; drafted into a new spec when it is done.
   `u No batch` key and the empty-list words (found while drawing
   [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html) on
   2026-11-02). Point 1 covers only "reconciliation"; "batch" is the owner's to rename.
+- **No test pins the "no batch" list's look switching on the Statements browse:** that `u`
+  brings back the shared table's edge and gap and `esc` takes them away (found by task 2's
+  review on 2026-11-03; the behaviour is right today).

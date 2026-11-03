@@ -7,7 +7,6 @@ sequence, labels/hints, suggestion pools, commit handlers, and the submit reques
 BarFormScreen (static Field list), EditFormScreen (a bank line's shared
 fields, then every part's, the read-only ones the line's `edit_limits` names,
 and its own send), NewReconciliationScreen (dynamic sequence) and
-NewCardStatementScreen (both halves of a card statement),
 SetupScreen (first-time setup: the engine address and key, then a profile).
 """
 
@@ -139,11 +138,6 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def _required(self) -> tuple[str, ...]:
         return ()
-
-    #: Read-only fields the summary states as plain lines, never dimmed or
-    #: marked `read-only`: a fact the form names, such as the accounts a card
-    #: statement's form creates both halves on.
-    _STATED: frozenset[str] = frozenset()
 
     def _summary_label(self, key: str) -> str:
         """A field's name in the summary; the bar label in lower case by default."""
@@ -346,9 +340,6 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         t.add_column("v")
         for key in seq:
             shown = self._display.get(key)
-            if key in self._STATED:
-                t.add_row(Text(self._summary_label(key)), Text(str(shown or "—")))
-                continue
             locked = key in self._locked
             if locked:
                 value = Text(f"{shown or '—'}  {self._locked_word(key)}".rstrip(), style="dim")

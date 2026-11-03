@@ -1,55 +1,44 @@
-"""Reconciliations — list, new batch, and the working/detail screen.
+"""Statements — the browse, the New statement form, and the statement's screen.
 
-A statement is one holder's (a card, or one bank account alone), with a
-balance per account of the holder (contract: "Statements"); every screen
-here shows the account it is opened on. The browse opens on the accounts
-alone; `⏎` on one reads its holder's statements in one read,
-`GET /statements?holder_id=`, whole, and opens them in a panel under the
-accounts, the cursor in it. They stand in the order the engine returns them:
-`date_start` ascending, then creation time, oldest first
-(contract: "Statements", "Ordering"). There `⏎` opens the working screen on
-the open account, `n` creates one for its holder, `u` swaps the panel for the
-account's bank lines in no batch (`GET /bank-lines`, newest first, a split
-purchase one row), and `esc` closes the panel. Nothing is read for an
+A statement is one account's: one name, one set of days, one status, and a starting
+and an ending balance for each currency it covers, never added together
+(contract: "Statements"). The browse opens on the bank accounts alone, one row each
+with its currencies and their balances; `⏎` on one reads its statements in one read,
+`GET /statements?account_id=`, whole, and opens them in a panel under the accounts,
+the cursor in it. They stand in the order the engine returns them: `date_start`
+ascending, then creation time, oldest first (contract: "Statements", "Ordering").
+There `⏎` opens the working screen on the open account, `n` creates one for it, `u`
+swaps the panel for the account's bank lines in no batch (`GET /bank-lines`, newest
+first, a split purchase one row), and `esc` closes the panel. Nothing is read for an
 account until you press `⏎` on it.
 
-On a holder with no statement code the panel lists one row per statement:
-Name, Period, the open account's Begin, End and Diff, from its entry in the
-statement's `balances`, and Status. On a holder with a code (pane 1 A of
-docs/mockups/expense-world-card-statement.html, and task 6's question 3 B
-for a holder of one account) its columns are Name, Period, one Diff per
-account of the holder (`Diff PEN`, `Diff USD`, in the accounts' order; `Diff`
-alone on a holder of one account), Status and Order: each Diff that
-account's difference; Order `in order` when the engine's `unplaced_count`
-and `shared_place_count` both read 0, `not in order` otherwise
-(contract: "Statements", "A statement's order"). The holder's code is read
-from `GET /holders`; its accounts are those naming it as `holder_id` in the
-accounts read (`statement_columns`). The panel's title names each of them,
-then the code, and each of them listed above carries the `▸`.
+The panel lists one row per statement: Name, Period, one Diff per currency the
+account holds (`Diff PEN`, `Diff USD`, in the account's order; `Diff` alone on an
+account of one currency), Status and, on an account with a statement code, Order:
+`in order` when the engine's `unplaced_count` and `shared_place_count` both read 0,
+`not in order` otherwise (contract: "Statements", "A statement's order"). A currency
+the statement does not cover shows nothing in its Diff column. The code is the
+account's own (contract: "What an account is", "Statement code"); an account without
+one has no Order column. The panel's title names the account, its currencies and its
+code.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine never derives a begin, so
 `beginning_balance_cents` is required. Both dates are required too
 (contract: POST /v1/statements), and are
 calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
-the field. One POST /statements with the holder and the account's balances.
-
-New card statement (NewCardStatementScreen), `n` on an account whose holder
-holds another account: name › date start › date end › this account's begin ›
-end › the other account's begin › end, the two accounts stated on a line of
-their own. One POST /statements with the holder and both accounts' balances
-creates the statement (contract: POST /v1/statements).
+the field. One POST /statements with `account_id` and the currency's balances.
 
 Working screen (ReconciliationDetailScreen): a statement opened on one
-account, its header that account's entry in the statement's `balances`
+currency, its header that currency's entry in the statement's `balances`
 (`account_view`), over a checklist of bank lines — the statement's on that
 account, then the account's in its period that are in no batch (draft) — or a
 read-only list of the statement's lines on it (completed), read from
 `GET /bank-lines` so a purchase split into parts is one row with its total.
 `space` toggles membership (PUT `statement_id` on one part, which moves
 the whole line) and reads the statement and its list again;
-`c`/`u`/`d` complete/revert/delete the whole statement, every account of its
-holder, under `/statements/{id}`; `r` reads the statement again by its id,
+`c`/`u`/`d` complete/revert/delete the whole statement, every currency of
+it, under `/statements/{id}`; `r` reads the statement again by its id,
 `GET /statements/{id}`, and the checklist. Complete needs a transaction on at
 least one account of the statement and locks the amount, date, title, account,
 operation number and statement of each, an empty title or operation number
@@ -60,7 +49,7 @@ every ending balance (contract: POST /v1/statements/{statement_id}/complete,
 none first asks for it in a box, saves it in the statement's `balances` with
 PUT /statements/{id}, then asks the usual "Complete statement?". A complete
 whose answer flags lines for review (each balance's `review_lines`, every
-account's of the holder) opens FlaggedLinesScreen on the statement's review list
+currency's) opens FlaggedLinesScreen on the statement's review list
 (pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
 working screen keeps a `⚑` line and `f` until its next status change.
 """
@@ -93,9 +82,7 @@ from expense.formatting import (
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import (
-    account_choices,
     fetch_all_cursor_pages,
-    holder_accounts,
     items_of,
     load_account_name_map,
 )
@@ -111,12 +98,12 @@ from expense.tui.screens._base import (
     screen_fetch_kwargs,
     transaction_delete_message,
 )
-from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.screens._form import FormScreen
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
-from expense.tui.widgets.cells import amount_cell, difference_cell, operation_cell
+from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
@@ -126,8 +113,6 @@ from expense.tui.widgets.refusal import toast
 # (format_status / format_period) — one copy, per the §5 rule.
 _period = formatting.format_period
 
-_BATCH_HEADERS = ["Name", "Period", "Begin", "End", "Diff", "Status"]
-_BATCH_RIGHT = {2, 3, 4}
 _UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Amount"]
 
 #: What the "no batch" list asks the engine for, with the account and no dates:
@@ -139,35 +124,30 @@ _UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Amount"]
 UNFILED_FILTER = {"unreconciled": True}
 
 
-def balance_of(statement: dict, account_id: object) -> dict:
-    """The account's entry in a statement's `balances`, `{}` when it holds none.
-    A statement holds one per live account of its holder, each in that
-    account's own currency (contract: "Statements", "Statement response")."""
+def balance_of(statement: dict, currency_code: object) -> dict:
+    """The currency's entry in a statement's `balances`, `{}` when the statement
+    does not cover it. A statement holds one per currency it covers, each keyed
+    by `currency_code` (contract: "Statements", "Which currencies a statement covers")."""
     for balance in statement.get("balances") or []:
-        if isinstance(balance, dict) and balance.get("account_id") == account_id:
+        if isinstance(balance, dict) and balance.get("currency_code") == currency_code:
             return balance
     return {}
 
 
-def statement_windows(statements: list[dict], account_id) -> list[tuple[str, str, str]]:
-    """`(first_day, last_day, name)` of every statement holding a balance of
-    this account: the days inside which the "no batch" list marks a row `!`
-    (`unfiled_rows`).
+def statement_windows(statements: list[dict]) -> list[tuple[str, str, str]]:
+    """`(first_day, last_day, name)` of every statement of the account: the days
+    inside which the "no batch" list marks a row `!` (`unfiled_rows`).
 
     Drafts are in here as well: a line in no statement dated inside a draft's
     days is one its close will flag for review, not a refusal: the close goes
     through (contract: POST /v1/statements/{statement_id}/complete). Completed
     statements are in here too: a line in no statement inside one's days is a
     line its close flagged, or one dated on its last day, which stays open
-    until the holder's next statement is completed
+    until the account's next statement is completed
     (contract: "Transactions (Ledger)", "Sealed periods"), and the pane exists
     to surface it.
     """
-    return [
-        (s["date_start"], s["date_end"], s.get("name") or "—")
-        for s in statements
-        if balance_of(s, account_id)
-    ]
+    return [(s["date_start"], s["date_end"], s.get("name") or "—") for s in statements]
 
 
 def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
@@ -273,89 +253,100 @@ def first_part(line: dict) -> dict | None:
     return part if isinstance(part, dict) and part.get("id") else None
 
 
-def batch_rows(items: list[dict], account_id: object, palette: Palette | None = None) -> list:
-    """The browse's lower pane on a holder with no statement code, one row per
-    statement (no Account column): its name and days, then `account_id`'s
-    balances in it, from that account's entry in `balances` (`balance_of`),
-    and its status."""
-    rows = []
-    for it in items:
-        status = it.get("status")
-        balance = balance_of(it, account_id)
-        cells = [
-            it.get("name") or "(unnamed)",
-            _period(it),
-            amount_cell(balance.get("beginning_balance_cents"), palette, BALANCE_RULE),
-            amount_cell(balance.get("ending_balance_cents"), palette, BALANCE_RULE),
-            difference_cell(balance.get("difference_cents"), palette),
-            formatting.format_status(status),
-        ]
-        rows.append((it.get("id"), cells, "dim" if status == 2 else ""))
-    return rows
+class BrowseAccount(NamedTuple):
+    """One row of the browse: a bank account, its currencies with the balance in
+    each as `(code, current_balance_cents)` in the engine's order, and its own
+    statement code, `None` when it has none."""
+
+    id: str
+    name: str
+    currencies: tuple[tuple[str, int | None], ...]
+    code: str | None
+
+    @property
+    def codes(self) -> tuple[str, ...]:
+        return tuple(code for code, _cents in self.currencies)
+
+    @property
+    def phrase(self) -> str:
+        """`PEN`, or `PEN + USD`."""
+        return formatting.currencies_phrase(self.codes)
 
 
-def holder_of(accounts: list[dict], account_id: object) -> str | None:
-    """The id of the holder `account_id` is on, from one accounts read: every
-    real account is on exactly one (contract: "Holders")."""
-    own = next((a for a in accounts if a.get("id") == account_id), None)
-    holder = own.get("holder_id") if own else None
-    return str(holder) if holder else None
+def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
+    """The browse's rows from one accounts read, in the order given: every bank
+    account once under its own name, people left out. The currencies are the
+    account's `currencies` as sent (`reads.held_currencies`, the one walk over
+    them), and the statement code is the account's
+    (contract: "What an account is", "Statement code"). `AccountPick` of the bank
+    import carries neither a balance nor a code, so it does not serve here."""
+    held: dict[str, list[tuple[str, int | None]]] = {}
+    for account, _name, entry in reads.held_currencies(items, include_people=False):
+        held.setdefault(account["id"], []).append(
+            (entry["currency_code"], entry.get("current_balance_cents"))
+        )
+    return [
+        BrowseAccount(
+            a["id"],
+            a.get("name") or "(unnamed)",
+            tuple(held.get(a["id"], [])),
+            a.get("statement_code") or None,
+        )
+        for a in items
+        if a.get("id") and not a.get("is_person")
+    ]
 
 
-def holder_mates(accounts: list[dict], account_id: object) -> list[tuple[str, str, str]]:
-    """Every account on `account_id`'s holder as `(id, name, currency)`, the
-    account itself included, in the accounts read's order: the accounts a
-    statement of the holder holds a balance for
-    (contract: "Statements", "A statement covers its whole holder")."""
-    holder = holder_of(accounts, account_id)
-    held = holder_accounts(accounts).get(holder, []) if holder else []
-    return [(a["id"], a.get("name") or "(unnamed)", a.get("currency_code") or "?") for a in held]
+def balance_figure(code: str, cents: int | None, palette: Palette | None) -> Text:
+    """One currency's balance as `-234.20 PEN`."""
+    figure = amount_text(cents, palette, AMOUNT_RULE)
+    figure.append(f" {code}")
+    return figure
 
 
-class StatementAccounts(NamedTuple):
-    """What a statement list is titled and laid out by: the open account's
-    holder's statement code, and the accounts it shows a Diff column for as
-    `(id, name, currency)`, in the accounts read's order."""
-
-    code: str
-    accounts: tuple[tuple[str, str, str], ...]
-
-
-def statement_columns(
-    account_id: object, accounts: list[dict], codes: dict[str, str | None]
-) -> StatementAccounts | None:
-    """The statement list of `account_id`'s panel: its holder's statement code
-    and the holder's accounts (`holder_mates`); None on a holder with no code.
-
-    The code is the holder's, never an account's (contract: "Holders",
-    "Statement code"): `codes` maps each holder's id to its `statement_code`,
-    from one `GET /holders`. Every account of the holder shows, since each
-    statement holds a balance for each of them; a holder is archived whole,
-    so its accounts are listed or archived together
-    (contract: "Holders", "A holder is archived whole").
-    """
-    holder = holder_of(accounts, account_id)
-    code = codes.get(holder) if holder else None
-    if not code:
-        return None
-    return StatementAccounts(code, tuple(holder_mates(accounts, account_id)))
+def balances_cells(accounts: list[BrowseAccount], palette: Palette | None) -> list[Text]:
+    """Each account's balances, one figure and its code per currency, never added
+    together. Every account's first figure ends in one place, the widest one's,
+    and the second follows it: `-234.20 PEN   -30.98 USD` over `12,450.00 PEN`."""
+    firsts = [
+        balance_figure(*acct.currencies[0], palette) if acct.currencies else Text()
+        for acct in accounts
+    ]
+    width = max((first.cell_len for first in firsts), default=0)
+    cells = []
+    for acct, first in zip(accounts, firsts, strict=True):
+        cell = Text(" " * (width - first.cell_len))
+        cell.append_text(first)
+        for code, cents in acct.currencies[1:]:
+            cell.append("   ")
+            cell.append_text(balance_figure(code, cents, palette))
+        cells.append(cell)
+    return cells
 
 
-def statement_headers(accounts: tuple) -> tuple[list[str], set[int]]:
+#: The blank cells between two columns of the browse's lists (panes 2 and 3 of
+#: docs/mockups/expense-world-statements-screens.html), two where the shared table has three.
+BROWSE_GAP = 2
+#: The account list's headers: `Account` over the names, which stand two cells in, after
+#: the open account's `▸`. The Balances column takes the width left over.
+_ACCOUNT_HEADERS = ["  Account", "Currencies", "Balances"]
+
+
+def statement_headers(
+    currencies: tuple[str, ...], *, with_order: bool
+) -> tuple[list[str], set[int]]:
     """`(headers, right-aligned columns)` of a statement list: Name, Period,
-    a Diff per account of the statement, `(id, name, currency)` in the
-    accounts' order, then Status and Order. One account: `Diff` alone."""
-    if len(accounts) == 1:
-        diffs = ["Diff"]
-    else:
-        diffs = [f"Diff {currency}" for _aid, _name, currency in accounts]
-    return ["Name", "Period", *diffs, "Status", "Order"], set(range(2, 2 + len(diffs)))
+    a Diff per currency of the account in its order (`Diff` alone on one), Status,
+    and Order when the account has a statement code."""
+    diffs = ["Diff"] if len(currencies) == 1 else [f"Diff {code}" for code in currencies]
+    headers = ["Name", "Period", *diffs, "Status", *(["Order"] if with_order else [])]
+    return headers, set(range(2, 2 + len(diffs)))
 
 
 def order_cell(item: dict, palette: Palette | None = None) -> str | Text:
     """Whether a statement is in order, as the engine counts it: `in order`
     when its lines with no place and its places held twice both read 0,
-    `not in order` otherwise; null counts (a holder with no statement code,
+    `not in order` otherwise; null counts (an account with no statement code,
     so no order) show nothing (contract: "Statements", "A statement's order")."""
     unplaced, shared = item.get("unplaced_count"), item.get("shared_place_count")
     if unplaced is None or shared is None:
@@ -365,49 +356,59 @@ def order_cell(item: dict, palette: Palette | None = None) -> str | Text:
     return Text("not in order", style=palette.warning) if palette else "not in order"
 
 
-def statement_rows(items: list[dict], accounts: tuple, palette: Palette | None = None) -> list:
-    """One row per statement of a holder with a statement code, from one
-    `GET /statements?holder_id=` answer in the engine's order, keyed by the
-    statement's id.
+def statement_rows(
+    items: list[dict],
+    currencies: tuple[str, ...],
+    palette: Palette | None = None,
+    *,
+    with_order: bool,
+) -> list:
+    """One row per statement of an account, from one `GET /statements?account_id=`
+    answer in the engine's order, keyed by the statement's id.
 
-    `accounts` are the holder's accounts (`statement_columns`),
-    `(id, name, currency)`, one Diff column each: that account's
-    `difference_cents`, from its entry in the statement's `balances`. The
-    status is the statement's one status, which holds for every account of
-    its holder (contract: "Statements").
+    `currencies` are the account's, one Diff column each: that currency's
+    `difference_cents`, from its entry in the statement's `balances`. A currency
+    the statement does not cover has no entry and shows nothing, and a difference
+    not checked yet (`null`) shows nothing too (`difference_cell`). The status is
+    the statement's one status (contract: "Statements"); `with_order` adds the
+    Order cell, on an account with a statement code.
     """
     rows = []
     for item in items:
         status = item.get("status")
-        diffs = [
-            difference_cell(balance_of(item, aid).get("difference_cents"), palette)
-            for aid, _name, _currency in accounts
-        ]
         cells = [
             item.get("name") or "(unnamed)",
             _period(item),
-            *diffs,
+            *(
+                difference_cell(balance_of(item, code).get("difference_cents"), palette)
+                for code in currencies
+            ),
             formatting.format_status(status),
-            order_cell(item, palette),
         ]
+        if with_order:
+            cells.append(order_cell(item, palette))
         rows.append((item.get("id"), cells, "dim" if status == 2 else ""))
     return rows
 
 
-def _read_statements(cfg, accounts: list[dict], account_id: object, kw: dict) -> list:
-    """The panel's one read: every statement of `account_id`'s holder, whole
-    (`GET /statements?holder_id=`). A listed account is a real one, on exactly
-    one holder (contract: "Holders"); were it on none, the engine's refusal of
-    the empty `holder_id` is what shows."""
-    holder = holder_of(accounts, account_id) or ""
-    return items_of(reads.fetch_statements(cfg, holder, **kw))
+def _read_statements(cfg, account_id: object, kw: dict) -> list:
+    """The panel's one read: every statement of the account, whole
+    (`GET /statements?account_id=`)."""
+    return items_of(reads.fetch_statements(cfg, str(account_id), **kw))
 
 
-def account_view(statement: dict, account_id: object) -> dict:
-    """A statement as the batch screen reads it, opened on one account: the
-    statement's own fields, then that account's entry in `balances`
-    (`account_id` and its balances) over them."""
-    return {**statement, **balance_of(statement, account_id)}
+def account_view(statement: dict, currency_code: object) -> dict:
+    """A statement as the batch screen reads it, opened on one currency: the
+    statement's own fields, then that currency's entry in `balances`
+    (`currency_code` and its balances) over them."""
+    return {**statement, **balance_of(statement, currency_code)}
+
+
+def view_currency(statement: dict, held: tuple[str, ...]) -> str | None:
+    """The currency a statement opens on: the first of the account's currencies
+    the statement covers, else the account's first."""
+    covered = [code for code in held if balance_of(statement, code)]
+    return covered[0] if covered else (held[0] if held else None)
 
 
 class _AccountList(CursorList):
@@ -453,23 +454,20 @@ class _PanelList(CursorList):
 
 
 class ReconciliationsScreen(SectionScreen):
-    """Accounts first; the statements of one account's holder on `⏎`.
+    """Accounts first; the statements of one account on `⏎`.
 
     The screen opens on the account list alone, and nothing about statements
     is read until you press `⏎` on an account, so moving the cursor costs
-    nothing. `⏎` reads its holder's statements in one read,
-    `GET /statements?holder_id=`, whole, in the order the module docstring
-    gives, each row showing the open account's balances in it: on a holder
-    with no statement code its Begin, End and Diff; on one with a code a Diff
-    per account of the holder. It opens the panel under the accounts with the
-    cursor in it. There `⏎` opens a statement on the open account, `n`
-    creates one, `u` swaps the panel for the account's rows in no batch, and
-    `esc` closes the panel.
+    nothing. `⏎` reads its statements in one read, `GET /statements?account_id=`,
+    whole, in the order the module docstring gives, each row showing a Diff per
+    currency of the account, its status and, on an account with a statement code,
+    its order. It opens the panel under the accounts with the cursor in it.
+    There `⏎` opens a statement on the open account, `n` creates one, `u` swaps
+    the panel for the account's rows in no batch, and `esc` closes the panel.
 
-    The accounts are one read, archived ones left out: a holder is archived
-    whole, so an account listed is on a live holder whose every account is
-    listed too (contract: "Holders", "A holder is archived whole"). The
-    holders are one read, for each one's statement code.
+    The accounts are one read, archived ones left out; each shows its currencies
+    and the balance in each, and its own statement code decides whether the
+    statement list has an Order column.
     """
 
     crumb = ("Capture & ledger", "Statements")
@@ -486,11 +484,8 @@ class ReconciliationsScreen(SectionScreen):
 
     def __init__(self) -> None:
         super().__init__()
-        self._recons: list = []  # the open account's holder's statements, engine order
-        self._accounts: list = []  # (id, name, currency, balance_cents)
-        # the accounts read: pairs an account with its holder's other accounts
-        self._known: list[dict] = []
-        self._codes: dict[str, str | None] = {}  # holder id → its statement code
+        self._recons: list = []  # the open account's statements, engine order
+        self._accounts: list[BrowseAccount] = []
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
@@ -504,58 +499,52 @@ class ReconciliationsScreen(SectionScreen):
         self._batch_list: CursorList | None = None
 
     def fetch(self) -> dict:
-        """The accounts and the holders, and the open account's holder's
-        statements when a panel is open — which is how a return from a
+        """The accounts, and the open account's statements
+        when a panel is open — which is how a return from a
         statement, or from `n`, comes back to the same panel."""
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
         kw = screen_fetch_kwargs(self.app)
         accts = items_of(reads.fetch_accounts(cfg, **kw))
-        holders = items_of(reads.fetch_holders(cfg, **kw))
-        accounts = account_choices(accts, include_people=False, with_balance=True)
+        accounts = browse_accounts(accts)
         recons = None
         if self._open_aid is not None:
-            recons = _read_statements(cfg, accts, self._open_aid, kw)
+            recons = _read_statements(cfg, self._open_aid, kw)
         return {
             "recons": recons,
             "accounts": accounts,
-            "known": accts,
-            "codes": {h.get("id"): h.get("statement_code") for h in holders},
         }
 
-    def _selected_account(self):
+    def _selected_account(self) -> BrowseAccount | None:
         return self._accounts[self._acct_idx] if self._accounts else None
 
-    def _open_account(self):
-        return next((a for a in self._accounts if a[0] == self._open_aid), None)
-
-    def _open_statement(self) -> StatementAccounts | None:
-        """The open account's holder's code and the accounts its statement list
-        shows; None with no panel open or on a holder with no code."""
-        if self._open_aid is None:
-            return None
-        return statement_columns(self._open_aid, self._known, self._codes)
+    def _open_account(self) -> BrowseAccount | None:
+        return next((a for a in self._accounts if a.id == self._open_aid), None)
 
     def _batch_caption(self) -> str:
-        statement = self._open_statement()
-        if statement is not None:
-            names = " + ".join(name for _aid, name, _currency in statement.accounts)
-            return f"Statements · {names} · {statement.code}   ·   oldest → newest"
+        """`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`, the
+        account's own code last when it has one."""
         acct = self._open_account()
-        return f"Statements · {acct[1] if acct else '—'}   ·   oldest → newest"
+        if acct is None:
+            return "Statements · —   ·   oldest → newest"
+        parts = ["Statements", acct.name, acct.phrase]
+        if acct.code:
+            parts.append(acct.code)
+        return " · ".join(part for part in parts if part) + "   ·   oldest → newest"
 
     def _panel_headers(self) -> tuple[list[str], set[int]]:
-        statement = self._open_statement()
-        if statement is None:
-            return _BATCH_HEADERS, _BATCH_RIGHT
-        return statement_headers(statement.accounts)
+        acct = self._open_account()
+        return statement_headers(acct.codes if acct else (), with_order=bool(acct and acct.code))
 
     def _panel_rows(self) -> list:
-        statement = self._open_statement()
-        if statement is None:
-            return batch_rows(self._recons, self._open_aid, palette=PALETTE)
-        return statement_rows(self._recons, statement.accounts, palette=PALETTE)
+        acct = self._open_account()
+        return statement_rows(
+            self._recons,
+            acct.codes if acct else (),
+            palette=PALETTE,
+            with_order=bool(acct and acct.code),
+        )
 
     # ---- adaptive window: the panel splits #content -----------------------
     def pane_rows(self) -> int:
@@ -580,17 +569,23 @@ class ReconciliationsScreen(SectionScreen):
                 lst.set_page_size(self.pane_rows())
 
     def _account_rows(self) -> list:
-        """The open account carries an accent `▸`, so you can see whose panel
-        is showing once the cursor has gone down into it; on a holder with a
-        statement code, every account the panel's statement list shows does."""
-        statement = self._open_statement()
-        marked = {aid for aid, _name, _currency in statement.accounts} if statement else set()
-        marked |= {self._open_aid} if self._open_aid else set()
-        rows = []
-        for aid, name, cur, bal in self._accounts:
-            label = Text.assemble(("▸ ", ACCENT), name) if aid in marked else name
-            rows.append((aid, [label, cur, amount_cell(bal, PALETTE, AMOUNT_RULE)]))
-        return rows
+        """The open account carries an accent `▸` in a two-cell gutter before its name, so
+        you can see whose panel is showing once the cursor has gone down into it, and
+        every name stays where it is (`_ACCOUNT_HEADERS` indents the header the same)."""
+        balances = balances_cells(self._accounts, PALETTE)
+        return [
+            (
+                acct.id,
+                [
+                    Text.assemble(("▸ ", ACCENT), acct.name)
+                    if acct.id == self._open_aid
+                    else Text(f"  {acct.name}"),
+                    acct.phrase,
+                    cell,
+                ],
+            )
+            for acct, cell in zip(self._accounts, balances, strict=True)
+        ]
 
     def _new_batch_list(self) -> CursorList:
         headers, align_right = self._panel_headers()
@@ -601,14 +596,15 @@ class ReconciliationsScreen(SectionScreen):
             empty="none yet · n to create one",
             caption=self._batch_caption(),
             page_size=self.pane_rows(),
+            gap=BROWSE_GAP,
+            edge=False,
+            flex={len(headers) - 1: 1},
         )
         batch_list.id = "batches"
         return batch_list
 
     def build(self, data: dict) -> list[Widget]:
         self._accounts = data["accounts"]
-        self._known = data["known"]
-        self._codes = data["codes"]
         if data["recons"] is None or self._open_account() is None:
             self._open_aid, self._recons = None, []
         else:
@@ -616,11 +612,13 @@ class ReconciliationsScreen(SectionScreen):
         self._by_id = {r.get("id"): r for r in self._recons}
         self._acct_idx = min(self._acct_idx, max(0, len(self._accounts) - 1))
         self._accts_list = _AccountList(
-            ["Account", "Cur", "Balance"],
+            _ACCOUNT_HEADERS,
             self._account_rows(),
-            align_right={2},
             empty="(no bank accounts)",
             page_size=self.pane_rows(),
+            gap=BROWSE_GAP,
+            edge=False,
+            flex={2: 1},
         )
         self._accts_list.id = "accts"
         widgets: list[Widget] = [
@@ -655,7 +653,7 @@ class ReconciliationsScreen(SectionScreen):
 
     def _set_crumb(self) -> None:
         acct = self._open_account()
-        trail = self.crumb + ((acct[1],) if acct else ())
+        trail = self.crumb + ((acct.name,) if acct else ())
         self.query_one("#crumb", Breadcrumb).set_trail(trail)
         self.refresh_bindings()
 
@@ -697,19 +695,20 @@ class ReconciliationsScreen(SectionScreen):
                 self._acct_idx = event.index
                 self._load_batches(event.key)
             return
-        # `⏎` on a statement opens its detail on the open account, in its currency
+        # `⏎` on a statement opens its detail on one of the account's currencies
         item = self._by_id.get(event.key)
         acct = self._open_account()
         if item and acct:
             self._resume_key = event.key
+            currency = view_currency(item, acct.codes)
             self.app.push_screen(
-                ReconciliationDetailScreen(account_view(item, acct[0]), currency=acct[2]),
+                ReconciliationDetailScreen(account_view(item, currency), currency=currency),
                 lambda _result: self._load(),
             )
 
     @work(thread=True, exclusive=True, group="recon-batches")
     def _load_batches(self, account_id: str) -> None:
-        """`⏎` on an account: read its holder's statements. A read that fails
+        """`⏎` on an account: read its statements. A read that fails
         leaves the panel closed, with a toast."""
         from expense import config as config_module
 
@@ -717,7 +716,7 @@ class ReconciliationsScreen(SectionScreen):
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            statements = _read_statements(cfg, self._known, account_id, kw)
+            statements = _read_statements(cfg, account_id, kw)
         except Exception as exc:
             if not worker.is_cancelled:
                 self.app.call_from_thread(
@@ -774,7 +773,14 @@ class ReconciliationsScreen(SectionScreen):
         if self._batch_list is not None:
             self._batch_list.set_growth(more=None)
             headers, align_right = self._panel_headers()
-            self._batch_list.set_headers(headers, align_right=align_right)
+            self._batch_list.set_headers(
+                headers,
+                align_right=align_right,
+                gap=BROWSE_GAP,
+                flex={len(headers) - 1: 1},
+                edge=False,
+            )
+            self._batch_list.remove_class("unfiled")
             self._batch_list.set_caption(self._batch_caption())
             self._batch_list.set_rows(self._panel_rows())
             self._batch_list.focus()
@@ -815,10 +821,11 @@ class ReconciliationsScreen(SectionScreen):
         self._unfiled_busy = True
         self._mode = "unfiled"
         self._batch_list.set_headers(_UNFILED_HEADERS, align_right={3})
-        self._batch_list.set_caption(f"In no batch · {acct[1]}   ·   loading…")
+        self._batch_list.add_class("unfiled")
+        self._batch_list.set_caption(f"In no batch · {acct.name}   ·   loading…")
         self._batch_list.set_rows([])
         self.refresh_bindings()
-        self._load_unfiled(acct[0])
+        self._load_unfiled(acct.id)
 
     def _unfiled_page(self, account_id: str):
         """`(limit, after) -> body`: this account's bank lines in no batch,
@@ -870,7 +877,7 @@ class ReconciliationsScreen(SectionScreen):
         if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled.extend(items)
-        windows = statement_windows(self._recons, self._open_aid)
+        windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.append_rows(rows, more=more)
@@ -887,9 +894,9 @@ class ReconciliationsScreen(SectionScreen):
             return
         self._unfiled = list(items)
         self._unfiled_grow.took(next_cursor, total)
-        # the panel already holds the holder's statements: the `!` costs no
+        # the panel already holds the account's statements: the `!` costs no
         # read of its own
-        windows = statement_windows(self._recons, self._open_aid)
+        windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.set_rows(rows)
@@ -901,7 +908,7 @@ class ReconciliationsScreen(SectionScreen):
     def _unfiled_caption(self) -> str:
         """`In no batch · BCP PEN · 20 of 1716 loaded · newest first · …`"""
         acct = self._open_account()
-        label = acct[1] if acct else "—"
+        label = acct.name if acct else "—"
         return (
             f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
             " · newest first   ·   ! dated inside a statement"
@@ -925,14 +932,12 @@ class ReconciliationsScreen(SectionScreen):
         if line is None:
             return
         acct = self._open_account()
-        ask_line_delete(self, line, acct[1] if acct else "—", after=self._reload_unfiled)
+        ask_line_delete(self, line, acct.name if acct else "—", after=self._reload_unfiled)
 
     def action_new(self) -> None:
-        """`n` — a statement for the open account's holder, or, with no panel
-        open, for the holder of the account under the cursor. Saved, it opens
-        that account's panel with the cursor on the new one. On an account
-        whose holder holds another account, a card's, it is the card
-        statement's form, both accounts' balances in one write."""
+        """`n` — a statement for the open account, or, with no panel open, for the
+        account under the cursor. Saved, it opens that account's panel with the
+        cursor on the new one."""
         acct = self._open_account() or self._selected_account()
         if not acct:
             self.notify("No account selected.", severity="error")
@@ -941,21 +946,15 @@ class ReconciliationsScreen(SectionScreen):
         def saved(new_id: str | None) -> None:
             if new_id is None:  # left without saving: nothing changed
                 return
-            self._open_aid = acct[0]
+            self._open_aid = acct.id
             self._resume_key = new_id
             self._load()
 
-        holder = holder_of(self._known, acct[0])
-        code = self._codes.get(holder) if holder else None
-        others = [mate for mate in holder_mates(self._known, acct[0]) if mate[0] != acct[0]]
-        form = (
-            NewReconciliationScreen(account_id=acct[0], account_name=acct[1], holder_id=holder)
-            if not others
-            else NewCardStatementScreen(
-                account=acct[:3], partner=others[0], code=code or "", holder_id=holder
-            )
+        currency = acct.codes[0] if acct.codes else None
+        self.app.push_screen(
+            NewReconciliationScreen(account_id=acct.id, account_name=acct.name, currency=currency),
+            saved,
         )
-        self.app.push_screen(form, saved)
 
 
 # --------------------------------------------------------------------------- #
@@ -983,11 +982,8 @@ _R_HINTS = {
     "begin": f"signed decimal · your statement's opening balance\n{_OPENING_NOTE}",
     "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
-#: A balance's keys: the open account's, and on a card statement's form the
-#: other account's too (`twin_…`).
-_BEGINS = {"begin", "twin_begin"}
-_ENDS = {"end", "twin_end"}
-_AMOUNTS = _BEGINS | _ENDS
+_BEGINS = {"begin"}
+_ENDS = {"end"}
 _BEGIN_UNREADABLE = "Begin balance: a signed decimal, e.g. 9580.00"
 #: The note for an ending balance the money parser cannot read — the New
 #: Reconciliation form's and the batch screen's ending-balance box.
@@ -996,11 +992,11 @@ _DATES = {"date_start", "date_end"}
 
 
 class NewReconciliationScreen(FormScreen):
-    """A new statement of a holder of one account: one `POST /statements` with
-    the holder and that account's balances (contract: POST /v1/statements).
-    Opened from the browse on its account (`account_id`, `holder_id`), or
-    alone, with the account picked on the form and its holder read off the
-    accounts read."""
+    """A new statement of an account: one `POST /statements` with `account_id`
+    and an entry in `balances` for the account's currency
+    (contract: POST /v1/statements). Opened from the browse on its account
+    (`account_id`, `currency`), or alone, with the account picked on the form
+    and its first currency read off the accounts read."""
 
     RESOURCE = "statements"
 
@@ -1009,14 +1005,14 @@ class NewReconciliationScreen(FormScreen):
         account_id: str | None = None,
         account_name: str | None = None,
         *,
-        holder_id: str | None = None,
+        currency: str | None = None,
     ) -> None:
         super().__init__()
         self._values: dict = {}
         self._display: dict = {}
         self._accounts: list = []
-        self._holders: dict = {}  # account id → its holder id, from the accounts read
-        self._holder_id = holder_id
+        self._currencies: dict = {}  # account id → its first currency, from the accounts read
+        self._currency = currency
         self._preset_account = account_id
         self._new_id: str | None = None
         if account_id:  # created from within an account — don't ask for it again
@@ -1047,7 +1043,7 @@ class NewReconciliationScreen(FormScreen):
         return key == "account"
 
     def _bar_value(self, key: str) -> str:
-        if key in _AMOUNTS and key in self._values:
+        if key in _BEGINS | _ENDS and key in self._values:
             return amount_to_text(self._values[key])
         if key in ("name", *_DATES):
             return str(self._values.get(key, "") or "")
@@ -1068,13 +1064,14 @@ class NewReconciliationScreen(FormScreen):
             self.app.call_from_thread(toast, self, format_error(exc), severity="error")
             return
         items = items_of(body)
-        holders = {a.get("id"): a.get("holder_id") for a in items}
-        accounts = account_choices(items, include_people=False)
-        self.app.call_from_thread(self._set_accounts, accounts, holders)
+        rows = browse_accounts(items)
+        currencies = {a.id: a.codes[0] for a in rows if a.codes}
+        accounts = [(a.id, a.name, a.codes[0] if a.codes else "?") for a in rows]
+        self.app.call_from_thread(self._set_accounts, accounts, currencies)
 
-    def _set_accounts(self, accounts: list, holders: dict) -> None:
+    def _set_accounts(self, accounts: list, currencies: dict) -> None:
         self._accounts = accounts
-        self._holders = holders
+        self._currencies = currencies
         self._recompute(self.query_one("#bar", Input).value)
         self._refresh_view()
 
@@ -1108,7 +1105,7 @@ class NewReconciliationScreen(FormScreen):
                 return
             self._values["account"] = picked[0]
             self._display["account"] = picked[1]
-            self._holder_id = self._holders.get(picked[0])
+            self._currency = self._currencies.get(picked[0])
             self._advance()
         elif key in _DATES:
             # Both required. The check is the exact day shape the engine takes
@@ -1147,125 +1144,31 @@ class NewReconciliationScreen(FormScreen):
 
     # ---- submit ----------------------------------------------------------
     def _payload(self) -> dict:
-        """The statement: its id, minted here, its holder, name and days, and
-        one entry in `balances` per account of the holder
+        """The statement: its id, minted here, its account, name and days, and
+        one entry in `balances` for the account's currency, keyed by its code
         (contract: POST /v1/statements)."""
         self._new_id = str(uuid.uuid4())
         return {
             "id": self._new_id,
-            "holder_id": self._holder_id,
+            "account_id": self._values["account"],
             "name": self._values["name"],
             # calendar days, sent as typed — the engine refuses any datetime here
             "date_start": self._values["date_start"],
             "date_end": self._values["date_end"],
-            "balances": self._balances(),
+            "balances": [self._balance_entry()],
         }
 
-    def _balances(self) -> list[dict]:
-        """The holder's one account's balances."""
-        return [self._balance_entry(self._values["account"], "")]
-
-    def _balance_entry(self, account_id: str, side: str) -> dict:
-        """One account's entry in `balances`: its begin, and its end when one
-        was typed (left out, it is not entered yet). `side` is the prefix of
-        the form's keys for that account: `""` or `"twin_"`."""
-        entry = {"account_id": account_id, "beginning_balance_cents": self._values[f"{side}begin"]}
-        if self._values.get(f"{side}end") is not None:
-            entry["ending_balance_cents"] = self._values[f"{side}end"]
+    def _balance_entry(self) -> dict:
+        """The currency's entry in `balances`: its begin, and its end when one
+        was typed (left out, it is not entered yet)."""
+        entry = {"currency_code": self._currency, "beginning_balance_cents": self._values["begin"]}
+        if self._values.get("end") is not None:
+            entry["ending_balance_cents"] = self._values["end"]
         return entry
 
     def _done(self) -> None:
         """Dismiss with the new id — minted here, in `_payload` — so the browse
         can land its cursor on the statement just made."""
-        self.notify("Statement created.")
-        self.dismiss(self._new_id)
-
-
-class NewCardStatementScreen(NewReconciliationScreen):
-    """A card statement: both accounts' balances in one form and one write
-    (pane 2 A of docs/mockups/expense-world-card-statement.html).
-
-    Opened by `n` on an account whose holder holds another account, a card's
-    (`holder_mates`). The name and the days are typed once; then this
-    account's balances, then the other account's, each in its own currency.
-    `^s Create both` sends one `POST /statements` with the holder and an entry
-    in `balances` for each account (contract: POST /v1/statements). The
-    statement is created whole, or not at all; a refusal is the engine's words
-    in the form's `Failed` note, a key on one account's balances naming it by
-    its id, or a key on the request's list by its entry's place
-    (contract: "Statements", "Which account a refusal names"), and the form
-    stays with what was typed. Saved, it says `Statement created.` and hands
-    back the statement's id, as the one-account form does.
-    """
-
-    BINDINGS = form_bindings("Create both")
-    _STATED = frozenset({"accounts"})
-
-    def __init__(self, *, account: tuple, partner: tuple, code: str, holder_id: str | None) -> None:
-        """`account` and `partner` are `(id, name, currency)`: the account the
-        list was opened from, whose balances come first, and the other account
-        of its holder; `code` is the holder's statement code, `""` for none,
-        and `holder_id` the holder."""
-        super().__init__(account_id=account[0], account_name=account[1], holder_id=holder_id)
-        self._currencies = {"": account[2], "twin_": partner[2]}
-        self._partner_id = partner[0]
-        self._locked = {"accounts"}
-        accounts = f"{account[1]} + {partner[1]}"
-        self._display["accounts"] = f"{accounts} · {code}" if code else accounts
-
-    def _sequence(self) -> list[str]:
-        return [
-            "name",
-            "accounts",
-            "date_start",
-            "date_end",
-            "begin",
-            "end",
-            "twin_begin",
-            "twin_end",
-        ]
-
-    def _required(self) -> tuple[str, ...]:
-        return ("name", "date_start", "date_end", "begin", "twin_begin")
-
-    def _balance(self, key: str) -> tuple[str, str] | None:
-        """`(BEGIN BALANCE|END BALANCE, currency)` for a balance's key, else None."""
-        if key not in _AMOUNTS:
-            return None
-        side = "twin_" if key.startswith("twin_") else ""
-        return _R_LABELS[key.removeprefix("twin_")], self._currencies[side]
-
-    def _label(self, key: str) -> str:
-        balance = self._balance(key)
-        if balance is not None:
-            return f"{balance[0]} {balance[1]}"
-        return "ACCOUNTS" if key == "accounts" else super()._label(key)
-
-    def _summary_label(self, key: str) -> str:
-        balance = self._balance(key)
-        if balance is not None:
-            return f"{balance[0].lower()} {balance[1]}"
-        return super()._summary_label(key)
-
-    def _required_note(self, key: str) -> str:
-        label = self._summary_label(key)
-        return f"{label[:1].upper()}{label[1:]} is required."
-
-    def _hint_for(self, key: str) -> str:
-        balance = self._balance(key)
-        if balance is None:
-            return super()._hint_for(key)
-        half = formatting.half_name(balance[1])
-        if key in _BEGINS:
-            return f"signed decimal · the {half}'s opening balance\n{_OPENING_NOTE}"
-        last = "" if self._goes_on(key) else " · enter saves"
-        return f"signed decimal · the {half}'s closing balance · optional{last}"
-
-    def _balances(self) -> list[dict]:
-        """This account's balances, then the other account's."""
-        return [*super()._balances(), self._balance_entry(self._partner_id, "twin_")]
-
-    def _done(self) -> None:
         self.notify("Statement created.")
         self.dismiss(self._new_id)
 
@@ -1312,18 +1215,11 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
     return rows, checked, part_of
 
 
-def ending_balance_body(statement: dict, account_id: object, cents: int) -> dict:
-    """`PUT /statements/{id}`'s body saving one account's ending balance. Its
-    `balances` names every account the statement holds a balance for, each once,
-    as the write requires; `account_id`'s entry carries `cents`, and every other
-    entry no balance, so the engine keeps that account's as they are
-    (contract: PUT /v1/statements/{statement_id})."""
-    held = [b.get("account_id") for b in statement.get("balances") or [] if isinstance(b, dict)]
-    entries = [
-        {"account_id": a, "ending_balance_cents": cents} if a == account_id else {"account_id": a}
-        for a in held
-    ]
-    return {"balances": entries}
+def ending_balance_body(currency_code: object, cents: int) -> dict:
+    """`PUT /statements/{id}`'s body saving one currency's ending balance. Its
+    `balances` names only the currency that changes, so the engine keeps every
+    other as it is (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
+    return {"balances": [{"currency_code": currency_code, "ending_balance_cents": cents}]}
 
 
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
@@ -1364,7 +1260,7 @@ class ReconciliationDetailScreen(
     def __init__(self, record: dict, *, currency: str | None = None) -> None:
         super().__init__()
         self._record = record
-        self._currency = currency  # the account's, for the ending-balance box
+        self._currency = currency or record.get("currency_code")  # the one the screen is opened on
         self._id = record.get("id")
         self._account_id = record.get("account_id")
         self._busy = False
@@ -1492,10 +1388,9 @@ class ReconciliationDetailScreen(
                 if worker.is_cancelled:
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
-                fresh = account_view(statement, self._account_id)
+                fresh = account_view(statement, self._currency)
                 call_while_attached(self, self._apply_fresh_record, fresh)
-            # the statement's lines on the opened account (always; any date): a
-            # statement's lines are every account's of its holder
+            # the statement's lines on the opened account (always; any date)
             # (contract: GET /v1/bank-lines, "Filters")
             assigned = _fetch_all_lines(
                 cfg, reconciliation=self._id, account=self._account_id, **kw
@@ -1667,7 +1562,7 @@ class ReconciliationDetailScreen(
         self.run_write(
             "PUT",
             f"/statements/{self._id}",
-            json_body=ending_balance_body(self._record, self._account_id, cents),
+            json_body=ending_balance_body(self._currency, cents),
             on_response=self._balance_saved_record,
             on_success=self._balance_saved,
             on_error=self._balance_failed,
@@ -1677,7 +1572,7 @@ class ReconciliationDetailScreen(
         """The engine's own statement after the save, opened on this account:
         the header shows its end and diff before the complete question asks."""
         if body.get("id") == self._id:
-            self._apply_fresh_record(account_view(body, self._account_id))
+            self._apply_fresh_record(account_view(body, self._currency))
 
     def _balance_saved(self) -> None:
         self._busy = False
@@ -1753,10 +1648,10 @@ class ReconciliationDetailScreen(
         self._take_flagged(body)
 
     def _report_gap(self, body: dict) -> None:
-        """Surface the opened account's `warnings` from `complete` — the
-        uncovered-days report of that account, read off its own entry in
-        `balances` (`balance_of`) beside its `coverage_gap`; another account's
-        gap is that account's, and this screen shows this one alone.
+        """Surface the opened currency's `warnings` from `complete` — the
+        uncovered-days report of that currency, read off its own entry in
+        `balances` (`balance_of`) beside its `coverage_gap`; another currency's
+        gap is that currency's, and this screen shows this one alone.
 
         Shown as a line under the header rather than a toast: the whole value of
         this message is not being missed, and a toast fades in five seconds. It
@@ -1768,7 +1663,7 @@ class ReconciliationDetailScreen(
         the rows they name. The review surface for that is the "no batch"
         pane (`u`).
         """
-        warnings = balance_of(body, self._account_id).get("warnings")
+        warnings = balance_of(body, self._currency).get("warnings")
         self._show_warnings(warnings if isinstance(warnings, list) else [])
 
     def _show_warnings(self, warnings: list) -> None:
@@ -1927,7 +1822,7 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
     docs/mockups/expense-world-statement-flagged-lines.html).
 
     Opened on the statement's id, the screen reads its review list, the lines
-    its close flagged and still unresolved, every account's of the holder
+    its close flagged and still unresolved, every currency's
     together, page by page in the statement's order, with no id of a line sent
     (contract: POST /v1/statements/{statement_id}/complete, "Response"), and
     how many it holds from the count read on the same filter

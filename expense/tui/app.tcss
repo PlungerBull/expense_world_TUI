@@ -80,11 +80,6 @@ Screen {
     content-align: left middle;
     padding: 0 1 0 0;
 }
-/* a card statement's form names each balance's currency: its longest label
-   (BEGIN BALANCE USD, 17) + 1 right padding — guarded by test_tui_field_width.py */
-NewCardStatementScreen #field {
-    width: 18;
-}
 /* the Edit form names each part's field: its longest label up to part 99
    (PART 99 CATEGORY, 16) + 1 right padding — guarded by test_tui_field_width.py */
 EditFormScreen #field {
@@ -223,5 +218,21 @@ ConfirmModal #modal, PromptBox #modal {
    caption appears only where it disambiguates (one caller: the
    Reconciliations batch caption). The padding is the list's gutter. */
 CursorList, CheckList {
+    padding: 0 1;
+}
+
+/* The Statements browse's lists are wider than a screen's usual card: pane 3 of
+   docs/mockups/expense-world-statements-screens.html holds a statement's name, period, a
+   Diff per currency, status and order whole on 80 columns, which the card's margins and
+   the lists' own gutter would cut. */
+ReconciliationsScreen #content {
+    padding: 1 0 1 2;
+}
+ReconciliationsScreen #accts,
+ReconciliationsScreen #batches {
+    padding: 0;
+}
+/* The lines in no batch keep the shared table's look: its side edge and a one-cell gutter. */
+ReconciliationsScreen #batches.unfiled {
     padding: 0 1;
 }

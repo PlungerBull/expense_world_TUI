@@ -625,7 +625,7 @@ read together with the first rows, and counts a split transaction once
 (contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an
 edit and a delete all start again from the newest ten, cursor on row 1. The **`!` flag is
 a hint, not a ruling** — it marks a row whose date falls inside the days of a statement this
-screen already holds with a balance of the open account, draft or completed
+screen already holds for the open account, draft or completed
 (`statement_windows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)), so
 it costs no request. It stops nothing: a close goes
 through with such lines in no statement and names the ones it flags in its answer ("The lines a
@@ -1583,54 +1583,56 @@ window one month older, `pgup` one newer (§2).
 
 **The Statements browse** opens on
 the **account list alone**, full height, and reads no statements. The list is the bank
-accounts of one `GET /accounts`, people left out; an archived account is not in that read, so
-it and its statements are not offered until its holder is unarchived. A holder is archived
-whole, so a listed account's holder is live and so is each of its accounts
-(contract: "Holders", "A holder is archived whole"). One `GET /holders` beside it gives each
-holder's statement code (`fetch_holders` in [reads.py](../expense/reads.py)): the code is the
-holder's, never an account's (contract: "Holders", "Statement code"). Nothing about statements is
-read until `⏎`, so moving the account cursor costs nothing. `⏎ Its statements` reads
-the statements of that account's holder in **one read**, `GET /statements?holder_id=<id>`
-(`fetch_statements`), whole, in the engine's order (`date_start` ascending, then creation
-time, oldest first (contract: "Statements", "Ordering")), and opens the **panel** under the
-accounts, halving the height, with the cursor in it; the open account keeps an accent `▸`,
-and the breadcrumb grows to `Statements ▸ <account>`. An account with none says
-`none yet · n to create one` inside the panel; a read that fails toasts the engine's words
-and leaves the panel closed. Coming back from a statement, or `r`, reads the same list again
-and lands on the same row. A holder's accounts are the accounts of the one accounts read
-naming it as `holder_id` (`holder_mates` in
-[reconciliations.py](../expense/tui/screens/reconciliations.py), through `holder_accounts` in
-[reads.py](../expense/reads.py)), in that read's order. Every statement holds one entry in
-`balances` per account of its holder (contract: "Statements", "Statement response"), and
-each row shows the open account's from it.
+accounts of one `GET /accounts`, people left out, one row each under its own name:
+`Account · Currencies · Balances`, the currencies as `PEN + USD` and a balance in each,
+`-234.20 PEN   -30.98 USD`, never added together, every account's first figure ending in one
+column (pane 2) (`browse_accounts` and `balances_cells` in
+[reconciliations.py](../expense/tui/screens/reconciliations.py)). An archived account is not
+in that read, so it and its statements are not offered until it is unarchived. The account's
+statement code is its own, read from the same answer
+(contract: "What an account is", "Statement code"); no other read is made for it. Nothing
+about statements is read until `⏎`, so moving the account cursor costs nothing. `⏎ Its
+statements` reads that account's statements in **one read**, `GET /statements?account_id=<id>`
+(`fetch_statements`; contract: GET /v1/statements, "`?account_id=<id>` is required"), whole,
+in the engine's order (`date_start` ascending, then creation time, oldest first
+(contract: "Statements", "Ordering")), and opens the **panel** under the accounts, halving the
+height, with the cursor in it; the open account keeps an accent `▸` in a two-cell gutter before its
+name, every name staying where it is, and the breadcrumb grows to `Statements ▸ <account>`. An account with none says `none yet · n to create one` inside the
+panel; a read that fails toasts the engine's words and leaves the panel closed. Coming back
+from a statement, or `r`, reads the same list again and lands on the same row.
 
-- **A holder with no statement code** lists one row per statement:
-  `Name · Period · Begin · End · Diff · Status`, Begin, End and Diff the open account's,
-  titled `Statements · BCP PEN   ·   oldest → newest`.
-- **A holder with a statement code** lists **one row per statement** (pane 1 A of
-  [expense-world-card-statement.html](mockups/expense-world-card-statement.html), and its
-  task 6 question 3 B for a holder of one account) with a column per account of the holder
-  (`statement_columns` in [reconciliations.py](../expense/tui/screens/reconciliations.py)).
-  The columns are `Name · Period`, one `Diff <CUR>` per account of the holder in the
-  accounts' order (`Diff PEN · Diff USD`; `Diff` alone on a holder of one account), then
-  `Status · Order`. Each Diff is that account's `difference_cents`, read from its own entry
-  in `balances` by its id, by the rule of every statement list (a dim `—` when it adds
-  up, the figure when off, blank with no ending balance). Status is the statement's one
-  status, `completed` or `draft`, the same for every account of the holder
-  (contract: "Statements"); Order is `in order` when the engine's `unplaced_count` and
-  `shared_place_count` both read 0 and `not in order` (warning) otherwise
-  (contract: "Statements", "A statement's order"). A completed statement is dim, as a
-  completed statement is. The title names every account of the holder, then the code:
-  `Statements · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
-  listed one carries the `▸`, so opening either card account shows the identical list.
+The panel lists **one row per statement** (panes 2 and 3 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)):
+`Name · Period`, one `Diff <CUR>` per currency the account holds in the account's order
+(`Diff PEN · Diff USD`; `Diff` alone on an account of one currency), then `Status`, and
+`Order` on an account with a statement code. Each Diff is that currency's `difference_cents`,
+read from its own entry in the statement's `balances` by `currency_code` (`statement_rows`),
+by the rule of every statement list: a dim `—` when it adds up, the figure when off, blank
+when it is not checked yet (a blank ending or beginning balance,
+contract: "Statements", "A balance not entered is `null`, never zero"). **A currency the
+statement does not cover shows nothing** in its Diff column, not a row and not a figure: a
+statement covers a currency only when something is in it
+(contract: "Statements", "Which currencies a statement covers"). Status is the statement's one
+status, `completed` or `draft`; Order is `in order` when the engine's `unplaced_count` and
+`shared_place_count` both read 0 and `not in order` (warning) otherwise
+(contract: "Statements", "A statement's order"). An account with no statement code has no
+Order column: the engine sends no order there. A completed statement is dim. The title names
+the account, its currencies and its code when it has one:
+`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`, or
+`Statements · IBK Visa · PEN + USD   ·   oldest → newest` without one.
 
-On either, `⏎` opens the row's statement on the batch screen as the open account's: the
-statement's own fields with that account's entry in `balances` over them (`account_view`),
-in the account's currency.
+Both lists leave two cells between columns, not the shared table's three (`gap` on
+`CursorList`), and draw without the table's side edge (`edge`), and the screen drops the card's right margin and the lists' gutter
+(`ReconciliationsScreen` in [app.tcss](../expense/tui/app.tcss)), so pane 3 holds whole on 80
+columns: a statement's name, period, both Diffs, status and order.
+
+`⏎` opens the row's statement on the batch screen on one of the account's currencies, the
+first it covers (`view_currency`): the statement's own fields with that currency's entry in
+`balances` over them (`account_view`).
 
 **Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
-saved the panel opens on the new one (on a card account, the card statement's form below); `u` swaps the panel to the account's rows in no
+saved the panel opens on the new one; `u` swaps the panel to the account's rows in no
 batch (panel open only); `d` deletes the cursor row **in that pane only** (a no-op on the
 statement list, where a batch's own delete lives one screen deeper); `esc` retreats
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.

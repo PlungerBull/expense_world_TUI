@@ -33,7 +33,7 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
-from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import ACCENT
 from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
@@ -234,55 +234,23 @@ def test_new_reconciliation_name_goes_on(fake_client):
 OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
 
 
-def _card() -> NewCardStatementScreen:
-    return NewCardStatementScreen(
-        account=("acc1", "Signature PEN", "PEN"),
-        partner=("acc2", "Signature USD", "USD"),
-        code="SIG",
-        holder_id="h1",
-    )
-
-
-@pytest.mark.parametrize(
-    "make, typed, key, first",
-    [
-        (
-            lambda: NewReconciliationScreen(account_id="acc1", account_name="Sueldo Soles"),
-            ["Enero 2026", "2026-01-01", "2026-01-31"],
-            "begin",
-            "signed decimal · your statement's opening balance",
-        ),
-        (
-            _card,
-            ["Enero 2026", "2025-12-26", "2026-01-25"],
-            "begin",
-            "signed decimal · the soles half's opening balance",
-        ),
-        (
-            _card,
-            ["Enero 2026", "2025-12-26", "2026-01-25", "0", ""],
-            "twin_begin",
-            "signed decimal · the dollar half's opening balance",
-        ),
-    ],
-    ids=["one account", "card, soles half", "card, dollar half"],
-)
-def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client, make, typed, key, first):
+def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client):
     """Under BEGIN BALANCE, today's hint and a second line saying a statement
     holding the account's opening balance begins at 0.00, each whole on its own row at
-    80 columns, on the one-account form and on each half of a card's form."""
+    80 columns."""
+    first = "signed decimal · your statement's opening balance"
 
     async def body(pilot, screen):
-        for text in typed:
+        for text in ["Enero 2026", "2026-01-01", "2026-01-31"]:
             await pilot.press(*text, "enter")
-        assert screen._key == key
+        assert screen._key == "begin"
         assert _hint(screen) == f"{first}\n{OPENING_NOTE}"
         hint = screen.query_one("#hint", Static)
         assert screen.size.width == 80 and hint.size.height == 2
         shown = render_text(hint.content, width=hint.content_size.width)
         assert shown.splitlines() == [first, OPENING_NOTE]
 
-    _open(make(), body)
+    _open(NewReconciliationScreen(account_id="acc1", account_name="Sueldo Soles"), body)
 
 
 # ---- the guard: every bar form, in each of its shapes ------------------------
@@ -327,14 +295,6 @@ SHAPES = {
     NewReconciliationScreen: lambda: [
         NewReconciliationScreen(),
         NewReconciliationScreen(account_id="acc1", account_name="BCP PEN"),
-    ],
-    NewCardStatementScreen: lambda: [
-        NewCardStatementScreen(
-            account=("acc1", "Signature PEN", "PEN"),
-            partner=("acc2", "Signature USD", "USD"),
-            code="SIG",
-            holder_id="h1",
-        )
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
 }

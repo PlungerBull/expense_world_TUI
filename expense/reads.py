@@ -471,24 +471,23 @@ def fetch_holders(cfg, *, verbose: bool = False) -> dict:
     return fetch_body(cfg, path="/holders", params=None, verbose=verbose)
 
 
-def fetch_statements(cfg, holder_id: str, *, verbose: bool = False) -> dict:
-    """GET /v1/statements?holder_id= → the raw engine body. Pure data.
+def fetch_statements(cfg, account_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/statements?account_id= → the raw engine body. Pure data.
 
-    One holder's live statements, whole and unpaged as `{items}`, sorted
+    One account's live statements, whole and unpaged as `{items}`, sorted
     `date_start` ascending, then creation time, oldest first; each item reads
-    exactly as `GET /statements/{id}` reads it. The holder is the list's only
-    filter and is required; an id naming no holder of the user's lists none
-    (contract: GET /v1/statements).
+    exactly as `GET /statements/{id}` reads it. The account is the list's only
+    filter and is required (contract: GET /v1/statements, "`?account_id=<id>` is required").
     """
     return fetch_body(
-        cfg, path="/statements", params=query_params(holder_id=holder_id), verbose=verbose
+        cfg, path="/statements", params=query_params(account_id=account_id), verbose=verbose
     )
 
 
 def fetch_statement(cfg, statement_id: str, *, verbose: bool = False) -> dict:
     """GET /v1/statements/{statement_id} → the raw engine body.
 
-    One statement, the same fields and values as its item in its holder's
+    One statement, the same fields and values as its item in its account's
     list; a deleted one, or an id that names none of the user's, is a 404
     (contract: GET /v1/statements/{statement_id}). Read by the bank import's
     preview, to name the statement an import row knows by its id only
@@ -793,31 +792,6 @@ def hashtags_to_send(
         return ids
     real = [i for i in ids if i != pending_id]
     return real if real or not pending_alone else ids
-
-
-def account_choices(
-    items: list, *, include_people: bool = True, with_balance: bool = False
-) -> list[tuple]:
-    """Picker tuples from account rows: `(id, name-or-'(unnamed)', currency)`,
-    plus `current_balance_cents` when `with_balance`.
-
-    Skips id-less rows and (unless `include_people`) person accounts. One copy
-    of the build shared by the new-reconciliation form
-    and the reconciliations browse. It reads the old per-currency shape (`currency_code`
-    on the row), kept for the callers not yet moved; `currency_picks` reads an account
-    as the engine sends it now.
-    """
-    out: list[tuple] = []
-    for a in items:
-        if not a.get("id"):
-            continue
-        if not include_people and a.get("is_person"):
-            continue
-        row: tuple = (a["id"], a.get("name") or "(unnamed)", a.get("currency_code") or "?")
-        if with_balance:
-            row = (*row, a.get("current_balance_cents"))
-        out.append(row)
-    return out
 
 
 class CurrencyPick(NamedTuple):

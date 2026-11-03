@@ -183,11 +183,11 @@ def test_status_span_maps_completed_and_draft():
 
 
 def _statement(**balance) -> dict:
-    """Statement r1 as `GET /statements/{id}` reads it: April 2026, a draft of a holder
-    of acc1 alone, acc1's balances a begin of 9,580.00, an end of 9,460.00 and a
+    """Statement r1 as `GET /statements/{id}` reads it: April 2026, a draft of
+    acc1, its soles balances a begin of 9,580.00, an end of 9,460.00 and a
     difference of -35.00, `balance` spread over them."""
     acc1 = {
-        "account_id": "acc1",
+        "currency_code": "PEN",
         "beginning_balance_cents": 958000,
         "ending_balance_cents": 946000,
         "difference_cents": -3500,
@@ -198,21 +198,21 @@ def _statement(**balance) -> dict:
 #: The statement as the engine holds it, and as the browse opens it on acc1: its own
 #: fields with acc1's entry in `balances` over them (`account_view`).
 STATEMENT = _statement()
-DRAFT = account_view(STATEMENT, "acc1")
+DRAFT = account_view(STATEMENT, "PEN")
 #: The statement's writes: the ending balance's save, complete, revert and delete.
 STATEMENT_PATH = "/statements/r1"
 COMPLETE_PATH = "/statements/r1/complete"
 REVERT_PATH = "/statements/r1/revert"
 
-#: acc2's balances in statement r1 on a holder of two accounts, a card's dollars:
-#: none of acc1's figures.
+#: The dollar balances of statement r1, on an account holding soles and dollars: none of
+#: the soles figures.
 ACC2 = {
-    "account_id": "acc2",
+    "currency_code": "USD",
     "beginning_balance_cents": 5000,
     "ending_balance_cents": 7000,
     "difference_cents": 120,
 }
-#: Statement r1 on a card's holder: acc2's balances first, then acc1's as `STATEMENT`'s.
+#: Statement r1 covering both currencies: the dollars first, then the soles as `STATEMENT`'s.
 CARD = statement_record({"id": "r1", "balances": [ACC2, *STATEMENT["balances"]]})
 
 
@@ -248,8 +248,8 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
     """The tick-list's in-range read asks for the account's lines in no batch,
     with the period's own days in the engine's day filters, unconverted: a bare
     `date_to` is the whole last day (contract: GET /v1/bank-lines). The statement's
-    own lines are read on the opened account alone, any day: a statement's lines are
-    every account's of its holder (contract: GET /v1/bank-lines, "Filters")."""
+    own lines are read on the opened account, any day
+    (contract: GET /v1/bank-lines, "Filters")."""
     _patch(monkeypatch)
     calls: list = []
     from expense import reads
@@ -1130,8 +1130,8 @@ def _no_transactions(*accounts: str) -> EngineError:
 def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactions(
     fake_client, monkeypatch
 ):
-    """No ≥1-assigned pre-guard: the confirm opens and the POST fires on a card's
-    statement opened on acc1. The engine refuses it on every account's
+    """No ≥1-assigned pre-guard: the confirm opens and the POST fires on a statement
+    covering two currencies. The engine refuses it on every account's
     `transactions`, and `Couldn't complete` shows its words whole, acc1's line
     among them, no line of the app's."""
     _patch(monkeypatch)
@@ -1148,7 +1148,7 @@ def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactio
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(account_view(CARD, "acc1"), currency="PEN")
+        screen = ReconciliationDetailScreen(account_view(CARD, "PEN"), currency="PEN")
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert not screen._list.checked
@@ -1190,7 +1190,7 @@ def _complete_with_warnings(fake_client, warnings: list[str], *, statement=STATE
     balance of `statement` as it reads."""
     acc1 = {"warnings": warnings, "coverage_gap": GAP_DAYS if warnings else None}
     balances = [
-        {**balance, **acc1} if balance["account_id"] == "acc1" else balance
+        {**balance, **acc1} if balance["currency_code"] == "PEN" else balance
         for balance in statement["balances"]
     ]
     fake_client.write_responses[COMPLETE_PATH] = statement_complete_answer(
@@ -1240,15 +1240,15 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_another_accounts_gap_draws_no_line(fake_client, monkeypatch):
-    """The close's notes are per balance: on a card's statement opened on acc1, a gap
-    on acc2's balance alone is acc2's, and acc1's screen draws no line."""
+def test_another_currencys_gap_draws_no_line(fake_client, monkeypatch):
+    """The close's notes are per balance: on a statement opened on soles, a gap on the
+    dollar balance alone is the dollars', and the soles screen draws no line."""
     _patch(monkeypatch)
     balances = [{**ACC2, "warnings": [GAP], "coverage_gap": GAP_DAYS}, CARD["balances"][1]]
     _complete_with_warnings(fake_client, [], statement={**CARD, "balances": balances})
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(account_view(CARD, "acc1"), currency="PEN")
+        screen = ReconciliationDetailScreen(account_view(CARD, "PEN"), currency="PEN")
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -1362,8 +1362,8 @@ def test_revert_key_is_u(fake_client, monkeypatch):
     run_app(scenario)
 
 
-#: Statement r1 completed, read fresh on a holder of two accounts: acc2's balances
-#: first, then acc1's, its end moved to 9,999.99 and its difference to 0.
+#: Statement r1 completed, read fresh covering two currencies: the dollars first, then the
+#: soles, their end moved to 9,999.99 and their difference to 0.
 CARD_FRESH = statement_record(
     {
         "id": "r1",
@@ -1371,7 +1371,7 @@ CARD_FRESH = statement_record(
         "balances": [
             ACC2,
             {
-                "account_id": "acc1",
+                "currency_code": "PEN",
                 "beginning_balance_cents": 958000,
                 "ending_balance_cents": 999999,
                 "difference_cents": 0,
@@ -1560,22 +1560,20 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 # /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
 
 NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
-NO_END = account_view(NO_END_STATEMENT, "acc1")
+NO_END = account_view(NO_END_STATEMENT, "PEN")
 SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
 #: The ending balance's save of 13,853.20 on acc1, in the statement's `balances`.
-SAVED_BODY = {"balances": [{"account_id": "acc1", "ending_balance_cents": 1385320}]}
+SAVED_BODY = {"balances": [{"currency_code": "PEN", "ending_balance_cents": 1385320}]}
 
 
-def test_the_ending_balance_is_saved_in_balances_naming_every_account():
-    """`PUT /statements/{id}` takes `balances` naming every account of the holder, each
-    once; the opened account's entry carries the figure, every other no balance, so
-    the engine keeps that account's (contract: PUT /v1/statements/{statement_id})."""
-    assert ending_balance_body(STATEMENT, "acc1", 1385320) == SAVED_BODY
-    assert ending_balance_body(CARD, "acc1", -12050) == {
-        "balances": [
-            {"account_id": "acc2"},
-            {"account_id": "acc1", "ending_balance_cents": -12050},
-        ]
+def test_the_ending_balance_is_saved_in_balances_naming_only_the_currency_that_changes():
+    """`PUT /statements/{id}` takes `balances` naming only the currencies that change,
+    keyed by `currency_code`; the opened currency's entry carries the figure and no other
+    currency is named, so the engine keeps its balances
+    (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
+    assert ending_balance_body("PEN", 1385320) == SAVED_BODY
+    assert ending_balance_body("USD", -12050) == {
+        "balances": [{"currency_code": "USD", "ending_balance_cents": -12050}]
     }
 
 
@@ -1679,42 +1677,35 @@ def test_the_sign_is_the_one_typed(fake_client, monkeypatch):
         await pilot.press("enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [
-            (STATEMENT_PATH, {"balances": [{"account_id": "acc1", "ending_balance_cents": -12050}]})
+            (
+                STATEMENT_PATH,
+                {"balances": [{"currency_code": "PEN", "ending_balance_cents": -12050}]},
+            )
         ]
 
     run_app(scenario)
 
 
-def test_a_cards_save_names_both_accounts_and_the_header_shows_the_opened_ones(
+def test_a_save_on_a_two_currency_statement_names_the_opened_currency_alone(
     fake_client, monkeypatch
 ):
-    """On a card's statement opened on acc1, `enter` sends one `PUT` naming both
-    accounts, acc1's with the figure and acc2's with none; the header then shows
-    acc1's entry of the engine's answer, never acc2's figures."""
+    """On a statement covering soles and dollars opened on soles, `enter` sends one `PUT`
+    naming the soles with the figure and not the dollars; the header then shows the
+    soles' entry of the engine's answer, never the dollars' figures."""
     _patch(monkeypatch)
     no_end = statement_record({"id": "r1", "balances": [ACC2, *NO_END_STATEMENT["balances"]]})
     saved = statement_record({"id": "r1", "balances": [ACC2, *SAVED_STATEMENT["balances"]]})
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(saved)
 
     async def scenario(pilot, app):
-        screen = await _open_box(pilot, app, record=account_view(no_end, "acc1"))
+        screen = await _open_box(pilot, app, record=account_view(no_end, "PEN"))
         await _type(pilot, "13853.20")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert fake_client.puts == [
-            (
-                STATEMENT_PATH,
-                {
-                    "balances": [
-                        {"account_id": "acc2"},
-                        {"account_id": "acc1", "ending_balance_cents": 1385320},
-                    ]
-                },
-            )
-        ]
+        assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
         head = str(screen.query_one("#rhead", Static).visual)
         assert "begin 9,580.00    end 13,853.20" in head
-        assert "70.00" not in head and "1.20" not in head  # acc2's figures
+        assert "70.00" not in head and "1.20" not in head  # the dollars' figures
 
     run_app(scenario)
 
