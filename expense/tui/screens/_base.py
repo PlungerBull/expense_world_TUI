@@ -14,7 +14,7 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Group
 from rich.text import Text
@@ -120,6 +120,7 @@ class EngineWriteMixin:
     _write_queue: deque[_QueuedWrite] | None = None  # lazily created; UI-thread only
     _write_inflight: bool = False
     _write_current: _QueuedWrite | None = None  # the write in flight; UI-thread only
+    _writes_answered = 0  # writes answered so far; a read stamps the count it started at
 
     def run_write(
         self,
@@ -134,8 +135,8 @@ class EngineWriteMixin:
         config: "Config | None" = None,
         error_text: Callable[[Exception], str] = format_error,
         on_failure: Callable[[Exception], None] | None = None,
-    ) -> None:
-        """Queue one engine write. `on_response` receives the engine's own body
+    ) -> _QueuedWrite:
+        """Queue one engine write and return it. `on_response` receives the engine's own body
         (before `on_success`) for the callers that need it: a `complete`
         carries a `warnings` envelope nothing else can reconstruct. Opt-in, so
         the callbackless callsites are untouched — decisions.md "The TUI sees
@@ -151,21 +152,21 @@ class EngineWriteMixin:
         names each refused part by its number)."""
         if self._write_queue is None:
             self._write_queue = deque()
-        self._write_queue.append(
-            _QueuedWrite(
-                method,
-                path,
-                json_body,
-                success,
-                on_success,
-                on_error,
-                on_response,
-                config,
-                error_text,
-                on_failure,
-            )
+        item = _QueuedWrite(
+            method,
+            path,
+            json_body,
+            success,
+            on_success,
+            on_error,
+            on_response,
+            config,
+            error_text,
+            on_failure,
         )
+        self._write_queue.append(item)
         self._pump_writes()
+        return item
 
     def _pump_writes(self) -> None:
         if self._write_inflight or not self._write_queue:
@@ -221,6 +222,7 @@ class EngineWriteMixin:
         failure: Exception | None = None,
     ) -> None:
         # UI thread: report the outcome, then pump the next write.
+        self._writes_answered += 1
         self._write_inflight = False
         self._write_current = None
         if error is not None:
@@ -479,6 +481,7 @@ class SectionScreen(
     crumb: tuple[str, ...] = ()
     CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
     _started: bool = False  # first load ran (it waits for the first layout pass)
+    _read_started: int | None = None  # writes answered when the read being built began
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
@@ -519,6 +522,7 @@ class SectionScreen(
         # worker, so check before painting or a superseded load can clobber
         # (or race) the fresh one's content swap.
         worker = get_current_worker()
+        started = self._writes_answered  # writes answered before this read began
         try:
             data = self.fetch()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
@@ -527,12 +531,13 @@ class SectionScreen(
             return
         if worker.is_cancelled:
             return
-        call_while_attached(self, self._show, data)
+        call_while_attached(self, self._show, data, started)
 
-    async def _show(self, data: object) -> None:
+    async def _show(self, data: object, started: int | None = None) -> None:
         content = self.query_one("#content", VerticalScroll)
         async with self._content_lock():
             await content.remove_children()
+            self._read_started = started  # inside the lock: `build` reads its own read's stamp
             card = Vertical(*self.build(data), id="card")
             if self.CARD_WIDTH is not None:
                 card.styles.max_width = self.CARD_WIDTH
@@ -611,7 +616,11 @@ class ResourceListScreen(SectionScreen):
         super().__init__()
         self._by_id: dict = {}
         self._restore_key: object | None = None  # cursor row to re-select after a reload
-        self._toggle_busy = False  # one archive toggle at a time until the reload lands
+        # One guarded write at a time (a, t, c, x): set when it is sent, lifted by the first
+        # list build whose read began after it was answered, or by its refusal.
+        self._toggle_busy = False
+        self._guarded: _QueuedWrite | None = None  # the guarded write, until it is answered
+        self._guard_from = 0  # answered-count a read must have started at to lift the guard
 
     # ---- hooks ------------------------------------------------------------
     def fetch_items(self, cfg, **kw) -> object:
@@ -643,6 +652,30 @@ class ResourceListScreen(SectionScreen):
         """True for a row with nothing to edit or delete (a built-in row):
         `e` and `d` leave the footer while the cursor is on it."""
         return False
+
+    # ---- the one-guarded-write-at-a-time guard -----------------------------
+    def run_guarded_write(self, method: str, path: str, **kwargs: Any) -> None:
+        """`run_write`, setting `_toggle_busy` until the write's own aftermath is done:
+        its refusal (`clear_guard`, by the caller's `on_error`), or the first list build
+        from a read that began after it was answered. A reload that lands earlier, or
+        another write's refusal, neither lifts nor holds it."""
+        self._toggle_busy = True
+        self._guarded = self.run_write(method, path, **kwargs)
+
+    def clear_guard(self) -> None:
+        self._guarded = None
+        self._toggle_busy = False
+
+    def _write_finished(self, item, error, body=None, failure=None) -> None:
+        if item is self._guarded:
+            self._guarded = None
+            self._guard_from = self._writes_answered + 1  # the count once this answer is counted
+        super()._write_finished(item, error, body, failure)
+
+    def _writes_dropped(self, failed, dropped) -> None:
+        if self._guarded in dropped:  # never sent: nothing to wait for
+            self.clear_guard()
+        super()._writes_dropped(failed, dropped)
 
     # ---- binding availability ----------------------------------------------
     def check_action(self, action: str, parameters: tuple) -> bool | None:
@@ -696,7 +729,8 @@ class ResourceListScreen(SectionScreen):
         if self._restore_key is not None:
             cursor_list.set_cursor(cursor_list.index_of(self._restore_key))
             self._restore_key = None
-        self._toggle_busy = False
+        if self._guarded is None and (self._read_started or 0) >= self._guard_from:
+            self._toggle_busy = False
         self.call_after_refresh(self.refresh_bindings)
         widgets: list[Widget] = [cursor_list]
         if self.LEGEND:

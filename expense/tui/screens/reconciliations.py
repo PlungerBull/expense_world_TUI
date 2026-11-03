@@ -633,8 +633,8 @@ class ReconciliationsScreen(SectionScreen):
             widgets.append(self._batch_list)
         return widgets
 
-    async def _show(self, data: object) -> None:
-        await super()._show(data)
+    async def _show(self, data: object, started: int | None = None) -> None:
+        await super()._show(data, started)
         self._unfiled = []
         self._unfiled_grow.reset()
         if self._accts_list is None or not self._accounts:

@@ -248,17 +248,17 @@ class AccountsScreen(ResourceListScreen):
         reads again with the cursor on the same account; refused, the list
         stays as it was, the "Failed" note in the engine's words. One write at a
         time, sharing `a` and `t`'s guard: `c` and `x` do nothing until the
-        reload lands or the engine refuses."""
+        engine refuses the write or the list builds from a read that began after it was
+        answered (`run_guarded_write`)."""
         if self._toggle_busy:
             return
-        self._toggle_busy = True
 
         def written() -> None:
             toast(self, note)
             self._restore_key = ident
             self._load()
 
-        self.run_write(
+        self.run_guarded_write(
             method,
             path,
             json_body=json_body,
@@ -292,13 +292,13 @@ class AccountsScreen(ResourceListScreen):
     ) -> None:
         """Send `POST /accounts/{id}/{verb}` at once, with no question; the list
         reloads with the cursor on the same account. One toggle at a time: a
-        second press while one is in flight does nothing until the reload lands
-        or the engine refuses."""
+        second press while one is in flight does nothing until the engine
+        refuses it or the list builds from a read that began after it was answered
+        (`run_guarded_write`)."""
         if self._toggle_busy:
             return
-        self._toggle_busy = True
         self._restore_key = self.selected_key()
-        self.run_write(
+        self.run_guarded_write(
             "POST",
             f"/{self.RESOURCE}/{item['id']}/{verb}",
             success=note,
@@ -307,7 +307,7 @@ class AccountsScreen(ResourceListScreen):
         )
 
     def _toggle_failed(self, message: str) -> None:
-        self._toggle_busy = False
+        self.clear_guard()
         toast(self, message, title="Failed", severity="error")
 
     def rows(self, items: list) -> list:

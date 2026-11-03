@@ -100,8 +100,6 @@ None.
 
 ## Tasks
 
-7. **`c` guards against a second add in flight,** as `a` and `t` do, with the busy guard's
-   in-flight test for `c`.
 8. **The missing tests:** a `color` refusal landing on the New form's COLOR line; the `?` card's
    rule `⏎ never changes data, except on a currency pick`; and
    `test_a_taken_code_on_edit_shows_the_engines_words_alone` with tui.md citing pane 3·2 A of

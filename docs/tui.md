@@ -1036,7 +1036,9 @@ no line of the app's: `LAST_CURRENCY` (deleting the account is `d`, a choice of 
 currency and not the one, `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED`
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 `c` and `x` send one write at a time, sharing `a` and `t`'s guard: while one is in flight,
-`c`, `x`, `a` and `t` do nothing until the list reads again or the engine refuses.
+`c`, `x`, `a` and `t` do nothing until the engine refuses that write or the list builds from
+a read that began after the write was answered; a reload that lands earlier (`r`, a form
+closing), and another write's refusal, neither lift nor hold the guard.
 
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under

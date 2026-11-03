@@ -12,7 +12,9 @@ through the real HTTP client against a respx-mocked engine, so the idempotency k
 and the error envelope are the client's own; the list's read is stubbed.
 """
 
+import asyncio
 import json
+import threading
 
 import httpx
 import pytest
@@ -214,6 +216,256 @@ def test_enter_adds_the_picked_currency_and_the_list_reads_fresh(configured, mon
     assert seen["key"] == "a-caja"
     assert seen["held"] == ["PEN", "USD"]
     assert seen["screen"]
+
+
+def test_a_second_c_while_the_add_is_in_flight_offers_nothing(configured, monkeypatch):
+    """`⏎` sends and the engine has not answered: `c` opens no pick, so the same
+    currency is not added twice; once the reload lands, `c` works again."""
+    rows = _rows()
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
+    )
+    release = threading.Event()
+    seen: dict = {}
+
+    def answer(_request):
+        release.wait(timeout=10)
+        caja = next(r for r in rows if r["id"] == "a-caja")
+        caja["currencies"] = [*caja["currencies"], held_currency("USD")]
+        return httpx.Response(201, json=held_currency("USD"))
+
+    async def scenario(pilot, app):
+        screen, notes = await _open(pilot, app, monkeypatch, "a-caja")
+        try:
+            await pilot.press("c")
+            await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
+            await pilot.press("enter")
+            await wait_for(pilot, lambda: screen._toggle_busy)
+            await pilot.press("c")
+            await pilot.pause()
+            seen["blocked"] = app.screen is screen
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: ("", "Currency added: USD.") in notes)
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+        await wait_for_list(pilot, app)
+        await pilot.press("c")
+        await pilot.pause()
+        seen["after"] = app.screen is screen
+        seen["note"] = ("", "Caja Chica already holds every currency.") in notes
+
+    with respx.mock() as engine:
+        sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
+        run_app(scenario, size=SIZE)
+    assert sent.call_count == 1
+    assert seen == {"blocked": True, "after": True, "note": True}
+
+
+def test_a_reload_while_the_add_is_unanswered_keeps_the_guard(configured, monkeypatch):
+    """`r` lands a reload (stale rows) while the POST waits; `c` still offers
+    nothing, so the same currency is not sent twice."""
+    rows = _rows()
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
+    )
+    release = threading.Event()
+    seen: dict = {}
+
+    def answer(_request):
+        release.wait(timeout=10)
+        return httpx.Response(201, json=held_currency("USD"))
+
+    async def scenario(pilot, app):
+        screen, _ = await _open(pilot, app, monkeypatch, "a-caja")
+        try:
+            await pilot.press("c")
+            await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
+            await pilot.press("enter")
+            await wait_for(pilot, lambda: screen._toggle_busy)
+            await pilot.press("r")
+            await wait_for_list(pilot, app)
+            await pilot.pause()
+            seen["busy"] = screen._toggle_busy
+            await pilot.press("c")
+            await pilot.pause()
+            seen["blocked"] = app.screen is screen
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+
+    with respx.mock() as engine:
+        sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
+        run_app(scenario, size=SIZE)
+    assert sent.call_count == 1
+    assert seen == {"busy": True, "blocked": True}
+
+
+def test_a_refused_queued_delete_does_not_leave_the_guard_set(configured, monkeypatch):
+    """`c` is held, `d` + `y` queues a DELETE behind it; the add lands, the DELETE
+    is refused (a toast, no reload of its own): `c` works again afterwards."""
+    rows = _rows()
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
+    )
+    release = threading.Event()
+    seen: dict = {}
+
+    def answer(_request):
+        release.wait(timeout=10)
+        return httpx.Response(201, json=held_currency("USD"))
+
+    async def scenario(pilot, app):
+        screen, notes = await _open(pilot, app, monkeypatch, "a-caja")
+        try:
+            await pilot.press("c")
+            await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
+            await pilot.press("enter")
+            await wait_for(pilot, lambda: screen._toggle_busy)
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press("y")
+            await wait_for(pilot, lambda: len(screen.writes_unanswered()) == 2)
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: any(t == "Failed" for t, _ in notes))
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+        await wait_for_list(pilot, app)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
+        seen["offered"] = True
+
+    with respx.mock() as engine:
+        sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
+        engine.delete(f"{ENGINE_URL}/v1/accounts/a-caja").mock(
+            return_value=error_response(409, "ACCOUNT_HAS_TRANSACTIONS")
+        )
+        run_app(scenario, size=SIZE)
+    assert sent.call_count == 1
+    assert seen == {"offered": True}
+
+
+def test_a_queued_toggle_dropped_by_a_refusal_does_not_leave_the_guard_set(configured, monkeypatch):
+    """`d` + `y` is in flight, `a` queues behind it and the DELETE is refused: the
+    archive is never sent, and `a` works again."""
+    rows = _rows()
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
+    )
+    release = threading.Event()
+
+    def refuse(_request):
+        release.wait(timeout=10)
+        return error_response(409, "ACCOUNT_HAS_TRANSACTIONS")
+
+    async def scenario(pilot, app):
+        screen, notes = await _open(pilot, app, monkeypatch, "a-caja")
+        try:
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press("y")
+            await wait_for(pilot, lambda: screen.writes_unanswered())
+            await pilot.press("a")
+            await wait_for(pilot, lambda: screen._toggle_busy)
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+
+    with respx.mock(assert_all_called=False) as engine:
+        engine.delete(f"{ENGINE_URL}/v1/accounts/a-caja").mock(side_effect=refuse)
+        archive = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/archive").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        run_app(scenario, size=SIZE)
+    assert archive.call_count == 0
+
+
+async def _answered_add_with_its_reload_held(pilot, app, monkeypatch, rows, reads, gate):
+    """`c` ⏎ on Caja Chica, the POST answered, the write's own reload still
+    reading (its fetch held on `gate`)."""
+
+    def fetch(*a, **k):
+        reads["n"] += 1
+        if reads["n"] == 2:
+            gate.wait(timeout=10)
+        return whole([dict(r) for r in rows])
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", fetch)
+    screen, _ = await _open(pilot, app, monkeypatch, "a-caja")
+    await pilot.press("c")
+    await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
+    await pilot.press("enter")
+    await wait_for(pilot, lambda: reads["n"] == 2 and not screen.writes_unanswered())
+    return screen
+
+
+def test_a_stale_build_after_the_add_was_answered_keeps_the_guard(configured, monkeypatch):
+    """A build from a read that began before the answer lands (stale rows, no
+    USD) while the write's own reload is still reading: the guard stays, and
+    `c` offers nothing."""
+    rows = _rows()
+    gate = threading.Event()
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        try:
+            screen = await _answered_add_with_its_reload_held(
+                pilot, app, monkeypatch, rows, {"n": 0}, gate
+            )
+            await screen._show([dict(r) for r in rows], screen._guard_from - 1)
+            seen["busy"] = screen._toggle_busy
+            await pilot.press("c")
+            await pilot.pause()
+            seen["blocked"] = app.screen is screen
+        finally:
+            gate.set()
+        await wait_for(pilot, lambda: not screen._toggle_busy)  # its own reload lifts it
+
+    with respx.mock() as engine:
+        engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(
+            return_value=httpx.Response(201, json=held_currency("USD"))
+        )
+        run_app(scenario, size=SIZE)
+    assert seen == {"busy": True, "blocked": True}
+
+
+def test_a_stale_build_racing_a_fresh_one_does_not_read_its_stamp(configured, monkeypatch):
+    """Two builds land together, the stale one first, the fresh one while it
+    waits on the content swap: each build reads its own read's stamp, so the
+    stale build leaves the guard set and only the fresh one lifts it."""
+    rows = _rows()
+    gate = threading.Event()
+    after_build: list[tuple[bool, bool]] = []  # (the build was the fresh one, guard set)
+
+    async def scenario(pilot, app):
+        try:
+            screen = await _answered_add_with_its_reload_held(
+                pilot, app, monkeypatch, rows, {"n": 0}, gate
+            )
+            real_build = screen.build
+
+            def build(items):
+                out = real_build(items)
+                after_build.append((len(items[0]["currencies"]) == 2, screen._toggle_busy))
+                return out
+
+            monkeypatch.setattr(screen, "build", build)
+            stale = [dict(r) for r in rows]
+            fresh = [dict(r) for r in rows]
+            fresh[0]["currencies"] = [*fresh[0]["currencies"], held_currency("USD")]
+            await asyncio.gather(
+                screen._show(stale, screen._guard_from - 1),
+                screen._show(fresh, screen._guard_from),
+            )
+        finally:
+            gate.set()
+
+    with respx.mock() as engine:
+        engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(
+            return_value=httpx.Response(201, json=held_currency("USD"))
+        )
+        run_app(scenario, size=SIZE)
+    assert (False, True) in after_build  # the stale build left the guard set
+    assert (True, False) in after_build  # the fresh build lifted it
 
 
 def test_the_highlight_moves_and_enter_takes_the_highlighted_one(configured, monkeypatch):
