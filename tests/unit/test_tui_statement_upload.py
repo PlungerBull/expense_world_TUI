@@ -777,8 +777,8 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         assert [row.key for row in flagged._list._rows] == ["bl-uber", "bl-hulu"]
         assert review_reads == [
             ("count", "s-paper", None, None),  # the apply's, behind the ⚑ line
+            ("count", "s-paper", None, None),  # the screen's own, painted before its lines
             ("list", "s-paper", "statement", None),
-            ("count", "s-paper", None, None),
         ]
         assert flagged._statement == "SIG-202610"
         # the picked account's statement code: the engine's two ways show as words

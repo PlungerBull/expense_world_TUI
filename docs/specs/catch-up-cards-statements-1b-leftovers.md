@@ -64,10 +64,6 @@ done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-3. **The flagged lines' screen shows its head as soon as the count arrives.** `_load` in
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py) reads the engine's count
-   first and paints `flagged_head` with it, then reads and paints the lines; the head's words are
-   unchanged. A unit test holds the lines' read and finds the head painted with the count.
 4. **Code leftovers.** `fetch_bank_lines_by_ids` in [reads.py](../../expense/reads.py) loses its
    `sort` option and the paragraph on ordering; the flagged-lines test's fake engine
    ([test_tui_flagged_lines.py](../../tests/unit/test_tui_flagged_lines.py)) fails with a clear

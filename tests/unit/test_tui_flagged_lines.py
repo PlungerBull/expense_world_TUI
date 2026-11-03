@@ -130,6 +130,7 @@ class Lines(dict):
       list holds, or `count` when a test sets it. Each count's query is kept in
       `counts`; `count_refusal`, when set, is raised instead; `hold`, when set, makes a
       count wait for it.
+    - `hold_lines`, when set, makes a read of the review list wait for it.
     - `GET /bank-lines` with `ids`: fails the test — the flagged lines send none.
     - `GET /bank-lines` otherwise: the statement's own reads, no line.
     - `GET /bank-lines/{id}`: the line, as the Edit form reads it, or a `404`.
@@ -144,6 +145,7 @@ class Lines(dict):
         self.count: int | None = None
         self.count_refusal: Exception | None = None
         self.hold: threading.Event | None = None
+        self.hold_lines: threading.Event | None = None
         self.refusal: Exception | None = None
         self._client = fake_client
         self._get = fake_client.get
@@ -169,6 +171,8 @@ class Lines(dict):
         if path == "/bank-lines" and "unassigned_in_period_of" in query:
             self._client.calls.append(("GET", path, params))
             self.reads.append(dict(query))
+            if self.hold_lines is not None:
+                self.hold_lines.wait(timeout=10)
             if self.refusal is not None:
                 raise self.refusal
             if query.get("sort") != "statement":
@@ -494,11 +498,17 @@ def test_the_last_line_gone_goes_back_to_the_statement_and_clears_it(fake_client
 
     async def scenario(pilot, app):
         statement = await _complete(pilot, app, SOLES)
-        await _flagged_screen(pilot, app)
+        screen = await _flagged_screen(pilot, app)
+        head = _text(screen, "#fhead")
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         del engine["l-uber"]
+        engine.hold_lines = release = threading.Event()
         await pilot.press("y")
+        await wait_for(pilot, lambda: len(engine.counts) >= 3)
+        await pilot.pause()
+        assert _text(screen, "#fhead") == head  # a count of none paints no "0 flagged" head
+        release.set()
         await wait_for(pilot, lambda: app.screen is statement)
         await pilot.pause()
         assert not statement.query_one("#rflag", Static).display
@@ -648,6 +658,58 @@ def test_the_count_shown_is_the_engines_count(fake_client, monkeypatch):
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is statement)
         assert _text(statement, "#rflag").startswith("⚑ 7 lines flagged for review")
+
+    run_app(scenario)
+
+
+def test_the_head_shows_the_count_before_the_lines_arrive(fake_client, monkeypatch):
+    """The lines' read is held: the head already says the engine's count and the list is
+    empty; released, the rows fill in."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
+    engine.count = 7
+    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
+
+    async def scenario(pilot, app):
+        engine.hold_lines = release = threading.Event()
+        await _complete(pilot, app, SOLES)
+        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
+        screen = app.screen
+        await wait_for(pilot, lambda: _text(screen, "#fhead").startswith("Octubre 2026 has 7"))
+        assert screen._list is None
+        release.set()
+        await wait_for(pilot, lambda: screen._list is not None)
+        assert _listed(screen) == ["l-tambo", "l-uber"]
+
+    run_app(scenario)
+
+
+def test_a_count_that_fails_toasts_and_reads_no_lines(fake_client, monkeypatch):
+    """A reload whose count the engine refuses: its words as a toast, the head and rows as
+    they were, and no read of the lines."""
+    _patch(monkeypatch)
+    refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
+    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
+    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
+    notes: list = []
+    monkeypatch.setattr(
+        FlaggedLinesScreen,
+        "notify",
+        lambda self, message, **kw: notes.append((str(message), kw.get("severity"))),
+    )
+
+    async def scenario(pilot, app):
+        await _complete(pilot, app, SOLES)
+        screen = await _flagged_screen(pilot, app)
+        head = _text(screen, "#fhead")
+        engine.count_refusal = refusal
+        engine.reads.clear()
+        await pilot.press("r")
+        await wait_for(pilot, lambda: notes)
+        assert notes == [(format_error(refusal), "error")]
+        assert _text(screen, "#fhead") == head
+        assert engine.reads == []
+        assert _listed(screen) == ["l-tambo", "l-uber"]
 
     run_app(scenario)
 

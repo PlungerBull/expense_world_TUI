@@ -1538,9 +1538,9 @@ list again, none of them in the footer. `⏎` opens the line in the ledger's Edi
 (`EditFormScreen`, which reads the line by its id), crumb `… ▸ Flagged ▸ Edit`; `d` asks the
 "no batch" list's question and deletes as it does (`ask_line_delete`). After a save or a
 delete the screen reads the review list and its count again, the cursor on row 1, and with none
-left it goes back to the statement. Until the first read lands the head and the list are empty;
-a read that fails toasts the engine's words and keeps what is listed. `esc` hands the statement
-the engine's last count.
+left it goes back to the statement. The head shows the engine's count as soon as it arrives and
+the list fills in when its pages arrive; a read that fails toasts the engine's words and keeps
+what is listed. `esc` hands the statement the engine's last count.
 
 **On the statement**, open or completed, the line
 `⚑ 3 lines flagged for review: in no statement, dated up to this one's last day  · f shows them`

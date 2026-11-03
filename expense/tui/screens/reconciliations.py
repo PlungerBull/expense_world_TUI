@@ -2261,9 +2261,10 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
 
     @work(thread=True, exclusive=True, group="flagged-load")
     def _load(self) -> None:
-        """The statement's review list, every page of it in the statement's
-        order (`unassigned_in_period_of` with `sort=statement`, through
-        `_fetch_all_lines`), the engine's count of it, and the accounts' names
+        """The engine's count of the statement's review list, painted into the head
+        the moment it arrives; then the list itself, every page of it in the
+        statement's order (`unassigned_in_period_of` with `sort=statement`, through
+        `_fetch_all_lines`), and the accounts' names
         (contract: GET /v1/bank-lines, "It has no bound"). A failed read shows
         the engine's words and keeps what is listed."""
         from expense import config as config_module
@@ -2272,8 +2273,12 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            lines = _fetch_all_lines(cfg, review_of=self._statement_id, sort="statement", **kw)
             count = reads.count_bank_lines(cfg, review_of=self._statement_id, **kw)
+            if worker.is_cancelled:
+                return
+            if count > 0:  # a count of none paints no head: the list is gone, the screen leaves
+                call_while_attached(self, self._paint_head, count)
+            lines = _fetch_all_lines(cfg, review_of=self._statement_id, sort="statement", **kw)
             names = load_account_name_map()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
@@ -2283,14 +2288,20 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             return
         call_while_attached(self, self._populate, lines, count, names)
 
+    def _paint_head(self, count: int) -> None:
+        """Remember the engine's count and paint the head under it."""
+        self._count = count
+        self.query_one("#fhead", Static).update(flagged_head(self._statement, count, PALETTE))
+
     async def _populate(self, lines: list[dict], count: int, names: dict) -> None:
         """Paint a read, the cursor on row 1, under the engine's count; with no
         line left, back to the statement."""
-        self._lines, self._count, self._names = lines, count, names
+        self._lines, self._names = lines, names
         if not lines:
+            self._count = count
             self.dismiss(count)
             return
-        self.query_one("#fhead", Static).update(flagged_head(self._statement, count, PALETTE))
+        self._paint_head(count)
         rows = flagged_rows(lines)
         page_size = self._page_rows()
         async with self._content_lock():
