@@ -546,9 +546,13 @@ class ReconciliationsScreen(SectionScreen):
     # ---- adaptive window: the panel splits #content -----------------------
     #: Lines each of the browse's lists spends beside its rows and caption, drawn as panes 2,
     #: 3 and 11 of the statements mockup draw them: the account list its header, the rule
-    #: under it and the page status; the statements and the lines in no batch their divider
-    #: under the caption (a rule, a blank line), the header and the page status.
+    #: under it and the page status; the statements their divider under
+    #: the caption (a rule), the header and the page status; the lines in no batch
+    #: (`UNFILED_FRAME_LINES`) a blank divider and the header, no status line.
     BROWSE_FRAME_LINES = 3
+    #: The lines in no batch grow by cursor and say what is loaded in their caption, so
+    #: they draw no page-status line: one line less than the other two (pane 11).
+    UNFILED_FRAME_LINES = BROWSE_FRAME_LINES - 1
 
     def pane_rows(self) -> int:
         """Rows per account page. Alone, the account list fills #content; with the panel
@@ -567,7 +571,8 @@ class ReconciliationsScreen(SectionScreen):
         of scrolling `#content`: `#content` less the title, the accounts' frame and rows,
         and the panel's frame and caption."""
         accounts = self.BROWSE_FRAME_LINES + min(self.pane_rows(), max(1, len(self._accounts)))
-        panel = self.BROWSE_FRAME_LINES + self._caption_lines()
+        frame = self.UNFILED_FRAME_LINES if self._mode == "unfiled" else self.BROWSE_FRAME_LINES
+        panel = frame + self._caption_lines()
         return min(self.pane_rows(), self.fit_rows(chrome=2 + accounts + panel, floor=1))
 
     def _caption_lines(self) -> int:
@@ -809,6 +814,7 @@ class ReconciliationsScreen(SectionScreen):
                 header_rule=False,
             )
             self._batch_list.set_divider("rule")
+            self._batch_list.set_status_line(True)
             self._batch_list.set_caption(self._batch_caption())
             self._batch_list.set_page_size(self.panel_page_rows())
             self._batch_list.set_rows(self._panel_rows())
@@ -853,6 +859,7 @@ class ReconciliationsScreen(SectionScreen):
             _UNFILED_HEADERS, align_right={5}, edge=False, header_rule=False
         )
         self._batch_list.set_divider("blank")
+        self._batch_list.set_status_line(False)
         self._batch_list.set_caption(f"In no batch · {acct.name}   ·   loading…")
         self._batch_list.set_rows([])
         self.refresh_bindings()

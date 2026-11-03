@@ -1448,9 +1448,11 @@ drawn as ordinary content by `WindowedList.framed()`
 ([windowed.py](../expense/tui/widgets/windowed.py)) — the one method every repaint of both
 list widgets passes through: a plain rule opens the section, the page status sits dim
 beneath the rows, and there is no title, the breadcrumb already naming the screen.
-Two details are load-bearing. **The status line is always drawn, blank when there is
-nothing to say** — a line that came and went would make the widget's height depend on
-its row count, which is what `AdaptiveRowsMixin` measures. And **the rule passes an
+Two details are load-bearing. **The status line is drawn on every windowed list, blank
+when there is nothing to say**, except where a screen turns it off for a mode that never
+has a status (`set_status_line(False)`, the Statements lines in no batch) — a line that
+came and went with the row count would make the widget's height depend on it, which is
+what `AdaptiveRowsMixin` measures; the line is fixed per list or mode, never by rows. And **the rule passes an
 explicit style**: Rich's default `rule.line` resolves to a literal green that
 `test_no_literal_color_styles_in_tui` cannot see, because it greps source rather than
 renders.
@@ -2133,8 +2135,10 @@ System kv-tables.
 as panes 2, 3 and 11 of the statements mockup draw them: the accounts' header and the rule
 under it and nothing above (no rule, no blank edge line); the statements a rule under the
 caption, then the header and no rule under it; the lines in no batch a blank line under the
-caption, then the header (`CursorList(header_rule=False, divider=...)`, three lines of
-frame each with the page status, `BROWSE_FRAME_LINES`). Pane 3's four accounts and three
+caption, then the header (`CursorList(header_rule=False, divider=...)`: three lines of
+frame each with the page status for the accounts and the statements,
+`BROWSE_FRAME_LINES`; two for the lines in no batch, which draw no status line,
+`UNFILED_FRAME_LINES`). Pane 3's four accounts and three
 statements then fit 80×24 on one page. Under the account list the panel takes the rows
 `#content` has left after the title, the accounts' rows and both frames, one row at least
 (`panel_page_rows`, `fit_rows(floor=1)`), when that is fewer than its equal share: with five
@@ -2142,7 +2146,12 @@ accounts at 80×24 it pages instead of scrolling `#content`, whose scrollbar wou
 Order column. The caption is measured as wrapped, before the panel's list exists: the caption
 it is about to draw, at the width the list really gets (`#content`'s, capped at the card's
 100), on opening, on `r` and on `u`. A long account name wraps both captions at 80 columns;
-at 140 the no batch caption still takes two lines. The screen's footer is a `FittingFooter`,
+at 140 the no batch caption still takes two lines. The no batch list is a growing list, so it
+has no page status to draw: it draws no status line (`set_status_line(False)`) and its frame
+is `UNFILED_FRAME_LINES`, two lines, one fewer than the other two. At 80×24 it fills the room
+the accounts leave, down to the one blank line above the footer: four lines under four
+accounts (pane 11's layout from the caption down), three under five, the rest by moving the cursor; the caption's
+`N of M loaded` is what it says about the rest. The screen's footer is a `FittingFooter`,
 so the paging keys the panel then adds never cut `u No batch`.
 
 **Minimum terminal size: there is no guard.** The app degrades and says nothing; the

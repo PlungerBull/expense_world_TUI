@@ -1737,11 +1737,23 @@ def test_pane_3_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
     run_app(scenario)
 
 
-def test_u_with_five_accounts_shows_rows_at_80x24_and_pages_the_rest(monkeypatch):
-    """Under five accounts the lines in no batch show their rows, page the rest, and keep
-    every footer key whole; `#content` does not scroll them off."""
+def _unfiled_lines(count: int) -> list[dict]:
+    return [
+        _line(f"b{n}", [-100 - n], day=f"2026-03-{n + 1:02d}", title=f"T{n}") for n in range(count)
+    ]
+
+
+def _drawn_unfiled(app) -> list[str]:
+    return [line for line in screen_lines(app) if " PEN " in line and "2026-03-" in line]
+
+
+def test_u_under_four_accounts_shows_all_four_lines(monkeypatch):
+    """Four accounts, four lines in no batch (pane 11's layout from the caption down; the app
+    fits four because the head spends more blank lines than the pane), all four drawn, one
+    blank line under them and the footer, `#content` not scrolling and every key whole."""
     _five_accounts(monkeypatch, [])
-    _patch_unfiled(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS[:4]))
+    _patch_unfiled(monkeypatch, items=_unfiled_lines(4))
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
@@ -1750,13 +1762,35 @@ def test_u_with_five_accounts_shows_rows_at_80x24_and_pages_the_rest(monkeypatch
         await pilot.pause()
         assert screen.query_one("#content").max_scroll_y == 0
         shown = screen_lines(app)
-        assert any("In no batch · Visa BCP" in line for line in shown)
-        rows = [line for line in shown if "PEN" in line and "20" in line and "Visa" not in line]
-        assert 1 <= len(rows) < screen._batch_list.row_count
-        await pilot.press("pgdn")  # grows nothing here (3 of 3), the cursor goes on
-        await pilot.press("down", "down")
-        later = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
-        assert later != rows  # the next page, not a scroll
+        assert len(_drawn_unfiled(app)) == 4
+        assert any("4 of 4 loaded" in line for line in shown)
+        assert shown[-2].strip() == ""  # the one blank line above the footer
+        assert shown[-3].lstrip().startswith("2026-03-04")
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+def test_u_with_five_accounts_fills_the_room_and_pages_the_rest(monkeypatch):
+    """Under five accounts the room holds three lines, exactly three are drawn with no
+    blank line left, the rest come by moving the cursor, `#content` never scrolls."""
+    _five_accounts(monkeypatch, [])
+    _patch_unfiled(monkeypatch, items=_unfiled_lines(8))
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        rows = _drawn_unfiled(app)
+        assert len(rows) == 3
+        assert screen_lines(app)[-3].lstrip().startswith("2026-03-03")  # no gap under the rows
+        assert any("8 of 8 loaded" in line for line in screen_lines(app))
+        await pilot.press("down", "down", "down")
+        later = _drawn_unfiled(app)
+        assert len(later) == 3 and later != rows  # the next page, not a scroll
+        assert screen.query_one("#content").max_scroll_y == 0
         _footer_whole(app)
 
     run_app(scenario)
@@ -1854,8 +1888,9 @@ def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
 
         assert drawn(screen._accts_list, 5, 0) == frame
         assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
-        screen._batch_list.set_divider("blank")  # the lines in no batch
-        assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
+        screen._batch_list.set_divider("blank")  # the lines in no batch: no status line
+        screen._batch_list.set_status_line(False)
+        assert drawn(screen._batch_list, 2, screen._caption_lines()) == screen.UNFILED_FRAME_LINES
 
     run_app(scenario)
 

@@ -29,19 +29,35 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### A statement "not in order" at 80 columns
-Asked 2026-11-03 · Blocks: nothing yet (task 2 of [part 7](specs/catch-up-currencies-7-statement-screen.md) keeps today's cut until you pick)
+Asked 2026-11-03 · Blocks: task 16 of [part 7](specs/catch-up-currencies-7-statement-screen.md)
 
 On an account with a statement code, the list of statements ends with an `Order` column. A row
 reading `not in order` needs 82 columns, and an 80-column terminal cannot fit it with the
-approved spacing; the approved screen draws only `in order` rows.
+approved spacing; the approved screen draws only `in order` rows. A statement named longer than
+12 letters, such as `Noviembre 2026`, needs more room too: today every row then reads `in or…`.
 [expense-world-statement-not-in-order.html](mockups/expense-world-statement-not-in-order.html)
-draws each way:
-- **A.** The last word gives way: `not in …` at exactly 80 columns, whole from 82.
-- **B.** The name gives way: `VIS-202609` and `VIS-202610` both read `VIS-202…` at 80 columns.
-- **C.** One space between columns instead of two, on an account with a statement code; every
-  word whole.
+draws each way, with short names and with a long one:
+- **A.** The last word gives way: `not in …` at exactly 80 columns, whole from 82; with a long
+  name every row reads `in or…` (today's screen).
+- **B.** The name gives way: every name cuts to fit (`VIS-202…`, `Noviemb…`); the order is
+  always whole.
+- **C.** One space between columns instead of two, on an account with a statement code; the
+  order is always whole, and only a name longer than 13 letters cuts (`Noviembre 20…`).
 
-**Recommended:** C, because nothing is ever cut and the spacing is the only change.
+**Recommended:** C, because the order never cuts and ordinary names stay whole.
+
+### `^s` and a balance typed but not yet entered
+Asked 2026-11-03 · Blocks: nothing (part 7 is done without it; a change is one small task)
+
+On the New statement form, pane 7 shows `-234.20` typed in the bar and then sent by `^s`. In the
+app, `^s` sends only the lines already entered with `⏎`: a balance still in the bar is left out,
+and the engine then refuses the statement for the missing balance. Every form in the app works
+this way today (`⏎` keeps a line).
+- **A.** Keep it: `⏎` keeps a line, on every form.
+- **B.** `^s` also keeps what is in the bar, on every form, then saves.
+
+**Recommended:** B, because what you see typed is what you expect to be saved, and pane 7 draws
+it so; it changes every form the same way, so it becomes its own spec.
 
 ### The words when an ending balance has no starting balance
 Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)

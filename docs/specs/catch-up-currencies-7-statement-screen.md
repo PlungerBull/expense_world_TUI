@@ -282,6 +282,15 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
+From the acceptance re-check of 2026-11-03 (practice engine, 80×24, against
+[expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
+
+16. **The Order column stays whole beside a long statement name.** On an account with a statement
+    code, a statement named longer than 12 letters (`Noviembre 2026`, as panes 7 and 9 name it)
+    cuts `in order` to `in or…` on every row at 80 columns. *Waits on* todo.md's question "A
+    statement 'not in order' at 80 columns", which now decides what gives way for a long name
+    too. *Passes if:* at 80×24 the list draws as the picked option, for `not in order` and for a
+    long name, pinned by tests at 80 columns.
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as
@@ -371,3 +380,18 @@ Not built in this spec; drafted into a new spec when it is done.
 - **`c`'s boxes are cut below 64 columns:** each line in the box under the head is 60 wide from
   column 4, so at 60 columns its message loses its last letters (found by task 15's review on
   2026-11-03).
+- **A form's refusal is a toast, not the block pane 7 draws:** the New statement form's refusal
+  shows as a `Failed` toast that fades, where pane 7 draws `▌ Failed …` under the form; every
+  form shows refusals the same way (`_form.py` `_failed`), so this is one change for every form
+  (found by the acceptance re-check on 2026-11-03).
+- **A long account name cuts the browse's Balances:** with a 52-letter account name the Balances
+  column reads `-260.50 P…` and loses the second currency on every row; with six accounts the
+  accounts list's `rows 1-5 of 6 · page 1 of 2` sits on the panel's caption with no blank line
+  between (found by the acceptance re-check on 2026-11-03).
+- **A live test still says holder:** tests/contract/test_statement_codes.py names the account
+  holding a code `holder` (lines 125, 129, 143–146); it is not the old holder model, but the word
+  is (found by the acceptance re-check on 2026-11-03).
+- **The head's blank lines cost the panels rows:** every screen draws a blank line above and
+  below the breadcrumb, which no pane draws, so `u` under four accounts fits four lines where
+  pane 11 draws six; and `pgup Prev` shows on the first page of any list longer than one page
+  (`CursorList.check_action`) (found by task 17's review on 2026-11-03).

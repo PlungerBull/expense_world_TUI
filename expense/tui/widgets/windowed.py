@@ -78,6 +78,7 @@ class WindowedList(Static):
         # that *disambiguates* earns one — see docs/tui.md §3.
         self._caption = caption
         self._divider: str | None = "rule"
+        self._status_line = True
 
     # ---- the window ------------------------------------------------------
     @property
@@ -177,6 +178,15 @@ class WindowedList(Static):
         self._divider = divider
         self._refresh()
 
+    def set_status_line(self, shown: bool) -> None:
+        """Whether the page-status line stands under the rows. A list that never has a
+        status to say (a growing one, whose caption counts what is loaded) draws without it
+        and is one line shorter."""
+        if shown == self._status_line:
+            return
+        self._status_line = shown
+        self._refresh()
+
     def _refresh(self) -> None:
         self.update(self.framed())
 
@@ -188,10 +198,12 @@ class WindowedList(Static):
         place every repaint of a `CursorList` passes through (`CheckList` draws
         its own frame: no rule, no caption).
 
-        **The status line is always drawn, blank when there is nothing to
-        say.** `page_status` is None on a single page, and a line that came
-        and went would make the widget's height depend on how many rows it
-        holds — which is exactly what `AdaptiveRowsMixin` measures in order to
+        **The status line is drawn, blank when there is nothing to say,
+        unless the list was told to leave it out (`set_status_line`).**
+        `page_status` is None on a single page, and a line that came and
+        went with the rows would make the widget's height depend on how many
+        it holds; it is fixed per list or mode, never by row count. That is
+        what `AdaptiveRowsMixin` measures in order to
         decide how many rows to ask for. A constant frame is what keeps that
         arithmetic honest; see `LIST_FRAME_LINES`.
 
@@ -212,7 +224,8 @@ class WindowedList(Static):
         elif self._divider == "blank":
             parts.append(Text(""))
         parts.append(self._build())
-        parts.append(Text(self.page_status or "", style="dim"))
+        if self._status_line:
+            parts.append(Text(self.page_status or "", style="dim"))
         return Group(*parts)
 
     def _build(self) -> RenderableType:

@@ -66,7 +66,7 @@
 <button class="theme" type="button">light / dark</button>
 <div class="head">
   <h1>Statements · a row that is not in order, at 80 columns</h1>
-  <p>On an account with a statement code, the list of statements ends with an <code>Order</code> column: <code>in order</code>, or <code>not in order</code> when the statement's lines are not yet in the paper's order. The approved screen draws only <code>in order</code> rows. A <code>not in order</code> row needs 82 columns, and the terminal has 80, so something has to give. Which one?</p>
+  <p>On an account with a statement code, the list of statements ends with an <code>Order</code> column: <code>in order</code>, or <code>not in order</code> when the statement's lines are not yet in the paper's order. The approved screen draws only <code>in order</code> rows. A <code>not in order</code> row needs 82 columns, and the terminal has 80, so something has to give. A statement named longer than 12 letters, such as <code>Noviembre 2026</code>, needs more room too. Which one gives way?</p>
   <p>The accounts and amounts are invented. Everything else on the screen is as approved.</p>
 </div>
 <div class="pane"><div class="lbl">Which gives way at 80 columns? <span>— Visa BCP, its last statement a draft not in order</span></div><div class="opt">
@@ -100,6 +100,38 @@
 <span class="rev">  VIS-202610   2026-09-26 → 2026-10-25   -12.40        — draft     <span class="w">not in order</span> </span>
 
  <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">Every word whole at 80 columns: the columns sit one space apart instead of two, on an account with a statement code (the only kind with an <code>Order</code> column). An account with no code keeps two.</p></div>
+</div></div>
+<div class="pane"><div class="lbl">And a long name? <span>— the same three ways, with a statement named <code>Noviembre 2026</code>, longer than 12 letters</span></div><div class="opt">
+<div class="var"><div class="oh"><span>A · the last word gives way</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · 80 columns</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">Visa BCP</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Statements · Visa BCP · PEN + USD · VIS   ·   <span class="d">oldest → newest</span>
+<span class="d">  Name            Period                   Diff PEN  Diff USD  Status     Order </span>
+<span class="d">  VIS-202609      2026-08-26 → 2026-09-25         —            completed  in or…</span>
+<span class="d">  VIS-202610      2026-09-26 → 2026-10-25         —         —  completed  in or…</span>
+<span class="rev">  Noviembre 2026  2026-10-26 → 2026-11-25    -12.40         —  draft      <span class="w">not i…</span></span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">The name shows whole, so the <code>Order</code> column narrows for every row: <code>in or…</code> and <code>not i…</code>. This is what the app does today.</p></div>
+<div class="var"><div class="oh"><span>B · the name gives way</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · 80 columns</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">Visa BCP</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Statements · Visa BCP · PEN + USD · VIS   ·   <span class="d">oldest → newest</span>
+<span class="d">  Name      Period                   Diff PEN  Diff USD  Status     Order       </span>
+<span class="d">  VIS-202…  2026-08-26 → 2026-09-25         —            completed  in order    </span>
+<span class="d">  VIS-202…  2026-09-26 → 2026-10-25         —         —  completed  in order    </span>
+<span class="rev">  Noviemb…  2026-10-26 → 2026-11-25    -12.40         —  draft      <span class="w">not in order</span></span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">The order shows whole on every row; every name cuts to fit: <code>VIS-202…</code>, <code>Noviemb…</code>.</p></div>
+<div class="var"><div class="oh"><span>C · one space between columns</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · 80 columns</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">Visa BCP</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Statements · Visa BCP · PEN + USD · VIS   ·   <span class="d">oldest → newest</span>
+<span class="d">  Name          Period                  Diff PEN Diff USD Status    Order       </span>
+<span class="d">  VIS-202609    2026-08-26 → 2026-09-25        —          completed in order    </span>
+<span class="d">  VIS-202610    2026-09-26 → 2026-10-25        —        — completed in order    </span>
+<span class="rev">  Noviembre 20… 2026-10-26 → 2026-11-25   -12.40        — draft     <span class="w">not in order</span></span>
+
+ <span class="d">⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No batch</span></pre></div></div><p class="cap">One space apart, the order shows whole; a name longer than 13 letters cuts last: <code>Noviembre 20…</code>. Shorter names stay whole.</p></div>
 </div></div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
