@@ -290,16 +290,11 @@ the question, the files named and the tui.md section named.
    the same boxes; a currency with no movement closes on an empty box typed; the tests pin each; the citation `"Every ending balance must
    be entered"`, which the live contract no longer holds, is replaced by the live rule
    wherever it stands (tui.md, reconciliations.py).
-7. **The flagged lines and the lines in no statement** (points 9 and 10). `FlaggedLinesScreen`
-   and the `u` list in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4 "The lines a complete flagged for review". *Passes if:* `⚑` and `f`
-   show whenever the review list counts any, open or completed; on an account with a code the
-   two ways read as words; `u` lists the account's lines in no statement in one read with its
-   count, oldest first; the tests pin each.
 8. **The upload's refusals; old mockups go** (points 13 and 14; question 5).
    [statement_upload.py](../../expense/tui/screens/statement_upload.py) and its tests; tui.md §2
    "A statement PDF closes its month". *Passes if:* each new refusal reads as question 5 picks;
-   the replaced mockups are deleted and `test_docs_links.py` passes.
+   the replaced mockups are deleted and `test_docs_links.py` passes; the flagged lines the upload
+   opens show the engine's two ways, the picked account's statement code passed to them.
 9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
    [reads.py](../../expense/reads.py), the holder builders in
    [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer

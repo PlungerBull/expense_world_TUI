@@ -600,31 +600,32 @@ rather than a partial total. Opening balances are excluded engine-side. Home's g
 builder, `formatting.build_range_grid`, is covered by
 [test_range_grid.py](../tests/unit/test_range_grid.py).
 
-**`u` on the Statements browse — the account's bank lines in no batch** (pane 2d of
-[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)).
+**`u` on the Statements browse — the account's bank lines in no batch** (pane 11 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)).
 The **panel swaps**: same screen, same place, and the open account's statements
-are replaced by its bank lines assigned to no statement, any day: `GET /bank-lines`
-with `account_id` and `unreconciled=true` and no dates (contract: GET /v1/bank-lines), through
+are replaced by its bank lines assigned to no statement, any day, every currency of the
+account together: `GET /bank-lines` with `account_id`, `unreconciled=true` and
+`sort=date_asc` and no dates or currency (contract: GET /v1/bank-lines, "Filters"), through
 `fetch_bank_lines` in [reads.py](../expense/reads.py). `u` works only while an account's
 panel is open — on the plain account list it does nothing and is not in the footer.
 It is deliberately not a filtered ledger: statement work stays in the statement
 view.
 
-Every row is **one line of the bank's own columns**, `Date · Title · Operation · Amount`
-(a statement's batch screen adds a `Cur` column, below): `bank_line_columns` in
-[formatting.py](../expense/formatting.py) gives the day and title of the line's parts, its
-`operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured. A
+Every row is **one line of the bank's own columns**, `Date · Title · Operation · Cur ·
+Amount`: `bank_line_columns` in [formatting.py](../expense/formatting.py) gives the day and
+title of the line's parts, its `operation_code` (a dim `—` when it has none) and its signed
+`net_cents`, sign-coloured, and the line's own `currency_code` stands in `Cur`. A
 transaction split into parts is **one row**, its title alone and its total; nothing on the row
 says it is split, and its parts are not listed. No category, hashtags or note.
 
-The list is **newest first**, the engine's order when no `sort` is sent
-(contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
-`In no batch · <account>   ·   N of M loaded · newest first   ·
+The list is **oldest first**, `sort=date_asc` (contract: GET /v1/bank-lines, "Ordering"),
+and the caption says so:
+`In no batch · <account>   ·   N of M loaded · oldest first   ·
 ! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
-`GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`),
-read together with the first rows, and counts a split transaction once
-(contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an
-edit and a delete all start again from the newest ten, cursor on row 1. The **`!` flag is
+`GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`;
+the count takes no order), read together with the first rows, and counts a split
+transaction once (contract: GET /v1/bank-lines/count); a count that cannot be read fails
+the pane. `r`, an edit and a delete all start again from the oldest ten, cursor on row 1. The **`!` flag is
 a hint, not a ruling** — it marks a row whose date falls inside the days of a statement this
 screen already holds for the open account, draft or completed
 (`statement_windows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)), so
@@ -632,7 +633,9 @@ it costs no request. It stops nothing: a close goes
 through with such lines in no statement and names the ones it flags in its answer ("The lines a
 complete flagged for review" below), and which lines those are is the engine's alone.
 
-**Keys**: `esc` swaps back to the panel. `⏎ Edit`, on every row, opens the Edit form on the
+**Keys**: the footer reads `⏎ Edit`, `esc Back`, `r Refresh`, `? Keys` and `d Delete`; `n`
+and `u` are off here, and out of the footer. `esc` swaps back to the panel. `⏎ Edit`, on
+every row, opens the Edit form on the
 line and its parts (below); the `?` card words it "Edit the transaction and its parts", as the
 ledger's `s` (screen 2 A of
 [expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html)). `d` deletes
@@ -658,7 +661,7 @@ more it ends as "A split transaction says what reaches every part" above says), 
 operation sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the ledger's Edit
 form does, in one `PUT /bank-lines/{id}`, and a refusal stays under its parts the same way.
-Saved, "no batch" reads its newest ten again, cursor on row 1; a row whose date or account
+Saved, "no batch" reads its oldest ten again, cursor on row 1; a row whose date or account
 moved it out of the list is gone. `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
@@ -1053,8 +1056,8 @@ closing), and another write's refusal, neither lift nor hold the guard.
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
 the ledger (whole or filtered from Home), in the statement's "no batch" list and on a
 statement's flagged lines, always as the last entry of the screen's footer keys but on the
-flagged lines, whose footer ends `d Delete  ↑↓ Move` as pane 1A of
-[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)
+flagged lines, whose footer ends `d Delete  ↑↓ Move` as pane 10 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)
 draws it. Cursor row only, never a selection: on the ledger `d` is off, and out
 of the footer, while rows are selected (`esc` clears the selection and it is back),
 while a bulk write runs and on an archived account's row (above). On an
@@ -1090,7 +1093,7 @@ screen can bring it back.**
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the "no batch" list's newest ten, the flagged lines' review
+page, the ledger's newest ten, the "no batch" list's oldest ten, the flagged lines' review
 list read again whole. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
 off every transaction carrying it, and one left with no hashtag carries the pending hashtag
@@ -1534,8 +1537,8 @@ them — they are hand-written into the `?` card
 
 **The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
 `FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its
-whole key list, in the order of pane 1A of
-[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
+whole key list, in the order of pane 10 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html).
 Its list takes no focus, so the screen holds `⏎`, `d` and `↑↓` itself and the footer keeps
 that order (a focused widget's keys would come first); `pgdn`/`pgup` page and `r` reads
 the flagged lines again, none of them in the footer.
@@ -1631,8 +1634,9 @@ covers, none picked first.
 **Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
 saved the panel opens on the new one; `u` swaps the panel to the account's rows in no
-batch (panel open only); `d` deletes the cursor row **in that pane only** (a no-op on the
-statement list, where a batch's own delete lives one screen deeper); `esc` retreats
+batch (panel open only, and not again inside it); `d` deletes the cursor row **in that pane
+only** (off, and out of the footer, on the statement list, where a batch's own delete lives
+one screen deeper); `esc` retreats
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
@@ -1794,11 +1798,11 @@ statement's own id
 A tick that gives the statement a currency it did not cover reads the statement again, and
 the new currency's balances show as a dim `—`, its difference blank (pane 5).
 
-**The lines a complete flagged for review** (pick 1A of
-[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)).
+**The lines a complete flagged for review** (pane 10 of
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)).
 A complete goes through while lines dated in the statement are in no statement: its answer
-names the bank lines it flagged for review on each balance, `review_lines`, every account's
-of the statement, each oldest first
+names the bank lines it flagged for review on each balance, `review_lines`, every currency of
+the statement's account, each oldest first
 (contract: POST /v1/statements/{statement_id}/complete, "Response"). The app
 keeps no rule of which lines those are, and nothing in it treats them as a refusal of
 complete. When the answer names any, the app pushes a full screen right after the
@@ -1812,21 +1816,29 @@ over `reads.fetch_bank_lines`'s `review_of` in [reads.py](../expense/reads.py)),
 it holds from `GET /bank-lines/count?unassigned_in_period_of=<statement id>`
 (`reads.count_bank_lines`); it sends no id of a line and reads no line by its id
 (contract: GET /v1/bank-lines, "It has no bound"). A line assigned to a statement, moved
-out of the holder or the days, or deleted drops out of the engine's list. The screen
-reads `<statement> is completed. 3 lines dated up to its last day are in no statement.`,
-the engine's count and the rest of that sentence in the warning colour (`1 line dated up to its
-last day is in no statement.` for one), then three dim lines, the three choices the
-contract gives
-(contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line"):
-`For each: if it belongs to this statement, revert, tick it, complete again.`,
-`If it belongs to a later statement, leave it: tick it there when it comes.` and
-`If it is a mistake, open it to fix it, or delete it.` Under them, the lines in one list,
-`Date · Account · Title · Amount`, every account's together, in the engine's order, the
-statement's: its lines hold no place, so they are oldest first, a holder's currencies mixed
-by date (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); the
-app sorts nothing itself. Each row shows the line's day, title and signed
-`net_cents` through `bank_line_columns`, sign-coloured as in every bank-line list, and its
-account by name, on a statement of one account too. The footer reads
+out of the account or the days, or deleted drops out of the engine's list. The screen
+reads `<statement> has 3 flagged lines. 3 lines dated up to its last day are in no
+statement.` (`1 flagged line. 1 line dated up to its last day is in no statement.` for one),
+the first sentence plain and the engine's count and the rest of the second in the warning
+colour. The head and the words under the list stand two cells in and wrap at 75 columns.
+Under the head, the lines in one list, `Date · Title · Operation · Cur · Amount`, drawn as
+the statement's own list is (`CheckList`, read-only, no numbers), every currency of the
+account together, in the engine's order, the statement's: its lines hold no place, so they
+are oldest first, the account's currencies mixed by date (contract: GET /v1/bank-lines,
+"Read in the statement's order, and only in it"); the app sorts nothing itself. Each row
+shows the line's day, title, operation, currency and signed `net_cents` through
+`bank_line_columns`, sign-coloured as in every bank-line list.
+
+On an account with a statement code (the account's, passed in from the browse), the engine's
+two ways to settle a flagged line read as dim words under the list (`FLAGGED_WAYS`): when the
+paper prints the line, the upload made the paper's row a line of its own, its twin, and the
+owner keeps one, the bank's by deleting the flagged line or their own by reverting, deleting
+the twin, setting the line's day to the row's day and uploading the PDF again; when the paper
+does not print it, the line waits for a later statement, or is fixed or deleted
+(contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line").
+The words do none of the steps: each is done on the screen it belongs to (`u` on the
+statement, `d` on the twin, the Edit form for the day, the PDF on the LOG bar). On an account
+with no statement code no words show. The footer reads
 `esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
 the ledger's Edit form (`EditFormScreen`, which reads the line by its id), crumb
 `… ▸ Flagged ▸ Edit`; `d` asks the "no batch" list's question and deletes as it does
@@ -1837,14 +1849,17 @@ goes back to the statement. Until the first read lands the head and the list are
 read that fails toasts the engine's words and keeps what is listed, and `r` reads again.
 `esc` hands the statement the engine's last count.
 
-**Back on the statement**, while it stays open, the line
+**On the statement**, whether it is open or completed, the line
 `⚑ 3 lines flagged for review: in no statement, dated up to this one's last day  · f shows them`
-sits under the header, in the warning colour with `· f shows them` dim, and `f Flagged`
-is in the footer and on the `?` card only while flagged lines are left; `f` opens the list
-again. The count is the length of the complete's `review_lines` until the flagged lines'
-screen has counted the review list, then that screen's last count. Both clear on the next
-status change (a revert) and once the engine counts no flagged line left. Leaving the statement forgets them: the lines stay in the ledger, in no statement,
-and show in the account's "no batch" list (`u` on the browse).
+sits under the header, two cells in, in the warning colour with `· f shows them` dim, and
+`f Flagged` is in the footer and on the `?` card only while the statement's review list counts
+a line; `f` opens the list. The count is the engine's, `GET /bank-lines/count` with
+`unassigned_in_period_of=<statement id>`, read each time the screen reads the statement (when
+it opens, on `r`, after a tick and after a status change; a read that fails toasts the
+engine's words), so a draft shows the lines a complete would flag, and a revert counts again.
+A complete's `review_lines` set the count at once, until that read lands; back from the
+flagged lines' screen, its last count. With none counted, neither shows. The lines stay in the
+ledger, in no statement, and show in the account's "no batch" list (`u` on the browse).
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
@@ -2075,7 +2090,7 @@ the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with
 not a write: nothing is read and the list comes back as it was — the rows `pgdn` loaded
 and the cursor on its row; the form dismisses with `True` only on a
 save. The "no batch" list on
-Statements grows through the same `GrowingRead`, newest first — one copy of the
+Statements grows through the same `GrowingRead`, oldest first — one copy of the
 cursor, the count, the `pgdn` read and the rule that a `pgdn` read never lands on a list a
 fresh read replaced.
 

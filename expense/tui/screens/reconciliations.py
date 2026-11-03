@@ -8,9 +8,9 @@ with its currencies and their balances; `⏎` on one reads its statements in one
 the cursor in it. They stand in the order the engine returns them: `date_start`
 ascending, then creation time, oldest first (contract: "Statements", "Ordering").
 There `⏎` opens the working screen on the open account, `n` creates one for it, `u`
-swaps the panel for the account's bank lines in no batch (`GET /bank-lines`, newest
-first, a split purchase one row), and `esc` closes the panel. Nothing is read for an
-account until you press `⏎` on it.
+swaps the panel for the account's bank lines in no batch (`GET /bank-lines`, every
+currency together, oldest first, a split purchase one row), and `esc` closes the
+panel. Nothing is read for an account until you press `⏎` on it.
 
 The panel lists one row per statement: Name, Period, one Diff per currency the
 account holds (`Diff PEN`, `Diff USD`, in the account's order; `Diff` alone on an
@@ -51,14 +51,16 @@ for each in a box, saves them in the statement's `balances` with one
 PUT /statements/{id}, then asks the usual "Complete statement?". A complete
 whose answer flags lines for review (each balance's `review_lines`, every
 currency's) opens FlaggedLinesScreen on the statement's review list
-(pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
-working screen keeps a `⚑` line and `f` until its next status change.
+(pane 10 of docs/mockups/expense-world-statements-screens.html). The working screen
+keeps a `⚑` line and `f` while the review list counts any line, open or completed,
+counted each time the screen reads the statement.
 """
 
 import uuid
 from collections.abc import Callable
 from typing import NamedTuple
 
+from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -108,21 +110,24 @@ from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell,
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, list_cell
 from expense.tui.widgets.header import Breadcrumb
-from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.refusal import toast, under_itself
 
 # Status labels + period formatting are owned by expense/formatting.py
 # (format_status / format_period) — one copy, per the §5 rule.
 _period = formatting.format_period
 
-_UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Amount"]
+_UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Cur", "Amount"]
 
 #: What the "no batch" list asks the engine for, with the account and no dates:
-#: this account's bank lines in no statement, any day. The list and its count
-#: both take it (`GET /bank-lines`, `GET /bank-lines/count`). No `sort` is sent,
-#: so the engine lists them newest first, its order when none is asked for
-#: (contract: GET /v1/bank-lines, "Ordering"); the list opens with the
-#: `GROW_STEP` newest and `pgdn` appends the next ones.
+#: this account's bank lines in no statement, any day, every currency together. The
+#: list and its count both take it (`GET /bank-lines`, `GET /bank-lines/count`).
+#: The list alone adds `UNFILED_SORT` (the count takes no order); it opens with the
+#: `GROW_STEP` oldest and `pgdn` appends the next ones
+#: (contract: GET /v1/bank-lines, "Filters").
 UNFILED_FILTER = {"unreconciled": True}
+#: Oldest first, the order of the lines of a statement that hold no place
+#: (contract: GET /v1/bank-lines, "Ordering").
+UNFILED_SORT = "date_asc"
 
 
 def balance_of(statement: dict, currency_code: object) -> dict:
@@ -153,13 +158,13 @@ def statement_windows(statements: list[dict]) -> list[tuple[str, str, str]]:
 
 def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
     """Rows for the "no batch" list, one per bank line, in the order given (the
-    engine's, newest first), `!` on the ones dated inside a statement's days
+    engine's, oldest first), `!` on the ones dated inside a statement's days
     (`statement_windows`).
 
     Each row is one line of the bank's own columns, `bank_line_columns`: the
-    day, the title, the operation code (a dim `—` when there is none) and the
-    signed `net_cents`. A purchase split into parts is one row with its title
-    alone and its total; nothing on the row says it is split.
+    day, the title, the operation code (a dim `—` when there is none), the
+    line's currency and the signed `net_cents`. A purchase split into parts is one row
+    with its title alone and its total; nothing on the row says it is split.
 
     **The flag is a hint, not a ruling.** It compares each row's day with the
     days of the statements this screen already holds, so it costs no request.
@@ -184,6 +189,7 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
                     day,
                     title or "(untitled)",
                     operation_cell(operation),
+                    line.get("currency_code") or "",
                     amount_cell(net_cents, palette, AMOUNT_RULE),
                 ],
             )
@@ -466,7 +472,7 @@ class ReconciliationsScreen(SectionScreen):
         ("escape", "back", "Back"),
         ("n", "new", "New"),
         Binding("u", "unfiled", "No batch", tooltip="This account's rows that are in no batch"),
-        Binding("d", "delete_row", "Delete", show=False),  # unfiled pane only
+        Binding("d", "delete_row", "Delete"),  # the lines in no batch only
     ]
 
     def __init__(self) -> None:
@@ -476,7 +482,7 @@ class ReconciliationsScreen(SectionScreen):
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
-        self._unfiled: list = []  # every bank line in no batch loaded so far, newest first
+        self._unfiled: list = []  # every bank line in no batch loaded so far, oldest first
         # the cursor past the last row, the count, and `pgdn` — shared with the ledger
         self._unfiled_grow = GrowingRead(self, on_more=self._append_unfiled)
         self._unfiled_busy = False
@@ -651,8 +657,14 @@ class ReconciliationsScreen(SectionScreen):
             return self._mode == "batches"
         if action == "back":
             return self._mode != "batches"
+        # the lines in no batch have `⏎ Edit` and `d Delete` of their own (pane 11 of
+        # docs/mockups/expense-world-statements-screens.html), and neither `n` nor `u`
+        if action == "delete_row":
+            return self._mode == "unfiled"
         if action == "unfiled":
-            return self._open_aid is not None
+            return self._open_aid is not None and self._mode != "unfiled"
+        if action == "new":
+            return self._mode != "unfiled"
         return True
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
@@ -772,7 +784,7 @@ class ReconciliationsScreen(SectionScreen):
         self.refresh_bindings()
 
     def _reload_unfiled(self) -> None:
-        """After `⏎` edit or `d`: the newest `GROW_STEP` again, the cursor on
+        """After `⏎` edit or `d`: the oldest `GROW_STEP` again, the cursor on
         row 1 (any write starts the list over, like any app's list). A row whose
         date or account moved is gone, which is the point of editing it."""
         if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
@@ -781,7 +793,7 @@ class ReconciliationsScreen(SectionScreen):
             self._load_unfiled(self._open_aid)
 
     async def action_reload(self) -> None:
-        """`r` — in the unfiled pane, start again from the newest `GROW_STEP`;
+        """`r` — in the unfiled pane, start again from the oldest `GROW_STEP`;
         anywhere else, reload the screen (an open panel stays open)."""
         if self._mode == "unfiled":
             if not self._unfiled_busy:
@@ -805,7 +817,7 @@ class ReconciliationsScreen(SectionScreen):
             return
         self._unfiled_busy = True
         self._mode = "unfiled"
-        self._batch_list.set_headers(_UNFILED_HEADERS, align_right={3})
+        self._batch_list.set_headers(_UNFILED_HEADERS, align_right={5})
         self._batch_list.add_class("unfiled")
         self._batch_list.set_caption(f"In no batch · {acct.name}   ·   loading…")
         self._batch_list.set_rows([])
@@ -813,8 +825,8 @@ class ReconciliationsScreen(SectionScreen):
         self._load_unfiled(acct.id)
 
     def _unfiled_page(self, account_id: str):
-        """`(limit, after) -> body`: this account's bank lines in no batch,
-        newest first (worker thread)."""
+        """`(limit, after) -> body`: this account's bank lines in no batch, every
+        currency together, oldest first (worker thread)."""
         from expense import config as config_module
 
         def page(limit: int, after: str | None) -> dict:
@@ -823,6 +835,7 @@ class ReconciliationsScreen(SectionScreen):
                 account=account_id,
                 after=after,
                 limit=limit,
+                sort=UNFILED_SORT,
                 **UNFILED_FILTER,
                 **screen_fetch_kwargs(self.app),
             )
@@ -891,12 +904,12 @@ class ReconciliationsScreen(SectionScreen):
         self._batch_list.refresh_bindings()
 
     def _unfiled_caption(self) -> str:
-        """`In no batch · BCP PEN · 20 of 1716 loaded · newest first · …`"""
+        """`In no batch · Visa BCP · 20 of 1716 loaded · oldest first · …`"""
         acct = self._open_account()
         label = acct.name if acct else "—"
         return (
             f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
-            " · newest first   ·   ! dated inside a statement"
+            " · oldest first   ·   ! dated inside a statement"
         )
 
     def _unfiled_record(self) -> dict | None:
@@ -1282,6 +1295,14 @@ def _status_span(status: str, palette: Palette) -> tuple[str, str]:
     return status, palette.success if status == "completed" else palette.warning
 
 
+def bank_line_row(line: dict, *rest: object) -> tuple:
+    """A bank line as a `CheckList` row: its id, the bank's columns
+    (`bank_line_columns`), its currency, then `rest` (the number on the paper and
+    whether it is apart). The one copy of the row, for the statement's list and the
+    flagged lines'."""
+    return (line.get("id"), *formatting.bank_line_columns(line), line.get("currency_code"), *rest)
+
+
 def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, dict]:
     """`(rows, checked, part_of)` for the statement screen's list.
 
@@ -1307,13 +1328,7 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
         if key in in_statement:
             checked.append(key)
         opening = bool(line.get("is_opening_balance"))
-        row = (
-            key,
-            *formatting.bank_line_columns(line),
-            line.get("currency_code"),
-            None if opening else len(rows) + 1,
-            opening,
-        )
+        row = bank_line_row(line, None if opening else len(rows) + 1, opening)
         if opening:
             apart.append(row)
         else:
@@ -1446,8 +1461,9 @@ class ReconciliationDetailScreen(
     `r` refetches the batch + checklist (r = refresh everywhere, never a write).
 
     A complete whose answer flags lines for review opens `FlaggedLinesScreen` on
-    them; back here, the `⚑` line under the header says how many, and `f` opens
-    that screen again, both until the next status change."""
+    them. The `⚑` line under the header says how many the statement's review list
+    counts, and `f` opens that screen, both whenever it counts any, open or
+    completed, counted each time the screen reads the statement."""
 
     BINDINGS = [
         ("escape", "back", "Back"),
@@ -1474,9 +1490,9 @@ class ReconciliationDetailScreen(
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
-        # how many bank lines the last complete flagged for review, every
-        # account's: its `review_lines` at first, then the engine's count from
-        # the flagged lines' screen
+        # how many bank lines the statement's review list counts: the engine's
+        # count each time the statement is read, the flagged lines' screen's last
+        # count on the way back, and a complete's `review_lines` until the read lands
         self._flagged = 0
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
@@ -1621,6 +1637,16 @@ class ReconciliationDetailScreen(
         call_while_attached(self, self._set_acct_name, acct_name)
         call_while_attached(self, self._render_header)  # picks up _acct_name
         call_while_attached(self, self._populate, rows, checked, part_of)
+        # the review list's count, on a draft or a completed statement alike: the list
+        # is on screen whatever it says (contract: GET /v1/bank-lines/count)
+        try:
+            flagged = reads.count_bank_lines(cfg, review_of=self._id, **kw)
+        except Exception as exc:
+            if not worker.is_cancelled:
+                call_while_attached(self, toast, self, format_error(exc), severity="error")
+            return
+        if not worker.is_cancelled:
+            call_while_attached(self, self._show_flagged, flagged)
 
     async def _populate(self, rows: list, checked: list, part_of: dict) -> None:
         """Paint a read. Not while a tick is unanswered: the read may predate
@@ -1851,11 +1877,11 @@ class ReconciliationDetailScreen(
             message = error_text(exc)
             self._action_failed(f"{lead}\n{message}" if lead else message, verb, exc)
 
-        # Any status change invalidates a gap report and the flagged lines: they
-        # were true of the record as it stood one write ago (a revert unseals the
-        # very window they named).
+        # A status change invalidates a gap report: it was true of the record as it
+        # stood one write ago (a revert unseals the very window it named). The
+        # flagged lines stay until the read after a change that went through counts
+        # them again; a refused change leaves them as they were.
         self._show_warnings([])
-        self._show_flagged(0)
         self.run_write(
             method,
             path,
@@ -1911,8 +1937,8 @@ class ReconciliationDetailScreen(
         line.display = True
 
     def _take_flagged(self, body: dict) -> None:
-        """How many bank lines the close flagged for review, every account's
-        of the statement (`review_line_ids`). The screen showing them opens
+        """How many bank lines the close flagged for review, every currency
+        of the statement's account (`review_line_ids`). The screen showing them opens
         once the complete's success has landed (`_action_done`)."""
         self._show_flagged(len(review_line_ids(body)))
 
@@ -1946,7 +1972,11 @@ class ReconciliationDetailScreen(
 
     def _open_flagged(self) -> None:
         self.app.push_screen(
-            FlaggedLinesScreen(self._id, statement=self._record.get("name") or "—"),
+            FlaggedLinesScreen(
+                self._id,
+                statement=self._record.get("name") or "—",
+                statement_code=self._statement_code,
+            ),
             self._flagged_back,
         )
 
@@ -2005,72 +2035,88 @@ def flagged_note(n: int) -> Text:
     )
 
 
-#: What to do with a flagged line, under the count (pane 1A of
-#: docs/mockups/expense-world-statement-flagged-lines.html): the three choices
-#: (contract: POST /v1/statements/{statement_id}/complete, "What a client
-#: does with a flagged line").
-FLAGGED_CHOICES = (
-    "For each: if it belongs to this statement, revert, tick it, complete again.",
-    "If it belongs to a later statement, leave it: tick it there when it comes.",
-    "If it is a mistake, open it to fix it, or delete it.",
+#: What to do with a flagged line on an account with a statement code, under the list
+#: (pane 10 of docs/mockups/expense-world-statements-screens.html): the engine's two
+#: ways, one paragraph each, `(indent beyond the list's, words)`
+#: (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a
+#: flagged line"). The app does none of the steps here: each is done on the screen it
+#: belongs to.
+FLAGGED_WAYS = (
+    (
+        0,
+        "On an account with a statement code, when the paper prints the line, the upload made"
+        " the paper's row a line of its own, its twin. Keep one:",
+    ),
+    (2, "the bank's: delete your line. The statement stays completed."),
+    (
+        2,
+        "yours: revert, delete the twin, set your line's day to the row's day, upload the PDF"
+        " again.",
+    ),
+    (
+        0,
+        "When the paper does not print it: leave it for a later statement, or fix it, or"
+        " delete it.",
+    ),
 )
-_FLAGGED_HEADERS = ["Date", "Account", "Title", "Amount"]
 
 
-def flagged_rows(lines: list[dict], names: dict, palette: Palette | None = None) -> list:
-    """One row per flagged line, in the order given: its day, its account by
-    name, its title and its signed `net_cents`, as every bank line list shows
-    them (`bank_line_columns`)."""
-    rows = []
-    for line in lines:
-        day, title, _operation, net_cents = bank_line_columns(line)
-        rows.append(
-            (
-                line.get("id"),
-                [
-                    day,
-                    resolve_name(line.get("account_id"), names),
-                    title or "(untitled)",
-                    amount_cell(net_cents, palette, AMOUNT_RULE),
-                ],
-            )
-        )
-    return rows
+#: The lines the words under the list take at 80 columns, until they are drawn and
+#: can be measured.
+FLAGGED_WAYS_LINES = 7
+
+
+def flagged_rows(lines: list[dict]) -> list[tuple]:
+    """One row per flagged line, in the order given, as the statement's own list
+    draws a line (`bank_line_row`)."""
+    return [bank_line_row(line) for line in lines]
 
 
 def flagged_head(statement: str, n: int, palette: Palette) -> Text:
-    """`<statement> is completed. N lines dated up to its last day are in no
-    statement.`, then what to do with each, dim."""
+    """`<statement> has N flagged lines. N lines dated up to its last day are in no
+    statement.`, the engine's count in the warning colour."""
     verb = "is" if n == 1 else "are"
-    text = Text.assemble(
-        (f"{statement} is completed. ", ""),
+    flagged = "flagged line" if n == 1 else "flagged lines"
+    return Text.assemble(
+        (f"{statement} has {n} {flagged}. ", ""),
         (f"{line_count(n)} dated up to its last day {verb} in no statement.", palette.warning),
     )
-    for choice in FLAGGED_CHOICES:
-        text.append("\n")
-        text.append(choice, style="dim")
-    return text
 
 
-class _FlaggedList(CursorList):
-    """The flagged lines' list. It takes no focus: its screen holds every key,
-    so the footer reads in the screen's own order (a focused widget's keys come
-    first in a footer)."""
+def flagged_ways() -> RenderableType:
+    """The engine's two ways to settle a flagged line, as words, dim, each paragraph
+    wrapping under its own first word (`FLAGGED_WAYS`)."""
+    return Group(
+        *(
+            under_itself(Text(" " * indent), Text(words, style="dim"))
+            if indent
+            else Text(words, style="dim")
+            for indent, words in FLAGGED_WAYS
+        )
+    )
+
+
+class _FlaggedList(CheckList):
+    """The flagged lines' list, drawn as the statement's own list (read-only, no
+    numbers). It takes no focus: its screen holds every key, so the footer reads in
+    the screen's own order (a focused widget's keys come first in a footer)."""
 
     can_focus = False
 
 
 class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMixin, Screen):
-    """The lines a statement's close flagged for review (pane 1A of
-    docs/mockups/expense-world-statement-flagged-lines.html).
+    """The lines a statement's close flagged for review (pane 10 of
+    docs/mockups/expense-world-statements-screens.html).
 
     Opened on the statement's id, the screen reads its review list, the lines
-    its close flagged and still unresolved, every currency's
+    its close flagged and still unresolved, every currency of the account
     together, page by page in the statement's order, with no id of a line sent
     (contract: POST /v1/statements/{statement_id}/complete, "Response"), and
     how many it holds from the count read on the same filter
     (contract: GET /v1/bank-lines/count). It lists them in the engine's order:
-    `Date · Account · Title · Amount`. A line assigned, moved or deleted drops
+    `Date · Title · Operation · Cur · Amount`. On an account with a statement
+    code (`statement_code`) the engine's two ways to settle a flagged line read as
+    words under the list (`FLAGGED_WAYS`). A line assigned, moved or deleted drops
     out of the engine's list, so it drops from the screen. `⏎` opens the line
     in the ledger's Edit form, `d` deletes it after the delete question, and
     after either the list is read again. `esc` goes back to the statement,
@@ -2088,17 +2134,22 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
         Binding("r", "reload", "Refresh", show=False),
     ]
 
-    def __init__(self, statement_id: str, *, statement: str) -> None:
+    def __init__(
+        self, statement_id: str, *, statement: str, statement_code: str | None = None
+    ) -> None:
+        """`statement_code` is the statement code of the statement's account
+        (`BrowseAccount.code`), `None` when it has none."""
         super().__init__()
         self._statement_id = statement_id
         self._statement = statement
+        self._statement_code = statement_code
         self.crumb = ("Statements", statement, "Flagged")
         self._lines: list[dict] = []
         #: How many lines the review list holds, as the engine last counted
         #: them; None until a read lands.
         self._count: int | None = None
         self._names: dict = {}
-        self._list: CursorList | None = None
+        self._list: CheckList | None = None
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
@@ -2115,7 +2166,15 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             self._list.set_page_size(self._page_rows())
 
     def _page_rows(self) -> int:
-        return self.fit_rows("#flist", chrome=self.LIST_FRAME_LINES)
+        """Rows that fit under the list's own frame and, on an account with a
+        statement code, the words under it."""
+        chrome = CheckList.FRAME_LINES
+        if self._statement_code:
+            try:
+                chrome += self.query_one("#fways", Static).outer_size.height or FLAGGED_WAYS_LINES
+            except Exception:
+                chrome += FLAGGED_WAYS_LINES
+        return self.fit_rows("#flist", chrome=chrome)
 
     @work(thread=True, exclusive=True, group="flagged-load")
     def _load(self) -> None:
@@ -2149,16 +2208,16 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             self.dismiss(count)
             return
         self.query_one("#fhead", Static).update(flagged_head(self._statement, count, PALETTE))
-        rows = flagged_rows(lines, names, palette=PALETTE)
-        if self._list is not None:
-            self._list.set_rows(rows)
-            self._list.set_cursor(0)
-            return
+        rows = flagged_rows(lines)
+        page_size = self._page_rows()
         async with self._content_lock():
-            self._list = _FlaggedList(
-                _FLAGGED_HEADERS, rows, align_right={3}, page_size=self._page_rows()
-            )
-            await self.query_one("#flist", Container).mount(self._list)
+            container = self.query_one("#flist", Container)
+            await container.remove_children()
+            self._list = _FlaggedList(rows, read_only=True, palette=PALETTE, page_size=page_size)
+            widgets: list[Widget] = [self._list]
+            if self._statement_code:
+                widgets.append(Static(flagged_ways(), id="fways"))
+            await container.mount(*widgets)
 
     def _cursor_line(self) -> dict | None:
         key = self._list.cursor_key if self._list is not None else None

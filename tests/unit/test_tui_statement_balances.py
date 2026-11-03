@@ -31,6 +31,8 @@ from tests.unit.helpers import (
     wait_for,
 )
 
+pytestmark = pytest.mark.usefixtures("no_flagged_lines")
+
 PATH = "/statements/ibk"
 COMPLETE = "/statements/ibk/complete"
 SAVED_WORDS = "The balances are saved. The statement is not completed:"

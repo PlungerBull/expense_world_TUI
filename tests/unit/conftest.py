@@ -166,6 +166,16 @@ def fake_client(monkeypatch):
     return client
 
 
+@pytest.fixture
+def no_flagged_lines(monkeypatch):
+    """A statement's screen counts its review list each time it reads the statement
+    (`GET /bank-lines/count?unassigned_in_period_of=`, contract: GET /v1/bank-lines/count):
+    this fixture answers `0`, for a test about something else that opens the screen.
+    It replaces every `count_bank_lines`, the browse's `u` count included. The flagged
+    lines' tests serve the count themselves."""
+    monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 0)
+
+
 @pytest.fixture(autouse=True)
 def _no_retry_backoff(monkeypatch):
     """Zero the write-retry waits for EVERY unit test.

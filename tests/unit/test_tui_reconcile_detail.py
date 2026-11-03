@@ -48,6 +48,8 @@ from tests.unit.helpers import (
     wait_for,
 )
 
+pytestmark = pytest.mark.usefixtures("no_flagged_lines")
+
 
 def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None) -> dict:
     return {

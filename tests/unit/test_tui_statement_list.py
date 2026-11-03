@@ -52,6 +52,8 @@ from tests.unit.helpers import (
     whole,
 )
 
+pytestmark = pytest.mark.usefixtures("no_flagged_lines")
+
 #: The accounts as `GET /accounts` reads them (contract: "Bank Accounts"): a Visa
 #: holding soles and dollars with its own statement code, another holding both with
 #: none, and two holding one currency each.

@@ -1,13 +1,14 @@
-"""The lines a statement's close flagged for review (pick 1A of
-docs/mockups/expense-world-statement-flagged-lines.html).
+"""The lines a statement's close flagged for review (pane 10 of
+docs/mockups/expense-world-statements-screens.html).
 
 A complete goes through with lines left in no statement and names them by id, each
-balance's `review_lines`, every account's of the statement
+balance's `review_lines`, every currency of the statement's account
 (contract: POST /v1/statements/{statement_id}/complete, "Response"). The
 app pushes a screen of its own on the statement's review list, paged whole in the
 statement's order with no id sent, its count the engine's
-(contract: GET /v1/bank-lines, "It has no bound"), and the statement keeps a `⚑`
-line and `f` until its next status change."""
+(contract: GET /v1/bank-lines, "It has no bound"). The statement keeps a `⚑` line and
+`f` while the review list counts any line, open or completed, counted each time the
+screen reads the statement (contract: GET /v1/bank-lines/count)."""
 
 import pytest
 from textual.widgets import Static
@@ -36,14 +37,24 @@ from tests.unit.helpers import (
 NAMES = {"sig-pen": "Signature PEN", "sig-usd": "Signature USD", "acc1": "BCP PEN"}
 
 
-def _line(line: str, cents: int, day: str, title: str, account: str = "sig-pen") -> dict:
-    part = import_part(f"t-{line}", cents, account_id=account, line=line, day=day, title=title)
-    return bank_line_row(line, [part], net_cents=cents, account_id=account)
+def _line(
+    line: str, cents: int, day: str, title: str, account: str = "sig-pen", currency: str = "PEN"
+) -> dict:
+    part = import_part(
+        f"t-{line}",
+        cents,
+        account_id=account,
+        currency_code=currency,
+        line=line,
+        day=day,
+        title=title,
+    )
+    return bank_line_row(line, [part], net_cents=cents, account_id=account, currency_code=currency)
 
 
 TAMBO = _line("l-tambo", -750, "2026-09-25", "TAMBO MIRAFLORES")
 UBER = _line("l-uber", -4200, "2026-10-20", "UBER *TRIP")
-SPOTIFY = _line("l-spotify", -599, "2026-10-24", "SPOTIFY P2F3", account="sig-usd")
+SPOTIFY = _line("l-spotify", -599, "2026-10-24", "SPOTIFY P2F3", account="sig-usd", currency="USD")
 #: A purchase split 60 + 40: deleted whole, after the question naming its parts.
 FARMACIA = bank_line_row(
     "l-farmacia",
@@ -267,11 +278,14 @@ def test_a_close_that_flags_nothing_opens_no_screen_and_adds_nothing(fake_client
 # ---- a soles account, and a card ----------------------------------------------
 
 
-def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, monkeypatch):
-    """A holder of one account: the lines are its statement's review list, in one page
-    read with no id sent, the count the engine's, and no line read by its id; the rows
-    in the engine's order, not the close's; the screen's words, its columns and its
-    footer as pane 1A draws them."""
+def test_a_close_on_an_account_with_no_code_shows_its_flagged_lines_and_no_ways(
+    fake_client, monkeypatch
+):
+    """The lines are the statement's review list, in one page read with no id sent,
+    the count the engine's, and no line read by its id; the rows in the engine's order,
+    not the close's, as the bank's columns with the currency; the head's two sentences;
+    the footer as pane 10 draws it. With no statement code the engine's two ways have
+    nothing to say, so none show."""
     _patch(monkeypatch)
     lines = [{**line, "account_id": "acc1"} for line in (TAMBO, UBER)]
     engine = Lines(monkeypatch, fake_client, *lines)
@@ -281,21 +295,17 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
         await _complete(pilot, app, PLAIN)
         screen = await _flagged_screen(pilot, app)
         assert screen.crumb == ("Statements", "Octubre BCP", "Flagged")
-        head = _text(screen, "#fhead")
-        assert head == (
-            "Octubre BCP is completed. 2 lines dated up to its last day are in no statement.\n"
-            "For each: if it belongs to this statement, revert, tick it, complete again.\n"
-            "If it belongs to a later statement, leave it: tick it there when it comes.\n"
-            "If it is a mistake, open it to fix it, or delete it."
+        assert _text(screen, "#fhead") == (
+            "Octubre BCP has 2 flagged lines. 2 lines dated up to its last day are in no statement."
         )
         drawn = [line.split() for line in render_text(screen._list._build()).split("\n")]
-        drawn = [line for line in drawn if line and set(line[0]) != {"─"}]
-        assert drawn[:3] == [
-            ["Date", "Account", "Title", "Amount"],
-            ["2026-09-25", "BCP", "PEN", "TAMBO", "MIRAFLORES", "-7.50"],
-            ["2026-10-20", "BCP", "PEN", "UBER", "*TRIP", "-42.00"],
+        assert [line for line in drawn if line] == [
+            ["Date", "Title", "Operation", "Cur", "Amount"],
+            ["2026-09-25", "TAMBO", "MIRAFLORES", "—", "PEN", "-7.50"],
+            ["2026-10-20", "UBER", "*TRIP", "—", "PEN", "-42.00"],
         ]
         assert _listed(screen) == ["l-tambo", "l-uber"]
+        assert not screen.query("#fways")
         assert _footer(screen) == [
             "esc Back to the statement",
             "⏎ Open",
@@ -303,15 +313,17 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
             "↑↓ Move",
         ]
         assert engine.reads == [_review("s1")]
-        assert engine.counts == [{"unassigned_in_period_of": "s1"}]
+        assert set(map(tuple, map(dict.items, engine.counts))) == {
+            (("unassigned_in_period_of", "s1"),)
+        }
         assert _by_id(fake_client) == []
 
     run_app(scenario)
 
 
 def test_a_card_shows_every_accounts_lines_oldest_first(fake_client, monkeypatch):
-    """Every account's lines of the card's statement in one read of its review list,
-    listed oldest first as the engine orders them, each row naming its account."""
+    """Every currency's lines of the card's statement in one read of its review list,
+    listed oldest first as the engine orders them, each row naming its currency."""
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], ["l-spotify"])
@@ -322,9 +334,9 @@ def test_a_card_shows_every_accounts_lines_oldest_first(fake_client, monkeypatch
         assert _listed(screen) == ["l-tambo", "l-uber", "l-spotify"]
         assert engine.reads == [_review("s-sig")]
         drawn = " ".join(render_text(screen._list._build(), width=100).split())
-        assert "2026-10-24 Signature USD SPOTIFY P2F3 -5.99" in drawn
-        assert "2026-09-25 Signature PEN TAMBO MIRAFLORES -7.50" in drawn
-        assert "3 lines dated up to its last day are in no statement." in _text(screen, "#fhead")
+        assert "2026-10-24 SPOTIFY P2F3 — USD -5.99" in drawn
+        assert "2026-09-25 TAMBO MIRAFLORES — PEN -7.50" in drawn
+        assert _text(screen, "#fhead").startswith("Octubre 2026 has 3 flagged lines. 3 lines dated")
 
     run_app(scenario)
 
@@ -350,8 +362,8 @@ def test_one_line_reads_in_the_singular(fake_client, monkeypatch):
     async def scenario(pilot, app):
         statement = await _complete(pilot, app, SOLES)
         screen = await _flagged_screen(pilot, app)
-        assert _text(screen, "#fhead").startswith(
-            "Octubre 2026 is completed. 1 line dated up to its last day is in no statement."
+        assert _text(screen, "#fhead") == (
+            "Octubre 2026 has 1 flagged line. 1 line dated up to its last day is in no statement."
         )
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is statement)
@@ -519,7 +531,7 @@ def test_esc_back_shows_the_warning_line_and_f_opens_the_list_again(fake_client,
 
 def test_revert_clears_the_line_and_f(fake_client, monkeypatch):
     _patch(monkeypatch)
-    Lines(monkeypatch, fake_client, UBER)
+    engine = Lines(monkeypatch, fake_client, UBER)
     _flags(fake_client, SOLES, ["l-uber"], [])
 
     async def scenario(pilot, app):
@@ -528,6 +540,7 @@ def test_revert_clears_the_line_and_f(fake_client, monkeypatch):
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is statement)
         assert statement.query_one("#rflag", Static).display
+        engine.count = 0  # the draft's review list counts none
         await pilot.press("u")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
@@ -620,8 +633,8 @@ def test_the_count_shown_is_the_engines_count(fake_client, monkeypatch):
         statement = await _complete(pilot, app, SOLES)
         screen = await _flagged_screen(pilot, app)
         assert _listed(screen) == ["l-tambo", "l-uber"]
-        assert "7 lines dated up to its last day are in no statement." in _text(screen, "#fhead")
-        assert engine.counts == [{"unassigned_in_period_of": "s-sig"}]
+        assert _text(screen, "#fhead").startswith("Octubre 2026 has 7 flagged lines. 7 lines dated")
+        assert {"unassigned_in_period_of": "s-sig"} in engine.counts
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is statement)
         assert _text(statement, "#rflag").startswith("⚑ 7 lines flagged for review")

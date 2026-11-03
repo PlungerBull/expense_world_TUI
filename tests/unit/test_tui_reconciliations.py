@@ -680,7 +680,8 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
 # Reconciliation work stays
 # in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
 # does not push a filtered ledger, and it does not touch the account cursor.
-# It lists bank lines (`GET /bank-lines`), newest first, a split purchase once.
+# It lists bank lines (`GET /bank-lines`), oldest first, every currency together, a split
+# purchase once.
 def _line(
     key: str,
     amounts: list[int],
@@ -699,10 +700,10 @@ def _line(
 
 
 UNFILED = [
-    # the engine's one order: newest first
-    _line("bl-uber", [-2450], day="2026-03-20", title="UBER *TRIP"),
-    _line("bl-farm", [-6000, -4000], day="2026-03-10", title="FARMACIA", code="48201764"),
+    # the order asked for: oldest first
     _line("bl-net", [-4490], day="2026-01-04", title="NETFLIX", code="47391026"),
+    _line("bl-farm", [-6000, -4000], day="2026-03-10", title="FARMACIA", code="48201764"),
+    _line("bl-uber", [-2450], day="2026-03-20", title="UBER *TRIP"),
 ]
 
 
@@ -718,22 +719,22 @@ def test_statement_windows_are_the_days_of_every_statement_of_the_account():
 
 
 def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
-    """2d: date · title · operation · amount, the signed `net_cents`, a dim `—`
-    for no operation code; a split purchase is one row with its title alone and its
-    total; `!` on the rows dated inside a statement's days."""
+    """Pane 11: date · title · operation · currency · amount, the signed `net_cents`, a
+    dim `—` for no operation code; a split purchase is one row with its title alone and
+    its total; `!` on the rows dated inside a statement's days."""
     from expense.tui.screens.reconciliations import statement_windows, unfiled_rows
 
     windows = statement_windows(ITEMS[:1])
     rows = unfiled_rows(UNFILED, windows)
-    assert [r[0] for r in rows] == ["bl-uber", "bl-farm", "bl-net"]  # as the engine sent them
+    assert [r[0] for r in rows] == ["bl-net", "bl-farm", "bl-uber"]  # as the engine sent them
     cells = [[str(c) for c in r[1]] for r in rows]
     # January is in no window; both March rows sit inside 'March 2026'
     assert cells == [
-        ["!", "2026-03-20", "UBER *TRIP", "—", "-24.50"],
-        ["!", "2026-03-10", "FARMACIA", "48201764", "-100.00"],
-        ["", "2026-01-04", "NETFLIX", "47391026", "-44.90"],
+        ["", "2026-01-04", "NETFLIX", "47391026", "PEN", "-44.90"],
+        ["!", "2026-03-10", "FARMACIA", "48201764", "PEN", "-100.00"],
+        ["!", "2026-03-20", "UBER *TRIP", "—", "PEN", "-24.50"],
     ]
-    assert rows[0][1][3].style == "dim"  # no operation code: a dim em dash
+    assert rows[2][1][3].style == "dim"  # no operation code: a dim em dash
 
 
 def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
@@ -741,7 +742,14 @@ def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
 
     rows = unfiled_rows([UNFILED[1]], [])
     assert len(rows) == 1
-    assert [str(c) for c in rows[0][1]] == ["", "2026-03-10", "FARMACIA", "48201764", "-100.00"]
+    assert [str(c) for c in rows[0][1]] == [
+        "",
+        "2026-03-10",
+        "FARMACIA",
+        "48201764",
+        "PEN",
+        "-100.00",
+    ]
 
 
 def _numbered(n: int) -> dict:
@@ -749,8 +757,8 @@ def _numbered(n: int) -> dict:
 
 
 def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
-    """A cursor-paged fake of `GET /bank-lines`: it refuses `offset` and `sort`,
-    serves `items` in slices of the requested `limit`, and hands back
+    """A cursor-paged fake of `GET /bank-lines`: it refuses `offset` and any `sort`
+    but `date_asc`, serves `items` in slices of the requested `limit`, and hands back
     `c<next index>` as the cursor; `count_bank_lines` answers `total`."""
     calls: list = []
     counts: list = []
@@ -758,7 +766,7 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
 
     def fetch(_cfg, *, limit=None, after=None, **kw):
         assert "offset" not in kw, "the engine refuses offset"
-        assert "sort" not in kw, "the engine's line list has one order"
+        assert kw.get("sort") == "date_asc", "the lines in no batch are read oldest first"
         calls.append({"limit": limit, "after": after, **kw})
         start = int(after[1:]) if after else 0
         end = start + (limit or 50)
@@ -789,7 +797,7 @@ async def _open_unfiled(pilot, app):
     return screen
 
 
-def test_u_reads_the_accounts_lines_in_no_batch_newest_first(monkeypatch):
+def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
     _patch_browse(monkeypatch)
     calls, counts = _patch_unfiled(monkeypatch)
 
@@ -798,16 +806,23 @@ def test_u_reads_the_accounts_lines_in_no_batch_newest_first(monkeypatch):
         # the account cursor never moved, and no screen was pushed
         assert screen._acct_idx == 0 and app.screen is screen
         # one row per line, in the engine's order, under the bank's columns
-        assert [r.key for r in screen._batch_list._rows] == ["bl-uber", "bl-farm", "bl-net"]
-        assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Amount"]
+        assert [r.key for r in screen._batch_list._rows] == ["bl-net", "bl-farm", "bl-uber"]
+        assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
         assert screen._batch_list._caption == (
-            "In no batch · BCP PEN   ·   3 of 3 loaded · newest first"
+            "In no batch · BCP PEN   ·   3 of 3 loaded · oldest first"
             "   ·   ! dated inside a statement"
         )
-        # one read of the account's lines in no batch, no dates, no sort; the
-        # count asks the same question
+        # one read of the account's lines in no batch, every currency together, no
+        # dates, oldest first; the count asks the same question, with no order
         assert calls == [
-            {"limit": 10, "after": None, "account": "acc1", "unreconciled": True, "verbose": False}
+            {
+                "limit": 10,
+                "after": None,
+                "account": "acc1",
+                "sort": "date_asc",
+                "unreconciled": True,
+                "verbose": False,
+            }
         ]
         assert counts == [{"account": "acc1", "unreconciled": True, "verbose": False}]
 
@@ -840,7 +855,7 @@ def test_the_caption_counts_what_is_loaded_against_the_engine_count(monkeypatch)
         screen = await _open_unfiled(pilot, app)
         assert len(screen._batch_list._rows) == 10
         # the figure is the engine's line count, not the length of the page in hand
-        assert "10 of 1716 loaded · newest first" in (screen._batch_list._caption or "")
+        assert "10 of 1716 loaded · oldest first" in (screen._batch_list._caption or "")
 
     run_app(scenario)
 
@@ -1148,7 +1163,7 @@ def test_saving_sends_one_put_on_the_line_with_the_field_changed_and_its_parts(
     part under its own id with its current amount, a typed amount in its place.
     An emptied operation sends `null`, which clears it, and an account move
     also settles the assignment (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
-    (`unassign_on_move`). Saved, "no batch" reads its newest ten again, the
+    (`unassign_on_move`). Saved, "no batch" reads its oldest ten again, the
     cursor on row 1."""
     from expense.dates import to_canonical_aware
 
@@ -1329,7 +1344,7 @@ def test_the_card_on_the_reconciliations_offers_open_alone(monkeypatch):
     run_app(scenario)
 
 
-def test_r_starts_again_from_the_newest_ten(monkeypatch):
+def test_r_starts_again_from_the_oldest_ten(monkeypatch):
     _patch_browse(monkeypatch)
     calls, counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
 
@@ -1371,7 +1386,7 @@ def _notes(monkeypatch, screen) -> list[tuple[str, str]]:
 
 def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeypatch, fake_client):
     """A line never split deletes as today: the ledger's question word for word,
-    `DELETE /transactions/{id}` of its one transaction, then the newest ten
+    `DELETE /transactions/{id}` of its one transaction, then the oldest ten
     again, the cursor on row 1."""
     from expense.tui.screens.modals import ConfirmModal
 
@@ -1394,7 +1409,7 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.deletes)
         assert fake_client.deletes == ["/transactions/bl11-p1"]
-        # any write starts the list over: the newest 10, the cursor on row 1
+        # any write starts the list over: the oldest 10, the cursor on row 1
         await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
         assert ("", "Transaction deleted.") in notes
         assert calls[-1]["limit"] == 10 and calls[-1]["after"] is None
@@ -1409,7 +1424,7 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
 def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, fake_client, parts):
     """3b: the purchase is one row, so `d` asks the ledger's purchase question
     with its real part count and total, reads nothing first, and `y` sends one
-    `DELETE /bank-lines/{id}`; `Transaction deleted.`, then the newest ten again,
+    `DELETE /bank-lines/{id}`; `Transaction deleted.`, then the oldest ten again,
     the cursor on row 1."""
     from expense.tui.screens.modals import ConfirmModal
 

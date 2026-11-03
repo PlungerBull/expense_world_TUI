@@ -179,6 +179,8 @@ def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statem
     def get(path, *, auth=True, params=None):
         if path.startswith("/statements/"):
             return dict(statement)
+        if path == "/bank-lines/count":  # the review list's count: nothing is flagged
+            return {"count": 0}
         assert path == "/bank-lines", path
         queries.append(dict(params or {}))
         lines = statement_lines if "statement_id" in (params or {}) else other_lines

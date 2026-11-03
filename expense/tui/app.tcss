@@ -242,3 +242,21 @@ ReconciliationsScreen #batches {
 ReconciliationsScreen #batches.unfiled {
     padding: 0 1;
 }
+
+/* A statement's `⚑` line stands two cells in, its second line under its first. */
+ReconciliationDetailScreen #rflag {
+    padding: 0 0 0 2;
+}
+
+/* The flagged lines' words stand two cells in and wrap at 75 columns, the head a blank
+   line under the crumb and the list's own last row, blank, between it and the ways (pane 10
+   of docs/mockups/expense-world-statements-screens.html). */
+FlaggedLinesScreen #fhead {
+    padding: 0 0 0 2;
+    margin: 1 0 0 0;
+    max-width: 75;
+}
+FlaggedLinesScreen #fways {
+    padding: 0 0 0 2;
+    max-width: 75;
+}
