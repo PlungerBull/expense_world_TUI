@@ -106,12 +106,7 @@ def _writes_sending(
     """Every write that takes a body naming a transaction or its line, each sending
     `key` where a client field would go: (method, path, body, refused key). The download
     has no row of the client's to carry it, so it goes beside the download's file."""
-    opening = {
-        "transaction_id": str(uuid4()),
-        "currency_code": "PEN",
-        "amount_cents": 100,
-        "date": scratch.noon(day),
-    }
+    opening = scratch.opening_balance_body(day, amount_cents=100)
 
     def item() -> dict:
         return scratch._item(account, scratch.noon(day), -100, "PEN", **{key: value})

@@ -37,7 +37,7 @@ Hits a real engine. Gating, target resolution and the real-ledger guard live in
 conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -136,10 +136,6 @@ def test_hashtags_lifecycle(client, scratch):
 DAY = "2026-03-10"
 
 
-def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
 def _archive(client, scratch, account_id: str) -> None:
     """Archives the account (`scratch` unarchives it at cleanup, so its rows and statements can
     be deleted; contract: "Bank Accounts", "An archived account")."""
@@ -190,7 +186,7 @@ def test_an_archived_accounts_transaction_takes_only_its_categorisation(client, 
     assert client.put(path, json_body={"description": "a note"})["description"] == "a note"
 
     current = read_signed(client, tx_id)
-    yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat(timespec="seconds")
+    yesterday = (scratch.recent_moment() - timedelta(days=1)).isoformat(timespec="seconds")
     changed = {
         "amount_cents": -2000,
         "date": yesterday,
@@ -320,11 +316,12 @@ def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchive
         assert_refusal(err, 409, "CONFLICT", key, "ACCOUNT_ARCHIVED")
 
     kept = [{"id": p["id"], "amount_cents": -500} for p in parts]
+    today = scratch.recent_moment().isoformat(timespec="seconds")
     amounts = {"parts.0.amount_cents", "parts.1.amount_cents"}
     for line_id, body, keys in (
         (single_line, {"parts": [{"id": str(uuid4()), "amount_cents": -1000}]}, {"parts"}),
         (split_line, {"parts": kept}, amounts),
-        (split_line, {"parts": kept, "date": _now()}, {*amounts, "date"}),
+        (split_line, {"parts": kept, "date": today}, {*amounts, "date"}),
     ):
         scratch.transactions.extend(p["id"] for p in body["parts"])
         err = refused(

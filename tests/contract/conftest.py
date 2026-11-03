@@ -1052,21 +1052,25 @@ class Scratch:
         self.client.post(f"/statements/{statement}/complete")
         return self.client.get(f"/statements/{statement}")
 
+    def opening_balance_body(
+        self, day: str, currency: str = "PEN", amount_cents: int = 50000
+    ) -> dict:
+        """The body of an opening balance of `amount_cents` in `currency` dated at noon on
+        `day`, under a new transaction id that is not yet kept for cleanup."""
+        return {
+            "transaction_id": str(uuid4()),
+            "currency_code": currency,
+            "amount_cents": amount_cents,
+            "date": self.noon(day),
+        }
+
     def opening_balance(
         self, account_id: str, day: str, currency: str = "PEN", amount_cents: int = 50000
     ) -> str:
         """The account's opening balance of `amount_cents` in `currency`; its line's id."""
-        tx_id = str(uuid4())
-        self.transactions.append(tx_id)
-        made = self.client.post(
-            f"/accounts/{account_id}/opening-balance",
-            json_body={
-                "transaction_id": tx_id,
-                "currency_code": currency,
-                "amount_cents": amount_cents,
-                "date": self.noon(day),
-            },
-        )
+        body = self.opening_balance_body(day, currency, amount_cents)
+        self.transactions.append(body["transaction_id"])
+        made = self.client.post(f"/accounts/{account_id}/opening-balance", json_body=body)
         return made["bank_line_id"]
 
     def took(self, answer: dict) -> list[str]:

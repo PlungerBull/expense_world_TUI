@@ -90,29 +90,6 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
-- **The live tests still build some bodies by hand.** Nothing you see changes. Five live files
-  build a new transaction's body by hand instead of through `Scratch` in
-  [tests/contract/conftest.py](../tests/contract/conftest.py):
-  [test_freshman_flow.py](../tests/contract/test_freshman_flow.py) (its end-to-end walk),
-  [test_pending_hashtag.py](../tests/contract/test_pending_hashtag.py),
-  [test_refusal_reasons.py](../tests/contract/test_refusal_reasons.py) (dated at midnight UTC),
-  [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) and
-  [test_transaction_currency.py](../tests/contract/test_transaction_currency.py); and
-  `_writes_sending` in
-  [test_line_codes_and_statement_lines.py](../tests/contract/test_line_codes_and_statement_lines.py)
-  builds an opening balance's body by hand though `Scratch.opening_balance` makes one. Every one
-  goes through the shared helpers, a row dated a minute ago in the display timezone. Two edits in
-  [test_resources_lifecycle.py](../tests/contract/test_resources_lifecycle.py) (the
-  frozen-fields edit's "yesterday" and the bank-line split's date) send a date read in UTC, so
-  they can fail in the evening, once UTC has turned to the next day; they date in the display timezone too. `Scratch._item`
-  describes its extra fields as text though callers pass lists such as `hashtag_ids`, so
-  `row_at` adds those after the body is built; it takes every field as it is, lists included.
-  The opening description of
-  [test_contract_month_of_a_recent_row.py](../tests/unit/test_contract_month_of_a_recent_row.py)
-  names its month's-first-minute case but not its daylight-saving one. Done when the live files
-  touched pass against the practice engine, leaving nothing on either practice user, and the
-  unit suite passes.
-
 - **decisions.md still describes the holder** in the entry where a card's accounts are the
   engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
   [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)
