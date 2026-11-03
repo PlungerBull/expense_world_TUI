@@ -10,11 +10,8 @@ part 7 of the currencies catch-up (done on 2026-11-03); the
 edit-part mockup's refusal, to the bank download and closing catch-up's leftovers (done on
 2026-11-03).
 
-**Status: draft, written 2026-10-29 for the owner to rewrite or approve, with one question.** Its
-tasks are drafted when the owner approves it. It runs after
-part 7 of the currencies catch-up (done on 2026-11-03), which
-redraws the statement screens it touches. When done, the why moves to
-[decisions.md](../decisions.md) and this file is deleted.
+**Status: approved on 2026-11-03; question 1 answered (A).** It waits on no other spec. When
+done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -61,11 +58,40 @@ redraws the statement screens it touches. When done, the why moves to
 
    **Recommended:** A. The head shows sooner, and it is still the engine's count.
 
+   **Picked:** A.
+
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+1. **The statement screen's close counts with the engine.** After `c` completes a statement
+   ([reconciliations.py](../../expense/tui/screens/reconciliations.py), `_take_flagged` and
+   `_action_done`), the `⚑` line and the opening of the flagged lines' screen take the engine's
+   count (`reads.count_bank_lines` with `review_of=` the statement), never the sum of the close's
+   `review_lines`; a count read that fails toasts the engine's words. Unit tests: a close whose
+   `review_lines` and `not_covered[].review_lines` differ from the engine's count shows the
+   engine's count and opens the flagged screen on it; a count of 0 opens nothing; a failed read
+   toasts.
+2. **The PDF upload's result counts with the engine.** The apply in
+   [statement_upload.py](../../expense/tui/screens/statement_upload.py) (`_ask`) reads the
+   engine's count of the completed statement's review list for the result screen's `⚑` line and
+   `f`, not `len(review_line_ids(...))`; `review_line_ids` in
+   [statement.py](../../expense/bank_import/statement.py) goes if nothing else uses it. Unit
+   tests as in task 1, through the upload.
+3. **The flagged lines' screen shows its head as soon as the count arrives.** `_load` in
+   [reconciliations.py](../../expense/tui/screens/reconciliations.py) reads the engine's count
+   first and paints `flagged_head` with it, then reads and paints the lines; the head's words are
+   unchanged. A unit test holds the lines' read and finds the head painted with the count.
+4. **Code leftovers.** `fetch_bank_lines_by_ids` in [reads.py](../../expense/reads.py) loses its
+   `sort` option and the paragraph on ordering; the flagged-lines test's fake engine
+   ([test_tui_flagged_lines.py](../../tests/unit/test_tui_flagged_lines.py)) fails with a clear
+   assertion, not a timeout, when `ids` are sent; the `statement-order` case and test in
+   [test_no_read_only_fields.py](../../tests/unit/test_no_read_only_fields.py) go or move to a
+   route the engine has, with a citation the live contract holds.
+5. **Every engine sentence a unit test quotes is the engine's own.** The quotes "Why" names (a
+   missing bank line, the zero-amount refusal, the sealed-line words and the write they cite)
+   are checked against the practice engine and corrected, and test names that still say
+   reconciliation say statement.
 
 ## Found along the way
 

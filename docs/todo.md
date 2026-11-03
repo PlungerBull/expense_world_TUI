@@ -81,7 +81,6 @@ done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
 
 Then, rewritten in place: a person's opening balance in the sheet import (done on 2026-11-03),
 the bank download leftovers (done on 2026-11-03),
-[the statement screens' leftovers](specs/catch-up-cards-statements-1b-leftovers.md) (1 question),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
