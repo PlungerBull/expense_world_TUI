@@ -287,10 +287,13 @@ From the acceptance re-check of 2026-11-03 (practice engine, 80×24, against
 
 16. **The Order column stays whole beside a long statement name.** On an account with a statement
     code, a statement named longer than 12 letters (`Noviembre 2026`, as panes 7 and 9 name it)
-    cuts `in order` to `in or…` on every row at 80 columns. *Waits on* todo.md's question "A
-    statement 'not in order' at 80 columns", which now decides what gives way for a long name
-    too. *Passes if:* at 80×24 the list draws as the picked option, for `not in order` and for a
-    long name, pinned by tests at 80 columns.
+    cuts `in order` to `in or…` on every row at 80 columns. The owner picked C of
+    [expense-world-statement-not-in-order.html](../mockups/expense-world-statement-not-in-order.html)
+    on 2026-11-03: on an account with a statement code the list's columns sit one space apart
+    instead of two, so the order always shows whole, and only a name longer than the room left
+    cuts (`Noviembre 20…` at 80 columns); an account with no code keeps two spaces. *Passes if:*
+    at 80×24 the list draws as option C's two panes, for `not in order` and for a long name,
+    pinned by tests at 80 columns.
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as

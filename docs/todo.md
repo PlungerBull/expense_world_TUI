@@ -28,24 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### A statement "not in order" at 80 columns
-Asked 2026-11-03 · Blocks: task 16 of [part 7](specs/catch-up-currencies-7-statement-screen.md)
-
-On an account with a statement code, the list of statements ends with an `Order` column. A row
-reading `not in order` needs 82 columns, and an 80-column terminal cannot fit it with the
-approved spacing; the approved screen draws only `in order` rows. A statement named longer than
-12 letters, such as `Noviembre 2026`, needs more room too: today every row then reads `in or…`.
-[expense-world-statement-not-in-order.html](mockups/expense-world-statement-not-in-order.html)
-draws each way, with short names and with a long one:
-- **A.** The last word gives way: `not in …` at exactly 80 columns, whole from 82; with a long
-  name every row reads `in or…` (today's screen).
-- **B.** The name gives way: every name cuts to fit (`VIS-202…`, `Noviemb…`); the order is
-  always whole.
-- **C.** One space between columns instead of two, on an account with a statement code; the
-  order is always whole, and only a name longer than 13 letters cuts (`Noviembre 20…`).
-
-**Recommended:** C, because the order never cuts and ordinary names stay whole.
-
 ### `^s` and a balance typed but not yet entered
 Asked 2026-11-03 · Blocks: nothing (part 7 is done without it; a change is one small task)
 
