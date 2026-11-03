@@ -264,6 +264,17 @@ And earlier:
 
    **Answered A** (owner, 2026-10-31).
 
+6. **The flagged lines screen's first line,** now that it shows on an open statement too
+   (question 6 A).
+   - **A.** `<name> has 2 flagged lines.`, open or completed.
+   - **B.** `<name> is completed.` on a completed one, `<name> is open.` on an open one.
+
+   **Answered A** (owner, 2026-11-02); the sentence after it, `N lines dated up to its last
+   day are in no statement.`, stays.
+
+**The screens:** [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)
+draws every screen this spec builds; approved by the owner on 2026-11-02.
+
 ---
 
 ## Tasks

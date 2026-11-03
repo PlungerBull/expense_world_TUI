@@ -28,21 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Do the redrawn Statements screens look right?
-Asked 2026-11-02 · Blocks: tasks 2 to 8 of [part 7](specs/catch-up-currencies-7-statement-screen.md)
-
-[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html) draws every
-Statements screen as part 7 builds it, with your five answers in. The engine's sentences in it
-are stand-ins; the app shows the engine's own. Two things to tell me:
-
-1. Do the screens look right? Yes, or say which pane to change.
-2. The flagged lines screen opens with `<name> is completed.`, and it now also shows on an open
-   statement (question 6 A), where that is untrue. What should its first line say?
-   - **A.** `<name> has 2 flagged lines.`, open or completed.
-   - **B.** `<name> is completed.` on a completed one, `<name> is open.` on an open one.
-
-**Recommended:** A, because one line fits both and says why you are on this screen.
-
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 
