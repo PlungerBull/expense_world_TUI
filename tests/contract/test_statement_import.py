@@ -24,6 +24,9 @@ repo is public. Pinned here:
     (`RECONCILIATION_NOT_DRAFT` on `file`), writing nothing;
     once reverted, the same paper matches every row the first apply created and creates
     nothing;
+  · identical lines on one day are all accounted for: two rows against two lines match both,
+    two against one match one and create one, one against two matches one and flags the other
+    unchanged (contract: POST /v1/statements/import, "Matching");
   · an open month is filled: its days become the paper's, it keeps its name, and a line in
     it the paper does not print is taken out, never deleted;
   · a replay under the same idempotency key answers the stored answer and writes once;
@@ -59,6 +62,8 @@ import base64
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
+
+import pytest
 
 from expense import http as http_module
 from expense.reads import pending_hashtag_of
@@ -302,6 +307,66 @@ def test_a_line_one_day_off_is_moved_and_one_two_days_off_is_not(client, scratch
         and done["rows"][1]["bank_line_id"] != (far["bank_line_id"])
     )
     assert balance_of(done["statement"], "PEN")["review_lines"] == [far["bank_line_id"]]
+
+
+@pytest.mark.parametrize(
+    ("rows", "lines"), [(2, 2), (2, 1), (1, 2)], ids=["2-on-2", "2-on-1", "1-on-2"]
+)
+def test_identical_lines_on_one_day_are_all_accounted_for(client, scratch, rows, lines):
+    """Rows and lines of one day, direction and amount are matched on the exact day, the oldest
+    line first (contract: POST /v1/statements/import, "The exact day"): each row
+    takes a line while lines last, a row left over is created, and a line left over is
+    flagged, unchanged and outside the statement."""
+    account, _ = _coded(scratch)
+    day = date(2026, 3, 12)
+    ledger = [scratch.row(account, day.isoformat(), -3000) for _ in range(lines)]
+    paper = savings_paper(
+        [PaperRow(day, "COMPRA IGUAL", -3000) for _ in range(rows)],
+        before_cents=50000,
+        **MARCH,
+    )
+    taken = min(rows, lines)
+    dates_before = {tx["id"]: client.get(f"/transactions/{tx['id']}")["date"] for tx in ledger}
+    before = _ledger(client, account)
+
+    dry = send_statement(client, account, paper, dry_run=True)
+    assert _ledger(client, account) == before
+    done = send_statement(client, account, paper, dry_run=False)
+    scratch.took(done)
+    for answer in (dry, done):
+        assert [r["outcome"] for r in answer["rows"]] == ["matched"] * taken + ["new"] * (
+            rows - taken
+        )
+        assert [r["bank_line_id"] for r in answer["rows"][:taken]] == [
+            tx["bank_line_id"] for tx in ledger[:taken]
+        ]
+        assert answer["counts"] == {
+            "matched": taken,
+            "new": rows - taken,
+            "empty": 0,
+            "taken_out": 0,
+            "redated": 0,
+        }
+    assert (done["statement"]["status"], done["statement"]["id"]) == (2, done["statement_id"])
+    balance = balance_of(done["statement"], "PEN")
+    assert balance["difference_cents"] == 0
+    assert balance["ending_balance_cents"] == 50000 - 3000 * rows
+    leftover = ledger[taken:]
+    assert balance["review_lines"] == [tx["bank_line_id"] for tx in leftover]
+    for tx in ledger[:taken]:
+        assert client.get(f"/transactions/{tx['id']}")["statement_id"] == done["statement_id"]
+    for tx in leftover:
+        left = read_signed(client, tx["id"])
+        assert left["statement_id"] is None
+        assert left["amount_cents"] == -3000
+        assert left["date"] == dates_before[tx["id"]]
+        assert datetime.fromisoformat(left["date"]).astimezone(scratch.zone).date() == day
+    created = [r for r in done["rows"] if r["outcome"] == "new"]
+    for row in created:
+        made = client.get(f"/transactions/{row['transaction_id']}")
+        assert made["statement_id"] == done["statement_id"]
+        assert datetime.fromisoformat(made["date"]).astimezone(scratch.zone).date() == day
+    assert transaction_count(client, account) == lines + len(created)
 
 
 def test_an_open_month_is_filled_and_a_line_the_paper_lacks_taken_out(client, scratch):

@@ -206,14 +206,7 @@ screen 4 redrawn for a statement with a balance per currency it covers. Task 6, 
 tests, is in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
 built on the engine's sample PDFs. The acceptance check of 2026-11-03 found two done-checks no
-test proves; task 6, the mailing fee, is done, and task 7 adds the other.
-
-7. **Identical lines on one day are all accounted for (builder).** Live tests upload made-up
-   papers with two identical rows on one day (same currency, amount and direction) against two,
-   then one, identical ledger lines, and one such row against two ledger lines.
-   *Passes if:* 2 and 2 match both and create none; 2 and 1 match one and create one; 1 and 2
-   match one and flag the other, which is unchanged and outside the statement; each statement
-   completes (done-check 10) (contract: POST /v1/statements/import).
+test proves; tasks 6 and 7 add them and are done. The acceptance check runs again next.
 
 ## Reply to the engine
 
