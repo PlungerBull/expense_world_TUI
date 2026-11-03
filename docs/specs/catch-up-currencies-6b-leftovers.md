@@ -3,8 +3,9 @@
 What part 6's leftovers, the main views' words and the Accounts list's one-write guard (done on
 2026-11-02), turned up while they ran.
 
-**Status: drafted on 2026-11-02 for the owner to rewrite or approve; two questions, each with a
-mockup to draw before the owner picks.** It waits on no other spec. When done, the why moves
+**Status: drafted on 2026-11-02 for the owner to rewrite or approve; two questions, both drawn
+in [expense-world-staged-list-and-operation.html](../mockups/expense-world-staged-list-and-operation.html),
+waiting on the owner's picks.** It waits on no other spec. When done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -33,11 +34,12 @@ to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Questions for the owner
 
-1. **The staged list at 80 columns** (mockup to draw): which columns give way when a row does
-   not fit — title and tags, as the ledger does (recommended), or every column a little.
-2. **The OPERATION line's note** (mockup to draw): does it show `changes every part of the
+1. **The staged list at 80 columns** (pane 1 of the mockup): which columns give way when a row
+   does not fit, date, amount, currency and account always kept whole — A: title and tags, as
+   the ledger does (recommended), or B: title, category and tags.
+2. **The OPERATION line's note** (pane 2 of the mockup): A: it shows `changes every part of the
    transaction` on a line of two parts or more, as the date, title, account and currency do
-   (recommended), or stay without it.
+   (recommended), or B: it stays without it.
 
 ---
 
