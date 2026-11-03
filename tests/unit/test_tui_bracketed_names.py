@@ -32,6 +32,7 @@ from tests.unit.helpers import (
     import_row,
     render_text,
     run_app,
+    shown,
     stub_home_month,
     wait_for,
     wait_for_list,
@@ -230,7 +231,7 @@ def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypat
         screen = ReconciliationDetailScreen(statement)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
-        return str(screen.query_one("#rhead", Static).visual).splitlines()[0]
+        return shown(screen.query_one("#rhead", Static)).splitlines()[0]
 
     first = run_app(scenario)
     assert first == f"  {name}  ·  BCP PEN  ·  2026-04-01 → 2026-04-30  ·  status draft"

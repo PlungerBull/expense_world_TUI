@@ -285,10 +285,6 @@ the question, the files named and the tui.md section named.
 From the acceptance check of 2026-11-03 (practice engine, 80×24, against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
 
-12. **Long words wrap under themselves.** A long account name in a statement's head and a long
-    engine note (`⚠ …`, `⚠ USD: …`) wrap under their own first word, as the shared
-    `under_itself` does elsewhere, never back to column 1. *Passes if:* both hold at 80 columns,
-    pinned by tests.
 13. **Only a statement on an account with a statement code is numbered.** Pane 4 numbers the
     paper's lines; pane 8, a completed statement on an account with no code, draws no `#`
     column. *Passes if:* the list has a `#` column only on an account with a statement code; pane
@@ -377,3 +373,7 @@ Not built in this spec; drafted into a new spec when it is done.
   r Refresh  ? Keys`; the app reads `⏎ Edit  pgup Prev  esc Back  r Refresh  ? Keys  d Delete`,
   in another order and with `pgup Prev` on page 1 (found by task 11's third review on
   2026-11-03).
+- **The `⚑` line may cut the statement's page status:** `#rflag` is shown in `_show_flagged`
+  after the checklist is sized and the list is not measured again, so a statement with flagged
+  lines may lose its `rows … · page …` line by one row (found by task 12's review on
+  2026-11-03, not verified).

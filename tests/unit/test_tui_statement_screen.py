@@ -7,8 +7,10 @@ column, the opening balance apart; the lines are read by account, every currency
 together, in the engine's order (contract: GET /v1/bank-lines, "Ordering")."""
 
 import re
+from types import SimpleNamespace
 
 import pytest
+from rich.style import Style
 from textual.widgets import Static
 
 from expense.tui.screens.modals import ConfirmModal
@@ -21,6 +23,7 @@ from tests.unit.helpers import (
     render_text,
     run_app,
     screen_lines,
+    shown,
     statement_complete_answer,
     statement_record,
     stub_home_month,
@@ -220,7 +223,12 @@ def _open(statement: dict, code: str | None = None):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
-        return screen, _screen_lines(app), screen.query_one("#rhead", Static).visual
+        head = screen.query_one("#rhead", Static)
+        return (
+            screen,
+            _screen_lines(app),
+            SimpleNamespace(text=shown(head), parts=head.content.renderables),
+        )
 
     return scenario
 
@@ -280,7 +288,7 @@ def test_a_currency_the_statement_does_not_cover_shows_nothing(fake_client, monk
     )
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO[:4])
     _, _, visual = run_app(_open(soles), size=(80, 26))
-    head = str(visual)
+    head = visual.text
     assert [line.split()[0] for line in head.splitlines()[2:]] == ["PEN"]
     assert "USD" not in head
 
@@ -289,7 +297,7 @@ def test_a_statement_covering_nothing_has_no_balances_table(fake_client, monkeyp
     bare = statement_record({**VIS_AGOSTO, "balances": []})
     _engine(fake_client, monkeypatch, statement_lines=[])
     _, _, visual = run_app(_open(bare), size=(80, 26))
-    head = str(visual)
+    head = visual.text
     assert head.splitlines() == [
         "  [VIS] Agosto  ·  Visa BCP  ·  2026-07-26 → 2026-08-25  ·  status completed"
     ]
@@ -300,16 +308,10 @@ def test_a_blank_balance_is_a_dim_dash_and_its_difference_stays_blank(fake_clien
     (contract: "Statements", "A balance not entered is `null`, never zero")."""
     _engine(fake_client, monkeypatch, statement_lines=OCTUBRE_IN, other_lines=OCTUBRE_OUT)
     _, _, head = run_app(_open(OCTUBRE), size=(80, 18))
-    text = str(head)
-    usd = next(line for line in text.splitlines() if line.split()[:1] == ["USD"])
-    assert usd.split() == ["USD", "—", "—"]  # no figure, and no difference
-    start = text.index(usd)
-    dashes = [
-        span.style
-        for span in head.spans
-        if start <= span.start < start + len(usd) and "—" in text[span.start : span.end]
-    ]
-    assert len(dashes) == 2 and all(style.dim for style in dashes)
+    usd_part = next(p for p in head.parts[1:] if p.plain.split()[:1] == ["USD"])
+    assert usd_part.plain.split() == ["USD", "—", "—"]  # no figure, and no difference
+    dashes = [span.style for span in usd_part.spans if "—" in usd_part.plain[span.start : span.end]]
+    assert len(dashes) == 2 and all(Style.parse(str(style)).dim for style in dashes)
 
 
 @pytest.mark.parametrize("height", [30, 24, 23, 19])
@@ -451,7 +453,7 @@ def test_a_tick_into_a_soles_only_draft_reads_the_statement_again_as_pane_5(
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
-        assert "USD" not in str(screen.query_one("#rhead", Static).visual)
+        assert "USD" not in shown(screen.query_one("#rhead", Static))
         first = screen._list
         for _ in range(4):
             await pilot.press("down")
@@ -507,6 +509,109 @@ def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pa
     assert lines[len(top)] == ""  # then the list, which keeps its own blank line
 
 
+LONG_ACCOUNT = "Cuenta Sueldo Interbank Soles Principal Hogar"
+
+
+def _long_account(monkeypatch):
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map",
+        lambda: {**NAMES, "acc-visa": LONG_ACCOUNT},
+    )
+
+
+def test_a_long_account_name_wraps_the_head_under_the_statement_name(fake_client, monkeypatch):
+    """At 80 columns the head's second line stands under the statement name's first
+    letter, after the two-cell indent, never at column 1."""
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+    _long_account(monkeypatch)
+    _, lines, _ = run_app(_open(VIS_AGOSTO), size=(80, 24))
+    first = next(n for n, line in enumerate(lines) if line.startswith("  [VIS] Agosto"))
+    head = lines[first : first + 2]
+    assert LONG_ACCOUNT in " ".join(" ".join(head).split())
+    assert head[1].startswith("  ") and not head[1].startswith("   ")
+    assert head[1].strip().split()[-1] == "completed"
+    assert "status" in " ".join(head)
+    assert lines[first + 2].strip().startswith("begin")  # the balances follow, as they were
+
+
+def test_a_long_close_note_wraps_under_its_first_word_after_the_warning_sign(
+    fake_client, monkeypatch
+):
+    """A long `⚠` note and a long `⚠ USD: …` note each wrap under their first word,
+    never under the `⚠` or at column 1."""
+    _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_LINES)
+    long_note = (
+        "The statement's last line is six days before its last day, and the days after it "
+        "hold nothing at all on this account."
+    )
+    usd_note = (
+        "Dollars held 0.00 all through the statement's days, so nothing in dollars was "
+        "checked against the paper."
+    )
+    answer = statement_complete_answer(SEPTIEMBRE)
+    answer["balances"][0]["warnings"] = [long_note]
+    answer["not_covered"] = [
+        {"currency_code": "USD", "warnings": [usd_note], "coverage_gap": None, "review_lines": []}
+    ]
+    fake_client.write_responses["/statements/ibk-sep/complete"] = answer
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(SEPTIEMBRE))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: screen.query_one("#rwarn", Static).display)
+        await pilot.pause()
+        return _screen_lines(app)
+
+    lines = run_app(scenario, size=(80, 26))
+    start = next(n for n, line in enumerate(lines) if line.startswith("  ⚠ The statement"))
+    note = lines[start : start + 2]
+    assert note[1].startswith("    ") and not note[1].startswith("     ")  # under `The`
+    assert " ".join(" ".join(note).replace("⚠", "").split()) == long_note
+    usd = next(n for n, line in enumerate(lines) if line.startswith("  ⚠ USD:"))
+    pair = lines[usd : usd + 2]
+    assert pair[1].startswith("    ") and not pair[1].startswith("     ")  # under `USD:`
+    assert " ".join(" ".join(pair).replace("⚠", "").split()) == f"USD: {usd_note}"
+
+
+@pytest.mark.parametrize("height", [24, 22, 20])
+def test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows(
+    fake_client, monkeypatch, height
+):
+    """The head's extra line comes out of the list's room, measured again once the head
+    is drawn: on 30 lines (more than a page) no page is taller than #rlist, and the
+    page status line is drawn."""
+    many = [
+        _line(n, f"2026-08-{1 + n % 25:02d}", f"SHOP {n}", -100 * n, "PEN", None)
+        for n in range(1, 31)
+    ]
+    _engine(fake_client, monkeypatch, statement_lines=many)
+    _long_account(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.pause()
+        await pilot.pause()
+        lst = screen._list
+        fits = lst.outer_size.height <= screen.query_one("#rlist").content_size.height
+        return (
+            fits,
+            lst.page_status,
+            screen.query_one("#rhead").outer_size.height,
+            _screen_lines(app),
+        )
+
+    fits, status, head_height, lines = run_app(scenario, size=(80, height))
+    assert head_height == 5  # two lines of name, the balances' header and two currencies
+    assert fits
+    assert status and any(status in line for line in lines)
+
+
 def _bound(app) -> dict[str, bool]:
     """The footer's keys: each shown binding's description, whether the screen
     lets it act."""
@@ -533,9 +638,8 @@ def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf_as_pane_9
     pane = _pane(PANE_9)
     assert lines[:-1] == [*pane[:-1], *[""] * (len(lines) - len(pane))]  # then the room left
     assert lines[-1] == pane[-1]
-    head, text = visual, str(visual)
-    line = next(sp for sp in head.spans if "closes when" in text[sp.start : sp.end])
-    assert line.style.dim  # the line under the balances is dim
+    line = visual.parts[-1]  # the line under the balances
+    assert "closes when" in line.plain and line.style == "dim"
     assert still_here  # `c` and `u` opened no question
     assert fake_client.puts == [] and fake_client.posts == []
     # no line from outside the statement is read, and none is offered

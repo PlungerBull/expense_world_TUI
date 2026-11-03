@@ -98,6 +98,15 @@ def render_text(*renderables: object, width: int = 100, ansi: bool = False) -> s
     return console.file.getvalue()  # type: ignore[union-attr]
 
 
+def shown(widget: Any) -> str:
+    """What a Static draws, as lines at the width it has, trailing blanks off each: the
+    words a Static holds as renderables (a head wrapping under itself) read as they
+    are drawn."""
+    width = widget.size.width or widget.app.size.width
+    text = render_text(widget.content, width=width)
+    return "\n".join(line.rstrip() for line in text.splitlines())
+
+
 # ---------------------------------------------------------------------------
 # Engine envelopes
 # ---------------------------------------------------------------------------

@@ -1594,8 +1594,7 @@ class ReconciliationDetailScreen(
         # short-id placeholder until _load_txns resolves the name worker-side
         acct = self._acct_name or resolve_name(self._account_id, {})
         status = formatting.format_status(r.get("status"))
-        text = Text.assemble(
-            "  ",
+        first = Text.assemble(
             (r.get("name") or "—", "bold"),
             ("  ·  ", "dim"),
             (acct, ""),
@@ -1605,13 +1604,19 @@ class ReconciliationDetailScreen(
             ("status ", "dim"),
             _status_span(status, PALETTE),
         )
-        for line in balance_lines(r.get("balances"), PALETTE):
-            text.append("\n")
-            text.append_text(line)
+        # the first line wraps under the statement's name, never at column 1
+        lines: list[RenderableType] = [under_itself(Text("  "), first)]
+        lines.extend(balance_lines(r.get("balances"), PALETTE))
         if self._waits_for_pdf:
-            text.append("\n")
-            text.append(_WAITS_FOR_PDF, style="dim")
-        self.query_one("#rhead", Static).update(text)
+            lines.append(Text(_WAITS_FOR_PDF, style="dim"))
+        self.query_one("#rhead", Static).update(Group(*lines))
+        self.call_after_refresh(self._refit_list)
+
+    def _refit_list(self) -> None:
+        """The checklist's page, measured again once the head or the notes above it
+        have taken the lines they draw at this width."""
+        if self._list is not None and self._list.is_attached:
+            self._list.set_page_size(self._checklist_items())
 
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
     # cancels stale refreshes only, never a run_write ("engine-write") worker
@@ -1967,9 +1972,20 @@ class ReconciliationDetailScreen(
         if not lines:
             line.display = False
             line.update("")
+            self.call_after_refresh(self._refit_list)
             return
-        line.update(Text("\n".join(f"  ⚠ {text}" for text in lines), style=PALETTE.warning))
+        warning = PALETTE.warning
+        # each note wraps under its own first word, after the `⚠ `
+        line.update(
+            Group(
+                *(
+                    under_itself(Text("  ⚠ ", style=warning), Text(text, style=warning))
+                    for text in lines
+                )
+            )
+        )
         line.display = True
+        self.call_after_refresh(self._refit_list)
 
     def _take_flagged(self, body: dict) -> None:
         """How many bank lines the close flagged for review, every currency

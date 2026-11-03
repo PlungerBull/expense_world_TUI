@@ -22,6 +22,7 @@ from typing import NamedTuple
 import httpx
 import pytest
 import respx
+from rich.style import Style
 from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
@@ -43,6 +44,7 @@ from tests.unit.helpers import (
     render_text,
     run_app,
     screen_lines,
+    shown,
     statement_complete_answer,
     statement_delete_answer,
     statement_record,
@@ -454,15 +456,20 @@ def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch)
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(statement)
         await app.push_screen(screen)
-        head = screen.query_one("#rhead", Static).visual
-        seen["head"] = str(head)
-        seen["dim"] = [span.style for span in head.spans if "—" in str(head)[span.start : span.end]]
+        head = screen.query_one("#rhead", Static)
+        seen["head"] = shown(head)
+        seen["dim"] = [
+            span.style
+            for part in head.content.renderables[1:]  # the balance lines, each a Text
+            for span in part.spans
+            if "—" in part.plain[span.start : span.end]
+        ]
 
     run_app(scenario, size=(140, 50))
     lines = seen["head"].splitlines()
     assert lines[0].endswith("status draft")
     assert [ln.split() for ln in lines[2:]] == [["PEN", "0.00", "0.00", "—"], ["USD", "—", "—"]]
-    assert seen["dim"] and all(style.dim for style in seen["dim"])
+    assert seen["dim"] and all(Style.parse(str(style)).dim for style in seen["dim"])
 
 
 def test_coming_back_and_r_read_the_account_again_and_nothing_else(monkeypatch):
@@ -693,7 +700,7 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
         await pilot.press("y")
         await wait_for(pilot, lambda: notes)
         if status is not None:
-            seen["head"] = str(detail.query_one("#rhead", Static).visual)
+            seen["head"] = shown(detail.query_one("#rhead", Static))
             await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen and screen._batch_list is not listed)
         await wait_for(pilot, lambda: screen._batch_list is not None)

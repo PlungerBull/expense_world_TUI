@@ -25,6 +25,7 @@ from tests.unit.helpers import (
     cursor_page,
     run_app,
     screen_lines,
+    shown,
     statement_complete_answer,
     statement_put_answer,
     statement_record,
@@ -256,7 +257,7 @@ def test_c_asks_the_starting_then_the_ending_balance_saves_once_then_asks_to_com
             )
         ]
         assert fake_client.posts == []
-        head = str(screen.query_one("#rhead", Static).visual).splitlines()
+        head = shown(screen.query_one("#rhead", Static)).splitlines()
         assert head[-1].split() == ["USD", "0.00", "-24.99", "—"]
         assert [str(s.visual) for s in app.screen.query(Static)][0] == "Complete statement?"
         await pilot.press("y")

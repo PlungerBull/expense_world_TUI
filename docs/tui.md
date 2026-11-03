@@ -1785,6 +1785,10 @@ each currency of the account the statement holds no balances for, its notes in t
 (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"): each
 such currency's `warnings` sentence follows the covered ones, led by its code, `  ⚠ USD: <sentence>`
 (pane 8 of [expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)).
+At 80 columns a long line wraps under its own first word (`under_itself`): the head's first line
+under the statement name's first letter, after its two-cell indent, and a note under its first
+word, after `⚠ `, never at column 1. A wrapped head or note takes lines from the checklist, which is
+measured again after each draw of them.
 
 **Which keys a statement offers** (panes 4, 5 and 9 of the same mockup; `check_action` hides
 a key from the footer and the `?` card and leaves it dead). A draft offers `space Toggle`,

@@ -40,6 +40,7 @@ from tests.unit.helpers import (
     refusal_text,
     render_text,
     run_app,
+    shown,
     statement_complete_answer,
     statement_put_answer,
     statement_record,
@@ -261,7 +262,7 @@ def _patch(monkeypatch):
 
 def _head_row(screen, code: str) -> list[str]:
     """The words of the head's line for `code`, a currency the statement covers."""
-    head = str(screen.query_one("#rhead", Static).visual)
+    head = shown(screen.query_one("#rhead", Static))
     return next(ln.split() for ln in head.splitlines() if ln.split()[:1] == [code])
 
 
@@ -318,7 +319,7 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        head = str(screen.query_one("#rhead", Static).visual)
+        head = shown(screen.query_one("#rhead", Static))
         assert "diff" in head and "-35.00" in head
         assert "chained" not in head and "manual" not in head
 
@@ -1306,7 +1307,7 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: line.display)
-        assert str(line.visual) == f"  ⚠ {GAP}"  # the engine's own sentence, verbatim
+        assert " ".join(shown(line).split()) == f"⚠ {GAP}"  # the engine's own sentence, verbatim
         # the gap never replaces the success feedback
         await wait_for(pilot, lambda: notices)
         assert any("completed" in m for m in notices)
@@ -1331,7 +1332,7 @@ def test_a_gap_on_any_currency_draws_its_line(fake_client, monkeypatch):
         await wait_for(pilot, lambda: screen._record["status"] == 2)
         await pilot.pause()
         assert fake_client.posts == [(COMPLETE_PATH, None)]
-        assert str(screen.query_one("#rwarn", Static).visual) == f"  ⚠ {GAP}"
+        assert " ".join(shown(screen.query_one("#rwarn", Static)).split()) == f"⚠ {GAP}"
 
     run_app(scenario)
 
@@ -1484,7 +1485,7 @@ def test_r_reads_the_statement_by_its_id_and_shows_its_balances(configured, monk
             pilot, lambda: balance_of(screen._record, "PEN").get("ending_balance_cents") == 999999
         )
         await wait_for(pilot, lambda: screen._list._read_only)
-        seen["head"] = str(screen.query_one("#rhead", Static).visual)
+        seen["head"] = shown(screen.query_one("#rhead", Static))
         seen["record"] = dict(screen._record)
         seen["screen"] = app.screen is screen
 
@@ -1725,7 +1726,7 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
         assert fake_client.posts == []  # the question comes first
-        head = str(screen.query_one("#rhead", Static).visual)
+        head = shown(screen.query_one("#rhead", Static))
         assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "13,853.20", "—"]
         assert head.splitlines()[0].endswith("status draft")
         texts = [str(s.visual) for s in app.screen.query(Static)]
@@ -2026,7 +2027,7 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
             "error",
         )
         await pilot.pause()
-        head = str(screen.query_one("#rhead", Static).visual)
+        head = shown(screen.query_one("#rhead", Static))
         assert _head_row(screen, "PEN")[:3] == ["PEN", "9,580.00", "13,853.20"]
         assert head.splitlines()[0].endswith("status draft")
         await pilot.press("c")
@@ -2076,9 +2077,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_bo
         await wait_for(pilot, lambda: _end(screen) is None)
         # the head as it stands for a missing end: a dim `—`, the difference blank
         assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "—"]
-        assert (
-            str(screen.query_one("#rhead", Static).visual).splitlines()[0].endswith("status draft")
-        )
+        assert shown(screen.query_one("#rhead", Static)).splitlines()[0].endswith("status draft")
 
     run_app(scenario)
 
