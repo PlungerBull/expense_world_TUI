@@ -431,8 +431,9 @@ def format_error(err: Exception, *, on_list: bool = False, one_currency: bool = 
 
 
 # The shared-envelope error families: {ExcType: (envelope code, exit code)}.
-# EngineError stays a dedicated branch in render() — its --json output is the
-# engine's raw body passed through verbatim, not a client-composed envelope.
+# EngineError is not in this table: `json_body` and `exit_code_of` each handle it in
+# a branch of their own, since its --json output is the engine's raw body passed
+# through verbatim, not a client-composed envelope.
 _ENVELOPE_ERRORS: dict[type[Exception], tuple[str, int]] = {
     EngineConnectionError: ("CONNECTION_ERROR", 6),
     ConfigMissingError: ("CONFIG_MISSING", 3),

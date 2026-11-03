@@ -127,7 +127,7 @@ def _row_lists(result: SheetImport) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# names still missing (screen 1, pick 2 A)
+# names still missing: the lines screen 1 and the refused apply print
 # ---------------------------------------------------------------------------
 def _create_command(file: str) -> str:
     return f"expense import sheet {shlex.quote(file)} --create-names"
@@ -277,7 +277,7 @@ def _print_created(result: SheetImport) -> None:
 
 
 def _refuse_missing(result: SheetImport, file: str, *, json_output: bool) -> None:
-    """Pick 2 A: `--apply` while a name is missing writes nothing and names
+    """`--apply` while a name is missing writes nothing and names
     the create step. Exit 1."""
     if json_output:
         emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {_missing_count(result)}"))

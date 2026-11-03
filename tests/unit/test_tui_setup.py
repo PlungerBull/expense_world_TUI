@@ -608,7 +608,7 @@ def _messages(path: Path):
     [
         "No config found. Run: expense config set --engine-url <url>",
         "or 'expense auth bootstrap' if your account is not yet provisioned.",
-        "openpyxl is required for `expense import`.",
+        "Type expense import sheet to bring in your spreadsheet.",
         "Install it with:\n    pip install openpyxl",
     ],
 )

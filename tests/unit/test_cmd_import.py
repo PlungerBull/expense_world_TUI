@@ -1,6 +1,6 @@
 """`expense import sheet`: what the terminal prints, screen by screen, as
 docs/mockups/expense-world-sheet-import-engine.html draws it (screens 1 to 5,
-pick 1 A `--create-names`, pick 2 A the apply refused while a name is missing).
+`--create-names`, and the apply refused while a name is missing).
 
 The engine is respx: every answer is the fake engine's `sheet_import_answer`
 (tests/unit/helpers.py), every refusal an envelope shaped as the practice
@@ -469,7 +469,7 @@ def test_a_currency_the_account_does_not_hold_prints_in_the_engines_words(sheet)
     )
 
 
-# ---- pick 2 A: the apply while a name is missing -----------------------------------
+# ---- the apply while a name is missing -----------------------------------------------
 @respx.mock
 def test_the_apply_while_a_name_is_missing_is_refused_and_names_the_step(sheet):
     _engine(_answer(yours=False))
