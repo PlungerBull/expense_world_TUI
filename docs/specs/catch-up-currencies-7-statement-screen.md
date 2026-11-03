@@ -371,3 +371,7 @@ Not built in this spec; drafted into a new spec when it is done.
   accounts: `account_choices` in [reads.py](../../expense/reads.py) puts a `currency_code` beside
   each name and the account carries none (found by part 6 on 2026-10-31). This spec's rewrite of
   the Statements screens replaces the form; check its picker lists the account alone.
+- **The Statements screens still say "batch"** where they mean a statement: `In no batch`, the
+  `u No batch` key and the empty-list words (found while drawing
+  [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html) on
+  2026-11-02). Point 1 covers only "reconciliation"; "batch" is the owner's to rename.
