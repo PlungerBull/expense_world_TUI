@@ -28,6 +28,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### A statement "not in order" at 80 columns
+Asked 2026-11-03 · Blocks: nothing yet (task 2 of [part 7](specs/catch-up-currencies-7-statement-screen.md) keeps today's cut until you pick)
+
+On an account with a statement code, the list of statements ends with an `Order` column. A row
+reading `not in order` needs 82 columns, and an 80-column terminal cannot fit it with the
+approved spacing; the approved screen draws only `in order` rows.
+[expense-world-statement-not-in-order.html](mockups/expense-world-statement-not-in-order.html)
+draws each way:
+- **A.** The last word gives way: `not in …` at exactly 80 columns, whole from 82.
+- **B.** The name gives way: `VIS-202609` and `VIS-202610` both read `VIS-202…` at 80 columns.
+- **C.** One space between columns instead of two, on an account with a statement code; every
+  word whole.
+
+**Recommended:** C, because nothing is ever cut and the spacing is the only change.
+
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 

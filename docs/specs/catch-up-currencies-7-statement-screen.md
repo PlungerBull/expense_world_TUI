@@ -294,9 +294,12 @@ the question, the files named and the tui.md section named.
    row shows a difference per covered currency, its status and order, an uncovered currency and
    a blank balance as questions 2 and 3 pick; the one read is
    `GET /statements?account_id=`; the tests pin each.
-3. **The New statement form** (point 5; question 1). `NewReconciliationScreen` and
-   `NewCardStatementScreen` in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
-   one form for every account, and its tests; tui.md §4 "A card statement's create form". *Passes
+3. **The New statement form** (point 5; question 1). `NewReconciliationScreen` in
+   [reconciliations.py](../../expense/tui/screens/reconciliations.py), already the one form for
+   every account, gains a starting and an ending balance line per currency of the account, as
+   pane 7 of [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)
+   draws; its tests; tui.md §4 "A card statement's create form", rewritten for the one form, and
+   its account picker lists the account alone (Found along the way). *Passes
    if:* one `POST /statements` with `account_id` and an entry per currency typed; a currency left
    empty is not sent; `MONEY_AT_START_NOT_COVERED` puts the cursor on that currency's starting
    balance with the engine's words; a `CURRENCY_NOT_HELD` on `balances.<i>.currency_code` shows
