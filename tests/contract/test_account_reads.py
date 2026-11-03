@@ -27,17 +27,15 @@ What it pins:
    either (contract: GET /v1/accounts) (contract: GET /v1/accounts/{account_id}).
 5. `GET /activity?resource_id=<account id>` reads an account's entries together with its
    currencies' (contract: GET /v1/activity, "Accounts and their currencies"), counted
-   exactly: a create is one `account` and two `currency` entries, an edit, an archive and a
-   kind change the `account` entry alone, an added and a removed currency one `currency`
-   entry each; every snapshot carries the keys of the contract (contract: "What an account
-   is", "Account snapshot") (contract: "Bank Accounts", "Per-currency account").
+   exactly: a create is one `account` and two `currency` entries, an edit, an archive, an
+   unarchive and a kind change either way (`make-person`, `make-account`) the `account` entry
+   alone, an added and a removed currency one `currency` entry each, a delete one `DELETED`
+   `account` entry and one `DELETED` `currency` entry per currency; every snapshot carries
+   the keys of the contract (contract: "What an account is", "Account snapshot")
+   (contract: "Bank Accounts", "Per-currency account").
 
 What it leaves out:
 
-  · The entries of a delete (`DELETED` under `account` and under `currency`), of an unarchive
-    and of `make-account`: the unarchive and `make-account` write the entry their mirrors
-    (archive, `make-person`) write, and the delete's is no read of an account, which is gone
-    from every one; no live test reads it yet.
   · The older nouns of the log (`card`, a currency under `account`, `RESTORED`): no
     write logs under them any more and the practice user's log holds none of them to read
     (contract: GET /v1/activity, "Older and restored entries").
@@ -317,6 +315,81 @@ def test_an_edit_an_archive_and_a_kind_change_each_log_the_account_alone(client,
     assert (before["is_archived"], after["is_archived"]) == (False, True)
     assert after["version"] == before["version"] + 1
 
+    assert log.new() == []
+
+
+def test_an_unarchive_and_a_turn_back_into_a_bank_account_each_log_the_account_alone(
+    client, scratch
+):
+    """On an archived account holding soles and dollars, an unarchive writes exactly one
+    `account` `UPDATED` entry and no `currency` entry, `is_archived` going from true to false;
+    on a person, `make-account` writes exactly one `account` `UPDATED` entry and no `currency`
+    entry, `is_person` going from true to false and `sort_order` ending at the one the write
+    answers (contract: POST /v1/accounts/{account_id}/unarchive) (contract: POST
+    /v1/accounts/{account_id}/make-account)."""
+    archived = scratch.account("PEN", "USD", name=_named("unarch"))
+    log = Entries(client, archived)
+    assert len(log.new()) == 3
+    scratch.archive(archived)
+    assert len(log.new()) == 1
+
+    client.post(f"/accounts/{archived}/unarchive")
+    (unarchive,) = log.new()
+    assert (unarchive["resource_type"], unarchive["action"]) == ("account", UPDATED)
+    before = _snapshot(unarchive, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    after = _snapshot(unarchive, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    assert (before["is_archived"], after["is_archived"]) == (True, False)
+    assert after["version"] == before["version"] + 1
+    assert log.new() == []
+
+    person = scratch.account("PEN", "USD", person=True, name=_named("back"))
+    log = Entries(client, person)
+    assert len(log.new()) == 3
+
+    made = client.post(f"/accounts/{person}/make-account")
+    (kind,) = log.new()
+    assert (kind["resource_type"], kind["action"]) == ("account", UPDATED)
+    before = _snapshot(kind, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    after = _snapshot(kind, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    assert (before["is_person"], after["is_person"]) == (True, False)
+    assert after["sort_order"] == made["sort_order"]
+    assert after["version"] == before["version"] + 1
+    assert log.new() == []
+
+
+def test_a_delete_logs_one_deleted_account_entry_and_one_per_currency(client, scratch):
+    """An account holding soles and dollars, deleted, writes exactly three new entries by its
+    id: one `account` `DELETED` with the account's snapshots and one `currency` `DELETED` for
+    each currency with that currency's, each `deleted_at` unset before and set after (contract:
+    DELETE /v1/accounts/{account_id}, "Activity log") (contract: GET /v1/activity, "Accounts
+    and their currencies")."""
+    account_id = scratch.account("PEN", "USD", name=_named("del"))
+    log = Entries(client, account_id)
+    assert len(log.new()) == 3
+
+    client.delete(f"/accounts/{account_id}")
+    entries = log.new()
+
+    assert _kinds(entries) == [("account", DELETED), ("currency", DELETED), ("currency", DELETED)]
+    (account_entry,) = [e for e in entries if e["resource_type"] == "account"]
+    held = _snapshot(account_entry, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    gone = _snapshot(account_entry, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
+    assert (held["id"], gone["id"]) == (account_id, account_id)
+    assert held["deleted_at"] is None
+    assert gone["deleted_at"] is not None
+
+    codes = []
+    for entry in [e for e in entries if e["resource_type"] == "currency"]:
+        held = _snapshot(entry, "before_snapshot", CURRENCY_SNAPSHOT_KEYS)
+        gone = _snapshot(entry, "after_snapshot", CURRENCY_SNAPSHOT_KEYS)
+        for snap in (held, gone):
+            assert snap["account_id"] == account_id
+            assert snap["current_balance_cents"] == 0
+        assert held["currency_code"] == gone["currency_code"]
+        codes.append(held["currency_code"])
+        assert held["deleted_at"] is None
+        assert gone["deleted_at"] is not None
+    assert sorted(codes) == ["PEN", "USD"]
     assert log.new() == []
 
 
