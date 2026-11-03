@@ -3,8 +3,9 @@
     settings file → health → bootstrap → me
     → account create → category create → transaction create → dashboard → cleanup
 
-Every step is one engine call through the app's own HTTP client, built from a
-settings file saved and read back the way the app's setup screen does it.
+Every step goes through the app's own HTTP client, built from a settings file saved and
+read back the way the app's setup screen does it; the transaction is built by `Scratch`
+(one more read, of the user's display timezone).
 
 Hits a real engine. Gated on PYTEST_LIVE=1 and EXPENSE_PAT; the target and the
 real-ledger guard come from conftest.py. Redirects EXPENSE_CONFIG to a temp dir so
@@ -23,10 +24,10 @@ from uuid import uuid4
 import pytest
 
 from expense import config as config_module
-from expense.dates import detect_timezone, now_local_iso
+from expense.dates import detect_timezone
 from expense.errors import EngineError
 from expense.http import ExpenseClient
-from tests.contract.conftest import ENGINE_URL, PAT, account_body
+from tests.contract.conftest import ENGINE_URL, PAT, Scratch, account_body
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("PYTEST_LIVE") != "1" or not PAT,
@@ -70,7 +71,7 @@ def test_freshman_flow(isolated_env):
 
         account_id = None
         category_id = None
-        transaction_id = None
+        scratch = Scratch(client)
         suffix = uuid4().hex[:8]
         try:
             body = {**account_body("USD"), "name": f"freshman-{suffix}"}
@@ -88,20 +89,14 @@ def test_freshman_flow(isolated_env):
             )
             category_id = category["id"]
 
-            new_id = str(uuid4())
-            transaction = client.post(
-                "/transactions",
-                json_body={
-                    "id": new_id,
-                    "title": "freshman smoke",
-                    "amount_cents": -100,
-                    "account_id": account_id,
-                    "currency_code": "USD",
-                    "category_id": category_id,
-                    "date": now_local_iso(),
-                },
+            scratch.recent_row(
+                account_id,
+                -100,
+                "USD",
+                alone=True,
+                title="freshman smoke",
+                category_id=category_id,
             )
-            transaction_id = transaction["id"]
 
             dashboard = client.get("/dashboard")
             assert any(key in dashboard for key in ("totals", "accounts", "bank_accounts")), (
@@ -109,8 +104,7 @@ def test_freshman_flow(isolated_env):
             )
         finally:
             # Best-effort cleanup; reverse dependency order. Ignore failures.
-            if transaction_id:
-                _safe_delete(client, f"/transactions/{transaction_id}")
+            scratch.cleanup()
             if category_id:
                 _safe_delete(client, f"/categories/{category_id}")
             if account_id:

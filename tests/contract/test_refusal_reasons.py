@@ -39,30 +39,16 @@ creates on the practice user per run, each left behind as a soft-deleted row.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
+from datetime import timedelta
 from uuid import uuid4
 
 from tests.contract.conftest import account_body, assert_refusal, refused
 
 
-def _make_transaction(scratch, tx_id: str, account_id: str, category_id: str | None = None) -> dict:
-    """A `-100` PEN row dated in January 2026, taken on by `scratch`'s cleanup."""
-    scratch.transactions.append(tx_id)
-    body = {
-        "id": tx_id,
-        "amount_cents": -100,
-        "account_id": account_id,
-        "currency_code": "PEN",
-        "date": "2026-01-02T00:00:00Z",
-    }
-    if category_id is not None:
-        body["category_id"] = category_id
-    return scratch.client.post("/transactions", json_body=body)
-
-
 def test_deletes_of_what_is_in_use_name_the_reason(client, scratch):
     account_id = scratch.account()
     category_id = scratch.category()
-    _make_transaction(scratch, str(uuid4()), account_id, category_id)
+    scratch.recent_row(account_id, -100, alone=True, category_id=category_id)
 
     # 1 — an account with a live transaction.
     err = refused(lambda: client.delete(f"/accounts/{account_id}"))
@@ -73,7 +59,7 @@ def test_deletes_of_what_is_in_use_name_the_reason(client, scratch):
     assert_refusal(err, 409, "CONFLICT", "category_id", "HAS_TRANSACTIONS")
 
     # 2 — a system category: a row with no category makes @Pendiente exist.
-    _make_transaction(scratch, str(uuid4()), account_id)
+    scratch.recent_row(account_id, -100, alone=True)
     categories = client.get("/categories")["items"]
     pendiente = next(c for c in categories if c["system_key"] == "pending")
     err = refused(lambda: client.delete(f"/categories/{pendiente['id']}"))
@@ -82,9 +68,8 @@ def test_deletes_of_what_is_in_use_name_the_reason(client, scratch):
 
 def test_the_pending_hashtag_is_never_deleted(client, scratch):
     account_id = scratch.account()
-    tx_id = str(uuid4())
     # 6 — a row with no hashtag makes the pending hashtag exist.
-    _make_transaction(scratch, tx_id, account_id)
+    tx_id = scratch.recent_row(account_id, -100, alone=True)["id"]
     hashtags = client.get("/hashtags")["items"]
     pending = next(h for h in hashtags if h["system_key"] == "pending")
     err = refused(lambda: client.delete(f"/hashtags/{pending['id']}"))
@@ -121,9 +106,9 @@ def test_a_taken_name_is_name_exists(client, scratch):
 
 def test_a_taken_id_is_id_exists(client, scratch):
     account_id = scratch.account()
-    tx_id = str(uuid4())
-    batch_tx_id = str(uuid4())
-    scratch.transactions.append(batch_tx_id)
+
+    moment = scratch.recent_moment()
+    tx_id = scratch.recent_row(account_id, -100, moment=moment, alone=True)["id"]
 
     # 4 — the same id with a different body, under a fresh idempotency key.
     err = refused(
@@ -133,39 +118,24 @@ def test_a_taken_id_is_id_exists(client, scratch):
     )
     assert_refusal(err, 409, "CONFLICT", "id", "ID_EXISTS")
 
-    # 4 — in a batch, keyed by the item that carried it.
-    _make_transaction(scratch, tx_id, account_id)
+    # 4 — in a batch, keyed by the item that carried it: a fresh item, then the id of the
+    # row above with another body.
+    when = (moment - timedelta(minutes=1)).isoformat(timespec="seconds")
+    fresh = scratch._item(account_id, when, -200, "PEN")
+    taken = scratch._item(account_id, when, -300, "PEN", id=tx_id)
+    scratch.transactions.append(fresh["id"])
     err = refused(
-        lambda: client.post(
-            "/transactions/batch",
-            json_body={
-                "transactions": [
-                    {
-                        "id": batch_tx_id,
-                        "amount_cents": -200,
-                        "account_id": account_id,
-                        "currency_code": "PEN",
-                        "date": "2026-01-03T00:00:00Z",
-                    },
-                    {
-                        "id": tx_id,
-                        "amount_cents": -300,
-                        "account_id": account_id,
-                        "currency_code": "PEN",
-                        "date": "2026-01-03T00:00:00Z",
-                    },
-                ]
-            },
-        )
+        lambda: client.post("/transactions/batch", json_body={"transactions": [fresh, taken]})
     )
     assert_refusal(err, 409, "CONFLICT", "transactions.1.id", "ID_EXISTS")
 
 
 def test_a_completed_statement_holds_its_rows_and_itself(client, scratch):
     account_id = scratch.account()
-    tx_id = str(uuid4())
-    _make_transaction(scratch, tx_id, account_id)
-    statement_id = scratch.statement(account_id, "2026-01-01", "2026-01-31")["id"]
+    moment = scratch.recent_moment()
+    tx_id = scratch.recent_row(account_id, -100, moment=moment, alone=True)["id"]
+    day = moment.date().isoformat()
+    statement_id = scratch.statement(account_id, day, day)["id"]
     client.put(
         f"/statements/{statement_id}",
         json_body={"balances": [{"currency_code": "PEN", "ending_balance_cents": -100}]},

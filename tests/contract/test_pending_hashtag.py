@@ -28,22 +28,6 @@ from expense.reads import pending_hashtag_of
 from tests.contract.conftest import reason_on, refused
 
 
-def _post_untagged(scratch, account_id: str) -> dict:
-    """A transaction written with no hashtag, taken on by `scratch`'s cleanup."""
-    tx_id = str(uuid4())
-    scratch.transactions.append(tx_id)
-    return scratch.client.post(
-        "/transactions",
-        json_body={
-            "id": tx_id,
-            "amount_cents": -100,
-            "account_id": account_id,
-            "currency_code": "PEN",
-            "date": scratch.noon("2026-05-04"),
-        },
-    )
-
-
 def _pending_id(client) -> str:
     """The pending hashtag's id, by `system_key`, never by name."""
     found = pending_hashtag_of(client.get("/hashtags")["items"])
@@ -54,7 +38,7 @@ def _pending_id(client) -> str:
 def test_an_untagged_write_lands_on_pending_and_a_real_hashtag_replaces_it(client, scratch):
     account = scratch.account()
     real = scratch.hashtag()
-    created = _post_untagged(scratch, account)
+    created = scratch.recent_row(account, -100, alone=True)
     tx_id = created["id"]
     pending = _pending_id(client)
     assert created["hashtag_ids"] == [pending]
@@ -73,27 +57,15 @@ def test_an_untagged_write_lands_on_pending_and_a_real_hashtag_replaces_it(clien
 def test_the_pending_hashtag_beside_another_is_pending_hashtag_not_alone(client, scratch):
     account = scratch.account()
     real = scratch.hashtag()
-    refused_id = str(uuid4())
     part_ids = [str(uuid4()), str(uuid4())]
-    scratch.transactions.extend([refused_id, *part_ids])
-    made = _post_untagged(scratch, account)
+    scratch.transactions.extend(part_ids)
+    made = scratch.recent_row(account, -100, alone=True)
     anchor = made["id"]
     pending = _pending_id(client)
 
     # A create.
-    err = refused(
-        lambda: client.post(
-            "/transactions",
-            json_body={
-                "id": refused_id,
-                "amount_cents": -100,
-                "account_id": account,
-                "currency_code": "PEN",
-                "date": scratch.noon("2026-05-04"),
-                "hashtag_ids": [pending, real],
-            },
-        )
-    )
+    when = scratch.recent_moment().isoformat(timespec="seconds")
+    err = scratch.refused_row(account, when, hashtag_ids=[pending, real])
     assert (err.status, err.code) == (422, "VALIDATION_ERROR")
     assert reason_on(err, "hashtag_ids") == "PENDING_HASHTAG_NOT_ALONE"
 
@@ -128,17 +100,9 @@ def test_the_pending_hashtag_beside_another_is_pending_hashtag_not_alone(client,
 def test_an_opening_balance_carries_no_hashtag(client, scratch):
     account = scratch.account()
     real = scratch.hashtag()
-    opening = str(uuid4())
-    scratch.transactions.append(opening)
-    created = client.post(
-        f"/accounts/{account}/opening-balance",
-        json_body={
-            "transaction_id": opening,
-            "currency_code": "PEN",
-            "amount_cents": 10000,
-            "date": "2026-01-01T00:00:00Z",
-        },
-    )
+    scratch.opening_balance(account, "2026-01-01", "PEN", 10000)
+    (created,) = client.get("/transactions", params={"account_id": account})["items"]
+    opening = created["id"]
     assert created["hashtag_ids"] == []
 
     err = refused(lambda: client.put(f"/transactions/{opening}", json_body={"hashtag_ids": [real]}))
