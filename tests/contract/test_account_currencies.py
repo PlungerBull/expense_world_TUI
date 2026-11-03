@@ -68,8 +68,8 @@ What it leaves out:
     the second would need a second user holding an id, which the shared practice user's suite
     does not have (docs/decisions.md).
   · The activity entries the writes make (`CREATED` and `DELETED` under `currency`, `UPDATED`
-    and `DELETED` under `account`): the activity log is read by its own tests, and the writes
-    here are proven by the account read.
+    and `DELETED` under `account`): test_account_reads.py reads them, and the writes here are
+    proven by the account read.
   · A `color` or `sort_order` written (only a malformed colour and a `null` are refused here),
     and an empty `name` against `NAME_EXISTS`: no held name is empty, so no body breaks both.
   · Two requests sent at the same moment (`CONCURRENT_CHANGE`, `NAME_EXISTS` raced and the

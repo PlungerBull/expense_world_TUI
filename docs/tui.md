@@ -1039,7 +1039,8 @@ holding no currency `x` opens nothing, sends nothing and notes `Prueba holds no 
 A refusal leaves the list as it was, and the "Failed" note is the engine's words alone, with
 no line of the app's: `LAST_CURRENCY` (deleting the account is `d`, a choice of its own),
 `HAS_TRANSACTIONS` without the account delete's archive line, since archiving puts away every
-currency and not the one, `IN_LIVE_STATEMENT` and `ACCOUNT_ARCHIVED`
+currency and not the one, `IN_LIVE_STATEMENT`, `ACCOUNT_ARCHIVED`, and the two
+`404 NOT_FOUND` answers, `account not found.` and `currency <code> not found.`
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 `c` and `x` send one write at a time, sharing `a` and `t`'s guard: while one is in flight,
 `c`, `x`, `a` and `t` do nothing until the engine refuses that write or the list builds from

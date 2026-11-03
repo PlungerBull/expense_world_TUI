@@ -14,11 +14,12 @@ later, and the account's reads and the activity entries its writes leave.
 
 ## Done when, checked
 
-All checked against the practice engine on 2026-11-02:
-- the live contract suite: 328 passed. The one failure is the suite's own check that every
+All checked against the practice engine on 2026-11-02, last after the tests below on a delete's,
+an unarchive's and a turn back into a bank account's activity entries were added:
+- the live contract suite: 330 passed. The one failure is the suite's own check that every
   contract citation in this repo resolves, failing on citations in the app's statement screens
   and their unit tests, which part 7 rewrites;
-- the unit suite: 3585 passed;
+- the unit suite: 3614 passed;
 - nothing left on either practice user;
 - the contract version, unmoved.
 
@@ -38,9 +39,11 @@ gives an order of refusals, each pair is proven by one request that breaks both.
   - An archived account is listed only with `?include_archived=true`, and a person only with
     `?include_people=true`.
   - The activity entries are counted exactly, each snapshot with your keys: a create leaves one
-    `account` entry and one `currency` entry per currency; an edit, an archive and a turn into a
-    person leave the `account` entry alone; a currency added or removed leaves one `currency`
-    entry.
+    `account` entry and one `currency` entry per currency; an edit, an archive, an unarchive, a
+    turn into a person and a turn back into a bank account leave the `account` entry alone; a
+    currency added or removed leaves one `currency` entry; a delete of an account in PEN and USD
+    leaves one `DELETED` entry under `account` and one under `currency` per currency, each
+    currency's snapshot at 0 and naming the account.
 - **"An account in soles and dollars, and a person in soles and dollars, are each created in one
   write; a currency is added later and one with nothing booked is removed":** worked.
   - A bank account and a person are each made in PEN and USD in one write, PEN before USD, at 0.
