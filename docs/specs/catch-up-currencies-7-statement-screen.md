@@ -282,6 +282,33 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
+From the acceptance check of 2026-11-03 (practice engine, 80×24, against
+[expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
+
+10. **The two live tests read the rows' new shape.** `test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads`
+    and `test_the_no_batch_list_reads_through_its_own_reads` in
+    [test_bank_lines.py](../../tests/contract/test_bank_lines.py) expect rows without the
+    currency and the number. *Passes if:* both pass live against the practice engine with the
+    rows `line_rows` and `unfiled_rows` give; the rest of the live suite stays green.
+11. **Everything fits at 80×24.** `u` on the browse with five accounts shows its rows (pane 11),
+    not its caption alone; a scrolling list of statements keeps `in order` whole beside its
+    scrollbar (pane 3); a draft showing `f` keeps `? Keys` whole in its footer (pane 10).
+    *Passes if:* each holds at 80×24, pinned by a test at that size.
+12. **Long words wrap under themselves.** A long account name in a statement's head and a long
+    engine note (`⚠ …`, `⚠ USD: …`) wrap under their own first word, as the shared
+    `under_itself` does elsewhere, never back to column 1. *Passes if:* both hold at 80 columns,
+    pinned by tests.
+13. **Only a statement on an account with a statement code is numbered.** Pane 4 numbers the
+    paper's lines; pane 8, a completed statement on an account with no code, draws no `#`
+    column. *Passes if:* the list has a `#` column only on an account with a statement code; pane
+    8's list pinned whole.
+14. **A refused PDF says it once.** The upload's refusal shows its lines on the screen as pane 14,
+    with no `Failed` toast repeating them. *Passes if:* no toast on a refused upload; the
+    screen's lines unchanged; other screens' refusal toasts unchanged.
+15. **`c`'s boxes sit under the head.** The balance boxes and the question open under the head,
+    the balances still in sight, as pane 6 draws, not as a box over them. *Passes if:* at 80×24
+    the head's balances show while each box is open, pinned against pane 6.
+
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as
