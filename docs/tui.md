@@ -1697,10 +1697,11 @@ in the paper's order, both currencies together, then those holding no place olde
 tick-list: the statement's lines ticked and first, then the account's lines in no statement
 inside the period (`account_id`, `unreconciled=true`, the period's own days as `date_from` /
 `date_to`, `sort=date_asc`, oldest first). Once completed it is the statement's lines alone,
-read-only, with no tick box, and a `#` column leads with each line's number, 1, 2, 3 … down
-the rows with no gaps. Every row carries a `Cur` column. An opening balance (`is_opening_balance`)
-holds no place on the paper, so its rows come last under a dim `Not on the paper` label, with a
-dim `—` for a number. The list draws without a rule above it, and the title is as wide as its
+read-only, with no tick box; on an account with a statement code a `#` column leads with each
+line's number, 1, 2, 3 … down the rows with no gaps, and on an account with none (pane 8) the
+list has no `#` column. An open statement is never numbered. Every row carries a `Cur` column.
+An opening balance (`is_opening_balance`) holds no place on the paper, so its rows come last
+under a dim `Not on the paper` label, with a dim `—` for a number in a numbered list. The list draws without a rule above it, and the title is as wide as its
 longest title (at least 24 cells) until the line would not fit. The rows `Not on the paper`
 cost two more lines when they share a page with the others (the blank line and the label), and
 the page arithmetic counts them (`_extra_lines` in

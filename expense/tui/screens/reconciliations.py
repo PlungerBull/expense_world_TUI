@@ -33,8 +33,9 @@ Working screen (ReconciliationDetailScreen): the whole statement. Its head
 shows each currency in the statement's `balances` once, begin, end and diff
 (`balance_lines`); over a checklist of bank lines — the statement's, every
 currency of its account together in the statement's order, then the account's in
-its period that are in no statement, oldest first (draft) — or a read-only,
-numbered list of the statement's lines (completed), read by account from
+its period that are in no statement, oldest first (draft) — or a read-only
+list of the statement's lines (completed; numbered only on an account with a
+statement code), read by account from
 `GET /bank-lines` so a purchase split into parts is one row with its total.
 `space` toggles membership (PUT `statement_id` on one part, which moves
 the whole line) and reads the statement and its list again;
@@ -1708,7 +1709,7 @@ class ReconciliationDetailScreen(
                 rows,
                 checked,
                 read_only=self._completed or self._waits_for_pdf,
-                numbered=self._completed,
+                numbered=self._completed and bool(self._statement_code),
                 empty=empty,
                 palette=PALETTE,
                 page_size=self._checklist_items(),  # adaptive window

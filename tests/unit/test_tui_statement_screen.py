@@ -235,7 +235,7 @@ def _open(statement: dict, code: str | None = None):
 
 def test_a_completed_statement_reads_as_pane_4_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
-    _, lines, _ = run_app(_open(VIS_AGOSTO), size=(80, 26))
+    _, lines, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 26))
     # the footer has `d` and no `c`, and no `space Toggle` (Question 9 B)
     assert lines == _pane(PANE_4)
 
@@ -274,7 +274,7 @@ def test_the_rows_keep_the_order_the_engine_gave_them(fake_client, monkeypatch):
     engine put them, and the numbers follow the rows."""
     odd = [AGOSTO[4], AGOSTO[0], AGOSTO[2]]
     _engine(fake_client, monkeypatch, statement_lines=odd)
-    screen, _, _ = run_app(_open(VIS_AGOSTO), size=(80, 26))
+    screen, _, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 26))
     assert [row.key for row in screen._list._rows] == ["l5", "l1", "l3"]
     assert [row.number for row in screen._list._rows] == [1, 2, 3]
 
@@ -509,6 +509,61 @@ def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pa
     assert lines[len(top)] == ""  # then the list, which keeps its own blank line
 
 
+#: Pane 8's list: a completed statement on an account with no statement code has no `#`.
+SEPTIEMBRE_DONE = statement_record(SEPTIEMBRE | {"status": 2})
+SEPTIEMBRE_PAPER = SEPTIEMBRE_LINES + [
+    _line(43, "2026-09-12", "PAGO TARJETA", 30000, "PEN", "003260", account="acc-ibk"),
+    _line(44, "2026-09-19", "RAPPI", -5970, "PEN", "003281", account="acc-ibk"),
+]
+PANE_8_LIST = """
+  ◈ EXPENSE WORLD  ▸  Statements  ▸  Septiembre 2026
+────────────────────────────────────────────────────────────────────────────────
+  Septiembre 2026  ·  IBK Visa  ·  2026-08-26 → 2026-09-25  ·  status completed
+            begin          end      diff
+  PEN     -912.30      -820.00         —
+
+  Date        Title                     Operation  Cur     Amount
+  2026-08-29  METRO SURCO               003210     PEN     -91.20
+  2026-09-06  TOTTUS LA MOLINA          003244     PEN     -56.80
+  2026-09-12  PAGO TARJETA              003260     PEN    +300.00
+  2026-09-19  RAPPI                     003281     PEN     -59.70
+
+ esc Back  r Refresh  u Revert  d Delete  ? Keys
+"""
+
+
+def test_a_completed_statement_on_an_account_with_no_code_draws_no_number_as_pane_8(
+    fake_client, monkeypatch
+):
+    # The pane's two `⚠` lines are left out: they show only just after `c`, and
+    # test_the_close_notes_of_a_currency_not_covered_… pins them.
+    _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
+    _, lines, _ = run_app(_open(SEPTIEMBRE_DONE), size=(80, 15))
+    assert lines == _pane(PANE_8_LIST)
+
+
+def test_only_a_completed_statement_on_an_account_with_a_code_is_numbered(fake_client, monkeypatch):
+    """`#` leads the list of a completed statement with a code (pane 4) and no other
+    (panes 5, 8 and 9)."""
+    _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
+    headers = {}
+    for key, statement, code in [
+        ("completed, code", SEPTIEMBRE_DONE, "IBK"),
+        ("completed, no code", SEPTIEMBRE_DONE, None),
+        ("open, code", NOVIEMBRE, "VIS"),
+        ("open, no code", SEPTIEMBRE, None),
+    ]:
+        _, lines, _ = run_app(_open(statement, code), size=(80, 26))
+        headers[key] = next(line for line in lines if "Date " in line and "Title" in line)
+    numbered = {key: line.lstrip().startswith("#") for key, line in headers.items()}
+    assert numbered == {
+        "completed, code": True,
+        "completed, no code": False,
+        "open, code": False,
+        "open, no code": False,
+    }
+
+
 LONG_ACCOUNT = "Cuenta Sueldo Interbank Soles Principal Hogar"
 
 
@@ -524,7 +579,7 @@ def test_a_long_account_name_wraps_the_head_under_the_statement_name(fake_client
     letter, after the two-cell indent, never at column 1."""
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
     _long_account(monkeypatch)
-    _, lines, _ = run_app(_open(VIS_AGOSTO), size=(80, 24))
+    _, lines, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 24))
     first = next(n for n, line in enumerate(lines) if line.startswith("  [VIS] Agosto"))
     head = lines[first : first + 2]
     assert LONG_ACCOUNT in " ".join(" ".join(head).split())

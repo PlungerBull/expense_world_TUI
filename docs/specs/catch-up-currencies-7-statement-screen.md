@@ -285,10 +285,6 @@ the question, the files named and the tui.md section named.
 From the acceptance check of 2026-11-03 (practice engine, 80×24, against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
 
-13. **Only a statement on an account with a statement code is numbered.** Pane 4 numbers the
-    paper's lines; pane 8, a completed statement on an account with no code, draws no `#`
-    column. *Passes if:* the list has a `#` column only on an account with a statement code; pane
-    8's list pinned whole.
 14. **A refused PDF says it once.** The upload's refusal shows its lines on the screen as pane 14,
     with no `Failed` toast repeating them. *Passes if:* no toast on a refused upload; the
     screen's lines unchanged; other screens' refusal toasts unchanged.
