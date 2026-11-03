@@ -1095,6 +1095,21 @@ currencies in one balance* — a total across currencies has no meaning.
   display rule and stays.
 - **The LOG bar's staged list has a `Cur` column of its own,** as the ledger has, and its
   account cell names the account alone: the currency is its own field on every list.
+- **The currency's words follow the patterns already approved.** On the Edit form a currency an
+  account change took is drawn dim, as every line the bar skips is, and the CURRENCY line notes
+  `changes every part of the transaction` on a transaction of two parts or more, as the date,
+  title and account do. The opening balances' amounts are coloured by sign, as every amount the
+  app draws is. The two opening-balance notes name their currency (`The PEN opening balance is
+  not:`), and `x` keeps `Currency removed: USD.` and `<account> holds no currency.`. A bulk move
+  with one row refused heads it `Refused`. A currency picked by mistake on the New form stays
+  picked, as on the hashtags line; `esc` and starting over is the way out.
+- **A hint or a line names the currency only when the currency is the whole story.** The LOG
+  bar's `pick a currency` hint shows only when the currency is a line's sole reason; any other
+  reason with it gives the plain `fix the line` hint. On `m`, an opening balance's
+  `OPENING_BALANCE_ACCOUNT_FIXED` shows the engine's words alone, since the app's line about
+  setting it on the other account's Edit form fits an account move (`b`, the Edit form's
+  account) and not a currency one; the engine keys each refusal on each field sent
+  (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 
 **Why.** In the engine an account holds its currencies and a transaction names both, so the
 screens show the account the owner thinks of, once, and the currency where it is chosen. Asking
@@ -1114,6 +1129,11 @@ one moved to another account does not.
   amount as it is.
 - *`d` naming one currency with a line saying the others go too:* it hides the balances the
   delete removes.
+- *The taken currency in magenta on the Edit form:* the sentence already says the currency
+  changed, and a coloured spot on a line the bar skips reads no clearer.
+- *The opening balances' amounts plain:* an opening balance is a transaction's amount, as the
+  ledger shows it.
+- *`1 of 3 refused` as a single refusal's head:* the rows named under it already say how many.
 
 ## The PDF upload and the two imports send the account, and the statement screens wait for their redraw (2026-10-30, owner)
 
@@ -1243,6 +1263,24 @@ current month, which yesterday is not on a month's first day. *Reading the month
 clock reading a minute earlier* — it repeats the arithmetic instead of sharing the moment. *A
 separate helper for a row sent alone* — it repeats the body `row_at` builds; a switch keeps one
 copy, as `refused_row`'s `batch` does.
+
+## A list's one-write guard belongs to the write that set it (2026-11-02)
+
+**Decision.** On Manage ▸ Accounts, `a`, `t`, `c` and `x` send one write at a time: a key
+pressed before that write's aftermath does nothing. The guard is tied to the write that set it
+(`ResourceListScreen.run_guarded_write` in [_base.py](../expense/tui/screens/_base.py)): it
+lifts when that write is refused, when it is dropped behind another write's refusal, or when the
+list builds from a read begun after it was answered. Nothing else lifts it or keeps it set.
+
+**Why.** The list a key acts on must already show the write before it: a second `c` read from
+rows fetched before the add offers the currency just added again, and the engine refuses it. A
+reload of its own (`r`, a form closing) can land at any time, with rows read before or after
+the write, and a refused write queued behind (`d`) never reloads, so only the guarded write's
+own aftermath says when the list is fresh.
+
+**Rejected.** *Lifting the guard on every build* — `r` mid-write lifts it with stale rows.
+*Lifting it on a build with no write unanswered* — a refused `d` queued behind it never reloads,
+and the guard stays set until the list is read again.
 
 ## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
 

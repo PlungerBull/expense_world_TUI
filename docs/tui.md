@@ -57,6 +57,8 @@ expense/tui/
                     #   pure builders
   screens/
     _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
+                    #   + ResourceListScreen — the Manage lists; run_guarded_write,
+                    #   the Accounts list's one-write guard (§2 Manage ▸ Accounts)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
     _growing.py     # GrowingRead — a list that grows by cursor (ledger, "no batch" pane)
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
@@ -408,15 +410,16 @@ The Edit form reads all of it from the line's `edit_limits` ("What is read-only 
 dimmed under a dim `category  read-only` and `hashtags  read-only`, each with the engine's
 sentence for it, every field move (`tab`,
 `shift+tab` and the arrows) skips them, the save never sends them, and there is no `^n` or
-`^x`; date, title, amount and note save as on any line. `b`, `c`, `h` and `m` send such a row like any other, and the engine
-refuses it: its "Refused" note is the engine's words for the field, the row, then the line saying what to do
+`^x`; date, title, amount and note save as on any line. `b`, `c`, `h` and `m` send such a
+row like any other, and the engine refuses it: its "Refused" note is the engine's words for
+the field, the row, then the line saying what to do where the app has one
 ("When the engine says no" below), the other rows still go, and the refused row stays
 selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
 @Opening.
 **A split transaction says what reaches every part.** The engine writes a line's date,
-title, account and currency onto every part of it, in one go, while amount, category, hashtags and note
-stay each part's own (contract: "Transactions (Ledger)", "Bank lines"). So while the Edit form's
-table holds two parts or more, its hint under the bar adds
+title, account and currency onto every part of it, in one go, while amount, category,
+hashtags and note stay each part's own (contract: "Transactions (Ledger)", "Bank lines").
+So while the Edit form's table holds two parts or more, its hint under the bar adds
 `· changes every part of the transaction`, in the accent, while the bar is on date, title,
 account or currency, and says nothing more on a part's lines; screen 1 B in
 [expense-world-edit-part.html](mockups/expense-world-edit-part.html). On a line of one part
@@ -975,7 +978,8 @@ cursor on the account in its new place, among the people or the bank accounts, a
 note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. An
 account with an opening balance keeps it as a person, the same transaction under `@Opening`,
 so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). While
-one is in flight, `t`, `a`, `c` and `x` do nothing. On an archived row `t` leaves the footer
+one is in flight, `t`, `a`, `c` and `x` do nothing (when that guard lifts: `c` and `x`
+below). On an archived row `t` leaves the footer
 and does nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the
 list as it was and `t` works again; the "Failed" note is the engine's words alone, with no line
 of the app's, for each of its refusals: `KIND_UNCHANGED`, `ACCOUNT_ARCHIVED` and

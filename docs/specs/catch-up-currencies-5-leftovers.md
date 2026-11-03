@@ -4,7 +4,7 @@ What part 5 of the catch-up to contract `f82426fb0a099676`, the live tests for a
 currencies (done on 2026-11-02), turned up while it ran.
 
 **Status: drafted on 2026-11-02 for the owner to rewrite or approve; no questions.** It runs
-after [catch-up-currencies-6-leftovers.md](catch-up-currencies-6-leftovers.md) and before
+after part 6's leftovers (done on 2026-11-02) and before
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 

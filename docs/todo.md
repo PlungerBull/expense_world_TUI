@@ -68,7 +68,7 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
-(2 questions, one with a mockup to draw), after part 6.
+(2 questions, one with a mockup to draw), now that part 6 is done.
 
 New, from part 3b's leftovers (done on 2026-11-02): [what part 3b's leftovers turned up](specs/catch-up-currencies-3c-leftovers.md)
 (no question; live tests only), waiting on no other spec.
@@ -76,17 +76,17 @@ New, from part 3b's leftovers (done on 2026-11-02): [what part 3b's leftovers tu
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
-New, from part 6: [what the main views turned up](specs/catch-up-currencies-6-leftovers.md)
-(approved on 2026-11-02 with its 8 tasks; running), before part 7.
+New, from part 6's leftovers (done on 2026-11-02): [what part 6's leftovers turned up](specs/catch-up-currencies-6b-leftovers.md)
+(2 questions, each with a mockup to draw), waiting on no other spec.
 
 New, from part 5: [what the live tests for an account's currencies turned up](specs/catch-up-currencies-5-leftovers.md)
-(no question; two missing tests), after part 6's leftovers and before part 7.
+(no question; two missing tests), before part 7.
 
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 5's leftovers run after part 6's, so each is ready
-when the one before it is done; part 3c's can run whenever you name it.
+**Recommended:** approve the rest; part 5's leftovers run next, before part 7; part 3c's can
+run whenever you name it.
 
 ---
 
@@ -161,7 +161,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   most in [mockups/](mockups/) back screens already built, among them
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not), `expense-world-screen-map.html` (linked from nowhere; its `#sheet` pane draws the
-  app reading the `.xlsx` itself), `expense-world-sheet-import-engine.html` (backs the sheet
+  app reading the `.xlsx` itself, and its `#accounts`, `#acct-form` and `#tx-edit` panes draw one
+  `Cur` and one `Balance` column, a single `currency` line, no `t`, `c` or `x` keys and no
+  CURRENCY line, from before an account held several currencies), `expense-world-sheet-import-engine.html` (backs the sheet
   import built on 2026-10-27; linked from commands.md, import_cmd.py and test_cmd_import.py),
   and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
