@@ -1448,8 +1448,9 @@ class LogBarScreen(Screen):
         if self._editing is not None:
             return EDIT_HINT
         if self._refused is not None:
-            # a line missing its amount too is fixed first: the hint is the plain one
-            if self._offered and "amount" not in (self._parsed.missing if self._parsed else ()):
+            # the pick of a currency is the hint only when it is the line's sole problem:
+            # any other reason (no amount, a name that matches nothing, a date ahead) is fixed first
+            if self._offered and len(self._refused.reasons) == 1:
                 return CURRENCY_REFUSED_HINT
             return REFUSED_HINT
         if self._picker is not None:

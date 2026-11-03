@@ -2185,3 +2185,45 @@ def test_m_names_a_refused_row_and_the_others_still_move(fake_client, monkeypatc
         assert screen._selected == {"t2"}
 
     run_app(scenario, size=(120, 30))
+
+
+def test_m_over_an_opening_balance_is_refused_in_the_engine_words_alone(fake_client, monkeypatch):
+    """`m` sends a currency alone, so the engine keys `OPENING_BALANCE_ACCOUNT_FIXED` on
+    `currency_code` (contract: PUT /v1/transactions/{transaction_id}, "Opening balances
+    stay put"): the note is the engine's words and no line of the app's, which `b` (keyed
+    on `account_id`) draws; the other rows go and the refused row stays selected."""
+    items = [*ITEMS[:2], {**ITEMS[2], "title": "Saldo inicial", "category_id": "opn"}]
+    _stub_ledger(monkeypatch, items)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TWO_CURRENCIES)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+    words = "An opening balance cannot move to another currency."
+
+    def put(path, json_body=None):
+        if path.endswith("/t3"):
+            fields = {"currency_code": words}
+            reasons = {"currency_code": "OPENING_BALANCE_ACCOUNT_FIXED"}
+            body = error_body("VALIDATION_ERROR", words, fields, reasons)
+            raise EngineError("VALIDATION_ERROR", words, fields, 422, body, reasons=reasons)
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+    _answer_currency_moves(fake_client, [ITEMS[0], ITEMS[1]])
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "m")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("u", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
+            f"currency_code: {words}\nrow 3"
+        ]
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t3"}
+
+    run_app(scenario, size=(120, 30))

@@ -1159,7 +1159,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
 | `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
-| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` or `m` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
+| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
+| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) on `currency_code` | `m` on ledger rows that include an opening balance, which moves a currency alone; its Edit form, on a change of currency alone | none: the engine's words show alone |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
 | `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
@@ -1868,8 +1869,10 @@ picker open at the end of the line, so `↑↓` and `↵` write ` %USD` into it 
 `%` is pickable like `$`, `@` and `#`: it is painted in the accent, a bare `%` (or a partial code
 matching several) opens the picker on the account's own currencies, and `↵` writes the code
 (`%USD`) into the line. A `%` word matching none of them (`%zz`) is refused as `"%zz" matches no
-currencies`, with nothing to pick. A line missing its amount as well gets the plain hint `not
-staged — fix the line and press ↵ again`. The payload carries `account_id` and `currency_code`.
+currencies`, with nothing to pick. The pick-a-currency hint shows only when the
+currency is the line's sole problem; a line refused for anything else as well (no amount, a name
+that matches nothing, a date ahead) gets the plain hint `not staged — fix the line and press ↵
+again`, the picker staying open under it. The payload carries `account_id` and `currency_code`.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

@@ -266,9 +266,13 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),
     # An opening balance stays on its account and in @Opening; the refusal is a
     # validation error naming the field (contract: PUT /v1/transactions/{transaction_id},
-    # "Opening balances stay put").
+    # "Opening balances stay put"). The ledger's `b` sends the account and the engine keys
+    # the refusal on `account_id`; `m` moves a row to another currency alone and the engine
+    # keys it on `currency_code`, where the engine's words show alone.
     ("VALIDATION_ERROR", "OPENING_BALANCE_ACCOUNT_FIXED"): NextStep(
-        "To move an opening balance, set it on the other account's Edit form."
+        by_key={
+            "account_id": "To move an opening balance, set it on the other account's Edit form."
+        }
     ),
     ("VALIDATION_ERROR", "OPENING_BALANCE_CATEGORY_FIXED"): NextStep(
         "An opening balance always stays in @Opening."

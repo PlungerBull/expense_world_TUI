@@ -636,6 +636,8 @@ APP_FAULT = (
             False,
             "An opening balance always stays in @Opening.",
         ),
+        # `m` moves a currency alone: keyed on `currency_code`, the engine's words show alone
+        ("VALIDATION_ERROR", "currency_code", "OPENING_BALANCE_ACCOUNT_FIXED", False, None),
         # the field lock answers first in a completed statement: no line
         ("VALIDATION_ERROR", "account_id", "LOCKED", False, None),
     ],

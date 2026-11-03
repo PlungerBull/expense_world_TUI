@@ -895,6 +895,29 @@ def test_a_line_refused_for_an_unknown_account_keeps_its_own_hint(fake_client, m
     run_app(scenario)
 
 
+def test_a_line_refused_for_its_currency_and_something_else_gets_the_plain_hint(
+    fake_client, monkeypatch
+):
+    """The pick of a currency is the hint only when it is the line's sole problem."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Streamly -12.99 $visa")
+        screen.on_input_submitted()
+        assert len(screen._refused.reasons) == 1
+        assert screen._hint() == "not staged — pick a currency and press ↵ again"
+        # a category that matches nothing, beside the currency
+        screen._set_bar("Streamly -12.99 $visa @zzzz")
+        screen.on_input_submitted()
+        assert len(screen._refused.reasons) == 2
+        assert screen._offered
+        assert screen._hint() == "not staged — fix the line and press ↵ again"
+
+    run_app(scenario)
+
+
 def test_a_line_missing_its_amount_and_its_currency_gets_the_plain_hint(fake_client, monkeypatch):
     _patch(monkeypatch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))

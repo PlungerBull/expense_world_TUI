@@ -100,10 +100,6 @@ None.
 
 ## Tasks
 
-5. **Two lines drop back to plain words (questions 6 and 9):** the LOG bar's hint on a line
-   refused for more than one reason is `REFUSED_HINT`; on `m`, an opening balance's
-   `OPENING_BALANCE_ACCOUNT_FIXED` shows the engine's words alone, the app's line staying for `b`
-   and the Edit form's account ([errors.py](../../expense/errors.py)).
 6. **`ctrl+s` keeps a code typed but not added on the New form's CURRENCIES line,** as the Edit
    form's HASHTAGS line keeps one.
 7. **`c` guards against a second add in flight,** as `a` and `t` do, with the busy guard's
