@@ -104,21 +104,6 @@ WORDS = {
 }
 
 
-def _body(scratch, account_id: str, currency: str = "PEN", **fields) -> dict:
-    """A `POST /transactions` body of -10.00 on `DAY`; its id joins the scratch first, so
-    cleanup reaches the row whatever the engine does."""
-    item = {
-        "id": str(uuid4()),
-        "amount_cents": -1000,
-        "date": scratch.noon(DAY),
-        "account_id": account_id,
-        "currency_code": currency,
-        **fields,
-    }
-    scratch.transactions.append(item["id"])
-    return item
-
-
 def _post(client, body: dict) -> dict:
     return client.post("/transactions", json_body=body)
 
@@ -174,7 +159,7 @@ def test_a_create_echoes_the_account_and_the_currency_for_each_currency_of_an_ac
     "Fields")."""
     account_id = scratch.account("PEN", "USD")
     for currency in ("PEN", "USD"):
-        body = _body(scratch, account_id, currency)
+        body = scratch.body(account_id, currency=currency)
         made = _post(client, body)
         assert statuses[-1] == 201
         assert (made["account_id"], made["currency_code"]) == (account_id, currency)
@@ -194,13 +179,13 @@ def test_a_currency_missing_is_required_on_a_create_and_on_a_batch_item(client, 
     `transactions.<i>.currency_code`, nothing written (contract: POST /v1/transactions,
     "Fields")."""
     account_id = scratch.account("PEN", "USD")
-    body = _body(scratch, account_id)
+    body = scratch.body(account_id)
     del body["currency_code"]
     err = _refused_writing_nothing(client, [account_id], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
 
-    good = _body(scratch, account_id)
-    bad = _body(scratch, account_id)
+    good = scratch.body(account_id)
+    bad = scratch.body(account_id)
     del bad["currency_code"]
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [good, bad]))
     assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.1.currency_code", "REQUIRED")
@@ -212,11 +197,11 @@ def test_a_currency_the_engine_does_not_support_is_unsupported_not_unheld(client
     `transactions.<i>.currency_code` (contract: POST /v1/transactions, "Validation")."""
     account_id = scratch.account("PEN")
     for code in ("EUR", "usd"):
-        body = _body(scratch, account_id, code)
+        body = scratch.body(account_id, currency=code)
         err = _refused_writing_nothing(client, [account_id], partial(_post, client, body))
         assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "UNSUPPORTED_VALUE")
 
-        item = _body(scratch, account_id, code)
+        item = scratch.body(account_id, currency=code)
         err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [item]))
         assert_refusal(
             err, 422, "VALIDATION_ERROR", "transactions.0.currency_code", "UNSUPPORTED_VALUE"
@@ -230,14 +215,14 @@ def test_a_currency_the_account_does_not_hold_is_refused_and_a_removed_one_is_no
     the engine's words; so are dollars on an account whose dollars were removed, and the row
     lands once they are added back (contract: POST /v1/transactions, "Validation")."""
     soles = scratch.account("PEN")
-    body = _body(scratch, soles, "USD")
+    body = scratch.body(soles, currency="USD")
     err = _refused_writing_nothing(client, [soles], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
     assert list(err.fields.values()) == [WORDS["CURRENCY_NOT_HELD"]]
 
     both = scratch.account("PEN", "USD")
     client.delete(f"/accounts/{both}/currencies/USD")
-    again = _body(scratch, both, "USD")
+    again = scratch.body(both, currency="USD")
     err = _refused_writing_nothing(client, [both], partial(_post, client, again))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
 
@@ -251,7 +236,7 @@ def test_the_account_and_the_currency_are_judged_together_after_the_taken_id(cli
     though the account has been archived since (contract: POST /v1/transactions,
     "Validation")."""
     soles = scratch.account("PEN")
-    body = _body(scratch, str(uuid4()), "EUR")
+    body = scratch.body(str(uuid4()), currency="EUR")
     err = _refused_writing_nothing(client, [soles], partial(_post, client, body))
     assert_refusals(
         err,
@@ -261,7 +246,7 @@ def test_the_account_and_the_currency_are_judged_together_after_the_taken_id(cli
     )
 
     scratch.archive(soles)
-    body = _body(scratch, soles, "USD")
+    body = scratch.body(soles, currency="USD")
     err = _refused_writing_nothing(client, [soles], partial(_post, client, body))
     assert_refusals(
         err,
@@ -271,7 +256,7 @@ def test_the_account_and_the_currency_are_judged_together_after_the_taken_id(cli
     )
     client.post(f"/accounts/{soles}/unarchive")
 
-    taken = _body(scratch, soles, "PEN")
+    taken = scratch.body(soles, currency="PEN")
     _post(client, taken)
     scratch.archive(soles)
     err = _refused_writing_nothing(
@@ -290,11 +275,11 @@ def test_the_currency_is_judged_before_the_category_and_the_hashtags(client, scr
     account_id = scratch.account("PEN")
     nothing = {"category_id": str(uuid4()), "hashtag_ids": [str(uuid4())]}
 
-    body = _body(scratch, account_id, "USD", **nothing)
+    body = scratch.body(account_id, currency="USD", **nothing)
     err = _refused_writing_nothing(client, [account_id], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
 
-    item = _body(scratch, account_id, "USD", **nothing)
+    item = scratch.body(account_id, currency="USD", **nothing)
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [item]))
     assert_refusals(
         err,
@@ -307,7 +292,7 @@ def test_the_currency_is_judged_before_the_category_and_the_hashtags(client, scr
         },
     )
 
-    passing = _body(scratch, account_id, "PEN", **nothing)
+    passing = scratch.body(account_id, currency="PEN", **nothing)
     err = _refused_writing_nothing(client, [account_id], partial(_post, client, passing))
     assert_refusal(err, 422, "VALIDATION_ERROR", "category_id", "INVALID_REFERENCE")
 
@@ -318,9 +303,9 @@ def test_a_batch_with_one_bad_item_is_refused_whole_and_names_every_bad_item(cli
     (contract: POST /v1/transactions/batch, "Refusals come in four steps")."""
     account_id = scratch.account("PEN")
     items = [
-        _body(scratch, account_id, "PEN"),
-        _body(scratch, account_id, "USD"),
-        _body(scratch, account_id, "EUR"),
+        scratch.body(account_id, currency="PEN"),
+        scratch.body(account_id, currency="USD"),
+        scratch.body(account_id, currency="EUR"),
     ]
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, items))
     assert_refusals(
@@ -346,9 +331,9 @@ def test_a_missing_currency_in_a_batch_answers_before_a_currency_the_account_lac
     only the first is named, as the request's shape is the first step
     (contract: POST /v1/transactions/batch, "Refusals come in four steps")."""
     account_id = scratch.account("PEN")
-    missing = _body(scratch, account_id)
+    missing = scratch.body(account_id)
     del missing["currency_code"]
-    unheld = _body(scratch, account_id, "USD")
+    unheld = scratch.body(account_id, currency="USD")
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [missing, unheld]))
     assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.0.currency_code", "REQUIRED")
 
@@ -363,8 +348,8 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
     (contract: POST /v1/transactions/batch, "Line groups")."""
     both = scratch.account("PEN", "USD")
     soles = scratch.account("PEN")
-    pen = _body(scratch, both, "PEN", line_group="g")
-    usd = _body(scratch, both, "USD", line_group="g")
+    pen = scratch.body(both, currency="PEN", line_group="g")
+    usd = scratch.body(both, currency="USD", line_group="g")
     words = "Must be the same on every item of line group 'g'."
 
     err = _refused_writing_nothing(client, [both], partial(_batch, client, [pen, usd]))
@@ -379,7 +364,7 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
     )
     assert set(err.fields.values()) == {words}
 
-    unheld = _body(scratch, soles, "USD")
+    unheld = scratch.body(soles, currency="USD")
     err = _refused_writing_nothing(
         client, [both, soles], partial(_batch, client, [pen, usd, unheld])
     )
@@ -393,8 +378,8 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
         },
     )
 
-    first = _body(scratch, both, "USD", line_group="h")
-    second = _body(scratch, both, "USD", line_group="h", amount_cents=-500)
+    first = scratch.body(both, currency="USD", line_group="h")
+    second = scratch.body(both, -500, "USD", line_group="h")
     made = _batch(client, [first, second])["created"]
     assert {row["currency_code"] for row in made} == {"USD"}
     assert len({row["bank_line_id"] for row in made}) == 1
@@ -411,25 +396,25 @@ def test_an_operation_code_is_taken_once_in_each_currency_of_an_account(client, 
     account_id = scratch.account("PEN", "USD")
     other = scratch.account("PEN")
     code = f"OP-{uuid4().hex[:8]}"
-    pen = _post(client, _body(scratch, account_id, "PEN", operation_code=code))
-    usd = _post(client, _body(scratch, account_id, "USD", operation_code=code))
-    _post(client, _body(scratch, other, "PEN", operation_code=code))
+    pen = _post(client, scratch.body(account_id, currency="PEN", operation_code=code))
+    usd = _post(client, scratch.body(account_id, currency="USD", operation_code=code))
+    _post(client, scratch.body(other, currency="PEN", operation_code=code))
     assert pen["bank_line_id"] != usd["bank_line_id"]
     assert transaction_count(client, account_id) == 2
 
     for currency in ("PEN", "USD"):
-        body = _body(scratch, account_id, currency, operation_code=code)
+        body = scratch.body(account_id, currency=currency, operation_code=code)
         err = _refused_writing_nothing(client, [account_id, other], partial(_post, client, body))
         assert_refusal(err, 409, "CONFLICT", "operation_code", "OPERATION_CODE_EXISTS")
 
-    item = _body(scratch, account_id, "PEN", operation_code=code)
+    item = scratch.body(account_id, currency="PEN", operation_code=code)
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [item]))
     assert_refusal(err, 409, "CONFLICT", "transactions.0.operation_code", "OPERATION_CODE_EXISTS")
 
     client.delete(f"/transactions/{pen['id']}")
-    again = _post(client, _body(scratch, account_id, "PEN", operation_code=code))
+    again = _post(client, scratch.body(account_id, currency="PEN", operation_code=code))
     assert again["currency_code"] == "PEN"
-    usd_again = _body(scratch, account_id, "USD", operation_code=code)
+    usd_again = scratch.body(account_id, currency="USD", operation_code=code)
     err = _refused_writing_nothing(client, [account_id], partial(_post, client, usd_again))
     assert_refusal(err, 409, "CONFLICT", "operation_code", "OPERATION_CODE_EXISTS")
 
@@ -442,8 +427,8 @@ def test_a_batch_takes_one_code_in_both_currencies_and_refuses_it_twice_in_one(c
     account_id = scratch.account("PEN", "USD")
     code = f"OP-{uuid4().hex[:8]}"
     twice = [
-        _body(scratch, account_id, "PEN", operation_code=code),
-        _body(scratch, account_id, "PEN", operation_code=code),
+        scratch.body(account_id, currency="PEN", operation_code=code),
+        scratch.body(account_id, currency="PEN", operation_code=code),
     ]
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, twice))
     assert (err.status, err.code) == (422, "VALIDATION_ERROR")
@@ -453,8 +438,8 @@ def test_a_batch_takes_one_code_in_both_currencies_and_refuses_it_twice_in_one(c
     assert set(err.fields) == set(err.reasons)
 
     each = [
-        _body(scratch, account_id, "PEN", operation_code=code),
-        _body(scratch, account_id, "USD", operation_code=code),
+        scratch.body(account_id, currency="PEN", operation_code=code),
+        scratch.body(account_id, currency="USD", operation_code=code),
     ]
     made = _batch(client, each)["created"]
     assert [row["currency_code"] for row in made] == ["PEN", "USD"]
@@ -593,7 +578,7 @@ def test_an_unknown_account_id_is_refused_as_the_account_of_a_create(client, scr
     with the engine's words, nothing written (contract: POST /v1/transactions,
     "Validation")."""
     live = scratch.account("PEN")
-    body = _body(scratch, str(uuid4()))
+    body = scratch.body(str(uuid4()))
     err = _refused_writing_nothing(client, [live], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
     assert err.fields["account_id"] == WORDS["INVALID_REFERENCE"]

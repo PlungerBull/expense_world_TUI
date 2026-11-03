@@ -924,11 +924,32 @@ class Scratch:
             **fields,
         }
 
+    def body(
+        self,
+        account_id: str,
+        amount: int = -1000,
+        currency: str = "PEN",
+        *,
+        when: str | None = None,
+        **fields: Any,
+    ) -> dict:
+        """One transaction body for a test that sends it itself, to a route, in a batch, again
+        or after changing it: dated `when` (`at`; default `recent_moment`) with no title unless
+        `fields` give one (`_item`). Its id joins the scratch before any send, so cleanup
+        reaches the row whatever the engine does."""
+        moment = when if when is not None else self.recent_moment().isoformat(timespec="seconds")
+        item = self._item(account_id, moment, amount, currency, titled=False, **fields)
+        self.transactions.append(item["id"])
+        return item
+
     def _create(self, items: list[dict]) -> list[dict]:
         """Creates `items` in one batch; the created items, in request order."""
         self.transactions.extend(item["id"] for item in items)
-        created = self.client.post("/transactions/batch", json_body={"transactions": items})
-        return created["created"]
+        return self._send_batch(items)
+
+    def _send_batch(self, items: list[dict]) -> list[dict]:
+        """Posts `items` as one batch, registering nothing; the created items, in order."""
+        return self.client.post("/transactions/batch", json_body={"transactions": items})["created"]
 
     def line(self, account_id: str, day: str, *amounts: int, currency: str = "PEN") -> str:
         """A new bank line on `day` in `currency` holding one part per amount (a batch
@@ -952,12 +973,11 @@ class Scratch:
         with no title, category or operation code unless `fields` give them, sent in a batch
         or, with `alone`, by itself to `POST /transactions`; its id joins the scratch before
         the call. The created item, which must name the id, the account and the currency sent."""
-        item = self._item(account_id, when, amount, currency, titled=False, **fields)
+        item = self.body(account_id, amount, currency, when=when, **fields)
         if alone:
-            self.transactions.append(item["id"])
             made = self.client.post("/transactions", json_body=item)
         else:
-            made = self._create([item])[0]
+            made = self._send_batch([item])[0]
         assert (made["id"], made["account_id"], made["currency_code"]) == (
             item["id"],
             account_id,

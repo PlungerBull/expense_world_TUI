@@ -30,27 +30,13 @@ from expense.batch_write import RowResult, post_transaction_batch
 from tests.contract.conftest import live_ids, refused
 
 
-def _item(scratch, account_id: str, amount: int) -> dict:
-    """A PEN row of `amount`, its id taken on by `scratch`'s cleanup."""
-    item = {
-        "id": str(uuid4()),
-        "title": "contract sent again",
-        "amount_cents": amount,
-        "account_id": account_id,
-        "currency_code": "PEN",
-        "date": scratch.noon("2026-04-14"),
-    }
-    scratch.transactions.append(item["id"])
-    return item
-
-
 def test_a_landed_batch_sent_again_names_every_items_id(client, scratch):
     """Step 2 of a batch names every item whose id already exists, one
     `transactions.<i>.id` entry each, and a batch sent again whole answers it on
     every item (contract: POST /v1/transactions/batch). Nothing is written
     (contract: POST /v1/transactions/batch, "No partial success")."""
     account = scratch.account()
-    items = [_item(scratch, account, amount) for amount in (-100, -200, -300)]
+    items = [scratch.body(account, amount=amount) for amount in (-100, -200, -300)]
     client.post("/transactions/batch", json_body={"transactions": items})
 
     body = {"transactions": items}
@@ -67,8 +53,8 @@ def test_the_batch_writer_settles_landed_and_new_rows_in_two_requests(client, st
     ones (contract: POST /v1/transactions/batch); the writer counts them already
     there and sends the new one again alone, which lands."""
     account = scratch.account()
-    landed = [_item(scratch, account, amount) for amount in (-100, -200)]
-    fresh = _item(scratch, account, -300)
+    landed = [scratch.body(account, amount=amount) for amount in (-100, -200)]
+    fresh = scratch.body(account, amount=-300)
     client.post("/transactions/batch", json_body={"transactions": landed})
 
     err = refused(
@@ -128,9 +114,9 @@ def test_a_landed_line_write_sent_again_writes_nothing_and_a_taken_part_id_is_id
     account = scratch.account()
     parts = [{"id": str(uuid4()), "amount_cents": amount} for amount in (-6000, -4000)]
     scratch.transactions.extend(part["id"] for part in parts)
-    original = _item(scratch, account, -10000)
+    original = scratch.body(account, amount=-10000)
     line = client.post("/transactions", json_body=original)["bank_line_id"]
-    other = _item(scratch, account, -2500)
+    other = scratch.body(account, amount=-2500)
     client.post("/transactions", json_body=other)
     path = f"/bank-lines/{line}"
     client.put(path, json_body={"parts": parts})
