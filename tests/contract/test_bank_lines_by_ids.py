@@ -48,8 +48,7 @@ def test_ids_list_the_live_lines_among_them_and_the_count_agrees(client, target,
     id and an unknown id match nothing and are never refused; the count agrees; beside
     `account_id` only the named lines on that account are listed
     (contract: GET /v1/bank-lines, "Left out, never refused")
-    (contract: GET /v1/bank-lines/count). The app's own reads see the same lines, oldest
-    first on request (contract: GET /v1/bank-lines, "Ordering")."""
+    (contract: GET /v1/bank-lines/count). The app's own reads see the same lines."""
     account = scratch.account()
     other = scratch.account()
     a1 = scratch.line(account, "2026-03-05", -1000)
@@ -87,8 +86,6 @@ def test_ids_list_the_live_lines_among_them_and_the_count_agrees(client, target,
 
     # Through the app's own reads, as the statement upload's preview reads them.
     assert [line["id"] for line in fetch_bank_lines_by_ids(target, sent)] == newest_first
-    oldest_first = fetch_bank_lines_by_ids(target, sent, sort="date_asc")
-    assert [line["id"] for line in oldest_first] == newest_first[::-1]
     assert count_bank_lines(target, ids=sent) == len(newest_first)
     assert count_bank_lines(target, ids=sent, account=account) == 3
 

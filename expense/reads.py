@@ -321,19 +321,16 @@ def fetch_bank_lines(
     )
 
 
-def fetch_bank_lines_by_ids(
-    cfg, ids: Iterable[str], *, sort: str | None = None, verbose: bool = False
-) -> list[dict]:
+def fetch_bank_lines_by_ids(cfg, ids: Iterable[str], *, verbose: bool = False) -> list[dict]:
     """The live bank lines among `ids`, through `fetch_bank_lines`: one read per
     200 ids, the most one read takes, each with a `limit` of its own ids so every
     line it names fits on its one page (contract: GET /v1/bank-lines, "At most
     200 ids"). An id naming no live line (deleted, unknown) is left out, never
     refused (contract: GET /v1/bank-lines, "Left out, never refused").
 
-    Each read lists its lines in `sort`'s order, never in the order the ids are
+    Each read lists its lines in the engine's order, never in the order the ids are
     sent (contract: GET /v1/bank-lines, "Ordering"). The reads go in the order
-    `ids` gives, and their answers are joined in that order, so the result is in
-    `sort`'s order only within each read of 200.
+    `ids` gives, and their answers are joined in that order.
 
     Read by the statement upload's preview (`flow.statement_lines`), whose
     answer names lines by id alone.
@@ -342,7 +339,7 @@ def fetch_bank_lines_by_ids(
     lines: list[dict] = []
     for start in range(0, len(ids), ENGINE_PAGE_CAP):
         chunk = ids[start : start + ENGINE_PAGE_CAP]
-        body = fetch_bank_lines(cfg, ids=chunk, sort=sort, limit=len(chunk), verbose=verbose)
+        body = fetch_bank_lines(cfg, ids=chunk, limit=len(chunk), verbose=verbose)
         lines.extend(items_of(body))
     return lines
 

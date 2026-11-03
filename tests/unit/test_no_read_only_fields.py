@@ -122,12 +122,9 @@ def test_every_key_in_one_body_is_found():
         {"title": "line_code", "operation_code": "12"},
         {"transactions": [{"description": "statement_line"}]},
         ["statement_place"],
-        # `PUT /statements/{id}/statement-order`: a statement's places are a
-        # list of line ids and empty slots under `places`
-        # (contract: "Statements", "A statement's order").
-        {"places": ["bl1", None, "bl2"]},
+        {"x": [None, "a"]},
     ],
-    ids=["no-body", "empty", "value-not-key", "nested-value", "bare-list", "statement-order"],
+    ids=["no-body", "empty", "value-not-key", "nested-value", "bare-list", "none-in-list"],
 )
 def test_a_clean_body_passes(body):
     assert read_only_field_paths(body) == []
@@ -190,18 +187,6 @@ def test_the_real_client_sends_a_clean_body():
     cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
     with ExpenseClient(cfg) as client:
         client.put("/transactions/t1", json_body={"title": "x", "operation_code": "12"})
-    assert route.called
-    assert READ_ONLY_FIELD_LEAKS == []
-
-
-@respx.mock
-def test_the_real_client_sends_a_statement_order():
-    route = respx.put(f"{ENGINE_URL}/v1/reconciliations/r1/statement-order").mock(
-        return_value=httpx.Response(200, json={})
-    )
-    cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
-    with ExpenseClient(cfg) as client:
-        client.put("/reconciliations/r1/statement-order", json_body={"places": ["bl1", None]})
     assert route.called
     assert READ_ONLY_FIELD_LEAKS == []
 

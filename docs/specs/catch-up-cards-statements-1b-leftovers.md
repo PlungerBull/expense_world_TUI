@@ -64,12 +64,6 @@ done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-4. **Code leftovers.** `fetch_bank_lines_by_ids` in [reads.py](../../expense/reads.py) loses its
-   `sort` option and the paragraph on ordering; the flagged-lines test's fake engine
-   ([test_tui_flagged_lines.py](../../tests/unit/test_tui_flagged_lines.py)) fails with a clear
-   assertion, not a timeout, when `ids` are sent; the `statement-order` case and test in
-   [test_no_read_only_fields.py](../../tests/unit/test_no_read_only_fields.py) go or move to a
-   route the engine has, with a citation the live contract holds.
 5. **Every engine sentence a unit test quotes is the engine's own.** The quotes "Why" names (a
    missing bank line, the zero-amount refusal, the sealed-line words and the write they cite)
    are checked against the practice engine and corrected, and test names that still say

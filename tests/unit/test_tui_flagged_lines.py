@@ -115,6 +115,19 @@ def _conflict(field: str) -> EngineError:
     )
 
 
+_fakes: list = []
+
+
+@pytest.fixture(autouse=True)
+def no_ids_were_sent():
+    """A read that sent `ids` fails the test here, in plain words, not as a toast
+    the screen shows and a scenario then waits on."""
+    _fakes.clear()
+    yield
+    sent = [read for fake in _fakes for read in fake.id_reads]
+    assert sent == [], "the flagged lines are read with no ids"
+
+
 class Lines(dict):
     """The engine's live bank lines by id, every one of them on the statement's
     review list, answering the fake client's GETs as the engine does
@@ -131,7 +144,8 @@ class Lines(dict):
       `counts`; `count_refusal`, when set, is raised instead; `hold`, when set, makes a
       count wait for it.
     - `hold_lines`, when set, makes a read of the review list wait for it.
-    - `GET /bank-lines` with `ids`: fails the test — the flagged lines send none.
+    - `GET /bank-lines` with `ids`: the query is kept in `id_reads`, and the
+      `no_ids_were_sent` fixture fails the test after it — the flagged lines send none.
     - `GET /bank-lines` otherwise: the statement's own reads, no line.
     - `GET /bank-lines/{id}`: the line, as the Edit form reads it, or a `404`.
 
@@ -141,6 +155,8 @@ class Lines(dict):
     def __init__(self, monkeypatch, fake_client, *lines: dict) -> None:
         super().__init__((line["id"], line) for line in lines)
         self.reads: list[dict] = []
+        self.id_reads: list[dict] = []
+        _fakes.append(self)
         self.counts: list[dict] = []
         self.count: int | None = None
         self.count_refusal: Exception | None = None
@@ -157,7 +173,8 @@ class Lines(dict):
 
     def _serve(self, path: str, *, auth: bool = True, params: dict | None = None):
         query = params or {}
-        assert "ids" not in query, "the flagged lines are read with no ids"
+        if "ids" in query:
+            self.id_reads.append(dict(query))
         if path == "/bank-lines/count" and "unassigned_in_period_of" in query:
             self._client.calls.append(("GET", path, params))
             self.counts.append(dict(query))
