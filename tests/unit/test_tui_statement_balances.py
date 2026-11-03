@@ -22,7 +22,9 @@ from expense.tui.screens.reconciliations import (
     blank_balances,
 )
 from tests.unit.helpers import (
+    bank_line_row,
     cursor_page,
+    import_part,
     run_app,
     screen_lines,
     shown,
@@ -525,3 +527,290 @@ def test_a_complete_refused_after_the_save_says_the_balances_are_saved(fake_clie
         assert notices[0][1].startswith(f"{SAVED_WORDS}\nVALIDATION_ERROR — Engine words.")
 
     run_app(scenario, size=(80, 26))
+
+
+# ---- where the boxes sit: under the head, as pane 6 draws them ------------------------
+
+RULE = "  " + "─" * 60
+#: Where the box's text ends at most: column 4 and 60 wide.
+TEXT_END = 64
+
+
+def _under_head(app) -> list[str]:
+    """The screen as drawn at 80x24 from the head's first line to the closing rule of
+    the box or the question, the footer's line last."""
+    rows = screen_lines(app)
+    first = next(i for i, row in enumerate(rows) if "·  IBK Visa" in row)
+    last = max(i for i, row in enumerate(rows) if row == RULE)
+    return [*rows[first : last + 1], rows[-1]]
+
+
+def _pane6(head: list[str], box: list[str], footer: str) -> list[str]:
+    """Pane 6's lines: the head, a blank line, the rule, a blank line, the text at
+    column 4, a blank line, the rule, the footer."""
+    return [*head, "", RULE, "", *[("    " + line).rstrip() for line in box], "", RULE, footer]
+
+
+def _cells(rows: list[str]) -> list[list[str]]:
+    return [row.split() for row in rows]
+
+
+def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
+    fake_client, monkeypatch
+):
+    """Pane 6, steps 1-3, as drawn at 80x24: the head's lines (both currencies) stay on
+    screen above each box and above the question, the blank line, the rule, the text at
+    column 4, the blank line, the closing rule, and the footer naming only that box's or
+    that question's keys."""
+    _engine(fake_client, monkeypatch)
+    saved = _ibk(_balance("PEN", -82000, -34860), _balance("USD", 0, -2499, 0))
+    fake_client.write_responses[PATH] = statement_put_answer(saved)
+    title = "  Octubre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft"
+    columns = "            begin          end      diff"
+    pen = "  PEN     -820.00      -348.60"
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, OCTUBRE)
+        await _press_c(pilot, app)
+        for ch in "0.00":
+            await pilot.press(ch)
+        await pilot.pause()
+        step1 = _pane6(
+            [title, columns, pen, "  USD           —            —"],
+            [
+                "Starting balance first",
+                "The statement's opening figure for IBK Visa,",
+                "in USD · signed · e.g. 13,853.20",
+                "0.00",
+                "[enter] save    [esc] cancel",
+            ],
+            " esc Cancel",
+        )
+        assert _under_head(app) == step1
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
+        for ch in "-24.99":
+            await pilot.press(ch)
+        await pilot.pause()
+        step2 = _pane6(
+            step1[:4],
+            [
+                "Ending balance first",
+                "The statement's closing figure for IBK Visa,",
+                "in USD · signed · e.g. 13,853.20",
+                "-24.99",
+                "[enter] save    [esc] cancel",
+            ],
+            " esc Cancel",
+        )
+        assert _under_head(app) == step2
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        step3 = _under_head(app)
+        head = [title, columns, pen, "  USD        0.00       -24.99         —"]
+        want = _pane6(
+            head,
+            [
+                "Complete statement?",
+                "",
+                "Locks the amount, date, title, account, operation number and",
+                "statement of the 0 ticked rows.",
+                "[y] confirm    [enter / n / esc] cancel",
+            ],
+            " y Yes  n No",
+        )
+        assert step3[:2] == want[:2]
+        assert _cells(step3[2:4]) == _cells(want[2:4])  # the saved figures, in sight
+        assert step3[4:] == want[4:]
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_pane_6_noviembre_the_saved_dollar_line_shows_above_the_question_asked_again(
+    fake_client, monkeypatch
+):
+    """The head grows by a `USD` line when the dollars are saved; the question that
+    asks again is drawn below that line, never over it."""
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _notes(monkeypatch)
+    fake_client.errors["POST"] = _money_at_start()
+    saved = _ibk(
+        _balance("PEN", -34860, -51290, 0), _balance("USD", -2499, -2499, 0), name="Noviembre 2026"
+    )
+    fake_client.write_responses[PATH] = statement_put_answer(saved)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, NOVIEMBRE)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        before = _under_head(app)
+        assert [r.split() for r in before[2:3]] == [["PEN", "-348.60", "-512.90"]]
+        assert before[3:5] == ["", RULE]  # one currency: the rule right under it
+        await pilot.press("y")
+        await wait_for(pilot, lambda: _is_box(app))
+        await pilot.pause()
+        await _type_in(pilot, "-24.99")
+        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
+        await _type_in(pilot, "-24.99")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        after = _under_head(app)
+        assert _cells(after[2:4]) == [
+            ["PEN", "-348.60", "-512.90", "—"],
+            ["USD", "-24.99", "-24.99", "—"],
+        ]
+        assert after[4:7] == ["", RULE, ""]
+        assert after[7].strip() == "Complete statement?"
+
+    run_app(scenario, size=(80, 24))
+
+
+def _nothing_beside_or_below(rows: list[str]) -> None:
+    """From the box's first rule down: no row reaches past the text's right end (the
+    list's columns, the head's words), and every row under the closing rule down to the
+    footer is blank."""
+    first = rows.index(RULE)
+    last = max(i for i, row in enumerate(rows) if row == RULE)
+    for row in rows[first:-1]:
+        assert len(row.rstrip()) <= TEXT_END, row
+    assert [r for r in rows[last + 1 : -1] if r.strip()] == []
+
+
+def _crowded(fake_client, monkeypatch, name: str, size: tuple[int, int]):
+    _engine(fake_client, monkeypatch)
+    monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 3)
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc-ibk": name}
+    )
+    record = _ibk(
+        _balance("PEN", -82000, -34860),
+        _balance("USD", None, None),
+        _balance("EUR", 100, 200),
+        name="Octubre 2026 tarjeta principal",
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, record)
+        await wait_for(pilot, lambda: screen.query_one("#rflag").display)
+        await pilot.pause()
+        await _press_c(pilot, app)
+        rows = screen_lines(app)
+        keys = next(i for i, row in enumerate(rows) if "[enter] save    [esc] cancel" in row)
+        title = next(i for i, row in enumerate(rows) if "Starting balance first" in row)
+        assert title < keys
+        assert rows[-1].strip() == "esc Cancel"
+        assert any(row == RULE for row in rows[keys:])  # the closing rule, whole
+        _nothing_beside_or_below(rows)
+        return rows
+
+    return run_app(scenario, size=size)
+
+
+def test_a_tall_head_never_cuts_the_boxes_keys_at_80x24(fake_client, monkeypatch):
+    """Three currencies, a head of two lines and the `⚑` line: the box's message, input
+    and keys are all drawn, and the head's balances are above it."""
+    rows = _crowded(
+        fake_client, monkeypatch, "Interbank Visa Signature Platinum Viajes Familia", (80, 24)
+    )
+    assert any(r.split()[:1] == ["EUR"] for r in rows)
+    assert any("⚑ 3 lines flagged" in r for r in rows)
+
+
+def test_a_box_too_short_for_the_head_rises_over_its_last_lines_rather_than_lose_its_keys(
+    fake_client, monkeypatch
+):
+    """Where the space under the head is shorter than the box, the box moves up over the
+    head's last lines; its own lines stay whole."""
+    rows = _crowded(
+        fake_client, monkeypatch, "Interbank Visa Signature Platinum Viajes Familia", (80, 20)
+    )
+    assert any("begin" in r and "end" in r for r in rows)
+
+
+def _long_list(monkeypatch, count: int = 14) -> None:
+    """The account's lines in no statement: more rows than the box is tall."""
+    rows = [
+        bank_line_row(
+            f"l{n}",
+            [import_part(f"t{n}", -1000 - n, account_id="acc-ibk", line=f"l{n}", day="2026-10-01")],
+            net_cents=-1000 - n,
+            account_id="acc-ibk",
+        )
+        for n in range(count)
+    ]
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page(rows))
+
+
+def test_nothing_of_the_list_shows_beside_or_below_a_box_or_the_question(fake_client, monkeypatch):
+    """A statement whose list has more rows than the box is tall: the list's columns do
+    not draw beside the box, nor its rows below it, for a box and for the question."""
+    _engine(fake_client, monkeypatch)
+    _long_list(monkeypatch)
+    saved = _ibk(_balance("PEN", -82000, -34860), _balance("USD", 0, -2499, 0))
+    fake_client.write_responses[PATH] = statement_put_answer(saved)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, OCTUBRE)
+        assert any("Amount" in row for row in screen_lines(app))  # the list is on screen
+        await _press_c(pilot, app)
+        _nothing_beside_or_below(screen_lines(app))
+        assert not any("Amount" in row for row in screen_lines(app))
+        await _type_in(pilot, "0.00")
+        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
+        _nothing_beside_or_below(screen_lines(app))
+        await _type_in(pilot, "-24.99")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        rows = screen_lines(app)
+        _nothing_beside_or_below(rows)
+        assert any("Complete statement?" in row for row in rows)
+        assert ["USD", "0.00", "-24.99", "—"] in [row.split() for row in rows[:9]]
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_long_statement_name_wraps_the_crumb_and_the_box_still_clears_the_dollar_line(
+    fake_client, monkeypatch
+):
+    """A name of 42-45 characters wraps the crumb: the head is a line longer, and the
+    box opens under its last line, the `USD` line in sight."""
+    _engine(fake_client, monkeypatch)
+    name = "Octubre 2026 cuenta principal de la familia"
+    record = _ibk(_balance("PEN", -82000, -34860), _balance("USD", None, None), name=name)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, record)
+        await _press_c(pilot, app)
+        rows = screen_lines(app)
+        usd = next(i for i, row in enumerate(rows) if row.split()[:1] == ["USD"])
+        assert rows[usd].split() == ["USD", "—", "—"]
+        assert rows[usd + 1] == ""
+        assert rows[usd + 2] == RULE
+        assert app.screen.query_one("#modal").region.y == usd + 1
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_resize_while_a_box_is_open_places_it_again_under_the_head(fake_client, monkeypatch):
+    """At 60 columns the head wraps to more lines than at 100; the open box moves down
+    with it, and back up when the terminal is wide again."""
+    _engine(fake_client, monkeypatch)
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map",
+        lambda: {"acc-ibk": "BCP Cuenta Sueldo Soles"},
+    )
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, OCTUBRE)
+        await _press_c(pilot, app)
+        wide = app.screen.query_one("#modal").region.y
+        await pilot.resize_terminal(60, 24)
+        await wait_for(pilot, lambda: app.screen.query_one("#modal").region.y > wide)
+        rows = screen_lines(app)
+        assert rows[app.screen.query_one("#modal").region.y - 1].split()[:1] == ["USD"]
+        await pilot.resize_terminal(100, 24)
+        await wait_for(pilot, lambda: app.screen.query_one("#modal").region.y == wide)
+
+    run_app(scenario, size=(100, 24))

@@ -1758,7 +1758,20 @@ A balance already entered gets no box. Each figure is read by the shared money p
 exactly as typed — the sign is the one typed, never added or flipped; text it cannot
 read keeps the box open with what was typed and notes `Begin balance: a signed decimal,
 e.g. 9580.00` or `End balance: a signed decimal, e.g. 9460.00`, and nothing is sent.
-`esc` closes the box with nothing sent. After the last box, one
+`esc` closes the box with nothing sent. Each box, and the `Complete statement?` question
+after them, is drawn under the head, as pane 6 draws it: the crumb, the head's balances
+and any note stay in sight above, then a blank line, a rule 60 wide indented 2, the text
+at column 4 (a blank line after the question's title), a blank line, the closing rule,
+and the footer naming only the box's or the question's keys. The box covers the screen
+from its first line down to the footer, full width, in the terminal's own background, so
+no list row and no word of the head shows beside or below it. It is placed from where
+`#rlist` really starts, read once the screen is laid out and again on a resize, so a head
+that has just grown (a saved currency's new line, a wrapped crumb) is counted; where the
+space under the head is too short, the box rises over the head's last lines rather than
+lose its message, input or keys. Both are the shared modals with `under=` given
+(`UnderHead` in [modals.py](../expense/tui/screens/modals.py)): the backdrop is clear
+instead of the scrim, and every other modal stays centred.
+After the last box, one
 `PUT /statements/{id}` saves everything typed: its `balances` names only the currencies
 that change, each with only the balances typed (`balances_body`), so the engine keeps
 every other (contract: PUT /v1/statements/{statement_id}, "`balances`"). The head shows

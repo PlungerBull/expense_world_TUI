@@ -1808,6 +1808,7 @@ class ReconciliationDetailScreen(
                 on_response=self._report_close,
                 lead=_BALANCE_SAVED if after_save else "",
             ),
+            under=self._below_head,
         )
 
     # ---- the balances, asked for at complete -----------------------------
@@ -1840,7 +1841,16 @@ class ReconciliationDetailScreen(
                 return  # esc: nothing saved
             self._ask_balances(rest, {**typed, (currency, kind): cents})
 
-        self.app.push_screen(AmountPromptModal(title, message, unreadable=unreadable), typed_in)
+        self.app.push_screen(
+            AmountPromptModal(title, message, unreadable=unreadable, under=self._below_head),
+            typed_in,
+        )
+
+    def _below_head(self) -> int:
+        """The line the list starts on, read from the layout as it stands: `c`'s
+        boxes and its question open from there, so the crumb, the head and the notes
+        above stay in sight."""
+        return self.query_one("#rlist").region.y
 
     def _save_balances(self, typed: dict[BalanceAsk, int]) -> None:
         self._busy = True
@@ -1897,12 +1907,14 @@ class ReconciliationDetailScreen(
             ),
         )
 
-    def _confirm(self, title: str, message: str, action) -> None:
+    def _confirm(
+        self, title: str, message: str, action, *, under: Callable[[], int] | None = None
+    ) -> None:
         def cb(ok: bool) -> None:
             if ok:
                 action()
 
-        self.app.push_screen(ConfirmModal(title, message), cb)
+        self.app.push_screen(ConfirmModal(title, message, under=under), cb)
 
     def _status_action(
         self, method: str, path: str, new_status, verb: str, *, lead: str = "", **kw

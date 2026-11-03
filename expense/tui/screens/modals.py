@@ -1,6 +1,6 @@
 """Reusable modal screens."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TypeVar
 
 from rich.text import Text
@@ -8,6 +8,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
+from textual.widget import Widget
 from textual.widgets import Footer, Input, Static
 
 from expense.quickadd.money import parse_amount
@@ -15,7 +16,59 @@ from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import toast
 
 
-class ConfirmModal(ModalScreen[bool]):
+class UnderHead:
+    """A box drawn under the screen's head, the head still in sight above it, as the
+    Statements pane 6 draws `c`'s boxes (docs/mockups/expense-world-statements-
+    screens.html). The card covers the screen from its top line to the footer, in the
+    terminal's own background, so nothing of the list shows beside or below it. `under`
+    says the line the card starts on, asked each time the box is placed (when it
+    opens, once it is laid out, on a resize), so the box follows a head that grew. The
+    box is never cut: where the space under the head is too short it rises over the
+    head's last lines. With `under` None the box stays where every modal is, centred
+    under the scrim."""
+
+    _under: Callable[[], int] | None = None
+
+    def _place_under_head(self) -> None:
+        if self._under is None:
+            return
+        self.add_class("under-head")  # type: ignore[attr-defined]
+        self._place()
+        self.call_after_refresh(self._place)  # type: ignore[attr-defined]
+
+    def _place(self) -> None:
+        if self._under is None:
+            return
+        screen: ModalScreen = self  # type: ignore[assignment]
+        try:
+            card = screen.query_one("#modal")
+        except Exception:  # not composed yet, or already gone
+            return
+        top = self._under()
+        if card.size.width:  # laid out: the card's own height, not what is left it
+            need = sum(
+                child.outer_size.height + child.styles.margin.height
+                for child in card.children
+                if child.display
+            )
+            top = min(top, screen.size.height - 1 - need)
+        card.styles.margin = (max(0, top), 0, 0, 0)
+
+    def _lead(self) -> list[Widget]:
+        """What opens the card: the blank line, then the rule. Nothing for a centred
+        box."""
+        return [Widget(classes="under-rule under-first")] if self._under is not None else []
+
+    def _tail(self) -> list[Widget]:
+        """What closes the card: the rule under the blank line. Nothing for a centred
+        box."""
+        return [Widget(classes="under-rule under-last")] if self._under is not None else []
+
+    def on_resize(self, _event) -> None:
+        self._place()
+
+
+class ConfirmModal(UnderHead, ModalScreen[bool]):
     """Yes/no confirmation. Only `y` confirms; `enter`/`n`/`esc` cancel — enter is
     the safe default so a reflexive keypress can never apply a write. Dismisses
     with the boolean result (use `push_screen(modal, callback)` to act on it)."""
@@ -25,16 +78,24 @@ class ConfirmModal(ModalScreen[bool]):
         ("n,escape,enter", "cancel", "No"),
     ]
 
-    def __init__(self, title: str, message: str) -> None:
+    def __init__(self, title: str, message: str, *, under: Callable[[], int] | None = None) -> None:
+        """`under`, when given, draws the question under the screen's head instead
+        of centred: see `UnderHead`."""
         super().__init__()
         self._title = title
         self._message = message
+        self._under = under
+
+    def on_mount(self) -> None:
+        self._place_under_head()
 
     def compose(self) -> ComposeResult:
         yield Vertical(
+            *self._lead(),
             Static(Text(self._title), classes="modal-title"),
             Static(Text(self._message)),
             Static(Text("[y] confirm    [enter / n / esc] cancel", style="dim")),
+            *self._tail(),
             id="modal",
         )
         yield Footer()
@@ -99,7 +160,7 @@ class PickModal(ModalScreen[str | None]):
 _T = TypeVar("_T")
 
 
-class PromptBox(ModalScreen[_T]):
+class PromptBox(UnderHead, ModalScreen[_T]):
     """One line typed in a box: the title, an optional dim message, the input
     and `[enter] save    [esc] cancel`. `esc` cancels (None). Each subclass
     says what `enter` dismisses with, and so its result type."""
@@ -107,24 +168,33 @@ class PromptBox(ModalScreen[_T]):
     BINDINGS = [("escape", "cancel", "Cancel")]
 
     def __init__(
-        self, title: str, message: str = "", *, value: str = "", password: bool = False
+        self,
+        title: str,
+        message: str = "",
+        *,
+        value: str = "",
+        password: bool = False,
+        under: Callable[[], int] | None = None,
     ) -> None:
+        """`under`: see `UnderHead`."""
         super().__init__()
         self._title = title
         self._message = message
         self._value = value
         self._password = password
+        self._under = under
 
     def compose(self) -> ComposeResult:
-        rows = [Static(Text(self._title), classes="modal-title")]
+        rows = [*self._lead(), Static(Text(self._title), classes="modal-title")]
         if self._message:
             rows.append(Static(Text(self._message, style="dim")))
         rows.append(Input(value=self._value, password=self._password, id="prompt"))
         rows.append(Static(Text("[enter] save    [esc] cancel", style="dim")))
-        yield Vertical(*rows, id="modal")
+        yield Vertical(*rows, *self._tail(), id="modal")
         yield Footer()
 
     def on_mount(self) -> None:
+        self._place_under_head()
         self.query_one("#prompt", Input).focus()
 
     def action_cancel(self) -> None:
@@ -159,8 +229,15 @@ class AmountPromptModal(PromptBox[int | None]):
     added or flipped. Text the parser cannot read keeps the box open with what
     was typed and notes `unreadable`: a well-formedness check only."""
 
-    def __init__(self, title: str, message: str = "", *, unreadable: str) -> None:
-        super().__init__(title, message)
+    def __init__(
+        self,
+        title: str,
+        message: str = "",
+        *,
+        unreadable: str,
+        under: Callable[[], int] | None = None,
+    ) -> None:
+        super().__init__(title, message, under=under)
         self._unreadable = unreadable
 
     def on_input_submitted(self, event: Input.Submitted) -> None:

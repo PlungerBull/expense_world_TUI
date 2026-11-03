@@ -197,6 +197,48 @@ ConfirmModal #modal, PromptBox #modal {
     width: 52;
     max-width: 90%;
 }
+/* A box drawn under the screen's head (`UnderHead`, modals.py), as pane 6 of
+   docs/mockups/expense-world-statements-screens.html draws it. The card covers the
+   screen from its top line to the footer, full width, in the terminal's own background
+   (`ansi_default`, the base fill: no colour of its own), so nothing of the list shows
+   beside or below the box. Inside it, a rule 60 wide indented 2 above and below the
+   text, which sits at column 4, 60 wide. The card's top is set where it is placed. `:ansi`
+   matches the scrim rule it overrides. */
+ConfirmModal.under-head:ansi, PromptBox.under-head:ansi {
+    background: transparent;
+    align: left top;
+}
+ConfirmModal.under-head #modal, PromptBox.under-head #modal {
+    width: 100%;
+    max-width: 100%;
+    height: 1fr;
+    max-height: 100%;
+    border: none;
+    padding: 0;
+}
+ConfirmModal.under-head #modal > *, PromptBox.under-head #modal > * {
+    width: 60;
+    margin: 0 0 0 4;
+}
+ConfirmModal.under-head #modal > .under-rule, PromptBox.under-head #modal > .under-rule {
+    height: 1;
+    margin: 0 0 0 2;
+    border-top: solid $accent;
+}
+ConfirmModal.under-head #modal > .under-first, PromptBox.under-head #modal > .under-first {
+    margin: 1 0 1 2;
+}
+ConfirmModal.under-head #modal > .modal-title {
+    margin: 0 0 1 4;
+}
+ConfirmModal.under-head #modal > .under-last, PromptBox.under-head #modal > .under-last {
+    margin: 1 0 0 2;
+}
+PromptBox.under-head Input {
+    border: none;
+    height: 1;
+    padding: 0;
+}
 /* the pick's choices stand apart from its line above and its hint below */
 #pick-choices {
     margin: 1 0;

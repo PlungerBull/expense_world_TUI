@@ -282,13 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-From the acceptance check of 2026-11-03 (practice engine, 80×24, against
-[expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
-
-15. **`c`'s boxes sit under the head.** The balance boxes and the question open under the head,
-    the balances still in sight, as pane 6 draws, not as a box over them. *Passes if:* at 80×24
-    the head's balances show while each box is open, pinned against pane 6.
-
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as
@@ -370,3 +363,11 @@ Not built in this spec; drafted into a new spec when it is done.
   after the checklist is sized and the list is not measured again, so a statement with flagged
   lines may lose its `rows … · page …` line by one row (found by task 12's review on
   2026-11-03, not verified).
+- **`c`'s refusal shows as a toast:** pane 6's refusal step draws `Couldn't complete` and the
+  engine's words as lines between the head and the box; the app shows them as a toast at the
+  bottom right, over the box (found by task 15's review on 2026-11-03).
+- **A draft's PEN row leaves its difference blank** where pane 6 draws a dim `—` (found by task
+  15's review on 2026-11-03).
+- **`c`'s boxes are cut below 64 columns:** each line in the box under the head is 60 wide from
+  column 4, so at 60 columns its message loses its last letters (found by task 15's review on
+  2026-11-03).
