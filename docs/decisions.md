@@ -1244,11 +1244,12 @@ makes one at noon of its day through it, so no call passes a day that a `date` t
 (4) **A minute ago is taken off in real time, then read in the display timezone**, so the
 first minute after a daylight-saving jump still gives a time that exists, a minute back.
 (5) **A new transaction's body comes only from `Scratch._item`**: a test proving the single
-create sends its row with `alone`, a batch of several goes through `_create`, and a body the
-helpers cannot send, such as one missing its currency to draw a refusal, is still built by
-`_item` and changed. `row_at` checks on every create that the answer keeps the id, account and
-currency sent. The live files that still build a body by hand are
-[todo.md](todo.md) "The live tests still build some bodies by hand".
+create sends its row with `alone`, a batch of several goes through `_create`, and a test that
+sends a body itself (sent twice, changed to draw a refusal, or wrapped to compare state) takes
+it from `Scratch.body`, an untitled `_item` whose id is kept for cleanup before any send.
+`row_at` builds through `body` and checks on every create that the answer keeps the id,
+account and currency sent. An opening balance's body comes only from
+`Scratch.opening_balance_body`, which `opening_balance` sends.
 
 **Why.** Noon today is in the future before noon, and the engine refuses a future date, so
 "now" needs its own helper; a copy per file drifts. A day passed and then overridden says one

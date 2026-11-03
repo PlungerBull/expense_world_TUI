@@ -90,6 +90,16 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
+- **Three live files still build an opening balance's body by hand.** Nothing you see changes.
+  [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) (the seed it sends
+  twice), [test_opening_balance.py](../tests/contract/test_opening_balance.py) (`_seed_body`,
+  which leaves out the currency or adds fields to draw refusals) and
+  [test_reserved_name_held.py](../tests/contract/test_reserved_name_held.py) (on the
+  reserved-names practice user) build it themselves, though `Scratch.opening_balance_body` in
+  [tests/contract/conftest.py](../tests/contract/conftest.py) is the one opening-balance body.
+  Each takes its body from it and changes it where its refusal needs, keeping what each test
+  proves. Done when the three pass against the practice engine, leaving nothing on either
+  practice user, and the unit suite passes.
 - **decisions.md still describes the holder** in the entry where a card's accounts are the
   engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
   [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)
