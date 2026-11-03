@@ -1188,8 +1188,16 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     assert checked == []
     assert [r[0] for r in rows] == [last_day["bank_line_id"], split_line]
     # the day as every list shows it: the response's own day (format_short_date)
-    assert rows[0][1:] == (format_short_date(last_day["date"]), "UBER *TRIP", None, -4200)
-    assert rows[1][1:] == ("2026-04-11", "FARMACIA", code, -10000)
+    assert rows[0][1:] == (
+        format_short_date(last_day["date"]),
+        "UBER *TRIP",
+        None,
+        -4200,
+        "PEN",
+        1,
+        False,
+    )
+    assert rows[1][1:] == ("2026-04-11", "FARMACIA", code, -10000, "PEN", 2, False)
     assert part_of[split_line] in {p["id"] for p in parts}
 
     # Tick: one part named, the whole line in the statement.
@@ -1197,7 +1205,7 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     rows, checked, part_of = month()
     assert checked == [split_line]
     assert [r[0] for r in rows] == [split_line, last_day["bank_line_id"]]
-    assert rows[0][1:] == ("2026-04-11", "FARMACIA", code, -10000)
+    assert rows[0][1:] == ("2026-04-11", "FARMACIA", code, -10000, "PEN", 1, False)
     for part in parts:
         assert client.get(f"/transactions/{part['id']}")["statement_id"] == recon
 
@@ -1263,6 +1271,7 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
         "2026-06-11",
         "FARMACIA",
         "—",
+        "PEN",
         "-100.00",
     ]
 

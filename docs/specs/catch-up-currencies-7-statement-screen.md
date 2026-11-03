@@ -285,11 +285,6 @@ the question, the files named and the tui.md section named.
 From the acceptance check of 2026-11-03 (practice engine, 80×24, against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
 
-10. **The two live tests read the rows' new shape.** `test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads`
-    and `test_the_no_batch_list_reads_through_its_own_reads` in
-    [test_bank_lines.py](../../tests/contract/test_bank_lines.py) expect rows without the
-    currency and the number. *Passes if:* both pass live against the practice engine with the
-    rows `line_rows` and `unfiled_rows` give; the rest of the live suite stays green.
 11. **Everything fits at 80×24.** `u` on the browse with five accounts shows its rows (pane 11),
     not its caption alone; a scrolling list of statements keeps `in order` whole beside its
     scrollbar (pane 3); a draft showing `f` keeps `? Keys` whole in its footer (pane 10).
@@ -370,3 +365,7 @@ Not built in this spec; drafted into a new spec when it is done.
   `sort_order`", which the fixture no longer proves; the drift script's note for `l12` describes
   the match loosely; balance refusals in test_tui_reconcile_detail.py and test_errors.py are keyed
   `balances.<account_id>.…` where the engine keys them by currency code.
+- **The live "no batch" test reads newest first** while the screen reads oldest first
+  (`UNFILED_SORT`), so the screen's own order is never tested live; that test's docstring and the
+  statement-screen test's docstring also miss the currency and number they now check (found by
+  task 10's review on 2026-11-03).
