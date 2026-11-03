@@ -3,8 +3,7 @@
 What the catch-up to contract `e7393dd869963db1`, the sheet import's split rows (done on
 2026-11-03), turned up while it ran.
 
-**Status: drafted on 2026-11-03 for the owner to rewrite or approve; one question.** It waits on
-no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
+**Status: approved on 2026-11-03; question 1 answered (A).** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
 ---
@@ -48,11 +47,18 @@ deleted.
 
    **Recommended:** A: the blank line separates nothing, and the dry run already leaves it out.
 
+   **Picked:** A.
+
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+1. **The apply prints the blank line after its counts only when a line follows it.** In
+   `_print_applied` ([import_cmd.py](../../expense/commands/import_cmd.py)), an apply with new
+   rows and nothing skipped or sealed ends on the opening balances and split transactions line;
+   the "Nothing new" line and the lists of rows of zero and on a closed day keep the blank line
+   before them. A unit test in [test_cmd_import.py](../../tests/unit/test_cmd_import.py) pins
+   that apply's whole output, line for line.
 
 ## Found along the way
 

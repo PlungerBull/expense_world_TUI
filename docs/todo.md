@@ -105,10 +105,6 @@ New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question), both waiting on no other spec.
 
-New, from the sheet import's split rows catch-up (done on 2026-11-03):
-[what it turned up](specs/catch-up-split-rows-leftovers.md) (1 question, on the blank line an
-apply ends on), waiting on no other spec.
-
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
