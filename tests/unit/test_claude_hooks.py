@@ -1329,11 +1329,11 @@ def test_ops_guide_names_no_engine_start_but_the_launcher():
 
 
 def test_guard_lets_the_tester_run_the_documented_reseed(box):
-    """The reseed exactly as CLAUDE.md and the ops guide name it, run from the engine."""
+    """The reseed exactly as the ops guide names it, run from the engine."""
     root = Path(__file__).resolve().parents[2]
     seed = "deploy/local/seed-test-user.sh --force"
-    assert f"`{seed}`" in (root / "CLAUDE.md").read_text()
-    assert "`deploy/local/seed-test-user.sh`" in (root / "docs" / "runtime.md").read_text()
+    runtime = (root / "docs" / "runtime.md").read_text()
+    assert f"`{seed}`" in runtime
     _allowed(
         box.guard("Bash", {"command": "cd ../expense_world_engine && " + seed}, agent="tester")
     )

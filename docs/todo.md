@@ -109,15 +109,11 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 The engine's hand-off "An account holds its currencies: every route names an account and a
 currency code; holders are gone" (contract `f82426fb0a099676`) is planned. Every spec is
 rewritten for one account holding its currencies; the old cards, live-test and practice-engine
-specs are retired. The catch-up is seven specs, run in this order:
-
-1. the app's reads and writes: done on 2026-10-30;
-2. the PDF upload and the two imports: done on 2026-10-30, the Statements screens moved to part 7 at your ask; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
-3. the live tests' foundation: done on 2026-10-30; its results go in part 4's reply to the engine;
-4. the live tests for the upload, bank lines and kinds: done on 2026-10-31; its reply to the engine, with part 3's results, waits in [to-engine/](to-engine/) for you to hand over;
-5. the live tests for an account's currencies: done on 2026-11-02; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
-6. the main views: done on 2026-10-31; its reply to the engine waits in [to-engine/](to-engine/) for you to hand over;
-7. [the statement screen](specs/catch-up-currencies-7-statement-screen.md): approved on 2026-10-31, its questions answered. Until it is done the Statements screens do not work against the engine; a month closes from its PDF.
+specs are retired. The catch-up is seven specs: parts 1 to 6 are done, and the replies of parts
+2, 4 (with part 3's results), 5 and 6 wait in [to-engine/](to-engine/) for you to hand over.
+Part 7, [the statement screen](specs/catch-up-currencies-7-statement-screen.md), is running; its
+task 16 waits on your pick above. Until it is done the Statements screens do not work against
+the engine; a month closes from its PDF.
 
 Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
 [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
@@ -160,10 +156,6 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   Each takes its body from it and changes it where its refusal needs, keeping what each test
   proves. Done when the three pass against the practice engine, leaving nothing on either
   practice user, and the unit suite passes.
-- **decisions.md still describes the holder** in the entry where a card's accounts are the
-  engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
-  [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)
-  retires, since that spec changes what it describes.
 - **Three small finds from the practice engine's start script and the drift script:** the
   comment at the start script's `$!` capture calls that pid "the backgrounded subshell", though
   after the exec chain it is the launcher's own, and the line runs past 100 characters; the
@@ -180,9 +172,6 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Leftovers in the test suites**: a spec, after the catch-up
-  ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)); every backlog item that
-  lives only in the tests and their tools is in it.
 - **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
   Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
   once every row is loaded; on a 30-row terminal it clips its last line
@@ -217,38 +206,11 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   say "purchase" too (transactions.py, reconciliations.py, reads.py, bank_import.py,
   quickadd/route.py, app.tcss): make them "split transaction" or "bank line" first, so the guard
   needs no exemption for comments.
-- **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
-  most in [mockups/](mockups/) back screens already built, among them
-  `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
-  does not), `expense-world-screen-map.html` (linked from nowhere; its `#sheet` pane draws the
-  app reading the `.xlsx` itself, and its `#accounts`, `#acct-form` and `#tx-edit` panes draw one
-  `Cur` and one `Balance` column, a single `currency` line, no `t`, `c` or `x` keys and no
-  CURRENCY line, from before an account held several currencies), `expense-world-sheet-import-engine.html` (backs the sheet
-  import built on 2026-10-27; linked from commands.md, import_cmd.py and test_cmd_import.py),
-  and
-  `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
-  `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
-  the screen map's split pane and `expense-world-split-screen.html` (linked from the screen map)
-  draw a split screen the app no longer has, `⏎` and `s` opening the Edit form instead;
-  `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
-  is answered by the Edit form, drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
-  docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
-  `expense-world-opening-balance-note.html` backs the begin balance hint already built (panes
-  1 B and 2 B; linked from tui.md, decisions.md and test_tui_form_hints.py), and
-  `expense-world-grouped-refusals.html` backs the LOG bar's refused-row lines already built
-  (screens 2 A and 3 A, linked from tui.md and a test docstring), and its screens 1 and 3 draw
-  the old sheet import's `--apply` output (`Accounts: created 0, reused 31`, a `Failures` block),
-  which the app no longer prints. Ledger footers still
-  read `s Split` where the app says `s Edit`, in `expense-world-archived-account.html` (whose
-  screen 1 A also draws `s` gone on an archived row), `expense-world-bank-lines-whole.html`,
-  `expense-world-pending-hashtag-home.html` and the "today" pane of
-  `expense-world-split-transaction-screen.html`; the screen map's ledger `?` card reads "Split
-  the cursor row into parts"; `expense-world-enter-and-esc.html` draws the crumb
-  `Transactions ▸ Split`, where it is `▸ Edit`; and pane 7 of
-  `expense-world-pending-hashtag-manage.html` says the Edit form shows the opening balance's
-  note, which it does not.
-  Deleting one means removing its links from tui.md and from code and test docstrings in the
-  same change.
+- **Mockups that back no open work.** A mockup lives only while it backs open work, and most in
+  [mockups/](mockups/) back screens already built; many also draw an older app (`s Split`
+  footers, the split screen, the import's old preview, one currency per account). Delete each
+  one that no spec, todo item or to-engine file links, removing its links from docs, code and
+  test docstrings in the same change.
 - **Three more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
@@ -280,23 +242,11 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
-- **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
-  spec and the bank download and closing a statement done on 2026-10-26, the sheet import
-  through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-29, an account holds its currencies** (to
-  `f82426fb0a099676`; the cards and statements catch-up of 2026-10-27 and 2026-10-28 is folded
-  into it, its parts 1a and 1b done on 2026-10-28; parts 1 and 2 of seven done on 2026-10-30): the five specs left
-  and the rewritten ones listed under "Approve the rewritten specs", waiting on that approval.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
-  ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
+  ask). The format is used both for amounts typed and for every amount shown.
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: paused until the catch-up's spec 7 is done
-  ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
-- **Move the official data into the app** (a wipe and one fresh sheet import):
-  [specs/before-the-official-import.md](specs/before-the-official-import.md), last, after the
-  catch-up and the rewritten specs.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

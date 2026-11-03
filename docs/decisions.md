@@ -15,6 +15,8 @@ Decisions whose why lives elsewhere:
 |---|---|
 | The app is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
 | Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [runtime.md](runtime.md) "Write semantics" |
+| Every screen is mocked first, and showing a mockup is not approval | [CLAUDE.md](../CLAUDE.md) "Mock every screen before building it" |
+| The agent loop's rules (roles, per task, per spec) | [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; the why is below |
 | PAT auth (`ewe_pat_` prefix) | [commands.md](commands.md) "Auth model" |
 | Public GitHub repo (free CI), so secrets and real ledger data never enter it | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
 | Sanctioned deviations from the principles | [commands.md](commands.md) "Sanctioned exceptions" |
@@ -52,21 +54,15 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *Default an unsigned amount to expense* (offered, declined) — hidden behaviour that diverges from what the engine stores and forces the parser to infer intent.
 
-## The TUI is the only surface (2026-10-13, owner)
+## The TUI is the only surface (2026-10-13)
 
 **Context.** The owner uses only the TUI. A typed command calling the same Python reads, formatters and write plumbing as a screen is a second face on the same feature, built and approved a second time for a surface nobody reads. Web and iOS call the engine's HTTPS API, never this repo.
 
-**Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. A new engine capability gets its TUI screen and its contract test, and nothing typed. The repo is `PlungerBull/expense_world_TUI` on GitHub and `expense_world_TUI` as the local folder; the command is still `expense`.
+**Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. A new engine capability gets its TUI screen and its contract test, and nothing typed. The repo is `PlungerBull/expense_world_TUI` on GitHub and `expense_world_TUI` as the local folder; the command is `expense`.
 
 **Engine features with no screen.** Activity history; exchange-rate history; editing a reconciliation's details (name, dates, balances) after it is created; updating the profile and the settings; the single-month report (Home shows the four-month grid); posting a batch of transactions in one call. They are the engine's own to keep working, and the contract suite exercises them. Adding a screen for one is new work of its own, when the owner asks for it.
 
 **Rejected.** *Flat commands as the canonical surface beside the TUI* — every feature built, tested and approved twice. *One generic `expense api` command for agents* — an agent acting on the ledger belongs behind an MCP server beside the engine, not behind a command in this client. *Keeping every command as JSON-only for agents* — the same double build, for no reader.
-
-## Mockup-first, and showing ≠ approval (hardened 2026-05-24)
-
-**Decision.** Every user-facing view or table change starts with an HTML mockup in [mockups/](mockups/), and **presenting mockups is never authorization** — implementation waits for an explicit pick, even in auto-accept mode and even when a follow-up sounds like consent. A prior session's approval is not a standing license. Full rule: [CLAUDE.md](../CLAUDE.md) "Mock every screen before building it".
-
-**Rejected.** *Treating an earlier approval as durable*; *inferring layout or columns from the response shape* — scannability is the owner's judgment.
 
 ## The open-work list holds only open work (2026-07-06)
 
@@ -76,15 +72,15 @@ Decisions whose why lives elsewhere:
 
 ## Split transactions, the pending hashtag and system rows (2026-10-17)
 
-**Decision.** (1) **Each part of a split transaction is its own ledger row** (owner, 2026-10-17): the transaction's title, its own amount, category, hashtags and note. `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part, and the Edit form says so before a part's title, date or account is saved (contract: PUT /v1/transactions/{transaction_id}). (2) **`⏎` and `s` on any part open one Edit form: the line's shared fields on top and a table of every part below, and one save writes the whole line** (owner, 2026-10-25, [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html)), from one read of the bank line: its parts, the engine's total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}). Parts change in that one place: a kept part keeps its id, `^n` adds one and `^x` drops one, so a line never split keeps its one transaction as part 1 (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The form shows how much of that total the typed parts leave, red until it is 0, as a guide only: `^s` always sends, and the engine's `SPLIT_TOTAL_MISMATCH` decides whether the parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). **The title is the transaction's, one field written onto every part in the same write**, sent only when it differs from the transaction's (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); an emptied title is refused, so a save never removes a title. (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`: every transaction carries at least one hashtag, so Home has no "(no hashtags)" row, and a screen that tags a row sends only the real hashtags. (4) **The built-in rows keep their names** (owner, 2026-10-16): no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"); a name the engine keeps for a system row is refused with one line, "That name belongs to a system row: pick another." (5) **The spreadsheet import's split rows are grouped by their `COD_EECC`** ("The sheet import brings a split purchase in as one split transaction").
+**Decision.** (1) **Each part of a split transaction is its own ledger row**: `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part (contract: PUT /v1/transactions/{transaction_id}). (2) **`⏎` and `s` on any part open one Edit form, the line's fields on top and every part below, and one save writes the whole line**, from one read of the bank line (contract: GET /v1/bank-lines/{bank_line_id}); parts are added and dropped only there (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The amount the parts leave is a guide only: `^s` always sends, and the engine decides whether the parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). The title is the transaction's, one field written onto every part (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`, so Home has no "(no hashtags)" row. (4) **The built-in rows keep their names**: no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"). (5) **The spreadsheet import's split rows are grouped by their `COD_EECC`** ("The sheet import brings a split purchase in as one split transaction").
 
 **Rejected.** *One ledger row per split transaction, its parts inside* — a category or hashtag belongs to a part, so one row for all the parts hides what `c` and `h` change; the engine declined a ledger read by bank line too. *Holding `^s` until the parts add up* — a business rule checked in the client, which every client would copy; the engine already refuses and says by how much. *One typed line per part, in the LOG bar's grammar* — a part keeps the transaction's title, account and date, so most of the grammar only led to refusals, and the owner found it hard to read. *Every part's fields in one long form* — the table shows every part at a glance. *Renaming a split transaction from the Edit form after the split* — two writes, and the first can land without the second. *Offering `e` on system categories* — the engine refuses a rename, so the key would only lead to a refusal.
 
-## A split transaction is reconciled and deleted whole (2026-10-17, owner)
+## A split transaction is reconciled and deleted whole (2026-10-17)
 
-**Decision.** (1) **The reconciliation screens list bank lines, not ledger rows** (owner, 2026-10-17): one row per bank line, in the bank's columns only (date · title · operation · amount) with the line's total, and nothing marks a split, because the bank sees one movement (contract: GET /v1/bank-lines). (2) **A tick is one write on any part**; the engine puts every part in the reconciliation or takes every part out, so no screen shows half a line ticked (contract: PUT /v1/transactions/{transaction_id}). (3) **`d` on any part of a split transaction deletes the whole line**, from the ledger or from "no batch", after a question naming how many parts go: "Delete this transaction and its N parts? No screen can bring it back." (contract: DELETE /v1/bank-lines/{bank_line_id}). `b` moves the whole line, as the engine does. (4) **`⏎` in "no batch" opens the Edit form**, as on the ledger (owner, 2026-10-25): the line's fields on top and every part below, saved in one write. (5) **The app's word is "transaction"** (owner, 2026-10-17), for a split one too; a variant of a form keeps that form's name.
+**Decision.** (1) **The reconciliation screens list bank lines, not ledger rows**: one row per bank line, in the bank's columns only (date · title · operation · amount) with the line's total, and nothing marks a split, because the bank sees one movement (contract: GET /v1/bank-lines). (2) **A tick is one write on any part**; the engine puts every part in the reconciliation or takes every part out, so no screen shows half a line ticked (contract: PUT /v1/transactions/{transaction_id}). (3) **`d` on any part of a split transaction deletes the whole line**, from the ledger or from "no batch", after a question naming how many parts go: "Delete this transaction and its N parts? No screen can bring it back." (contract: DELETE /v1/bank-lines/{bank_line_id}). `b` moves the whole line, as the engine does. (4) **`⏎` in "no batch" opens the Edit form**, as on the ledger. (5) **The app's word is "transaction"**, for a split one too; a variant of a form keeps that form's name.
 
-**Rejected.** *Category and hashtags on the reconciliation rows* — a reconciliation checks the bank's movements, and the owner wants only the bank's columns. *A part count or a split mark on the row* — nothing in a reconciliation depends on how a transaction is split. *Oldest first in "no batch"* — newest first is the engine's order when none is asked for, and the owner accepted it. *Deleting one part with `d`* — the bank holds one movement, so deleting a part would leave the line's total short of the bank's; re-splitting changes the parts. *A form of its own for a split transaction* — a new screen name for a variant of the Edit form.
+**Rejected.** *Category and hashtags on the reconciliation rows* — a reconciliation checks the bank's movements, and the owner wants only the bank's columns. *A part count or a split mark on the row* — nothing in a reconciliation depends on how a transaction is split. *Deleting one part with `d`* — the bank holds one movement, so deleting a part would leave the line's total short of the bank's; re-splitting changes the parts. *A form of its own for a split transaction* — a new screen name for a variant of the Edit form.
 
 ## TUI writes: FIFO queue in EngineWriteMixin, error drops the queue (2026-07-08)
 
@@ -94,7 +90,7 @@ Decisions whose why lives elsewhere:
 
 ## Connection errors get exit code 6, off the click collision on 2 (2026-07-10)
 
-**Decision.** Exit codes: **1** engine rejected the request, **3** config, **6** connection; **2** belongs to click's usage errors alone. A new meaning gets a fresh code, never an overloaded one; 4 and 5 are retired and not reused. Source of truth: `_ENVELOPE_ERRORS` in [expense/errors.py](../expense/errors.py).
+**Decision.** Exit codes: **1** engine rejected the request, **3** config, **6** connection; **2** belongs to click's usage errors alone. A new meaning gets a fresh code, never an overloaded one. Source of truth: `_ENVELOPE_ERRORS` in [expense/errors.py](../expense/errors.py).
 
 **Rejected.** *Sharing 2 with a distinguishing message* — scripts branch on the code, not prose. *Renumbering to be contiguous* — churn for cosmetics.
 
@@ -124,7 +120,7 @@ Decisions whose why lives elsewhere:
 
 ## TUI rows-per-page adapt to the terminal — min(20, what fits) (2026-07-13)
 
-**Decision.** The page is the screenful, capped at `PAGE_ROWS_CAP` (default 20). `SectionScreen.measure_list_rows` ([_base.py](../expense/tui/screens/_base.py)) measures `#content`'s real height (screens declare their extra lines; `LIST_FRAME_LINES = 6` is the panel frame), floor `PAGE_ROWS_FLOOR = 5`; the first load waits for the first layout pass. The panel always fits, so `#content` never grows a scrollbar nothing could operate.
+**Decision.** The page is the screenful, measured from the real height and capped at 20 ([tui.md](tui.md) "Pagination and terminal size"). The panel always fits, so `#content` never grows a scrollbar nothing could operate.
 
 **Rejected.** *A fixed 20 with a scrolling container* — the title and headers scroll away and the scrollbar is undraggable. *Grow-to-fit on every screen* — short lists read worse spread out; only the ledger lifts the cap ("The ledger fills the window").
 
@@ -142,7 +138,7 @@ Decisions whose why lives elsewhere:
 
 ## The app clears the terminal scrollback at launch — `CSI 2J 3J H` (2026-07-13)
 
-**Decision.** `launch` emits `\x1b[2J\x1b[3J\x1b[H` before Textual starts ([app.py](../expense/tui/app.py)), so Terminal.app cannot scroll pre-launch text in above the running app. **Accepted cost (owner-confirmed):** the tab's whole scrollback is wiped on every launch. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
+**Decision.** `launch` emits `\x1b[2J\x1b[3J\x1b[H` before Textual starts ([app.py](../expense/tui/app.py)), so Terminal.app cannot scroll pre-launch text in above the running app. **Accepted cost:** the tab's whole scrollback is wiped on every launch. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
 
 **Rejected.** *Clear only the screen (`2J`)* — the scrollback still slides in. *Re-enable the mouse to swallow wheel events* — reverts keyboard-only.
 
@@ -154,27 +150,21 @@ Decisions whose why lives elsewhere:
 
 ## Opening balances are an engine concept (`@Opening` system category), not a client convention (2026-07-20)
 
-**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per currency of an account (409). Which rows of the owner's sheet are opening balances is the engine's to find when it reads the sheet (contract: POST /v1/transactions/import-sheet).
+**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per currency of an account (409). Which rows of the owner's sheet are opening balances is the engine's to find when it reads the sheet (contract: POST /v1/transactions/import-sheet). The New statement form offers a begin-balance line on every currency: the engine sums every transaction assigned to a statement, the opening balance included, into its add-up check (contract: "Statements", "`difference_cents` — the add-up check"), so the statement holding it begins at 0.00, and the form cannot know which statement that is.
 
 **Rejected.** *A user category plus a naming convention* — invisible to the engine, so reports can never exclude it, and every client invents its own name. *An opening-balance param on `POST /accounts` only* — never fires for accounts that already exist. *Keep the `@Opening` row visible in panels* — visible rows would no longer sum to the total.
 
-## Local-first deployment — the one engine moves to the user's Mac; cloud mothballed until iOS (2026-07-30)
-
-**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. This app's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: the engine's local- and cloud-deployment guides.
-
-**Rejected.** *Keep the cloud warm on a paid tier* — needs internet for every command and still leaves FX unwired. *Local-first writes with an LWW queue in the client* — the engine's writes have computed side effects, so optimistic acceptance means duplicating the engine or "saved" rows bouncing later. *Port the engine to SQLite* — rewrites the money layer and forks local from cloud.
-
 ## All reads are live — no local replica (2026-08-06)
 
-**Decision.** No local cache: every read is a live engine GET; there is no `expense sync`, no `--no-cache`, no cache env vars. With the engine on loopback a read is sub-millisecond, and a replica only adds staleness and conflict handling.
+**Decision.** No local cache and no write queue: every read is a live engine GET and every write waits for the engine's answer. With the engine on the owner's Mac a read is sub-millisecond, and a replica only adds staleness and conflict handling.
 
-**Rejected.** *Rebuilding the cache from REST reads* — every consistency cost, for zero latency benefit.
+**Rejected.** *Rebuilding the cache from REST reads* — every consistency cost, for zero latency benefit. *Local-first writes with a last-write-wins queue in the client* — the engine's writes have computed side effects, so optimistic acceptance means duplicating the engine or "saved" rows bouncing later.
 
 ## Transfers are two ordinary transactions (2026-08-16)
 
 **Decision.** The engine has no transfer feature. A move between accounts is two ordinary transactions, each with its own explicit sign and category.
 
-**Rejected.** *A client-side "move between accounts" that writes both legs* — a new UX with a non-atomic failure (one leg lands, the other 422s); parked in [todo.md](todo.md) behind a mockup. *Deprecation stubs for the old flags* — see "Delete anything that no longer points anywhere".
+**Rejected.** *A client-side "move between accounts" that writes both legs* — a new UX with a non-atomic failure (one leg lands, the other 422s).
 
 ## Reconciliation de-chaining — a batch is a statement period, ordered by its date (2026-08-16)
 
@@ -198,7 +188,7 @@ Decisions whose why lives elsewhere:
 
 **Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; both post to `POST /accounts`, `person` adding `is_person: true`, so one route makes either kind and the client keeps no second create path; TYPE is read-only on the edit form.
 
-**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in every currency the person holds, so a person folds whole or not at all (owner, 2026-10-31). `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
+**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in every currency the person holds, so a person folds whole or not at all. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
 **Rejected.** *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
 
@@ -218,7 +208,7 @@ Decisions whose why lives elsewhere:
 
 **Decision.** Nothing is detected. Every colour in [theme.py](../expense/tui/theme.py) is an ANSI slot (`ansi_green`, `ansi_red`, `ansi_blue`, `ansi_bright_black`, `ansi_default`) on one `Theme(ansi=True)`; the terminal's profile decides what each slot looks like, so the app is correct on dark, light and any custom profile. Picks: pending is **bold** with no colour (yellow fails on white); accent `ansi_blue`; structural rules `ansi_bright_black` via `$secondary`; modal card opaque with a dim scrim; no separate `NO_COLOR` mode. **Accepted cost:** the app does not look identical on every machine. Render-only traps: `$surface`/`$panel` generate to transparent under an ANSI theme (hence `$secondary` for rules), and alpha is dropped on `ansi_default`, so the scrim is a literal `black 60%` (`test_modal_scrim_dims_rather_than_wipes`). Guarded by `test_theme_is_ansi_slots_not_hexes`.
 
-**Rejected.** *Detect the terminal's background and pick between two authored palettes* — maintains two palettes to approximate what the terminal already knows. *A stored light/dark setting* — one more thing to configure. *Textual's `ansi-dark`/`ansi-light`* — they encode the light/dark split this refuses.
+**Rejected.** *Detect the terminal's background and pick between two authored palettes* — maintains two palettes to approximate what the terminal already knows. *A stored light/dark setting* — one more thing to configure. *Textual's `ansi-dark`/`ansi-light`* — they encode the light/dark split this refuses. *Cards or boxed panels* — a vertical edge costs border and padding on both sides, exactly the width an explaining column needs, and a card hides the screen that gives a question its context.
 
 ## A terminal too small is the user's to fix (2026-08-20)
 
@@ -238,25 +228,25 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *`^↑`/`^↓` as the field keys* — macOS claims them for Mission Control and Application Windows before the terminal sees them. *`shift+↑↓`* — a chord for the key that must always work, where `tab` is what every form uses. *Plain arrows only walking the list* — dead keys on the four fields with no list. *Plain arrows always moving fields* — the suggestion list would need a key of its own.
 
-## Stepping through a form never changes it (2026-10-23, owner)
+## Stepping through a form never changes it (2026-10-23)
 
-**Context.** `⏎` walks down a bar form line by line. On the Edit form's ACCOUNT and CATEGORY it took the first name in the list, so walking past a transaction could move it to another account or category; a read-only line still took typing; and `⏎` saved only on the last line, so a form whose remaining lines were locked could be saved only with `ctrl+s`.
+**Context.** `⏎` walks down a bar form line by line, so whatever `⏎` does on a line happens to every row walked past.
 
-**Decision.** (1) **ACCOUNT and CATEGORY start on the row's own value**, in the list's usual order, so `⏎` with nothing typed keeps it (owner's pick 1 A, [mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). (2) **`@Pendiente` is in the Edit form's category list**, where the engine lists it, and a row in it starts highlighted there (pick 3 A); the Edit form and the bulk `c` pick share one list, `pickable_categories` ([reads.py](../expense/reads.py)), in the engine's order, `@Opening` never in it. (3) **A read-only line takes nothing**: the shared bar, `FormBar` ([_form.py](../expense/tui/screens/_form.py)), refuses typing, paste and delete there, and every field a bank line's `edit_limits` names opens read-only, showing what it holds. (4) **`⏎` saves when no line ahead can change**, as `ctrl+s` does. (5) **A form's own `on_input_submitted` calls `event.prevent_default()`** when a class under it has one: Textual runs each class's handler along the MRO otherwise, so one `⏎` moved two lines; a guard test holds it ([tui.md](tui.md) "The bar forms' keys").
+**Decision.** (1) **ACCOUNT and CATEGORY start on the row's own value**, so `⏎` with nothing typed keeps it. (2) **`@Pendiente` is in the Edit form's category list**, where the engine lists it; the Edit form and the bulk `c` pick share one list, `pickable_categories` ([reads.py](../expense/reads.py)). (3) **A read-only line takes nothing**: no typing, paste or delete. (4) **`⏎` saves when no line ahead can change**, as `ctrl+s` does. (5) **One `⏎` moves one line**, held by a guard test ([tui.md](tui.md) "The bar forms' keys").
 
-**Rejected.** Leaving `@Pendiente` out of the Edit form's list with nothing highlighted (pick 3 B): the Edit form and the bulk pick would offer different lists, and the Edit form could never send a row back to waiting.
+**Rejected.** Leaving `@Pendiente` out of the Edit form's list: the Edit form and the bulk pick would offer different lists, and the Edit form could never send a row back to waiting.
 
-## One reader for every amount, refusing what it cannot read for sure (2026-10-23, owner)
+## One reader for every amount, refusing what it cannot read for sure (2026-10-23)
 
 **Context.** Whether a dot or a comma marks an amount's decimals depends on who typed it: `13.853,20` is thirteen thousand to one person and an unreadable number to another.
 
-**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"); both importers send their file whole, so the engine reads their amounts. (2) **A part added on the Edit form and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (3) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
+**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field; a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"); both importers send their file whole, so the engine reads their amounts. (2) **A part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out; a part added and left empty, or with only the pending hashtag, drops. (3) **A Manage Edit screen sends `color` only when another swatch was picked.**
 
 **Rejected.** Reading `13.853,20` as thirteen thousand: whether a dot or a comma marks the decimals is a guess, and a guess that is wrong saves a wrong amount silently. Letting an emptied saved part drop: it would take a part out of a split without the person asking.
 
 ## One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` (2026-08-27)
 
-**Decision.** No aliases: `j`/`k`/`h`/`l`/`,`/`.` are not bound — a widget alias silently outranks a screen binding, so aliases make letters unusable as commands. `pgdn`/`pgup` mean "the next window of data": on the ledger they grow the list, on Home they slide the month window (`pgdn` goes older). `[`/`]` are bound nowhere. Guards: `test_no_duplicate_movement_key_aliases`, `test_square_brackets_are_not_bound_anywhere` ([test_tui_help.py](../tests/unit/test_tui_help.py)).
+**Decision.** No aliases: `j`/`k`/`h`/`l`/`,`/`.` are not bound — a widget alias silently outranks a screen binding, so aliases make letters unusable as commands. `pgdn`/`pgup` mean "the next window of data": on the ledger they grow the list, on Home they slide the month window (`pgdn` goes older), bound `priority=True` because Home's menu is an `OptionList`, which binds `pgdn`/`pgup` to its own page scroll. `[`/`]` are bound nowhere. Guards: `test_no_duplicate_movement_key_aliases`, `test_square_brackets_are_not_bound_anywhere` ([test_tui_help.py](../tests/unit/test_tui_help.py)).
 
 **Rejected.** *`←`/`→` for the month window* — Home's rows carry `▶` carets, and `→` on one must unfold it. *`shift+←/→`* — a third tier of arrows for one screen. *Vim aliases as free extras* — free until something wants the letter.
 
@@ -280,9 +270,9 @@ Decisions whose why lives elsewhere:
 
 ## Bank downloads are matched against the ledger, not hashed (2026-09-12)
 
-**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. An account holding two currencies is one pick, read from the accounts alone, and the engine files each row under the currency of its own `Moneda` (contract: POST /v1/transactions/import, "Accounts"). (2) **The engine reads and matches** — the download is sent whole, its bytes in base64, and the app reads no cell of it; one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches each row to a bank line (one transaction, or the parts of a split) by operation code, otherwise by account + exact day + direction + total, claiming each line once; titles play no part, and a match writes the bank's title and any missing code onto every part of the line (contract: POST /v1/transactions/import, "Matching"). The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree, or that holds a ledger line no file row claimed, is a report, never an action** (the engine's `day_mismatches`); the unclaimed lines stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new** (owner, 2026-10-16): it is added, and the leftover ledger line's own day shows as disagreeing when it falls inside the file's dates, so the owner fixes it by hand. (4) **The title is the bank's text**, as the engine reads it from the file; the client writes no description (description is the owner's notes field). (5) **New rows land under `@Pendiente` and `#Pendiente`.** (6) **Every row of the file goes in, whatever its date**; a file over **500** rows (the engine's cap) is refused by the engine on `file`; a row inside a completed reconciliation comes back `sealed` and is its own row on the preview, `✗ Closed period`. The preview's `#` is the row's number in the spreadsheet, as the engine numbers it. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). (7) **The ledger lines no file row claimed are shown signed by the app**: the engine sends them as ordinary transaction responses, `amount_cents` positive with the direction in `transaction_type`, and declined a signed copy; `?debit_as_negative` is refused on every route but the two transaction reads (contract: "Base Conventions", "Sign convention — responses"). So the app signs them in one helper, and a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics"). Screens: [mockups/expense-world-import-report.html](mockups/expense-world-import-report.html).
+**Decision.** The TUI import door brings BCP `.xlsx` downloads in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name. The engine files each row under the currency of its own `Moneda` (contract: POST /v1/transactions/import, "Accounts"). (2) **The engine reads and matches**: the download is sent whole, a dry run first, then the same call with `dry_run: false`; the app reads no cell of it. Titles play no part in matching (contract: POST /v1/transactions/import, "Matching"). **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree is a report, never an action**; the ledger lines no file row claimed stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new**, and the leftover line's day shows as disagreeing. (4) **The title is the bank's text**; the client writes no description, the owner's notes field. (5) **New rows land under `@Pendiente` and `#Pendiente`**, and classification stays manual, in Home's bulk keys. (6) **Every row of the file goes in, whatever its date.** (7) **The unclaimed ledger lines are signed by the app in one helper**, since the engine sends them unsigned and declined a signed copy (contract: "Base Conventions", "Sign convention — responses"); a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics").
 
-**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card, and the leftover line shows in the days that disagree. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor*, or *leaving out rows dated before 2026* — the owner wants every row of the file in. *Reading the download in the app and sending its rows* — each client would carry its own reader of the bank's format, and the engine now reads it once for all. *A cleaned merchant name as the title* — the title is what the bank sent.
+**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card. *A client-side matcher*, or *reading the download in the app and sending its rows* — every client would carry its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor* — the owner wants every row of the file in. *A cleaned merchant name as the title* — the title is what the bank sent. *Merchant memory or category suggestions* — classification stays manual. *Detecting transfers, card payments or ITF* (`TRAN.CTAS.PROP.BM`, `PAG.T.PROP.VISA.BM`, `IMPUESTO ITF`) — they import as ordinary rows, classified by hand. *Import provenance and undo* — a wrong-account import is fixed with bulk `b` in Home. *A per-row override in the preview* — every verdict is a fact, not a guess (contract: POST /v1/transactions/import, "Matching"). *Other banks or CSV* — BCP only; the bank's PDF comes in only as a month's statement. *A one-time title alignment before the first import* — every row the bank files overlap already carries the statement's wording.
 
 ## The TUI import door — a drop is text, read up front, asked every time (2026-10-02)
 
@@ -298,11 +288,9 @@ Whether a file is a bank download is the engine's call: it refuses one that is n
 (account list, preview, result) replace one another above the bar, built on the shared steps of
 [flow.py](../expense/bank_import/flow.py) and the reasons of [engine.py](../expense/bank_import/engine.py). (4) **The account is asked every time** (see "Bank downloads
 are matched against the ledger" (1)). (5) **`esc` cancels this file and every later one**,
-because `esc` means cancel everywhere in the app; a file already imported stays imported. A
-nothing-new file with files after it moves on with `⏎`. (6) **The days that disagree are the
+because `esc` means cancel everywhere in the app; a file already imported stays imported. (6) **The days that disagree are the
 ledger after the import**, as the engine computes them (contract: POST /v1/transactions/import),
-so a movement typed on another day than the bank's shows as a new row plus the typed line's
-own day disagreeing (when that day is inside the file's dates), not as a silent duplicate.
+so a movement typed on another day shows up rather than hiding as a silent duplicate.
 
 **Rejected.** *Remembering the account per file name* — a browser re-download is a new name.
 *Splitting quoted paths glued together by repeated VS Code drops* — it reads the line in a way a
@@ -342,9 +330,9 @@ the bar is where the right file gets dropped next.
 
 ## Rows in no batch live in the reconciliation view, not in a filtered ledger (2026-09-22)
 
-**Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's bank lines in no reconciliation, one row per line in the bank's columns, newest first ("A split transaction is reconciled and deleted whole"); `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals read one line per kind of error**, as every save of several rows does ("Refused rows read one line per kind of error").
+**Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's bank lines in no reconciliation, one row per line in the bank's columns, oldest first ("A split transaction is reconciled and deleted whole"); `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. The flag compares the ISO date prefix of the row's `date` in the client, while the engine treats a period as whole calendar days in the user's timezone (contract: "Base Conventions", "Calendar days"). They agree only because every live row is stored at 00:00 America/Lima, which has no daylight saving; nothing enforces midnight. The bank import sends no dates: the engine dates each row it creates, or moves to the bank's day, 00:00 of that day in the user's timezone (contract: POST /v1/transactions/import). **The first writer that stores a real time of day makes the `!` wrong near midnight**, and that is the point to write an engine ask for a per-row flag. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals read one line per kind of error**, as every save of several rows does ("Refused rows read one line per kind of error").
 
-**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *Parsing the period name out of refusals to group them* — rows are grouped by the engine's code, fields and reasons, never by its words.
+**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view. *Parsing the period name out of refusals to group them* — rows are grouped by the engine's code, fields and reasons, never by its words.
 
 ## The transaction list pages by cursor (2026-09-23)
 
@@ -358,13 +346,13 @@ the bar is where the right file gets dropped next.
 
 **Rejected.** *A restore in this client only* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
 
-## Activity and Rates leave the TUI (2026-09-23, owner)
+## Activity and Rates leave the TUI (2026-09-23)
 
-**Decision.** Activity and Rates have no screens; the live contract suite exercises them ("The TUI is the only surface"). Adding a screen for either is new work of its own.
+**Decision.** Activity and Rates have no screens; they are among the engine features with no screen in "The TUI is the only surface".
 
 **Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens.
 
-## Long lists grow, they do not page (2026-09-25, owner)
+## Long lists grow, they do not page (2026-09-25)
 
 **Decision.** The ledger and the "no batch" pane are **one list that grows**, both through `GrowingRead` ([_growing.py](../expense/tui/screens/_growing.py)): **10 rows** to start; `pgdn` **appends** the next 10 with the cursor on the first new row; `↑↓` scroll everything loaded; `pgup` moves up a screenful with no read; a resize fetches nothing. The caption reads `N of M loaded`.
 - **Rows and count load together; a missing count fails the whole list** — never rows beside a guessed total.
@@ -372,19 +360,19 @@ the bar is where the right file gets dropped next.
 
 **Rejected.** *Page swapping* — a cursor cannot say "page 3 of 11", and a resize either loses your place or repeats rows. *Keeping the loaded depth and cursor after a write* — the owner wants the plain reload. *Keeping an off-screen refused row selected* — the next bulk key would change a row you cannot see.
 
-## Reconciliations opens on the accounts (2026-09-25, owner)
+## Reconciliations opens on the accounts (2026-09-25)
 
-**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its holder's statements (`GET /statements?holder_id=`, whole, in the engine's order: [tui.md](tui.md) "The Statements browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its statements (`GET /statements?account_id=`, whole, in the engine's order: [tui.md](tui.md) "The Statements browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
 
 **Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
-## Reconciliation periods are days (2026-09-26, owner's pick)
+## Reconciliation periods are days (2026-09-26)
 
 **Decision.** A period's `date_start` / `date_end` are **bare `YYYY-MM-DD`**, both required; the engine refuses anything else. The TUI form checks the date **at the field** with `is_calendar_day` ([dates.py](../expense/dates.py)) — zero-padded, a real day — and sends it unchanged. The tick-list passes the period's days straight into `date_from` / `date_to`.
 
 **Rejected.** *The LOG bar's forgiving dates* — a statement's dates are copied off paper. *`date.fromisoformat` alone* — accepts `20260831`, which the engine refuses.
 
-## Delete anything that no longer points anywhere (2026-09-25, owner)
+## Delete anything that no longer points anywhere (2026-09-25)
 
 **Decision.** A removed flag, command or code path is deleted outright — **no stub, no friendlier message**: a removed command gets Typer's own "No such command". Test fakes use the engine's real shapes (`whole()`, `cursor_page()` in [tests/unit/helpers.py](../tests/unit/helpers.py)) and refuse what the engine refuses. Guard: `test_command_surface.py` pins the typed surface.
 
@@ -399,47 +387,41 @@ the bar is where the right file gets dropped next.
 
 **Rejected.** *A client-side seal check* — a copy of an engine rule, stale the moment another client reverts. *A "close every month" bulk command* — would seal months nobody reviewed.
 
-## The agent loop: one per repo, the main session orchestrates (2026-09-27, owner)
+## The agent loop: one per repo, the main session orchestrates (2026-09-27)
 
 **Context.** The owner is not a coder. Work runs through agents that build, check and commit without asking about each task, while the owner keeps what users see, money rules a spec does not cover, and real data. The rules live in [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; this entry holds the why.
 
-**Decision.**
-- **One loop per repo.** The worker definitions are written once in `~/.claude/agents/` and shared; each repo supplies its rules through its own CLAUDE.md. This repo came first because it has the most tests and guards; the engine repo runs its own copy, with its own guards and rulebook.
-- **The main session is always the orchestrator** and never writes code or tests; the builder writes, the reviewer and tester only read and run, the librarian edits only docs.
-- **The tester never writes tests.** A criterion with no test proving it goes back to the builder.
-- **The loop runs on its own** once the owner approves a spec's tasks, pushing after every finished task, and stops only for what goes to the owner. A task needing a screen draws its mockup, parks, and the loop moves on.
-- **Workers run on the session's model** (`model: inherit`).
-- **The practice engine is the one exception to staying inside this repo.** Any agent starts and stops it with `scripts/practice-engine up|down`, which reseeds the practice user with a fresh key that is never stored; the hand-run start and stop stay the tester's.
+**Decision.** One loop per repo, the worker definitions shared from `~/.claude/agents/`, each repo's rules in its own CLAUDE.md; the main session orchestrates and never writes code or tests; the tester never writes tests; the loop runs on its own once the owner approves a spec's tasks. The rules themselves: [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)".
 
 **Why.** "Done" (tests pass, committed and pushed) only means something inside one repo, and a loop per repo keeps the wall between this client and the engine automatic. Every change is written by one agent and read by another, so nothing is approved by the agent that wrote it; the same holds for a tester that would otherwise write the test it then checks. Pushing after each task runs GitHub's checks on each one. A fresh practice key per check leaves nothing stored. A fact written in two docs drifts, which is why the librarian exists.
 
 **Rejected.** *One loop over the whole `productivity_world` folder* — "done" stops meaning anything across repos and the client–engine wall stops being automatic. *Checking in with the owner after every task* — the questions would be technical ones the owner hands back to the agents anyway.
 
-## Review per task, test and align once per spec (2026-09-27, owner)
+## Review per task, test and align once per spec (2026-09-27)
 
-**Decision.** Each task runs builder → reviewer → commit and push; the reviewer also confirms each "passes if…" item. When a spec's tasks are done, the tester runs once as an acceptance check against the practice engine (version check, fixture check, the live contract suite, the spec's done-checks, and the app when a screen changed), and anything that fails becomes a new task. The librarian runs last, sweeping every doc before the spec is retired.
+**Decision.** Each task runs builder → reviewer → commit and push; the tester's acceptance check and the librarian's sweep run once per spec ([CLAUDE.md](../CLAUDE.md) "Per task", "Per spec").
 
 **Why.** The commit hook already runs the unit tests on every commit, so a per-task tester only repeated them; its real value is the real engine and checking criteria rather than tests, which one pass per spec covers. Docs drift slowly, so one sweep at the end catches what per-task passes did. Reading is cheaper than testing, so the reviewer goes first.
 
 **Rejected.** *Tester and librarian after every task* — most of their time goes on re-running what the commit hook checks and on small follow-up rounds. *No tester at all* — nothing else runs the app against the real engine or catches a criterion the tests miss.
 
-## The engine is learned only from its live contract (2026-09-28, owner)
+## The engine is learned only from its live contract (2026-09-28)
 
-**Decision.** This repo learns how the engine behaves only from `GET /openapi.json` on the practice engine (`:8002`), read live; no copy of the contract is kept. Only its version is saved ([scripts/engine-contract-version](../scripts/engine-contract-version)); the fixture check compares it on every run and, when it moves, prints the contract's own change log (`x-changelog`). A moved version stops the loop and becomes a question for the owner, who decides whether catching up is the next spec; the new version is recorded only when acting on that answer. Code comments and docs cite the part of the contract that states a rule, as `(contract: …)` ([CLAUDE.md](../CLAUDE.md) "Key documentation"). No agent reads a file in the engine's folder: the guard blocks it for every agent, and the tester keeps only its start, reseed and stop there ([CLAUDE.md](../CLAUDE.md) "Stay inside this repo").
+**Decision.** This repo learns how the engine behaves only from `GET /openapi.json` on the practice engine, read live; no copy of the contract is kept, only its version ([runtime.md](runtime.md) "Contract version"). A moved version stops the loop and goes to the owner. Docs and comments cite the part of the contract that states a rule, and no agent reads a file in the engine's folder ([CLAUDE.md](../CLAUDE.md) "Key documentation", "Stay inside this repo").
 
 **Why.** Reading the engine's folder broke the rule that agents stay inside this repo, and the web and iOS clients never see that folder: they have only the published contract, so this client validates the same thing they will use. A saved version with the engine's own change log says *that* the contract moved and *what* moved, without keeping a copy that goes stale.
 
 **Rejected.** *Keeping a copy of `openapi.json` in the repo* — it drifts, and each client would keep its own. *Accepting a moved version automatically* — an engine change would slip into the ledger's client unreviewed. *Reporting a change as the fixtures that no longer match* — it says what this repo's test data got wrong, not what the engine changed.
 
-## Hints are chosen by the engine's reasons, never its wording (2026-09-28, owner)
+## Hints are chosen by the engine's reasons, never its wording (2026-09-28)
 
 **Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The app chooses every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `expense import sheet --json` passes the engine's envelope through verbatim, codes included ([commands.md](commands.md) "Output conventions").
 
 **Why.** The engine publishes its message wording for people and changes it without notice; a hint keyed to words breaks silently on a rewording, and web and iOS would copy the same fragile match. Reason codes are part of the published contract, listed per operation, so a change to them moves the contract version and reaches the owner.
 
-**Rejected.** *Showing the codes on screen* — the owner kept errors as they read today (2026-09-28); the codes are for code. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
+**Rejected.** *Showing the codes on screen* — the codes are for code; people read the engine's words and the hint. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
 
-## A move to another account takes the row out of its reconciliation (2026-09-30, owner)
+## A move to another account takes the row out of its reconciliation (2026-09-30)
 
 **Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` in Home.
 
@@ -451,7 +433,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 - Asking each time whether to unassign or to assign into a draft on the new account: a new screen for a choice whose second answer is the normal reconciling flow anyway.
 - Counting the requests sent, or deciding "left" from the rows read before the save: wrong for a split transaction, and a guess where the engine's answer says.
 - Reading the line again after a move to learn what changed: an extra round trip for what the answer already holds.
-- `0 rows → <account>` when nothing moved: a note about nothing; the owner chose silence.
+- `0 rows → <account>` when nothing moved: a note about nothing.
 
 ## Missing settings stop a multi-write run (2026-10-11)
 
@@ -463,9 +445,9 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## The practice engine serves only the engine's shipped code, and only a listed version is recorded (2026-10-28)
 
-**Context.** The engine coders work in the same checkout the practice engine runs from. A practice engine started from that working tree serves their unfinished work: this client once recorded a contract version that never shipped, and a restart failed while the checkout was mid-edit.
+**Context.** The engine coders work in the same checkout the practice engine runs from. A practice engine started from that working tree serves their unfinished work, including contract versions that never ship, and fails to restart while the checkout is mid-edit.
 
-**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). `scripts/practice-engine up` runs it, knows its process again by its command and its working folder in the export, and stops it by its pid; the guard lets the tester start it by hand only that way. The drift script records a contract version only when the served contract's own change log lists it, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
+**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). The drift script records a contract version only when the served contract's own change log lists it, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
 
 **Rejected.** *Starting uvicorn from the checkout with its own Python* — it serves whatever the checkout holds, half-built work included. *Trusting the served version alone* — a draft looks like any other version until it never ships.
 
@@ -485,7 +467,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Rejected.** *Loosening each assertion to survive wrapping* — every new test would have to remember it.
 
-## The tag picker is one full list, narrowed by typing (2026-10-13, owner)
+## The tag picker is one full list, narrowed by typing (2026-10-13)
 
 **Context.** The LOG bar's `#` lists every tag. The engine can also say which tags a category's transactions use, most-used first (contract: GET /v1/categories/{category_id}/hashtags).
 
@@ -493,7 +475,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Rejected.** *A category's own tags first, a divider, then the rest* — two groups need a second order, and each client would pick its own. *The engine sending that two-group list* — declined by the engine coders: with one list there is nothing to merge. *Hiding the tags a category has never used* — any tag may go on any category. *A typed command listing a category's tags* — the TUI is the surface in use.
 
-## Completing a statement asks for every balance it needs first (2026-10-30, owner)
+## Completing a statement asks for every balance it needs first (2026-10-30)
 
 **Context.** The engine refuses to complete a statement with a balance not entered, and drafts take an empty ending balance for when the paper has not arrived and a blank beginning balance when a line in a new currency joins (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered"). It also refuses a currency with money at the start the statement does not cover (contract: POST /v1/statements/{statement_id}/complete, "Every currency with money at the start has balances in it").
 
@@ -501,7 +483,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Rejected.** *One box that saves and completes on a single `enter`* — completing is the step that seals rows, and it keeps its own `y`. *Refusing `c` with the engine's words only* — the user then has to find where the balance is typed. *A `Failed` title for this flow* — the screen's other refusals say `Couldn't …`.
 
-## A create leaves an empty colour to the engine (2026-10-15, owner)
+## A create leaves an empty colour to the engine (2026-10-15)
 
 **Context.** A create with no colour gets the engine's default, and an update still refuses a null one (contract: "Colour format").
 
@@ -511,9 +493,9 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## The unit suite runs in parallel by default (2026-10-16)
 
-**Context.** The agent loop spent most of its time waiting on `pytest tests/unit`: about 165 s run serially, four or more times per task. With pytest-xdist it takes about 25 s.
+**Context.** Run serially, the unit suite is several times slower, and the loop runs it on every task.
 
-**Decision.** `addopts = ["-n", "auto"]` in pyproject.toml, so the tests gate, CI and hand runs all run in parallel; `-n0` forces one process. pytest-xdist is a dev dependency, not optional. It sits in addopts because pytest-cov reads `-n` before any conftest loads, so only addopts or the command line give CI a parallel coverage run.
+**Decision.** `addopts = ["-n", "auto"]` in pyproject.toml, so the tests gate, CI and hand runs all run in parallel; pytest-xdist is a required dev dependency. It sits in addopts because pytest-cov reads `-n` before any conftest loads, so only addopts or the command line give CI a parallel coverage run.
 
 **Rejected.** *An opt-in `-n` flag:* the gate and CI would not get it. *Setting `-n` from a conftest hook:* pytest-cov does not see it and crashes.
 
@@ -525,11 +507,11 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Rejected.** *Letting the default parallel run spread them:* they would race on the shared user and the sealed periods.
 
-## The whole unit suite runs once per task, and docs never trigger it (2026-10-22, owner)
+## The whole unit suite runs once per task, and docs never trigger it (2026-10-22)
 
-**Context.** The unit suite takes about 45 s and a task ran it three or four times: at the builder's stop, again at commit on the same code, and by hand from builders, reviewers and the librarian despite their instructions. Common practice keeps commit-time checks fast, runs the full suite once when the work is done, and keeps CI as the safety net; build tools such as Bazel never re-test code that has not changed since it passed.
+**Context.** Without a gate a task runs the whole unit suite three or four times on the same code: at the builder's stop, at commit, and by hand. Common practice keeps commit-time checks fast, runs the full suite once when the work is done, and keeps CI as the safety net; build tools such as Bazel never re-test code that has not changed since it passed.
 
-**Decision.** The tests gate saves a fingerprint after a green run (the tree with untracked files, the venv's packages and Python version, the pytest command) and skips pytest when the builder's stop or a commit sees the same fingerprint. Every `.md` file and everything under `docs/` are left out of it, the owner's pick, so a docs-only change runs no tests; a doc edit that breaks a test that reads docs (`test_docs_links.py`, parts of `test_claude_hooks.py`) is caught by the librarian's docs-link run or by CI after the push. Anything that stops the fingerprint being computed, read or saved makes pytest run. The guard blocks a builder, reviewer or librarian running the whole suite by hand — enforcement by tooling, since written instructions did not hold — and names what to run instead; a bare `--lf` counts as whole-suite, since after a green run it reruns everything.
+**Decision.** The tests gate skips pytest on code it has already passed, and docs are left out of what it compares, so a docs-only change runs no tests; a doc edit that breaks a test that reads docs is caught by the librarian's docs-link run or by CI after the push ([tests_gate.py](../.claude/hooks/tests_gate.py)). The guard blocks a builder, reviewer or librarian running the whole suite by hand, enforcement by tooling, since written instructions do not hold.
 
 **Rejected.** *Running only the tests a change can affect (`pytest-testmon`):* once the gate skips unchanged code the builder's stop is the only full run, and testmon would move it to commit, where a failure costs a round trip, and add a data file that can go stale; revisit past about 90 s. *Running the doc-reading tests on a docs-only change:* a list of doc-reading tests to keep in step, for a check CI already makes. *Keeping docs in the fingerprint:* the orchestrator edits docs between the builder's stop and every commit, so the commit would rerun the suite on nearly every task.
 
@@ -537,31 +519,27 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Context.** Sending a tester just to start or stop the practice engine added an agent round trip to every task that needed the contract live. The start's output carries both practice users' keys, which must never reach a file.
 
-**Decision.** `scripts/practice-engine up|down` starts, reseeds and stops the `:8002` engine, and any agent may run it; the orchestrator runs it around tasks. The guard allows only the whole command in a few exact forms, with no chaining, substitution, env prefix or wrapper, so the key stays off disk ([runtime.md](runtime.md) "Working against the live engine"). The script takes no options and runs under `bash -p` with every inherited variable unset and `env -i`, so nothing the caller sets can point it at the live engine or the real ledger.
+**Decision.** `scripts/practice-engine up|down` starts, reseeds and stops the `:8002` engine, and any agent may run it; the orchestrator runs it around tasks. The guard allows only the whole command in a few exact forms, so the key stays off disk, and the script takes no options and inherits no environment, so nothing the caller sets can point it at the live engine or the real ledger ([scripts/practice-engine](../scripts/practice-engine)).
 
 **Rejected.** *Keeping the start tester-only:* slow. *A script that takes options or inherits the environment:* one variable could reach the real ledger.
 
-## Engine changes arrive as one catch-up file and leave as one reply (2026-10-17, owner)
+## Engine changes arrive as one catch-up file and leave as one reply (2026-10-17)
 
-**Context.** The engine sent one hand-off file per change, each with its own contract range, so files overlapped, a version between two files could go unexplained, and a catch-up spec leaned on a file that lived until the spec retired. The engine coders heard nothing back once this client caught up.
-
-**Decision.** The owner asks the engine coders for one hand-off file covering every contract change since the version this client last caught up to ([from-engine/README.md](from-engine/README.md)). The orchestrator turns the waiting files into catch-up specs, grouped as one unless parts are independent; each spec takes the engine's "What the TUI does", "Done when" and declined points, and the hand-off file is deleted. Each catch-up spec ends with a reply, written once the spec is done, that tells the engine the version caught up to, how each of its checks went, and any contract problems found ([to-engine/README.md](to-engine/README.md)). That reply's version is the one quoted for the next catch-up.
+**Decision.** One hand-off file covers every contract change since the version this client last caught up to; it becomes catch-up specs and is deleted, and each catch-up spec ends with a reply naming the version caught up to, how each check went and any contract problems found ([from-engine/README.md](from-engine/README.md), [to-engine/README.md](to-engine/README.md)).
 
 **Why.** One range per catch-up leaves no gap and no double work. The spec holding everything makes it stand alone, so the hand-off file adds nothing once the spec exists. The reply closes the loop: this app is the contract's first real user, and the engine coders learn what held up before the web and iOS clients build on it.
 
 **Rejected.** *One file per engine change:* overlapping ranges and gaps. *Keeping the hand-off file until the spec retires:* two homes for the same facts.
 
-## An ask leaves the outbox once it is handed over (2026-10-24, owner)
+## An ask leaves the outbox once it is handed over (2026-10-24)
 
-**Context.** An ask stayed in [to-engine/](to-engine/) from the day it was written until a hand-off answered it, so the folder mixed asks still to carry with asks the engine already held, and on 2026-10-24 the owner carried an ask the engine coders had already approved a second time.
-
-**Decision.** An ask is deleted when the owner says it is handed over, as a reply is ([to-engine/README.md](to-engine/README.md)). From then on the engine holds it: its hand-off answers it, and whatever here waits on it (a spec's task, a todo.md item) names it by title. A revised ask is a file in the outbox again until it is handed over.
+**Decision.** An ask is deleted when the owner says it is handed over, as a reply is ([to-engine/README.md](to-engine/README.md)); whatever here waits on it names it by title.
 
 **Why.** The outbox lists only what the owner still has to carry, so nothing goes to the engine twice. The engine's copy and git history keep the ask's text, and the work waiting on it keeps its title in sight.
 
 **Rejected.** *Keeping each ask until a hand-off answers it:* the folder no longer tells the owner what to carry, and an ask the engine already holds gets carried again.
 
-## The bank import's preview is one table: a mark and a reason per file row (2026-10-18, owner)
+## The bank import's preview is one table: a mark and a reason per file row (2026-10-18)
 
 **Decision.** (1) The preview lists every row the engine read, numbered by its spreadsheet
 row, each with a **mark** and a **reason** from a short fixed list, the reason alone on
@@ -573,21 +551,15 @@ reconciliation is ✗ `Not moved: <statement> is completed`**: with a reconcilia
 right the bank's day and the ledger's agree, so the row points at a reconciliation completed
 wrong. It says "not moved", because the bank's title and operation number still land on it
 (contract: POST /v1/transactions/import). (5) **The days where the file and the ledger disagree
-stay on the preview only**; after importing, the screen gives the counts alone, since the
-preview already showed every row. (6) The stopping statement is named by one read of it by its
-id, once per distinct id, in the worker (contract: GET /v1/statements/{statement_id}).
-The engine keeps a reference to another record an id alone, so it declined to put the name in
-the import's answer. The fallback `a reconciliation` stays for a read that fails, and one failed
-read does not stop the others, so the other rows keep their names. (7) **A row of `0` is
-marked `·`, `Skipped: amount 0`, dim, and counted**: the engine never matches or creates it, so
-it is neither ✓ nor ✗. (8) **On a card, a `cur` column after the amount** names the currency of
-the account the engine put the row on. The owner picked 2 B and 3 B in
-[expense-world-import-whole-file.html](mockups/expense-world-import-whole-file.html).
+stay on the preview only**; after importing, the screen gives the counts alone. (6) The stopping
+statement is named by one read of it by its id (contract: GET /v1/statements/{statement_id}),
+since the engine keeps a reference to another record an id alone and declined to put the name in
+the import's answer. (7) **A row of `0` is marked `·`, `Skipped: amount 0`**: the engine never
+matches or creates it, so it is neither ✓ nor ✗. (8) **On a card, a `cur` column** names the
+currency the engine filed the row under.
 
-**Why.** The old preview grew a suffix on its `match` column, or a note under the summary, for
-each thing the engine learned to do (`+code`, `+title`, the bank's day), and each brought its own
-wording questions. A reason per row from a fixed list takes a new engine behaviour as one more
-reason.
+**Why.** A reason per row from a fixed list takes a new engine behaviour as one more reason,
+instead of a new suffix or note, each with its own wording questions.
 
 **Rejected.** *✓ only for a new transaction* — a re-imported file would be mostly ✗ with nothing
 wrong. *The reason followed by what changed* (`· day 03 Oct → 04 Oct`) — the owner keeps the
@@ -604,8 +576,8 @@ hold in the place the citation names. Its docstring defines what counts as a hea
 with the rest of the live suite, so the tester's acceptance check catches a citation the engine
 moved or renamed.
 
-**Why.** The engine moves and renames rules between versions without changing behaviour
-(contract `15063ec5587491ad` moved a dozen and renamed several), and a citation that no longer
+**Why.** The engine moves and renames rules between versions without changing behaviour, and a
+citation that no longer
 resolves sends the next reader looking for a rule that is not where it says. A name-and-place
 check is mechanical, so it is a test, not a sweep someone has to remember.
 
@@ -628,21 +600,18 @@ bug back.
 **Rejected.** *Leaving an emptied note unsent* — the old note stays, and the owner's emptying is
 silently lost.
 
-## An archived account's frozen writes are not offered, and a refusal is the engine's words (2026-10-18, owner)
+## An archived account's frozen writes are not offered, and a refusal is the engine's words (2026-10-18)
 
 **Decision.** The engine freezes an archived account: of its transactions only the category,
 hashtags and note change and an empty title or operation code is filled once, and its
 reconciliations don't change (contract: POST /v1/accounts/{account_id}/archive). The app reads
 `is_archived` from the accounts read each screen already makes and stops offering what the
 engine would refuse: (1) the ledger hides `d` on such a row and draws the row as any other,
-while `s` stays and opens the Edit form as `⏎` does (owner, 2026-10-25); (2) the Edit form shows read-only the fields the line's `edit_limits` names, as for an
-opening balance or a completed reconciliation, each with the engine's sentence saying why ("Notes
-keep the engine's words, and a read-only line says why"), and offers no `^n` or `^x` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"); (3) a frozen change sent anyway (a screen opened before the archive) shows
-the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps
-listing only active accounts. The owner picked each from
-[expense-world-archived-account.html](mockups/expense-world-archived-account.html) (screens
-1 A, 2 B, 3 A, 4 A); screen 1 A holds for the row and `d`, while `s` stays ("The Edit form's
-keys and words name what it does"). The engine still judges every write.
+while `s` stays ("The Edit form's keys and words name what it does"); (2) the Edit form shows
+read-only the fields the line's `edit_limits` names, with the engine's sentence saying why, and
+offers no `^n` or `^x` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"); (3) a
+frozen change sent anyway shows the engine's words alone; (4) the Reconciliations screen lists
+only active accounts. The engine still judges every write.
 
 **Why.** Offering a key the engine always refuses invites a refusal for nothing, and every
 client would meet it. Reading the engine's own flag keeps the rule in the engine: the app adds
@@ -654,7 +623,7 @@ the owner keeps the ledger as it is. *A line naming where to unarchive* — the 
 say it. *A question that unarchives and retries* — it would make unfreezing a side effect of an
 edit. *Listing archived accounts on Reconciliations, read-only* — nothing there can change.
 
-## The sheet import brings a split purchase in as one split transaction (2026-10-22, owner)
+## The sheet import brings a split purchase in as one split transaction (2026-10-22)
 
 **Context.** One bank movement split across categories is several rows in the owner's sheet,
 and the rows of one movement share a `COD_EECC` (`SIG-202603-029`). The sheet has no column for
@@ -664,10 +633,9 @@ it which rows were one movement.
 **Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, grouped by the
 engine, which reads the whole sheet (contract: POST /v1/transactions/import-sheet); the app
 shows the count the engine sends ([commands.md](commands.md) "`expense import sheet`"), and the
-groups are checked in the app after the import. (2) **`COD_EECC` only groups** (owner,
-2026-10-23): a movement's statement line gives its place in the statement's order and comes only
+groups are checked in the app after the import. (2) **`COD_EECC` only groups**: a movement's statement line gives its place in the statement's order and comes only
 from a reconciliation. (3) **Letter case counts in a `COD_EECC`:** `SIG-1` and `sig-1` are two
-movements. This is the owner's rule for every match (2026-10-22): a field a person types, a
+movements. This is the owner's rule for every match: a field a person types, a
 name, is matched without regard to case; a field from the bank or a program, an operation code
 or a statement code, is matched exactly. A bank file's operation numbers are compared the same
 way.
@@ -675,12 +643,12 @@ way.
 **Rejected.** *Keeping `COD_EECC` as each line's statement line* — a statement line comes only
 from a reconciliation, and 2,275 hand-typed codes in the ledger would clash with the ones a
 reconciliation makes. *Creating each month's reconciliations and their statement order at the
-import, read from `COD_EECC`* (owner, 2026-10-24) — reconciling is the owner's call, made later.
+import, read from `COD_EECC`* — reconciling is the owner's call, made later.
 *Folding case in a `COD_EECC` or an operation code* — they come from a program, not a person,
 and a client that folded them would merge two movements the engine keeps apart. *Listing every
 group on the dry run* — the owner checks them in the app.
 
-## The sheet import creates its names in a step of its own, and a dry run never writes (2026-10-27, owner)
+## The sheet import creates its names in a step of its own, and a dry run never writes (2026-10-27)
 
 **Context.** The engine reads the whole sheet and writes everything or nothing, but it never
 creates a name, and it answers a dry run's counts only once every account, category and hashtag
@@ -704,7 +672,7 @@ the step* — `import sheet` stays the only command.
 *The app counting the split rows itself* — only possible after an apply, and the grouping is the
 engine's rule.
 
-## A person carries an opening balance (2026-10-28, owner)
+## A person carries an opening balance (2026-10-28)
 
 **Context.** A person is someone the owner lends to or borrows from, and the balance on their
 account is that debt. When tracking starts with someone who already owed, or was already owed,
@@ -720,7 +688,7 @@ person.
 **Rejected.** *A person's opening balance only from the sheet import* — a starting debt is a
 balance like any other, and the app would have no way to set or fix one by hand.
 
-## An account becomes a person, and back, with one key (2026-10-22, owner)
+## An account becomes a person, and back, with one key (2026-10-22)
 
 **Context.** The owner's sheet records loans the way the app does: every movement with a person
 is mirrored in an account named after that person, and its balance is the debt (ALEJO, ALONSO,
@@ -735,9 +703,8 @@ new group, and the note says what it became, so a second `t` turns it back. (2) 
 the engine's words.** An account's opening balance goes with it both ways, since a person
 carries one as a bank account does (see "A person carries an opening balance"). A person never
 has statements, since a statement checks the ledger against a bank statement and a person sends
-none (owner, 2026-10-22). The engine refuses `t` on an account that has ever been in one, a
-deleted one included (contract: "Error reasons"), so no delete lets it through and
-`HAS_RECONCILIATION` shows in the engine's words alone (owner, 2026-10-28). (3) **The sheet import never matches names itself:** the
+none. The engine refuses `t` on an account that has ever been in one, a deleted one included
+(contract: "Error reasons"), and `HAS_RECONCILIATION` shows in the engine's words alone. (3) **The sheet import never matches names itself:** the
 engine proposes an existing account for each sheet name
 (contract: POST /v1/transactions/import-sheet), so a re-run after a conversion is the engine's
 to match.
@@ -746,18 +713,13 @@ to match.
 the sheet, while a plain account action also fixes any account created as the wrong kind.
 *Asking before `t`* — nothing is lost, and `t` again undoes it.
 
-## A hint says what `⏎` does there, and a note names what the app can't read (2026-10-24, owner)
+## A hint says what `⏎` does there, and a note names what the app can't read (2026-10-24)
 
-**Decision.** (1) **A bar form's hint says "enter to save" only where `⏎` saves**; where it moves
-on it says "enter to go on" (NAME on Manage ▸ Accounts and Categories, the Edit form's TITLE, a
-new reconciliation's NAME, which keeps its example: `e.g. “April 2026” · enter to go on`), and
-the account's COLOR reads `optional · enter keeps it · ↑↓ another swatch`; a guard test walks
-every bar form ([tui.md](tui.md) "The bar forms' keys"). (2) **A non-date on the Edit form's DATE
-is refused at `⏎`** with `Date: use YYYY-MM-DD.`, the words of the app's other dates, on both
-Edit forms. (3) **The LOG bar names a signed amount it can't read**: `tottus -13.853,20 $BCP PEN`
-reads `can't read -13.853,20 as an amount`, and "a number needs a sign" is left to a line with no
-signed number. (4) **The bulk `c`, `b` and `h` pick is a full screen**, the rows it changes
-above its bar ("Home is the month", point 3).
+**Decision.** (1) **A bar form's hint says "enter to save" only where `⏎` saves**, and "enter to
+go on" where it moves on; a guard test walks every bar form ([tui.md](tui.md) "The bar forms'
+keys"). (2) **A non-date on the Edit form's DATE is refused at `⏎`**, in the words of the app's
+other dates. (3) **The LOG bar names a signed amount it can't read** rather than saying it needs
+a sign.
 
 **Why.** A hint or note that says something the screen does not do teaches the wrong key, and
 a typo must never close the app and lose what was typed.
@@ -765,7 +727,7 @@ a typo must never close the app and lose what was typed.
 **Rejected.** *Refusing a bad date only at save* — the note would come after the line is left,
 where every other line of the form is checked at `⏎`.
 
-## Refused rows read one line per kind of error (2026-10-22, owner)
+## Refused rows read one line per kind of error (2026-10-22)
 
 **Decision.** When a save of several rows is refused, the LOG bar's lines under the table and the ledger's bulk `c`, `b` and `h` note read one line per
 kind of error, from one shared helper: the field the engine names, its
@@ -778,7 +740,7 @@ which counts the items.
 could read the same with nothing to say which field each is about. *Grouping by the top-level
 message* — it carries a count, so one kind sent twice would read as two.
 
-## The Edit form saves a whole line in one write, and the engine says what is locked (2026-10-25, owner)
+## The Edit form saves a whole line in one write, and the engine says what is locked (2026-10-25)
 
 **Decision.** (1) **Every save from the Edit form on a bank line is one
 `PUT /bank-lines/{bank_line_id}`**: the line's fields and its full set of parts together, a kept
@@ -803,7 +765,7 @@ client reads the same answer instead of keeping its own copy of the rules.
 part* — a chain that can land halfway. *Reading the line's reconciliation to decide what is
 locked* — an extra read, and a copy of the engine's rules in the client.
 
-## Notes keep the engine's words, and a read-only line says why (2026-10-26, owner)
+## Notes keep the engine's words, and a read-only line says why (2026-10-26)
 
 **Decision.** (1) **Every note shows the engine's words as text**: a toast whose words the app
 did not write is shown with styling off, and words set inside the app's own styling are escaped
@@ -811,13 +773,10 @@ exactly, so a `[` in them never hides part of the message; a guard test refuses 
 would read them as styling. (2) **A read-only line on the Edit form says why, in the engine's
 sentence**: each line field keeps its `read-only`, one line under them gives each distinct
 sentence once with the lines it covers, and each part column's `read-only` line carries its
-sentence after a `·` (pick 1 B of
-[expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)). The
-sentence is the `message` of the line's `edit_limits`, the same words the write refuses that
-field with (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). (3) **A refusal that
-stops a run of writes reads the same everywhere**: the bulk edit shows the LOG bar's `Failed`
-note, both from one helper, and a row refused for its own reason keeps its own note (pick 2 A).
-(4) **The question before completing a reconciliation names all six things it locks** (pick 3 A).
+sentence after a `·`. The sentence is the `message` of the line's `edit_limits`, the same words
+the write refuses that field with
+(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). (3) **A refusal that stops a run of writes reads the same everywhere**, from one
+helper. (4) **The question before completing a reconciliation names all six things it locks.**
 
 **Why.** The engine's words are its contract with every client; text that vanishes or is
 restyled is a lossy copy of them. The engine sends the reason for each lock in words, so every
@@ -826,11 +785,11 @@ drift from the engine's. One problem reading one way on every screen is easier t
 
 **Rejected.** *A table in the app from each reason code to a sentence* — a copy of the engine's
 wording in every client; the engine sends the sentence instead. *The sentence beside every
-read-only line* (pick 1 A) — the same sentence three times on a line in a completed
-reconciliation. *A second sentence in the complete question saying what still changes* (pick
-3 B) — longer, and the Edit form shows it.
+read-only line* — the same sentence three times on a line in a completed reconciliation. *A
+second sentence in the complete question saying what still changes* — longer, and the Edit form
+shows it.
 
-## A list shows a name as the engine holds it, `[` and all (2026-10-27, owner)
+## A list shows a name as the engine holds it, `[` and all (2026-10-27)
 
 **Decision.** Every list cell that holds a name or a title is drawn as plain words, never read
 as styling: one helper, `list_cell` in
@@ -838,10 +797,7 @@ as styling: one helper, `list_cell` in
 coloured amount, a mark) as built and anything else as words, and every table goes through it,
 the ledger, Manage ▸ Accounts, the reconciliation tick list and the LOG bar's staged rows among
 them; Home's balances and the bank import preview build their names as words too. An account
-named `BCP [like this]` shows as `BCP [like this]` everywhere
-([expense-world-bracketed-names.html](mockups/expense-world-bracketed-names.html)). The bulk
-edit's note sets the engine's words so the app's own styling never closes straight after them,
-which keeps a trailing `\` whole. The guards are
+named `BCP [like this]` shows as `BCP [like this]` everywhere. The guards are
 [test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py) and
 [test_toast_words.py](../tests/unit/test_toast_words.py).
 
@@ -852,20 +808,16 @@ gets this by default, instead of each screen escaping its own names.
 **Rejected.** *Escaping each name where a screen builds its row* — every new list would have to
 remember it, and one that forgot would lose text silently.
 
-## The Edit form's keys and words name what it does (2026-10-25, owner)
+## The Edit form's keys and words name what it does (2026-10-25)
 
 **Decision.** (1) **`s` stays on an archived account's ledger row and opens the Edit form as `⏎`
 does**; only `d` leaves the footer there, and the form reads what is read-only from the line's
 `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). (2) **The words
-follow the form**: the ledger's footer reads `s Edit` and its `?` card "Edit the transaction and
-its parts", the "no batch" `?` card says the same for `⏎`, and a refused part names its field by
-the parts table's column word (`part 1 (category)`, `(hashtags)`, `(note)`, `(amount)`), from
-one mapping derived from the table's columns (`FIELD_WORDS` in
-[parts_table.py](../expense/tui/widgets/parts_table.py)). (3) **An opening balance's hashtag
-refusal on the Edit form shows the engine's words alone**; "Leave the opening balance out of the
-selection." stays on the ledger's bulk `h`, chosen by the refusal's `hashtag_ids` key, while the
-whole-line write names `parts.<i>.hashtag_ids`. The owner picked 1 A, 2 A and 3 A in
-[expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html).
+follow the form**: the ledger's footer reads `s Edit`, and a refused part names its field by
+the parts table's column word (`part 1 (category)`), from one mapping derived from the table's
+columns (`FIELD_WORDS` in [parts_table.py](../expense/tui/widgets/parts_table.py)). (3) **An
+opening balance's hashtag refusal on the Edit form shows the engine's words alone**; "Leave the
+opening balance out of the selection." stays on the ledger's bulk `h`.
 
 **Why.** `⏎` and `s` open one form, so hiding one of them on a row hides nothing, and the engine
 still judges every write. Words that describe a replaced screen promise the wrong screen. A field
@@ -879,51 +831,39 @@ field on the "no batch" card* — three lines for what "the transaction and its 
 one. *A line of the form's own for the opening balance's hashtag refusal* — rare, its field
 already shows read-only, and the engine's words are enough.
 
-## A card's statement is one statement, and a month closes from the bank's PDF (2026-10-25, owner)
+## A card's statement is one statement, and a month closes from the bank's PDF (2026-10-25)
 
-**Decision.** (1) **A card is two bank accounts, one per currency, sharing a statement code**,
-and the engine acts on a card's month as one statement: one create makes both halves, and a
-complete, revert, delete or `PUT` on either half writes both
-(contract: "Statements", "Every write acts on the whole statement"). (2) **A card lists its statements from one
-`GET /statements?holder_id=`**, one row per statement, each account's balances from its entry in
-`balances`, never matched by days or names; what the row
-shows is in [tui.md](tui.md) "The Statements browse". (3) **The
+**Decision.** (1) **A card's month is one statement** covering every currency of the account,
+and every write acts on the whole statement
+(contract: "Statements", "Every write acts on the whole statement"). (2) **An account lists its statements from one
+`GET /statements?account_id=`**, one row per statement, each currency's balances from its entry
+in `balances`; what the row shows is in [tui.md](tui.md) "The Statements browse". (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
 **No screen orders a statement, ticks the lines it still needs or edits a statement's name, days
 and balances.** A month's reconciliation stays open until the bank's PDF statement arrives, and
 uploading the PDF closes it, the engine reading, matching and completing
-([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). Until
-then the live contract suite proves each of those engine parts ([runtime.md](runtime.md)
-"Working against the live engine").
+([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 
-**Why.** A statement is one thing on paper, so it is one row and one write, and the engine, not
-each client, knows which halves belong together. The owner checks a month against the bank's
-PDF, not by linking rows one at a time; the PDF already holds each currency's balances, every
-line and the paper's order, so reading it replaces every hand step.
+**Why.** A statement is one thing on paper, so it is one row and one write. The owner checks a
+month against the bank's PDF, not by linking rows one at a time; the PDF already holds each
+currency's balances, every line and the paper's order, so reading it replaces every hand step.
 
-**Rejected.** *A heading per statement with its two halves under it* (1 B) — three lines a month
-show a third as many months. *Pairing a card's halves in the app by code and days* — a copy of a
-rule the engine holds. *A screen to put a statement in order with `shift+↑↓`, the lines still
-to tick under it, and an `e` form for the name, days and balances* — picked, then replaced by the
-PDF upload before it was built: each is a hand step the PDF does. *Ticking lines into an open
-month by date as they are imported* — with no ending balance before the PDF there is nothing to
-compare them against.
+**Rejected.** *A heading per statement with a line per currency under it* — three lines a month
+show a third as many months. *A screen to put a statement in order with `shift+↑↓`, the lines
+still to tick under it, and an `e` form for the name, days and balances* — each is a hand step
+the PDF does. *Ticking lines into an open month by date as they are imported* — with no ending
+balance before the PDF there is nothing to compare them against.
 
 ## The suites copy the engine's answers and leave the practice user as they found it (2026-10-25)
 
-**Decision.** (1) **The unit suite's fake engine answers a reconciliation write in the engine's
-shape**, a card's twin included, through answer builders marked with the endpoint they stand
-for, and the drift script reports any field the contract requires that a marked builder leaves
-out ([runtime.md](runtime.md) "Fixture drift"). (2) **Every request body a unit test sends is
-checked for the fields the engine sets itself** (`line_code`, `statement_line`,
-`statement_place`), which the engine refuses in every body. (3) **Every live contract test fails
-when it leaves an account, category or hashtag it made**, the rows the engine creates for itself
-excepted, and a cleaner removes leftovers by name prefix ([runtime.md](runtime.md)
+**Decision.** (1) **The unit suite's fake engine answers a write in the engine's shape**,
+through answer builders marked with the endpoint they stand for, which the drift script checks
+([runtime.md](runtime.md) "Fixture drift"). (2) **Every request body a unit test sends is
+checked for the fields the engine sets itself**, which it refuses in every body. (3) **Every live
+contract test fails when it leaves an account, category or hashtag it made** ([runtime.md](runtime.md)
 "Leftovers"). (4) **Engine-side probes use a practice user of their own**, never the one this
-client's suite and hand checks use; the engine coders took that on 2026-10-25, after their
-probes left about 60 accounts and 55 reconciliations here. (5) **The create form's begin balance
-hint says a statement holding the opening balance begins at 0.00**, drawn in
-[expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html).
+client's suite and hand checks use. (5) **The create form's begin balance hint says a statement
+holding the opening balance begins at 0.00.**
 
 **Why.** A fake that answers `{}` hides every field a screen might read, and a fixture missing a
 required field passes until the real engine answers. A test that leaves records takes statement
@@ -938,7 +878,7 @@ probe remembering to delete what it made* — a second practice user cannot leak
 all. *A one-line hint, "0.00 on the first one"*, and *calling the paper's figure the "starting
 balance"* — the first is not the exact rule, the second changes words already in use.
 
-## A held reserved name is the engine's words alone, proven on each side (2026-10-25, owner)
+## A held reserved name is the engine's words alone, proven on each side (2026-10-25)
 
 **Decision.** (1) **When the Edit form's whole-line write is refused with `RESERVED_NAME_HELD`
 on `hashtag_ids`, the form shows the engine's words alone**, with "Nothing was saved." and the
@@ -957,15 +897,13 @@ exists and can never be deleted, and no hashtag of a user's may take the name `P
 (contract: "Hashtags"). A pick's name means nothing once its spec is deleted.
 
 **Rejected.** *A line of the form's own for the refusal* — the engine's words are enough.
-*Faking the state on the shared practice user* — the engine allows no way into it. *Holding the
-spec open for the live test* — the owner chose to finish the unit half first and ask the engine
-for the second practice user.
+*Faking the state on the shared practice user* — the engine allows no way into it.
 
-## A close flags lines instead of refusing, and a card's other account is the engine's (2026-10-26, owner)
+## A close flags lines instead of refusing, and a statement is the account's (2026-10-26)
 
 **Decision.** (1) **Completing a statement goes through when it adds up, and the app shows the
-lines the close flagged** on a screen of its own, pushed right after the complete, every account
-of a holder in one list, each line opening in the Edit form or deleted after the question; back on
+lines the close flagged** on a screen of its own, pushed right after the complete, in one list,
+each line opening in the Edit form or deleted after the question; back on
 the statement, a `⚑` line under the header and `f` open the list again while flagged lines are
 left (contract: POST /v1/statements/{statement_id}/complete).
 Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
@@ -977,53 +915,39 @@ close's `review_lines` only say whether it flagged any, and how many until the s
 counted them. (3) **A statement is
 the account's**: it covers the currencies the account holds, and the statement code is the
 account's (contract: "What an account is", "Statement code"), never a match of statement codes
-across accounts. (4) **An
-archived card account with no statement gets no column** on the card's statement list (owner,
-question 2, A). (5) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
-close flags such a line instead of being blocked by it (owner, question 3, A, drawn in
-[expense-world-no-batch-caption.html](mockups/expense-world-no-batch-caption.html)). (6) **The
-practice engine's second key, the reserved-names practice user's, is handled like the first**:
-printed to the terminal only, kept out of files by the guards, and used only by the live tests
-that draw `RESERVED_NAME_HELD` ([runtime.md](runtime.md) "Working against the live engine").
+across accounts. (4) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
+close flags such a line instead of being blocked by it. (5) **The practice engine's second key,
+the reserved-names practice user's, is handled like the first** ([runtime.md](runtime.md)
+"Working against the live engine").
 
-**Why.** Which lines a close leaves behind, and which account is a card's other half, are
-engine rules; a copy in each client drifts. A line dated in a statement but in none is often a
-later statement's, so stopping the close on it blocked the owner for a line that was fine. A
-screen right after the close shows them while the owner is on the statement, and the engine's
-review list reads them again at any time, in the statement's order. The engine reads and orders them because a read per line and a sort of
-the client's own are what every client would otherwise copy (2026-10-27).
+**Why.** Which lines a close leaves behind is an engine rule; a copy in each client drifts. A
+line dated in a statement but in none is often a later statement's, so stopping the close on it
+would block the owner for a line that is fine. A screen right after the close shows them while
+the owner is on the statement, and the engine's review list reads them again at any time, in the
+statement's order, so no client reads them one by one or sorts them itself.
 
 **Rejected.** *One read per flagged line, sorted by the app* — a call per line and an ordering
-rule copied in each client; the engine's review list and `sort=statement` replace both. *The
-flagged lines listed on the statement itself* (1 B) — they sit among the
-statement's own lines, where each needs keys of its own. *A column for an archived card account
-with no statement* — it would always be empty. *Dropping the `!` mark* (question 3, B) — the
-mark points at the lines worth opening first; the caption only had to stop saying they block.
+rule copied in each client. *The flagged lines listed on the statement itself* — they sit among
+the statement's own lines, where each needs keys of its own. *Dropping the `!` mark* — it points
+at the lines worth opening first.
 
-## A statement PDF comes in through the import door, and its preview is the check (2026-10-27, owner)
+## A statement PDF comes in through the import door, and its preview is the check (2026-10-27)
 
 **Decision.** (1) **A month's PDF is dropped on the LOG bar**, as a bank download is, and its
 account is picked from the download's own list; several files dropped together go one by one,
 each its own way. A file's kind is its name's ending alone, and the engine judges what is inside
-(contract: POST /v1/statements/import). The owner picked A1, A2 in
-[expense-world-statement-pdf-upload.html](mockups/expense-world-statement-pdf-upload.html) and
-screens 1 to 4, 5 A and 6 A in
-[expense-world-statement-pdf-screens.html](mockups/expense-world-statement-pdf-screens.html).
-(2) **Both uploads send one body**, built in one place, since the contract gives both routes the
+(contract: POST /v1/statements/import). (2) **Both uploads send one body**, built in one place, since the contract gives both routes the
 same three keys, and their screens share one preview and one result screen; what differs is
 what each shows. (3) **A `CONCURRENT_CHANGE` on the apply leads to a fresh preview, never a
 resend**, whatever key the engine names, because the contract says to send it again after the
 ledger moved. (4) **The preview is the check against another account's PDF**: the engine does
 not compare the paper's number with the account picked, and a wrong paper shows almost every
 row as new before anything is written. (5) **The upload's small details follow the download's
-screens**: no `+` on an amount, the counts line naming only what is not zero beyond `in the
-ledger` and `new`, `file n of m` in a run of several files, and a refusal's envelope code over a
-`!` line per key. (6) **The live suite makes its statement PDFs itself**, with no PDF library,
-and covers the savings paper only, since the contract does not print the card's column header;
-the engine ask "Publish one made-up sample statement PDF per paper, so every client can test the
-statement upload" asks for both papers' samples and layouts. (7) **A statement's balance lines follow the
-engine's order**, the account's currency order (contract: POST /v1/statements/import, "Response")
-(owner, 2026-10-28): every client shows the same order, and the app sorts nothing.
+screens.** (6) **The live suite makes its statement PDFs itself**, with no PDF library, and
+covers the savings paper only, since the contract does not print the card's column header. (7)
+**A statement's balance lines follow the engine's order**, the account's currency order
+(contract: POST /v1/statements/import, "Response"): every client shows the same order, and the
+app sorts nothing.
 
 **Why.** Every file from the bank then comes in through one door, so there is one place to learn.
 The engine reads and matches the paper, so the app only sends it and shows the answer. A preview
@@ -1033,13 +957,13 @@ the suite's own code write without adding a dependency.
 
 **Rejected.** *Soles first on a card, whatever the accounts' order* — the app would reorder what the
 engine sends, and each client could order it differently. *Starting the upload from the statement on
-Reconciliations* (B) — a key and a path field on another screen, for what a drop already does. *A
-PDF dropped only on its own* (6 B) — a month's download and its PDF could not go in together.
-*Keeping the tick-list on an open statement of an account with a statement code* (5 B) — ticking
-cannot close the month there. *Waiting for accounts to carry their numbers* (question 8, B) —
-closing statements would wait on account names.
+Reconciliations* — a key and a path field on another screen, for what a drop already does. *A
+PDF dropped only on its own* — a month's download and its PDF could not go in together.
+*Keeping the tick-list on an open statement of an account with a statement code* — ticking
+cannot close the month there. *Waiting for accounts to carry their numbers* — closing statements
+would wait on account names.
 
-## An account holds its currencies (2026-10-28, owner)
+## An account holds its currencies (2026-10-28)
 
 **Decision.** A bank account, or a person, is one account that holds one or more currencies: a
 Peruvian credit card holds soles and dollars, and ALEJO owes in both. The engine's holder becomes
@@ -1047,16 +971,14 @@ the account, with its name, colour, order, kind, statement code and archived fla
 engine's per-currency accounts becomes one currency of it, keeping only its currency, opening
 balance and balance, so amounts in two currencies are never added up. A currency has no name or
 colour of its own: it shows as the account's name and its currency ("VISA Infinite Sapphire ·
-USD"). The engine holds it from contract `f82426fb0a099676`, answering the ask "An account holds
-its currencies: the holder becomes the account, and each account becomes one of its currencies".
+USD").
 
 **Why.** The owner always works with the holder, and the per-currency account was only a vehicle
 to keep currencies apart, yet it carried a name, colour, order, kind and archived flag of its own
 and moved between holders. Two levels that both act as an account made pairing, unpairing,
 person holders, a holder of one account and "the whole holder" rules, each a thing every client
 would have to teach. Every multi-currency ledger keeps an account and a balance per currency in
-it; making the holder that account keeps both levels and drops the duplication. Done before the
-official import and before any client builds holder screens, it costs the least.
+it; making the holder that account keeps both levels and drops the duplication.
 
 **Rejected.** *Keeping holders and per-currency accounts, shown as one in the app* — every client
 hides the same split, and pairing, unpairing and person holders stay for the owner to use.
@@ -1064,7 +986,7 @@ hides the same split, and pairing, unpairing and person holders stay for the own
 name, colour, kind and move keeps the duplication under new names. *One account mixing
 currencies in one balance* — a total across currencies has no meaning.
 
-## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31, owner)
+## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31)
 
 **Decision.**
 - **An account shows once.** Manage ▸ Accounts has one row per account with a column per
@@ -1085,28 +1007,17 @@ currencies in one balance* — a total across currencies has no meaning.
     as it is (no conversion). To an account holding several, each row keeps its own.
 - **A currency move keeps a draft statement; an account move takes the row out.** A currency
   move sends the statement's own id, and an account move sends `statement_id: null`, as the
-  engine leaves the assignment to the client (contract: "Statements", "Assigning
-  transactions").
+  engine leaves the assignment to the client
+  (contract: "Statements", "Assigning transactions").
 - **The app fills an account's only currency itself** in three places, listed once in
   `currencies.FILLS_AN_ONLY_CURRENCY` and guarded by a test, until the engine ask "An account's
   only currency is taken when a write names none" lands. `currencies.only_currency` is the
   display rule and stays.
-- **The LOG bar's staged list has a `Cur` column of its own,** as the ledger has, and its
-  account cell names the account alone: the currency is its own field on every list.
-- **The currency's words follow the patterns already approved.** On the Edit form a currency an
-  account change took is drawn dim, as every line the bar skips is, and the CURRENCY line notes
-  `changes every part of the transaction` on a transaction of two parts or more, as the date,
-  title and account do. The opening balances' amounts are coloured by sign, as every amount the
-  app draws is. The two opening-balance notes name their currency (`The PEN opening balance is
-  not:`), and `x` keeps `Currency removed: USD.` and `<account> holds no currency.`. A bulk move
-  with one row refused heads it `Refused`. A currency picked by mistake on the New form stays
-  picked, as on the hashtags line; `esc` and starting over is the way out.
-- **A hint or a line names the currency only when the currency is the whole story.** The LOG
-  bar's `pick a currency` hint shows only when the currency is a line's sole reason; any other
-  reason with it gives the plain `fix the line` hint. On `m`, an opening balance's
-  `OPENING_BALANCE_ACCOUNT_FIXED` shows the engine's words alone, since the app's line about
-  setting it on the other account's Edit form fits an account move (`b`, the Edit form's
-  account) and not a currency one; the engine keys each refusal on each field sent
+- **The LOG bar's staged list has a `Cur` column of its own,** as the ledger has: the currency is
+  its own field on every list.
+- **The currency's words follow the patterns already in use** on every screen, and a hint names
+  the currency only when the currency is the whole story ([tui.md](tui.md) owns the words); the
+  engine keys each refusal on each field sent
   (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 
 **Why.** In the engine an account holds its currencies and a transaction names both, so the
@@ -1127,141 +1038,80 @@ one moved to another account does not.
   amount as it is.
 - *`d` naming one currency with a line saying the others go too:* it hides the balances the
   delete removes.
-- *The taken currency in magenta on the Edit form:* the sentence already says the currency
-  changed, and a coloured spot on a line the bar skips reads no clearer.
-- *The opening balances' amounts plain:* an opening balance is a transaction's amount, as the
-  ledger shows it.
-- *`1 of 3 refused` as a single refusal's head:* the rows named under it already say how many.
 
-## The PDF upload and the two imports send the account, and the statement screens wait for their redraw (2026-10-30, owner)
+## The PDF upload and the two imports send the account (2026-10-30)
 
 **Decision.** (1) **Both import doors list one line per bank account**, named by the account with
 its currencies in the engine's order (`VISA Infinite Sapphire   PEN + USD`, one shared
 `formatting.currencies_phrase`), and send the account's id alone; the engine files each row, and
 each balance of a statement PDF, under its own currency. (2) **The PDF preview shows a balance
-only for each currency the engine's answer covers** (owner, pick 1 B of
-[mockups/expense-world-statement-currency-picks.html](mockups/expense-world-statement-currency-picks.html)).
-(3) **The sheet's names table lists each account name once**, its currencies in the CUR column
-(owner, question 3 A of the mockup the owner picked it from);
-`--create-names` makes one account per missing name holding the currencies its rows use, two
+only for each currency the engine's answer covers.** (3) **The sheet's names table lists each
+account name once**, its currencies in the CUR column; `--create-names` makes one account per missing name holding the currencies its rows use, two
 names the engine holds as one made once. (4) **A rename is the sheet's name alone**,
 `--account-name SHEET_NAME=LEDGER_NAME`; a saved key written with a currency (`BCP:PEN`) is read
 by its name, keys of one name going to two ledger names stop the run before anything is written
 until `--account-name` for that name replaces them, and two sheet names may be renamed onto one
 account, the engine judging what may share it ([commands.md](commands.md) "`expense import
-sheet`"). (5) **The statement screens are rebuilt once, for one statement per account**
-([specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md));
-until then they read holders and do not work against the engine, and a month closes from its PDF.
+sheet`"). (5) **A statement is one per account**, covering its currencies
+([specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)).
 
-**Why.** An account now holds its currencies (contract: "Bank Accounts", "`currencies`"), so a
-name in the sheet, a pick in a door and a statement are each the account's. Rebuilding today's
-statement screens on the new model would be undone by their redraw, so the owner moved them
-there and kept the PDF close, the way a month closes, working.
+**Why.** An account holds its currencies (contract: "Bank Accounts", "`currencies`"), so a
+name in the sheet, a pick in a door and a statement are each the account's.
 
 **Rejected.** *Renames per name and currency* — a name is one account now, and the engine reads
 each row's currency from the sheet. *The client refusing two names onto one account* — the
 engine allows it and is the one to judge. *A rename typed as `Caja:USD` kept as typed while a
 saved one is read as `Caja`* — a rename that holds for one run only; a sheet name ending in a
-colon and three capitals cannot be renamed. *Rebuilding today's statement screens first* — work
-the redraw throws away.
+colon and three capitals cannot be renamed.
 
-## The live suite makes every record one way, and a file waiting for its rewrite skips whole (2026-10-30)
+## The live suite makes every record one way (2026-10-30)
 
-**Decision.** (1) **Every live contract test makes its records through the shared helpers in
-[tests/contract/conftest.py](../tests/contract/conftest.py)**: an account with its currencies in
-one write (`account_body`, `Scratch.account`), a statement with a balance per currency
-(`statement_create_body`, `Scratch.statement`), transactions and opening balances naming their
-currency, and one cleanup that reverts and deletes statements, then transactions, hashtags and
-categories, then each account whole. A test file keeps no copy of a helper, and a refusal is
-checked on the exact key, reason and, where the contract states one, message (`assert_refusal`).
-(2) **A live file whose helpers are gone and whose rewrite belongs to a later spec skips whole**,
-its reason naming that spec (`grep -rn "on the holder model until" tests/contract`), and the
-task that rewrites it removes the skip. (3) **The practice-data cleaner reads each account's
-statements, reverts and deletes them, deletes the transactions in one cursor pass and then the
-account whole** ([runtime.md](runtime.md) "Working against the live engine"). (4) **A test's
-account has no statement code unless the test is about codes**, since a coded account's
-statement must be ordered before it completes.
+**Decision.** Every live contract test makes its records and checks its refusals through the
+shared helpers in [tests/contract/conftest.py](../tests/contract/conftest.py), and one cleanup
+removes what it made; a test file keeps no copy of a helper. A test's account has no statement
+code unless the test is about codes, since a coded account's statement must be ordered before it
+completes.
 
 **Why.** One way of making records means one place to change when the engine's shapes change,
-and cleanup that cannot drift from what was made. A file that cannot import stops every contract
-run at collection, the unit suite's plain contract run included, so it cannot wait failing. Rows
-deleted behind a cursor's bookmark move no later page (contract: "Base Conventions", "Cursors, on every cursor-paged list"),
-so one pass reaches every row.
+and cleanup that cannot drift from what was made.
 
-**Rejected.** *Keeping the removed helpers until every file is rewritten* — it keeps the holder
-shapes alive in the suite. *Local body builders and refusal checks per file* — each copy drifts,
-and a check that only finds the field's name somewhere in the answer proves less than the
-contract states. *Repeating the cleaner's pass until nothing more deletes* — a second full read
-that the cursor rule makes needless.
+**Rejected.** *Local body builders and refusal checks per file* — each copy drifts, and a check
+that only finds the field's name somewhere in the answer proves less than the contract states.
 
 ## A live test's data passes only for the reason it states, and the suite tests the contract as it stands (2026-10-31)
 
-**Decision.** (1) **A live test's data can pass only for the reason the test states.** A test of
-an order uses rows whose stated order differs from date order and from a grouping by currency,
-and ties each place to its row by date or amount. A test of which refusal comes first sets up a
-case where both apply, pair by pair. A test that something is left alone puts a look-alike beside
-it, such as a dollar line on the same day and amount as a soles row. (2) **A case the live
-contract no longer states is dropped, not ported**: card partners and twins, `PUT …/statement-order`
-and its refusals, `POST /people`, `HAS_STATEMENT_CODE`, `HAS_OPENING_BALANCE`. A case it still
-states stays, moved to the file that owns it now; the review list's cases live with the bank
-lines. (3) **Where the engine and its contract disagree, the suite tests neither side**: it
-tests what both agree on, and the disagreement goes to the engine in the catch-up's reply, such
-as `is_person` taking `"yes"` and `1` against the contract's `INVALID_FORMAT`.
-(4) **Where the contract leaves a detail open, the suite accepts every answer it allows**: a
-batch's repeated operation code is refused on one or both items' `operation_code`, since the
-contract names no item, and the question goes to the engine in the reply. (5) **A case no request
-can build is tested as what the contract says it equals, or left out with its reason**: no read
-carries a former per-currency id, so an unknown id stands in, since the contract refuses a former
-one as it refuses an unknown one; two writes landing at the same moment cannot be arranged, so
-`CONCURRENT_CHANGE` has no live test.
+**Decision.** (1) **A live test's data can pass only for the reason the test states**: a test of
+an order uses rows whose stated order differs from date order, and a test that something is left
+alone puts a look-alike beside it. (2) **A case the live contract no longer states is dropped,
+not ported.** (3) **Where the engine and its contract disagree, the suite tests neither side**:
+it tests what both agree on, and the disagreement goes to the engine in the catch-up's reply.
+(4) **Where the contract leaves a detail open, the suite accepts every answer it allows**, and
+the question goes in the reply. (5) **A case no request can build is tested as what the contract
+says it equals, or left out with its reason.**
 
-**Why.** A test whose data a wrong engine also passes proves nothing, and the suite exists to
-catch the engine drifting from its contract before a second client is built. A case the contract
-dropped would pin behaviour the engine is free to change. Pinning the engine's behaviour where it
-breaks its contract would make the suite defend the bug, and pinning the contract's words would
-fail every run until the engine answers. Pinning a detail the contract leaves open would fail the
-day the engine picks another answer the contract allows. A test that claims to build a case it
-cannot build proves less than it says.
+**Why.** A test whose data a wrong engine also passes proves nothing. A case the contract dropped
+pins behaviour the engine is free to change. Pinning the engine where it breaks its contract
+makes the suite defend the bug, and pinning a detail the contract leaves open fails the day the
+engine picks another allowed answer.
 
 **Rejected.** *Porting every old case onto the new shapes* — it keeps rules the engine no longer
-states. *Pinning what the engine does today where it breaks its contract* — the suite would then
-fail the day the engine is fixed. *Pinning the item the engine names today* — the contract does
-not promise it. *Building a former per-currency id from the old shapes* — the engine holds none,
-so the test would prove only an unknown id while saying more.
+states. *Pinning what the engine does today where it breaks its contract* — the suite would fail
+the day the engine is fixed.
 
 ## A live test dates a recent row and reads its month from one moment (2026-11-02)
 
-**Decision.** (1) **A live test that needs a plain transaction dated now logs it with
-`Scratch.recent_row`**, dated a minute ago in the practice user's display timezone
-([tests/contract/conftest.py](../tests/contract/conftest.py)). (2) **Every `Scratch` helper
-sends a row's moment once**: `_item` takes the moment, `row_at` makes a row at one, and `row`
-makes one at noon of its day through it, so no call passes a day that a `date` then overrides.
-(3) **A test that reads the month of a row it logged takes both from one clock reading**
-(`Scratch.recent_moment`, `month_of`), proven for a month's first minute by
-[test_contract_month_of_a_recent_row.py](../tests/unit/test_contract_month_of_a_recent_row.py).
-(4) **A minute ago is taken off in real time, then read in the display timezone**, so the
-first minute after a daylight-saving jump still gives a time that exists, a minute back.
-(5) **A new transaction's body comes only from `Scratch._item`**: a test proving the single
-create sends its row with `alone`, a batch of several goes through `_create`, and a test that
-sends a body itself (sent twice, changed to draw a refusal, or wrapped to compare state) takes
-it from `Scratch.body`, an untitled `_item` whose id is kept for cleanup before any send.
-`row_at` builds through `body` and checks on every create that the answer keeps the id,
-account and currency sent. An opening balance's body comes only from
-`Scratch.opening_balance_body`, which `opening_balance` sends.
+**Decision.** A live test that needs a transaction dated now logs it a minute ago in the
+practice user's display timezone, and a test that reads the month of a row it logged takes both
+from one clock reading; a new transaction's body and an opening balance's each come from one
+helper (`Scratch` in [tests/contract/conftest.py](../tests/contract/conftest.py)).
 
-**Why.** Noon today is in the future before noon, and the engine refuses a future date, so
-"now" needs its own helper; a copy per file drifts. A day passed and then overridden says one
-thing and sends another. Two clock readings straddle a month's turn in its first minute, when
-the row lands in the old month and the report reads the new one. A minute taken off the wall
-clock lands, after a daylight-saving jump, on an hour that does not exist, which the engine
-reads as the future. One body shape means one place to change when the engine's shape changes,
-and a check every create makes cannot be dropped by one test moving to a helper.
+**Why.** Noon today is in the future before noon, and the engine refuses a future date. Two clock
+readings straddle a month's turn in its first minute. A minute taken off the wall clock lands,
+after a daylight-saving jump, on an hour that does not exist. One body shape means one place to
+change when the engine's shape changes.
 
 **Rejected.** *Dating recent rows at noon of yesterday* — the reports' tests need a row in the
-current month, which yesterday is not on a month's first day. *Reading the month from a second
-clock reading a minute earlier* — it repeats the arithmetic instead of sharing the moment. *A
-separate helper for a row sent alone* — it repeats the body `row_at` builds; a switch keeps one
-copy, as `refused_row`'s `batch` does.
+current month, which yesterday is not on a month's first day.
 
 ## A list's one-write guard belongs to the write that set it (2026-11-02)
 
@@ -1281,54 +1131,44 @@ own aftermath says when the list is fresh.
 *Lifting it on a build with no write unanswered* — a refused `d` queued behind it never reloads,
 and the guard stays set until the list is read again.
 
-## What a spec finds becomes a spec only if the owner would see it (2026-11-02, owner)
+## What a spec finds becomes a spec only if the owner would see it (2026-11-02)
 
-**Decision.** When a spec is done, what its run found along the way is sorted: what the owner
-would see in the app, or a money or business rule, becomes a new spec; the rest (tests, code,
-comments, docs) goes to [todo.md](todo.md)'s Backlog, which the loop runs when the owner names
-it (CLAUDE.md "Specs and tasks", "Per spec").
+**Decision.** What a spec's run finds along the way becomes a new spec only if the owner would
+see it in the app or it is a money or business rule; the rest goes to [todo.md](todo.md)'s
+Backlog ([CLAUDE.md](../CLAUDE.md) "Specs and tasks", "Per spec").
 
-**Why.** Every finished spec left a smaller leftovers spec, and leftovers left leftovers: from
-2026-10-25 to 2026-11-02, 32 specs retired and 39 were added. Each spec costs the owner an
-approval and the loop a tester and a librarian run, which internal tidy-ups do not need one by
-one; the specs that need the owner get lost among them.
+**Why.** When every find is a spec, every finished spec leaves a smaller leftovers spec, and
+leftovers leave leftovers. Each spec costs the owner an approval and the loop a tester and a
+librarian run, which internal tidy-ups do not need one by one; the specs that need the owner get
+lost among them.
 
 **Rejected.** *Every find a spec* — the list never shrinks. *Merging the small leftovers into
 one cleanup spec* — it still asks the owner to approve work they cannot see, and keeps growing.
 
-## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02, owner)
+## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02)
 
 **Decision.** When the LOG bar's staged rows are wider than the bar, the title and tags give
-way 3:2, as the ledger's Title and Hashtags do, and the marker, date, amount, `cur`, account and
-category keep their whole width ([tui.md](tui.md) "The LOG bar's account is one row per
-account"). On the "no batch" Edit form of a line of two parts or more, the OPERATION line's
-hint ends in `changes every part of the transaction`, as the date, title, account and currency
-lines do ([tui.md](tui.md) "A split transaction says what reaches every part").
+way and every other cell keeps its whole width ([tui.md](tui.md) "The LOG bar's account is one
+row per account"). The OPERATION line says it changes every part of the transaction, as the
+date, title, account and currency lines do.
 
-**Why.** A staged row is checked before the save: what it costs, in which currency, on which
-account and under which category are the cells read; the title is what was just typed. Rich's
-default shrinks every column at once, so the amount was cut and `cur` vanished at 80 columns,
-and on any width under a long enough title. The operation number belongs to the whole line as
-the date does, so its line says so where the others do.
+**Why.** A staged row is checked before the save: the amount, currency, account and category are
+the cells read, while the title is what was just typed. The operation number belongs to the
+whole line as the date does.
 
 **Rejected.** *Title, category and tags share the cut* — similar categories read the same
 once cut. *OPERATION without the note* — the one line of the five that changes every part
 without saying so.
 
-## The PDF preview marks a line moved to the bank's day (2026-10-28, owner)
+## The PDF preview marks a line moved to the bank's day (2026-10-28)
 
 **Decision.** On the statement PDF's preview, a matched row whose ledger line the engine moves to
-the paper's day (its `redated`) reads `✓ In the ledger · day moved`: the mark dim after the
-reason, as a fee row's note is, with no old day and no count of such rows
-(contract: POST /v1/statements/import, "The bank's day wins"). After `⏎` the close reads as any
-close. The app draws the engine's `redated` as sent and decides nothing. No warning sits under a
-new row: the engine matches a line one day off instead of naming it, so the app reads only the
-lines taken out by id. What the preview shows is in [tui.md](tui.md) "A statement PDF closes its
-month".
+the paper's day (its `redated`) reads `✓ In the ledger · day moved`, with no old day and no count
+(contract: POST /v1/statements/import, "The bank's day wins"); the app draws the engine's
+`redated` as sent and decides nothing ([tui.md](tui.md) "A statement PDF closes its month").
 
-**Why.** The engine pairs the line and moves it on the close, so the row is in the ledger like any
-matched row; a short mark says your line moves without a second read and without a taller row,
-so a long paper fits more rows on a page.
+**Why.** The row is in the ledger like any matched row; a short mark says the line moves without
+a second read and without a taller row.
 
 **Rejected.** *A dim line under the row naming the day it moves from* — the app would read each
 moved line by id to show a day the close is about to change, and every moved row takes two
