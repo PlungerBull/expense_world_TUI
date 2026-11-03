@@ -48,15 +48,7 @@ None.
 
 ## Tasks
 
-2. **A unit test pins how `x` shows the two "not found" answers.** In
-   [test_tui_account_currency_removal.py](../../tests/unit/test_tui_account_currency_removal.py),
-   as cases beside the other refusals of `test_a_refusal_shows_the_engine_words_alone_and_the_list_stays`
-   or a test of their own. Passes if: for "account not found." and for "currency <code> not
-   found." (each in the error shape the live contract gives that route,
-   contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}), the "Failed" note is
-   the engine's words as sent, the removal is the only call, the list is not read again and
-   `x` works again; the fixture check passes on the new answers. Reviewer: no app code changes;
-   the answers' shape matches the contract, not a guess.
+All done on 2026-11-02; the spec's acceptance check and doc sweep follow.
 
 ## Found along the way
 

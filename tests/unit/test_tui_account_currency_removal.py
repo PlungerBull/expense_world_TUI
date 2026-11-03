@@ -481,13 +481,36 @@ REFUSALS = [
         ),
         f"CONFLICT — {_ARCHIVED}\n  account_id: {_ARCHIVED}",
     ),
+    # the two path refusals come first, `404` with no `fields`
+    # (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")
+    (
+        "a-visa",
+        "PEN",
+        (),
+        error_response(404, "NOT_FOUND", "account not found."),
+        "NOT_FOUND — account not found.",
+    ),
+    (
+        "a-visa",
+        "PEN",
+        (),
+        error_response(404, "NOT_FOUND", "currency PEN not found."),
+        "NOT_FOUND — currency PEN not found.",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
     ("row", "code", "moves", "refusal", "shown"),
     REFUSALS,
-    ids=["last-currency", "has-transactions", "in-live-statement", "account-archived"],
+    ids=[
+        "last-currency",
+        "has-transactions",
+        "in-live-statement",
+        "account-archived",
+        "account-not-found",
+        "currency-not-found",
+    ],
 )
 def test_a_refusal_shows_the_engine_words_alone_and_the_list_stays(
     configured, monkeypatch, row, code, moves, refusal, shown
