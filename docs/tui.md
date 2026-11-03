@@ -545,7 +545,7 @@ cannot take (contract: POST /v1/transactions/import). Every row of the file goes
 its date. **Export the download with an explicit date range covering everything since the
 last import, never the bank's default view:** BCP's current-account default is the last 20
 movements, about twelve days on `BCP PEN`, nothing can detect rows a file does not contain,
-and month-end reconciliation is the only backstop.
+and the month's statement is the only backstop.
 
 `↵` on the LOG bar's dropped files (§4 "A dropped bank file") reads every file's bytes at
 once, before any screen opens, through `read_file` in
@@ -561,7 +561,7 @@ statement upload's own three ("A statement PDF closes its month" below):
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this file?** | the file's name dim beside the question; every live, non-person account once, in the engine's order, named by the account, its currencies its own, the account's `currencies` in the engine's order (contract: "Bank Accounts", "`currencies`"): an account holding both is one line (`VISA Infinite Sapphire   PEN + USD`); archived accounts left out. `account_picks` in [flow.py](../expense/bank_import/flow.py) reads the one accounts list alone. The statement upload's account list is the same. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Which account is this file?** | the file's name dim beside the question; every live, non-person account once, in the engine's order, named by the account, its currencies its own, the account's `currencies` in the engine's order (contract: "Bank Accounts", "`currencies`"): an account holding both is one line (`VISA Infinite Sapphire   PEN + USD`); archived accounts left out. `account_picks` in [flow.py](../expense/bank_import/flow.py) reads the one accounts list alone. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | the engine's dry run as one table, `#  date  title  amount  ✓  reason` (the mark's column has no heading), one row per row the engine read, numbered by its spreadsheet row (the first data row is 2), the amount signed by `signed_cents`, a row with no title showing `—`; on an account holding two currencies, `cur` after the amount: the row's own `currency_code`. Each row's mark and reason (below); `… N more · pgdn` when the rows outrun the screen; then the counts (below), and under them the days where the file and the ledger disagree (below) | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line, then the counts in the past tense (below): no table and no days | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
@@ -696,14 +696,15 @@ creating it or filling its open draft
 [engine.py](../expense/bank_import/engine.py)), sent by `statement_call` in
 [flow.py](../expense/bank_import/flow.py) to `POST /statements/import`; the answer reads
 through [statement.py](../expense/bank_import/statement.py). The account is the one you pick: the
-engine never picks it by the number the paper prints, and the app matches, adds up and guesses
+engine never picks it by the number the paper prints
+(contract: POST /v1/statements/import, "Accounts"), and the app matches, adds up and guesses
 nothing. Its three full screens replace one another above the LOG bar, as a download's do:
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`): every live bank account, people and archived accounts left out, each by its own name and its currencies, one holding two currencies on one line (`Visa BCP  PEN + USD`), one with no statement code too (the engine refuses it in its words when picked). Picking an account sends its id; the engine closes that account's statement, every currency the paper covers together (contract: POST /v1/statements/import, "Accounts") | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Which account is this statement?** | crumb `Upload a statement`; the file's name dim beside the question; the download's account list ("Which account is this file?" above), an account with no statement code included (the engine refuses it in its words when picked). Picking an account sends its id | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name with its currencies when it holds two (`BCP Signature PEN + USD`), else the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` and each `not_covered` currency's, in the apply's completed `statement`), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on the statement. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (each balance's `review_lines` and each `not_covered` currency's, in the apply's completed `statement`), the `⚑` line a statement shows (§4 "On the statement"). No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
 colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
@@ -739,9 +740,8 @@ statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows mon
 it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
 (`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
 `Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the
-app's line when "When the engine says no" gives one. The footer is `esc Back` on the last (or
-only) file, and keeps `esc Cancel both` / `esc Cancel all` while files follow; `⏎` sends
-nothing. A refusal met by the apply shows under the preview the same way. When it is a
+app's line when "When the engine says no" gives one. The footer and `⏎` are a refused
+download's. A refusal met by the apply shows under the preview the same way. When it is a
 `409 CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line (`rows.<place>`) or the
 statement's draft (`file`) changed while it ran
 (contract: POST /v1/statements/import, "Concurrency"), or the pending category or hashtag a

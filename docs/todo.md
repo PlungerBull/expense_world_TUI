@@ -83,7 +83,6 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
 [the bank download leftovers](specs/catch-up-leftovers.md),
 [the statement screens' leftovers](specs/catch-up-cards-statements-1b-leftovers.md) (1 question),
-[a month closing from its PDF](specs/statements-close-from-their-pdf.md),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
@@ -101,6 +100,12 @@ New, from part 7: [the Statements screens as drawn](specs/statements-screens-as-
 [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
 (4 questions, two with a mockup to draw; one is the `^s` question asked earlier).
 
+New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
+[accounts carry their numbers, and a PDF is checked against its account](specs/accounts-carry-their-numbers.md)
+(3 questions, and the account form's mockup to draw), and
+[a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
+(1 question), both waiting on no other spec.
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
@@ -114,6 +119,21 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What a spec finds along the way lands
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
+
+- **The statement upload's live-test gaps.** Nothing you see changes. In
+  [test_statement_import.py](../tests/contract/test_statement_import.py): no live test opens a
+  card's month before its paper; none applies a card paper with $0 dollars to a soles-and-dollars
+  account; the "balances alone" form of `ACCOUNT_CURRENCY_NOT_ON_PAPER` is drawn only beside a
+  dollar line. `CONCURRENT_CHANGE` is proven only in
+  [test_tui_statement_upload.py](../tests/unit/test_tui_statement_upload.py), and the upload
+  screens' unit tests pin 120 columns where the app is checked at 80x24.
+- **The statement upload's comments name deleted mockups.** Nothing you see changes.
+  [statement_upload.py](../expense/tui/screens/statement_upload.py) (its docstring's "pane
+  12…15", "Pane 14", "screen A2/1A/1B"), [bank_import.py](../expense/tui/screens/bank_import.py),
+  [log_bar.py](../expense/tui/screens/log_bar.py) and
+  [test_tui_statement_upload.py](../tests/unit/test_tui_statement_upload.py) (its docstring and
+  names like `test_a_cards_preview_is_screen_1a_and_writes_nothing`) point at mockups that no
+  longer exist, by pane and screen tags; they should say what the screen does instead.
 
 - **Part 7's test leftovers.** Nothing you see changes.
   [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py) names

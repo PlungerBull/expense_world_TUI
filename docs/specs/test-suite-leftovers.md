@@ -5,7 +5,7 @@
 (part 1, the app's reads and writes (done on 2026-10-30) to
 part 7 of the currencies catch-up (done on 2026-11-03)), which
 rewrites many of the same files, and after
-[statements-close-from-their-pdf.md](statements-close-from-their-pdf.md). Its tasks are drafted
+a month's statement closing from the bank's PDF (done on 2026-11-03). Its tasks are drafted
 when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 

@@ -864,13 +864,20 @@ and every write acts on the whole statement
 in `balances`; what the row shows is in [tui.md](tui.md) "The Statements browse". (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
 **No screen orders a statement, ticks the lines it still needs or edits a statement's name and
-days, or its balances beyond the blank ones `c` asks for at complete.** A month's reconciliation stays open until the bank's PDF statement arrives, and
-uploading the PDF closes it, the engine reading, matching and completing
-([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
+days, or its balances beyond the blank ones `c` asks for at complete.** A month's statement
+can be opened before its PDF and stays open until the PDF arrives; uploading it closes the
+month, the engine reading, matching and completing ([tui.md](tui.md) "A statement PDF closes its month").
+(5) **The PDF writes what the ledger lacks and never changes or deletes what the paper lacks**:
+a line the ledger lacks is created under `@Pendiente`, a line the paper lacks is taken out of
+the month or flagged and never stops the close, equal lines on one day are matched one to one, a card's undated charges are each a
+transaction on the statement's last day, and an installment purchase is one transaction a
+month, as the bank bills it (contract: POST /v1/statements/import).
 
 **Why.** A statement is one thing on paper, so it is one row and one write. The owner checks a
 month against the bank's PDF, not by linking rows one at a time; the PDF already holds each
 currency's balances, every line and the paper's order, so reading it replaces every hand step.
+Writing exactly what the paper holds makes every statement add up to the paper, while a line
+the owner logged that the paper lacks stays for the owner to judge.
 
 **Rejected.** *A heading per statement with a line per currency under it* — three lines a month
 show a third as many months. *A screen to put a statement in order with `shift+↑↓`, the lines
@@ -967,8 +974,8 @@ resend**, whatever key the engine names, because the contract says to send it ag
 ledger moved. (4) **The preview is the check against another account's PDF**: the engine does
 not compare the paper's number with the account picked, and a wrong paper shows almost every
 row as new before anything is written. (5) **The upload's small details follow the download's
-screens.** (6) **The live suite makes its statement PDFs itself**, with no PDF library, and
-covers the savings paper only, since the contract does not print the card's column header. (7)
+screens.** (6) **The live suite makes its statement PDFs itself**, with no PDF library: savings and card
+papers drawn to the contract's stated layout, beside the engine's published samples. (7)
 **A statement's balance lines follow the engine's order**, the account's currency order
 (contract: POST /v1/statements/import, "Response"): every client shows the same order, and the
 app sorts nothing.
