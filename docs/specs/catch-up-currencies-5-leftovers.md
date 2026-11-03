@@ -3,7 +3,7 @@
 What part 5 of the catch-up to contract `f82426fb0a099676`, the live tests for an account's
 currencies (done on 2026-11-02), turned up while it ran.
 
-**Status: drafted on 2026-11-02 for the owner to rewrite or approve; no questions.** It runs
+**Status: approved by the owner on 2026-11-02; no questions; its tasks wait on the owner's approval.** It runs
 after part 6's leftovers (done on 2026-11-02) and before
 [catch-up-currencies-7-statement-screen.md](catch-up-currencies-7-statement-screen.md). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -48,7 +48,26 @@ None.
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+1. **The live suite reads the history of a delete, an unarchive and a turn back into a bank
+   account.** In [test_account_reads.py](../../tests/contract/test_account_reads.py), next to
+   `test_an_edit_an_archive_and_a_kind_change_each_log_the_account_alone`, through the shared
+   `scratch` helpers. Passes if: the new test(s) read `GET /activity?resource_id=<account id>`
+   after each of the three writes and count the entries exactly as the live contract states
+   them (contract: GET /v1/activity, "Accounts and their currencies"), each snapshot carrying
+   the contract's keys as the other account writes' tests check them; the module docstring's
+   "What it leaves out" no longer lists these three; every citation added resolves against the
+   live contract; the file passes against the practice engine and leaves nothing on either
+   practice user. Reviewer: the counts come from the live contract, not from what the engine
+   happened to answer; no body is built by hand.
+2. **A unit test pins how `x` shows the two "not found" answers.** In
+   [test_tui_account_currency_removal.py](../../tests/unit/test_tui_account_currency_removal.py),
+   as cases beside the other refusals of `test_a_refusal_shows_the_engine_words_alone_and_the_list_stays`
+   or a test of their own. Passes if: for "account not found." and for "currency <code> not
+   found." (each in the error shape the live contract gives that route,
+   contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}), the "Failed" note is
+   the engine's words as sent, the removal is the only call, the list is not read again and
+   `x` works again; the fixture check passes on the new answers. Reviewer: no app code changes;
+   the answers' shape matches the contract, not a guess.
 
 ## Found along the way
 
