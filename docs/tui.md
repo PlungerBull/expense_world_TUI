@@ -1309,7 +1309,10 @@ account's `statement code` (below) and `color`.
   the order picked, and a person adds `is_person: true`
   (contract: POST /v1/accounts, "Required")
   (contract: POST /v1/accounts, "Optional"). The line is required, as `name` is: with
-  nothing picked the save says `Currencies is required.` and sends nothing.
+  nothing picked the save says `Currencies is required.` and sends nothing. A code typed but
+  not added when `ctrl+s` is pressed is added as `⏎` would add it, after the earlier picks, and
+  the save goes on; one nothing matches says `No currencies match “…”.` and sends nothing, as
+  the Edit form's HASHTAGS line does for a word nothing matches.
 - **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
   the line it names, holding what was typed: `name`, `currencies` (any `currencies.<i>…` key
   too), `statement code` or `color`.

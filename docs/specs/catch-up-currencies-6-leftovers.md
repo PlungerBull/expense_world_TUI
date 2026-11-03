@@ -100,8 +100,6 @@ None.
 
 ## Tasks
 
-6. **`ctrl+s` keeps a code typed but not added on the New form's CURRENCIES line,** as the Edit
-   form's HASHTAGS line keeps one.
 7. **`c` guards against a second add in flight,** as `a` and `t` do, with the busy guard's
    in-flight test for `c`.
 8. **The missing tests:** a `color` refusal landing on the New form's COLOR line; the `?` card's

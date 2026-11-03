@@ -1106,6 +1106,51 @@ def test_an_unmatched_code_adds_nothing_and_the_bar_stays(fake_client, monkeypat
     assert notes == ["No currencies match “EUR”."]
 
 
+def _save_with_typed_currencies(fake_client, typed: list[str], after=None):
+    """Open the New account form, name it, type `typed` on CURRENCIES (each
+    entry followed by `enter` except the last, which stays typed), then `ctrl+s`."""
+
+    async def scenario(pilot, app):
+        screen = NewAccountScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("enter", *"Visa", "enter")
+        for code in typed[:-1]:
+            await pilot.press(*code, "enter")
+        await pilot.press(*typed[-1], "ctrl+s")
+        await pilot.pause()
+        if after:
+            after(screen)
+
+    run_app(scenario)
+
+
+def test_a_code_typed_but_not_added_is_kept_by_ctrl_s(fake_client):
+    _save_with_typed_currencies(fake_client, ["PEN"])
+    assert fake_client.requests == [("POST", "/accounts")]
+    assert fake_client.posts[0][1]["currencies"] == [{"currency_code": "PEN"}]
+
+
+def test_a_typed_code_follows_earlier_picks_on_ctrl_s(fake_client):
+    _save_with_typed_currencies(fake_client, ["USD", "PEN"])
+    assert fake_client.posts[0][1]["currencies"] == [
+        {"currency_code": "USD"},
+        {"currency_code": "PEN"},
+    ]
+
+
+def test_a_typed_code_matching_nothing_refuses_ctrl_s(fake_client, monkeypatch):
+    notes: list = []
+    monkeypatch.setattr(NewAccountScreen, "notify", lambda self, m, **kw: notes.append(m))
+    bars: list = []
+    _save_with_typed_currencies(
+        fake_client, ["PEN", "EUR"], lambda sc: bars.append(sc.query_one("#bar", Input).value)
+    )
+    assert bars == ["EUR"]
+    assert notes == ["No currencies match “EUR”."]
+    assert not fake_client.calls
+
+
 def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
     """CURRENCIES is a required line, as NAME is: an empty enter goes on, and
     the save stops at the form's one required check, sending nothing."""

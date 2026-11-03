@@ -207,14 +207,33 @@ class BarFormScreen(FormScreen):
         if not text:
             self._advance()
             return
+        self._add_pick(f, text)
+
+    def _add_pick(self, f: Field, text: str) -> bool:
+        """Add the highlighted choice for the typed `text` and empty the bar for
+        another; False, with the refusal toast, when `text` matches none."""
         picked = self._suggestions[self._suggest_idx] if self._suggestions else None
         if picked is None:
             toast(self, f"No {f.label.lower()} match “{text}”.", severity="error")
-            return
+            return False
         self._values[f.key] = [*self._values.get(f.key, ()), picked[0]]
         self.query_one("#bar", Input).value = ""
         self._recompute("")
         self._refresh_view()
+        return True
+
+    def action_submit(self) -> None:
+        """`ctrl+s` keeps a name typed on a picks line but not yet added, as `⏎`
+        adds it (the Edit form's HASHTAGS line does the same); one matching
+        nothing is refused as `⏎` refuses it, and nothing is sent."""
+        if self._submitting:
+            return
+        f = self._f
+        text = self.query_one("#bar", Input).value.strip()
+        if f.kind == "picks" and text and self._key not in self._locked:
+            if not self._add_pick(f, text):
+                return
+        super().action_submit()
 
     # ---- render ----------------------------------------------------------
     def _suggest_renderable(self) -> RenderableType:
