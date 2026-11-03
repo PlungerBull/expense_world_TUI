@@ -213,7 +213,7 @@ def test_decision_pointers_in_code_resolve():
 
 # ---- the five list orders carry their direction ------------------------------
 # The contract states the order of accounts, categories, a category's tags,
-# tags and a holder's statements with its direction. A doc or a comment
+# tags and an account's statements with its direction. A doc or a comment
 # that cites one of those "Ordering" rules gives the direction in the same
 # paragraph, and none paraphrases an order as SQL. The owner's specs are not
 # scanned: they list the citations under one sentence that carries the wording.

@@ -282,18 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
-   [reads.py](../../expense/reads.py), the holder builders in
-   [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer
-   need them, with every `(contract: …)` citation that still names holders, `/reconciliations`
-   or the Statements screens outside the live test files specs 3 to 5 rewrite: tui.md's
-   Statements sections, helpers.py, reads.py, reconciliations.py, errors.py, runtime.md,
-   scripts/clean_practice_user.py and the unit tests (the acceptance check of part 2 on
-   2026-10-30 listed them); decisions.md's go with this spec's retirement. *Passes if:* nothing
-   in the code or the tests names a holder; no request sends `/holders` or `?holder_id=`; the
-   drift check passes whole; the live suite's citation test passes, including the holder
-   citations in decisions.md (`(contract: "Holders")`) and the tests' "An archived holder".
-
 ## Reply to the engine
 
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results, as
@@ -348,3 +336,10 @@ Not built in this spec; drafted into a new spec when it is done.
   [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html) draw
   `+800.00`, and every list in the app writes an income unsigned (found by task 4 on
   2026-11-03). Whether lists show the `+` is the owner's.
+- **Small test leftovers from task 9's review (2026-11-03):** test_no_read_only_fields.py's
+  comment names `PUT /statements/{id}/statement-order`, which the live contract does not hold,
+  and its sample paths still read `/reconciliations/…`; two docstrings in
+  test_tui_bank_import.py and test_tui_reconciliations.py claim the list is "not by
+  `sort_order`", which the fixture no longer proves; the drift script's note for `l12` describes
+  the match loosely; balance refusals in test_tui_reconcile_detail.py and test_errors.py are keyed
+  `balances.<account_id>.…` where the engine keys them by currency code.

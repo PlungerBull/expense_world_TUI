@@ -159,30 +159,19 @@ def hashtag_refusal(code: str, status: int, reason: str, *, item: int | None = N
 
 #: The engine's words on each key a write on an archived account refuses, every
 #: route alike (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
-#: (contract: PUT /v1/statements/{statement_id}, "An archived holder").
+#: (contract: PUT /v1/statements/{statement_id}, "An archived account").
 ARCHIVED_FIELD_WORDS = "The account is archived. Unarchive it first."
 #: The engine's message on a refused `PUT /transactions/{id}`.
 ARCHIVED_PUT_WORDS = (
     "The transaction's account is archived: only its category, hashtags and description "
     "can change. Unarchive the account first."
 )
-#: The engine's message on a refused `PUT /statements/{id}`, as the practice engine
-#: sends it (the contract does not print it).
-ARCHIVED_STATEMENT_PUT_WORDS = "The statement's holder is archived. Unarchive it first."
 
 
 def archived_words(verb: str, thing: str) -> str:
     """The engine's message on a refused delete of a transaction or a bank line:
     `Cannot <verb> a <thing> on an archived account. Unarchive the account first.`"""
     return f"Cannot {verb} a {thing} on an archived account. Unarchive the account first."
-
-
-def archived_statement_words(verb: str) -> str:
-    """The engine's message on a refused complete, revert or delete of a statement
-    whose holder is archived, as the practice engine sends it (the contract does not
-    print it): `Cannot <verb> a statement whose holder is archived. Unarchive the
-    holder first.`"""
-    return f"Cannot {verb} a statement whose holder is archived. Unarchive the holder first."
 
 
 #: The engine's words on a delete of a bank line or a transaction in a completed
@@ -206,7 +195,7 @@ def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
     revert, a `422 VALIDATION_ERROR` on a `PUT`
     (contract: DELETE /v1/transactions/{transaction_id})
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")
-    (contract: POST /v1/statements/{statement_id}/complete, "An archived holder")."""
+    (contract: POST /v1/statements/{statement_id}/complete, "An archived account")."""
     code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
     fields = dict.fromkeys(keys, ARCHIVED_FIELD_WORDS)
     reasons = dict.fromkeys(keys, "ACCOUNT_ARCHIVED")
@@ -906,71 +895,6 @@ def statement_upload_answer(
     }
 
 
-#: A holder as `GET /holders/{id}` reads it, every field present: one account, no
-#: statement code (contract: "Holders", "Holder response"); a bank holder, so
-#: `is_person` is false (contract: "Holders", "Its kind").
-_HOLDER = {
-    "id": "h1",
-    "user_id": "u-1",
-    "name": "BCP Ahorros",
-    "statement_code": None,
-    "is_person": False,
-    "account_ids": ["acc1"],
-    "is_archived": False,
-    "sort_order": 1,
-    "created_at": "2026-04-01T15:00:00Z",
-    "updated_at": "2026-04-01T15:00:00Z",
-    "version": 1,
-    "deleted_at": None,
-}
-
-
-@answer_of("GET", "/v1/holders/{holder_id}")
-def holder_record(record: dict | None = None) -> dict:
-    """One holder as `GET /holders/{id}` reads it: `record` spread over a bank holder of
-    one account with no statement code (contract: "Holders", "Holder response")."""
-    return {**_HOLDER, **(record or {})}
-
-
-@answer_of("GET", "/v1/holders")
-def holder_list(items: list[dict] | None = None) -> dict:
-    """`GET /holders`'s answer, whole and unpaged: `{items}`, each item a `holder_record`
-    of the record a test gives (one holder by default) (contract: GET /v1/holders)."""
-    return whole([holder_record(item) for item in (items if items is not None else [{}])])
-
-
-#: The OLD shape of an account, the engine's per-currency account on a holder, kept for
-#: the tests not yet moved onto `account_with_currencies`: every field present, the one
-#: account of `_HOLDER`, in soles, nothing recorded on it and no opening balance; the
-#: statement code is its holder's, never the account's. It stands for no endpoint now.
-_ACCOUNT = {
-    "id": "acc1",
-    "user_id": "u-1",
-    "name": "BCP Ahorros",
-    "currency_code": "PEN",
-    "is_person": False,
-    "color": "#3b82f6",
-    "holder_id": "h1",
-    "current_balance_cents": 0,
-    "current_balance_home_cents": 0,
-    "opening_balance_transaction_id": None,
-    "is_archived": False,
-    "sort_order": 1,
-    "created_at": "2026-04-01T15:00:00Z",
-    "updated_at": "2026-04-01T15:00:00Z",
-    "version": 1,
-    "deleted_at": None,
-}
-
-
-def account_record(base: dict | None = None, /, **fields: Any) -> dict:
-    """The OLD per-currency account (`currency_code`, `holder_id`,
-    `current_balance_home_cents`), kept for the tests not yet moved onto
-    `account_with_currencies`. `base` (another account, to vary one) and then `fields` spread over
-    `_ACCOUNT`. A person passes `is_person=True, holder_id=None`."""
-    return {**_ACCOUNT, **(base or {}), **fields}
-
-
 def held_currency(
     code: str, balance_cents: int = 0, *, opening_balance_transaction_id: str | None = None
 ) -> dict:
@@ -1063,41 +987,6 @@ def _statement_deleted(client: "FakeClient", body: Any, statement_id: str) -> di
     return statement_delete_answer(_served_statement(client, statement_id))
 
 
-#: The OLD per-currency accounts in the engine's order, kept for the tests not yet moved
-#: onto `ENGINE_ORDER_HOLDING_ACCOUNTS`: `GET /accounts?include_people=true` in an order
-#: no client could derive: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the
-#: person last, the way the engine lists people after every real account (contract: GET
-#: /v1/accounts). Every account list and picker must show exactly this order.
-ENGINE_ORDER_ACCOUNTS = [
-    account_record(id="acc-zeta", name="Zeta Ahorros", sort_order=3, current_balance_cents=500),
-    account_record(
-        id="acc-alfa",
-        name="Alfa Corriente",
-        currency_code="USD",
-        holder_id="h2",
-        sort_order=1,
-        current_balance_cents=700,
-    ),
-    account_record(
-        id="acc-medio",
-        name="Medio Visa",
-        holder_id="h3",
-        sort_order=2,
-        current_balance_cents=-300,
-    ),
-    account_record(
-        id="per-ana",
-        name="Ana",
-        is_person=True,
-        holder_id=None,
-        sort_order=0,
-        current_balance_cents=100,
-    ),
-]
-#: The names as the engine orders them, people included and without them.
-ENGINE_ORDER_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS]
-ENGINE_ORDER_BANK_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS if not a["is_person"]]
-
 #: `GET /accounts?include_people=true` on the model of one account holding its currencies,
 #: in an order no client could derive by name: not alphabetical (Zeta, Alfa), the person
 #: last though her `sort_order` is the lowest, since each group numbers its own: bank
@@ -1127,6 +1016,10 @@ ENGINE_ORDER_HOLDING_ACCOUNTS = [
         currencies=[held_currency("PEN", 100), held_currency("USD", -50)],
     ),
 ]
+
+
+#: The bank accounts' names as the engine orders them, people left out.
+ENGINE_ORDER_BANK_NAMES = [a["name"] for a in ENGINE_ORDER_HOLDING_ACCOUNTS if not a["is_person"]]
 
 
 def in_order(text: str, names: list[str]) -> bool:

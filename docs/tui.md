@@ -1728,12 +1728,12 @@ ticked row, an empty title or operation number staying fillable
 lines, `esc` goes back. A statement deleted elsewhere reads as a `404`
 (contract: GET /v1/statements/{statement_id}), so the screen says `This statement no
 longer exists.` and goes back; any other refused read shows the engine's words and stays.
-`c`, `u` and `d` act on the whole statement, every account of its holder, in one write:
+`c`, `u` and `d` act on the whole statement, every currency of its account, in one write:
 `POST /statements/{id}/complete`, `POST /statements/{id}/revert` and
 `DELETE /statements/{id}` (contract: POST /v1/statements/{statement_id}/complete)
 (contract: POST /v1/statements/{statement_id}/revert)
 (contract: DELETE /v1/statements/{statement_id}).
-On a holder with a statement code the engine completes nothing until every line of the
+On an account with a statement code the engine completes nothing until every line of the
 statement has a place in its order (contract: POST /v1/statements/{statement_id}/complete),
 and no screen sets the order ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
 A complete with no transaction on any account of the statement is refused as
@@ -2166,9 +2166,7 @@ make rows fit that do not. Width has **no** floor of any kind.
   covers it. `ENGINE_ORDER_HOLDING_ACCOUNTS` lists it in the engine's order: two bank
   accounts and a person, each in soles and dollars. A test passes only the fields it is
   about, by name, and varies an account with `account_with_currencies(base, field=…)`; no
-  test file defines an account builder of its own. `account_record` and
-  `ENGINE_ORDER_ACCOUNTS` are the old per-currency shape on a holder, kept for the tests
-  not yet moved; they stand for no endpoint.
+  test file defines an account builder of its own.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
   `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"). The autouse

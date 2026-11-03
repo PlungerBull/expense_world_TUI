@@ -50,7 +50,7 @@ SIZE = (120, 40)  # the manage window holds its 20-row cap, so row 22 is page 2
 
 
 def _cuenta(i: int) -> dict:
-    """Row `i` of Manage ▸ Accounts, alone on its holder; row 22 is a person who
+    """Row `i` of Manage ▸ Accounts, holding soles alone; row 22 is a person who
     owes 150.00."""
     person = i == 22
     return account_with_currencies(

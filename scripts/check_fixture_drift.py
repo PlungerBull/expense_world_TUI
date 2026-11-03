@@ -121,6 +121,11 @@ KNOWN_LOCAL = frozenset(
         "hashtags",
         # the launch tests' record of whether the app opened on the setup screen
         "setup",
+        # a row key in the statement list's paging test, a sample id like `acc1`
+        "l12",
+        # the key `STATEMENT_NOT_ORDERED` is refused on, printed in the complete
+        # route's text as an error example, not as a response field of any schema
+        "statement_order",
         # Textual widget geometry, faked by the adaptive-rows tests so
         # `fit_rows` can be measured without an event loop
         "content_size",

@@ -196,10 +196,9 @@ _APP_FAULT = (
 #: `IN_COMPLETED_RECONCILIATION`, whose message already says to revert the
 #: statement to draft first (contract: DELETE /v1/transactions/{transaction_id})
 #: (contract: DELETE /v1/bank-lines/{bank_line_id}),
-#: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account, or the
-#: statement's holder, first
+#: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account first
 #: (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
-#: (contract: PUT /v1/statements/{statement_id}, "An archived holder")
+#: (contract: PUT /v1/statements/{statement_id}, "An archived account")
 #: (contract: POST /v1/accounts/{account_id}/make-person),
 #: `KIND_UNCHANGED`, whose words already say the account is of that kind
 #: (contract: POST /v1/accounts/{account_id}/make-person)

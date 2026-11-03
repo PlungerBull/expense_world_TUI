@@ -327,7 +327,7 @@ def test_an_archived_accounts_row_is_not_listed(monkeypatch):
 
 
 def test_an_account_with_a_code_lists_its_statements_from_one_read_by_account(monkeypatch):
-    """Pane 3, Visa BCP: one `GET /statements?account_id=`, no holder read of any kind, a
+    """Pane 3, Visa BCP: one `GET /statements?account_id=`, no other read, a
     row per statement with a Diff per currency, its status and its order."""
     client = _engine(monkeypatch)
     seen: dict = {}

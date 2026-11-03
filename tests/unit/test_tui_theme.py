@@ -102,8 +102,8 @@ def test_difference_cell_balances_to_a_dim_dash():
 
 
 def test_difference_cell_null_is_blank_not_the_balanced_dash():
-    """Three states, three cells — null is a real one (contract: "An omitted
-    ending balance is `null`, never zero").
+    """Three states, three cells — null is a real one (contract:
+    "Statements", "A balance not entered is `null`, never zero").
 
     A null difference means "no ending balance entered, so nothing was
     checked". It must not share the em-dash with a zero difference, which says
@@ -127,8 +127,8 @@ def test_difference_cell_null_is_blank_not_the_balanced_dash():
 
 
 def test_amount_cell_null_is_a_dash_not_the_literal_null():
-    """A reconciliation's `ending_balance_cents` is nullable (contract: "An
-    omitted ending balance is `null`, never zero"), and it is the only field that
+    """A reconciliation's `ending_balance_cents` is nullable (contract:
+    "Statements", "A balance not entered is `null`, never zero"), and it is the only field that
     can hand `amount_cell` a None today. `(null)` is
     `format_cents`'s deliberately-ugly marker for "something is off"; an
     un-entered closing balance is an ordinary every-month state, so it gets the

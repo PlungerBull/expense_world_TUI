@@ -538,7 +538,7 @@ APP_FAULT = (
         # letters, keep the engine's words alone
         ("CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS", False, None),
         ("VALIDATION_ERROR", "statement_code", "INVALID_FORMAT", False, None),
-        # a statement ending in a month another statement of its holder holds, on a new
+        # a statement ending in a month another statement of its account holds, on a new
         # statement and on a statement PDF: the engine's words alone
         ("VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN", False, None),
         ("VALIDATION_ERROR", "file", "STATEMENT_MONTH_TAKEN", False, None),

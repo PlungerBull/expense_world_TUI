@@ -14,8 +14,8 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ARCHIVED_PUT_WORDS,
-    ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     SEALED_FIELD_WORDS,
     SEALED_LINE_WORDS,
     SEALED_TRANSACTION_WORDS,
@@ -255,7 +255,7 @@ def test_the_new_form_account_picker_shows_the_engines_order(fake_client, monkey
     them — not alphabetical, not by `sort_order`; people have no statements, so
     the person is left out and nothing else moves."""
     monkeypatch.setattr(
-        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS)
     )
 
     async def scenario(pilot, app):
@@ -276,7 +276,7 @@ def test_the_browse_lists_accounts_in_the_engines_order(monkeypatch):
     person left out and nothing else moved."""
     _patch_browse(monkeypatch)
     monkeypatch.setattr(
-        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS)
     )
 
     async def scenario(pilot, app):

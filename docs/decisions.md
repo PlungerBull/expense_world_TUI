@@ -974,10 +974,10 @@ statement's id: `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=sta
 page in the statement's order with no id sent, its count the engine's from
 `GET /bank-lines/count` on the same filter (contract: GET /v1/bank-lines, "It has no bound"); the
 close's `review_lines` only say whether it flagged any, and how many until the screen has
-counted them. (3) **A card's
-accounts are the engine's holder's**: Reconciliations pairs them by
-`holder_id` (contract: "Holders"), never a match of statement codes; Reconciliations also reads
-the holders, since the statement code is the holder's. (4) **An
+counted them. (3) **A statement is
+the account's**: it covers the currencies the account holds, and the statement code is the
+account's (contract: "What an account is", "Statement code"), never a match of statement codes
+across accounts. (4) **An
 archived card account with no statement gets no column** on the card's statement list (owner,
 question 2, A). (5) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
 close flags such a line instead of being blocked by it (owner, question 3, A, drawn in

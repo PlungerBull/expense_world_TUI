@@ -28,10 +28,8 @@ from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ARCHIVED_PUT_WORDS,
-    ARCHIVED_STATEMENT_PUT_WORDS,
     ENGINE_URL,
     archived_refusal,
-    archived_statement_words,
     bank_line_row,
     cursor_page,
     edit_limits,
@@ -546,7 +544,7 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
             "Transaction t2b, another part of the same bank line, refuses this change.",
             {
                 "statement_id": "The statement holds no balance of the transaction's account: "
-                "it is another holder's."
+                "it is another account's."
             },
             422,
             {},
@@ -799,7 +797,7 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
 
     statement_reads = _patch(monkeypatch)
     release = threading.Event()
-    refusal = EngineError("CONFLICT", archived_statement_words("revert"), None, 409, {})
+    refusal = EngineError("CONFLICT", ARCHIVED_FIELD_WORDS, None, 409, {})
 
     def held_post(path, json_body=None):
         release.wait(timeout=5)
@@ -1150,13 +1148,13 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     fake_client, monkeypatch, key, verb, method, path
 ):
     """Screen 3 A of expense-world-archived-account.html: the statement was opened
-    before its holder was archived; `c`, `u` or `d`, then `y`, is refused on
+    before its account was archived; `c`, `u` or `d`, then `y`, is refused on
     `statement_id` (contract: POST /v1/statements/{statement_id}/complete, "An archived
-    holder"). `Couldn't <verb>` carries the engine's words and its `statement_id`
+    account"). `Couldn't <verb>` carries the engine's words and its `statement_id`
     words, no line of the app's; the statement stays open as a draft."""
     _patch(monkeypatch)
     _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the statement fresh
-    err = archived_refusal(409, archived_statement_words(verb), "statement_id")
+    err = archived_refusal(409, ARCHIVED_FIELD_WORDS, "statement_id")
     fake_client.errors[method] = err
     notices = _notes(monkeypatch)
 
@@ -1172,8 +1170,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
         assert notices == [
             (
                 f"Couldn't {verb}",
-                f"CONFLICT — {archived_statement_words(verb)}\n"
-                f"  statement_id: {ARCHIVED_FIELD_WORDS}",
+                f"CONFLICT — {ARCHIVED_FIELD_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
         ]
@@ -1972,12 +1969,12 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
     """Screen 3 A of expense-world-archived-account.html: `c` on a draft with
     no ending balance, opened before its account was archived; the figure's
     save is refused on the balance sent, `balances.<account_id>.ending_balance_cents`
-    (contract: PUT /v1/statements/{statement_id}, "An archived holder").
+    (contract: PUT /v1/statements/{statement_id}, "An archived account").
     `Couldn't save` carries the engine's words and that field's words, no line of the
     app's; nothing is completed and the end stays empty."""
     _patch(monkeypatch)
     field = "balances.acc1.ending_balance_cents"
-    err = archived_refusal(422, ARCHIVED_STATEMENT_PUT_WORDS, field)
+    err = archived_refusal(422, ARCHIVED_FIELD_WORDS, field)
     fake_client.errors["PUT"] = err
     notices = _notes(monkeypatch)
 
@@ -1989,8 +1986,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
         assert notices == [
             (
                 "Couldn't save",
-                f"VALIDATION_ERROR — {ARCHIVED_STATEMENT_PUT_WORDS}\n"
-                f"  {field}: {ARCHIVED_FIELD_WORDS}",
+                f"VALIDATION_ERROR — {ARCHIVED_FIELD_WORDS}\n  {field}: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
         ]

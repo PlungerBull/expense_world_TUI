@@ -242,7 +242,7 @@ def test_lines_are_read_by_account_every_currency_together_in_the_engines_order(
 ):
     """The statement's lines: its id and its account, in the statement's order, no
     currency; the draft's offer: the account's lines in no statement inside the
-    days, oldest first. No sort is made here, and no request names a holder
+    days, oldest first. No sort is made here
     (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines, "Ordering")."""
     queries = _engine(fake_client, monkeypatch, statement_lines=OCTUBRE_IN, other_lines=OCTUBRE_OUT)
     run_app(_open(OCTUBRE), size=(80, 18))
@@ -257,7 +257,7 @@ def test_lines_are_read_by_account_every_currency_together_in_the_engines_order(
             "limit": 200,
         },
     ]
-    assert not any("currency_code" in q or "holder_id" in q for q in queries)
+    assert not any("currency_code" in q for q in queries)
 
 
 def test_the_rows_keep_the_order_the_engine_gave_them(fake_client, monkeypatch):

@@ -53,7 +53,6 @@ from tests.unit.helpers import (
     edit_limits,
     hashtag_refusal,
     held_currency,
-    holder_list,
     import_part,
     line_code_of,
     render_text,
@@ -249,7 +248,6 @@ class LineClient(FakeClient):
                 "/accounts": whole(ACCOUNTS),
                 "/categories": whole(CATEGORIES),
                 "/hashtags": whole(HASHTAGS),
-                "/holders": holder_list(),
                 "/statements": statement_list([]),
             }
         )

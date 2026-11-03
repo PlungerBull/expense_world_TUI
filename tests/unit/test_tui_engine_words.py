@@ -654,7 +654,7 @@ def test_a_refused_import_shows_the_words_whole(fake_client, monkeypatch, tmp_pa
 
 
 def test_reconciliations_that_cannot_be_read_show_the_words_whole(monkeypatch):
-    """`⏎` on an account, its holder's statements' read refused: the "Failed" toast."""
+    """`⏎` on an account, its statements' read refused: the "Failed" toast."""
     _patch_browse(monkeypatch)
 
     def refused(*a, **k):

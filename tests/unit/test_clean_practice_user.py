@@ -16,7 +16,7 @@ import respx
 from expense.config import Config
 from expense.http import ExpenseClient
 from tests.scripts_loader import load_script
-from tests.unit.helpers import account_record, account_with_currencies, held_currency
+from tests.unit.helpers import account_with_currencies, held_currency
 
 PRACTICE = "http://127.0.0.1:8002"
 TARGET = ["--engine-url", PRACTICE]
@@ -137,8 +137,8 @@ def test_no_key_is_refused_before_any_request(script, monkeypatch, capsys):
 def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(script, capsys):
     engine = FakeEngine(
         accounts=[
-            account_record(id="a1", name="contract-stmt-1"),
-            account_record(
+            account_with_currencies(id="a1", name="contract-stmt-1"),
+            account_with_currencies(
                 id="a2",
                 name="BCP Signature PEN",
             ),
@@ -186,7 +186,7 @@ def test_the_listing_names_each_account_with_its_currencies_and_code(script, cap
 def test_apply_removes_in_the_order_the_deletes_need(script):
     engine = FakeEngine(
         accounts=[
-            account_record(id="a1", name="contract-card-pen", is_archived=True),
+            account_with_currencies(id="a1", name="contract-card-pen", is_archived=True),
             account_with_currencies(
                 id="a2",
                 name="contract-card-two",
@@ -219,7 +219,7 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
 @respx.mock
 def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
     engine = FakeEngine(
-        accounts=[account_record(id="a1", name="BCP PEN")],
+        accounts=[account_with_currencies(id="a1", name="BCP PEN")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
         hashtags=[dict(id="h1", name="contract-h-1")],
     )
@@ -234,7 +234,8 @@ def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
 @respx.mock
 def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
     engine = FakeEngine(
-        accounts=[account_record(id="a1", name="contract-acct-1")], refuse=["DELETE /accounts/a1"]
+        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
+        refuse=["DELETE /accounts/a1"],
     )
     _serve(engine)
 
@@ -249,8 +250,8 @@ def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
 def test_a_prefix_replaces_the_test_names(script, capsys):
     engine = FakeEngine(
         accounts=[
-            account_record(id="a1", name="probe-1"),
-            account_record(id="a2", name="contract-x"),
+            account_with_currencies(id="a1", name="probe-1"),
+            account_with_currencies(id="a2", name="contract-x"),
         ]
     )
     _serve(engine)
@@ -265,7 +266,7 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
 def test_a_system_row_appearing_between_two_snapshots_is_no_leftover(script):
     """The engine creates `@Pendiente`, `@Opening` and the pending hashtag on first need
     and never deletes them, so a test that brings one about leaves nothing behind."""
-    engine = FakeEngine(accounts=[account_record(id="a1", name="BCP PEN")])
+    engine = FakeEngine(accounts=[account_with_currencies(id="a1", name="BCP PEN")])
     _serve(engine)
     with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
         before = script.holdings(client)
@@ -298,7 +299,7 @@ def test_a_system_row_is_never_matched_or_deleted(script, capsys):
 @respx.mock
 def test_a_refused_transaction_delete_is_listed_once(script, capsys):
     engine = FakeEngine(
-        accounts=[account_record(id="a1", name="contract-acct-1")],
+        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
         txs=[
             dict(id="t1", account_id="a1", hashtag_ids=[]),
             dict(id="t2", account_id="a1", hashtag_ids=[]),
@@ -316,7 +317,7 @@ def test_a_refused_transaction_delete_is_listed_once(script, capsys):
 @respx.mock
 def test_a_page_holding_only_refused_deletes_does_not_hide_the_rows_behind_it(script, capsys):
     engine = FakeEngine(
-        accounts=[account_record(id="a1", name="contract-acct-1")],
+        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
         txs=[dict(id=f"t{n}", account_id="a1", hashtag_ids=[]) for n in range(1, 6)],
         refuse=["DELETE /transactions/t1", "DELETE /transactions/t2"],
         page=2,

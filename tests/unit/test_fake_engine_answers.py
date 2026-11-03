@@ -1,8 +1,8 @@
-"""FakeClient answers a statement write in the engine's shape, and the statement and
-holder builders answer as the engine does.
+"""FakeClient answers a statement write in the engine's shape, and the statement
+builders answer as the engine does.
 
 A statement's reads and writes each answer the whole statement, one balance per
-account of its holder (contract: "Statements", "Statement response").
+account it holds (contract: "Statements", "Statement response").
 Each default answer is built by the endpoint's `answer_of` builder, the one
 scripts/check_fixture_drift.py checks against the contract's required fields.
 """
@@ -14,9 +14,6 @@ from tests.unit.helpers import (
     ANSWER_BUILDERS,
     FAKE_ANSWERS,
     FakeClient,
-    account_record,
-    holder_list,
-    holder_record,
     statement_complete_answer,
     statement_create_answer,
     statement_delete_answer,
@@ -73,15 +70,13 @@ def test_each_write_with_a_default_answer_has_a_marked_builder():
     }
 
 
-def test_each_statement_and_holder_read_and_write_has_a_marked_builder():
-    """The routes the app reads and writes statements and holders on each have the
+def test_each_statement_read_and_write_has_a_marked_builder():
+    """The routes the app reads and writes statements on each have the
     builder the drift script checks."""
     assert ANSWER_BUILDERS["GET /v1/statements"] is statement_list
     assert ANSWER_BUILDERS[S_READ] is statement_record
     assert ANSWER_BUILDERS["PUT /v1/statements/{statement_id}"] is statement_put_answer
     assert ANSWER_BUILDERS["POST /v1/statements/import"] is statement_upload_answer
-    assert ANSWER_BUILDERS["GET /v1/holders"] is holder_list
-    assert ANSWER_BUILDERS["GET /v1/holders/{holder_id}"] is holder_record
 
 
 def test_a_default_answer_needs_a_marked_builder():
@@ -301,34 +296,3 @@ def test_a_statement_upload_dry_run_answers_no_statement(creates, statement_id):
         statement_id,
         None,
     )
-
-
-def test_a_holder_read_spreads_a_test_s_record_over_the_whole_shape():
-    card = holder_record({"id": "h-visa", "statement_code": "SIG", "account_ids": ["a", "b"]})
-    listed = holder_list([{"id": "h-pen"}, card])
-
-    assert set(card) == set(holder_record())
-    assert (card["statement_code"], card["account_ids"]) == ("SIG", ["a", "b"])
-    assert [h["id"] for h in listed["items"]] == ["h-pen", "h-visa"]
-    assert set(listed["items"][0]) == set(holder_record())
-
-
-def test_a_holder_read_is_a_bank_holder_by_default():
-    """`is_person` tells a bank holder from a person holder (contract: GET /v1/holders):
-    the base holder is a bank's."""
-    assert holder_record()["is_person"] is False
-    assert holder_list()["items"][0]["is_person"] is False
-
-
-def test_an_account_is_on_a_holder_and_carries_no_statement_code_of_its_own():
-    """The statement code is the holder's: an account names its holder and nothing
-    else of a statement (contract: "Holders"); a test's fields and a base account
-    spread over the whole shape."""
-    bare = account_record()
-    usd = account_record(id="acc-usd", currency_code="USD")
-    person = account_record(usd, name="Ana", is_person=True, holder_id=None)
-
-    assert bare["holder_id"] == holder_record()["id"] == "h1"
-    assert {"statement_code", "statement_partner_id"}.isdisjoint(bare)
-    assert set(usd) == set(person) == set(bare)
-    assert (person["id"], person["currency_code"], person["holder_id"]) == ("acc-usd", "USD", None)

@@ -41,14 +41,12 @@ from expense.reads import (
 )
 from tests.unit.helpers import (
     ENGINE_ORDER_HOLDING_ACCOUNTS,
-    account_record,
     account_with_currencies,
     bank_line_row,
     cursor_page,
     edit_limits,
     error_response,
     held_currency,
-    holder_list,
     import_part,
     statement_list,
     statement_record,
@@ -450,7 +448,7 @@ def test_currency_picks_skips_id_less_rows_and_an_account_holding_no_currency():
 def test_the_new_account_builder_is_the_engines_shape_now():
     account = account_with_currencies()
     assert {"statement_code", "currencies"} <= set(account)
-    assert not {"currency_code", "holder_id", "current_balance_home_cents"} & set(account)
+    assert not {"currency_code", "current_balance_home_cents"} & set(account)
     assert set(account["currencies"][0]) == {
         "currency_code",
         "current_balance_cents",
@@ -1035,18 +1033,6 @@ def test_the_statement_filter_goes_as_statement_id(configured, path, read, answe
 
 
 @respx.mock
-def test_the_holders_read_sends_no_query(configured):
-    """`GET /holders` whole with no query (contract: GET /v1/holders), the body untouched."""
-    from expense import config as config_module
-    from expense.reads import fetch_holders
-
-    holders = holder_list([{"id": "h-sig", "account_ids": ["sig-pen", "sig-usd"]}])
-    route = respx.get(f"{BASE}/v1/holders").mock(return_value=httpx.Response(200, json=holders))
-    assert fetch_holders(config_module.ensure_loaded()) == holders
-    assert dict(route.calls.last.request.url.params) == {}
-
-
-@respx.mock
 def test_the_statement_reads_send_what_the_engine_takes(configured):
     """An account's statements by `account_id` alone, and nothing else
     (contract: GET /v1/statements, "`?account_id=<id>` is required"); one statement by its
@@ -1067,21 +1053,6 @@ def test_the_statement_reads_send_what_the_engine_takes(configured):
     assert fetch_statement(cfg, "st-1") == one
     assert dict(list_route.calls.last.request.url.params) == {"account_id": "acc-visa"}
     assert dict(one_route.calls.last.request.url.params) == {}
-
-
-def test_holder_accounts_groups_the_accounts_read_by_their_holder():
-    """holder id → its accounts in the order read; a person is on no holder and a row
-    with no id is skipped (contract: "Bank Accounts", "Holder")."""
-    from expense.reads import holder_accounts
-
-    usd = account_record(id="sig-usd", currency_code="USD", holder_id="h-sig")
-    alone = account_record(id="bcp-pen", holder_id="h-bcp")
-    pen = account_record(id="sig-pen", holder_id="h-sig")
-    person = account_record(id="ana", is_person=True, holder_id=None)
-    assert holder_accounts([usd, alone, pen, person, {"holder_id": "h-sig"}]) == {
-        "h-sig": [usd, pen],
-        "h-bcp": [alone],
-    }
 
 
 @pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])

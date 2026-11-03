@@ -461,17 +461,6 @@ def count_transactions(
     return _count_of(body, "GET /transactions/count")
 
 
-def fetch_holders(cfg, *, verbose: bool = False) -> dict:
-    """GET /v1/holders → the raw engine body. Pure data.
-
-    Every holder of the user's, archived ones included, whole and unpaged as
-    `{items}`, sorted `sort_order` ascending, then creation time, oldest first
-    (contract: GET /v1/holders, "Ordering"). Each names its live accounts by id
-    in `account_ids`, in the accounts' own order (contract: "Holders", "Its accounts").
-    """
-    return fetch_body(cfg, path="/holders", params=None, verbose=verbose)
-
-
 def fetch_statements(cfg, account_id: str, *, verbose: bool = False) -> dict:
     """GET /v1/statements?account_id= → the raw engine body. Pure data.
 
@@ -856,25 +845,6 @@ def currency_picks(
             items, include_people=include_people, include_archived=include_archived
         )
     ]
-
-
-def holder_accounts(items: list) -> dict[str, list[dict]]:
-    """holder id → its accounts among `items`, in the order given.
-
-    Each real account names the one holder it is on as `holder_id`; a person
-    is on none (contract: "Bank Accounts", "Holder"), so it has no entry, and
-    neither has a row with no id. Grouped from one accounts read, this is the
-    holder's `account_ids` among the accounts read, with no read of the
-    holder itself: the holder lists exactly its live accounts, archived ones
-    included, in the accounts' own order, and archives them all at once
-    (contract: "Holders", "Its accounts") (contract: "Holders", "A holder is archived whole").
-    """
-    held: dict[str, list[dict]] = {}
-    for row in items:
-        holder = row.get("holder_id")
-        if row.get("id") and holder:
-            held.setdefault(str(holder), []).append(row)
-    return held
 
 
 @dataclass(frozen=True)

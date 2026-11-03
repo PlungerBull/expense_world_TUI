@@ -122,9 +122,9 @@ def test_every_key_in_one_body_is_found():
         {"title": "line_code", "operation_code": "12"},
         {"transactions": [{"description": "statement_line"}]},
         ["statement_place"],
-        # `PUT /reconciliations/{id}/statement-order`: a statement's places are a
+        # `PUT /statements/{id}/statement-order`: a statement's places are a
         # list of line ids and empty slots under `places`
-        # (contract: "Reconciliations", "A statement's order").
+        # (contract: "Statements", "A statement's order").
         {"places": ["bl1", None, "bl2"]},
     ],
     ids=["no-body", "empty", "value-not-key", "nested-value", "bare-list", "statement-order"],

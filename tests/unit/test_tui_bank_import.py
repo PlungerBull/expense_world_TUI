@@ -35,8 +35,8 @@ from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
-    ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     account_with_currencies,
     held_currency,
     import_answer,
@@ -443,7 +443,7 @@ def test_the_account_list_shows_the_engines_order(fake_client, monkeypatch, tmp_
     not alphabetical, not by `sort_order`; the person is left out and nothing
     else moves."""
     path = _bank_file(tmp_path)
-    _patch(monkeypatch, ENGINE_ORDER_ACCOUNTS)
+    _patch(monkeypatch, ENGINE_ORDER_HOLDING_ACCOUNTS)
     _engine(fake_client, {})
 
     async def scenario(pilot, app):
