@@ -336,7 +336,7 @@ the bar is where the right file gets dropped next.
 
 ## The transaction list pages by cursor (2026-09-23)
 
-**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([runtime.md](runtime.md) "Three list shapes"). The engine owns paging and the count, which is the case behind CLAUDE.md's "Ask the engine to change" rule.
+**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque and never builds one, since the engine refuses a cursor it did not issue (contract: "Base Conventions", "Cursors, on every cursor-paged list"); it drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([runtime.md](runtime.md) "Three list shapes"). The engine owns paging and the count, which is the case behind CLAUDE.md's "Ask the engine to change" rule.
 
 **Rejected.** *Offset paging* — a list that shrinks while you file rows silently skips rows. *A probe-then-offset-then-reverse read for oldest-first* — two reads, a race at the page edge, and a pattern every client would copy.
 
@@ -685,9 +685,9 @@ official import into an empty ledger every name is new.
 them; (2) `--create-names` checks the sheet with a dry run, then creates each missing name and
 imports nothing, so a refused sheet creates nothing, after which the dry run shows the engine's
 counts; (3) `--apply` writes the import, and is refused, naming the step, while a name is still
-missing, so the owner always sees the counts before anything is imported. The count of rows a
-sheet's split lines hold waits on the engine (to-engine "The sheet import's counts say how many
-sheet rows its split lines come from").
+missing, so the owner always sees the counts before anything is imported. The counts name the
+split transactions and the sheet rows they hold, both as the engine counts them, so three splits
+of eight rows never read like three of six (contract: POST /v1/transactions/import-sheet, "Response").
 
 **Rejected.** *A dry run with no counts* — the owner would see the numbers only after the
 one-time import. *A dry run that creates the missing names* — a preview that writes. *`--apply`

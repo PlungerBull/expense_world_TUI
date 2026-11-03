@@ -79,8 +79,7 @@ The engine's hand-off "An account holds its currencies: every route names an acc
 currency code; holders are gone" (contract `f82426fb0a099676`) is caught up: its seven parts are
 done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
 
-Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md),
-[a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
+Then, rewritten in place: [a person's opening balance in the sheet import](specs/person-opening-balance-leftovers.md),
 [the bank download leftovers](specs/catch-up-leftovers.md),
 [the statement screens' leftovers](specs/catch-up-cards-statements-1b-leftovers.md) (1 question),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
@@ -106,6 +105,10 @@ New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question), both waiting on no other spec.
 
+New, from the sheet import's split rows catch-up (done on 2026-11-03):
+[what it turned up](specs/catch-up-split-rows-leftovers.md) (1 question, on the blank line an
+apply ends on), waiting on no other spec.
+
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
@@ -120,6 +123,10 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
+- **The live sheet test's docstring cites nothing for its counts.** Nothing you see changes.
+  [test_sheet_import.py](../tests/contract/test_sheet_import.py)'s module docstring says what
+  `split_lines` and `split_rows` count with no citation of its own; it could cite
+  (contract: POST /v1/transactions/import-sheet, "Response").
 - **The statement upload's live-test gaps.** Nothing you see changes. In
   [test_statement_import.py](../tests/contract/test_statement_import.py): no live test opens a
   card's month before its paper; none applies a card paper with $0 dollars to a soles-and-dollars
@@ -215,14 +222,15 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   [mockups/](mockups/) back screens already built; many also draw an older app (`s Split`
   footers, the split screen, the import's old preview, one currency per account). Delete each
   one that no spec, todo item or to-engine file links, removing its links from docs, code and
-  test docstrings in the same change.
+  test docstrings in the same change. `expense-world-sheet-import-engine.html` is one: only the
+  docstrings of import_cmd.py and test_cmd_import.py still name it.
 - **Two more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
   version. One shared copy, with tests.
 - **Code comments still carry mockup tags, and one module docstring is stale.** Eighteen
   comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
-  log_bar.py point at a mockup's pane number (CLAUDE.md doc rule 5 holds for comments too); say
+  log_bar.py point at a mockup's pane number (import_cmd.py too: "pick 2 A", "Screen 1…5") (CLAUDE.md doc rule 5 holds for comments too); say
   what the code does instead. reconciliations.py's module docstring still describes the old New
   form (`› begin › end`, a required beginning balance), a complete needing a line on one
   account of the statement, and delete as draft-only.
