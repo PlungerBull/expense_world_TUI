@@ -1,4 +1,4 @@
-"""A statement's screen: its head and its one list, panes 4 and 5 of
+"""A statement's screen: its head and its one list, panes 4, 5, 8 and 9 of
 docs/mockups/expense-world-statements-screens.html at 80 columns.
 
 The head shows each covered currency's begin, end and diff once; the list is the
@@ -11,6 +11,7 @@ import re
 import pytest
 from textual.widgets import Static
 
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
@@ -19,6 +20,7 @@ from tests.unit.helpers import (
     import_part,
     render_text,
     run_app,
+    statement_complete_answer,
     statement_record,
     stub_home_month,
     wait_for,
@@ -167,13 +169,16 @@ PANE_5 = """
 """
 
 
-def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=()):
+def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statement=None):
     """The fake engine's bank lines: the statement's read (`statement_id`) answers
-    `statement_lines`, the read of the account's lines in no statement `other_lines`.
-    Returns the list of every `GET /bank-lines` query."""
+    `statement_lines`, the read of the account's lines in no statement `other_lines`
+    (both lists are read at each call, so a test may change them); `GET /statements/{id}`
+    answers `statement`. Returns the list of every `GET /bank-lines` query."""
     queries: list[dict] = []
 
     def get(path, *, auth=True, params=None):
+        if path.startswith("/statements/"):
+            return dict(statement)
         assert path == "/bank-lines", path
         queries.append(dict(params or {}))
         lines = statement_lines if "statement_id" in (params or {}) else other_lines
@@ -206,9 +211,9 @@ def _pane(text: str) -> list[str]:
     return [re.sub(r"\+(\d)", r" \1", line.rstrip()) for line in text.strip("\n").splitlines()]
 
 
-def _open(statement: dict):
+def _open(statement: dict, code: str | None = None):
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(statement))
+        screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
@@ -220,8 +225,8 @@ def _open(statement: dict):
 def test_a_completed_statement_reads_as_pane_4_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
     _, lines, _ = run_app(_open(VIS_AGOSTO), size=(80, 26))
-    # the footer is the footer rules' task: a completed statement offers no `c`
-    assert lines[:-1] == _pane(PANE_4)[:-1]
+    # the footer has `d` and no `c`, and no `space Toggle` (Question 9 B)
+    assert lines == _pane(PANE_4)
 
 
 def test_a_draft_reads_as_pane_5_at_80_columns(fake_client, monkeypatch):
@@ -356,3 +361,247 @@ def test_pages_hold_rows_by_their_lines():
     assert chk.page_status == "rows 1-8 of 12 · page 1 of 2"
     chk.action_page(1)
     assert chk.cursor_key == "l9" and chk.page_status == "rows 9-12 of 12 · page 2 of 2"
+
+
+PANE_8_TOP = """
+  ◈ EXPENSE WORLD  ▸  Statements  ▸  Septiembre 2026
+────────────────────────────────────────────────────────────────────────────────
+  Septiembre 2026  ·  IBK Visa  ·  2026-08-26 → 2026-09-25  ·  status completed
+            begin          end      diff
+  PEN     -912.30      -820.00         —
+  ⚠ The statement's last line is 6 days before its last day.
+  ⚠ USD: Dollars held 0.00 all through the statement's days.
+"""
+
+PANE_9 = """
+  ◈ EXPENSE WORLD  ▸  Statements  ▸  Noviembre 2026
+────────────────────────────────────────────────────────────────────────────────
+  Noviembre 2026  ·  Visa BCP  ·  2026-10-26 → 2026-11-25  ·  status draft
+            begin          end      diff
+  PEN     -234.20            —
+  USD      -30.98            —
+  closes when its PDF is dropped on the LOG bar
+
+  Date        Title                     Operation  Cur     Amount
+  2026-10-29  CINEPLANET                —          PEN     -38.00
+  2026-11-02  WONG BENAVIDES            005230     PEN     -63.10
+
+ esc Back  r Refresh  d Delete  ? Keys
+"""
+
+NOVIEMBRE = statement_record(
+    {
+        "id": "vis-nov",
+        "account_id": "acc-visa",
+        "name": "Noviembre 2026",
+        "date_start": "2026-10-26",
+        "date_end": "2026-11-25",
+        "status": 1,
+        "balances": [_balance("PEN", -23420, None, None), _balance("USD", -3098, None, None)],
+    }
+)
+NOVIEMBRE_LINES = [
+    _line(31, "2026-10-29", "CINEPLANET", -3800, "PEN", None),
+    _line(32, "2026-11-02", "WONG BENAVIDES", -6310, "PEN", "005230"),
+]
+SEPTIEMBRE = statement_record(
+    {
+        "id": "ibk-sep",
+        "account_id": "acc-ibk",
+        "name": "Septiembre 2026",
+        "date_start": "2026-08-26",
+        "date_end": "2026-09-25",
+        "status": 1,
+        "balances": [_balance("PEN", -91230, -82000, 0)],
+    }
+)
+SEPTIEMBRE_LINES = [
+    _line(41, "2026-08-29", "METRO SURCO", -9120, "PEN", "003210", account="acc-ibk"),
+    _line(42, "2026-09-06", "TOTTUS LA MOLINA", -5680, "PEN", "003244", account="acc-ibk"),
+]
+
+
+def test_a_tick_into_a_soles_only_draft_reads_the_statement_again_as_pane_5(
+    fake_client, monkeypatch
+):
+    """Ticking a dollar line in: the screen reads the statement and its lines again,
+    and the dollars the statement now covers show blank, a dim `—`, their difference
+    blank (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
+    soles = statement_record({**OCTUBRE, "balances": [_balance("PEN", -82000, -34860, 0)]})
+    inside = [line for line in OCTUBRE_IN if line["id"] != "l23"]
+    amazon = OCTUBRE_IN[2]
+    outside = [amazon, *OCTUBRE_OUT]
+    reads: list[str] = []
+    _engine(fake_client, monkeypatch, statement_lines=inside, other_lines=outside, statement=soles)
+    plain_get = fake_client.get
+
+    def get(path, *, auth=True, params=None):
+        if path.startswith("/statements/"):
+            reads.append(path)
+            return dict(OCTUBRE)  # the engine after the tick: dollars covered, both blank
+        return plain_get(path, auth=auth, params=params)
+
+    fake_client.get = get
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(soles))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.pause()
+        assert "USD" not in str(screen.query_one("#rhead", Static).visual)
+        first = screen._list
+        for _ in range(4):
+            await pilot.press("down")
+        # the engine after the PUT: the dollar line is in the statement, in its place
+        inside[:] = OCTUBRE_IN
+        outside[:] = OCTUBRE_OUT
+        await pilot.press("space")
+        await wait_for(pilot, lambda: screen._list is not first and reads)
+        await pilot.pause()
+        return _screen_lines(app)
+
+    lines = run_app(scenario, size=(80, 18))
+    assert fake_client.puts == [("/transactions/t23", {"statement_id": "ibk-oct"})]
+    assert reads == ["/statements/ibk-oct"]
+    assert lines == _pane(PANE_5)
+
+
+def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pane_8(
+    fake_client, monkeypatch
+):
+    """The close reviews every currency: a covered one's note sits under its balances,
+    a currency with no row has its note led by its code, under the head, beside them
+    (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`")."""
+    _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_LINES)
+    answer = statement_complete_answer(SEPTIEMBRE)
+    answer["balances"][0]["warnings"] = ["The statement's last line is 6 days before its last day."]
+    answer["not_covered"] = [
+        {
+            "currency_code": "USD",
+            "warnings": ["Dollars held 0.00 all through the statement's days."],
+            "coverage_gap": None,
+            "review_lines": [],
+        },
+        {"currency_code": "EUR", "warnings": [], "coverage_gap": None, "review_lines": []},
+    ]
+    fake_client.write_responses["/statements/ibk-sep/complete"] = answer
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(SEPTIEMBRE))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: screen._record["status"] == 2)
+        await wait_for(pilot, lambda: screen.query_one("#rwarn", Static).display)
+        await pilot.pause()
+        return _screen_lines(app)
+
+    lines = run_app(scenario, size=(80, 26))
+    top = _pane(PANE_8_TOP)
+    assert lines[: len(top)] == top  # an empty `not_covered` entry draws nothing
+    assert lines[len(top)] == ""  # then the list, which keeps its own blank line
+
+
+def _bound(app) -> dict[str, bool]:
+    """The footer's keys: each shown binding's description, whether the screen
+    lets it act."""
+    return {
+        active.binding.description: active.enabled
+        for active in app.screen.active_bindings.values()
+        if active.binding.show
+    }
+
+
+def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf_as_pane_9(
+    fake_client, monkeypatch
+):
+    queries = _engine(fake_client, monkeypatch, statement_lines=NOVIEMBRE_LINES)
+
+    async def scenario(pilot, app):
+        screen, lines, visual = await _open(NOVIEMBRE, "VIS")(pilot, app)
+        for key in ("space", "c", "u"):
+            await pilot.press(key)
+        await pilot.pause()
+        return screen, lines, app.screen is screen, visual
+
+    screen, lines, still_here, visual = run_app(scenario, size=(80, 18))
+    pane = _pane(PANE_9)
+    assert lines[:-1] == [*pane[:-1], *[""] * (len(lines) - len(pane))]  # then the room left
+    assert lines[-1] == pane[-1]
+    head, text = visual, str(visual)
+    line = next(sp for sp in head.spans if "closes when" in text[sp.start : sp.end])
+    assert line.style.dim  # the line under the balances is dim
+    assert still_here  # `c` and `u` opened no question
+    assert fake_client.puts == [] and fake_client.posts == []
+    # no line from outside the statement is read, and none is offered
+    assert not any("unreconciled" in q for q in queries)
+    assert screen._list._read_only  # no tick box, no toggle
+
+
+def test_the_keys_show_and_act_as_the_statements_state_allows(fake_client, monkeypatch):
+    """Panes 4, 5 and 9: a completed statement has `d` and no `c` or toggle; a draft all
+    three; an open statement waiting for its PDF has neither `c` nor a toggle, nor `u`."""
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    def keys(statement, code):
+        async def scenario(pilot, app):
+            screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
+            await app.push_screen(screen)
+            await wait_for(pilot, lambda: screen._list is not None)
+            await pilot.pause()
+            return _bound(app)
+
+        return scenario
+
+    completed = run_app(keys(VIS_AGOSTO, "VIS"), size=(80, 26))
+    draft = run_app(keys(OCTUBRE, None), size=(80, 26))
+    waiting = run_app(keys(NOVIEMBRE, "VIS"), size=(80, 26))
+    assert "Complete" not in completed and "Toggle" not in completed
+    assert "Delete" in completed and "Revert" in completed
+    assert {"Toggle", "Complete", "Revert", "Delete"} <= set(draft)
+    assert not {"Complete", "Toggle", "Revert"} & set(waiting) and "Delete" in waiting
+
+
+def test_the_page_keys_reach_every_page_of_a_completed_statement(fake_client, monkeypatch):
+    """The list holds focus on a completed statement as on a draft, so `pgdn` and `pgup`
+    page it: the opening balances at the end of Agosto sit on a later page at this height."""
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.pause()
+        lst = screen._list
+        first = lst._window()[1][0].key
+        assert lst.page_status.endswith("page 1 of 2")
+        await pilot.press("pagedown")
+        await pilot.pause()
+        second = lst._window()[1][0].key
+        assert lst.page_status.endswith("page 2 of 2") and second != first
+        assert "Next" in _bound(app) or "Prev" in _bound(app)
+        await pilot.press("pageup")
+        await pilot.pause()
+        return first, lst._window()[1][0].key
+
+    first, back = run_app(scenario, size=(80, 19))
+    assert back == first
+
+
+def test_c_and_space_do_nothing_on_a_completed_statement(fake_client, monkeypatch):
+    """`check_action` is the only stop: no question, no box, no write."""
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    async def scenario(pilot, app):
+        screen, _, _ = await _open(VIS_AGOSTO, "VIS")(pilot, app)
+        before = screen._list.checked
+        await pilot.press("c")
+        await pilot.press("space")
+        await pilot.pause()
+        return screen, app.screen is screen, before == screen._list.checked
+
+    screen, still_here, same = run_app(scenario, size=(80, 26))
+    assert still_here and same and not screen._busy
+    assert fake_client.puts == [] and fake_client.posts == []

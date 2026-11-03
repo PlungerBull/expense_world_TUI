@@ -290,13 +290,6 @@ the question, the files named and the tui.md section named.
    the same boxes; a currency with no movement closes on an empty box typed; the tests pin each; the citation `"Every ending balance must
    be entered"`, which the live contract no longer holds, is replaced by the live rule
    wherever it stands (tui.md, reconciliations.py).
-6. **Re-reads, notes and the footer** (points 7, 8 and 11; questions 4 and 5). The tick and
-   complete handlers in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4. *Passes if:* after a tick the screen reads the statement again and a
-   currency it gained shows blank; `not_covered` notes show as question 4 picks; a completed
-   statement's footer has `d` and not `c`; an open one on an account with a code has neither
-   ticking nor `c`; `CONCURRENT_CHANGE` reads as question 5 picks; on a completed statement `pgdn` and `pgup`
-   reach every page of its list, as on a draft (its list takes no focus today); the tests pin each.
 7. **The flagged lines and the lines in no statement** (points 9 and 10). `FlaggedLinesScreen`
    and the `u` list in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
    their tests; tui.md §4 "The lines a complete flagged for review". *Passes if:* `⚑` and `f`

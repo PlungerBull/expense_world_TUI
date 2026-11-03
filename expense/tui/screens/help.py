@@ -66,9 +66,10 @@ EXCLUDED_ACTIONS = frozenset({"help"})
 #: there (docs/tui.md §4). Advertising `⏎ Open` on those screens would be
 #: the card lying — so the row is dropped when the handler is absent.
 NEEDS_SCREEN_HANDLER = {
-    "select": "on_cursor_list_selected",
-    "toggle": "on_cursor_list_toggled",
-    "more": "on_cursor_list_more_requested",
+    "select": ("on_cursor_list_selected",),
+    # `CursorList` posts its `Toggled`, a statement's `CheckList` its own
+    "toggle": ("on_cursor_list_toggled", "on_check_list_toggled"),
+    "more": ("on_cursor_list_more_requested",),
 }
 
 #: A widget or a screen may name, in a `CARD_FOLLOWS_CHECK` frozenset, the
@@ -227,8 +228,8 @@ def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
     if focused is not None and focused is not screen:
         inert = frozenset(
             action
-            for action, handler in NEEDS_SCREEN_HANDLER.items()
-            if not hasattr(screen, handler)
+            for action, handlers in NEEDS_SCREEN_HANDLER.items()
+            if not any(hasattr(screen, handler) for handler in handlers)
         ) | frozenset(
             action
             for action in getattr(focused, CARD_FOLLOWS_CHECK, ())

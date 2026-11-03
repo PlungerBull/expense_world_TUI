@@ -126,10 +126,19 @@ class CheckList(WindowedList):
         if land_on is not None and land_on in keys:
             self._cursor = keys.index(land_on)
 
+    #: The `?` card lists `space` only while `check_action` allows it (help.py).
+    CARD_FOLLOWS_CHECK = frozenset({"toggle"})
+
     def on_mount(self) -> None:
         self._refresh()
-        if not self._read_only:
-            self.focus()
+        self.focus()
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """`space` exists only on a list that ticks: False, not None, so a read-only
+        list hides it from the footer as well as leaving it dead."""
+        if action == "toggle":
+            return not self._read_only
+        return super().check_action(action, parameters)
 
     @property
     def checked(self) -> set:

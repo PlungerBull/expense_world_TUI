@@ -429,13 +429,15 @@ def test_enter_on_a_statement_opens_the_whole_statement(monkeypatch):
             await pilot.press("enter")
             await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
             record = app.screen._record
-            opened.append((app.screen._id, record["account_id"], record["balances"]))
+            code = app.screen._statement_code
+            opened.append((app.screen._id, record["account_id"], record["balances"], code))
             await pilot.press("escape")
             await wait_for(pilot, lambda: app.screen is screen and screen._mode == "batches")
 
     run_app(scenario, size=(140, 50))
     assert opened == [
-        (item["id"], "acc-visa", item["balances"]) for item in (VISA_STATEMENTS[i] for i in (0, 2))
+        (item["id"], "acc-visa", item["balances"], "VIS")  # the account's own statement code
+        for item in (VISA_STATEMENTS[i] for i in (0, 2))
     ]
 
 
@@ -626,16 +628,17 @@ def _writing_engine(monkeypatch) -> FakeClient:
 #: Each status key on a statement's screen, opened from Visa BCP on the row at `row`: the
 #: statement it opens, the one write it sends, its toast, the header's status after it
 #: (`None`: the screen closes), and the browse's rows after it. Octubre is a draft,
-#: Agosto completed (`VISA_ROWS`); a completed statement's row is dimmed.
+#: Agosto completed (`VISA_ROWS`); `c` is sent from Sueldo Soles, whose Octubre is a draft with
+#: every balance and no statement code to wait for; a completed statement's row is dimmed.
 STATUS_KEYS = {
     "c": (
-        2,
-        "vis-oct",
-        ("POST", "/statements/vis-oct/complete"),
+        0,
+        "sue-oct",
+        ("POST", "/statements/sue-oct/complete"),
         "Statement completed.",
         "completed",
-        [*VISA_ROWS[:2], [*VISA_ROWS[2][:4], "completed", "not in order"]],
-        ["dim", "dim", "dim"],
+        [["Octubre 2026", "2026-09-26 → 2026-10-25", "—", "completed"]],
+        ["dim"],
     ),
     "u": (
         0,
@@ -665,6 +668,7 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
     new status, and back on the browse the statement's row, read again, shows it (a
     deleted statement's row gone)."""
     row, opened, write, toast, status, rows, styles = STATUS_KEYS[key]
+    account = SUELDO if key == "c" else VISA  # a draft of an account with a code waits for its PDF
     client = _writing_engine(monkeypatch)
     notes: list = []
     monkeypatch.setattr(
@@ -673,7 +677,7 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, VISA)
+        screen = await _open(pilot, app, account)
         screen._batch_list.set_cursor(row)
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
@@ -707,7 +711,7 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
     """Through the shared write path and the real HTTP client, each key's write on a
     statement opened from an account is one request carrying one `X-Idempotency-Key`."""
     _row, opened, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
-    statement = next(item for item in VISA_STATEMENTS if item["id"] == opened)
+    statement = next(item for item in STATEMENTS if item["id"] == opened)
     record = statement
     answers = {
         "c": statement_complete_answer({**statement, "status": 2}),

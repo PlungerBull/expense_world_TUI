@@ -1768,8 +1768,31 @@ and the screen reads the statement fresh, so the header and the next `c` go by w
 engine holds. A complete's answer carries the close's notes on each
 balance, its currency's `warnings` and `coverage_gap`
 (contract: POST /v1/statements/{statement_id}/complete, "Response"); each currency's
-`warnings` sentence shows under the head, `⚠ <sentence>` in the warning colour, in the
-engine's words, one after the other, until the next status change.
+`warnings` sentence shows under the head, `  ⚠ <sentence>` in the warning colour, in the
+engine's words, one after the other, until the next status change. The close also reviews
+each currency of the account the statement holds no balances for, its notes in the answer's
+`not_covered`
+(contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"): each
+such currency's `warnings` sentence follows the covered ones, led by its code, `  ⚠ USD: <sentence>`
+(pane 8 of [expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)).
+
+**Which keys a statement offers** (panes 4, 5 and 9 of the same mockup; `check_action` hides
+a key from the footer and the `?` card and leaves it dead). A draft offers `space Toggle`,
+`c Complete`, `u Revert` and `d Delete`. A completed statement offers `u Revert` and `d Delete`:
+no `c` and no toggle, since it is read-only. An open statement on an account with a statement
+code waits for its PDF: its list is read-only with no tick box and no number, only its own lines
+are read (none from outside it), the dim line `closes when its PDF is dropped on the LOG bar`
+sits under the balances (the statement code is the account's, passed in from the browse), and
+of the statement's own keys its footer offers `r Refresh` and `d Delete`: no `c`, no toggle
+and no `u`. The list holds
+focus on every statement, so `pgdn` and `pgup` page a completed one too. A tick refused as
+`CONCURRENT_CHANGE` shows the engine's words under `Couldn't update`, then `It changed at the
+same moment: press r, then try again.`, and the statement is read again. A line moved to its
+account's other currency by the Edit form stays in its open statement: the move sends the
+statement's own id
+(contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction").
+A tick that gives the statement a currency it did not cover reads the statement again, and
+the new currency's balances show as a dim `—`, its difference blank (pane 5).
 
 **The lines a complete flagged for review** (pick 1A of
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)).

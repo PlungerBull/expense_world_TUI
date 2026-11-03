@@ -581,6 +581,45 @@ def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, mon
     run_app(scenario)
 
 
+def test_a_tick_at_the_same_moment_as_another_write_says_to_press_r(fake_client, monkeypatch):
+    """`CONCURRENT_CHANGE` on a tick: the engine's words, then the list's own line,
+    `press r, then try again.`, and the statement is read again."""
+    statement_reads = _patch(monkeypatch)
+    fake_client.errors["PUT"] = EngineError(
+        "CONFLICT",
+        "Engine words for CONCURRENT_CHANGE.",
+        {"statement_id": "Engine field words."},
+        409,
+        {},
+        {"statement_id": "CONCURRENT_CHANGE"},
+    )
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, message)),
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("space")
+        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: statement_reads)
+
+    run_app(scenario)
+    assert statement_reads == ["r1"]
+    assert notices == [
+        (
+            "Couldn't update",
+            "CONFLICT — Engine words for CONCURRENT_CHANGE.\n"
+            "  statement_id: Engine field words.\n\n"
+            "It changed at the same moment: press r, then try again.",
+        )
+    ]
+
+
 def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
     """Screen 3 A of expense-world-archived-account.html: the batch was opened
     before its account was archived, and `space` is refused. `Couldn't update`
@@ -1268,7 +1307,7 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: line.display)
-        assert str(line.visual) == f"⚠ {GAP}"  # the engine's own sentence, verbatim
+        assert str(line.visual) == f"  ⚠ {GAP}"  # the engine's own sentence, verbatim
         # the gap never replaces the success feedback
         await wait_for(pilot, lambda: notices)
         assert any("completed" in m for m in notices)
@@ -1293,7 +1332,7 @@ def test_a_gap_on_any_currency_draws_its_line(fake_client, monkeypatch):
         await wait_for(pilot, lambda: screen._record["status"] == 2)
         await pilot.pause()
         assert fake_client.posts == [(COMPLETE_PATH, None)]
-        assert str(screen.query_one("#rwarn", Static).visual) == f"⚠ {GAP}"
+        assert str(screen.query_one("#rwarn", Static).visual) == f"  ⚠ {GAP}"
 
     run_app(scenario)
 

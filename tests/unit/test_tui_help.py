@@ -478,3 +478,37 @@ def test_the_help_title_on_a_statements_own_screen_says_statements():
     title, _ = screen_inventory(screen)
     assert title == "Keys — Octubre BCP"
     assert "reconcil" not in title.lower()
+
+
+def test_the_card_lists_space_on_a_draft_statement_and_not_on_a_read_only_one(
+    fake_client, monkeypatch
+):
+    """`space` is the statement list's own toggle (its screen handles `CheckList.Toggled`):
+    a draft's card lists it, a completed statement's and one waiting for its PDF do not,
+    nor `c`."""
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from tests.unit.test_tui_statement_screen import (
+        AGOSTO,
+        NOVIEMBRE,
+        OCTUBRE,
+        VIS_AGOSTO,
+        _engine,
+    )
+
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    def card(statement, code):
+        async def scenario(pilot, app):
+            screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
+            await app.push_screen(screen)
+            await wait_for(pilot, lambda: screen._list is not None)
+            await pilot.pause()
+            _, groups = screen_inventory(screen)
+            return {row.keys for group in groups for row in group.rows}
+
+        return run_app(scenario, size=(80, 26))
+
+    assert {"space", "c"} <= card(OCTUBRE, None)
+    for statement, code in ((VIS_AGOSTO, "VIS"), (NOVIEMBRE, "VIS")):
+        keys = card(statement, code)
+        assert "space" not in keys and "c" not in keys

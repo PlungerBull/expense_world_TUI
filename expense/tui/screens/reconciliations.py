@@ -687,7 +687,7 @@ class ReconciliationsScreen(SectionScreen):
         if item and self._open_account():
             self._resume_key = event.key
             self.app.push_screen(
-                ReconciliationDetailScreen(item),
+                ReconciliationDetailScreen(item, statement_code=self._open_account().code),
                 lambda _result: self._load(),
             )
 
@@ -1382,6 +1382,9 @@ def balances_body(typed: dict[BalanceAsk, int]) -> dict:
     return {"balances": list(entries.values())}
 
 
+#: The line under the balances of an open statement on an account with a statement code.
+_WAITS_FOR_PDF = "  closes when its PDF is dropped on the LOG bar"
+
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
 _UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
 
@@ -1456,11 +1459,14 @@ class ReconciliationDetailScreen(
         *HelpBindingMixin.BINDINGS,
     ]
     #: The `?` card lists `f` only while `check_action` allows it (help.py).
-    CARD_FOLLOWS_CHECK = frozenset({"flagged"})
+    CARD_FOLLOWS_CHECK = frozenset({"flagged", "complete", "revert"})
 
-    def __init__(self, record: dict) -> None:
+    def __init__(self, record: dict, *, statement_code: str | None = None) -> None:
+        """`statement_code` is the statement code of the record's account
+        (`BrowseAccount.code`), `None` when it has none."""
         super().__init__()
         self._record = record
+        self._statement_code = statement_code
         self._id = record.get("id")
         self._account_id = record.get("account_id")
         self._busy = False
@@ -1478,6 +1484,12 @@ class ReconciliationDetailScreen(
     @property
     def _completed(self) -> bool:
         return self._record.get("status") == 2
+
+    @property
+    def _waits_for_pdf(self) -> bool:
+        """An open statement on an account with a statement code closes when its PDF
+        is dropped on the LOG bar: no ticking, no `c`, no lines from outside it."""
+        return not self._completed and bool(self._statement_code)
 
     @property
     def crumb(self) -> tuple[str, ...]:
@@ -1521,6 +1533,7 @@ class ReconciliationDetailScreen(
         state directly, and a cancelled stale load can't clobber _record."""
         self._record = fresh
         self._render_header()
+        self.refresh_bindings()
 
     def _set_acct_name(self, name: str | None) -> None:
         self._acct_name = name
@@ -1544,6 +1557,9 @@ class ReconciliationDetailScreen(
         for line in balance_lines(r.get("balances"), PALETTE):
             text.append("\n")
             text.append_text(line)
+        if self._waits_for_pdf:
+            text.append("\n")
+            text.append(_WAITS_FOR_PDF, style="dim")
         self.query_one("#rhead", Static).update(text)
 
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
@@ -1583,7 +1599,8 @@ class ReconciliationDetailScreen(
                 cfg, reconciliation=self._id, account=self._account_id, sort="statement", **kw
             )
             available = []
-            if not self._completed:  # a draft also offers the account's lines in no batch
+            if not self._completed and not self._waits_for_pdf:
+                # a draft also offers the account's lines in no batch
                 available = _fetch_all_lines(
                     cfg,
                     account=self._account_id,
@@ -1617,14 +1634,14 @@ class ReconciliationDetailScreen(
             await container.remove_children()
             empty = (
                 "(no transactions in this batch)"
-                if self._completed
+                if self._completed or self._waits_for_pdf
                 else "(no transactions for this account in range)"
             )
             self._part_of = part_of
             self._list = CheckList(
                 rows,
                 checked,
-                read_only=self._completed,
+                read_only=self._completed or self._waits_for_pdf,
                 numbered=self._completed,
                 empty=empty,
                 palette=PALETTE,
@@ -1632,8 +1649,7 @@ class ReconciliationDetailScreen(
                 land_on=land_on,
             )
             await container.mount(self._list)
-            if not self._completed:
-                self._list.focus()
+            self._list.focus()  # the page keys reach a completed statement's list too
 
     # ---- assign / unassign ----------------------------------------------
     def on_check_list_toggled(self, event: CheckList.Toggled) -> None:
@@ -1653,6 +1669,7 @@ class ReconciliationDetailScreen(
             json_body={"statement_id": self._id if event.checked else None},
             on_success=self._assigned,
             on_error=self._assign_failed,
+            error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
         )
 
     def _is_tick(self, write) -> bool:
@@ -1696,9 +1713,6 @@ class ReconciliationDetailScreen(
         self.dismiss()
 
     def action_complete(self) -> None:
-        if self._completed:
-            self.notify("Already completed.")
-            return
         if self._busy:
             return
         # The engine refuses to complete without every balance (contract:
@@ -1861,7 +1875,8 @@ class ReconciliationDetailScreen(
     def _report_gap(self, body: dict) -> None:
         """Surface the `warnings` from `complete` — the uncovered-days report of
         each currency, read off its own entry in `balances` beside its
-        `coverage_gap`, one after the other in the engine's order.
+        `coverage_gap`, one after the other in the engine's order, then each
+        `not_covered` currency's, led by its code.
 
         Shown as a line under the header rather than a toast: the whole value of
         this message is not being missed, and a toast fades in five seconds. It
@@ -1873,20 +1888,26 @@ class ReconciliationDetailScreen(
         the rows they name. The review surface for that is the "no batch"
         pane (`u`).
         """
-        warnings: list = []
+        notes: list[str] = []
         for balance in body.get("balances") or []:
             if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
-                warnings.extend(balance["warnings"])
-        self._show_warnings(warnings)
+                notes.extend(str(w) for w in balance["warnings"] if w)
+        # A currency the statement holds no balances for has no row to sit under, so
+        # its notes follow, each led by its code
+        # (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`").
+        for entry in body.get("not_covered") or []:
+            if isinstance(entry, dict) and isinstance(entry.get("warnings"), list):
+                code = entry.get("currency_code") or "—"
+                notes.extend(f"{code}: {w}" for w in entry["warnings"] if w)
+        self._show_warnings(notes)
 
-    def _show_warnings(self, warnings: list) -> None:
+    def _show_warnings(self, lines: list[str]) -> None:
         line = self.query_one("#rwarn", Static)
-        lines = [str(w) for w in warnings if w]
         if not lines:
             line.display = False
             line.update("")
             return
-        line.update(Text("\n".join(f"⚠ {text}" for text in lines), style=PALETTE.warning))
+        line.update(Text("\n".join(f"  ⚠ {text}" for text in lines), style=PALETTE.warning))
         line.display = True
 
     def _take_flagged(self, body: dict) -> None:
@@ -1912,6 +1933,10 @@ class ReconciliationDetailScreen(
         # False, not None: hidden from the footer as well as dead
         if action == "flagged":
             return bool(self._flagged)
+        if action == "complete":
+            return not self._completed and not self._waits_for_pdf
+        if action == "revert":  # the statement waiting for its PDF is a draft: nothing to revert
+            return not self._waits_for_pdf
         return super().check_action(action, parameters)
 
     def action_flagged(self) -> None:
@@ -1953,6 +1978,7 @@ class ReconciliationDetailScreen(
             return
         self._record["status"] = new_status
         self._render_header()
+        self.refresh_bindings()
         self._load_txns()
         if verb == "completed" and self._flagged:
             self._open_flagged()
