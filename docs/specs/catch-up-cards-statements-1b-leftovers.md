@@ -64,11 +64,16 @@ done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-5. **Every engine sentence a unit test quotes is the engine's own.** The quotes "Why" names (a
-   missing bank line, the zero-amount refusal, the sealed-line words and the write they cite)
-   are checked against the practice engine and corrected, and test names that still say
-   reconciliation say statement.
+None left: every task is done.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- [expense-world-opening-balance.html](../mockups/expense-world-opening-balance.html) still shows
+  the zero-amount refusal as `ZERO_AMOUNT — Amount cannot be zero.`; the engine says
+  `Must not be zero.` (the mockup's line 264).
+- Three unit tests quote a refusal's message as a generic `Validation failed.` rather than the
+  engine's words for their write (test_tui_statement_list.py:590, test_tui_edit_form.py:1156,
+  test_tui_bulk_edit.py:730); the import rows' future-date words are checked against the
+  contract text but never triggered live.

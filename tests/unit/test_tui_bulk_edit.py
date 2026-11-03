@@ -240,7 +240,7 @@ def test_moved_parts_counts_each_part_once_across_the_answers():
     assert moved_parts([]) == (0, 0)
 
 
-def test_bulk_receipt_counts_the_rows_that_left_their_reconciliation():
+def test_bulk_receipt_counts_the_rows_that_left_their_statement():
     assert bulk_receipt(3, "BCP USD", 0) == "3 rows → BCP USD"
     assert bulk_receipt(3, "BCP USD", 1) == "3 rows → BCP USD · 1 left its statement"
     assert bulk_receipt(3, "BCP USD", 2) == "3 rows → BCP USD · 2 left their statement"
@@ -1075,7 +1075,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
     run_app(scenario, size=(120, 30))
 
 
-def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_client, monkeypatch):
+def test_b_on_a_completed_statement_is_still_refused_with_the_lock(fake_client, monkeypatch):
     """The engine checks `LOCKED` first, `statement_id` included: the
     locked row is named with the engine's reason and is not counted as left."""
     _stub_ledger(monkeypatch, MIXED)
@@ -1854,12 +1854,12 @@ def _asked_nothing_but_the_puts(seen: dict) -> None:
 
 
 @pytest.mark.parametrize("select", [[], ["p2"]], ids=["cursor", "selected"])
-def test_b_on_one_part_of_a_reconciled_line_counts_both_parts_and_both_leavings(
+def test_b_on_one_part_of_a_statement_line_counts_both_parts_and_both_leavings(
     fake_client, monkeypatch, select
 ):
-    """FARMACIA is 60 + 40 in a draft reconciliation. `b` on its second part sends
+    """FARMACIA is 60 + 40 in a draft statement. `b` on its second part sends
     one `PUT`; the engine moves the whole line and lists both parts as leaving
-    their reconciliation, so the receipt says 2 rows and 2 left."""
+    their statement, so the receipt says 2 rows and 2 left."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", select, cursor="p2")
     assert fake_client.puts == [("/transactions/p2", ON_PARTS["b"][1])]
     assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
@@ -1875,10 +1875,8 @@ def test_b_on_both_parts_counts_each_part_once(fake_client, monkeypatch):
     _asked_nothing_but_the_puts(seen)
 
 
-def test_b_on_a_one_part_line_in_no_reconciliation_says_nothing_of_leaving(
-    fake_client, monkeypatch
-):
-    """NETFLIX.COM is one part in no reconciliation: its answer lists it, not
+def test_b_on_a_one_part_line_in_no_statement_says_nothing_of_leaving(fake_client, monkeypatch):
+    """NETFLIX.COM is one part in no statement: its answer lists it, not
     flagged, so the receipt says 1 row and nothing about leaving one."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", [], cursor="t-net")
     assert fake_client.puts == [("/transactions/t-net", ON_PARTS["b"][1])]

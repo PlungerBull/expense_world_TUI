@@ -999,9 +999,7 @@ def _move_refused(err, fake_client, monkeypatch, *, typed="Visa", record=TXN) ->
     return _open(record, steps)
 
 
-def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
-    fake_client, monkeypatch
-):
+def test_a_move_on_a_completed_statement_shows_the_lock_under_the_parts(fake_client, monkeypatch):
     """The engine checks `LOCKED` first; the form shows its refusal and stays."""
     locked = LOCK_MESSAGES["LOCKED"]
     err = EngineError(
@@ -1301,7 +1299,7 @@ def _drawn(record: dict, line: dict, form=None, *, ansi: bool = False) -> list[s
     return rows
 
 
-def test_a_completed_reconciliations_line_says_why_once_under_its_fields(fake_client, monkeypatch):
+def test_a_completed_statements_line_says_why_once_under_its_fields(fake_client, monkeypatch):
     """Date, title, account and currency each read `read-only`; one line under them
     names the four in the form's order with the engine's sentence, and the
     amount's line under the parts carries its own."""

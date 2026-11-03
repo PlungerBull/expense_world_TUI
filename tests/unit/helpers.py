@@ -183,9 +183,10 @@ def archived_words(verb: str, thing: str) -> str:
     return f"Cannot {verb} a {thing} on an archived account. Unarchive the account first."
 
 
-#: The engine's words on a delete of a bank line or a transaction in a completed
+#: The engine's words on a delete of a bank line (contract: DELETE /v1/bank-lines/{bank_line_id})
+#: or a transaction (contract: DELETE /v1/transactions/{transaction_id}) in a completed
 #: statement (`IN_COMPLETED_RECONCILIATION`), as the practice engine sends them; the
-#: contract does not print them (contract: POST /v1/statements/{statement_id}/complete).
+#: contract names the code and the revert, not the sentence.
 SEALED_LINE_WORDS = (
     "Cannot delete a bank line assigned to a completed statement. "
     "Revert the statement to draft first."

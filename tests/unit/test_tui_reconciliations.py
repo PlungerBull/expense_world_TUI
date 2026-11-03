@@ -144,7 +144,7 @@ def test_new_statement_sends_its_account_and_the_picked_accounts_balances(fake_c
     ]
 
 
-def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_client, monkeypatch):
+def test_new_statement_refuses_a_balance_with_a_comma_after_its_dot(fake_client, monkeypatch):
     """`9.580,00` is not read as 9.58: begin and end each give their note and
     the cursor stays; the same figures written `9,580.00` and `9460` send."""
     _patch(monkeypatch)
@@ -178,7 +178,7 @@ def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_cl
     assert balance["ending_balance_cents"] == 946000
 
 
-def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
+def test_new_statement_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
     """A period's ends are calendar days on the wire (contract: "Date inputs"): the
     typed text goes out unconverted, and any shape the engine would 422 is
     refused at the field instead — unpadded, compact, day-first, not a day."""
@@ -208,7 +208,7 @@ def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_c
     run_app(scenario)
 
 
-def test_new_reconciliation_date_end_is_required(fake_client, monkeypatch):
+def test_new_statement_date_end_is_required(fake_client, monkeypatch):
     """A period with no last day can never be completed,
     so an empty enter on DATE END is refused in place, as on DATE START."""
     _patch(monkeypatch)
@@ -229,7 +229,7 @@ def test_new_reconciliation_date_end_is_required(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_new_reconciliation_date_start_is_required(fake_client, monkeypatch):
+def test_new_statement_date_start_is_required(fake_client, monkeypatch):
     """date_start orders the batch now, so an empty enter is refused in place
     rather than silently creating an unorderable batch."""
     _patch(monkeypatch)
@@ -392,7 +392,7 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
     run_app(scenario)
 
 
-def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
+def test_an_account_with_no_statements_says_so_in_the_panel(monkeypatch):
     _patch_browse(monkeypatch, items=[])
 
     async def scenario(pilot, app):
@@ -456,7 +456,7 @@ def test_u_works_only_with_a_panel_open(monkeypatch):
     run_app(scenario)
 
 
-def test_enter_reads_open_on_reconciliations_and_edit_on_rows_in_no_batch(monkeypatch):
+def test_enter_reads_open_on_statements_and_edit_on_rows_in_no_batch(monkeypatch):
     """One panel, two things listed, two labels for `⏎`."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
@@ -508,7 +508,7 @@ def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
     run_app(scenario)
 
 
-def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monkeypatch):
+def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatch):
     from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 
     two = [
@@ -577,14 +577,14 @@ def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     assert handed == [payload["id"]]
 
 
-def test_new_reconciliation_from_account_drops_account_field():
+def test_new_statement_from_account_drops_account_field():
     screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
     assert "account" not in screen._sequence()  # account preset from browse
     assert screen._values["account"] == "acc1"
     assert screen.crumb == ("Statements", "BCP PEN", "New")
 
 
-def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypatch):
+def test_new_statement_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     """An engine/config error in _load_accounts must not exit the app."""
 
     def boom(*a, **k):
@@ -1333,8 +1333,8 @@ def test_no_changes_sends_nothing(monkeypatch, fake_client):
     assert fake_client.puts == []
 
 
-def test_the_card_on_the_reconciliations_offers_open_alone(monkeypatch):
-    """The panel's two `⏎` rows follow what `⏎` does: `Open` on a reconciliation."""
+def test_the_card_on_the_statements_offers_open_alone(monkeypatch):
+    """The panel's two `⏎` rows follow what `⏎` does: `Open` on a statement."""
     _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):

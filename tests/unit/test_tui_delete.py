@@ -989,7 +989,7 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
             {"bank_line_id": SEALED_FIELD_WORDS},
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
-        (404, "NOT_FOUND", "Bank line not found.", None, None),
+        (404, "NOT_FOUND", "bank_line not found.", None, None),
         # archived-account 3 A: the engine's words alone
         (
             409,

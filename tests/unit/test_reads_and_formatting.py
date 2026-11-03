@@ -978,7 +978,7 @@ def test_fetch_transaction_raises_the_engines_refusal(configured):
     from expense.reads import fetch_transaction
 
     respx.get(f"{BASE}/v1/transactions/gone").mock(
-        return_value=error_response(404, "NOT_FOUND", "Transaction not found.")
+        return_value=error_response(404, "NOT_FOUND", "transaction not found.")
     )
     with pytest.raises(EngineError) as caught:
         fetch_transaction(config_module.ensure_loaded(), "gone")

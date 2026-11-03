@@ -650,10 +650,10 @@ def test_a_refused_import_shows_the_words_whole(fake_client, monkeypatch, tmp_pa
     run_app(scenario, size=(120, 40), toasts=True)
 
 
-# ---- reconciliations ---------------------------------------------------------------
+# ---- statements ---------------------------------------------------------------
 
 
-def test_reconciliations_that_cannot_be_read_show_the_words_whole(monkeypatch):
+def test_statements_that_cannot_be_read_show_the_words_whole(monkeypatch):
     """`⏎` on an account, its statements' read refused: the "Failed" toast."""
     _patch_browse(monkeypatch)
 
@@ -689,10 +689,8 @@ def test_lines_in_no_batch_that_cannot_be_read_show_the_words_whole(monkeypatch)
     run_app(scenario, toasts=True)
 
 
-def test_a_new_reconciliation_whose_accounts_cannot_load_shows_the_words_whole(
-    fake_client, monkeypatch
-):
-    """The new reconciliation form's account read refused: its toast."""
+def test_a_new_statement_whose_accounts_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
+    """The new statement form's account read refused: its toast."""
 
     def refused(*a, **k):
         raise refusal("FORBIDDEN", 403)
@@ -707,7 +705,7 @@ def test_a_new_reconciliation_whose_accounts_cannot_load_shows_the_words_whole(
 
 
 def test_a_batch_screen_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
-    """A reconciliation's batch screen, its lines' read refused: its toast."""
+    """A statement's batch screen, its lines' read refused: its toast."""
     _patch_detail(monkeypatch)
 
     def refused(*a, **k):
@@ -754,7 +752,7 @@ def test_a_refused_ending_balance_shows_the_words_whole(fake_client, monkeypatch
     run_app(scenario, toasts=True)
 
 
-def test_a_refused_delete_of_a_reconciliation_shows_the_words_whole(fake_client, monkeypatch):
+def test_a_refused_delete_of_a_statement_shows_the_words_whole(fake_client, monkeypatch):
     """`d` then `y` on a batch screen, refused: "Couldn't delete"."""
     _patch_detail(monkeypatch)
     fake_client.errors["DELETE"] = refusal("CONFLICT", 409, "statement_id")

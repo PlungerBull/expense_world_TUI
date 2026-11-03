@@ -1530,7 +1530,7 @@ def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch)
     with respx.mock() as mock:
         _detail_lines(mock)
         read = mock.get(f"{ENGINE_URL}/v1/statements/r1").mock(
-            error_response(404, "NOT_FOUND", "Statement not found.")
+            error_response(404, "NOT_FOUND", "statement not found.")
         )
         run_app(scenario)
     assert read.call_count == 1

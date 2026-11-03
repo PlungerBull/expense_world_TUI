@@ -559,7 +559,7 @@ def test_a_failed_read_locks_its_currency_and_the_other_pair_stays_editable(
 ):
     def fetch(cfg, transaction_id, **kw):
         if transaction_id == "tx-usd":
-            raise EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
+            raise EngineError("NOT_FOUND", "transaction not found.", None, 404, {})
         return OPENING_ROW
 
     monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
@@ -768,7 +768,7 @@ def test_the_loading_note_names_the_currency_still_loading(fake_client, notes, m
 
 
 def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_log):
-    reads_log.error = EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
+    reads_log.error = EngineError("NOT_FOUND", "transaction not found.", None, 404, {})
 
     async def body(pilot, app, screen):
         assert {"opening:PEN", "as_of:PEN"} <= screen._locked
@@ -818,7 +818,7 @@ def test_each_enter_moves_one_line_and_the_last_saves(fake_client, reads_log, re
 def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log):
     """OPENING and AS OF are read-only once their read fails, so COLOR has no line
     ahead that can change: `⏎` there sends the save, with the colour typed."""
-    reads_log.error = EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
+    reads_log.error = EngineError("NOT_FOUND", "transaction not found.", None, 404, {})
 
     async def body(pilot, app, screen):
         assert screen._key == "name"
@@ -976,8 +976,8 @@ def test_pane_a2_a_person_empties_its_opening_balance(fake_client, reads_log):
 
 FUTURE = EngineError(
     "VALIDATION_ERROR",
-    "Validation failed",
-    {"date": "Date cannot be in the future."},
+    "Transaction validation failed.",
+    {"date": "Must not be in the future."},
     422,
     {},
     {"date": "FUTURE_DATE"},
@@ -1009,8 +1009,8 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
     assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message == (
         "The account's changes are saved. The PEN opening balance is not:\n"
-        "VALIDATION_ERROR — Validation failed\n"
-        "  date: Date cannot be in the future.\n\n"
+        "VALIDATION_ERROR — Transaction validation failed.\n"
+        "  date: Must not be in the future.\n\n"
         "It is still in the form: fix it and save again."
     )
     assert seen["first"] == [
@@ -1169,8 +1169,8 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
             "POST",
             EngineError(
                 "VALIDATION_ERROR",
-                "Validation failed",
-                {"amount_cents": "Amount cannot be zero."},
+                "Transaction validation failed.",
+                {"amount_cents": "Must not be zero."},
                 422,
                 {},
                 {"amount_cents": "ZERO_AMOUNT"},
@@ -1374,8 +1374,8 @@ def test_the_opening_category_guard_sees_reads_through_a_module():
 
 ZERO = EngineError(
     "VALIDATION_ERROR",
-    "Validation failed",
-    {"amount_cents": "Amount cannot be zero."},
+    "Transaction validation failed.",
+    {"amount_cents": "Must not be zero."},
     422,
     {},
     {"amount_cents": "ZERO_AMOUNT"},

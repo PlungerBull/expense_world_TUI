@@ -218,7 +218,7 @@ def test_new_category_color_saves_and_arrows_move_the_swatch(fake_client):
     _open(NewCategoryScreen(), body)
 
 
-def test_new_reconciliation_name_goes_on(fake_client):
+def test_new_statement_name_goes_on(fake_client):
     async def body(pilot, screen):
         assert screen._key == "name"
         assert _hint(screen) == "e.g. “April 2026” · enter to go on"

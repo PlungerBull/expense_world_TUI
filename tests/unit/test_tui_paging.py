@@ -704,7 +704,7 @@ def test_the_frame_draws_no_colour():
     assert not offenders, f"the frame painted a colour: {offenders}"
 
 
-def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatch):
+def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
     """The detail screen's checklist never overflows #rlist.
 
     This is the one that had been failing silently. `_checklist_items` counted

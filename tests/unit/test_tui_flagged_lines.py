@@ -209,7 +209,7 @@ class Lines(dict):
             self._client.calls.append(("GET", path, params))
             line_id = path.removeprefix("/bank-lines/")
             if line_id not in self:
-                raise EngineError("NOT_FOUND", "Bank line not found.", None, 404, {})
+                raise EngineError("NOT_FOUND", "bank_line not found.", None, 404, {})
             return self[line_id]
         return self._get(path, auth=auth, params=params)
 

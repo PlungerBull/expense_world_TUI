@@ -781,7 +781,7 @@ def test_check_6_a_line_shows_read_only_exactly_what_its_edit_limits_names(engin
     assert marked == {k.split(".")[1] for k in READ_ONLY[key] if "." in k}
 
 
-def test_check_6_a_completed_reconciliations_split_line_opens_on_part_1s_amount(engine):
+def test_check_6_a_completed_statements_split_line_opens_on_part_1s_amount(engine):
     """Screen 3a: date, title and account read-only; the parts' amounts stay
     changeable and parts can still be added and dropped."""
 

@@ -153,10 +153,8 @@ async def _toast_holding(pilot, app, words: str) -> str:
     return next(shown for shown in toasts_shown(app) if words in shown)
 
 
-def test_an_account_no_name_matches_on_a_new_reconciliation_shows_it_whole(
-    fake_client, monkeypatch
-):
-    """The new reconciliation form's account line, `[like this]` typed and
+def test_an_account_no_name_matches_on_a_new_statement_shows_it_whole(fake_client, monkeypatch):
+    """The new statement form's account line, `[like this]` typed and
     matching no account: `No account matches “[like this]”.`"""
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",

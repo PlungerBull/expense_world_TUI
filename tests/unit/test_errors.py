@@ -35,8 +35,8 @@ def _engine_error(message, fields=None, reasons=None):
 def test_engine_error_attributes():
     err = EngineError(
         code="VALIDATION_ERROR",
-        message="Amount must not be zero",
-        fields={"amount_cents": "Must not be zero"},
+        message="Transaction validation failed.",
+        fields={"amount_cents": "Must not be zero."},
         status=422,
         raw_body=error_body(
             "VALIDATION_ERROR", "...", {"amount_cents": "..."}, {"amount_cents": "ZERO_AMOUNT"}
@@ -45,14 +45,14 @@ def test_engine_error_attributes():
     )
     assert err.code == "VALIDATION_ERROR"
     assert err.status == 422
-    assert err.fields == {"amount_cents": "Must not be zero"}
+    assert err.fields == {"amount_cents": "Must not be zero."}
 
 
 def test_render_engine_error_human_with_fields():
     err = EngineError(
         code="VALIDATION_ERROR",
-        message="Amount must not be zero",
-        fields={"amount_cents": "Must not be zero"},
+        message="Transaction validation failed.",
+        fields={"amount_cents": "Must not be zero."},
         status=422,
         raw_body={},
         reasons={"amount_cents": "ZERO_AMOUNT"},
@@ -60,8 +60,8 @@ def test_render_engine_error_human_with_fields():
     output, exit_code, use_stderr = render(err, json_mode=False)
     assert exit_code == 1
     assert use_stderr is True
-    assert "Error: VALIDATION_ERROR — Amount must not be zero" in output
-    assert "  amount_cents: Must not be zero" in output
+    assert "Error: VALIDATION_ERROR — Transaction validation failed." in output
+    assert "  amount_cents: Must not be zero." in output
 
 
 def test_render_engine_error_human_is_the_engine_words_alone():
@@ -165,16 +165,16 @@ def test_envelope_error_families_are_exactly_connection_and_config():
 def test_format_error_engine_error_with_fields():
     err = EngineError(
         code="VALIDATION_ERROR",
-        message="Amount must not be zero",
-        fields={"amount_cents": "Must not be zero"},
+        message="Transaction validation failed.",
+        fields={"amount_cents": "Must not be zero."},
         status=422,
         raw_body={},
         reasons={"amount_cents": "ZERO_AMOUNT"},
     )
     output = format_error(err)
     assert not output.startswith("Error:")
-    assert output.startswith("VALIDATION_ERROR — Amount must not be zero")
-    assert "  amount_cents: Must not be zero" in output
+    assert output.startswith("VALIDATION_ERROR — Transaction validation failed.")
+    assert "  amount_cents: Must not be zero." in output
 
 
 def test_format_error_leaves_reasons_off_screen():
@@ -182,8 +182,8 @@ def test_format_error_leaves_reasons_off_screen():
     them reads exactly like the same error without them."""
     kwargs = dict(
         code="VALIDATION_ERROR",
-        message="Amount must not be zero",
-        fields={"amount_cents": "Must not be zero"},
+        message="Transaction validation failed.",
+        fields={"amount_cents": "Must not be zero."},
         status=422,
         raw_body={},
     )
@@ -194,7 +194,7 @@ def test_format_error_leaves_reasons_off_screen():
     assert without.reasons is None
     assert format_error(with_reasons) == format_error(without)
     assert format_error(with_reasons) == (
-        "VALIDATION_ERROR — Amount must not be zero\n  amount_cents: Must not be zero"
+        "VALIDATION_ERROR — Transaction validation failed.\n  amount_cents: Must not be zero."
     )
     assert render(with_reasons, json_mode=False) == render(without, json_mode=False)
 
