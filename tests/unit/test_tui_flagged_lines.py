@@ -10,6 +10,8 @@ statement's order with no id sent, its count the engine's
 `f` while the review list counts any line, open or completed, counted each time the
 screen reads the statement (contract: GET /v1/bank-lines/count)."""
 
+import threading
+
 import pytest
 from textual.widgets import Static
 
@@ -126,7 +128,8 @@ class Lines(dict):
       Each read's query is kept in `reads`; `refusal`, when set, is raised instead.
     - `GET /bank-lines/count?unassigned_in_period_of=…`: how many lines the review
       list holds, or `count` when a test sets it. Each count's query is kept in
-      `counts`.
+      `counts`; `count_refusal`, when set, is raised instead; `hold`, when set, makes a
+      count wait for it.
     - `GET /bank-lines` with `ids`: fails the test — the flagged lines send none.
     - `GET /bank-lines` otherwise: the statement's own reads, no line.
     - `GET /bank-lines/{id}`: the line, as the Edit form reads it, or a `404`.
@@ -139,6 +142,8 @@ class Lines(dict):
         self.reads: list[dict] = []
         self.counts: list[dict] = []
         self.count: int | None = None
+        self.count_refusal: Exception | None = None
+        self.hold: threading.Event | None = None
         self.refusal: Exception | None = None
         self._client = fake_client
         self._get = fake_client.get
@@ -154,6 +159,10 @@ class Lines(dict):
         if path == "/bank-lines/count" and "unassigned_in_period_of" in query:
             self._client.calls.append(("GET", path, params))
             self.counts.append(dict(query))
+            if self.hold is not None:
+                self.hold.wait(timeout=10)
+            if self.count_refusal is not None:
+                raise self.count_refusal
             if set(query) != {"unassigned_in_period_of"}:
                 raise _conflict("unassigned_in_period_of")
             return {"count": len(self) if self.count is None else self.count}
@@ -665,6 +674,207 @@ def test_more_than_one_page_is_read_whole_in_the_statements_order(fake_client, m
         assert _listed(screen) == [line["id"] for line in many]
         assert _by_id(fake_client) == []
         assert "250 lines dated up to its last day are in no statement." in _text(screen, "#fhead")
+
+    run_app(scenario)
+
+
+def _shown(monkeypatch) -> list[int]:
+    """Every count the `⚑` line is given."""
+    shown: list[int] = []
+    original = ReconciliationDetailScreen._show_flagged
+
+    def record(self, count):
+        shown.append(count)
+        original(self, count)
+
+    monkeypatch.setattr(ReconciliationDetailScreen, "_show_flagged", record)
+    return shown
+
+
+def test_the_flag_counts_the_engines_lines_not_the_closes_sum(fake_client, monkeypatch):
+    """The close names 3 lines (a balance's and a not-covered currency's), the engine's
+    review list counts 4: `⚑` is only ever given the engine's 4, never 3, and the close
+    costs one count read."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
+    engine.count = 4
+    _flags(fake_client, SOLES, ["l-tambo", "l-uber"])
+    fake_client.write_responses[f"/statements/{SOLES['id']}/complete"]["not_covered"] = [
+        {
+            "currency_code": "USD",
+            "warnings": [],
+            "coverage_gap": None,
+            "review_lines": ["l-spotify"],
+        }
+    ]
+    shown = _shown(monkeypatch)
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(SOLES))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: len(engine.counts) == 1)
+        before = len(engine.counts)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await _flagged_screen(pilot, app)
+        # the statement's one read, then the flagged screen's own
+        assert len(engine.counts) == before + 2
+        app.pop_screen()
+        await wait_for(pilot, lambda: app.screen is statement)
+        assert set(shown) == {4}
+        assert _text(statement, "#rflag").startswith("⚑ 4 lines flagged for review")
+
+    run_app(scenario)
+
+
+def test_a_close_naming_no_line_still_opens_on_the_engines_count(fake_client, monkeypatch):
+    """The close's answer holds no review line, the engine's list counts one: the screen
+    opens, since the count alone decides."""
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, TAMBO)
+    _flags(fake_client, SOLES, [], [])
+
+    async def scenario(pilot, app):
+        await _complete(pilot, app, SOLES)
+        await _flagged_screen(pilot, app)
+
+    run_app(scenario)
+
+
+def test_a_close_the_engine_counts_no_flagged_line_for_opens_nothing(fake_client, monkeypatch):
+    """The close names a line, the engine's count is 0: no `⚑`, no `f`, no screen."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    engine.count = 0
+    _flags(fake_client, SOLES, ["l-tambo"])
+
+    async def scenario(pilot, app):
+        statement = await _complete(pilot, app, SOLES)
+        await wait_for(pilot, lambda: len(engine.counts) == 2)
+        await wait_for(pilot, lambda: statement._record["status"] == 2)
+        await pilot.pause()
+        assert app.screen is statement
+        assert not statement.query_one("#rflag", Static).display
+        assert "f Flagged" not in _footer(statement)
+
+    run_app(scenario)
+
+
+def test_a_count_that_fails_after_a_close_toasts_and_opens_nothing(fake_client, monkeypatch):
+    """The screen's own read lands; the count read after the close fails: the completion
+    shows as done, the engine's words are toasted, no count is set and nothing opens."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    engine.count = 0
+    _flags(fake_client, SOLES, ["l-tambo"])
+    notes: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.toast",
+        lambda screen, message, **kw: notes.append((message, kw.get("severity", ""))),
+    )
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(SOLES))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: len(engine.counts) == 1)
+        engine.count_refusal = EngineError("INTERNAL", "Count is down.", None, 500, {})
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: (format_error(engine.count_refusal), "error") in notes)
+        await pilot.pause()
+        assert len(engine.counts) == 2
+        assert app.screen is statement
+        assert statement._record["status"] == 2
+        assert not statement._flagged
+        assert not statement.query_one("#rflag", Static).display
+
+    run_app(scenario)
+
+
+def test_a_reload_while_the_close_count_is_read_still_opens_the_screen_once(
+    fake_client, monkeypatch
+):
+    """`r` pressed before the count after the close lands starts a read of its own; the
+    screen opens on whichever count lands, once."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    _flags(fake_client, SOLES, ["l-tambo"])
+    fake_client.get_responses[f"/statements/{SOLES['id']}"] = {**SOLES, "status": 2}
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(SOLES))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: len(engine.counts) == 1)
+        engine.hold = release = threading.Event()
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: len(engine.counts) == 2)
+        await pilot.press("r")
+        await wait_for(pilot, lambda: len(engine.counts) == 3)
+        release.set()
+        await _flagged_screen(pilot, app)
+        await pilot.pause()
+        assert [s for s in app.screen_stack if isinstance(s, FlaggedLinesScreen)] == [app.screen]
+
+    run_app(scenario)
+
+
+def test_f_pressed_while_the_close_count_is_read_opens_one_flagged_screen(fake_client, monkeypatch):
+    """A draft already showing `f`: pressed while the count after the close is read, it
+    opens the screen, and the count landing opens no second."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    _flags(fake_client, SOLES, ["l-tambo"])
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(SOLES))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: statement._flagged == 1)
+        engine.hold = release = threading.Event()
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: len(engine.counts) == 2)
+        await pilot.press("f")
+        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
+        release.set()
+        await wait_for(pilot, lambda: not statement._open_when_counted)
+        await pilot.pause()
+        assert [s for s in app.screen_stack if isinstance(s, FlaggedLinesScreen)] == [app.screen]
+
+    run_app(scenario)
+
+
+def test_f_then_esc_before_the_close_count_lands_opens_no_second_flagged_screen(
+    fake_client, monkeypatch
+):
+    """`f` pressed while the count after the close is read, then `esc` back to the
+    statement: the count landing afterwards opens nothing."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    _flags(fake_client, SOLES, ["l-tambo"])
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(SOLES))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: statement._flagged == 1)
+        engine.hold = release = threading.Event()
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: len(engine.counts) == 2)
+        await pilot.press("f")
+        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is statement)
+        release.set()
+        await wait_for(pilot, lambda: not statement._open_when_counted)
+        await pilot.pause()
+        assert app.screen is statement
+        assert not [s for s in app.screen_stack if isinstance(s, FlaggedLinesScreen)]
 
     run_app(scenario)
 

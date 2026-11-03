@@ -64,20 +64,13 @@ done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-1. **The statement screen's close counts with the engine.** After `c` completes a statement
-   ([reconciliations.py](../../expense/tui/screens/reconciliations.py), `_take_flagged` and
-   `_action_done`), the `⚑` line and the opening of the flagged lines' screen take the engine's
-   count (`reads.count_bank_lines` with `review_of=` the statement), never the sum of the close's
-   `review_lines`; a count read that fails toasts the engine's words. Unit tests: a close whose
-   `review_lines` and `not_covered[].review_lines` differ from the engine's count shows the
-   engine's count and opens the flagged screen on it; a count of 0 opens nothing; a failed read
-   toasts.
 2. **The PDF upload's result counts with the engine.** The apply in
    [statement_upload.py](../../expense/tui/screens/statement_upload.py) (`_ask`) reads the
    engine's count of the completed statement's review list for the result screen's `⚑` line and
    `f`, not `len(review_line_ids(...))`; `review_line_ids` in
    [statement.py](../../expense/bank_import/statement.py) goes if nothing else uses it. Unit
-   tests as in task 1, through the upload.
+   tests through the upload: a close whose `review_lines` sum differs from the engine's count
+   shows the engine's count; a count of 0 shows no `⚑`; a failed count read toasts.
 3. **The flagged lines' screen shows its head as soon as the count arrives.** `_load` in
    [reconciliations.py](../../expense/tui/screens/reconciliations.py) reads the engine's count
    first and paints `flagged_head` with it, then reads and paints the lines; the head's words are

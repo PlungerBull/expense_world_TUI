@@ -942,8 +942,9 @@ lines a close flags. (2) **The screen reads the flagged lines as the statement's
 statement's id: `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement`, page by
 page in the statement's order with no id sent, its count the engine's from
 `GET /bank-lines/count` on the same filter (contract: GET /v1/bank-lines, "It has no bound"); the
-close's `review_lines` only say whether it flagged any, and how many until the screen has
-counted them. (3) **A statement is
+`⚑` count after a close, and whether the screen opens, are that count too, never a sum of the
+close's `review_lines`: the review list also holds earlier lines in no statement, so a sum can
+disagree with the list it opens. (3) **A statement is
 the account's**: it covers the currencies the account holds, and the statement code is the
 account's (contract: "What an account is", "Statement code"), never a match of statement codes
 across accounts. (4) **The "no batch" list explains its `!` as `! dated inside a statement`**: a

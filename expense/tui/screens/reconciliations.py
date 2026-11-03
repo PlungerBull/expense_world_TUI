@@ -74,7 +74,6 @@ from textual.widgets import Footer, Input, Static
 from textual.worker import get_current_worker
 
 from expense import formatting, reads
-from expense.bank_import.statement import review_line_ids
 from expense.dates import is_calendar_day
 from expense.errors import EngineError, format_error
 from expense.formatting import (
@@ -1543,9 +1542,10 @@ class ReconciliationDetailScreen(
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
+        self._open_when_counted = False  # a complete waits for the review list's count
         # how many bank lines the statement's review list counts: the engine's
         # count each time the statement is read, the flagged lines' screen's last
-        # count on the way back, and a complete's `review_lines` until the read lands
+        # count on the way back
         self._flagged = 0
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
@@ -1687,6 +1687,7 @@ class ReconciliationDetailScreen(
             acct_name = resolve_name(self._account_id, load_account_name_map())
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
+                call_while_attached(self, self._count_failed)
                 call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         rows, checked, part_of = line_rows(assigned, available)
@@ -1701,10 +1702,25 @@ class ReconciliationDetailScreen(
             flagged = reads.count_bank_lines(cfg, review_of=self._id, **kw)
         except Exception as exc:
             if not worker.is_cancelled:
+                call_while_attached(self, self._count_failed)
                 call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         if not worker.is_cancelled:
-            call_while_attached(self, self._show_flagged, flagged)
+            call_while_attached(self, self._counted, flagged)
+
+    def _counted(self, count: int) -> None:
+        """The engine's count of the review list landed: show it, and, when a complete
+        is waiting on it, open the flagged lines' screen if it is above zero and this
+        screen is the one showing (an `f` pressed meanwhile has opened it already)."""
+        self._show_flagged(count)
+        waiting, self._open_when_counted = self._open_when_counted, False
+        if waiting and count and self.app.screen is self:
+            self._open_flagged()
+
+    def _count_failed(self) -> None:
+        """A read of the lines or their count failed: a complete waiting on the count
+        opens nothing."""
+        self._open_when_counted = False
 
     async def _populate(self, rows: list, checked: list, part_of: dict) -> None:
         """Paint a read. Not while a tick is unanswered: the read may predate
@@ -1822,7 +1838,7 @@ class ReconciliationDetailScreen(
                 f"/statements/{self._id}/complete",
                 2,
                 "completed",
-                on_response=self._report_close,
+                on_response=self._report_gap,
                 lead=_BALANCE_SAVED if after_save else "",
             ),
             under=self._below_head,
@@ -1960,14 +1976,6 @@ class ReconciliationDetailScreen(
             **kw,
         )
 
-    def _report_close(self, body: dict) -> None:
-        """What `complete` answers on each balance beside its figures: the
-        uncovered-days report (`_report_gap`) and the lines it flagged for
-        review (`_take_flagged`)
-        (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
-        self._report_gap(body)
-        self._take_flagged(body)
-
     def _report_gap(self, body: dict) -> None:
         """Surface the `warnings` from `complete` — the uncovered-days report of
         each currency, read off its own entry in `balances` beside its
@@ -2017,12 +2025,6 @@ class ReconciliationDetailScreen(
         line.display = True
         self.call_after_refresh(self._refit_list)
 
-    def _take_flagged(self, body: dict) -> None:
-        """How many bank lines the close flagged for review, every currency
-        of the statement's account (`review_line_ids`). The screen showing them opens
-        once the complete's success has landed (`_action_done`)."""
-        self._show_flagged(len(review_line_ids(body)))
-
     def _show_flagged(self, count: int) -> None:
         """The `⚑` line under the header, and `f` with it, while the close's
         review list holds any line; hidden otherwise."""
@@ -2052,6 +2054,7 @@ class ReconciliationDetailScreen(
             self._open_flagged()
 
     def _open_flagged(self) -> None:
+        self._open_when_counted = False  # opened now: the count landing opens no second
         self.app.push_screen(
             FlaggedLinesScreen(
                 self._id,
@@ -2090,9 +2093,9 @@ class ReconciliationDetailScreen(
         self._record["status"] = new_status
         self._render_header()
         self.refresh_bindings()
+        # the flagged lines' screen opens off the engine's count, whichever read brings it
+        self._open_when_counted = verb == "completed"
         self._load_txns()
-        if verb == "completed" and self._flagged:
-            self._open_flagged()
 
 
 # --------------------------------------------------------------------------- #

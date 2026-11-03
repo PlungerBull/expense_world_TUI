@@ -1499,12 +1499,10 @@ until the next status change. A head line or note too long for the width wraps u
 first word (`under_itself`), never at column 1.
 
 **The lines a complete flagged for review.**
-A complete goes through while lines dated in the statement are in no statement: its answer
-names the bank lines it flagged for review on each balance, `review_lines`, every currency of
-the statement's account, each oldest first
-(contract: POST /v1/statements/{statement_id}/complete, "Response"). The app keeps no rule of
-which lines those are and treats none as a refusal. When the answer names any, the app pushes
-a full screen right after the complete, `Statements ▸ <statement> ▸ Flagged`
+A complete goes through while lines dated in the statement are in no statement; the app keeps
+no rule of which lines those are and treats none as a refusal. When the engine's count of the
+statement's review list is above zero, the app pushes a full screen right after the complete,
+`Statements ▸ <statement> ▸ Flagged`
 (`FlaggedLinesScreen` in [reconciliations.py](../expense/tui/screens/reconciliations.py)). It
 opens on the statement's id, not the lines' ids, and reads the statement's review list, the
 lines its close flagged and still unresolved, whole,
@@ -1551,8 +1549,11 @@ a line; `f` opens the flagged lines' screen. The count is the engine's, `GET /ba
 with `unassigned_in_period_of=<statement id>`, read each time the screen reads the statement
 (when it opens, on `r`, after a tick and after a status change; a read that fails toasts the
 engine's words), so a draft shows the lines a complete would flag, and a revert counts again.
-A complete's `review_lines` set the count until that read lands; back from the flagged lines'
-screen, its last count holds. The lines stay in the ledger, in no statement, and show in the
+After a complete, the screen reads the statement's lines and that count again, and the count
+alone decides: the flagged lines' screen opens on its own when it is above zero (whichever read
+brings the count, unless `f` has opened it first or another screen, such as `?`, is on top),
+and the `⚑` line never shows the answer's `review_lines`; a read that fails toasts and opens
+nothing. Back from the flagged lines' screen, its last count holds. The lines stay in the ledger, in no statement, and show in the
 account's "no batch" list.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
