@@ -42,8 +42,25 @@ None.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+1. **A live test: the sheet import gives a person its opening balance in each currency.** In
+   [test_sheet_import.py](../../tests/contract/test_sheet_import.py), an existing person holding
+   PEN and USD (the scratch's `account(..., person=True)`), given its id in the names table, and a
+   made-up sheet whose rows on that person are, in each currency, a first non-zero `SALDO INICIAL`
+   row, then a later `SALDO INICIAL` row of a non-zero amount (contract:
+   POST /v1/transactions/import-sheet, "Opening balances"). Passes if: after the dry run and the
+   apply, each currency's `currencies[].opening_balance_transaction_id` on the person names a
+   transaction under `@Opening`, with no hashtag, in that currency, holding the first row's day and
+   signed amount; each later `SALDO INICIAL` row is an ordinary transaction under the category the
+   table gives `SALDO INICIAL`; the same sheet applied again matches every row and creates nothing
+   (counts and the user's transaction count unchanged); everything it writes goes to the scratch
+   cleanup; every citation it adds is one the live contract holds; it passes live against `:8002`
+   and the unit suite passes.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- The contract makes a `SALDO INICIAL` row an opening balance only when "no row of the same
+  currency of the same account" is dated before it, and does not say whether an earlier
+  zero-amount row (one the import skips) counts as such a row. This spec's point 1 reads the
+  first row *of a non-zero amount*; the task leaves a zero row out rather than guess.
