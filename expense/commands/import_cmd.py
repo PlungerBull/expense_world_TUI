@@ -255,15 +255,19 @@ def _print_dry_run(result: SheetImport, file: str) -> None:
 def _print_applied(result: SheetImport) -> None:
     """Screen 4: what was written, then the rows of zero and on a closed day,
     or, when rows matched and none is new or sealed, that every row is already
-    in the ledger."""
+    in the ledger. A blank line separates the counts from what follows, and only
+    when something follows."""
     for line in _counts_lines(result, "Written:"):
         typer.echo(line)
-    typer.echo("")
     counts = result.counts
     if counts.matched and counts.new == 0 and counts.sealed == 0:
+        typer.echo("")
         typer.echo("Nothing new: every row is already in the ledger.")
         return
-    for line in _row_lists(result):
+    lists = _row_lists(result)
+    if lists:
+        typer.echo("")
+    for line in lists:
         typer.echo(line)
 
 

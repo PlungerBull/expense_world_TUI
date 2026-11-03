@@ -507,6 +507,22 @@ def test_the_apply_writes_and_says_what_was_written(sheet):
 
 
 @respx.mock
+def test_an_apply_with_nothing_skipped_or_sealed_ends_on_its_counts(sheet):
+    counts = {**COUNTS, "new": 1961, "skipped": 0}
+    rows = [sheet_row(r, outcome="new", account_id="acc-ib") for r in range(2, 1963)]
+    _engine(
+        _answer(yours=True),
+        _answer(yours=True, dry_run=False, rows=rows, counts=counts),
+    )
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Written: new 1,961 · matched 0 · sealed 0 · skipped 0\n"
+        "Opening balances 4 · split transactions 3 (8 rows)\n"
+    )
+
+
+@respx.mock
 def test_the_same_sheet_applied_again_matches_every_row_and_writes_nothing_new(sheet):
     counts = {**COUNTS, "new": 0, "matched": 1954}
     _engine(

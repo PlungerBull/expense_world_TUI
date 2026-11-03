@@ -53,13 +53,11 @@ deleted.
 
 ## Tasks
 
-1. **The apply prints the blank line after its counts only when a line follows it.** In
-   `_print_applied` ([import_cmd.py](../../expense/commands/import_cmd.py)), an apply with new
-   rows and nothing skipped or sealed ends on the opening balances and split transactions line;
-   the "Nothing new" line and the lists of rows of zero and on a closed day keep the blank line
-   before them. A unit test in [test_cmd_import.py](../../tests/unit/test_cmd_import.py) pins
-   that apply's whole output, line for line.
+All done.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **No unit test covers an apply that lists sealed rows.** "Sealed, on a closed statement's day"
+  is asserted only on the dry run; the apply prints it through the same list as the rows of zero.
