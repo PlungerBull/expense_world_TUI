@@ -45,7 +45,9 @@ The published samples, fetched live, are tested here too: `card` then `card-no-d
 closing one account of soles and dollars, the second closing its dollars with no line, and the
 drawn savings and card papers (`savings_paper`, `card_paper`) answering as the samples do. A
 drawn card paper with its dollars at zero and no dollar row closes a soles-only account in soles
-only, and is `MONEY_AT_START_NOT_COVERED` where the account's dollars hold money at the start.
+only, and is `MONEY_AT_START_NOT_COVERED` where the account's dollars hold money at the start;
+every undated line of a card paper, a mailing fee among them, is its own `fee` row and its own
+transaction dated the statement's last day.
 Not drawn here: the races (`CONCURRENT_CHANGE`), the line codes used up
 (`LINE_CODES_EXHAUSTED`) and the engine's own fault (`INTERNAL_ERROR`), which no made-up
 file provokes.
@@ -70,6 +72,7 @@ from tests.contract.conftest import (
     card_paper,
     free_statement_codes,
     pdf_file,
+    read_signed,
     refused,
     savings_paper,
     send_download,
@@ -782,6 +785,47 @@ def test_a_card_paper_with_dollars_at_zero_closes_a_soles_only_account_in_soles_
     assert balance_of(statement, "PEN")["difference_cents"] == 0
     lines = client.get("/bank-lines", params={"statement_id": done["statement_id"]})["items"]
     assert len(lines) == 5 and {line["currency_code"] for line in lines} == {"PEN"}
+
+
+def test_every_undated_line_of_a_card_paper_lands_as_its_own_fee_on_the_last_day(client, scratch):
+    """A mailing fee printed with no date beside the membership fee is read as a charge like any
+    other label: each undated line is its own `fee` row, dated the statement's last day, and
+    lands as its own transaction (contract: POST /v1/statements/import, "The paper's layout")."""
+    account, _ = _coded(scratch, "PEN")
+    fees = [
+        CardCharge("COMISION ANUAL POR MEMBRESIA", 5000),
+        CardCharge("COMISION POR ENVIO DE ESTADO DE CUENTA INVENTADA", 1250),
+    ]
+    paper = card_paper(**{**SOLES_ONLY_MARCH, "fees": fees})
+    owed = -(30000 + 50000 - 30000 + 75000 + 5000 + 5000 + 1250)
+
+    dry = send_statement(client, account, paper, dry_run=True)
+    last_day = dry["date_end"]
+    assert [(r["fee"], r["date"]) for r in dry["rows"][3:]] == [(True, last_day)] * 3
+    assert [
+        (r["description"], r["amount_cents"], r["transaction_type"]) for r in dry["rows"][3:]
+    ] == [
+        ("INTERESES", 5000, 1),
+        ("COMISION ANUAL POR MEMBRESIA", 5000, 1),
+        ("COMISION POR ENVIO DE ESTADO DE CUENTA INVENTADA", 1250, 1),
+    ]
+
+    done = send_statement(client, account, paper, dry_run=False)
+    scratch.took(done)
+    assert done["balances"][0]["ending_balance_cents"] == owed
+    assert balance_of(done["statement"], "PEN")["difference_cents"] == 0
+    assert done["statement"]["status"] == 2
+    undated = done["rows"][3:]
+    assert [r["fee"] for r in undated] == [True] * 3
+    ids = [r["transaction_id"] for r in undated]
+    assert all(ids) and len(set(ids)) == 3
+    midnight = datetime.combine(date.fromisoformat(done["date_end"]), datetime.min.time())
+    for tx_id, cents in zip(ids, (-5000, -5000, -1250), strict=True):
+        tx = read_signed(client, tx_id)
+        assert tx["amount_cents"] == cents
+        assert datetime.fromisoformat(tx["date"]).astimezone(scratch.zone) == midnight.replace(
+            tzinfo=scratch.zone
+        )
 
 
 def test_a_card_paper_with_dollars_at_zero_is_refused_where_the_dollars_hold_money(client, scratch):

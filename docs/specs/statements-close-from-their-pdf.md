@@ -205,7 +205,15 @@ part 7 of the currencies catch-up (done on 2026-11-03), with
 screen 4 redrawn for a statement with a balance per currency it covers. Task 6, the card's live
 tests, is in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
-built on the engine's sample PDFs. Every task is done; the acceptance check runs next.
+built on the engine's sample PDFs. The acceptance check of 2026-11-03 found two done-checks no
+test proves; task 6, the mailing fee, is done, and task 7 adds the other.
+
+7. **Identical lines on one day are all accounted for (builder).** Live tests upload made-up
+   papers with two identical rows on one day (same currency, amount and direction) against two,
+   then one, identical ledger lines, and one such row against two ledger lines.
+   *Passes if:* 2 and 2 match both and create none; 2 and 1 match one and create one; 1 and 2
+   match one and flag the other, which is unchanged and outside the statement; each statement
+   completes (done-check 10) (contract: POST /v1/statements/import).
 
 ## Reply to the engine
 
@@ -236,4 +244,9 @@ Not built in this spec; drafted into a new spec when it is done.
     fields and the rule and serves the name to show.
   - Its open questions: a replaced card's name (follows the new card, or keeps the first);
     accounts with no bank number, such as people and cash (keep a typed name, or must have one).
+- **Live-test gaps the done-checks don't require** (acceptance check, 2026-11-03): no live test
+  opens a card's month before its paper; none applies a card paper with $0 dollars to a
+  soles-and-dollars account; the "balances alone" form of `ACCOUNT_CURRENCY_NOT_ON_PAPER` is
+  drawn only beside a dollar line; `CONCURRENT_CHANGE` is proven only in a unit test; the upload
+  screens are pinned at 120 columns, not 80x24.
 
