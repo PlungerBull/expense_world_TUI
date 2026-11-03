@@ -1248,7 +1248,7 @@ create sends its row with `alone`, a batch of several goes through `_create`, an
 helpers cannot send, such as one missing its currency to draw a refusal, is still built by
 `_item` and changed. `row_at` checks on every create that the answer keeps the id, account and
 currency sent. The live files that still build a body by hand are
-[catch-up-currencies-3c-leftovers.md](specs/catch-up-currencies-3c-leftovers.md)'s work.
+[todo.md](todo.md) "The live tests still build some bodies by hand".
 
 **Why.** Noon today is in the future before noon, and the engine refuses a future date, so
 "now" needs its own helper; a copy per file drifts. A day passed and then overridden says one
@@ -1281,6 +1281,21 @@ own aftermath says when the list is fresh.
 **Rejected.** *Lifting the guard on every build* — `r` mid-write lifts it with stale rows.
 *Lifting it on a build with no write unanswered* — a refused `d` queued behind it never reloads,
 and the guard stays set until the list is read again.
+
+## What a spec finds becomes a spec only if the owner would see it (2026-11-02, owner)
+
+**Decision.** When a spec is done, what its run found along the way is sorted: what the owner
+would see in the app, or a money or business rule, becomes a new spec; the rest (tests, code,
+comments, docs) goes to [todo.md](todo.md)'s Backlog, which the loop runs when the owner names
+it (CLAUDE.md "Specs and tasks", "Per spec").
+
+**Why.** Every finished spec left a smaller leftovers spec, and leftovers left leftovers: from
+2026-10-25 to 2026-11-02, 32 specs retired and 39 were added. Each spec costs the owner an
+approval and the loop a tester and a librarian run, which internal tidy-ups do not need one by
+one; the specs that need the owner get lost among them.
+
+**Rejected.** *Every find a spec* — the list never shrinks. *Merging the small leftovers into
+one cleanup spec* — it still asks the owner to approve work they cannot see, and keeps growing.
 
 ## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02, owner)
 

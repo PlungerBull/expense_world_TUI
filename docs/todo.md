@@ -70,9 +70,6 @@ Then, rewritten in place: [the sheet's counts line](specs/catch-up-split-rows.md
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (2 questions, one with a mockup to draw), now that part 6 is done.
 
-New, from part 3b's leftovers (done on 2026-11-02): [what part 3b's leftovers turned up](specs/catch-up-currencies-3c-leftovers.md)
-(no question; live tests only), waiting on no other spec.
-
 New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
 (1 question, on the Edit form's words), after part 7.
 
@@ -82,15 +79,39 @@ New, from part 6b's leftovers (done on 2026-11-02): [what part 6b's leftovers tu
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
 
-**Recommended:** approve the rest; part 3c's leftovers run next (live tests only, no question),
-then part 7.
+**Recommended:** approve the rest; part 7 runs next.
 
 ---
 
 ## Backlog
 
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
-ships (its why moves to [decisions.md](decisions.md)).
+ships (its why moves to [decisions.md](decisions.md)). What a spec finds along the way lands
+here unless the owner would see it in the app or it is a money or business rule, and the loop
+runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
+
+- **The live tests still build some bodies by hand.** Nothing you see changes. Five live files
+  build a new transaction's body by hand instead of through `Scratch` in
+  [tests/contract/conftest.py](../tests/contract/conftest.py):
+  [test_freshman_flow.py](../tests/contract/test_freshman_flow.py) (its end-to-end walk),
+  [test_pending_hashtag.py](../tests/contract/test_pending_hashtag.py),
+  [test_refusal_reasons.py](../tests/contract/test_refusal_reasons.py) (dated at midnight UTC),
+  [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) and
+  [test_transaction_currency.py](../tests/contract/test_transaction_currency.py); and
+  `_writes_sending` in
+  [test_line_codes_and_statement_lines.py](../tests/contract/test_line_codes_and_statement_lines.py)
+  builds an opening balance's body by hand though `Scratch.opening_balance` makes one. Every one
+  goes through the shared helpers, a row dated a minute ago in the display timezone. Two edits in
+  [test_resources_lifecycle.py](../tests/contract/test_resources_lifecycle.py) (the
+  frozen-fields edit's "yesterday" and the bank-line split's date) send a date read in UTC, so
+  they can fail in the evening, once UTC has turned to the next day; they date in the display timezone too. `Scratch._item`
+  describes its extra fields as text though callers pass lists such as `hashtag_ids`, so
+  `row_at` adds those after the body is built; it takes every field as it is, lists included.
+  The opening description of
+  [test_contract_month_of_a_recent_row.py](../tests/unit/test_contract_month_of_a_recent_row.py)
+  names its month's-first-minute case but not its daylight-saving one. Done when the live files
+  touched pass against the practice engine, leaving nothing on either practice user, and the
+  unit suite passes.
 
 - **decisions.md still describes the holder** in the entry where a card's accounts are the
   engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
