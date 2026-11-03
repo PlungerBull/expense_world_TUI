@@ -49,18 +49,6 @@ to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-1. **The staged list's title and tags give way.** In `staged_table`
-   ([log_bar.py](../../expense/tui/screens/log_bar.py)) the title and tags become Rich ratio
-   columns, 3:2 as the ledger's Title and Hashtags are (`CursorList(flex=…)`, [tui.md](../tui.md)
-   "The ledger's cells fill that width"); the marker, date, amount, `cur`, account and category
-   take their natural width first. Passes if: a test renders the list through
-   `helpers.render_text` at 74 columns (an 80-column terminal less `#staged`'s padding) with the
-   rows of pane 1 A — an account named `BCP Signature PEN`, a title longer than its column — and
-   every row's marker, date, amount, `cur`, account and category show whole with no `…`, while
-   the long title ends in `…`; a second test at 114 columns with a title of 100 characters shows
-   the same; the existing LOG bar tests stay green; tui.md's paragraph on the staged table's
-   columns says which give way. Reviewer: the ratios match the ledger's, no width is
-   hard-coded, cells still go through `list_cell`.
 2. **The OPERATION line says it changes every part.** On the "no batch" Edit form
    (`BankLineEditFormScreen` in [edit_form.py](../../expense/tui/screens/edit_form.py)), with two
    parts or more, the OPERATION line's hint ends in ` · changes every part of the transaction`,

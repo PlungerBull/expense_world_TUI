@@ -127,6 +127,8 @@ PICKABLE = frozenset(SIGIL)
 #: The marker and the row number share one cell (`• 1`) — two columns of
 #: Rich padding for three characters is width this table does not have.
 HEADERS = ("", "date", "title", "amount", "cur", "account", "category", "tags")
+# The columns that give way (title 3, tags 2), as Rich ratios by column index.
+STAGED_FLEX = {2: 3, 7: 2}
 
 EMPTY_LINES = (
     "Nothing staged. Type a line and press ↵ — nothing reaches the engine",
@@ -447,10 +449,15 @@ def staged_table(
         lines.append(Text(""))
         lines.append(Text("  " + EXAMPLE, style="dim"))
         return Group(*lines)
-    table = Table(box=None, pad_edge=False, expand=False, show_header=True)
+    # The title and tags give way, 3:2 as the ledger's Title and Hashtags do
+    # (`CursorList(flex=…)`); the other columns take their natural width first.
+    table = Table(box=None, pad_edge=False, expand=True, show_header=True)
     for index, header in enumerate(HEADERS):
         table.add_column(
-            Text(header, style="dim"), justify="right" if index == 3 else "left", no_wrap=True
+            Text(header, style="dim"),
+            justify="right" if index == 3 else "left",
+            no_wrap=True,
+            ratio=STAGED_FLEX.get(index),
         )
     for index, cells in enumerate(staged_rows(entries, refs, palette=palette, today=today)):
         # The account and category are names as the engine holds them: shown

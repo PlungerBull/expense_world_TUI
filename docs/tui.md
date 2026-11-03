@@ -1858,8 +1858,11 @@ picker lists accounts by name alone. The currency is the `%` token below. The sa
 `account_id` and `currency_code` on every batch item (contract: POST /v1/transactions/batch).
 The staged table's columns are `date  title  amount  cur  account  category  tags`: `cur` is
 the row's `currency_code`, as the Transactions ledger's `Cur` column draws it, and the account
-cell names the account alone. The staged totals add up per currency from each row's
-`currency_code`.
+cell names the account alone. The title and tags give way 3:2 when the rows are wider than the
+bar, as the ledger's Title and Hashtags do (cut with `…`); the marker, date, amount, `cur`,
+account and category keep their whole width (`STAGED_FLEX` in
+[log_bar.py](../expense/tui/screens/log_bar.py)). The staged totals add up per currency from
+each row's `currency_code`.
 
 **The line's currency is a token of its own, `%`** ([quickadd/parse.py](../expense/quickadd/parse.py)):
 `Streamly $visa inventada @suscripcion -12.99 hoy %usd`. It is first-wins like `$` and may stand
@@ -2012,7 +2015,8 @@ makes Title, Description and Hashtags Rich ratio columns — Amount, Cur, Date, 
 take their natural width first, the three text columns share what is left 3:3:2, and each
 cell is cut at the edge of the column it actually has. On a narrow terminal the free text
 gives way before the numbers. Every other list leaves `flex` empty and keeps Rich's
-content-proportional spread.
+content-proportional spread; the LOG bar's staged list, not a `CursorList`, gives way the same
+way through its own Rich ratios ("The LOG bar's account is one row per account" above).
 
 **Transactions is one list that grows**,
 through `GrowingRead` in [_growing.py](../expense/tui/screens/_growing.py): it opens with

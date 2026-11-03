@@ -2370,3 +2370,31 @@ def test_a_hashtag_refusal_on_the_log_bar_shows_as_sent(
         assert entry.error == refusal_text(hashtag_refusal(code, status, reason), line)
     else:
         assert entry.error == "hashtag_ids: stand-in field words"
+
+
+@pytest.mark.parametrize(("width", "title_len"), [(74, 60), (114, 100)])
+def test_the_staged_list_cuts_the_title_and_keeps_every_other_cell_whole(width, title_len):
+    """Rows wider than the bar (74 columns is an 80-column terminal less
+    `#staged`'s padding): the title and tags give way with `…`; the marker,
+    date, amount, `cur`, account and category are never cut."""
+    title = "x" * title_len
+    rows = [
+        _stage(f"{title} -38.60 $BCP Signature PEN @KORAKUEN #CAJA CHICA"),
+        _stage("shimaya ramen -96.00 $BCP Signature USD @KORAKUEN"),
+        _stage("sueldo +1500.00 $BCP Signature PEN @TRANSPORTE"),
+    ]
+    lines = render_text(staged_table(rows, REFS, today=TODAY.isoformat()), width=width).splitlines()
+    head, body = lines[0], lines[1:4]
+    assert "cur" in head and "category" in head
+    assert "…" in body[0].split("-38.60")[0]  # the long title ends in …
+    expected = [
+        ("• 1", "-38.60", "PEN", "BCP Signature PEN", "KORAKUEN"),
+        ("• 2", "-96.00", "USD", "BCP Signature USD", "KORAKUEN"),
+        ("• 3", "1,500.00", "PEN", "BCP Signature PEN", "TRANSPORTE"),
+    ]
+    for line, cells in zip(body, expected, strict=True):
+        assert "20 Aug" in line
+        whole = line[: line.index(cells[4]) + len(cells[4])]
+        assert "…" not in whole[whole.index(cells[1]) :]  # amount through category
+        for cell in cells:
+            assert cell in line
