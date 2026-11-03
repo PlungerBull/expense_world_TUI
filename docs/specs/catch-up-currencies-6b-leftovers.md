@@ -24,12 +24,14 @@ to [decisions.md](../decisions.md) and this file is deleted.
 ## What it must do
 
 1. **The LOG bar's staged list reads whole at 80 columns** as question 1 picks.
-2. **The "no batch" form's OPERATION line** carries the note or not as question 2 picks.
+2. **The "no batch" form's OPERATION line** carries the `changes every part of the transaction`
+   note on a line of two parts or more, as the date, title, account and currency lines do.
 
 ## How the owner knows it is done
 
 1. At 80 columns the staged list shows each row's amount, currency and account whole.
-2. The OPERATION line reads as question 2 picks.
+2. On a line of two parts or more, the OPERATION line's hint ends in `changes every part of the
+   transaction`; on a line of one part it does not.
 3. The unit suite and the drift check pass.
 
 ## Questions for the owner
@@ -37,9 +39,9 @@ to [decisions.md](../decisions.md) and this file is deleted.
 1. **The staged list at 80 columns** (pane 1 of the mockup): which columns give way when a row
    does not fit, date, amount, currency and account always kept whole — A: title and tags, as
    the ledger does (recommended), or B: title, category and tags.
-2. **The OPERATION line's note** (pane 2 of the mockup): A: it shows `changes every part of the
-   transaction` on a line of two parts or more, as the date, title, account and currency do
-   (recommended), or B: it stays without it.
+2. **The OPERATION line's note** (pane 2 of the mockup): **picked A** — it shows `changes every
+   part of the transaction` on a line of two parts or more, as the date, title, account and
+   currency do.
 
 ---
 
