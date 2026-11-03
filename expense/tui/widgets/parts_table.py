@@ -4,8 +4,7 @@ Pure builders, no app and no event loop: the part model the form edits, the
 table of the parts (amount, category, hashtags, note), the dim `read-only` lines
 under it and the ones under the shared fields, each with the engine's sentence
 for the lock, the line adding the parts up against the line's total, and a
-refused save's lines. Screens of mockups/expense-world-split-transaction-screen.html;
-the read-only lines' sentences, screen 1 B of
+refused save's lines. The read-only lines' sentences, screen 1 B of
 mockups/expense-world-read-only-reasons.html.
 
 **The only arithmetic is the count line**: the parts' amounts summed against

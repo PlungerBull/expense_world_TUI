@@ -995,9 +995,8 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
 
 
 # ---- `⏎` in no batch: the Edit form on the line and its parts ----------------
-# Question 1 A of expense-world-split-transaction-screen.html: the same Edit form,
-# OPERATION among the shared fields; one save is one `PUT /bank-lines/{id}`
-# (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
+# The same Edit form, OPERATION among the shared fields; one save is one
+# `PUT /bank-lines/{id}` (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
 EDIT_CATEGORIES = whole(
     [{"id": "pend", "name": "@Pendiente", "is_system": True, "system_key": "pending"}]
 )

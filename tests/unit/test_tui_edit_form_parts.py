@@ -1,17 +1,17 @@
 """The Edit form with its parts: `⏎` and `s` on a ledger row, `⏎` in "no batch".
 
-Screens: docs/mockups/expense-world-split-transaction-screen.html, with the
-owner's picks 1 A to 6 A. On top, the line's shared fields; below, every part
-of the line in a table, and with two parts or more the line adding them up. One
-save is one `PUT /bank-lines/{id}`, the line fields the owner changed beside the
-line's whole set of parts (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"),
-and what is read-only is what the line's `edit_limits` names
+On top, the line's shared fields; below, every part of the line in a table,
+and with two parts or more the line adding them up. One save is one
+`PUT /bank-lines/{id}`, the line fields the owner changed beside the line's
+whole set of parts (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"), and
+what is read-only is what the line's `edit_limits` names
 (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Every engine
-call goes to one fake engine (`LineClient`), so a test asserts exactly what was
-read and sent. Each line's `edit_limits` is the one the live engine answers for
-its state (tests/contract/test_bank_line_edit_limits.py). The refusals' words
-are stand-ins, except the mismatch sentence and the opening balance's, which
-are the contract's own (contract: PUT /v1/bank-lines/{bank_line_id}, "The total")
+call goes to one fake engine (`LineClient`), so a test asserts exactly what
+was read and sent. Each line's `edit_limits` is the one the live engine
+answers for its state (tests/contract/test_bank_line_edit_limits.py). The
+refusals' words are stand-ins, except the mismatch sentence and the opening
+balance's, which are the contract's own
+(contract: PUT /v1/bank-lines/{bank_line_id}, "The total")
 (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules").
 """
 

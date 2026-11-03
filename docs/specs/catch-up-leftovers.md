@@ -74,14 +74,7 @@ Point 1 already holds: [test_reserved_name_held.py](../../tests/contract/test_re
 sends its download through the conftest's `send_download` (built by `download_body`) under
 `CURRENT_HEADER`, so it has no task.
 
-1. **The three mockups go, with their links** (point 4). None of
-   `expense-world-split-transaction-screen.html`, `expense-world-edit-part.html` and
-   `expense-world-import-report.html` is linked by a spec other than this one, a todo item or a
-   to-engine file, so each backs no open work and is deleted ([todo.md](../todo.md) "Mockups that
-   back no open work"). Passes if: the three files are gone; no doc, code comment, test docstring
-   or other mockup in the repo names them (edit_form.py, parts_table.py, bank_import.py, their
-   tests, and the wording-picks, screen-map and import-whole-file mockups today); the docs links
-   test and the unit suite pass.
+None left.
 
 ## Found along the way
 

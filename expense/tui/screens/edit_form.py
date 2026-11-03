@@ -1,15 +1,15 @@
 """Edit a bank line — the bar-cycle form with its parts.
 
-Screens of mockups/expense-world-split-transaction-screen.html. One input bar
-cycles through the line's fields, then every part's; the summary below shows
-them. On top, what every part shares: DATE › TITLE › ACCOUNT (the "no batch"
-form adds OPERATION before ACCOUNT); below, the table of the parts, one line
-each with its amount, category, hashtags and note (`parts_table.py`), and, with
-two parts or more, the line adding them up against the line's total. The bar
-moves from the shared fields to part 1's AMOUNT › CATEGORY › HASHTAGS › NOTE,
-then part 2's; it names the part (`PART 1 AMOUNT`) and the table marks it
-`▌ 1`. A part's NOTE hint reads `optional · enter to go on` while `⏎` goes on to
-another line, and `optional · enter saves · (ctrl+s anytime)` on the last.
+One input bar cycles through the line's fields, then every part's; the summary
+below shows them. On top, what every part shares: DATE › TITLE › ACCOUNT (the
+"no batch" form adds OPERATION before ACCOUNT); below, the table of the parts,
+one line each with its amount, category, hashtags and note (`parts_table.py`),
+and, with two parts or more, the line adding them up against the line's total.
+The bar moves from the shared fields to part 1's AMOUNT › CATEGORY › HASHTAGS
+› NOTE, then part 2's; it names the part (`PART 1 AMOUNT`) and the table marks
+it `▌ 1`. A part's NOTE hint reads `optional · enter to go on` while `⏎` goes
+on to another line, and `optional · enter saves · (ctrl+s anytime)` on the
+last.
 
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)). `⏎` and `s`
 on a ledger row open this form on the row's bank line (`EditFormScreen`), on
@@ -965,10 +965,9 @@ class EditFormScreen(FormScreen):
 
 # ---- the Edit form on a line of "no batch": `⏎` there ---------------------
 class BankLineEditFormScreen(EditFormScreen):
-    """The Edit form on a line the "no batch" list holds (Question 1 A of
-    expense-world-split-transaction-screen.html): the same form, with OPERATION
-    among the shared fields and, over the bar, the line as the list shows it,
-    its title and its `net_cents` with the line's own currency.
+    """The Edit form on a line the "no batch" list holds: the same form,
+    with OPERATION among the shared fields and, over the bar, the line as the
+    list shows it, its title and its `net_cents` with the line's own currency.
 
     Every value comes from the line the list holds, its `edit_limits`
     included, so the form reads no line: the day and title off its first part,

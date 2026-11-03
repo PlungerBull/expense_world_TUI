@@ -16,11 +16,10 @@ Every step is the shared code in expense/bank_import/: the read, the account
 picks and the one call in flow.py, how the answer reads in engine.py. What is
 here is only what the screens draw, from
 docs/mockups/expense-world-import-whole-file.html (the account list, a skipped
-row, a card's `cur` column, a refused file, the result), with the rest of the
-preview and the result from docs/mockups/expense-world-import-report.html, the
-days where the file and the ledger disagree and a ledger line changed while
-the import ran from docs/mockups/expense-world-bank-lines-upload.html, and the
-several-files words from docs/mockups/expense-world-import-door.html.
+row, a card's `cur` column, a refused file, the result), the days where the
+file and the ledger disagree and a ledger line changed while the import ran
+from docs/mockups/expense-world-bank-lines-upload.html, and the several-files
+words from docs/mockups/expense-world-import-door.html.
 
 The screens replace one another (`switch_screen`), so the stack is always
 `… → LOG bar → the current import screen`, and leaving any of them lands on
@@ -380,8 +379,8 @@ class ImportAccountScreen(ImportScreen):
 
 
 # ---------------------------------------------------------------------------
-# the preview — expense-world-import-report.html 1 A, with a skipped row (2 B)
-# and a card's `cur` column (3 B) from expense-world-import-whole-file.html
+# the preview — with a skipped row (2 B) and a card's `cur` column (3 B) from
+# expense-world-import-whole-file.html
 # ---------------------------------------------------------------------------
 #: An empty cell: a row with no title.
 EMPTY = "—"

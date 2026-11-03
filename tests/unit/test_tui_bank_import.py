@@ -2,10 +2,9 @@
 
 The screens are docs/mockups/expense-world-import-whole-file.html (the account
 list, a skipped row 2 B, a card's `cur` column 3 B, a refused file 4, the
-result 5), with the rest of the preview as expense-world-import-report.html
-1 A. Pure builders first, then pilot tests through the LOG bar the way a drop
-arrives. A dropped file is a few made-up bytes: the app sends them whole and
-reads no cell, and the one engine call, `POST /transactions/import`, is
+result 5). Pure builders first, then pilot tests through the LOG bar the way a
+drop arrives. A dropped file is a few made-up bytes: the app sends them whole
+and reads no cell, and the one engine call, `POST /transactions/import`, is
 answered by a fake on the shared FakeClient that reads the file it was sent
 and answers that file's rows (`import_answer`).
 """
