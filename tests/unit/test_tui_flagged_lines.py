@@ -29,6 +29,7 @@ from tests.unit.helpers import (
     import_part,
     render_text,
     run_app,
+    screen_lines,
     statement_complete_answer,
     statement_record,
     wait_for,
@@ -664,5 +665,51 @@ def test_more_than_one_page_is_read_whole_in_the_statements_order(fake_client, m
         assert _listed(screen) == [line["id"] for line in many]
         assert _by_id(fake_client) == []
         assert "250 lines dated up to its last day are in no statement." in _text(screen, "#fhead")
+
+    run_app(scenario)
+
+
+def test_a_draft_that_shows_f_keeps_its_last_key_whole_at_80_columns(fake_client, monkeypatch):
+    """A draft's footer is `space`, `esc`, `r`, `c`, `u`, `d`, `f` and `?`: wider than 80
+    columns as spaced usually, so it is drawn with less whitespace and `? Keys` stays
+    whole (pane 10's footer, the draft's keys added)."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    engine.count = 3
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(PLAIN))
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: statement.query_one("#rflag", Static).display)
+        await pilot.pause()
+        assert _footer(statement) == [
+            "space Toggle",
+            "esc Back",
+            "r Refresh",
+            "c Complete",
+            "u Revert",
+            "d Delete",
+            "f Flagged",
+            "? Keys",
+        ]
+        footer = screen_lines(app)[-1]
+        assert footer.endswith("f Flagged ? Keys")
+        assert len(footer) <= 80
+
+    run_app(scenario)
+
+
+def test_a_footer_that_fits_keeps_its_usual_spacing(fake_client, monkeypatch):
+    """Pane 10's footer, a completed statement with `f`, is spaced as it is drawn there."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO)
+    engine.count = 3
+
+    async def scenario(pilot, app):
+        statement = ReconciliationDetailScreen(dict(PLAIN) | {"status": 2})
+        await app.push_screen(statement)
+        await wait_for(pilot, lambda: statement.query_one("#rflag", Static).display)
+        await pilot.pause()
+        assert "r Refresh  u Revert  d Delete  f Flagged  ? Keys" in screen_lines(app)[-1]
 
     run_app(scenario)

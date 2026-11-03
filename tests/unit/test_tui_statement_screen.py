@@ -20,6 +20,7 @@ from tests.unit.helpers import (
     import_part,
     render_text,
     run_app,
+    screen_lines,
     statement_complete_answer,
     statement_record,
     stub_home_month,
@@ -200,7 +201,7 @@ def _screen_lines(app) -> list[str]:
     left out: the blank row above the crumb and the one under it, which the mockups
     do not draw. An income is written without the plus the mockups draw, as every
     list of the app writes it (`+800.00` reads ` 800.00`)."""
-    lines = [strip.text.rstrip() for strip in app.screen._compositor.render_strips()]
+    lines = screen_lines(app)
     while lines and not lines[-1]:
         lines.pop()
     assert lines[0] == "" and lines[2] == "", lines[:3]

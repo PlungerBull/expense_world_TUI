@@ -444,13 +444,15 @@ class AdaptiveRowsMixin:
         *,
         chrome: int = 0,
         lines_per_row: int = 1,
+        floor: int | None = None,
     ) -> int:
         """Rows that fit `container`, clamped to this screen's limits.
 
         `chrome` is what the container spends on anything but rows (borders,
         headers, a legend); `lines_per_row` is how many physical lines one row
         costs — two for a pane that splits its room with a sibling. Pre-layout or unmeasurable → the
-        20-row default, since a page size of 0 would fetch nothing.
+        20-row default, since a page size of 0 would fetch nothing. `floor` replaces
+        `PAGE_ROWS_FLOOR` for a pane that has to give room to a sibling.
         """
         try:
             avail = self.query_one(container).content_size.height
@@ -459,7 +461,7 @@ class AdaptiveRowsMixin:
         if avail <= 0:
             return DEFAULT_PAGE_ROWS
         rows = (avail - chrome) // lines_per_row
-        return max(self.PAGE_ROWS_FLOOR, min(self.PAGE_ROWS_CAP, rows))
+        return max(self.PAGE_ROWS_FLOOR if floor is None else floor, min(self.PAGE_ROWS_CAP, rows))
 
     def measure_list_rows(self) -> int:
         """The standard case: one list filling #content."""
@@ -480,13 +482,14 @@ class SectionScreen(
     ]
     crumb: tuple[str, ...] = ()
     CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
+    footer_class: type[Footer] = Footer  # a screen whose footer can outgrow a line swaps it
     _started: bool = False  # first load ran (it waits for the first layout pass)
     _read_started: int | None = None  # writes answered when the read being built began
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
         yield VerticalScroll(LoadingIndicator(), id="content")
-        yield Footer()
+        yield self.footer_class()
 
     def on_mount(self) -> None:
         # First load waits for the first layout pass: adaptive page sizing

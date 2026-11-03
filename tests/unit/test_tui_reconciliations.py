@@ -30,6 +30,7 @@ from tests.unit.helpers import (
     refusal_text,
     render_text,
     run_app,
+    screen_lines,
     statement_list,
     statement_record,
     wait_for,
@@ -1674,3 +1675,209 @@ def test_d_does_nothing_outside_the_unfiled_pane(monkeypatch, fake_client):
         assert not fake_client.deletes
 
     run_app(scenario)
+
+
+# ---- everything fits at 80x24 (the size every test runs at) ------------------------
+
+FIVE_ACCOUNTS = [
+    account_with_currencies(
+        id=f"a{i}", name=name, statement_code="VIS", currencies=[held_currency("PEN", 100)]
+    )
+    for i, name in enumerate(["Visa BCP", "IBK Visa", "Sueldo Soles", "BBVA Dolares", "Extra"])
+]
+
+
+def _five_accounts(monkeypatch, statements: list[dict]) -> None:
+    _patch_browse(monkeypatch, items=statements)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS))
+
+
+def _footer_whole(app) -> None:
+    """Every key the screen offers is drawn whole in the last line, words and all."""
+    drawn = " ".join(screen_lines(app)[-1].split())
+    offered = [
+        f"{app.get_key_display(a.binding)} {a.binding.description}"
+        for a in app.screen.active_bindings.values()
+        if a.binding.show and a.enabled
+    ]
+    assert offered
+    for key in offered:
+        assert key in drawn, (key, drawn)
+
+
+def _numbered_statements(count: int) -> list[dict]:
+    return [
+        _statement(
+            f"s{n}",
+            "a0",
+            f"VIS-2026{n:02d}",
+            (f"2026-{n:02d}-01", f"2026-{n:02d}-28"),
+            unplaced_count=0,
+            shared_place_count=0,
+        )
+        for n in range(1, count + 1)
+    ]
+
+
+def test_pane_3_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
+    """Four accounts and three statements, as pane 3 draws them: every statement on one
+    page, no `pgdn`, and the footer's last key `u No batch` whole."""
+    _five_accounts(monkeypatch, _numbered_statements(3))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS[:4]))
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        assert screen._batch_list.page_status is None
+        assert "pgdn" not in screen_lines(app)[-1]
+        assert len([line for line in screen_lines(app) if "VIS-2026" in line]) == 3
+        assert screen_lines(app)[-1].endswith("u No batch")
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+def test_u_with_five_accounts_shows_rows_at_80x24_and_pages_the_rest(monkeypatch):
+    """Under five accounts the lines in no batch show their rows, page the rest, and keep
+    every footer key whole; `#content` does not scroll them off."""
+    _five_accounts(monkeypatch, [])
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        shown = screen_lines(app)
+        assert any("In no batch · Visa BCP" in line for line in shown)
+        rows = [line for line in shown if "PEN" in line and "20" in line and "Visa" not in line]
+        assert 1 <= len(rows) < screen._batch_list.row_count
+        await pilot.press("pgdn")  # grows nothing here (3 of 3), the cursor goes on
+        await pilot.press("down", "down")
+        later = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
+        assert later != rows  # the next page, not a scroll
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+def test_a_statements_list_that_needs_a_page_keeps_in_order_and_every_key_whole(monkeypatch):
+    """Nine statements under five accounts do not fit one page: the panel pages them, so
+    `#content` has no scrollbar to cut the Order column to `in or…`, and the footer, with
+    `pgdn`/`pgup` in it, keeps `u No batch` whole."""
+    _five_accounts(monkeypatch, _numbered_statements(9))
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        assert screen._batch_list.row_count == 9
+        assert screen._batch_list.page_status is not None  # more than one page
+        assert screen.query_one("#content").max_scroll_y == 0
+        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
+        assert shown
+        assert all(line.endswith("in order") for line in shown)
+        assert "pgdn Next" in screen_lines(app)[-1]
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+LONG_NAME = "Cuenta Sueldo Interbank Soles Principal Hogar"
+
+
+def _long_name_accounts(monkeypatch, statements: list[dict]) -> None:
+    accounts = [
+        account_with_currencies(
+            id=f"a{i}",
+            name=LONG_NAME if i == 0 else name,
+            statement_code="VIS",
+            currencies=[held_currency("PEN", 100), held_currency("USD", 100)],
+        )
+        for i, name in enumerate(["", "IBK Visa", "Sueldo Soles", "BBVA Dolares", "Extra"])
+    ]
+    _patch_browse(monkeypatch, items=statements)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
+
+
+def test_a_caption_that_wraps_is_counted_before_the_panel_exists(monkeypatch):
+    """The page size is measured with the caption the panel is about to draw, at the width
+    the list will have: a long account name wraps it to two lines, and `#content` still does
+    not scroll, every row drawn whole."""
+    _long_name_accounts(monkeypatch, _numbered_statements(9))
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        assert screen._caption_lines() == 2
+        assert screen.query_one("#content").max_scroll_y == 0
+        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
+        assert shown and len(shown) == screen._batch_list._page_size
+        assert all(line.endswith("in order") for line in shown)
+        await pilot.press("r")  # a refresh measures again, to the same effect
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+def test_u_keeps_its_rows_whole_under_a_caption_that_wraps(monkeypatch):
+    _long_name_accounts(monkeypatch, [])
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        rows = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
+        assert rows and len(rows) == screen._batch_list._page_size
+        _footer_whole(app)
+
+    run_app(scenario)
+
+
+def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
+    """`BROWSE_FRAME_LINES` is derived from what the three lists draw, so an overcount
+    shows as well as an undercount: each list's frame, without its rows and its caption."""
+    _five_accounts(monkeypatch, _numbered_statements(2))
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        frame = screen.BROWSE_FRAME_LINES
+
+        def drawn(lst, rows: int, caption: int) -> int:
+            return render_text(lst.framed(), width=78).count("\n") - rows - caption
+
+        assert drawn(screen._accts_list, 5, 0) == frame
+        assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
+        screen._batch_list.set_divider("blank")  # the lines in no batch
+        assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
+
+    run_app(scenario)
+
+
+def test_a_wide_terminal_measures_the_caption_at_the_card_width(monkeypatch):
+    """Above 102 columns the lists sit in a card capped at `CARD_WIDTH`, narrower than
+    `#content`: a caption between the two widths still wraps, and is counted."""
+    _long_name_accounts(monkeypatch, _numbered_statements(9))
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
+        assert shown and len(shown) == screen._batch_list._page_size
+        assert all(line.rstrip().endswith("in order") for line in shown)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        rows = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
+        assert rows and len(rows) == screen._batch_list._page_size
+
+    run_app(scenario, size=(140, 24))

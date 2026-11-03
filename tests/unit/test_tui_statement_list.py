@@ -42,6 +42,7 @@ from tests.unit.helpers import (
     held_currency,
     render_text,
     run_app,
+    screen_lines,
     statement_complete_answer,
     statement_delete_answer,
     statement_record,
@@ -754,12 +755,6 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
 # ---- the screen at 80 columns, as panes 2 and 3 of the mockup draw it ---------------
 
 
-def _screen_lines(app) -> list[str]:
-    """The screen as the user reads it: the text of each terminal line, rstripped."""
-    strips = app.screen._compositor.render_strips()
-    return ["".join(segment.text for segment in strip).rstrip() for strip in strips]
-
-
 #: Pane 3's three Visa BCP statements: Septiembre had no dollar line and no dollars owed,
 #: so it covers soles alone; all three are in order.
 PANE_3_VISA = [
@@ -782,7 +777,7 @@ def _at_80(
             await app.push_screen(ReconciliationsScreen())
             await wait_for_list(pilot, app)
         await pilot.pause()
-        seen.extend(_screen_lines(app))
+        seen.extend(screen_lines(app))
 
     run_app(scenario, size=(width, 30))
     return seen

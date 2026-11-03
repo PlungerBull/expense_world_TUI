@@ -285,10 +285,6 @@ the question, the files named and the tui.md section named.
 From the acceptance check of 2026-11-03 (practice engine, 80×24, against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
 
-11. **Everything fits at 80×24.** `u` on the browse with five accounts shows its rows (pane 11),
-    not its caption alone; a scrolling list of statements keeps `in order` whole beside its
-    scrollbar (pane 3); a draft showing `f` keeps `? Keys` whole in its footer (pane 10).
-    *Passes if:* each holds at 80×24, pinned by a test at that size.
 12. **Long words wrap under themselves.** A long account name in a statement's head and a long
     engine note (`⚠ …`, `⚠ USD: …`) wrap under their own first word, as the shared
     `under_itself` does elsewhere, never back to column 1. *Passes if:* both hold at 80 columns,
@@ -369,3 +365,15 @@ Not built in this spec; drafted into a new spec when it is done.
   (`UNFILED_SORT`), so the screen's own order is never tested live; that test's docstring and the
   statement-screen test's docstring also miss the currency and number they now check (found by
   task 10's review on 2026-11-03).
+- **Below 24 rows the Statements browse's panel can show no row:** with five accounts at 80×19
+  to 80×23 the accounts list keeps its five-row floor and `#content` scrolls (found by task 11's
+  review on 2026-11-03).
+- **The no batch list spreads its columns where pane 11 packs them:** pane 11 draws `!` at
+  column 2, the date at column 4 and Title taking the slack; the app spreads the slack over every
+  column, and its caption breaks at a different word. The browse's header rules also start at
+  column 2 and run the whole width, where panes 2 and 3 draw them from column 4, 60 cells wide
+  (found by task 11's review on 2026-11-03).
+- **The no batch list's footer differs from pane 11:** pane 11 reads `esc Back  ⏎ Edit  d Delete
+  r Refresh  ? Keys`; the app reads `⏎ Edit  pgup Prev  esc Back  r Refresh  ? Keys  d Delete`,
+  in another order and with `pgup Prev` on page 1 (found by task 11's third review on
+  2026-11-03).

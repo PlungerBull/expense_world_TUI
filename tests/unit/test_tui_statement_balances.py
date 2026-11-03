@@ -24,6 +24,7 @@ from expense.tui.screens.reconciliations import (
 from tests.unit.helpers import (
     cursor_page,
     run_app,
+    screen_lines,
     statement_complete_answer,
     statement_put_answer,
     statement_record,
@@ -96,7 +97,7 @@ def _lines(app) -> list[str]:
     """The box on screen as drawn at 80 columns, a line each from its title to its
     keys, cropped at the title's column and its blank rows left out (the line the
     figure is typed on is blank until something is typed). Empty when no box is up."""
-    rows = [strip.text for strip in app.screen._compositor.render_strips()]
+    rows = screen_lines(app)
     for top, row in enumerate(rows):
         column = max(row.find("Starting balance first"), row.find("Ending balance first"))
         if column < 0:

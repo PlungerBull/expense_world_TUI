@@ -1290,6 +1290,13 @@ def run_app(
     return asyncio.run(scenario())
 
 
+def screen_lines(app) -> list[str]:
+    """The screen as drawn, one string per terminal line, trailing blanks cut: what a
+    person at the terminal reads, so a test at `run_app`'s 80x24 sees what is cut or
+    pushed off."""
+    return [strip.text.rstrip() for strip in app.screen._compositor.render_strips()]
+
+
 def toasts_shown(app) -> list[str]:
     """What each toast on the screen shows, its title and its message as drawn,
     oldest first. Needs `run_app(..., toasts=True)`.

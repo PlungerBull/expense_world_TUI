@@ -77,6 +77,7 @@ class WindowedList(Static):
         # A line of content above the rule. Only a caption
         # that *disambiguates* earns one — see docs/tui.md §3.
         self._caption = caption
+        self._divider: str | None = "rule"
 
     # ---- the window ------------------------------------------------------
     @property
@@ -168,6 +169,14 @@ class WindowedList(Static):
         self._caption = caption
         self._refresh()
 
+    def set_divider(self, divider: str | None) -> None:
+        """What stands between the caption and the rows: `"rule"` (the default), `"blank"`
+        (an empty line) or `None` (nothing, one line shorter)."""
+        if divider == self._divider:
+            return
+        self._divider = divider
+        self._refresh()
+
     def _refresh(self) -> None:
         self.update(self.framed())
 
@@ -198,7 +207,10 @@ class WindowedList(Static):
         parts: list[RenderableType] = []
         if self._caption:
             parts.append(Text(self._caption, style="dim"))
-        parts.append(Rule(style="dim"))
+        if self._divider == "rule":
+            parts.append(Rule(style="dim"))
+        elif self._divider == "blank":
+            parts.append(Text(""))
         parts.append(self._build())
         parts.append(Text(self.page_status or "", style="dim"))
         return Group(*parts)

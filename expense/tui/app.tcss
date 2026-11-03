@@ -238,10 +238,6 @@ ReconciliationsScreen #accts,
 ReconciliationsScreen #batches {
     padding: 0;
 }
-/* The lines in no batch keep the shared table's look: its side edge and a one-cell gutter. */
-ReconciliationsScreen #batches.unfiled {
-    padding: 0 1;
-}
 
 /* A statement's `⚑` line stands two cells in, its second line under its first. */
 ReconciliationDetailScreen #rflag {

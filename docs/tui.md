@@ -40,6 +40,9 @@ expense/tui/
                     #   text, `[` and all; a styled Text as built
                     #   + CursorOptionList — the home menu
     checklist.py    # CheckList — the statement tick-list, one bank line per row
+    footer.py       # FittingFooter — the footer in Textual's compact spacing when its
+                    #   keys, spaced as usual, are wider than the screen (the Statements
+                    #   browse paging, a draft statement showing `f`: every key whole at 80)
     picker.py       # suggestion_list() — the scrolling name list the quick-add
                     #   surfaces and the bulk pick drop under their input
     refusal.py      # hanging() — the `! …` line a screen keeps under a refusal
@@ -1862,7 +1865,10 @@ it opens, on `r`, after a tick and after a status change; a read that fails toas
 engine's words), so a draft shows the lines a complete would flag, and a revert counts again.
 A complete's `review_lines` set the count at once, until that read lands; back from the
 flagged lines' screen, its last count. With none counted, neither shows. The lines stay in the
-ledger, in no statement, and show in the account's "no batch" list (`u` on the browse).
+ledger, in no statement, and show in the account's "no batch" list (`u` on the browse). A draft
+showing `f` has eight keys, wider than 80 columns as the footer spaces them, so this screen's
+footer (`FittingFooter`) is drawn in the compact spacing then and keeps `? Keys` whole; a
+footer that fits, a completed statement's as pane 10 draws it, keeps the usual spacing.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
@@ -2102,6 +2108,22 @@ height alone, an equal split with the open panel), the recon checklist at what f
 with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑`/`↓` walk
 through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,
 System kv-tables.
+
+**The Statements browse's panel pages to fit, below the floor.** The browse's lists are drawn
+as panes 2, 3 and 11 of the statements mockup draw them: the accounts' header and the rule
+under it and nothing above (no rule, no blank edge line); the statements a rule under the
+caption, then the header and no rule under it; the lines in no batch a blank line under the
+caption, then the header (`CursorList(header_rule=False, divider=...)`, three lines of
+frame each with the page status, `BROWSE_FRAME_LINES`). Pane 3's four accounts and three
+statements then fit 80×24 on one page. Under the account list the panel takes the rows
+`#content` has left after the title, the accounts' rows and both frames, one row at least
+(`panel_page_rows`, `fit_rows(floor=1)`), when that is fewer than its equal share: with five
+accounts at 80×24 it pages instead of scrolling `#content`, whose scrollbar would cut the
+Order column. The caption is measured as wrapped, before the panel's list exists: the caption
+it is about to draw, at the width the list really gets (`#content`'s, capped at the card's
+100), on opening, on `r` and on `u`. A long account name wraps both captions at 80 columns;
+at 140 the no batch caption still takes two lines. The screen's footer is a `FittingFooter`,
+so the paging keys the panel then adds never cut `u No batch`.
 
 **Minimum terminal size: there is no guard.** The app degrades and says nothing; the
 terminal is the user's to size ([decisions.md](decisions.md) "A terminal too small is the

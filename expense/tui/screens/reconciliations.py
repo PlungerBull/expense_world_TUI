@@ -66,6 +66,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
+from textual.css.query import NoMatches
 from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Footer, Input, Static
@@ -109,6 +110,7 @@ from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palett
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, list_cell
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast, under_itself
 
@@ -464,6 +466,7 @@ class ReconciliationsScreen(SectionScreen):
     """
 
     crumb = ("Capture & ledger", "Statements")
+    footer_class = FittingFooter
     CARD_WIDTH = 100
     BINDINGS = [
         # Two bindings on one key: Textual takes the first whose `check_action`
@@ -540,26 +543,50 @@ class ReconciliationsScreen(SectionScreen):
         )
 
     # ---- adaptive window: the panel splits #content -----------------------
-    def pane_rows(self) -> int:
-        """Rows per list. Alone, the account list fills #content;
-        with the panel open the two split it equally — auto-height
-        panes give unused rows back when a pane has fewer rows than its share.
+    #: Lines each of the browse's lists spends beside its rows and caption, drawn as panes 2,
+    #: 3 and 11 of the statements mockup draw them: the account list its header, the rule
+    #: under it and the page status; the statements and the lines in no batch their divider
+    #: under the caption (a rule, a blank line), the header and the page status.
+    BROWSE_FRAME_LINES = 3
 
-        With the panel, the chrome is the section title (2) plus the two
-        panes' frames, which are **not** the same size: the panel keeps a
-        caption naming the account and the accounts pane does not, so it is
-        `2 * LIST_FRAME_LINES + CAPTION_LINES` rather than an even doubling.
-        """
+    def pane_rows(self) -> int:
+        """Rows per account page. Alone, the account list fills #content; with the panel
+        open the two split it equally, and the panel gives unused rows back
+        (`panel_page_rows`). The chrome is the section title (2) plus the two lists'
+        frames and the panel's caption."""
         if self._open_aid is None:
-            return self.fit_rows(chrome=2 + self.LIST_FRAME_LINES)
+            return self.fit_rows(chrome=2 + self.BROWSE_FRAME_LINES)
         return self.fit_rows(
-            chrome=2 + 2 * self.LIST_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
+            chrome=2 + 2 * self.BROWSE_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
         )
 
+    def panel_page_rows(self) -> int:
+        """Rows per page of the panel: its share, or what the accounts really leave under
+        them when that is less (at least one), so a short terminal pages the panel instead
+        of scrolling `#content`: `#content` less the title, the accounts' frame and rows,
+        and the panel's frame and caption."""
+        accounts = self.BROWSE_FRAME_LINES + min(self.pane_rows(), max(1, len(self._accounts)))
+        panel = self.BROWSE_FRAME_LINES + self._caption_lines()
+        return min(self.pane_rows(), self.fit_rows(chrome=2 + accounts + panel, floor=1))
+
+    def _caption_lines(self) -> int:
+        """Lines the caption the panel is about to draw takes at the width the list really
+        gets (it wraps): #content's width, capped at the card's `CARD_WIDTH`. Known before
+        the list exists."""
+        caption = self._unfiled_caption() if self._mode == "unfiled" else self._batch_caption()
+        try:
+            width = self.query_one("#content").content_size.width
+        except NoMatches:
+            width = 0
+        if width and self.CARD_WIDTH is not None:
+            width = min(width, self.CARD_WIDTH)
+        return max(1, len(Text(caption).wrap(self.app.console, width or self.size.width)))
+
     def _viewport_resized(self) -> None:
-        for lst in (self._accts_list, self._batch_list):
-            if lst is not None and lst.is_attached:
-                lst.set_page_size(self.pane_rows())
+        if self._accts_list is not None and self._accts_list.is_attached:
+            self._accts_list.set_page_size(self.pane_rows())
+        if self._batch_list is not None and self._batch_list.is_attached:
+            self._batch_list.set_page_size(self.panel_page_rows())
 
     def _account_rows(self) -> list:
         """The open account carries an accent `▸` in a two-cell gutter before its name, so
@@ -588,9 +615,10 @@ class ReconciliationsScreen(SectionScreen):
             align_right=align_right,
             empty="none yet · n to create one",
             caption=self._batch_caption(),
-            page_size=self.pane_rows(),
+            page_size=self.panel_page_rows(),
             gap=BROWSE_GAP,
             edge=False,
+            header_rule=False,
             flex={len(headers) - 1: 1},
         )
         batch_list.id = "batches"
@@ -612,6 +640,7 @@ class ReconciliationsScreen(SectionScreen):
             gap=BROWSE_GAP,
             edge=False,
             flex={2: 1},
+            divider=None,
         )
         self._accts_list.id = "accts"
         widgets: list[Widget] = [
@@ -776,9 +805,11 @@ class ReconciliationsScreen(SectionScreen):
                 gap=BROWSE_GAP,
                 flex={len(headers) - 1: 1},
                 edge=False,
+                header_rule=False,
             )
-            self._batch_list.remove_class("unfiled")
+            self._batch_list.set_divider("rule")
             self._batch_list.set_caption(self._batch_caption())
+            self._batch_list.set_page_size(self.panel_page_rows())
             self._batch_list.set_rows(self._panel_rows())
             self._batch_list.focus()
         self.refresh_bindings()
@@ -817,8 +848,10 @@ class ReconciliationsScreen(SectionScreen):
             return
         self._unfiled_busy = True
         self._mode = "unfiled"
-        self._batch_list.set_headers(_UNFILED_HEADERS, align_right={5})
-        self._batch_list.add_class("unfiled")
+        self._batch_list.set_headers(
+            _UNFILED_HEADERS, align_right={5}, edge=False, header_rule=False
+        )
+        self._batch_list.set_divider("blank")
         self._batch_list.set_caption(f"In no batch · {acct.name}   ·   loading…")
         self._batch_list.set_rows([])
         self.refresh_bindings()
@@ -878,6 +911,7 @@ class ReconciliationsScreen(SectionScreen):
         windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
+        self._batch_list.set_page_size(self.panel_page_rows())
         self._batch_list.append_rows(rows, more=more)
         self._batch_list.refresh_bindings()
 
@@ -897,6 +931,7 @@ class ReconciliationsScreen(SectionScreen):
         windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
+        self._batch_list.set_page_size(self.panel_page_rows())
         self._batch_list.set_rows(rows)
         self._batch_list.set_growth(more=self._unfiled_grow.more)
         self._batch_list.set_cursor(0)
@@ -1518,7 +1553,7 @@ class ReconciliationDetailScreen(
         yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
         yield Static("", id="rflag")  # the flagged lines; hidden until a complete flags one
         yield Container(id="rlist")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self.query_one("#rwarn", Static).display = False
