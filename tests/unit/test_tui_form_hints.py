@@ -28,9 +28,14 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
+from expense.tui.screens.edit_form import (
+    EVERY_PART_NOTE,
+    BankLineEditFormScreen,
+    EditFormScreen,
+)
 from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
+from expense.tui.theme import ACCENT
 from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
 
 NAME_GOES_ON = "free text · enter to go on"
@@ -413,3 +418,20 @@ def test_title_says_save_only_when_it_is_the_one_line_left():
     assert [k for k in screen._sequence() if k not in screen._locked] == ["title"]
     assert screen._hint_for("title") == "free text · enter to save"
     assert _on(EditFormScreen(record=dict(TXN)), LINE)._hint_for("title") == NAME_GOES_ON
+
+
+# ---- the "no batch" OPERATION line is the whole line's, so it says so on two parts ----
+
+_OPERATION_PLAIN = "optional · the bank's operation number · empty clears it"
+
+
+def test_operation_on_a_two_part_line_ends_in_the_every_part_note():
+    hint = BankLineEditFormScreen(line=dict(SPLIT_LINE))._hint_line("operation")
+    assert hint.plain == f"{_OPERATION_PLAIN} · {EVERY_PART_NOTE}"
+    start = hint.plain.index(EVERY_PART_NOTE)
+    assert {str(s.style) for s in hint.spans if s.start <= start < s.end} == {ACCENT}
+
+
+def test_operation_on_a_one_part_line_is_plain():
+    hint = BankLineEditFormScreen(line=dict(LINE))._hint_line("operation")
+    assert hint.plain == _OPERATION_PLAIN

@@ -49,16 +49,7 @@ to [decisions.md](../decisions.md) and this file is deleted.
 
 ## Tasks
 
-2. **The OPERATION line says it changes every part.** On the "no batch" Edit form
-   (`BankLineEditFormScreen` in [edit_form.py](../../expense/tui/screens/edit_form.py)), with two
-   parts or more, the OPERATION line's hint ends in ` · changes every part of the transaction`,
-   the note in the accent, as on date, title, account and currency. Passes if: a test with a
-   two-part line reads the OPERATION hint as
-   `optional · the bank's operation number · empty clears it · changes every part of the transaction`
-   with the note styled `ACCENT`; a test with a one-part line shows the plain hint; tui.md's
-   "A split transaction says what reaches every part" names OPERATION for the "no batch" form.
-   Reviewer: the ledger's Edit form is unchanged, `EVERY_PART_NOTE` is the one copy of the
-   words.
+All done on 2026-11-02; the spec's acceptance check and doc sweep follow.
 
 ## Found along the way
 

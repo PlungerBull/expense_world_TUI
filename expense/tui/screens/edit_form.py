@@ -90,8 +90,8 @@ title is refused (`_title_given`), and an amount must be a non-zero signed
 decimal. A hashtag set that names a real hashtag never carries the pending one
 (`hashtags_to_send`).
 
-While the date, title, account or currency is under the bar on a line of two parts or
-more, the hint adds `changes every part of the transaction`: the engine writes
+While the date, title, operation, account or currency is under the bar on a line of two
+parts or more, the hint adds `changes every part of the transaction`: the engine writes
 the line fields onto every part (contract: "Transactions (Ledger)", "Bank lines").
 
 `enter` keeps the field and moves on, and saves only on the last line that can
@@ -180,9 +180,9 @@ TITLE_SAVES = "free text · enter to save"
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
 #: The CURRENCY line's value while an account holding several has none picked.
 NONE_PICKED = "— pick one"
-# The fields every part of a line shares, and what the hint adds on them while
-# the line has two parts or more.
-_EVERY_PART = {"date", "title", "account", "currency"}
+# The fields every part of a line shares (OPERATION is the "no batch" form's
+# only), and what the hint adds on them while the line has two parts or more.
+_EVERY_PART = {"date", "title", "operation", "account", "currency"}
 EVERY_PART_NOTE = "changes every part of the transaction"
 # The line fields' names in the whole-line write
 # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). The ACCOUNT line holds
