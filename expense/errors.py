@@ -277,12 +277,6 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("VALIDATION_ERROR", "OPENING_BALANCE_CATEGORY_FIXED"): NextStep(
         "An opening balance always stays in @Opening."
     ),
-    # A statement completes only with every account's ending balance entered (contract:
-    # POST /v1/statements/{statement_id}/complete, "Every ending balance must be
-    # entered"); `c` on the batch screen asks for it when the screen reads it as empty.
-    ("VALIDATION_ERROR", "ENDING_BALANCE_REQUIRED"): NextStep(
-        "Press c again: the app asks for it first."
-    ),
     # A system row's name is not for a user row: a user category, new or
     # renamed, cannot be named like `@Opening` or `@Pendiente`
     # (contract: POST /v1/categories, "Reserved names")

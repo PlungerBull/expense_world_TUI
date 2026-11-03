@@ -21,7 +21,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
     balance_of,
-    ending_balance_body,
+    balances_body,
     line_rows,
 )
 from expense.tui.widgets.checklist import CheckList
@@ -1595,8 +1595,9 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 
 
 # ---- the ending balance, asked for at complete --------------------------------
-# The engine refuses to complete without every one (contract: POST
-# /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
+# The engine refuses to complete without every balance (contract: POST
+# /v1/statements/{statement_id}/complete, "Every balance must be entered"). The other
+# blank balances and the refusals that name one are in test_tui_statement_balances.py.
 
 NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
 NO_END = NO_END_STATEMENT
@@ -1610,8 +1611,8 @@ def test_the_ending_balance_is_saved_in_balances_naming_only_the_currency_that_c
     keyed by `currency_code`; the opened currency's entry carries the figure and no other
     currency is named, so the engine keeps its balances
     (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
-    assert ending_balance_body("PEN", 1385320) == SAVED_BODY
-    assert ending_balance_body("USD", -12050) == {
+    assert balances_body({("PEN", "ending"): 1385320}) == SAVED_BODY
+    assert balances_body({("USD", "ending"): -12050}) == {
         "balances": [{"currency_code": "USD", "ending_balance_cents": -12050}]
     }
 
@@ -1749,31 +1750,79 @@ def test_a_save_on_a_two_currency_statement_names_the_opened_currency_alone(
     run_app(scenario)
 
 
-def test_the_balance_save_is_one_put_under_one_key(configured, monkeypatch):
-    """Through the shared write path and the real HTTP client, `enter` in the box is
-    one `PUT /statements/{id}` carrying one `X-Idempotency-Key`, its body the
-    balance in `balances`."""
+def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(configured, monkeypatch):
+    """Through the shared write path and the real HTTP client, two boxes typed are one
+    `PUT /statements/{id}` carrying one `X-Idempotency-Key`, its body the balances in
+    `balances`; `y` sends the complete under another key. A complete the engine refuses
+    naming a balance opens the boxes again: a second `PUT` and a second complete, each
+    with a key of its own."""
+    from expense.tui.screens.modals import AmountPromptModal
+
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
+    blank = _statement(beginning_balance_cents=None, ending_balance_cents=None)
+    refused = error_response(
+        422,
+        "VALIDATION_ERROR",
+        "Engine words.",
+        fields={"balances.PEN.ending_balance_cents": "Must be entered before completing."},
+        reasons={"balances.PEN.ending_balance_cents": "ENDING_BALANCE_REQUIRED"},
+    )
+    both = {
+        "balances": [
+            {"currency_code": "PEN", "beginning_balance_cents": 958000, "ending_balance_cents": -5}
+        ]
+    }
+    end_only = {"balances": [{"currency_code": "PEN", "ending_balance_cents": -5}]}
 
     async def scenario(pilot, app):
-        await _open_box(pilot, app)
-        await _type(pilot, "13853.20")
+        screen = ReconciliationDetailScreen(dict(blank))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+        await _type(pilot, "9580.00")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+        await _type(pilot, "-0.05")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")  # refused: the ending balance is named
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+        await _type(pilot, "-0.05")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: not screen._busy and complete.call_count == 2)
 
     with respx.mock() as mock:
         _detail_lines(mock)
-        route = mock.put(f"{ENGINE_URL}/v1{STATEMENT_PATH}").mock(
+        mock.get(f"{ENGINE_URL}/v1{STATEMENT_PATH}").mock(httpx.Response(200, json=blank))
+        put = mock.put(f"{ENGINE_URL}/v1{STATEMENT_PATH}").mock(
             httpx.Response(200, json=statement_put_answer(SAVED_STATEMENT))
+        )
+        complete = mock.post(f"{ENGINE_URL}/v1{COMPLETE_PATH}").mock(
+            side_effect=[
+                refused,
+                httpx.Response(
+                    200, json=statement_complete_answer({**SAVED_STATEMENT, "status": 2})
+                ),
+            ]
         )
         run_app(scenario)
         writes = [call.request for call in mock.calls if call.request.method != "GET"]
-    assert route.call_count == 1
-    assert writes == [route.calls.last.request]
-    assert writes[0].headers["X-Idempotency-Key"]
-    assert json.loads(writes[0].read()) == SAVED_BODY
+    assert [(w.method, w.url.path) for w in writes] == [
+        ("PUT", f"/v1{STATEMENT_PATH}"),
+        ("POST", f"/v1{COMPLETE_PATH}"),
+        ("PUT", f"/v1{STATEMENT_PATH}"),
+        ("POST", f"/v1{COMPLETE_PATH}"),
+    ]
+    assert put.call_count == 2
+    assert json.loads(writes[0].read()) == both
+    assert json.loads(writes[2].read()) == end_only
+    keys = [w.headers["X-Idempotency-Key"] for w in writes]
+    assert all(keys) and len(set(keys)) == 4
 
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
@@ -1934,7 +1983,7 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
         await wait_for(pilot, lambda: notices)
         assert notices[0] == (
             "Couldn't complete",
-            "The ending balance is saved. The statement is not completed:\n"
+            "The balances are saved. The statement is not completed:\n"
             f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}\n"
             "  balances.acc1.transactions: At least one transaction must be assigned.",
             "error",
@@ -1950,19 +1999,19 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
     run_app(scenario)
 
 
-def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
+def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_box(
     fake_client, monkeypatch
 ):
-    """Screen 4: the screen read a balance, the engine says it is missing, on the
-    account's `balances.<account_id>.ending_balance_cents`
-    (contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be
-    entered"). The engine's words plus the line saying what to do; the screen reads the
-    statement fresh, so the header's end is empty again and `c` starts over from the box."""
+    """The screen read a balance, the engine says it is missing, on
+    `balances.<currency_code>.ending_balance_cents`
+    (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
+    The engine's words whole, no line of the app's; the screen reads the statement fresh,
+    so the header's end is empty again, and the box for that balance is open."""
     from expense.tui.screens.modals import AmountPromptModal
 
     _patch(monkeypatch)
-    words = "Cannot complete the statement without every account's ending balance."
-    field = "balances.acc1.ending_balance_cents"
+    words = "Cannot complete the statement without every currency's balances."
+    field = "balances.PEN.ending_balance_cents"
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
         words,
@@ -1981,11 +2030,10 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
         assert notices[0] == (
             "Couldn't complete",
-            f"VALIDATION_ERROR — {words}\n  {field}: Must be entered before completing.\n\n"
-            "Press c again: the app asks for it first.",
+            f"VALIDATION_ERROR — {words}\n  {field}: Must be entered before completing.",
             "error",
         )
         await wait_for(pilot, lambda: _end(screen) is None)
@@ -1994,8 +2042,6 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
         assert (
             str(screen.query_one("#rhead", Static).visual).splitlines()[0].endswith("status draft")
         )
-        await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
 
     run_app(scenario)
 

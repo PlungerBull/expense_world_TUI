@@ -58,6 +58,20 @@ saves nothing, puts the cursor on `BEGIN BALANCE USD` and says:
 **Recommended:** A, because it names the empty line and why it is needed, and the cursor is
 already on it.
 
+### The note when `c` saves the balances but the statement does not complete
+Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
+
+`c` now saves starting balances as well as ending ones. When the save goes through and completing
+is refused, the note above the engine's words read `The ending balance is saved. The statement is
+not completed:`; it now reads:
+
+`The balances are saved. The statement is not completed:`
+
+- **A.** Keep these words.
+- **B.** Other words: tell me which.
+
+**Recommended:** A, because it is the old note with "balances" for "ending balance".
+
 ### The words when your saved sheet renames disagree
 Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
 

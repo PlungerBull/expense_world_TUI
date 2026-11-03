@@ -128,9 +128,10 @@ plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 
 **One reader for every typed amount.** `parse_amount` in
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
-form, an account's opening balance, a new statement's two balances and
-the statement's `Ending balance first` box. It takes a signed decimal with a dot for its
-decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13,853.20`,
+form, an account's opening balance, a new statement's two balances and the statement's
+`Starting balance first` and `Ending balance first` boxes. It takes a signed decimal with a
+dot for its decimals (`-99.92`, `13853.20`);
+every comma is dropped as a thousands mark (`13,853.20`,
 `1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
 `-12.50,`) is unreadable, never read as 13.85: each form field refuses it with its own note and
 the cursor stays (the box stays open), and on the LOG bar it is no amount, so `↵` refuses the
@@ -1125,8 +1126,7 @@ below).
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
-`VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
-statement draws when completed without an ending balance, the one a system category
+`VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a system category
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE —
@@ -1148,7 +1148,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a statement's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
@@ -1159,7 +1159,7 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no batch" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a statement; `c` and `x` on an account's currencies | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a statement; `c` and `x` on an account's currencies; the balances saved at `c` on a statement | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
 | `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
@@ -1171,7 +1171,6 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) on `currency_code` | `m` on ledger rows that include an opening balance, which moves a currency alone; its Edit form, on a change of currency alone | none: the engine's words show alone |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
-| `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a statement's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
 | `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
 | `RESERVED_NAME` (a `VALIDATION_ERROR`) on `name` | a new category, or a category renamed on its Edit form, named like a system category (`@Opening`, `@Pendiente`); a new hashtag, or a hashtag renamed on its Edit form, named `Pendiente` in any letter case | `That name belongs to a system row: pick another.` |
 | `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance | `Leave the opening balance out of the selection.` |
@@ -1194,9 +1193,9 @@ each shows its line in place of `format_error`'s, since what follows is `⏎ Pre
 account (`currency_refusal_text` in [accounts.py](../expense/tui/screens/accounts.py), and
 `no_line_on_one_currency` on the reason's row of `NEXT_STEPS`), so `HAS_TRANSACTIONS` on
 `account_id` draws the archive line on an account's delete and none on a currency's removal.
-The ending balance saved at `c` asks for none: the engine lists `CONCURRENT_CHANGE` on a
-statement's delete, not on its save
-(contract: DELETE /v1/statements/{statement_id}) (contract: PUT /v1/statements/{statement_id}). `HAS_TRANSACTIONS` is the one reason two
+The balances saved at `c` are sent from a list screen, so `CONCURRENT_CHANGE` on their save draws the
+list line, `It changed at the same moment: press r, then try again.`
+(contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write"). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, the keys
 `hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`, and
 `OPENING_BALANCE_NOT_TAGGED` has its line on a transaction write's `hashtag_ids` alone, so
@@ -1733,28 +1732,40 @@ and no screen sets the order ([decisions.md](decisions.md) "A card's statement i
 A complete with no transaction on any account of the statement is refused as
 `NO_TRANSACTIONS_ASSIGNED` on each account's `balances.<account_id>.transactions`, and
 `Couldn't complete` shows the engine's words whole, the opened account's line among them.
-**`c` needs the ending balance**: the engine completes no statement without every account's
-(contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
-On a draft with a covered currency whose `end` is empty, `c` first opens the box `Ending
-balance first` for the first such currency (`The statement's closing figure for <account>,
-in <currency> · signed · e.g. 13,853.20`,
-`[enter] save    [esc] cancel`). The figure is read by the shared money parser exactly as
-typed — the sign is the one typed, never added or flipped; text it cannot read keeps the
-box open with what was typed and notes `End balance: a signed decimal, e.g. 9460.00`, and
-nothing is sent. `esc` closes it with nothing saved. `enter` saves it with
-`PUT /statements/{id}`, whose `balances` names every account of the statement, each once:
-that currency's entry with `ending_balance_cents`, every other entry with no balance,
-so the engine keeps that account's (`ending_balance_body`)
-(contract: PUT /v1/statements/{statement_id}). The head shows the engine's saved `end`
-and `diff` on that currency's line, and then the usual `Complete statement?`
-asks; only `y` completes, and any other answer leaves a draft with its balance saved, so
-the next `c` goes straight to the question. A draft that already has its ending balance
-goes straight to the question too. A refused save shows `Couldn't save` with the engine's
-words and, for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try
-again.`. A refused complete shows `Couldn't complete` with the engine's words — after a
-save in the same `c`, under the line `The ending balance is saved. The statement is
-not completed:` — and the screen reads the statement fresh, so the header and the next
-`c` go by what the engine holds. A complete's answer carries the close's notes on each
+**`c` needs every balance**: the engine completes no statement with a balance blank
+(contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
+On a draft with any blank balance, `c` first opens a box for each one, currency by
+currency in the statement's order, a currency's starting balance before its ending balance
+(`blank_balances`): `Starting balance first` (`The statement's opening figure for <account>,
+in <currency> · signed · e.g. 13,853.20`) for a blank starting balance, `Ending balance
+first` (`The statement's closing figure for <account>, in <currency> · signed · e.g.
+13,853.20`) for a blank ending balance, each with `[enter] save    [esc] cancel`
+(pane 6 of [expense-world-statements-screens.html](mockups/expense-world-statements-screens.html)).
+A balance already entered gets no box. Each figure is read by the shared money parser
+exactly as typed — the sign is the one typed, never added or flipped; text it cannot
+read keeps the box open with what was typed and notes `Begin balance: a signed decimal,
+e.g. 9580.00` or `End balance: a signed decimal, e.g. 9460.00`, and nothing is sent.
+`esc` closes the box with nothing sent. After the last box, one
+`PUT /statements/{id}` saves everything typed: its `balances` names only the currencies
+that change, each with only the balances typed (`balances_body`), so the engine keeps
+every other (contract: PUT /v1/statements/{statement_id}, "`balances`"). The head shows
+the engine's saved figures, and then the usual `Complete statement?` asks; only `y`
+completes, and any other answer leaves a draft with its balances saved, so the next `c`
+goes straight to the question. A draft with every balance goes straight to the question
+too. A refused complete that names a missing balance (`BEGINNING_BALANCE_REQUIRED`,
+`ENDING_BALANCE_REQUIRED`) or a currency the statement does not cover
+(`MONEY_AT_START_NOT_COVERED`) shows `Couldn't complete` with the engine's words, then
+opens the same boxes for the currency the engine names (`balances_named`, read off the
+refusal's `reasons` keys `balances.<currency>[.<field>]`; the app decides nothing about
+which currency needs a balance): the named balance's box, or for a currency not covered,
+its starting then its ending balance, each box empty. A
+currency with no movement closes the same way: its ending balance typed in an empty
+box, and the engine judges it. Then the question asks again. A refused save shows
+`Couldn't save` with the engine's words. A refused complete shows `Couldn't complete`
+with the engine's words — after a save in the same `c`, under the line `The balances
+are saved. The statement is not completed:`, whether or not the refusal then opens boxes —
+and the screen reads the statement fresh, so the header and the next `c` go by what the
+engine holds. A complete's answer carries the close's notes on each
 balance, its currency's `warnings` and `coverage_gap`
 (contract: POST /v1/statements/{statement_id}/complete, "Response"); each currency's
 `warnings` sentence shows under the head, `⚠ <sentence>` in the warning colour, in the

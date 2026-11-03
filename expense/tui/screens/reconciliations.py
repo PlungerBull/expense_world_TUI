@@ -45,9 +45,9 @@ least one account of the statement and locks the amount, date, title, account,
 operation number and statement of each, an empty title or operation number
 staying fillable (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
 delete is draft-only and just detaches the transactions. Completing also needs
-every ending balance (contract: POST /v1/statements/{statement_id}/complete,
-"Every ending balance must be entered"): `c` on a draft whose opened account has
-none first asks for it in a box, saves it in the statement's `balances` with
+every balance (contract: POST /v1/statements/{statement_id}/complete,
+"Every balance must be entered"): `c` on a draft with a blank balance first asks
+for each in a box, saves them in the statement's `balances` with one
 PUT /statements/{id}, then asks the usual "Complete statement?". A complete
 whose answer flags lines for review (each balance's `review_lines`, every
 currency's) opens FlaggedLinesScreen on the statement's review list
@@ -1321,19 +1321,73 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
     return [*rows, *apart], checked, part_of
 
 
-def ending_balance_body(currency_code: object, cents: int) -> dict:
-    """`PUT /statements/{id}`'s body saving one currency's ending balance. Its
-    `balances` names only the currency that changes, so the engine keeps every
-    other as it is (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
-    return {"balances": [{"currency_code": currency_code, "ending_balance_cents": cents}]}
+#: A balance `c` asks for: the currency, then `beginning` or `ending`.
+BalanceAsk = tuple[str, str]
+
+_ASKED_FIELD = {"beginning": "beginning_balance_cents", "ending": "ending_balance_cents"}
+
+#: The refusal reasons of a complete that lead to a box for the currency they
+#: name, each with the balances it asks for. A currency the statement holds no
+#: balances for gains its starting and its ending balance together
+#: (contract: PUT /v1/statements/{statement_id}, "`balances`").
+_ASKED_BY_REASON = {
+    "BEGINNING_BALANCE_REQUIRED": ("beginning",),
+    "ENDING_BALANCE_REQUIRED": ("ending",),
+    "MONEY_AT_START_NOT_COVERED": ("beginning", "ending"),
+}
+
+
+def blank_balances(statement: dict) -> list[BalanceAsk]:
+    """The balances `c` asks for on the statement as read: each covered currency's
+    blank starting balance, then its blank ending balance, currency by currency
+    in the engine's order (contract: "Statements", "Which currencies a statement covers")."""
+    asks: list[BalanceAsk] = []
+    for balance in statement.get("balances") or []:
+        if not isinstance(balance, dict) or not balance.get("currency_code"):
+            continue
+        for kind in ("beginning", "ending"):
+            if balance.get(_ASKED_FIELD[kind]) is None:
+                asks.append((str(balance["currency_code"]), kind))
+    return asks
+
+
+def balances_named(failure: Exception) -> list[BalanceAsk]:
+    """The balances a refused complete names, read off the engine's own
+    `reasons`, each keyed `balances.<currency_code>[.<field>]`
+    (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")
+    (contract: POST /v1/statements/{statement_id}/complete,
+    "Every currency with money at the start has balances in it"). Which currency needs
+    a balance is the engine's call; none named when the refusal is another."""
+    reasons = failure.reasons if isinstance(failure, EngineError) else None
+    asked: list[BalanceAsk] = []
+    for key, reason in (reasons or {}).items():
+        parts = str(key).split(".")
+        if len(parts) < 2 or parts[0] != "balances":
+            continue
+        for kind in _ASKED_BY_REASON.get(str(reason), ()):
+            if (parts[1], kind) not in asked:
+                asked.append((parts[1], kind))
+    order = {code: i for i, code in enumerate(dict.fromkeys(code for code, _ in asked))}
+    return sorted(asked, key=lambda ask: (order[ask[0]], ask[1] != "beginning"))
+
+
+def balances_body(typed: dict[BalanceAsk, int]) -> dict:
+    """`PUT /statements/{id}`'s body saving the balances typed. Its `balances` names
+    only the currencies that change, each with only the balances typed, so the
+    engine keeps every other as it is
+    (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
+    entries: dict[str, dict] = {}
+    for (code, kind), cents in typed.items():
+        entries.setdefault(code, {"currency_code": code})[_ASKED_FIELD[kind]] = cents
+    return {"balances": list(entries.values())}
 
 
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
 _UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
 
-#: The first line of a refused complete that follows the ending balance's save:
+#: The first line of a refused complete that follows the balances' save:
 #: which half went through, above the engine's words.
-_BALANCE_SAVED = "The ending balance is saved. The statement is not completed:"
+_BALANCE_SAVED = "The balances are saved. The statement is not completed:"
 
 
 #: The balances table of a statement's head: the width of the begin, end and diff
@@ -1420,16 +1474,6 @@ class ReconciliationDetailScreen(
         self._flagged = 0
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
-
-    @property
-    def _currency(self) -> str | None:
-        """The currency `c`'s ending-balance box asks about: the first covered one
-        whose ending balance is blank, else the first covered. None when the
-        statement covers none."""
-        balances = [b for b in self._record.get("balances") or [] if isinstance(b, dict)]
-        blank = [b for b in balances if b.get("ending_balance_cents") is None]
-        chosen = (blank or balances or [{}])[0]
-        return chosen.get("currency_code")
 
     @property
     def _completed(self) -> bool:
@@ -1657,14 +1701,12 @@ class ReconciliationDetailScreen(
             return
         if self._busy:
             return
-        # The engine refuses to complete without every ending balance (contract:
-        # POST /v1/statements/{statement_id}/complete, "Every ending balance
-        # must be entered"), so the opened account's, when empty, is asked for first.
-        if (
-            self._currency is not None
-            and balance_of(self._record, self._currency).get("ending_balance_cents") is None
-        ):
-            self._ask_ending_balance()
+        # The engine refuses to complete without every balance (contract:
+        # POST /v1/statements/{statement_id}/complete, "Every balance must be
+        # entered"), so each blank one is asked for first.
+        asks = blank_balances(self._record)
+        if asks:
+            self._ask_balances(asks, {})
             return
         self._confirm_complete()
 
@@ -1687,33 +1729,48 @@ class ReconciliationDetailScreen(
             ),
         )
 
-    # ---- the ending balance, asked for at complete ----------------------
-    def _ask_ending_balance(self) -> None:
-        """The box: the statement's closing figure, read by the shared money
+    # ---- the balances, asked for at complete -----------------------------
+    def _ask_balances(self, asks: list[BalanceAsk], typed: dict[BalanceAsk, int]) -> None:
+        """A box for the first balance in `asks`, then the next, until none is left;
+        then one save of everything typed. The figure is read by the shared money
         parser exactly as typed — the sign is the one typed, never added or
         flipped. Unreadable text keeps the box open; `esc` sends nothing."""
+        if not asks:
+            self._save_balances(typed)
+            return
+        (currency, kind), rest = asks[0], asks[1:]
         acct = self._acct_name or resolve_name(self._account_id, {})
-        currency = f"in {self._currency} · " if self._currency else ""
-        self.app.push_screen(
-            AmountPromptModal(
+        where = f"{acct},\nin {currency} · signed · e.g. 13,853.20"
+        if kind == "beginning":
+            title, message, unreadable = (
+                "Starting balance first",
+                f"The statement's opening figure for {where}",
+                _BEGIN_UNREADABLE,
+            )
+        else:
+            title, message, unreadable = (
                 "Ending balance first",
-                f"The statement's closing figure for {acct},\n{currency}signed · e.g. 13,853.20",
-                unreadable=_END_UNREADABLE,
-            ),
-            self._save_ending_balance,
-        )
+                f"The statement's closing figure for {where}",
+                _END_UNREADABLE,
+            )
 
-    def _save_ending_balance(self, cents: int | None) -> None:
-        if cents is None or self._busy:
-            return  # esc: nothing saved
+        def typed_in(cents: int | None) -> None:
+            if cents is None or self._busy:
+                return  # esc: nothing saved
+            self._ask_balances(rest, {**typed, (currency, kind): cents})
+
+        self.app.push_screen(AmountPromptModal(title, message, unreadable=unreadable), typed_in)
+
+    def _save_balances(self, typed: dict[BalanceAsk, int]) -> None:
         self._busy = True
         self.run_write(
             "PUT",
             f"/statements/{self._id}",
-            json_body=ending_balance_body(self._currency, cents),
+            json_body=balances_body(typed),
             on_response=self._balance_saved_record,
             on_success=self._balance_saved,
             on_error=self._balance_failed,
+            error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
         )
 
     def _balance_saved_record(self, body: dict) -> None:
@@ -1774,6 +1831,12 @@ class ReconciliationDetailScreen(
         if self._busy:
             return
         self._busy = True
+        error_text = kw.get("error_text", format_error)
+
+        def failed(exc: Exception) -> None:
+            message = error_text(exc)
+            self._action_failed(f"{lead}\n{message}" if lead else message, verb, exc)
+
         # Any status change invalidates a gap report and the flagged lines: they
         # were true of the record as it stood one write ago (a revert unseals the
         # very window they named).
@@ -1783,7 +1846,7 @@ class ReconciliationDetailScreen(
             method,
             path,
             on_success=lambda: self._action_done(new_status, verb),
-            on_error=lambda m: self._action_failed(f"{lead}\n{m}" if lead else m, verb),
+            on_failure=failed,
             **kw,
         )
 
@@ -1868,7 +1931,7 @@ class ReconciliationDetailScreen(
         if count is not None:
             self._show_flagged(count)
 
-    def _action_failed(self, message: str, verb: str) -> None:
+    def _action_failed(self, message: str, verb: str, failure: Exception | None = None) -> None:
         self._busy = False
         done = verb.split()[0]
         toast(self, message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
@@ -1877,6 +1940,10 @@ class ReconciliationDetailScreen(
             # last read is out of date (an ending balance cleared elsewhere),
             # and the next `c` decides on the header it shows.
             self._load_txns(refresh_record=True)
+            # a refusal naming balances leads to a box for each, then the question
+            asks = balances_named(failure) if failure is not None else []
+            if asks:
+                self._ask_balances(asks, {})
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False

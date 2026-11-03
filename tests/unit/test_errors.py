@@ -680,8 +680,8 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     """Guard: the one table of next steps holds (code, reason) pairs, with codes
     the engine sends a reason on every key for, and reasons in the engine's
     SHOUTY_SNAKE form — never a route, a status or a sentence. The one other
-    code is `VALIDATION_ERROR`, for the three opening-balance reasons, the
-    missing ending balance and the two name rules of the built-in rows alone."""
+    code is `VALIDATION_ERROR`, for the three opening-balance reasons and the
+    two name rules of the built-in rows alone."""
     import re
 
     from expense.errors import NEXT_STEPS, REFUSAL_CODES, NextStep
@@ -691,7 +691,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "OPENING_BALANCE_ACCOUNT_FIXED",
         "OPENING_BALANCE_CATEGORY_FIXED",
         "OPENING_BALANCE_NOT_TAGGED",
-        "ENDING_BALANCE_REQUIRED",
         "RESERVED_NAME",
         "SYSTEM_NAME_FIXED",
     }
@@ -722,7 +721,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "OPENING_BALANCE_ACCOUNT_FIXED",
         "OPENING_BALANCE_CATEGORY_FIXED",
         "OPENING_BALANCE_NOT_TAGGED",
-        "ENDING_BALANCE_REQUIRED",
         "RESERVED_NAME",
         "SYSTEM_NAME_FIXED",
     }
@@ -750,25 +748,17 @@ def test_has_transactions_on_one_currency_reads_in_the_engine_words_alone():
     )
 
 
-def test_a_missing_ending_balance_says_press_c_again():
-    """The refused complete keeps the engine's words whole, then the line saying
-    what to do (contract: POST /v1/statements/{statement_id}/complete,
-    "Every ending balance must be entered"). The message is the practice engine's;
-    the contract does not print it."""
+def test_a_missing_balance_has_no_line_of_the_apps():
+    """A refused complete naming a missing balance keeps the engine's words
+    whole: the batch screen opens the box for it instead of saying what to do
+    (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")."""
     from expense.errors import next_step
 
-    err = _refusal(
-        "VALIDATION_ERROR",
-        "balances.acc1.ending_balance_cents",
-        "ENDING_BALANCE_REQUIRED",
-        status=422,
-        message="Cannot complete the statement without every account's ending balance.",
-    )
-    assert next_step(err) == "Press c again: the app asks for it first."
-    assert format_error(err).endswith("\n\nPress c again: the app asks for it first.")
-    assert format_error(err).startswith(
-        "VALIDATION_ERROR — Cannot complete the statement without every account's ending balance."
-    )
+    for reason in ("BEGINNING_BALANCE_REQUIRED", "ENDING_BALANCE_REQUIRED"):
+        err = _refusal(
+            "VALIDATION_ERROR", "balances.USD.beginning_balance_cents", reason, status=422
+        )
+        assert next_step(err) is None
 
 
 def test_no_hint_is_chosen_by_status_and_route_anywhere():
