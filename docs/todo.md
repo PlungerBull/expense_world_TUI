@@ -152,10 +152,16 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   names like `test_a_cards_preview_is_screen_1a_and_writes_nothing`) point at mockups that no
   longer exist, by pane and screen tags; they should say what the screen does instead.
 
+- **Old engine words in a mockup and three tests.** Nothing you see changes.
+  [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html) draws
+  `Amount cannot be zero.` (the engine: `Must not be zero.`);
+  [test_tui_statement_list.py](../tests/unit/test_tui_statement_list.py),
+  [test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) and
+  [test_tui_bulk_edit.py](../tests/unit/test_tui_bulk_edit.py) quote `Validation failed.` Done
+  when each is the practice engine's own words.
 - **Part 7's test leftovers.** Nothing you see changes.
-  [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py) names
-  `PUT /statements/{id}/statement-order`, which the live contract does not hold, and its sample
-  paths read `/reconciliations/…`; balance refusals in
+  [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py)'s sample paths read
+  `/reconciliations/…`; balance refusals in
   [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) and
   [test_errors.py](../tests/unit/test_errors.py) are keyed `balances.<account_id>.…` where the
   engine keys them by currency code; two docstrings, in test_tui_bank_import.py and

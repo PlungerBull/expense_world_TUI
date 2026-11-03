@@ -704,7 +704,7 @@ nothing. Its three full screens replace one another above the LOG bar, as a down
 |---|---|---|
 | **Which account is this statement?** | crumb `Upload a statement`; the file's name dim beside the question; the download's account list ("Which account is this file?" above), an account with no statement code included (the engine refuses it in its words when picked). Picking an account sends its id | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name with its currencies when it holds two (`BCP Signature PEN + USD`), else the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the engine's count of the completed statement's review list (read once after the apply; `GET /bank-lines/count` with `unassigned_in_period_of`) is above zero, the `⚑` line a statement shows (§4 "On the statement"). No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the engine's count of the completed statement's review list, read once after the apply, is above zero, the `⚑` line a statement shows (§4 "On the statement"). No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
 colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
@@ -1501,8 +1501,8 @@ first word (`under_itself`), never at column 1.
 
 **The lines a complete flagged for review.**
 A complete goes through while lines dated in the statement are in no statement; the app keeps
-no rule of which lines those are and treats none as a refusal. When the engine's count of the
-statement's review list is above zero, the app pushes a full screen right after the complete,
+no rule of which lines those are and treats none as a refusal. When the statement's review list
+counts a line after the complete ("On the statement" below), the app pushes a full screen,
 `Statements ▸ <statement> ▸ Flagged`
 (`FlaggedLinesScreen` in [reconciliations.py](../expense/tui/screens/reconciliations.py)). It
 opens on the statement's id, not the lines' ids, and reads the statement's review list, the
@@ -1551,11 +1551,11 @@ with `unassigned_in_period_of=<statement id>`, read each time the screen reads t
 (when it opens, on `r`, after a tick and after a status change; a read that fails toasts the
 engine's words), so a draft shows the lines a complete would flag, and a revert counts again.
 After a complete, the screen reads the statement's lines and that count again, and the count
-alone decides: the flagged lines' screen opens on its own when it is above zero (whichever read
-brings the count, unless `f` has opened it first or another screen, such as `?`, is on top),
-and the `⚑` line never shows the answer's `review_lines`; a read that fails toasts and opens
-nothing. Back from the flagged lines' screen, its last count holds. The lines stay in the ledger, in no statement, and show in the
-account's "no batch" list.
+alone decides, never the answer's `review_lines`: the flagged lines' screen opens on its own
+when it is above zero (whichever read brings the count, unless `f` has opened it first or
+another screen, such as `?`, is on top); a read that fails toasts and opens nothing. Back from
+the flagged lines' screen, its last count holds. The lines stay in the ledger, in no statement,
+and show in the account's "no batch" list.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
