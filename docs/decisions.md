@@ -887,8 +887,7 @@ complete, revert, delete or `PUT` on either half writes both
 (contract: "Statements", "Every write acts on the whole statement"). (2) **A card lists its statements from one
 `GET /statements?holder_id=`**, one row per statement, each account's balances from its entry in
 `balances`, never matched by days or names; what the row
-shows is in [tui.md](tui.md) "The Statements browse". The owner picked 1 A and question 3 B
-in [expense-world-card-statement.html](mockups/expense-world-card-statement.html). (3) **The
+shows is in [tui.md](tui.md) "The Statements browse". (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
 **No screen orders a statement, ticks the lines it still needs or edits a statement's name, days
 and balances.** A month's reconciliation stays open until the bank's PDF statement arrives, and
@@ -968,8 +967,7 @@ for the second practice user.
 lines the close flagged** on a screen of its own, pushed right after the complete, every account
 of a holder in one list, each line opening in the Edit form or deleted after the question; back on
 the statement, a `⚑` line under the header and `f` open the list again while flagged lines are
-left (contract: POST /v1/statements/{statement_id}/complete). The owner picked 1 A in
-[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
+left (contract: POST /v1/statements/{statement_id}/complete).
 Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
 lines a close flags. (2) **The screen reads the flagged lines as the statement's review list**, opened on the
 statement's id: `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement`, page by

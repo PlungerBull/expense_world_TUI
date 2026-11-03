@@ -286,7 +286,7 @@ def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
     account's `currencies` as sent (`reads.held_currencies`, the one walk over
     them), and the statement code is the account's
     (contract: "What an account is", "Statement code"). `AccountPick` of the bank
-    import carries neither a balance nor a code, so it does not serve here."""
+    import carries no balance, so it does not serve here."""
     held: dict[str, list[tuple[str, int | None]]] = {}
     for account, _name, entry in reads.held_currencies(items, include_people=False):
         held.setdefault(account["id"], []).append(

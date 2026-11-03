@@ -148,11 +148,6 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   engine's holder's (Reconciliations pairing them by `holder_id`), rewritten when
   [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md)
   retires, since that spec changes what it describes.
-- **Mockups quote the complete's old ordering refusal**, "Cannot complete reconciliation until its
-  statement is fully ordered": expense-world-card-statement.html and
-  expense-world-statement-screen.html; both go with
-  [specs/catch-up-currencies-7-statement-screen.md](specs/catch-up-currencies-7-statement-screen.md),
-  which redraws those screens and deletes the old drawings.
 - **Three small finds from the practice engine's start script and the drift script:** the
   comment at the start script's `$!` capture calls that pid "the backgrounded subshell", though
   after the exec chain it is the launcher's own, and the line runs past 100 characters; the

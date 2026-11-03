@@ -28,6 +28,10 @@ class AccountPick:
     name: str
     account_id: str
     currency_codes: tuple[str, ...]
+    #: The account's own statement code, `None` when it has none
+    #: (contract: "What an account is", "Statement code"); the statement upload
+    #: hands it to the flagged lines' screen.
+    statement_code: str | None = None
 
     @property
     def holds_two(self) -> bool:
@@ -52,6 +56,7 @@ def account_picks(accounts: list[dict]) -> list[AccountPick]:
             str(a.get("name") or "(unnamed)"),
             str(a["id"]),
             tuple(str(c.get("currency_code") or "?") for c in a.get("currencies") or []),
+            a.get("statement_code") or None,
         )
         for a in accounts
         if a.get("id") and not a.get("is_archived") and not a.get("is_person")

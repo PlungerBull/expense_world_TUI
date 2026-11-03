@@ -59,7 +59,10 @@ from tests.unit.helpers import (
 #: The card, one account holding soles and dollars; then a savings account and cash.
 ACCOUNTS = [
     account_with_currencies(
-        id="sig", name="BCP Signature", currencies=[held_currency("PEN"), held_currency("USD")]
+        id="sig",
+        name="BCP Signature",
+        currencies=[held_currency("PEN"), held_currency("USD")],
+        statement_code="SIG",
     ),
     account_with_currencies(id="aho", name="Sueldo Soles"),
     account_with_currencies(id="cash", name="Efectivo"),
@@ -430,6 +433,44 @@ def test_the_account_list_is_the_downloads_with_the_statements_question(
     run_app(scenario, size=(120, 40))
 
 
+def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencies(
+    fake_client, monkeypatch, tmp_path
+):
+    """Pane 12: a bank account with no statement code is listed too (the engine
+    refuses it in its words if picked), a dollar account reads `USD`, an account
+    in the way of nothing is left out: archived accounts and people."""
+    path = _pdf(tmp_path)
+    _patch(
+        monkeypatch,
+        accounts=[
+            account_with_currencies(
+                id="visa",
+                name="Visa BCP",
+                currencies=[held_currency("PEN"), held_currency("USD")],
+                statement_code="VIS",
+            ),
+            account_with_currencies(id="nocode", name="Sueldo Soles"),
+            account_with_currencies(
+                id="usd", name="BBVA Dólares", currencies=[held_currency("USD")]
+            ),
+            account_with_currencies(id="old", name="Cerrada", is_archived=True),
+            account_with_currencies(id="ana", name="Ana", is_person=True),
+        ],
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        account = await _accounts(pilot, app)
+        assert [_cells(line) for line in _lines(account)[1:]] == [
+            ["Visa BCP", "PEN + USD"],
+            ["Sueldo Soles", "PEN"],
+            ["BBVA Dólares", "USD"],
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
 # ---- 1A · a card's paper ---------------------------------------------------------------
 def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path)
@@ -748,6 +789,9 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
             ("count", "s-paper", None, None),
         ]
         assert flagged._statement == "SIG-202610"
+        # the picked account's statement code: the engine's two ways show as words
+        assert flagged._statement_code == "SIG"
+        assert len(flagged.query("#fways")) == 1
         await pilot.press("escape")
         await _on(pilot, app, StatementResultScreen, "esc did not come back")
         assert app.screen is result
@@ -934,6 +978,38 @@ def test_a_change_met_by_the_apply_previews_again_before_any_write(
         await pilot.press("enter")
         await _on(pilot, app, StatementResultScreen, "no result screen")
         assert _uploads(fake_client) == [True, False, True, False]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_the_flagged_lines_of_an_account_with_no_code_show_no_ways(
+    fake_client, monkeypatch, tmp_path
+):
+    """The picked account has no statement code: the flagged lines' screen shows
+    no words about a twin."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    paper = {**SAVINGS, "review_lines": {"PEN": ["bl-uber"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+    monkeypatch.setattr(
+        "expense.reads.fetch_bank_lines",
+        lambda cfg, **kw: {"items": [LINES["bl-uber"]], "limit": 200, "next_cursor": None},
+    )
+    monkeypatch.setattr("expense.reads.count_bank_lines", lambda cfg, **kw: 1)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _accounts(pilot, app)
+        await pilot.press("down", "enter")  # Sueldo Soles, no statement code
+        await _previewed(pilot, app)
+        await pilot.press("enter")
+        await _on(pilot, app, StatementResultScreen, "no result screen")
+        await pilot.press("f")
+        flagged = await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
+        await wait_for(pilot, lambda: flagged._list is not None, message="flagged never read")
+        assert flagged._statement_code is None
+        assert not flagged.query("#fways")
 
     run_app(scenario, size=(120, 50))
 

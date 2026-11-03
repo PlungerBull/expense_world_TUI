@@ -6,13 +6,13 @@ screens of its own, in the import door's run (`bank_import.ImportRun`): its
 bytes read at the drop, its account list read once per run, its way back to the
 LOG bar.
 
-    StatementAccountScreen   which account is this statement? (screen A2 of
-                             docs/mockups/expense-world-statement-pdf-upload.html)
-    StatementPreviewScreen   the engine's dry run, nothing written yet (screen 1
-                             of docs/mockups/expense-world-statement-pdf-screens.html),
-                             or a refused upload in the engine's words (screen 2)
+    StatementAccountScreen   which account is this statement? (pane 12 of
+                             docs/mockups/expense-world-statements-screens.html)
+    StatementPreviewScreen   the engine's dry run, nothing written yet (pane 13
+                             of the same mockup), or a refused upload in the
+                             engine's words (pane 14)
     StatementResultScreen    the month closed, and `f` for the lines the close
-                             flagged (screen 3)
+                             flagged (pane 15)
 
 The app sends the PDF whole and reads nothing in it: every row, its outcome, the
 lines taken out, the balances and every refusal are the engine's
@@ -548,7 +548,11 @@ class StatementResultScreen(ResultScreen):
     def action_flagged(self) -> None:
         if self._flagged:
             self.app.push_screen(
-                FlaggedLinesScreen(self._statement_id, statement=self._answer.name),
+                FlaggedLinesScreen(
+                    self._statement_id,
+                    statement=self._answer.name,
+                    statement_code=self._pick.statement_code,
+                ),
                 self._flagged_back,
             )
 

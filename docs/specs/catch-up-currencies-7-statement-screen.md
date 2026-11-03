@@ -24,7 +24,7 @@ part 2 of the currencies catch-up (done on 2026-10-30)
 part 6 of the currencies catch-up, the main views (done on 2026-10-31).
 Its screens are drawn as mockups when it is named the current spec, every option
 its own pane: panes 2A, 3A, 4A, 6A, 7A, 9B, 10B and 11B of
-[expense-world-card-statement-questions.html](../mockups/expense-world-card-statement-questions.html)
+`expense-world-card-statement-questions.html`
 and screens 1 to 3 of
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html)
 are redrawn in the account's words; panes 5A and 5B are drawn again for question 1.
@@ -290,11 +290,6 @@ the question, the files named and the tui.md section named.
    the same boxes; a currency with no movement closes on an empty box typed; the tests pin each; the citation `"Every ending balance must
    be entered"`, which the live contract no longer holds, is replaced by the live rule
    wherever it stands (tui.md, reconciliations.py).
-8. **The upload's refusals; old mockups go** (points 13 and 14; question 5).
-   [statement_upload.py](../../expense/tui/screens/statement_upload.py) and its tests; tui.md §2
-   "A statement PDF closes its month". *Passes if:* each new refusal reads as question 5 picks;
-   the replaced mockups are deleted and `test_docs_links.py` passes; the flagged lines the upload
-   opens show the engine's two ways, the picked account's statement code passed to them.
 9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
    [reads.py](../../expense/reads.py), the holder builders in
    [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer
