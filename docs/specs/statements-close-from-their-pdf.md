@@ -205,16 +205,7 @@ part 7 of the currencies catch-up (done on 2026-11-03), with
 screen 4 redrawn for a statement with a balance per currency it covers. Task 6, the card's live
 tests, is in
 part 4 of the currencies catch-up, the live tests for the upload, bank lines and kinds (done on 2026-10-31),
-built on the engine's sample PDFs. The one task left runs after
-part 7 of the currencies catch-up (done on 2026-11-03).
-
-5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) says
-   the PDF closes an account's month in its statement, with no "draft spec" and no "reconciliation"
-   left in that line; no doc speaks of a card statement's halves or calls the PDF's statement a
-   reconciliation; [commands.md](../commands.md) and [runtime.md](../runtime.md) follow if they
-   name the bank files the app takes.
-   *Passes if:* no doc says the app takes no PDF, none speaks of a statement's halves, and
-   each fact has one home.
+built on the engine's sample PDFs. Every task is done; the acceptance check runs next.
 
 ## Reply to the engine
 
