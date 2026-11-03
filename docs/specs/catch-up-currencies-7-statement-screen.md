@@ -282,13 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-4. **The statement's head and its one list** (points 3 and 4; questions 2 and 3). The detail
-   screen in [reconciliations.py](../../expense/tui/screens/reconciliations.py),
-   [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) and the statement
-   tests; tui.md §4 "A statement's batch screen". *Passes if:* the head shows each covered
-   currency's balances, an uncovered one and a blank one as picked, a bracketed name whole; the
-   list is the paper's order, both currencies in one numbering with a currency column, the
-   opening balance apart; the tests pin each.
 5. **`c` and the balances it needs** (point 6; questions 3 and 4 A). `ending_balance_body` and
    the `c` handler in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
    their tests; tui.md §4 "`c` needs the ending balance". *Passes if:* `c` asks for each blank
@@ -302,7 +295,8 @@ the question, the files named and the tui.md section named.
    their tests; tui.md §4. *Passes if:* after a tick the screen reads the statement again and a
    currency it gained shows blank; `not_covered` notes show as question 4 picks; a completed
    statement's footer has `d` and not `c`; an open one on an account with a code has neither
-   ticking nor `c`; `CONCURRENT_CHANGE` reads as question 5 picks; the tests pin each.
+   ticking nor `c`; `CONCURRENT_CHANGE` reads as question 5 picks; on a completed statement `pgdn` and `pgup`
+   reach every page of its list, as on a draft (its list takes no focus today); the tests pin each.
 7. **The flagged lines and the lines in no statement** (points 9 and 10). `FlaggedLinesScreen`
    and the `u` list in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
    their tests; tui.md §4 "The lines a complete flagged for review". *Passes if:* `⚑` and `f`
@@ -374,3 +368,7 @@ Not built in this spec; drafted into a new spec when it is done.
 - **On a two-currency New statement form, an unreadable amount's note does not name its
   currency:** `Begin balance: a signed decimal…` and `End balance: …` read the same for PEN and
   USD (found by task 3's review on 2026-11-03; the cursor is on the right line).
+- **Incomes on the statement's screen read without a `+`:** panes 4 and 5 of
+  [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html) draw
+  `+800.00`, and every list in the app writes an income unsigned (found by task 4 on
+  2026-11-03). Whether lists show the `+` is the owner's.

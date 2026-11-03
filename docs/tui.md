@@ -609,8 +609,8 @@ panel is open — on the plain account list it does nothing and is not in the fo
 It is deliberately not a filtered ledger: statement work stays in the statement
 view.
 
-Every row is **one line of the bank's own columns**, `Date · Title · Operation · Amount`,
-as on a statement's batch screen (below): `bank_line_columns` in
+Every row is **one line of the bank's own columns**, `Date · Title · Operation · Amount`
+(a statement's batch screen adds a `Cur` column, below): `bank_line_columns` in
 [formatting.py](../expense/formatting.py) gives the day and title of the line's parts, its
 `operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured. A
 transaction split into parts is **one row**, its title alone and its total; nothing on the row
@@ -1626,9 +1626,8 @@ Both lists leave two cells between columns, not the shared table's three (`gap` 
 (`ReconciliationsScreen` in [app.tcss](../expense/tui/app.tcss)), so pane 3 holds whole on 80
 columns: a statement's name, period, both Diffs, status and order.
 
-`⏎` opens the row's statement on the batch screen on one of the account's currencies, the
-first it covers (`view_currency`): the statement's own fields with that currency's entry in
-`balances` over them (`account_view`).
+`⏎` opens the row's statement on the batch screen, the whole statement: every currency it
+covers, none picked first.
 
 **Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
@@ -1671,26 +1670,37 @@ or leaving the account mid-write) ends the note with the app's line `It changed 
 moment: save again.` (`errors.NEXT_STEPS`). Saved, it says `Statement created.` and the panel
 opens on the account's statements, the cursor on the new one.
 
-**A statement's batch screen** (`⏎` on one in the panel; screens 2a–2c in
-[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is a
-statement opened on the account whose panel it came from. Its header — name, account,
-period, then `begin`, `end`, `diff` and `status` — is the statement's own fields with that
-account's entry in `balances` over them (`account_view`), never another account's of its
-holder; reading it again is `GET /statements/{id}` (contract: GET /v1/statements/{statement_id}),
-through `fetch_statement` in [reads.py](../expense/reads.py). Under it is a list of
-**bank lines**, read from `GET /bank-lines` (contract: GET /v1/bank-lines) through
-`fetch_bank_lines` in [reads.py](../expense/reads.py), every page of each read. On a draft
-it is a tick-list: the statement's lines on the account (`statement_id=` and `account_id`,
-since a statement's lines are every account's of its holder
-(contract: GET /v1/bank-lines, "Filters")) ticked and first, then the
-account's lines in no batch inside the period (`account_id`, `unreconciled=true`, and the
-period's own days as `date_from` / `date_to`), each read in the engine's order, newest
-first. Once completed it is the statement's lines on the account alone, read-only, with no
-tick box. A
+**A statement's batch screen** (`⏎` on one in the panel; panes 4 and 5 in
+[expense-world-statements-screens.html](mockups/expense-world-statements-screens.html), at 80
+columns) is the whole statement. Its head — name, account, period and `status` on the first
+line, the name whole, brackets and all (`[VIS] Agosto`) — is followed by a `begin  end  diff`
+table (`balance_lines`) with one line for each currency the statement covers, in the engine's
+order; a currency it does not cover has no line (contract: "Statements", "Which currencies a statement covers").
+A balance not entered reads a dim `—`, never zero, and its difference, not checked yet, stays
+blank (contract: "Statements", "A balance not entered is `null`, never zero").
+Reading it again is `GET /statements/{id}` (contract: GET /v1/statements/{statement_id}), through `fetch_statement` in
+[reads.py](../expense/reads.py). Under it is a list of **bank lines**, read from
+`GET /bank-lines` (contract: GET /v1/bank-lines) through `fetch_bank_lines` in
+[reads.py](../expense/reads.py), every page of each read, by account and never by one
+currency: `account_id=` with `statement_id=`, `sort=statement`, so the statement's lines come
+in the paper's order, both currencies together, then those holding no place oldest first
+(contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. On a draft it is a
+tick-list: the statement's lines ticked and first, then the account's lines in no statement
+inside the period (`account_id`, `unreconciled=true`, the period's own days as `date_from` /
+`date_to`, `sort=date_asc`, oldest first). Once completed it is the statement's lines alone,
+read-only, with no tick box, and a `#` column leads with each line's number, 1, 2, 3 … down
+the rows with no gaps. Every row carries a `Cur` column. An opening balance (`is_opening_balance`)
+holds no place on the paper, so its rows come last under a dim `Not on the paper` label, with a
+dim `—` for a number. The list draws without a rule above it, and the title is as wide as its
+longest title (at least 24 cells) until the line would not fit. The rows `Not on the paper`
+cost two more lines when they share a page with the others (the blank line and the label), and
+the page arithmetic counts them (`_extra_lines` in
+[windowed.py](../expense/tui/widgets/windowed.py)), so every row and the page status show at any
+height; a page of opening balances alone has the label where the header stands. A
 transaction split into parts is **one row with its total**, never half of it, and nothing on
 the row says it is split. Every row is one line of the bank's own columns, `Date ·
-Title · Operation · Amount`, made by `bank_line_columns` in
-[formatting.py](../expense/formatting.py): the day and title of the line's parts, its
+Title · Operation · Cur · Amount`: `Cur` is the line's `currency_code` (`line_rows`), the rest
+made by `bank_line_columns` in [formatting.py](../expense/formatting.py): the day and title of the line's parts, its
 `operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured
 (contract: GET /v1/bank-lines/{bank_line_id}); no category, hashtags, note or part count.
 **Keys**: `space` puts the line under the cursor in or out of the batch with one
@@ -1717,8 +1727,6 @@ longer exists.` and goes back; any other refused read shows the engine's words a
 `DELETE /statements/{id}` (contract: POST /v1/statements/{statement_id}/complete)
 (contract: POST /v1/statements/{statement_id}/revert)
 (contract: DELETE /v1/statements/{statement_id}).
-**Opened on one account of a card's statement** the screen shows that account alone, its
-own lines and figures, while `c`, `u` and `d` act on every account of the card.
 On a holder with a statement code the engine completes nothing until every line of the
 statement has a place in its order (contract: POST /v1/statements/{statement_id}/complete),
 and no screen sets the order ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
@@ -1727,17 +1735,18 @@ A complete with no transaction on any account of the statement is refused as
 `Couldn't complete` shows the engine's words whole, the opened account's line among them.
 **`c` needs the ending balance**: the engine completes no statement without every account's
 (contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
-On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The
-statement's closing figure for <account>, in <currency> · signed · e.g. 13,853.20`,
+On a draft with a covered currency whose `end` is empty, `c` first opens the box `Ending
+balance first` for the first such currency (`The statement's closing figure for <account>,
+in <currency> · signed · e.g. 13,853.20`,
 `[enter] save    [esc] cancel`). The figure is read by the shared money parser exactly as
 typed — the sign is the one typed, never added or flipped; text it cannot read keeps the
 box open with what was typed and notes `End balance: a signed decimal, e.g. 9460.00`, and
 nothing is sent. `esc` closes it with nothing saved. `enter` saves it with
 `PUT /statements/{id}`, whose `balances` names every account of the statement, each once:
-the opened account's entry with `ending_balance_cents`, every other entry with no balance,
+that currency's entry with `ending_balance_cents`, every other entry with no balance,
 so the engine keeps that account's (`ending_balance_body`)
-(contract: PUT /v1/statements/{statement_id}). The header shows the engine's saved `end`
-and `diff` from the opened account's entry, and then the usual `Complete statement?`
+(contract: PUT /v1/statements/{statement_id}). The head shows the engine's saved `end`
+and `diff` on that currency's line, and then the usual `Complete statement?`
 asks; only `y` completes, and any other answer leaves a draft with its balance saved, so
 the next `c` goes straight to the question. A draft that already has its ending balance
 goes straight to the question too. A refused save shows `Couldn't save` with the engine's
@@ -1746,10 +1755,10 @@ again.`. A refused complete shows `Couldn't complete` with the engine's words �
 save in the same `c`, under the line `The ending balance is saved. The statement is
 not completed:` — and the screen reads the statement fresh, so the header and the next
 `c` go by what the engine holds. A complete's answer carries the close's notes on each
-balance, its account's `warnings` and `coverage_gap`
-(contract: POST /v1/statements/{statement_id}/complete, "Response"); the opened account's
-`warnings` sentence shows under the header, `⚠ <sentence>` in the warning colour, in the
-engine's words, until the next status change, and another account's is not shown here.
+balance, its currency's `warnings` and `coverage_gap`
+(contract: POST /v1/statements/{statement_id}/complete, "Response"); each currency's
+`warnings` sentence shows under the head, `⚠ <sentence>` in the warning colour, in the
+engine's words, one after the other, until the next status change.
 
 **The lines a complete flagged for review** (pick 1A of
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)).

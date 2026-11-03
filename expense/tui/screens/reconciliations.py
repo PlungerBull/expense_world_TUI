@@ -29,11 +29,12 @@ are typed off the paper statement — the engine never derives a begin, so
 calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
 the field. One POST /statements with `account_id` and the currency's balances.
 
-Working screen (ReconciliationDetailScreen): a statement opened on one
-currency, its header that currency's entry in the statement's `balances`
-(`account_view`), over a checklist of bank lines — the statement's on that
-account, then the account's in its period that are in no batch (draft) — or a
-read-only list of the statement's lines on it (completed), read from
+Working screen (ReconciliationDetailScreen): the whole statement. Its head
+shows each currency in the statement's `balances` once, begin, end and diff
+(`balance_lines`); over a checklist of bank lines — the statement's, every
+currency of its account together in the statement's order, then the account's in
+its period that are in no statement, oldest first (draft) — or a read-only,
+numbered list of the statement's lines (completed), read by account from
 `GET /bank-lines` so a purchase split into parts is one row with its total.
 `space` toggles membership (PUT `statement_id` on one part, which moves
 the whole line) and reads the statement and its list again;
@@ -105,7 +106,7 @@ from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import CheckList
-from expense.tui.widgets.cursor_list import CursorList
+from expense.tui.widgets.cursor_list import CursorList, list_cell
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
 
@@ -397,20 +398,6 @@ def _read_statements(cfg, account_id: object, kw: dict) -> list:
     return items_of(reads.fetch_statements(cfg, str(account_id), **kw))
 
 
-def account_view(statement: dict, currency_code: object) -> dict:
-    """A statement as the batch screen reads it, opened on one currency: the
-    statement's own fields, then that currency's entry in `balances`
-    (`currency_code` and its balances) over them."""
-    return {**statement, **balance_of(statement, currency_code)}
-
-
-def view_currency(statement: dict, held: tuple[str, ...]) -> str | None:
-    """The currency a statement opens on: the first of the account's currencies
-    the statement covers, else the account's first."""
-    covered = [code for code in held if balance_of(statement, code)]
-    return covered[0] if covered else (held[0] if held else None)
-
-
 class _AccountList(CursorList):
     """The browse's account list. Only `enter` changes: on this list it opens
     the account's panel, so the footer names that instead of `Open`."""
@@ -695,14 +682,12 @@ class ReconciliationsScreen(SectionScreen):
                 self._acct_idx = event.index
                 self._load_batches(event.key)
             return
-        # `⏎` on a statement opens its detail on one of the account's currencies
+        # `⏎` on a statement opens the whole statement, every currency it covers
         item = self._by_id.get(event.key)
-        acct = self._open_account()
-        if item and acct:
+        if item and self._open_account():
             self._resume_key = event.key
-            currency = view_currency(item, acct.codes)
             self.app.push_screen(
-                ReconciliationDetailScreen(account_view(item, currency), currency=currency),
+                ReconciliationDetailScreen(item),
                 lambda _result: self._load(),
             )
 
@@ -1298,26 +1283,42 @@ def _status_span(status: str, palette: Palette) -> tuple[str, str]:
 
 
 def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, dict]:
-    """`(rows, checked, part_of)` for the batch screen's checklist.
+    """`(rows, checked, part_of)` for the statement screen's list.
 
-    One row per bank line, the batch's lines first, then the ones in no batch,
-    each read in the engine's order; a line in both reads is listed once.
+    One row per bank line, the statement's lines first, then the ones in no
+    statement, each read in the engine's order; a line in both reads is listed
+    once. A row carries its currency and its number on the paper: 1, 2, 3 … down
+    the rows, with no gaps, whatever the places the engine holds. An opening
+    balance holds no place on the paper, so its rows are marked `apart`, have no
+    number and come after the others, in the order read.
     `part_of` maps a line to the one part a tick is sent on: `statement_id`
     is a line field, so a `PUT` on any part moves every part
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment").
     """
     rows, checked, part_of = [], [], {}
-    in_batch = {line.get("id") for line in assigned}
+    apart = []
+    in_statement = {line.get("id") for line in assigned}
     for line in [*assigned, *available]:
         key = line.get("id")
         parts = [p for p in line.get("parts") or [] if isinstance(p, dict) and p.get("id")]
         if key in part_of or not parts:
             continue
         part_of[key] = parts[0]["id"]
-        if key in in_batch:
+        if key in in_statement:
             checked.append(key)
-        rows.append((key, *formatting.bank_line_columns(line)))
-    return rows, checked, part_of
+        opening = bool(line.get("is_opening_balance"))
+        row = (
+            key,
+            *formatting.bank_line_columns(line),
+            line.get("currency_code"),
+            None if opening else len(rows) + 1,
+            opening,
+        )
+        if opening:
+            apart.append(row)
+        else:
+            rows.append(row)
+    return [*rows, *apart], checked, part_of
 
 
 def ending_balance_body(currency_code: object, cents: int) -> dict:
@@ -1333,6 +1334,47 @@ _UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
 #: The first line of a refused complete that follows the ending balance's save:
 #: which half went through, above the engine's words.
 _BALANCE_SAVED = "The ending balance is saved. The statement is not completed:"
+
+
+#: The balances table of a statement's head: the width of the begin, end and diff
+#: columns after the currency code, each at least this wide and as wide as its
+#: longest figure needs (two blank cells before it).
+_HEAD_WIDTHS = (12, 13, 10)
+
+
+def balance_lines(balances: object, palette: Palette) -> list[Text]:
+    """The head's balances: a `begin  end  diff` line, then one line for each
+    currency the statement covers, in the engine's order
+    (contract: "Statements", "Which currencies a statement covers"). A currency
+    it does not cover has no line. A balance not entered is a dim `—`, never zero,
+    and its difference, not checked yet, stays blank
+    (contract: "Statements", "A balance not entered is `null`, never zero").
+    Empty when the statement covers none."""
+    covered = [b for b in balances or [] if isinstance(b, dict)]
+    if not covered:
+        return []
+    columns = [
+        [amount_text(b.get("beginning_balance_cents"), palette, BALANCE_RULE) for b in covered],
+        [amount_text(b.get("ending_balance_cents"), palette, BALANCE_RULE) for b in covered],
+        [list_cell(difference_cell(b.get("difference_cents"), palette)) for b in covered],
+    ]
+    widths = [
+        max(base, *(c.cell_len + 2 for c in col))
+        for base, col in zip(_HEAD_WIDTHS, columns, strict=True)
+    ]
+    head = Text("  " + " " * 3, style="dim")
+    for title, width in zip(("begin", "end", "diff"), widths, strict=True):
+        head.append(title.rjust(width))
+    lines = [head]
+    for i, balance in enumerate(covered):
+        line = Text("  ")
+        line.append(str(balance.get("currency_code") or "—").ljust(3))
+        for col, width in zip(columns, widths, strict=True):
+            cell = col[i].copy()
+            cell.align("right", width)
+            line.append_text(cell)
+        lines.append(line)
+    return lines
 
 
 class ReconciliationDetailScreen(
@@ -1362,10 +1404,9 @@ class ReconciliationDetailScreen(
     #: The `?` card lists `f` only while `check_action` allows it (help.py).
     CARD_FOLLOWS_CHECK = frozenset({"flagged"})
 
-    def __init__(self, record: dict, *, currency: str | None = None) -> None:
+    def __init__(self, record: dict) -> None:
         super().__init__()
         self._record = record
-        self._currency = currency or record.get("currency_code")  # the one the screen is opened on
         self._id = record.get("id")
         self._account_id = record.get("account_id")
         self._busy = False
@@ -1379,6 +1420,16 @@ class ReconciliationDetailScreen(
         self._flagged = 0
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
+
+    @property
+    def _currency(self) -> str | None:
+        """The currency `c`'s ending-balance box asks about: the first covered one
+        whose ending balance is blank, else the first covered. None when the
+        statement covers none."""
+        balances = [b for b in self._record.get("balances") or [] if isinstance(b, dict)]
+        blank = [b for b in balances if b.get("ending_balance_cents") is None]
+        chosen = (blank or balances or [{}])[0]
+        return chosen.get("currency_code")
 
     @property
     def _completed(self) -> bool:
@@ -1395,7 +1446,6 @@ class ReconciliationDetailScreen(
         yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
         yield Static("", id="rflag")  # the flagged lines; hidden until a complete flags one
         yield Container(id="rlist")
-        yield Static("", id="rhint")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -1410,12 +1460,12 @@ class ReconciliationDetailScreen(
     def _checklist_items(self) -> int:
         """Rows-per-page = what fits #rlist, one line each.
 
-        The chrome is `LIST_FRAME_LINES` — the same frame every other list
-        pays, with no caption here (the crumb and #rhead both name the batch).
-        Never a literal: #rlist is `overflow: hidden`, so a miscount clips the
-        page status in silence.
+        The chrome is the checklist's own `FRAME_LINES` (the crumb and #rhead
+        both name the statement, so it keeps no caption). Never a literal:
+        #rlist is `overflow: hidden`, so a miscount clips the page status in
+        silence.
         """
-        return self.fit_rows("#rlist", chrome=self.LIST_FRAME_LINES)
+        return self.fit_rows("#rlist", chrome=CheckList.FRAME_LINES)
 
     def on_resize(self, _event) -> None:
         if self._list is not None and self._list.is_attached:
@@ -1433,37 +1483,24 @@ class ReconciliationDetailScreen(
 
     def _render_header(self) -> None:
         r = self._record
-        palette = PALETTE
         # short-id placeholder until _load_txns resolves the name worker-side
         acct = self._acct_name or resolve_name(self._account_id, {})
         status = formatting.format_status(r.get("status"))
-        begin = amount_cell(r.get("beginning_balance_cents"), palette, BALANCE_RULE)
-        end = amount_cell(r.get("ending_balance_cents"), palette, BALANCE_RULE)
-        diff = difference_cell(r.get("difference_cents"), palette)
         text = Text.assemble(
+            "  ",
             (r.get("name") or "—", "bold"),
             ("  ·  ", "dim"),
             (acct, ""),
             ("  ·  ", "dim"),
             (_period(r), "dim"),
-            ("\n", ""),
-            ("begin ", "dim"),
-            begin if isinstance(begin, Text) else (begin, ""),
-            ("    end ", "dim"),
-            end if isinstance(end, Text) else (end, ""),
-            ("    diff ", "dim"),
-            diff if isinstance(diff, Text) else (diff, ""),
-            ("    status ", "dim"),
-            _status_span(status, palette),
+            ("  ·  ", "dim"),
+            ("status ", "dim"),
+            _status_span(status, PALETTE),
         )
+        for line in balance_lines(r.get("balances"), PALETTE):
+            text.append("\n")
+            text.append_text(line)
         self.query_one("#rhead", Static).update(text)
-        hint = (
-            "read-only while completed · u revert to edit · r refresh · esc back"
-            if self._completed
-            else "space toggle in/out of this batch · c complete · u revert · d delete"
-            " · r refresh · esc back"
-        )
-        self.query_one("#rhint", Static).update(Text(hint, style="dim"))
 
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
     # cancels stale refreshes only, never a run_write ("engine-write") worker
@@ -1493,12 +1530,13 @@ class ReconciliationDetailScreen(
                 if worker.is_cancelled:
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
-                fresh = account_view(statement, self._currency)
-                call_while_attached(self, self._apply_fresh_record, fresh)
+                call_while_attached(self, self._apply_fresh_record, statement)
             # the statement's lines on the opened account (always; any date)
             # (contract: GET /v1/bank-lines, "Filters")
+            # in the statement's order, every currency of the account together
+            # (contract: GET /v1/bank-lines, "Ordering")
             assigned = _fetch_all_lines(
-                cfg, reconciliation=self._id, account=self._account_id, **kw
+                cfg, reconciliation=self._id, account=self._account_id, sort="statement", **kw
             )
             available = []
             if not self._completed:  # a draft also offers the account's lines in no batch
@@ -1508,6 +1546,7 @@ class ReconciliationDetailScreen(
                     unreconciled=True,
                     date_from=self._record["date_start"],
                     date_to=self._record["date_end"],
+                    sort="date_asc",  # oldest first, as a statement lists lines with no place
                     **kw,
                 )
             acct_name = resolve_name(self._account_id, load_account_name_map())
@@ -1542,6 +1581,7 @@ class ReconciliationDetailScreen(
                 rows,
                 checked,
                 read_only=self._completed,
+                numbered=self._completed,
                 empty=empty,
                 palette=PALETTE,
                 page_size=self._checklist_items(),  # adaptive window
@@ -1620,7 +1660,10 @@ class ReconciliationDetailScreen(
         # The engine refuses to complete without every ending balance (contract:
         # POST /v1/statements/{statement_id}/complete, "Every ending balance
         # must be entered"), so the opened account's, when empty, is asked for first.
-        if self._record.get("ending_balance_cents") is None:
+        if (
+            self._currency is not None
+            and balance_of(self._record, self._currency).get("ending_balance_cents") is None
+        ):
             self._ask_ending_balance()
             return
         self._confirm_complete()
@@ -1677,7 +1720,7 @@ class ReconciliationDetailScreen(
         """The engine's own statement after the save, opened on this account:
         the header shows its end and diff before the complete question asks."""
         if body.get("id") == self._id:
-            self._apply_fresh_record(account_view(body, self._currency))
+            self._apply_fresh_record(body)
 
     def _balance_saved(self) -> None:
         self._busy = False
@@ -1753,10 +1796,9 @@ class ReconciliationDetailScreen(
         self._take_flagged(body)
 
     def _report_gap(self, body: dict) -> None:
-        """Surface the opened currency's `warnings` from `complete` — the
-        uncovered-days report of that currency, read off its own entry in
-        `balances` (`balance_of`) beside its `coverage_gap`; another currency's
-        gap is that currency's, and this screen shows this one alone.
+        """Surface the `warnings` from `complete` — the uncovered-days report of
+        each currency, read off its own entry in `balances` beside its
+        `coverage_gap`, one after the other in the engine's order.
 
         Shown as a line under the header rather than a toast: the whole value of
         this message is not being missed, and a toast fades in five seconds. It
@@ -1768,8 +1810,11 @@ class ReconciliationDetailScreen(
         the rows they name. The review surface for that is the "no batch"
         pane (`u`).
         """
-        warnings = balance_of(body, self._currency).get("warnings")
-        self._show_warnings(warnings if isinstance(warnings, list) else [])
+        warnings: list = []
+        for balance in body.get("balances") or []:
+            if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
+                warnings.extend(balance["warnings"])
+        self._show_warnings(warnings)
 
     def _show_warnings(self, warnings: list) -> None:
         line = self.query_one("#rwarn", Static)

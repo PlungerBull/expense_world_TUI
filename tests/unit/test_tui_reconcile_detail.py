@@ -20,7 +20,7 @@ from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
-    account_view,
+    balance_of,
     ending_balance_body,
     line_rows,
 )
@@ -101,7 +101,27 @@ def test_line_rows_lists_a_split_purchase_once_and_ticks_by_one_part():
     assert [r[0] for r in rows] == ["l1", "l3", "l2"]  # the batch first; l1 once
     assert checked == ["l1"]
     assert part_of == {"l1": "t1", "l3": "t3", "l2": "t2a"}
-    assert rows[2] == ("l2", "2026-04-11", "FARMACIA", "48201764", -10000)
+    # a currency and a number on the paper, 1, 2, 3 with no gaps, and not apart
+    assert rows[2] == ("l2", "2026-04-11", "FARMACIA", "48201764", -10000, "PEN", 3, False)
+
+
+def test_an_opening_balance_is_listed_apart_and_takes_no_number():
+    """It holds no place on the paper (contract: "Statements", "A statement's order"),
+    so it comes after the numbered rows, whichever place the read gave it, and
+    the numbers go on 1, 2, 3 around it."""
+    opening = bank_line_row(
+        "op",
+        [_part("t0", -120410, line="op", day="2026-04-01", title="Opening balance")],
+        net_cents=-120410,
+        account_id="acc1",
+        is_opening_balance=True,
+    )
+    rows, _, _ = line_rows([opening, NETFLIX, UBER], [])
+    assert [(r[0], r[5], r[6], r[7]) for r in rows] == [
+        ("l1", "PEN", 1, False),
+        ("l3", "PEN", 2, False),
+        ("op", "PEN", None, True),
+    ]
 
 
 def _rendered(checklist: CheckList, width: int = 100) -> str:
@@ -109,23 +129,22 @@ def _rendered(checklist: CheckList, width: int = 100) -> str:
 
 
 def test_a_row_is_one_line_of_bank_columns():
-    """Date · title · operation · amount, in that order, one line per row; a row
-    without an operation code shows `—`; no category, hashtag, note or part
+    """Date · title · operation · currency · amount, in that order, one line per row;
+    a row without an operation code shows `—`; no category, hashtag, note or part
     count, and nothing marks a row as split."""
     rows, checked, _ = line_rows(ASSIGNED, AVAILABLE)
     text = _rendered(CheckList(rows, checked))
     lines = [ln for ln in text.splitlines() if ln.strip()]
     header = lines[0]
-    assert header.split() == ["Date", "Title", "Operation", "Amount"]
-    assert [header.index(w) for w in ("Date", "Title", "Operation", "Amount")] == sorted(
-        header.index(w) for w in ("Date", "Title", "Operation", "Amount")
-    )
+    names = ("Date", "Title", "Operation", "Cur", "Amount")
+    assert header.split() == list(names)
+    assert [header.index(w) for w in names] == sorted(header.index(w) for w in names)
     body = [ln for ln in lines if "[" in ln]
     assert len(body) == 3  # one physical line per row
     farmacia = next(ln for ln in body if "FARMACIA" in ln)
-    assert farmacia.split() == ["[", "]", "2026-04-11", "FARMACIA", "48201764", "-100.00"]
+    assert farmacia.split() == ["[", "]", "2026-04-11", "FARMACIA", "48201764", "PEN", "-100.00"]
     uber = next(ln for ln in body if "UBER" in ln)
-    assert uber.split()[-2:] == ["—", "-42.00"]
+    assert uber.split()[-3:] == ["—", "PEN", "-42.00"]
     assert "[x]" in next(ln for ln in body if "NETFLIX.COM" in ln)
     for hidden in ("Vivienda", "#", "note", "-60.00", "-40.00", "part"):
         assert hidden not in "\n".join(body), hidden
@@ -136,7 +155,7 @@ def test_a_completed_list_has_no_tick_box():
     text = _rendered(CheckList(rows, checked, read_only=True))
     assert "[" not in text
     header = next(ln for ln in text.splitlines() if ln.strip())
-    assert header.split() == ["Date", "Title", "Operation", "Amount"]
+    assert header.split() == ["Date", "Title", "Operation", "Cur", "Amount"]
     assert "2026-04-14" in text and "48213907" in text and "-44.90" in text
 
 
@@ -165,8 +184,9 @@ def test_checklist_colors_come_from_palette():
         ("l1", "2026-04-03", "Alquiler", None, -250000),
         ("l2", "2026-04-09", "Refund", "77", 5620),
     ]
-    table = CheckList(rows, checked=["l1"])._build()  # app-less, PALETTE palette
-    marks, ops, amounts = table.columns[0]._cells, table.columns[3]._cells, table.columns[4]._cells
+    # app-less, PALETTE palette: the listing is a blank line, then the table in its indent
+    table = CheckList(rows, checked=["l1"])._listing(100).renderables[1].renderable
+    marks, ops, amounts = table.columns[0]._cells, table.columns[3]._cells, table.columns[5]._cells
     assert marks[0].style == PALETTE.success and marks[1].style == "dim"  # [x] vs [ ]
     assert ops[0].style == "dim"  # the — of a line with no operation code
     assert amounts[0].style == PALETTE.error  # -2,500.00
@@ -195,10 +215,9 @@ def _statement(**balance) -> dict:
     return statement_record({"id": "r1", "balances": [{**acc1, **balance}]})
 
 
-#: The statement as the engine holds it, and as the browse opens it on acc1: its own
-#: fields with acc1's entry in `balances` over them (`account_view`).
+#: The statement as the engine holds it, and as the browse opens it.
 STATEMENT = _statement()
-DRAFT = account_view(STATEMENT, "PEN")
+DRAFT = STATEMENT
 #: The statement's writes: the ending balance's save, complete, revert and delete.
 STATEMENT_PATH = "/statements/r1"
 COMPLETE_PATH = "/statements/r1/complete"
@@ -238,6 +257,17 @@ def _patch(monkeypatch):
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
     return statement_reads
+
+
+def _head_row(screen, code: str) -> list[str]:
+    """The words of the head's line for `code`, a currency the statement covers."""
+    head = str(screen.query_one("#rhead", Static).visual)
+    return next(ln.split() for ln in head.splitlines() if ln.split()[:1] == [code])
+
+
+def _end(screen, code: str = "PEN"):
+    """The ending balance the screen holds for `code`."""
+    return balance_of(screen._record, code)["ending_balance_cents"]
 
 
 async def _wait_list(screen, pilot):
@@ -308,7 +338,7 @@ def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
         assert [r[0] for r in cl._rows] == ["l1", "l3", "l2"]
         assert cl.checked == {"l1"}
         assert not cl._read_only
-        assert cl._rows[2][1:] == ("2026-04-11", "FARMACIA", "48201764", -10000)
+        assert cl._rows[2][1:5] == ("2026-04-11", "FARMACIA", "48201764", -10000)
 
     run_app(scenario)
 
@@ -393,12 +423,18 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     assert request.headers["X-Idempotency-Key"]
     assert request.read() == b'{"statement_id":"r1"}'
     sent = [dict(call.request.url.params) for call in lines.calls]
-    assert {"statement_id": "r1", "account_id": "acc1", "limit": "200"} in sent
+    assert {
+        "statement_id": "r1",
+        "account_id": "acc1",
+        "sort": "statement",
+        "limit": "200",
+    } in sent
     assert {
         "account_id": "acc1",
         "unreconciled": "true",
         "date_from": "2026-04-01",
         "date_to": "2026-04-30",
+        "sort": "date_asc",
         "limit": "200",
     } in sent
 
@@ -1084,7 +1120,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press(key)
@@ -1148,7 +1184,7 @@ def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactio
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(account_view(CARD, "PEN"), currency="PEN")
+        screen = ReconciliationDetailScreen(CARD)
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert not screen._list.checked
@@ -1240,15 +1276,15 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_another_currencys_gap_draws_no_line(fake_client, monkeypatch):
-    """The close's notes are per balance: on a statement opened on soles, a gap on the
-    dollar balance alone is the dollars', and the soles screen draws no line."""
+def test_a_gap_on_any_currency_draws_its_line(fake_client, monkeypatch):
+    """The close's notes are per balance: a gap on the dollar balance alone is the
+    dollars', and the statement's screen draws it."""
     _patch(monkeypatch)
     balances = [{**ACC2, "warnings": [GAP], "coverage_gap": GAP_DAYS}, CARD["balances"][1]]
     _complete_with_warnings(fake_client, [], statement={**CARD, "balances": balances})
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(account_view(CARD, "PEN"), currency="PEN")
+        screen = ReconciliationDetailScreen(CARD)
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -1257,7 +1293,7 @@ def test_another_currencys_gap_draws_no_line(fake_client, monkeypatch):
         await wait_for(pilot, lambda: screen._record["status"] == 2)
         await pilot.pause()
         assert fake_client.posts == [(COMPLETE_PATH, None)]
-        assert not screen.query_one("#rwarn", Static).display
+        assert str(screen.query_one("#rwarn", Static).visual) == f"⚠ {GAP}"
 
     run_app(scenario)
 
@@ -1391,13 +1427,11 @@ def _detail_lines(mock) -> None:
     )
 
 
-def test_r_reads_the_statement_by_its_id_and_shows_the_opened_accounts_balances(
-    configured, monkeypatch
-):
+def test_r_reads_the_statement_by_its_id_and_shows_its_balances(configured, monkeypatch):
     """`r` reads the statement again by its id, `GET /statements/{id}`, through the
     real HTTP client (contract: GET /v1/statements/{statement_id}), and the
-    checklist; the header shows the opened account's entry in `balances`, never
-    another account's, and the status read. No write, no dismiss."""
+    checklist; the head shows every currency's entry in `balances`, and the status
+    read. No write, no dismiss."""
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
@@ -1408,7 +1442,9 @@ def test_r_reads_the_statement_by_its_id_and_shows_the_opened_accounts_balances(
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("r")
-        await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") == 999999)
+        await wait_for(
+            pilot, lambda: balance_of(screen._record, "PEN").get("ending_balance_cents") == 999999
+        )
         await wait_for(pilot, lambda: screen._list._read_only)
         seen["head"] = str(screen.query_one("#rhead", Static).visual)
         seen["record"] = dict(screen._record)
@@ -1423,9 +1459,12 @@ def test_r_reads_the_statement_by_its_id_and_shows_the_opened_accounts_balances(
     assert writes == []
     assert seen["screen"]  # not dismissed
     assert (seen["record"]["id"], seen["record"]["account_id"]) == ("r1", "acc1")
-    assert "begin 9,580.00    end 9,999.99" in seen["head"]
-    assert "70.00" not in seen["head"] and "1.20" not in seen["head"]  # acc2's figures
-    assert seen["head"].endswith("status completed")
+    rows = {ln.split()[0]: ln.split() for ln in seen["head"].splitlines()[2:]}
+    assert rows == {
+        "USD": ["USD", "50.00", "70.00", "1.20"],
+        "PEN": ["PEN", "9,580.00", "9,999.99", "—"],
+    }
+    assert seen["head"].splitlines()[0].endswith("status completed")
 
 
 def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch):
@@ -1560,7 +1599,7 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 # /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
 
 NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
-NO_END = account_view(NO_END_STATEMENT, "PEN")
+NO_END = NO_END_STATEMENT
 SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
 #: The ending balance's save of 13,853.20 on acc1, in the statement's `balances`.
 SAVED_BODY = {"balances": [{"currency_code": "PEN", "ending_balance_cents": 1385320}]}
@@ -1593,10 +1632,10 @@ def _fresh_read(monkeypatch, statement: dict) -> None:
     monkeypatch.setattr("expense.reads.fetch_statement", lambda cfg, *a, **k: dict(statement))
 
 
-async def _open_box(pilot, app, record=NO_END, currency="PEN"):
+async def _open_box(pilot, app, record=NO_END):
     from expense.tui.screens.modals import AmountPromptModal
 
-    screen = ReconciliationDetailScreen(dict(record), currency=currency)
+    screen = ReconciliationDetailScreen(dict(record))
     await app.push_screen(screen)
     await _wait_list(screen, pilot)
     await pilot.press("c")
@@ -1648,7 +1687,8 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
         assert fake_client.posts == []  # the question comes first
         head = str(screen.query_one("#rhead", Static).visual)
-        assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
+        assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "13,853.20", "—"]
+        assert head.splitlines()[0].endswith("status draft")
         texts = [str(s.visual) for s in app.screen.query(Static)]
         assert texts[0] == "Complete statement?"
         assert texts[1] == (
@@ -1698,14 +1738,13 @@ def test_a_save_on_a_two_currency_statement_names_the_opened_currency_alone(
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(saved)
 
     async def scenario(pilot, app):
-        screen = await _open_box(pilot, app, record=account_view(no_end, "PEN"))
+        screen = await _open_box(pilot, app, record=no_end)
         await _type(pilot, "13853.20")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
-        head = str(screen.query_one("#rhead", Static).visual)
-        assert "begin 9,580.00    end 13,853.20" in head
-        assert "70.00" not in head and "1.20" not in head  # the dollars' figures
+        assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "13,853.20", "—"]
+        assert _head_row(screen, "USD") == ["USD", "50.00", "70.00", "1.20"]  # as it was
 
     run_app(scenario)
 
@@ -1753,7 +1792,7 @@ def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answe
         await wait_for(pilot, lambda: app.screen is screen)
         assert fake_client.posts == []
         assert screen._record["status"] == 1
-        assert screen._record["ending_balance_cents"] == 1385320
+        assert _end(screen) == 1385320
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert len(fake_client.puts) == 1  # no second box, no second save
@@ -1772,7 +1811,7 @@ def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
         await wait_for(pilot, lambda: app.screen is screen)
         await pilot.pause()
         assert fake_client.calls == []
-        assert screen._record["ending_balance_cents"] is None
+        assert _end(screen) is None
 
     run_app(scenario)
 
@@ -1867,7 +1906,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
         ]
         assert notices[0][1] == refusal_text(err, None)
         assert app.screen is screen and not screen._busy
-        assert screen._record["ending_balance_cents"] is None
+        assert _end(screen) is None
 
     run_app(scenario)
     assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
@@ -1902,7 +1941,8 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
         )
         await pilot.pause()
         head = str(screen.query_one("#rhead", Static).visual)
-        assert "end 13,853.20" in head and "status draft" in head
+        assert _head_row(screen, "PEN")[:3] == ["PEN", "9,580.00", "13,853.20"]
+        assert head.splitlines()[0].endswith("status draft")
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert len(fake_client.puts) == 1
@@ -1935,7 +1975,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -1948,10 +1988,12 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
             "Press c again: the app asks for it first.",
             "error",
         )
-        await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") is None)
-        head = str(screen.query_one("#rhead", Static).visual)
-        # the header as it stands for a missing end (screen 1: "Nothing here changes")
-        assert "end —    diff     status draft" in head
+        await wait_for(pilot, lambda: _end(screen) is None)
+        # the head as it stands for a missing end: a dim `—`, the difference blank
+        assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "—"]
+        assert (
+            str(screen.query_one("#rhead", Static).visual).splitlines()[0].endswith("status draft")
+        )
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
 
@@ -1964,7 +2006,7 @@ def test_a_draft_with_its_balance_skips_the_box(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")

@@ -219,7 +219,8 @@ ConfirmModal #modal, PromptBox #modal {
 /* ---- list panels ----
    No box (docs/tui.md §2: no cards, no vertical lines). The caption and the
    page status (`rows 21-40 of 133 · page 2 of 7`) are ordinary content drawn
-   by `WindowedList.framed()`, above a horizontal rule and below the rows; a
+   by `WindowedList.framed()`, a `CursorList`'s above a horizontal rule and below
+   the rows (a `CheckList` draws no rule); a
    caption appears only where it disambiguates (one caller: the
    Reconciliations batch caption). The padding is the list's gutter. */
 CursorList, CheckList {

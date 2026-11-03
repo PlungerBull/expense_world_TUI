@@ -20,7 +20,6 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     FlaggedLinesScreen,
     ReconciliationDetailScreen,
-    account_view,
 )
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
@@ -91,9 +90,9 @@ BCP = statement_record(
         "balances": [_balance("PEN")],
     }
 )
-#: The card's statement opened on soles, and the plain one opened on soles.
-SOLES = account_view(CARD, "PEN")
-PLAIN = account_view(BCP, "PEN")
+#: The card's statement, and the plain one.
+SOLES = CARD
+PLAIN = BCP
 
 
 def _conflict(field: str) -> EngineError:
@@ -196,11 +195,11 @@ def _patch(monkeypatch) -> None:
 
 
 def _flags(fake_client, record: dict, own: list[str], other: list[str] | None = None) -> None:
-    """The complete's answer on the statement `record` is opened on: the opened
-    currency's balance flags `own`, the other currency's balance `other`."""
+    """The complete's answer on the statement `record`: the soles balance flags `own`,
+    the other currency's balance `other`."""
     statement = {CARD["id"]: CARD, BCP["id"]: BCP}[record["id"]]
     balances = [
-        {**b, "review_lines": own if b["currency_code"] == record["currency_code"] else other or []}
+        {**b, "review_lines": own if b["currency_code"] == "PEN" else other or []}
         for b in statement["balances"]
     ]
     fake_client.write_responses[f"/statements/{record['id']}/complete"] = statement_complete_answer(

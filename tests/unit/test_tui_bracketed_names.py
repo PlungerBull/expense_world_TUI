@@ -12,7 +12,7 @@ import re
 
 import pytest
 from rich.text import Text
-from textual.widgets import OptionList
+from textual.widgets import OptionList, Static
 
 import expense.tui.screens.transactions as tx_mod
 from expense.reads import AccountIndex
@@ -208,10 +208,32 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
             "2026-04-11",
             title,
             "48201764",
+            "PEN",
             "-100.00",
         ]
 
     run_app(scenario)
+
+
+@pytest.mark.parametrize("name", ["[VIS] Agosto", *BRACKETED])
+def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypatch, name):
+    """A statement's screen: its head shows the name as the engine holds it, brackets
+    and all, at the head of the line that names its account, its days and its
+    status."""
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page([]))
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+    statement = {**DRAFT, "name": name}
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(statement)
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        return str(screen.query_one("#rhead", Static).visual).splitlines()[0]
+
+    first = run_app(scenario)
+    assert first == f"  {name}  ·  BCP PEN  ·  2026-04-01 → 2026-04-30  ·  status draft"
 
 
 @pytest.mark.parametrize(("account", "category"), [(NAME, "Comida [/]"), ("[/]", "[bold]x[/bold]")])

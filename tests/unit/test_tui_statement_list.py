@@ -29,12 +29,10 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
     ReconciliationsScreen,
-    account_view,
     browse_accounts,
     order_cell,
     statement_headers,
     statement_rows,
-    view_currency,
 )
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -420,27 +418,7 @@ def test_the_headers_follow_the_accounts_currencies_and_code():
 # ---- opening a statement ------------------------------------------------------------
 
 
-def test_a_statement_opens_on_the_first_currency_it_covers():
-    held = ("PEN", "USD")
-    assert view_currency(VISA_STATEMENTS[0], held) == "PEN"
-    assert view_currency(_statement("x", "a", "x", OCT, {"USD": 0}, status=1), held) == "USD"
-    # covering none of the account's currencies, it opens on the account's first
-    assert view_currency(_statement("x", "a", "x", OCT, {}, status=1), held) == "PEN"
-    assert view_currency(VISA_STATEMENTS[0], ()) is None
-
-
-def test_a_statement_opened_on_a_currency_is_the_statement_and_that_currencys_balances():
-    view = account_view(VISA_STATEMENTS[2], "USD")
-    assert (view["id"], view["name"], view["status"]) == ("vis-oct", "VIS-202610", 1)
-    assert (view["account_id"], view["currency_code"]) == ("acc-visa", "USD")
-    assert view["difference_cents"] == -299
-    assert (view["beginning_balance_cents"], view["ending_balance_cents"]) == (0, 0)
-    # a currency it does not cover adds nothing
-    bare = account_view(VISA_STATEMENTS[1], "USD")
-    assert "difference_cents" not in bare and bare["account_id"] == "acc-visa"
-
-
-def test_enter_on_a_statement_opens_it_on_a_currency_the_account_holds(monkeypatch):
+def test_enter_on_a_statement_opens_the_whole_statement(monkeypatch):
     _engine(monkeypatch)
     opened: list = []
 
@@ -451,19 +429,14 @@ def test_enter_on_a_statement_opens_it_on_a_currency_the_account_holds(monkeypat
             await pilot.press("enter")
             await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
             record = app.screen._record
-            opened.append(
-                (
-                    app.screen._id,
-                    app.screen._currency,
-                    record["account_id"],
-                    record["difference_cents"],
-                )
-            )
+            opened.append((app.screen._id, record["account_id"], record["balances"]))
             await pilot.press("escape")
             await wait_for(pilot, lambda: app.screen is screen and screen._mode == "batches")
 
     run_app(scenario, size=(140, 50))
-    assert opened == [("vis-ago", "PEN", "acc-visa", 0), ("vis-oct", "PEN", "acc-visa", 0)]
+    assert opened == [
+        (item["id"], "acc-visa", item["balances"]) for item in (VISA_STATEMENTS[i] for i in (0, 2))
+    ]
 
 
 def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch):
@@ -474,14 +447,16 @@ def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch)
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(account_view(statement, "USD"), currency="USD")
+        screen = ReconciliationDetailScreen(statement)
         await app.push_screen(screen)
         head = screen.query_one("#rhead", Static).visual
         seen["head"] = str(head)
         seen["dim"] = [span.style for span in head.spans if "—" in str(head)[span.start : span.end]]
 
     run_app(scenario, size=(140, 50))
-    assert "begin —    end —    diff     status draft" in seen["head"]
+    lines = seen["head"].splitlines()
+    assert lines[0].endswith("status draft")
+    assert [ln.split() for ln in lines[2:]] == [["PEN", "0.00", "0.00", "—"], ["USD", "—", "—"]]
     assert seen["dim"] and all(style.dim for style in seen["dim"])
 
 
@@ -722,7 +697,7 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
     assert [(method, path) for method, path, _ in client.calls if method != "GET"] == [write]
     assert notes == [toast]
     if status is not None:
-        assert seen["head"].endswith(f"status {status}")
+        assert seen["head"].splitlines()[0].endswith(f"status {status}")
     assert seen["panel"].cells == rows
     assert seen["panel"].styles == styles
 
@@ -733,7 +708,7 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
     statement opened from an account is one request carrying one `X-Idempotency-Key`."""
     _row, opened, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
     statement = next(item for item in VISA_STATEMENTS if item["id"] == opened)
-    record = account_view(statement, "USD")
+    record = statement
     answers = {
         "c": statement_complete_answer({**statement, "status": 2}),
         "u": statement_revert_answer({**statement, "status": 1}),
@@ -749,7 +724,7 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(record), currency="USD")
+        screen = ReconciliationDetailScreen(dict(record))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.press(key)

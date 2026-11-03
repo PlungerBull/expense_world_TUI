@@ -23,12 +23,20 @@ from textual.widgets import Static
 from expense.reads import DEFAULT_PAGE_ROWS
 
 
-def page_indicator(start: int, shown: int, total: int, page_size: int) -> str | None:
-    """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all."""
-    if total <= page_size:
+def page_indicator(
+    start: int, shown: int, total: int, page_size: int, starts: list[int] | None = None
+) -> str | None:
+    """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all.
+    `starts`, when given, are the pages' first rows (pages of unequal height)."""
+    if starts is not None:
+        if len(starts) <= 1:
+            return None
+        page, pages = starts.index(start) + 1, len(starts)
+    elif total <= page_size:
         return None
-    page = start // page_size + 1
-    pages = -(-total // page_size)  # ceil
+    else:
+        page = start // page_size + 1
+        pages = -(-total // page_size)  # ceil
     return f"rows {start + 1}-{start + shown} of {total} · page {page} of {pages}"
 
 
@@ -64,6 +72,8 @@ class WindowedList(Static):
         self._empty = empty
         self._page_size = page_size
         self._cursor = 0
+        #: True for a list whose rows may cost more than a line (`_extra_lines`).
+        self._varied = False
         # A line of content above the rule. Only a caption
         # that *disambiguates* earns one — see docs/tui.md §3.
         self._caption = caption
@@ -81,14 +91,44 @@ class WindowedList(Static):
     def row_count(self) -> int:
         return len(self._rows)
 
+    def _extra_lines(self, first: int, stop: int) -> int:
+        """Lines rows `first` up to `stop` cost beyond one each, drawn around them
+        on one page (a section label, say). Zero unless a list says otherwise."""
+        return 0
+
+    def _page_starts(self) -> list[int] | None:
+        """The first row of every page when pages are not all `page_size` rows
+        (some rows cost more than a line: `_extra_lines`); None when they are.
+        A page takes rows while their lines fit `page_size`, one row at least."""
+        if not self._varied:
+            return None
+        starts, i, n = [], 0, len(self._rows)
+        while i < n:
+            starts.append(i)
+            j = i + 1
+            while j < n and (j + 1 - i) + self._extra_lines(i, j + 1) <= self._page_size:
+                j += 1
+            i = j
+        return starts or [0]
+
+    def _page_bounds(self) -> tuple[int, int]:
+        """(start, stop) of the page the cursor is on."""
+        starts = self._page_starts()
+        if starts is None:
+            start = (self._cursor // self._page_size) * self._page_size
+            return start, start + self._page_size
+        start = max(s for s in starts if s <= self._cursor)
+        later = [s for s in starts if s > start]
+        return start, later[0] if later else len(self._rows)
+
     @property
     def _window_start(self) -> int:
-        return (self._cursor // self._page_size) * self._page_size
+        return self._page_bounds()[0]
 
     def _window(self) -> tuple[int, list[Any]]:
         """(start index, the rows to draw) — the one slice both renders take."""
-        start = self._window_start
-        return start, self._rows[start : start + self._page_size]
+        start, stop = self._page_bounds()
+        return start, self._rows[start:stop]
 
     def set_page_size(self, page_size: int) -> None:
         """Adaptive rows: the screen re-measures on terminal resize
@@ -107,7 +147,9 @@ class WindowedList(Static):
         the render.
         """
         start, window = self._window()
-        return page_indicator(start, len(window), len(self._rows), self._page_size)
+        return page_indicator(
+            start, len(window), len(self._rows), self._page_size, self._page_starts()
+        )
 
     @property
     def caption(self) -> str | None:
@@ -134,7 +176,8 @@ class WindowedList(Static):
 
         No box — horizontal rules divide sections (docs/tui.md §2) — so the
         caption and page status are ordinary content, drawn here, in the one
-        place every repaint of both list widgets passes through.
+        place every repaint of a `CursorList` passes through (`CheckList` draws
+        its own frame: no rule, no caption).
 
         **The status line is always drawn, blank when there is nothing to
         say.** `page_status` is None on a single page, and a line that came
@@ -183,9 +226,15 @@ class WindowedList(Static):
         self._move_cursor_to(self._cursor + delta)
 
     def action_page(self, delta: int) -> None:
-        self._move_cursor_to(self._cursor + delta * self._page_size)
+        starts = self._page_starts()
+        if starts is None:
+            self._move_cursor_to(self._cursor + delta * self._page_size)
+            return
+        here = starts.index(self._page_bounds()[0])
+        self._move_cursor_to(starts[max(0, min(len(starts) - 1, here + delta))])
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "page":  # hide the page keys when one page holds it all
-            return len(self._rows) > self._page_size
+            starts = self._page_starts()
+            return len(starts) > 1 if starts is not None else len(self._rows) > self._page_size
         return True

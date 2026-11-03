@@ -646,7 +646,7 @@ def test_fit_rows_counts_two_line_rows_and_split_panes():
     """
     frame, caption = AdaptiveRowsMixin.LIST_FRAME_LINES, AdaptiveRowsMixin.CAPTION_LINES
     assert _Measured(40).fit_rows(chrome=2 + 2 * frame + caption, lines_per_row=2) == 12
-    assert _Measured(20).fit_rows("#rlist", chrome=frame) == 14
+    assert _Measured(20).fit_rows("#rlist", chrome=CheckList.FRAME_LINES) == 17
 
 
 # ---- the frame ---------------------------------------------------------------
@@ -667,7 +667,7 @@ def test_the_frame_costs_exactly_list_frame_lines():
     """
     frame = AdaptiveRowsMixin.LIST_FRAME_LINES
     assert _frame_lines(_list(3, page_size=10)) - 3 == frame
-    assert _frame_lines(_checklist(3, page_size=10)) - 3 == frame
+    assert _frame_lines(_checklist(3, page_size=10)) - 3 == CheckList.FRAME_LINES
 
     captioned = _list(3, page_size=10, caption="BCP PEN · by statement start date")
     assert _frame_lines(captioned) - 3 == frame + AdaptiveRowsMixin.CAPTION_LINES
@@ -717,7 +717,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
     Asserted against the container rather than against a number, so it stays
     true if the frame changes shape again.
     """
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen, account_view
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 
     balance = {
         "currency_code": "PEN",
@@ -734,7 +734,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
             "balances": [balance],
         }
     )
-    record = account_view(statement, "PEN")
+    record = statement
     lines = [
         bank_line_row(
             f"l{i}",
