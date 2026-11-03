@@ -780,6 +780,9 @@ def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_
         assert screen._key == "0.amount"
         assert screen._values["currency"] == "PEN"
         assert "currency  PEN  · Ahorros holds only PEN · was USD" in _summary(screen)
+        taken = _styled_row(screen, "currency")
+        assert "PEN  · Ahorros holds only PEN · was USD" in taken.plain
+        assert _is_dim(taken) and not any(span.style.color for span in taken.spans)
         screen.action_submit()
         await pilot.pause()
         await pilot.pause()

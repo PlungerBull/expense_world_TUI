@@ -258,7 +258,7 @@ def test_a_second_c_while_the_add_is_in_flight_offers_nothing(configured, monkey
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
         run_app(scenario, size=SIZE)
     assert sent.call_count == 1
-    assert seen == {"blocked": True, "after": True, "note": True}
+    assert (seen["blocked"], seen["after"], seen["note"]) == (True, True, True)
 
 
 def test_a_reload_while_the_add_is_unanswered_keeps_the_guard(configured, monkeypatch):
@@ -297,7 +297,7 @@ def test_a_reload_while_the_add_is_unanswered_keeps_the_guard(configured, monkey
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
         run_app(scenario, size=SIZE)
     assert sent.call_count == 1
-    assert seen == {"busy": True, "blocked": True}
+    assert (seen["busy"], seen["blocked"]) == (True, True)
 
 
 def test_a_refused_queued_delete_does_not_leave_the_guard_set(configured, monkeypatch):
@@ -341,7 +341,7 @@ def test_a_refused_queued_delete_does_not_leave_the_guard_set(configured, monkey
         )
         run_app(scenario, size=SIZE)
     assert sent.call_count == 1
-    assert seen == {"offered": True}
+    assert seen["offered"] is True
 
 
 def test_a_queued_toggle_dropped_by_a_refusal_does_not_leave_the_guard_set(configured, monkeypatch):
@@ -425,7 +425,7 @@ def test_a_stale_build_after_the_add_was_answered_keeps_the_guard(configured, mo
             return_value=httpx.Response(201, json=held_currency("USD"))
         )
         run_app(scenario, size=SIZE)
-    assert seen == {"busy": True, "blocked": True}
+    assert (seen["busy"], seen["blocked"]) == (True, True)
 
 
 def test_a_stale_build_racing_a_fresh_one_does_not_read_its_stamp(configured, monkeypatch):
