@@ -17,7 +17,10 @@ naming the row, a day after today's included, before any name is created
 The counts hold `split_lines` (the `COD_EECC` values shared by rows) and `split_rows` (the
 rows holding them), on the dry run and on the apply. The same sheet sent again matches
 every row and writes nothing
-(contract: POST /v1/transactions/import-sheet, "Matching").
+(contract: POST /v1/transactions/import-sheet, "Matching"). An existing person holding two
+currencies gets each currency's first non-zero `SALDO INICIAL` row as its opening balance under
+`@Opening`, and each later one as an ordinary row
+(contract: POST /v1/transactions/import-sheet, "Opening balances").
 
 Every name is fresh per run, so a second run of the suite still finds every row
 new on its first apply: the practice user's data outlives a reseed. Each test
@@ -354,6 +357,96 @@ def test_an_account_lacking_a_currency_of_its_rows_is_refused_on_its_entry(clien
         assert transaction_count(client, soles_only) == 0
         assert account_balance(client, soles_only) == 0
         assert client.get(f"/accounts/{soles_only}") == account_read
+
+
+def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, scratch):
+    """The first non-zero `SALDO INICIAL` row of a currency on a person is its opening balance,
+    under `@Opening` with no hashtag; each later one is an ordinary row under the category the
+    table gives `SALDO INICIAL`; the sheet sent again matches all four and writes nothing
+    (contract: POST /v1/transactions/import-sheet, "Opening balances"). The table maps the
+    sheet's names to a fresh category and hashtag of the scratch, so nothing fixed-named is
+    created."""
+    n = Names()
+    person = scratch.account("PEN", "USD", person=True)
+    category, hashtag = scratch.category(), scratch.hashtag()
+    names = {
+        "accounts": [{"name": n.account, "account_id": person}],
+        "categories": [{"name": "SALDO INICIAL", "category_id": category}],
+        "hashtags": [{"name": n.home, "hashtag_id": hashtag}],
+    }
+    first = {"PEN": (date(2026, 1, 5), 100000), "USD": (date(2026, 1, 6), 25000)}
+    later = {"PEN": (date(2026, 2, 1), 30000), "USD": (date(2026, 2, 2), -4000)}
+    data = sheet_file(
+        [
+            sheet_row(
+                "SALDO",
+                n.home,
+                "SALDO INICIAL",
+                day,
+                cents / 100,
+                n.account,
+                currency,
+                note="inicial",
+            )  # fmt: skip
+            for rows in (first, later)
+            for currency, (day, cents) in rows.items()
+        ]
+    )
+
+    def send(*, dry_run: bool) -> dict:
+        body = request_body(data, dry_run=dry_run, names=names)
+        return client.post("/transactions/import-sheet", json_body=body)
+
+    def opening_ids() -> dict[str, str | None]:
+        return {
+            e["currency_code"]: e["opening_balance_transaction_id"]
+            for e in client.get(f"/accounts/{person}")["currencies"]
+        }
+
+    def outcomes(answer: dict) -> list[str]:
+        return [r["outcome"] for r in answer["rows"]]
+
+    # The dry run counts four new rows and writes nothing, no opening balance included.
+    held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]
+    dry = send(dry_run=True)
+    assert outcomes(dry) == ["new"] * 4 and dry["counts"]["new"] == 4
+    assert opening_ids() == {"PEN": None, "USD": None}
+    assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (held, total)
+
+    applied = send(dry_run=False)
+    scratch.transactions.extend(r["transaction_id"] for r in applied["rows"])
+    assert outcomes(applied) == ["new"] * 4 and applied["counts"]["new"] == 4
+    by_row = {r["row"]: r["transaction_id"] for r in applied["rows"]}
+    opening_by_currency = opening_ids()
+    for place, currency in enumerate(first):
+        day, cents = first[currency]
+        opening_id = opening_by_currency[currency]
+        assert opening_id == by_row[2 + place]
+        opening = read_signed(client, opening_id)
+        assert client.get(f"/categories/{opening['category_id']}")["system_key"] == (
+            "opening_balance"
+        )
+        assert opening["hashtag_ids"] == []
+        assert (opening["account_id"], opening["currency_code"]) == (person, currency)
+        assert (opening["amount_cents"], opening["date"][:10]) == (cents, day.isoformat())
+        assert (opening["title"], opening["description"]) == ("SALDO", "inicial")
+        day, cents = later[currency]
+        ordinary = read_signed(client, by_row[4 + place])
+        assert ordinary["id"] != opening_id
+        assert ordinary["category_id"] == category
+        assert (ordinary["account_id"], ordinary["currency_code"]) == (person, currency)
+        assert (ordinary["amount_cents"], ordinary["date"][:10]) == (cents, day.isoformat())
+
+    # Applied again: every row matched, nothing created, the ledger unchanged.
+    held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]
+    written = live_ids(client, person)
+    assert transaction_count(client, person) == len(written) == 4
+    again = send(dry_run=False)
+    assert outcomes(again) == ["matched"] * 4
+    assert (again["counts"]["new"], again["counts"]["matched"]) == (0, 4)
+    assert opening_ids() == opening_by_currency
+    assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (held, total)
+    assert live_ids(client, person) == written
 
 
 def test_a_renamed_account_lands_under_its_rename(client, target, scratch):
