@@ -282,14 +282,6 @@ draws every screen this spec builds; approved by the owner on 2026-11-02.
 Each screen task waits on the mockups of its questions, picked by the owner. The builder reads
 the question, the files named and the tui.md section named.
 
-5. **`c` and the balances it needs** (point 6; questions 3 and 4 A). `ending_balance_body` and
-   the `c` handler in [reconciliations.py](../../expense/tui/screens/reconciliations.py) and
-   their tests; tui.md §4 "`c` needs the ending balance". *Passes if:* `c` asks for each blank
-   balance as question 3 picks, saves them in one `PUT` naming only the changed currencies,
-   then asks to complete; `BEGINNING_BALANCE_REQUIRED` and `MONEY_AT_START_NOT_COVERED` lead to
-   the same boxes; a currency with no movement closes on an empty box typed; the tests pin each; the citation `"Every ending balance must
-   be entered"`, which the live contract no longer holds, is replaced by the live rule
-   wherever it stands (tui.md, reconciliations.py).
 9. **The holder code goes** (point 15). `fetch_holders` and `holder_accounts` in
    [reads.py](../../expense/reads.py), the holder builders in
    [helpers.py](../../tests/unit/helpers.py), and every use left, once tasks 2 to 7 no longer
@@ -299,7 +291,8 @@ the question, the files named and the tui.md section named.
    scripts/clean_practice_user.py and the unit tests (the acceptance check of part 2 on
    2026-10-30 listed them); decisions.md's go with this spec's retirement. *Passes if:* nothing
    in the code or the tests names a holder; no request sends `/holders` or `?holder_id=`; the
-   drift check passes whole; the live suite's citation test passes.
+   drift check passes whole; the live suite's citation test passes, including the holder
+   citations in decisions.md (`(contract: "Holders")`) and the tests' "An archived holder".
 
 ## Reply to the engine
 
