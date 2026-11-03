@@ -390,3 +390,7 @@ Not built in this spec; drafted into a new spec when it is done.
   gives way on an account with no statement code too, where a long name used to push out the
   Status column and cut the Period; and the cursor's highlight stops after the last column
   instead of running to the card's edge (found by task 16's review on 2026-11-03).
+- **A long account name cuts the breadcrumb bare:** with a 52-letter account the browse's crumb
+  stops mid-name with no `…`, and the rate alert `!` after it is lost (`Breadcrumb`,
+  expense/tui/widgets/header.py, shared by every screen) (found by the final acceptance check
+  on 2026-11-03).
