@@ -921,6 +921,7 @@ def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
         preview = await _refused(pilot, app)
         assert _lines(preview) == ["Preview · BCP Signature PEN + USD", *shown]
         assert _shown(preview) == {"escape": "Back"}
+        assert not list(app._notifications)  # the words once, on the screen
         await pilot.press("enter")  # ⏎ sends nothing more
         await pilot.pause()
         assert _uploads(fake_client) == [True]
@@ -967,6 +968,7 @@ def test_a_change_met_by_the_apply_previews_again_before_any_write(
             "It changed while the upload ran: ⏎ checks the paper against the ledger again.",
         ]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Preview again"}
+        assert not list(app._notifications)  # the words once, on the screen
         assert _uploads(fake_client) == [True, False]
 
         del fake_client.errors["POST"]

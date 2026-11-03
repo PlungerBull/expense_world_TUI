@@ -789,8 +789,8 @@ as `! <key>: <words>` too (`names_its_row` in
 (`OPERATION_CODE_EXISTS` on an apply, `RESERVED_NAME_HELD`), follows after a blank line. The
 footer is `esc Back` on the last (or only) file, and keeps `esc Cancel both` / `esc Cancel all`
 while files follow; `⏎` sends nothing more. A failure that names no key (a `5xx`, the engine
-unreachable) is the shared error text, whole. Every failure is also a `Failed` toast with the
-shared error text.
+unreachable) is the shared error text, whole. Every failure of a download is also a `Failed`
+toast with the shared error text.
 
 **A ledger line changed while the import ran** (screen 4 A in
 [expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html)): the apply's `409 CONFLICT`
@@ -887,7 +887,9 @@ CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line (`rows.<place>`) o
 created row files under was deleted while it was being created (`category_id` or `hashtag_ids`)
 (contract: POST /v1/statements/import), the line under it is
 `It changed while the upload ran: ⏎ checks the paper against the ledger again.` and the footer
-`esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes.
+`esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes. A
+failed upload, refused or not (a `5xx`, the engine unreachable), shows its words once, on the
+screen: no `Failed` toast repeats them.
 
 **Several files of both kinds** (pane 6A) go one by one, in drop order, each its own way: a
 download through the import door, a PDF through the statement upload (`first_screen` in

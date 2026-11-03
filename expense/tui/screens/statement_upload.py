@@ -303,6 +303,8 @@ class StatementPreviewScreen(PreviewScreen):
     ran offers `⏎ Preview again`, a fresh dry run before any write."""
 
     RERUN_LINE = RERUN
+    #: Pane 14: the engine's words once, on the screen, with no toast.
+    TOAST_REFUSAL = False
 
     def __init__(self, run: ImportRun, owner, pick: AccountPick) -> None:
         super().__init__(run, owner, pick)

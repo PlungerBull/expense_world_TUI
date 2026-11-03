@@ -285,9 +285,6 @@ the question, the files named and the tui.md section named.
 From the acceptance check of 2026-11-03 (practice engine, 80×24, against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html)):
 
-14. **A refused PDF says it once.** The upload's refusal shows its lines on the screen as pane 14,
-    with no `Failed` toast repeating them. *Passes if:* no toast on a refused upload; the
-    screen's lines unchanged; other screens' refusal toasts unchanged.
 15. **`c`'s boxes sit under the head.** The balance boxes and the question open under the head,
     the balances still in sight, as pane 6 draws, not as a box over them. *Passes if:* at 80×24
     the head's balances show while each box is open, pinned against pane 6.

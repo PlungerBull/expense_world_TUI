@@ -645,6 +645,10 @@ class PreviewScreen(ImportScreen):
     #: it ran, saying what `⏎` does next.
     RERUN_LINE = RERUN
 
+    #: Whether a refusal is also a `Failed` toast; a preview that draws the
+    #: engine's words on its screen alone turns it off.
+    TOAST_REFUSAL = True
+
     def __init__(self, run: ImportRun, owner, pick: AccountPick) -> None:
         super().__init__(run, owner)
         self._pick = pick
@@ -697,7 +701,8 @@ class PreviewScreen(ImportScreen):
         elif not self._run.has_next:
             # Nothing of this file can be written: esc only goes back (pane 4).
             relabel(self, "escape", "Back")
-        toast(self, message, title="Failed", severity="error")
+        if self.TOAST_REFUSAL:
+            toast(self, message, title="Failed", severity="error")
         self.refresh_bindings()
         self._repaint()
 
