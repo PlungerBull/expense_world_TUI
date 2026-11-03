@@ -50,8 +50,7 @@ every balance (contract: POST /v1/statements/{statement_id}/complete,
 "Every balance must be entered"): `c` on a draft with a blank balance first asks
 for each in a box, saves them in the statement's `balances` with one
 PUT /statements/{id}, then asks the usual "Complete statement?". A complete
-whose answer flags lines for review (each balance's `review_lines`, every
-currency's) opens FlaggedLinesScreen on the statement's review list
+that leaves the statement's review list holding a line opens FlaggedLinesScreen on it
 (pane 10 of docs/mockups/expense-world-statements-screens.html). The working screen
 keeps a `⚑` line and `f` while the review list counts any line, open or completed,
 counted each time the screen reads the statement.

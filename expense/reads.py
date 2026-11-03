@@ -393,10 +393,10 @@ def count_bank_lines(
     It counts lines, so a purchase split into parts counts once
     (contract: GET /v1/bank-lines/count). Read by the "no batch" list for its
     `N of M loaded`, by the flagged lines' screen for how many lines a
-    statement's review list holds (`review_of`), and by a statement's screen for the
-    same count behind its `⚑` line. Raises when the body carries
-    no int `count`, as `count_transactions` does: a list that cannot get the
-    number fails instead.
+    statement's review list holds (`review_of`), and by a statement's screen and a
+    statement upload's result for the same count behind their `⚑` line.
+    Raises when the body carries no int `count`, as `count_transactions` does: a list that
+    cannot get the number fails instead.
     """
     body = fetch_body(
         cfg,

@@ -29,6 +29,7 @@ from textual import work
 from textual.binding import Binding
 from textual.screen import Screen
 
+from expense import reads
 from expense.bank_import import flow
 from expense.bank_import.flow import AccountPick
 from expense.bank_import.statement import (
@@ -38,10 +39,9 @@ from expense.bank_import.statement import (
     StatementAnswer,
     StatementCounts,
     StatementRow,
-    review_line_ids,
     statement_answer,
 )
-from expense.errors import EngineError
+from expense.errors import EngineError, format_error
 from expense.formatting import bank_line_columns, format_cents, truncate
 from expense.tui.screens._base import relabel
 from expense.tui.screens.bank_import import (
@@ -60,7 +60,7 @@ from expense.tui.screens.bank_import import (
 )
 from expense.tui.screens.reconciliations import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE
-from expense.tui.widgets.refusal import hanging
+from expense.tui.widgets.refusal import hanging, toast
 
 #: The account list's breadcrumb (screen A2).
 ACCOUNT_CRUMB = ("Upload a statement",)
@@ -346,8 +346,9 @@ class StatementPreviewScreen(PreviewScreen):
         """One `POST /statements/import`, the dry run or the apply, through
         flow.py's one call; the client mints the idempotency key. The dry run
         then reads the lines its answer names by id alone (`statement_lines`);
-        the apply's flagged lines are counted off its completed statement's
-        `review_lines` and those of its `not_covered` currencies."""
+        the apply's flagged lines are the engine's count of the completed
+        statement's review list, read once after it; a count that fails leaves
+        the closed result standing, with the engine's words toasted."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
@@ -364,15 +365,20 @@ class StatementPreviewScreen(PreviewScreen):
                     cfg, answer.lines_to_read(), verbose=verbose
                 )
             else:
-                closed = response.get("statement") or {}
-                statement_id, flagged = str(closed.get("id") or ""), len(review_line_ids(closed))
+                statement_id = str((response.get("statement") or {}).get("id") or "")
         except Exception as err:  # every failure is shown, none swallowed
             self.app.call_from_thread(self._failed, err)
             return
         if dry_run:
             self.app.call_from_thread(self._previewed, answer, lines, lines_error)
-        else:
-            self.app.call_from_thread(self._applied, answer, statement_id, flagged)
+            return
+        # the apply is done: a count that fails is a toast, never a failed close
+        flagged, count_error = 0, None
+        try:
+            flagged = reads.count_bank_lines(cfg, review_of=statement_id, verbose=verbose)
+        except Exception as err:
+            count_error = format_error(err)
+        self.app.call_from_thread(self._applied, answer, statement_id, flagged, count_error)
 
     def _previewed(
         self, answer: StatementAnswer, lines: dict[str, dict], lines_error: str | None
@@ -382,12 +388,16 @@ class StatementPreviewScreen(PreviewScreen):
         self.refresh_bindings()
         self._repaint()
 
-    def _applied(self, answer: StatementAnswer, statement_id: str, flagged: int) -> None:
+    def _applied(
+        self, answer: StatementAnswer, statement_id: str, flagged: int, count_error: str | None
+    ) -> None:
         self._writing = False
         self._run.imported += 1
         self.app.switch_screen(
             StatementResultScreen(self._run, self._owner, self._pick, answer, statement_id, flagged)
         )
+        if count_error:
+            toast(self.app, count_error, title="Failed", severity="error")
 
     # ---- keys ----------------------------------------------------------------
     def action_page(self, delta: int) -> None:
@@ -507,8 +517,8 @@ def result_head(answer: StatementAnswer, pick: AccountPick) -> Text:
 
 class StatementResultScreen(ResultScreen):
     """The month closed: its name and account, the engine's counts in the past
-    tense, and, when the close flagged ledger lines dated in the month that are
-    in no statement, the `⚑` line with `f` opening them (the flagged lines'
+    tense, and, when the statement's review list holds lines (in no statement,
+    dated up to its last day), the `⚑` line with `f` opening them (the flagged lines'
     screen). `⏎` and `esc` are every result screen's (`ResultScreen`)."""
 
     BINDINGS = [
@@ -528,8 +538,8 @@ class StatementResultScreen(ResultScreen):
         self._pick = pick
         self._answer = answer
         self._statement_id = statement_id
-        #: How many lines the close flagged: its `review_lines` at first, then
-        #: the engine's count from the flagged lines' screen.
+        #: How many lines the statement's review list holds: the engine's count
+        #: after the apply, then the flagged lines' screen's last count.
         self._flagged = flagged
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:

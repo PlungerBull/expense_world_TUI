@@ -82,20 +82,6 @@ def statement_balances(response: dict) -> list[StatementBalance]:
     ]
 
 
-def review_line_ids(statement: dict) -> list[str]:
-    """The ids of the bank lines a close flagged for review: each balance's
-    `review_lines`, in the balances' order, then those of each `not_covered`
-    currency, the account's currencies the statement holds no balances for. A
-    statement upload's apply answers its close as the completed statement,
-    `statement` (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
-    ids: list[str] = []
-    for entry in [*(statement.get("balances") or []), *(statement.get("not_covered") or [])]:
-        named = entry.get("review_lines")
-        if isinstance(named, list):
-            ids.extend(str(line_id) for line_id in named if line_id)
-    return ids
-
-
 @dataclass(frozen=True)
 class StatementCounts:
     """What one answer adds up to: how many rows the paper holds, then the

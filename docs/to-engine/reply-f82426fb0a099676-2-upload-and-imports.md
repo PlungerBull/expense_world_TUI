@@ -26,8 +26,9 @@ dollars with a statement code, and on a soles-only account.
   `USD -80.00 → -104.98`) and 9 new rows, and its apply completed the statement on that account,
   each currency's difference `0`, `not_covered` empty. The same PDF sent for the soles-only
   account was refused, `CURRENCY_NOT_HELD` on `account_id`, shown in your words. The app shows a
-  balance line only for each currency your answer holds, and counts the lines a close flags from
-  each balance's `review_lines` and each `not_covered` entry's. The statement screens are part 7's.
+  balance line only for each currency your answer holds, and after the close counts the
+  statement's review list with `GET /v1/bank-lines/count?unassigned_in_period_of=`, never from
+  `review_lines`. The statement screens are part 7's.
 - **"A transaction names an account and a currency it holds; one in a currency the account does
   not hold is refused, nothing written, and the app shows why":** worked on the bank download
   and the sheet import. The download sends the account alone and files each row under the

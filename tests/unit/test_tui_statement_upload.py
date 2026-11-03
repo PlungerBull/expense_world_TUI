@@ -20,8 +20,8 @@ import respx
 from textual.widgets import Static
 
 from expense.bank_import.flow import AccountPick, statement_call
-from expense.bank_import.statement import review_line_ids, statement_answer
-from expense.errors import EngineError
+from expense.bank_import.statement import statement_answer
+from expense.errors import EngineError, format_error
 from expense.tui.dropped import dropped_bank_files, is_statement
 from expense.tui.screens.bank_import import (
     ImportAccountScreen,
@@ -162,6 +162,7 @@ def _patch(
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.fetch_transactions", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.count_transactions", lambda *a, **k: 0)
+    monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 0)
     monkeypatch.setattr("expense.reads.fetch_bank_lines_by_ids", by_ids)
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map",
@@ -327,15 +328,6 @@ def test_the_call_sends_exactly_three_keys_on_the_accounts_id():
         "account_id": "acc-sig",
         "file": base64.b64encode(data).decode("ascii"),
     }
-
-
-def test_flagged_lines_are_counted_from_the_balances_and_not_covered():
-    """(contract: POST /v1/statements/{statement_id}/complete, "Response")"""
-    answer = statement_upload_answer(
-        review_lines={"PEN": ["bl-1"]}, not_covered={"USD": ["bl-2", "bl-3"]}
-    )
-    assert review_line_ids(answer["statement"]) == ["bl-1", "bl-2", "bl-3"]
-    assert review_line_ids({"balances": [], "not_covered": []}) == []
 
 
 def test_the_answer_reads_as_the_engine_sent_it():
@@ -729,10 +721,9 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
 
 
 def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path):
-    """Screen 3: the ⚑ line counts every balance's `review_lines` and those of each
-    `not_covered` currency in the completed statement, and `f` opens the flagged
-    lines' screen on that statement, which reads its review list and its count,
-    no id sent; back from it, the screen stays."""
+    """Screen 3: the ⚑ line shows the engine's count of the completed statement's
+    review list, and `f` opens the flagged lines' screen on that statement, which reads its
+    review list and its count, no id sent; back from it, the screen stays."""
     path = _pdf(tmp_path)
     usd_line = bank_line_row(
         "bl-hulu",
@@ -785,6 +776,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         await wait_for(pilot, lambda: flagged._list is not None, message="flagged never read")
         assert [row.key for row in flagged._list._rows] == ["bl-uber", "bl-hulu"]
         assert review_reads == [
+            ("count", "s-paper", None, None),  # the apply's, behind the ⚑ line
             ("list", "s-paper", "statement", None),
             ("count", "s-paper", None, None),
         ]
@@ -980,6 +972,97 @@ def test_a_change_met_by_the_apply_previews_again_before_any_write(
         await pilot.press("enter")
         await _on(pilot, app, StatementResultScreen, "no result screen")
         assert _uploads(fake_client) == [True, False, True, False]
+
+    run_app(scenario, size=(120, 50))
+
+
+def _flagged_close(fake_client, monkeypatch, tmp_path, count):
+    """A card paper whose close lists one `review_lines` id on soles and two
+    `not_covered` ids on dollars (a sum of three); `count` is what the engine's
+    count answers, recorded in the returned list with the statement id asked."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    paper = {
+        "rows": [r for r in CARD_ROWS if r["currency_code"] == "PEN"],
+        "balances": [PEN_BALANCE],
+        "review_lines": {"PEN": ["bl-1"]},
+        "not_covered": {"USD": ["bl-2", "bl-3"]},
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
+    asked: list = []
+
+    def counted(cfg, *, review_of, **kwargs):
+        asked.append(review_of)
+        if isinstance(count, Exception):
+            raise count
+        return count
+
+    monkeypatch.setattr("expense.reads.count_bank_lines", counted)
+    return path, asked
+
+
+def test_the_flagged_line_is_the_engines_count_not_the_closes_sum(
+    fake_client, monkeypatch, tmp_path
+):
+    """The close names three ids (one on a balance, two on a `not_covered` currency); the
+    review list also holds earlier lines in no statement, so the `⚑` line and `f` take the
+    engine's count (contract: GET /v1/bank-lines/count), read once after the apply."""
+    path, asked = _flagged_close(fake_client, monkeypatch, tmp_path, 5)
+    monkeypatch.setattr(
+        "expense.reads.fetch_bank_lines",
+        lambda cfg, **kw: {"items": [LINES["bl-uber"]], "limit": 200, "next_cursor": None},
+    )
+
+    async def scenario(pilot, app):
+        await _card_preview(pilot, app, path)
+        await pilot.press("enter")
+        result = await _on(pilot, app, StatementResultScreen, "no result screen")
+        assert _lines(result)[-1].startswith("⚑ 5 lines flagged for review")
+        assert not any("⚑ 3 lines" in line for line in _lines(result))
+        assert asked == ["s-paper"]
+        assert "f" in _shown(result)
+        await pilot.press("f")
+        await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_review_list_the_engine_counts_empty_shows_no_flag(fake_client, monkeypatch, tmp_path):
+    """The close names ids but the engine's count is 0: no `⚑` line, no `f`."""
+    path, asked = _flagged_close(fake_client, monkeypatch, tmp_path, 0)
+
+    async def scenario(pilot, app):
+        await _card_preview(pilot, app, path)
+        await pilot.press("enter")
+        result = await _on(pilot, app, StatementResultScreen, "no result screen")
+        assert asked == ["s-paper"]
+        assert not any("⚑" in line for line in _lines(result))
+        assert "f" not in _shown(result)
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_count_that_fails_after_the_close_toasts_and_keeps_the_result(
+    fake_client, monkeypatch, tmp_path
+):
+    """The apply is done: its counts stay on the result, the engine's words are
+    toasted, and no `⚑` line or `f` shows."""
+    refusal = EngineError("INTERNAL_ERROR", "the count broke", None, 500, {})
+    path, asked = _flagged_close(fake_client, monkeypatch, tmp_path, refusal)
+
+    async def scenario(pilot, app):
+        await _card_preview(pilot, app, path)
+        await pilot.press("enter")
+        result = await _on(pilot, app, StatementResultScreen, "no result screen")
+        assert asked == ["s-paper"]
+        lines = _lines(result)
+        assert lines[0].startswith("✓ ") and "closed" in lines[0]
+        assert any("in the ledger" in line and "created" in line for line in lines[1:])
+        assert not any("⚑" in line for line in lines)
+        assert "f" not in _shown(result)
+        (note,) = list(app._notifications)
+        assert note.message == format_error(refusal)
+        assert "the count broke" in note.message
 
     run_app(scenario, size=(120, 50))
 
