@@ -27,6 +27,7 @@ what it wrote. Gating, target and the real-ledger guard: conftest.py.
 from uuid import uuid4
 
 from expense.batch_write import RowResult, post_transaction_batch
+from expense.errors import engine_text
 from tests.contract.conftest import live_ids, refused
 
 
@@ -68,7 +69,7 @@ def test_the_batch_writer_settles_landed_and_new_rows_in_two_requests(client, st
     }
 
     statuses.clear()
-    outcome = post_transaction_batch(client, [landed[0], fresh, landed[1]])
+    outcome = post_transaction_batch(client, [landed[0], fresh, landed[1]], error_text=engine_text)
     assert outcome.results == [RowResult.EXISTED, RowResult.CREATED, RowResult.EXISTED]
     assert statuses == [409, 201]  # one request, then one more for the new row
     assert live_ids(client, account) == {item["id"] for item in [*landed, fresh]}

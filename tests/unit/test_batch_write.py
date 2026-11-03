@@ -7,6 +7,7 @@ covers what the LOG bar does with it.
 
 import pytest
 
+from expense import batch_write
 from expense.batch_write import (
     BATCH_PATH,
     CHUNK_SIZE,
@@ -15,7 +16,13 @@ from expense.batch_write import (
     RowResult,
     post_transaction_batch,
 )
-from expense.errors import EngineConnectionError, EngineError, engine_words, format_error
+from expense.errors import (
+    EngineConnectionError,
+    EngineError,
+    engine_text,
+    engine_words,
+    format_error,
+)
 from tests.unit.helpers import refuse_read_only_fields
 
 
@@ -114,24 +121,25 @@ def _ids(client: _Client) -> list[list[str]]:
 
 def test_an_empty_list_makes_no_call_at_all():
     client = _Client()
-    outcome = post_transaction_batch(client, [])
+    outcome = post_transaction_batch(client, [], error_text=engine_text)
     assert client.calls == []
     assert outcome.results == [] and not outcome.stopped
 
 
 def test_a_clean_batch_reports_every_row_created():
     client = _Client()
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
     assert client.sizes == [3]  # one call, not three
     assert outcome.results == [RowResult.CREATED] * 3
     assert outcome.failures == [] and not outcome.stopped
     assert outcome.written == [0, 1, 2]
 
 
-def test_chunking_splits_at_the_size_asked_for():
+def test_chunking_splits_at_the_chunk_size(monkeypatch):
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 4)
     client = _Client()
-    post_transaction_batch(client, _items(450), chunk_size=200)
-    assert client.sizes == [200, 200, 50]
+    post_transaction_batch(client, _items(10), error_text=engine_text)
+    assert client.sizes == [4, 4, 2]
 
 
 def test_the_chunk_size_stays_at_or_under_the_engines_limit():
@@ -140,40 +148,17 @@ def test_the_chunk_size_stays_at_or_under_the_engines_limit():
     assert 1 <= CHUNK_SIZE <= ENGINE_BATCH_MAX
 
 
-def test_the_default_chunk_is_the_module_constant():
+def test_the_chunk_is_the_module_constant():
     client = _Client()
-    post_transaction_batch(client, _items(CHUNK_SIZE + 1))
+    post_transaction_batch(client, _items(CHUNK_SIZE + 1), error_text=engine_text)
     assert client.sizes == [CHUNK_SIZE, 1]
-
-
-def test_a_chunk_at_the_engines_limit_goes_out_whole():
-    client = _Client()
-    post_transaction_batch(client, _items(ENGINE_BATCH_MAX + 1), chunk_size=ENGINE_BATCH_MAX)
-    assert client.sizes == [ENGINE_BATCH_MAX, 1]
-
-
-@pytest.mark.parametrize("chunk_size", [0, -1, -200])
-@pytest.mark.parametrize("n_items", [0, 3])
-def test_a_chunk_size_below_one_is_refused_before_anything_is_sent(chunk_size, n_items):
-    client = _Client()
-    with pytest.raises(ValueError, match="below 1 transaction per batch"):
-        post_transaction_batch(client, _items(n_items), chunk_size=chunk_size)
-    assert client.calls == []
-
-
-@pytest.mark.parametrize("n_items", [0, 3, ENGINE_BATCH_MAX + 1])
-def test_a_chunk_size_above_the_engines_limit_is_refused_before_anything_is_sent(n_items):
-    client = _Client()
-    with pytest.raises(ValueError, match="above the engine's limit of 500"):
-        post_transaction_batch(client, _items(n_items), chunk_size=ENGINE_BATCH_MAX + 1)
-    assert client.calls == []
 
 
 def test_a_refused_row_fails_and_the_rest_go_again_as_one_batch():
     """The engine refuses the chunk naming its bad row; that row fails in the
     engine's words for it, and the others go again as one batch, and land."""
     client = _Client([_invalid(1), {}])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert _ids(client) == [["id0", "id1", "id2"], ["id0", "id2"]]
     assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.CREATED]
@@ -188,7 +173,7 @@ def test_a_chunk_naming_several_taken_ids_counts_each_already_there():
     """Step 2 names every item whose id is taken; each is in the ledger, and the
     rows it does not name go again and land."""
     client = _Client([_taken(0, 2, 3), {}])
-    outcome = post_transaction_batch(client, _items(5))
+    outcome = post_transaction_batch(client, _items(5), error_text=engine_text)
 
     assert _ids(client) == [["id0", "id1", "id2", "id3", "id4"], ["id1", "id4"]]
     assert outcome.results == [
@@ -207,7 +192,7 @@ def test_a_request_refusal_then_a_ledger_refusal_then_the_rest_lands():
     and drops its own, and the third lands. Each failure carries its own words."""
     ledger = _invalid(0, field="category_id", reason="INVALID_REFERENCE")
     client = _Client([_invalid(1, 3), ledger, {}])
-    outcome = post_transaction_batch(client, _items(5))
+    outcome = post_transaction_batch(client, _items(5), error_text=engine_text)
 
     assert _ids(client) == [
         ["id0", "id1", "id2", "id3", "id4"],
@@ -234,7 +219,7 @@ def test_a_row_refused_carries_its_own_refusal_keyed_by_field():
     """What a caller groups refusals on: the refusal as it reads for the row,
     its keys stripped of the place the row had in the send."""
     client = _Client([_invalid(2, field="hashtag_ids", reason="INVALID_REFERENCE"), {}])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     (failure,) = outcome.failures
     assert failure.indices == (2,) and failure.chunk_index == 0
@@ -248,7 +233,7 @@ def test_a_rows_refusal_carries_a_body_holding_only_its_own_entries():
     """The row's body agrees with its `fields` and `reasons`: no other row's
     entries, and no place in the send."""
     client = _Client([_invalid(0, 2), {}])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     first, second = (f.error for f in outcome.failures)
     for row_err in (first, second):
@@ -266,7 +251,7 @@ def test_taken_ids_beside_new_rows_then_a_refusal_on_the_next_send():
     """A replay and a refusal in one chunk: the taken ids settle on the first
     send, a zero amount on the second, and the rest lands on the third."""
     client = _Client([_taken(0), _invalid(1), {}])
-    outcome = post_transaction_batch(client, _items(4))
+    outcome = post_transaction_batch(client, _items(4), error_text=engine_text)
 
     assert _ids(client) == [["id0", "id1", "id2", "id3"], ["id1", "id2", "id3"], ["id1", "id3"]]
     assert outcome.results == [
@@ -277,19 +262,21 @@ def test_taken_ids_beside_new_rows_then_a_refusal_on_the_next_send():
     ]
 
 
-def test_a_re_run_costs_one_request_per_chunk():
+def test_a_re_run_costs_one_request_per_chunk(monkeypatch):
     """Every row already landed: each chunk's one send names all of them, and
     nothing goes again."""
     client = _Client([_taken(*range(3)), _taken(*range(3)), _taken(0, 1)])
-    outcome = post_transaction_batch(client, _items(8), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(8), error_text=engine_text)
 
     assert client.sizes == [3, 3, 2]  # one request per chunk
     assert outcome.results == [RowResult.EXISTED] * 8
 
 
-def test_a_chunk_mixing_landed_and_new_rows_costs_one_more_request():
+def test_a_chunk_mixing_landed_and_new_rows_costs_one_more_request(monkeypatch):
     client = _Client([_taken(*range(3)), _taken(0), {}, _taken(0, 1)])
-    outcome = post_transaction_batch(client, _items(8), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(8), error_text=engine_text)
 
     assert client.sizes == [3, 3, 2, 2]  # the second chunk sends its new rows again
     assert outcome.count(RowResult.EXISTED) == 6
@@ -310,7 +297,7 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     line fails with it, so no line lands with a part missing
     (contract: POST /v1/transactions/batch, "Line groups")."""
     client = _Client([_conflict(1, field="operation_code", reason="OPERATION_CODE_EXISTS"), {}])
-    outcome = post_transaction_batch(client, _grouped(5, {"g1": [1, 2, 4]}))
+    outcome = post_transaction_batch(client, _grouped(5, {"g1": [1, 2, 4]}), error_text=engine_text)
 
     # the group's parts go together, in the place of its first item
     assert _ids(client) == [["id0", "id1", "id2", "id4", "id3"], ["id0", "id3"]]
@@ -327,26 +314,29 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     assert "operation_code: stand-in field words" in messages.pop()
 
 
-def test_a_chunk_never_cuts_a_group():
+def test_a_chunk_never_cuts_a_group(monkeypatch):
     """A group that does not fit in the chunk's room starts the next chunk
     (contract: POST /v1/transactions/batch, "Line groups")."""
     client = _Client()
-    outcome = post_transaction_batch(client, _grouped(5, {"g": [2, 3]}), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _grouped(5, {"g": [2, 3]}), error_text=engine_text)
 
     assert _ids(client) == [["id0", "id1"], ["id2", "id3", "id4"]]
     assert outcome.results == [RowResult.CREATED] * 5
 
 
-def test_a_group_goes_in_the_chunk_of_its_first_item():
+def test_a_group_goes_in_the_chunk_of_its_first_item(monkeypatch):
     client = _Client()
-    post_transaction_batch(client, _grouped(5, {"g": [1, 4]}), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    post_transaction_batch(client, _grouped(5, {"g": [1, 4]}), error_text=engine_text)
 
     assert _ids(client) == [["id0", "id1", "id4"], ["id2", "id3"]]
 
 
-def test_a_group_longer_than_the_chunk_size_is_a_chunk_of_its_own():
+def test_a_group_longer_than_the_chunk_size_is_a_chunk_of_its_own(monkeypatch):
     client = _Client()
-    post_transaction_batch(client, _grouped(6, {"g": [1, 2, 3, 4]}), chunk_size=2)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 2)
+    post_transaction_batch(client, _grouped(6, {"g": [1, 2, 3, 4]}), error_text=engine_text)
 
     assert _ids(client) == [["id0"], ["id1", "id2", "id3", "id4"], ["id5"]]
 
@@ -362,7 +352,9 @@ def test_a_group_longer_than_the_engine_takes_is_refused_by_the_engine_whole():
         {"transactions": ("List should have at most 500 items.", "OUT_OF_RANGE")},
     )
     client = _Client([too_many])
-    outcome = post_transaction_batch(client, _grouped(n, {"g": list(range(n))}))
+    outcome = post_transaction_batch(
+        client, _grouped(n, {"g": list(range(n))}), error_text=engine_text
+    )
 
     assert client.sizes == [n]
     assert outcome.results == [RowResult.FAILED] * n
@@ -374,7 +366,9 @@ def test_a_refused_part_fails_its_group_and_no_other_line():
     """A part refused for itself takes its group with it; another group, and a
     line of its own, go again."""
     client = _Client([_invalid(3), {}])
-    outcome = post_transaction_batch(client, _grouped(5, {"a": [0, 1], "b": [2, 3]}))
+    outcome = post_transaction_batch(
+        client, _grouped(5, {"a": [0, 1], "b": [2, 3]}), error_text=engine_text
+    )
 
     assert _ids(client)[1] == ["id0", "id1", "id4"]
     assert outcome.results == [
@@ -414,11 +408,12 @@ def test_a_refused_part_fails_its_group_and_no_other_line():
     ],
     ids=["no-item-409", "key-reused", "list-itself", "mixed", "out-of-range", "no-key"],
 )
-def test_a_refusal_naming_no_item_fails_the_whole_chunk_once(refusal):
+def test_a_refusal_naming_no_item_fails_the_whole_chunk_once(refusal, monkeypatch):
     """Nothing in it says which row is wrong, so every row fails alike: one
     failure for the chunk, nothing sent again, and later chunks still go."""
     client = _Client([refusal, {}])
-    outcome = post_transaction_batch(client, _items(5), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(5), error_text=engine_text)
 
     assert client.sizes == [3, 2]
     assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.CREATED] * 2
@@ -430,7 +425,7 @@ def test_a_refusal_naming_no_item_fails_the_whole_chunk_once(refusal):
 
 def test_a_refusal_naming_no_item_after_a_drop_fails_only_what_is_left():
     client = _Client([_invalid(1), EngineError("FORBIDDEN", "nope", None, 403, {})])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert client.sizes == [3, 2]
     assert outcome.results == [RowResult.FAILED] * 3
@@ -467,9 +462,9 @@ def test_a_refusal_naming_no_item_after_a_drop_fails_only_what_is_left():
 )
 def test_any_other_refusal_of_a_row_is_never_written(refusal):
     """Only `ID_EXISTS` on the row's own id, alone, counts as written; every
-    other refusal of the row fails it, in the engine's words alone by default."""
+    other refusal of the row fails it, in the engine's words (`engine_text`)."""
     client = _Client([refusal, {}])
-    outcome = post_transaction_batch(client, _items(2))
+    outcome = post_transaction_batch(client, _items(2), error_text=engine_text)
 
     assert outcome.results == [RowResult.FAILED, RowResult.CREATED]
     assert outcome.written == [1]
@@ -480,7 +475,7 @@ def test_any_other_refusal_of_a_row_is_never_written(refusal):
 
 def test_the_caller_chooses_the_words_of_a_refusal():
     """The LOG bar passes `format_error`, which adds the app's line under the
-    engine's words; the default, the importer's, is the engine's words alone."""
+    engine's words; a caller that wants the engine's words alone passes `engine_text`."""
     refusal = _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD")
     outcome = post_transaction_batch(_Client([refusal]), _items(1), error_text=format_error)
 
@@ -495,7 +490,7 @@ def test_a_chunk_level_refusal_is_not_sent_again(status):
     """401/403/5xx would fail identically for every row — one honest message
     beats sending the rows again."""
     client = _Client([EngineError("FORBIDDEN", "nope", None, status, {})])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert client.sizes == [3]  # not sent again
     assert outcome.results == [RowResult.FAILED] * 3
@@ -516,27 +511,29 @@ def _settings_missing() -> EngineError:
     )
 
 
-def test_settings_missing_fails_the_chunk_once_and_stops_the_run():
+def test_settings_missing_fails_the_chunk_once_and_stops_the_run(monkeypatch):
     """It is a 422, but about the account and not about any row: nothing sent
     again, no later chunk, and one failure for the chunk it met."""
     refusal = _settings_missing()
     client = _Client([refusal])
-    outcome = post_transaction_batch(client, _items(5), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(5), error_text=engine_text)
 
     assert client.sizes == [3]  # exactly one POST
     assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.UNSENT] * 2
     assert len(outcome.failures) == 1
     assert outcome.failures[0].indices == (0, 1, 2)
-    assert outcome.failures[0].message == engine_words(refusal)  # the default: no hint
+    assert outcome.failures[0].message == engine_words(refusal)  # `engine_text`: no hint
     assert outcome.stopped and outcome.stop_chunk_index == 0
     assert outcome.refusal is refusal
     assert outcome.stop_error is None  # that one is the connection's
     assert outcome.unsent == [3, 4]
 
 
-def test_settings_missing_on_a_second_send_also_stops():
+def test_settings_missing_on_a_second_send_also_stops(monkeypatch):
     client = _Client([_invalid(1), _settings_missing()])
-    outcome = post_transaction_batch(client, _items(4), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(4), error_text=engine_text)
 
     assert client.sizes == [3, 2]  # the second chunk never went
     assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.UNSENT]
@@ -558,12 +555,13 @@ def _codes_exhausted(*indices: int) -> EngineError:
     )
 
 
-def test_line_codes_exhausted_fails_its_row_once_and_stops_the_run():
+def test_line_codes_exhausted_fails_its_row_once_and_stops_the_run(monkeypatch):
     """It holds for the rest of the run: one request, the named row fails in the
     engine's words for it, every other row stays unsent, no later chunk goes."""
     refusal = _codes_exhausted(1)
     client = _Client([{}, refusal])
-    outcome = post_transaction_batch(client, _items(7), chunk_size=3)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 3)
+    outcome = post_transaction_batch(client, _items(7), error_text=engine_text)
 
     assert client.sizes == [3, 3]  # the first chunk landed; nothing after the refusal
     assert outcome.results == [RowResult.CREATED] * 3 + [
@@ -583,7 +581,7 @@ def test_line_codes_exhausted_fails_its_row_once_and_stops_the_run():
 
 def test_line_codes_exhausted_on_a_groups_first_item_fails_the_group():
     client = _Client([_codes_exhausted(1)])
-    outcome = post_transaction_batch(client, _grouped(4, {"g": [1, 2]}))
+    outcome = post_transaction_batch(client, _grouped(4, {"g": [1, 2]}), error_text=engine_text)
 
     assert client.sizes == [4]
     assert outcome.results == [
@@ -597,7 +595,7 @@ def test_line_codes_exhausted_on_a_groups_first_item_fails_the_group():
 
 def test_line_codes_exhausted_after_a_drop_stops_too():
     client = _Client([_invalid(0), _codes_exhausted(0)])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert client.sizes == [3, 2]
     assert outcome.results == [RowResult.FAILED, RowResult.FAILED, RowResult.UNSENT]
@@ -613,15 +611,16 @@ def test_stopped_is_read_off_what_stopped_the_run():
 
 
 def test_another_refusal_leaves_no_stop_behind():
-    outcome = post_transaction_batch(_Client([_invalid()]), _items(1))
+    outcome = post_transaction_batch(_Client([_invalid()]), _items(1), error_text=engine_text)
     assert not outcome.stopped and outcome.refusal is None
 
 
-def test_a_connection_error_stops_and_leaves_the_tail_unsent():
+def test_a_connection_error_stops_and_leaves_the_tail_unsent(monkeypatch):
     """Unsent is not failed: those rows never reached the engine, so they are
     safe to retry exactly as they are."""
     client = _Client([{}, EngineConnectionError(url="http://x", original=OSError("down"))])
-    outcome = post_transaction_batch(client, _items(3), chunk_size=1)
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 1)
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert client.sizes == [1, 1]  # the third chunk was never attempted
     assert outcome.results == [RowResult.CREATED, RowResult.UNSENT, RowResult.UNSENT]
@@ -633,7 +632,7 @@ def test_a_connection_error_on_a_second_send_also_stops():
     """The rows sent again never landed, so they stay unsent; the row the first
     send named keeps its failure."""
     client = _Client([_invalid(1), EngineConnectionError(url="http://x", original=OSError("down"))])
-    outcome = post_transaction_batch(client, _items(3))
+    outcome = post_transaction_batch(client, _items(3), error_text=engine_text)
 
     assert outcome.results == [RowResult.UNSENT, RowResult.FAILED, RowResult.UNSENT]
     assert outcome.stopped and outcome.unsent == [0, 2]
@@ -652,7 +651,7 @@ def test_count_tallies_one_result(results, wanted, count):
 
 def test_the_path_is_the_batch_endpoint_with_the_transactions_envelope():
     client = _Client()
-    post_transaction_batch(client, _items(1))
+    post_transaction_batch(client, _items(1), error_text=engine_text)
     path, body = client.calls[0]
     assert path == BATCH_PATH == "/transactions/batch"
     assert list(body) == ["transactions"]

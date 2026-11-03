@@ -74,16 +74,7 @@ Point 1 already holds: [test_reserved_name_held.py](../../tests/contract/test_re
 sends its download through the conftest's `send_download` (built by `download_body`) under
 `CURRENT_HEADER`, so it has no task.
 
-1. **The batch helper keeps only what a caller uses** (point 2). In
-   [batch_write.py](../../expense/batch_write.py), `post_transaction_batch` loses its `chunk_size`
-   parameter and `error_text` its `engine_text` default; `require_sendable_chunk_size` goes.
-   Passes if: nothing in `expense/` names `chunk_size` as a parameter or
-   `require_sendable_chunk_size`; the LOG bar's call is unchanged; the tests that covered chunking
-   still cover the grouping of line groups into chunks and `CHUNK_SIZE` staying at or under
-   `ENGINE_BATCH_MAX`, without passing a chunk size; the docstring in
-   [test_batch_write.py](../../tests/unit/test_batch_write.py) no longer calls a default "the
-   importer's"; any doc naming what was removed is updated; the unit suite passes.
-2. **Stale comments and tags say plainly what they mean** (point 3). The comment above
+1. **Stale comments and tags say plainly what they mean** (point 3). The comment above
    `_ENVELOPE_ERRORS` in [errors.py](../../expense/errors.py) names `json_body` and
    `exit_code_of` as where EngineError is its own branch; the "pick 2 A" tag in
    [import_cmd.py](../../expense/commands/import_cmd.py) and the "pick 1 A"/"pick 2 A" tags in
@@ -92,7 +83,7 @@ sends its download through the conftest's `send_download` (built by `download_bo
    "openpyxl is required for `expense import`" and still trips the guard. Passes if: no
    `pick <n> <letter>` tag is left in `expense/` or `tests/unit/test_cmd_import.py`; the guard's
    test still passes with the new text; the unit suite passes.
-3. **The three mockups go, with their links** (point 4). None of
+2. **The three mockups go, with their links** (point 4). None of
    `expense-world-split-transaction-screen.html`, `expense-world-edit-part.html` and
    `expense-world-import-report.html` is linked by a spec other than this one, a todo item or a
    to-engine file, so each backs no open work and is deleted ([todo.md](../todo.md) "Mockups that

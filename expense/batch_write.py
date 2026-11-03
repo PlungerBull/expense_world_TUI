@@ -47,8 +47,8 @@ one group. `outcome.refusal` holds it, for the caller to report once.
 
 **The result is index-aligned with the items handed in**, and carries no
 vocabulary of its own: the LOG bar maps an index to a staged row. The
-refusals' words are the caller's choice too (`error_text`): the engine's alone
-by default; the LOG bar adds the app's line saying what to do.
+refusals' words are the caller's choice too (`error_text`): the LOG bar adds the
+app's line saying what to do under the engine's.
 """
 
 from collections.abc import Callable, Hashable
@@ -58,7 +58,6 @@ from enum import StrEnum
 from expense.errors import (
     EngineConnectionError,
     EngineError,
-    engine_text,
     is_keyed_refusal,
     is_own_id_replay,
     key_field,
@@ -172,23 +171,6 @@ class BatchOutcome:
         return [i for i, r in enumerate(self.results) if r is RowResult.UNSENT]
 
 
-def require_sendable_chunk_size(chunk_size: int) -> None:
-    """Raise `ValueError` for a `chunk_size` that cannot be sent.
-
-    Below 1 there is no chunk to send; above `ENGINE_BATCH_MAX` the engine
-    refuses every chunk. A programming error, not something a user reaches. A
-    caller that writes anything before its batch calls this first, so nothing
-    lands ahead of it.
-    """
-    if chunk_size < 1:
-        raise ValueError(f"chunk_size {chunk_size} is below 1 transaction per batch")
-    if chunk_size > ENGINE_BATCH_MAX:
-        raise ValueError(
-            f"chunk_size {chunk_size} is above the engine's limit of {ENGINE_BATCH_MAX} "
-            "transactions per batch"
-        )
-
-
 ErrorText = Callable[[Exception], str]
 
 #: The kind of every part failed for another part of its split transaction
@@ -200,8 +182,7 @@ def post_transaction_batch(
     client: ExpenseClient,
     items: list[dict],
     *,
-    chunk_size: int = CHUNK_SIZE,
-    error_text: ErrorText = engine_text,
+    error_text: ErrorText,
 ) -> BatchOutcome:
     """POST `items` in atomic chunks; a refused chunk sends its unnamed rows again.
 
@@ -216,26 +197,23 @@ def post_transaction_batch(
     Each send is its own request with its own idempotency key, since a send
     that drops rows carries a different body.
 
-    A `chunk_size` below 1 or above `ENGINE_BATCH_MAX` is a programming error
-    and raises `ValueError` before anything is sent. `error_text` turns each
-    refusal into the words a failure carries.
+    `error_text` turns each refusal into the words a failure carries.
     """
-    require_sendable_chunk_size(chunk_size)
     outcome = BatchOutcome(results=[RowResult.UNSENT] * len(items))
-    for chunk_index, span in enumerate(_chunks(items, chunk_size)):
+    for chunk_index, span in enumerate(_chunks(items, CHUNK_SIZE)):
         if not _post_chunk(client, items, span, chunk_index, outcome, error_text):
             return outcome  # every later chunk stays UNSENT
     return outcome
 
 
-def _chunks(items: list[dict], chunk_size: int) -> list[list[int]]:
+def _chunks(items: list[dict], size: int) -> list[list[int]]:
     """The places of `items` each chunk sends, in order, never cutting a
     `line_group`.
 
     Each line goes whole: an item of its own, or every item of a group, in the
     place of the group's first item. A chunk takes lines while it has room for
     them; a line that does not fit starts the next chunk, and one longer than
-    `chunk_size` is a chunk alone. With no groups this is `chunk_size` items a
+    `size` is a chunk alone. With no groups this is `size` items a
     chunk, in order.
     """
     lines: dict[object, list[int]] = {}
@@ -245,7 +223,7 @@ def _chunks(items: list[dict], chunk_size: int) -> list[list[int]]:
     chunks: list[list[int]] = []
     chunk: list[int] = []
     for line in lines.values():
-        if chunk and len(chunk) + len(line) > chunk_size:
+        if chunk and len(chunk) + len(line) > size:
             chunks.append(chunk)
             chunk = []
         chunk.extend(line)

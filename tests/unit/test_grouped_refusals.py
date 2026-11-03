@@ -10,8 +10,9 @@ refused rows through them too. This file pins the shared pieces;
 sheet import's.
 """
 
+from expense import batch_write
 from expense.batch_write import SPLIT_PART_KIND, post_transaction_batch
-from expense.errors import EngineError, row_words
+from expense.errors import EngineError, engine_text, row_words
 from expense.formatting import grouped_refusals, rows_phrase
 from tests.unit.test_batch_write import _Client, _invalid, _items, _refusal
 
@@ -78,7 +79,9 @@ def test_a_kind_is_the_rows_words_never_the_count_message():
         "2 of these items are not valid.",
         {"transactions.1.amount_cents": (_ZERO, "ZERO_AMOUNT")},
     )
-    outcome = post_transaction_batch(_Client([first, second, {}]), _items(4))
+    outcome = post_transaction_batch(
+        _Client([first, second, {}]), _items(4), error_text=engine_text
+    )
 
     assert len(outcome.failures) == 2
     assert outcome.failures[0].kind == outcome.failures[1].kind
@@ -95,7 +98,7 @@ def test_two_reasons_are_two_kinds():
             "transactions.2.amount_cents": (_ZERO, "ZERO_AMOUNT"),
         },
     )
-    outcome = post_transaction_batch(_Client([refusal, {}]), _items(4))
+    outcome = post_transaction_batch(_Client([refusal, {}]), _items(4), error_text=engine_text)
 
     zero, sealed, zero_again = sorted(outcome.failures, key=lambda f: f.indices)
     assert zero.kind == zero_again.kind != sealed.kind
@@ -105,7 +108,7 @@ def test_a_part_the_engine_did_not_name_fails_for_the_part_it_did():
     items = _items(3)
     for item in items[:2]:
         item["line_group"] = "g"
-    outcome = post_transaction_batch(_Client([_invalid(1), {}]), items)
+    outcome = post_transaction_batch(_Client([_invalid(1), {}]), items, error_text=engine_text)
 
     part, named = sorted(outcome.failures, key=lambda f: f.indices)
     assert (part.indices, part.for_part, part.kind) == ((0,), True, SPLIT_PART_KIND)
@@ -113,9 +116,10 @@ def test_a_part_the_engine_did_not_name_fails_for_the_part_it_did():
     assert part.error.fields == {"amount_cents": _ZERO}  # the refused part's own words
 
 
-def test_a_refusal_naming_no_row_is_a_kind_of_its_own_per_send():
+def test_a_refusal_naming_no_row_is_a_kind_of_its_own_per_send(monkeypatch):
+    monkeypatch.setattr(batch_write, "CHUNK_SIZE", 2)
     whole = EngineError("FORBIDDEN", "nope", None, 403, {})
-    outcome = post_transaction_batch(_Client([whole, whole]), _items(4), chunk_size=2)
+    outcome = post_transaction_batch(_Client([whole, whole]), _items(4), error_text=engine_text)
 
     assert [f.whole_chunk for f in outcome.failures] == [True, True]
     assert outcome.failures[0].kind != outcome.failures[1].kind
