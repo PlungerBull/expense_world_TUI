@@ -70,11 +70,7 @@ showed differences that come from what every screen shares:
 Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
 so one change reaches them all.
 
-6. **Incomes carry their `+`** (Decided 4 and 5): every list writes `+` before a positive
-   transaction amount, through the shared amount cell
-   ([cells.py](../../expense/tui/widgets/cells.py), `AMOUNT_RULE` in
-   [theme.py](../../expense/tui/theme.py)); account balances and totals, which share that rule
-   today, stay unsigned.
+Every task is done.
 
 ## Found along the way
 

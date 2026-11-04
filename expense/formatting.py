@@ -80,6 +80,15 @@ def format_cents(value: object) -> str:
     return f"-{body}" if negative else body
 
 
+def format_cents_with_plus(value: object) -> str:
+    """`format_cents`, with a `+` before a positive figure: `800.00` → `+800.00`.
+    Zero, a negative figure and anything that is not whole cents are as `format_cents`
+    writes them. A transaction's amount in a list is written with it."""
+    text = format_cents(value)
+    number = whole_number(value)
+    return f"+{text}" if number is not None and number > 0 else text
+
+
 #: The `transaction_type` of money out on an unsigned transaction response;
 #: the other type, 2, is money in
 #: (contract: "Base Conventions", "Sign convention — responses").

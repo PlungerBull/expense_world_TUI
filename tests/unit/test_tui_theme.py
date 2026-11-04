@@ -15,7 +15,15 @@ from pathlib import Path
 
 import expense.tui as tui_pkg
 from expense.tui.app import ExpenseApp
-from expense.tui.theme import EXPENSE_ANSI, PALETTE, PENDING_STYLE, Palette, _rich
+from expense.tui.theme import (
+    AMOUNT_RULE,
+    EXPENSE_ANSI,
+    PALETTE,
+    PENDING_STYLE,
+    TRANSACTION_RULE,
+    Palette,
+    _rich,
+)
 from expense.tui.widgets.cells import amount_cell, difference_cell
 from tests.unit.helpers import run_app, wait_for
 
@@ -87,6 +95,23 @@ def test_amount_cell_rule_matrix():
     # income-only: positives colored, negatives bare
     assert amount_cell(100, SYNTHETIC, "income-only").style == SYNTHETIC.success
     assert isinstance(amount_cell(-100, SYNTHETIC, "income-only"), str)
+
+
+def test_transaction_rule_writes_a_positive_amount_with_its_plus():
+    """`TRANSACTION_RULE` colours as "sign" and adds the `+`; `AMOUNT_RULE` (a balance)
+    stays unsigned."""
+    income = amount_cell(80000, SYNTHETIC, TRANSACTION_RULE)
+    assert str(income) == "+800.00" and income.style == SYNTHETIC.success
+    expense = amount_cell(-3640, SYNTHETIC, TRANSACTION_RULE)
+    assert str(expense) == "-36.40" and expense.style == SYNTHETIC.error
+    assert str(amount_cell(0, SYNTHETIC, TRANSACTION_RULE)) == "0.00"
+    assert amount_cell(None, SYNTHETIC, TRANSACTION_RULE).plain == "—"
+    assert amount_cell(None, None, TRANSACTION_RULE) == "—"
+    # no palette: the same figure, so a width measured without one fits what is drawn
+    assert amount_cell(1250, None, TRANSACTION_RULE) == "+12.50"
+    assert isinstance(amount_cell("n/a", SYNTHETIC, TRANSACTION_RULE), str)
+    balance = amount_cell(1245000, SYNTHETIC, AMOUNT_RULE)
+    assert str(balance) == "12,450.00" and balance.style == SYNTHETIC.success
 
 
 def test_difference_cell_balances_to_a_dim_dash():

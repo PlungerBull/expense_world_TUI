@@ -30,7 +30,7 @@ from textual.binding import Binding
 from textual.message import Message
 
 from expense.reads import DEFAULT_PAGE_ROWS
-from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
+from expense.tui.theme import PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, operation_cell
 from expense.tui.widgets.cursor_list import list_cell
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
@@ -204,7 +204,9 @@ class CheckList(WindowedList):
             "cur": longest("Cur", [r.currency or "" for r in window]),
             "amount": max(
                 AMOUNT_WIDTH,
-                longest("Amount", [amount_cell(r.amount_cents, None, AMOUNT_RULE) for r in window]),
+                longest(
+                    "Amount", [amount_cell(r.amount_cents, None, TRANSACTION_RULE) for r in window]
+                ),
             ),
         }
 
@@ -249,7 +251,7 @@ class CheckList(WindowedList):
                 str(row.title or "(untitled)"),
                 operation_cell(row.operation),
                 row.currency or "",
-                amount_cell(row.amount_cents, self._palette, AMOUNT_RULE),
+                amount_cell(row.amount_cents, self._palette, TRANSACTION_RULE),
             ]
             if not self._read_only:
                 if row.key in self._checked:

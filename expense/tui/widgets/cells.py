@@ -2,7 +2,13 @@
 
 from rich.text import Text
 
-from expense.formatting import format_aggregate, format_cents, unconverted_of, whole_number
+from expense.formatting import (
+    format_aggregate,
+    format_cents,
+    format_cents_with_plus,
+    unconverted_of,
+    whole_number,
+)
 from expense.tui.theme import Palette
 
 
@@ -57,7 +63,10 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
 
     Returns the plain string under rule="plain", palette=None, or non-int cents,
     so palette-less callers (and their equality-asserting tests) see today's
-    output unchanged. "sign" colors both directions; "income-only" only ≥ 0.
+    output unchanged. "sign" colors both directions; "income-only" only ≥ 0;
+    "plus-sign" colors as "sign" and writes a positive figure with its `+`
+    (`TRANSACTION_RULE`), the palette or not, so a width measured without
+    one matches what is drawn.
 
     `None` is a dim em-dash, not `format_cents`'s literal `(null)` — the TUI's
     mark for an absent value, the same one `format_short_date` already uses.
@@ -70,12 +79,12 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
     """
     if cents is None:
         return Text("—", style="dim") if palette is not None else "—"
-    text = format_cents(cents)
+    text = format_cents_with_plus(cents) if rule == "plus-sign" else format_cents(cents)
     if palette is None or rule == "plain" or not isinstance(cents, int):
         return text
     if cents >= 0:
         return Text(text, style=palette.success)
-    return Text(text, style=palette.error) if rule == "sign" else text
+    return Text(text, style=palette.error) if rule in ("sign", "plus-sign") else text
 
 
 def amount_text(cents: object, palette: Palette | None, rule: str) -> Text:

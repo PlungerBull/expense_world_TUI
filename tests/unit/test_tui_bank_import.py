@@ -114,6 +114,14 @@ DAY_0911_EQUAL = import_day(
 )
 
 
+DAY_0912_IN = import_day(
+    "2026-09-12",
+    150000,
+    150000,
+    lines=(unclaimed_line("bl-3", EQUAL_PARTS[:1]), unclaimed_line("bl-4", EQUAL_PARTS[1:])),
+)
+
+
 # ---- the seams ---------------------------------------------------------------
 def _patch(monkeypatch, accounts=None) -> None:
     """The LOG bar's reference reads, its peek, and the account list."""
@@ -531,7 +539,7 @@ def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypa
             "2",
             "2026-09-12",
             "PAGO PLANILLA",
-            "6,519.00",
+            "+6,519.00",
             "✓",
             "New",
         ]
@@ -837,12 +845,21 @@ def _no_reads_per_part(monkeypatch) -> list:
             [
                 "! 1 day where the file and the ledger disagree",
                 "2026-09-11 · BCP Signature · PEN   file -49.00 · ledger after import -49.00",
-                "TOTTUS PORONGOCHE   50.00   in the ledger, not in the file",
+                "TOTTUS PORONGOCHE  +50.00   in the ledger, not in the file",
+                "TOTTUS PORONGOCHE  -50.00   in the ledger, not in the file",
+            ],
+        ),
+        (
+            DAY_0912_IN,
+            [
+                "! 1 day where the file and the ledger disagree",
+                "2026-09-12 · BCP Signature · PEN   file 1,500.00 · ledger after import 1,500.00",
+                "TOTTUS PORONGOCHE  +50.00   in the ledger, not in the file",
                 "TOTTUS PORONGOCHE  -50.00   in the ledger, not in the file",
             ],
         ),
     ],
-    ids=["split-line-two-parts", "equal-totals-day"],
+    ids=["split-line-two-parts", "equal-totals-day", "positive-totals-day"],
 )
 def test_reported_days_are_drawn_from_their_parts_on_the_preview_only(
     fake_client, monkeypatch, tmp_path, day, shown

@@ -172,7 +172,7 @@ def test_the_bank_import_preview_shows_a_bracketed_title_whole(fake_client, monk
         await pilot.press("down", "enter")  # BCP PEN
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
-        assert re.split(r"\s{2,}", lines[2]) == ["2", "2026-09-12", NAME, "6,519.00", "✓", "New"]
+        assert re.split(r"\s{2,}", lines[2]) == ["2", "2026-09-12", NAME, "+6,519.00", "✓", "New"]
 
     run_app(scenario, size=(120, 40))
 

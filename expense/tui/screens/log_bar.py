@@ -108,7 +108,7 @@ from expense.reads import (
 from expense.tui.dropped import dropped_bank_files, is_statement
 from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
-from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
+from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
 from expense.tui.widgets.cursor_list import list_cell
 from expense.tui.widgets.header import Breadcrumb
@@ -402,7 +402,7 @@ def staged_rows(
             style=(palette.error if palette else "") if ahead else "dim",
         )
         amount = (
-            amount_cell(parsed.amount_cents, palette, AMOUNT_RULE)
+            amount_cell(parsed.amount_cents, palette, TRANSACTION_RULE)
             if parsed.amount_cents is not None
             else Text("— no amount", style="dim")
         )
@@ -603,7 +603,7 @@ def peek_rows(
             (
                 Text(format_date_cell(format_short_date(item.get("date")), today), style="dim"),
                 Text(truncate(item.get("title") or "—", 28), style="bold"),
-                amount_cell(item.get("amount_cents"), palette, AMOUNT_RULE),
+                amount_cell(item.get("amount_cents"), palette, TRANSACTION_RULE),
                 Text(resolve_name(item.get("category_id"), refs.category_names), style="dim"),
                 Text(
                     format_hashtag_cell(

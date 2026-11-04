@@ -72,11 +72,11 @@ from expense.errors import (
     key_index,
     names_its_row,
 )
-from expense.formatting import currency_label, format_cents, signed_cents
+from expense.formatting import currency_label, format_cents, format_cents_with_plus, signed_cents
 from expense.reads import items_of
 from expense.tui.dropped import is_statement
 from expense.tui.screens._base import relabel, screen_fetch_kwargs
-from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
+from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import hanging, toast
@@ -437,7 +437,7 @@ def preview_table(lines: list[PreviewLine], pick: AccountPick) -> Table:
             str(row.row),
             row.date_iso,
             Text(row.title or EMPTY),  # the engine's words, never read as markup
-            amount_cell(row.amount_cents, PALETTE, AMOUNT_RULE),
+            amount_cell(row.amount_cents, PALETTE, TRANSACTION_RULE),
         ]
         if pick.holds_two:
             cells.append(row.currency_code)
@@ -521,8 +521,8 @@ def day_label(day: DayMismatch, *, name_account: bool) -> str:
     return f"{day.date_iso} · {currency_label(day.account_name, day.currency_code)}"
 
 
-def padded_amount(cents: object, width: int = 0, rule: str = AMOUNT_RULE) -> Text:
-    """A signed amount coloured by `rule` (the sign's colours by default; `—`
+def padded_amount(cents: object, width: int = 0, rule: str = TRANSACTION_RULE) -> Text:
+    """A signed amount coloured by `rule` (a transaction's, with its `+`, by default; `—`
     dim for none), right-aligned in `width`. The download's days and the
     statement upload's table and balances draw their amounts with it."""
     cell = amount_cell(cents, PALETTE, rule)
@@ -556,12 +556,12 @@ def preview_days(
     ledger_w = max(len(format_cents(d.ledger_net_cents)) for d in days)
     tag_w = max((len(f"row {r.row}") for r in every if r.row is not None), default=0)
     title_w = max((len(r.title) for r in every), default=0)
-    amount_w = max((len(format_cents(r.amount_cents)) for r in every), default=0)
+    amount_w = max((len(format_cents_with_plus(r.amount_cents)) for r in every), default=0)
     for label, day, flagged in zip(labels, days, behind, strict=True):
         head = Text(f"    {label.ljust(label_w)}   file ")
-        head.append_text(padded_amount(day.file_net_cents, file_w))
+        head.append_text(padded_amount(day.file_net_cents, file_w, AMOUNT_RULE))
         head.append(" · ledger after import ", style="dim")
-        head.append_text(padded_amount(day.ledger_net_cents, ledger_w))
+        head.append_text(padded_amount(day.ledger_net_cents, ledger_w, AMOUNT_RULE))
         lines.append(head)
         for r in flagged:
             line = Text("      ")

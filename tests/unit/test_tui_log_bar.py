@@ -465,6 +465,20 @@ def test_state4_enter_stages_the_line_and_clears_the_bar(fake_client, monkeypatc
     run_app(scenario)
 
 
+def test_state4_a_positive_staged_total_is_unsigned(fake_client, monkeypatch):
+    """A sum of amounts is not a transaction's amount: no `+` before it."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "sueldo +1500.00 $BCP Signature @TRANSPORTE")
+        screen.on_input_submitted()
+        out = _text(screen._staged_renderable())
+        assert "  1 staged · 1,500.00 PEN" in out
+
+    run_app(scenario)
+
+
 def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypatch):
     """The line stays in the bar with the reason under
     it, and the staged list is untouched. The next keystroke clears the reason."""
@@ -2393,7 +2407,7 @@ def test_the_staged_list_cuts_the_title_and_keeps_every_other_cell_whole(width, 
     expected = [
         ("• 1", "-38.60", "PEN", "BCP Signature", "KORAKUEN"),
         ("• 2", "-96.00", "USD", "BCP Signature Platinum", "KORAKUEN"),
-        ("• 3", "1,500.00", "PEN", "BCP Signature", "TRANSPORTE"),
+        ("• 3", "+1,500.00", "PEN", "BCP Signature", "TRANSPORTE"),
     ]
     for line, cells in zip(body, expected, strict=True):
         assert "20 Aug" in line

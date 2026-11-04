@@ -1232,6 +1232,14 @@ pin the app back to one terminal — guarded by `test_theme_is_ansi_slots_not_he
 the slot picks (pending is `bold`, not yellow): [decisions.md](decisions.md) "The terminal
 supplies the palette".
 
+**Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
+amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
+statement's lines, the lines in no statement) writes a positive figure with its `+`
+(`+800.00`, beside `-36.40`); zero stays `0.00`. Account balances, Home's totals and grid,
+a statement's balances and difference, and any sum of amounts (the staged total, a day's
+net) stay unsigned (`12,450.00`). The two rules are `TRANSACTION_RULE` and `AMOUNT_RULE` in
+[theme.py](../expense/tui/theme.py).
+
 **Theme the foreground, never the base surface.** The app runs in ANSI mode
 (`ExpenseApp(ansi_color=True)`): the base fill is `ansi_default` — the terminal's *own*
 background — set **structurally** in `app.tcss`, not per theme. **The rule for any future

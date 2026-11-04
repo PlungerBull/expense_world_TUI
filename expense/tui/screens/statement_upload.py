@@ -42,7 +42,7 @@ from expense.bank_import.statement import (
     statement_answer,
 )
 from expense.errors import EngineError, format_error
-from expense.formatting import bank_line_columns, format_cents, truncate
+from expense.formatting import bank_line_columns, format_cents, format_cents_with_plus, truncate
 from expense.tui.screens._base import relabel
 from expense.tui.screens.bank_import import (
     ASKING,
@@ -59,7 +59,7 @@ from expense.tui.screens.bank_import import (
     plural,
 )
 from expense.tui.screens.reconciliations import FlaggedLinesScreen, flagged_note
-from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE
+from expense.tui.theme import ACCENT, BALANCE_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.refusal import hanging, toast
 
 #: The account list's breadcrumb (screen A2).
@@ -174,7 +174,7 @@ class Columns:
         amounts += [_cents(bank_line_columns(line)[3]) for line in taken]
         self.cur = answer.several_currencies
         self.number = max([2, *(len(str(row.place)) for row in answer.rows)]) + 2
-        self.amount = max([len("amount"), *(len(format_cents(c)) for c in amounts)])
+        self.amount = max([len("amount"), *(len(format_cents_with_plus(c)) for c in amounts)])
         tail = max((len(row_tail(row).plain) for row in answer.rows), default=0)
         rest = self.number + 2 + 10 + 2 + 2 + self.amount + (5 if self.cur else 0) + tail
         self.title = max(len("title"), min(max(map(len, titles), default=0), width - rest))
@@ -194,7 +194,7 @@ class Columns:
         cents: int,
         currency: str,
         *,
-        rule: str = AMOUNT_RULE,
+        rule: str = TRANSACTION_RULE,
     ) -> Text:
         """One line of the table: its place, day, title, signed amount (coloured
         by `rule`) and, on a card's paper, its currency. Only a terminal too
@@ -222,7 +222,7 @@ def row_line(row: StatementRow, columns: Columns) -> Text:
         row.description or NO_TITLE,
         row.amount_cents,
         row.currency,
-        rule="plain" if row.outcome == EMPTY else AMOUNT_RULE,
+        rule="plain" if row.outcome == EMPTY else TRANSACTION_RULE,
     )
     text.append_text(row_tail(row))
     return text

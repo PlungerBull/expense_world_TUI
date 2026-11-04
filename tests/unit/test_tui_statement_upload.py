@@ -489,7 +489,7 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
             ["2", "2026-09-27", "PLAZA VEA SURCO", "-84.30", "PEN", "✓", "In the ledger"],
             ["3", "2026-10-02", "UBER *TRIP", "-42.00", "PEN", "+", "New"],
             ["4", "2026-10-14", "NETFLIX.COM", "-44.90", "PEN", "✓", "In the ledger"],
-            ["5", "2026-10-20", "PAGO TARJETA", "800.00", "PEN", "✓", "In the ledger"],
+            ["5", "2026-10-20", "PAGO TARJETA", "+800.00", "PEN", "✓", "In the ledger"],
             ["6", "2026-10-05", "AMAZON", "-24.99", "USD", "✓", "In the ledger"],
             ["7", "2026-10-24", "SPOTIFY P2F3", "-5.99", "USD", "+", "New"],
             [
@@ -516,7 +516,7 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
         ]
         assert lines[16:] == [
             "Taken out · in the statement, not on the paper; they stay in the ledger",
-            "2026-10-11  FARMACIA CENTRAL       -42.90  PEN",
+            "2026-10-11  FARMACIA CENTRAL        -42.90  PEN",
             "10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out",
             "new ones go under @Pendiente and #Pendiente",
         ]
@@ -661,7 +661,7 @@ def test_a_savings_preview_has_one_balance_line_and_no_currency(fake_client, mon
             ["PEN", "10,912.40", "12,450.00"],
         ]
         assert _cells(lines[4]) == ["#", "date", "title", "amount"]
-        assert _cells(lines[5]) == ["1", "2026-10-01", "HABERES", "4,850.00", "✓", "In the ledger"]
+        assert _cells(lines[5]) == ["1", "2026-10-01", "HABERES", "+4,850.00", "✓", "In the ledger"]
         assert _cells(lines[8]) == ["4", "2026-10-15", "CAJERO", "-400.00", "+", "New"]
         assert _cells(lines[10]) == ["6", "2026-10-30", "INTERES", "0.00", "·", "Empty"]
         assert lines[11:] == [
@@ -1352,7 +1352,7 @@ def test_a_moved_line_reads_day_moved_and_nothing_else_changes(fake_client, monk
         preview = await _previewed(pilot, app)
         lines = _lines(preview)
         assert _cells(lines[4]) == ["#", "date", "title", "amount"]
-        assert _cells(lines[5]) == ["1", "2026-10-01", "HABERES", "4,850.00", "✓", "In the ledger"]
+        assert _cells(lines[5]) == ["1", "2026-10-01", "HABERES", "+4,850.00", "✓", "In the ledger"]
         assert _cells(lines[6]) == [
             "2",
             "2026-10-03",

@@ -89,8 +89,11 @@ EXPENSE_ANSI = Theme(
 # *style*, so sites use it directly.
 PENDING_STYLE = "bold"
 
-# Where each rule applies: AMOUNT_RULE — transaction amounts, account balances,
-# dashboard totals; BALANCE_RULE — reconciliation begin/end checkpoints only.
+# Where each rule applies: TRANSACTION_RULE — a transaction's or bank line's amount in
+# a list, the sign's colours and a `+` before a positive figure; AMOUNT_RULE — account
+# balances, dashboard totals, a statement's difference, the same colours with no `+`;
+# BALANCE_RULE — reconciliation begin/end checkpoints only.
+TRANSACTION_RULE: Literal["plus-sign"] = "plus-sign"
 AMOUNT_RULE: Literal["sign", "income-only", "plain"] = "sign"
 BALANCE_RULE: Literal["sign", "plain"] = "plain"
 

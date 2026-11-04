@@ -6,7 +6,6 @@ paper's order, both currencies mixed and numbered 1, 2, 3 … with no gaps, a `C
 column, the opening balance apart; the lines are read by account, every currency
 together, in the engine's order (contract: GET /v1/bank-lines, "Ordering")."""
 
-import re
 from types import SimpleNamespace
 
 import pytest
@@ -201,8 +200,7 @@ def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statem
 
 def _screen_lines(app) -> list[str]:
     """The screen as drawn, a line each, trailing blanks off. An income is
-    written without the plus the mockups draw, as every list of the app writes it
-    (`+800.00` reads ` 800.00`)."""
+    written with its plus, as the mockups draw it (`+800.00`)."""
     lines = screen_lines(app)
     while lines and not lines[-1]:
         lines.pop()
@@ -210,9 +208,8 @@ def _screen_lines(app) -> list[str]:
 
 
 def _pane(text: str) -> list[str]:
-    """A pane's lines as the mockup draws them, trailing blanks off, the incomes'
-    plus written as a blank."""
-    return [re.sub(r"\+(\d)", r" \1", line.rstrip()) for line in text.strip("\n").splitlines()]
+    """A pane's lines as the mockup draws them, trailing blanks off."""
+    return [line.rstrip() for line in text.strip("\n").splitlines()]
 
 
 def _open(statement: dict, code: str | None = None):

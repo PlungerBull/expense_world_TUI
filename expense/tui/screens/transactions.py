@@ -106,7 +106,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
-from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
+from expense.tui.theme import ACCENT, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList, list_table
 from expense.tui.widgets.refusal import as_markup, run_stopped, toast
@@ -163,7 +163,7 @@ def transaction_rows(
                 [
                     it.get("title") or "—",
                     it.get("description") or "",
-                    amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
+                    amount_cell(it.get("amount_cents"), palette, TRANSACTION_RULE),
                     it.get("currency_code") or "",
                     format_short_date(it.get("date")),
                     resolve_name(it.get("account_id"), accounts),

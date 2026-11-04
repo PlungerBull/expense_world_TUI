@@ -105,7 +105,7 @@ from expense.tui.screens._form import FormScreen
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
-from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
+from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, list_cell
@@ -191,7 +191,7 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
                     title or "(untitled)",
                     operation_cell(operation),
                     line.get("currency_code") or "",
-                    amount_cell(net_cents, palette, AMOUNT_RULE),
+                    amount_cell(net_cents, palette, TRANSACTION_RULE),
                 ],
             )
         )
