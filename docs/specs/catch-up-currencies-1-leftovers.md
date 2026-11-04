@@ -73,3 +73,10 @@ Not built in this spec; drafted into a new spec when it is done.
   `test_tui_bracketed_names.py`, `test_tui_dropped.py` and `test_tui_flagged_lines.py`
   (`grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`). Seen in review of task 2
   (2026-11-03). Nothing you see changes.
+- **No LOG bar test drives the peek's words on a two-currency pick end to end.**
+  `test_tui_log_bar.py`'s VISA test (~line 854) checks which account and currency the peek
+  reads, not its title or count line; one test where `-12.50 $visa %usd` shows the title
+  `VISA Infinite Sapphire · USD` and `… in VISA Infinite Sapphire · USD · newest first` would.
+  Seen by the tester (2026-11-03). Nothing you see changes.
+- **The shared practice user holds no accounts,** so no LOG bar or account check can be seen
+  live on the practice engine; only unit tests prove them. Seen by the tester (2026-11-03).
