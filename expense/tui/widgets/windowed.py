@@ -79,6 +79,8 @@ class WindowedList(Static):
         self._caption = caption
         self._divider: str | None = "rule"
         self._status_line = True
+        #: The first row of the page last drawn; the footer is re-checked when it moves.
+        self._shown_from = 0
 
     # ---- the window ------------------------------------------------------
     @property
@@ -189,6 +191,10 @@ class WindowedList(Static):
 
     def _refresh(self) -> None:
         self.update(self.framed())
+        first = self._page_bounds()[0]
+        if first != self._shown_from and self.is_attached:
+            self.refresh_bindings()  # `pgup` shows only where a page lies before
+        self._shown_from = first
 
     def framed(self) -> RenderableType:
         """Caption, rule, the subclass's render, page status.
@@ -259,7 +265,9 @@ class WindowedList(Static):
         self._move_cursor_to(starts[max(0, min(len(starts) - 1, here + delta))])
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action == "page":  # hide the page keys when one page holds it all
+        if action == "page":  # no page key when one page holds it all; no `pgup` on page 1
+            if parameters and parameters[0] < 0:  # `pgup`: only with a page before this one
+                return self._page_bounds()[0] > 0
             starts = self._page_starts()
             return len(starts) > 1 if starts is not None else len(self._rows) > self._page_size
         return True

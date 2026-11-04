@@ -1308,7 +1308,8 @@ goes through on the `?` card, so the Manage lists neither react to it nor advert
 **`pgdn` means "more of this list", in three ways.** In the two growing lists, the ledger
 and the "no batch" pane, it appends the next 10 rows by cursor and puts the cursor on the
 first new one (footer `pgdn 10 more`; gone at the end), and `pgup` just goes up a
-screenful ([decisions.md](decisions.md) "Long lists grow, they do not page"). In every
+screenful, hidden on the first
+([decisions.md](decisions.md) "Long lists grow, they do not page"). In every
 other list it is the next page of rows already loaded (§5). On Home it walks the month
 window one month older, `pgup` one newer (§2).
 
@@ -1768,7 +1769,8 @@ through `GrowingRead` in [_growing.py](../expense/tui/screens/_growing.py): it o
 the newest `GROW_STEP` (10) rows and the count, read together — a count that cannot be
 read fails the screen — and `pgdn` (footer: `pgdn 10 more`) appends the next 10 by the
 engine's cursor, with no recount, the cursor landing on the first new row. `↑`/`↓` scroll
-everything loaded and `pgup` goes up a screenful. A resize reads nothing. After a write (a
+everything loaded and `pgup` goes up a screenful (hidden on the first). A resize reads
+nothing. After a write (a
 bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from the newest 10 with the cursor on
 row 1, as `r` does. Leaving the `⏎` form with `esc` is not a write: nothing is read and the
 list comes back as it was, the rows `pgdn` loaded and the cursor on its row. The "no batch"
@@ -1776,8 +1778,9 @@ list on Statements grows through the same `GrowingRead` (§2).
 
 **Full-data screens window locally** — Manage, the Statements account list (full
 height alone, an equal split with the open panel), a statement's list at what fits —
-with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑`/`↓` walk
-through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,
+with `pgdn` next page, `pgup` previous (both hidden when one page holds it all; `pgup` also
+on the first page, where it does nothing); `↑`/`↓` walk through and cursor-restore lands on
+its page. Exempt: Home's month grid, static tables,
 System kv-tables.
 
 **The frame:** the breadcrumb on the first line with no blank line above it, the rule

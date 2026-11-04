@@ -37,9 +37,39 @@ showed differences that come from what every screen shares:
 1. **A form's refusal shows as question 1 picks.**
 2. **`^s` sends what is in the bar** as question 2 picks.
 3. **The blank lines around the breadcrumb** are as question 3 picks.
-5. **`pgup Prev` only where there is a page before** (What it must do 5): the footer of
-   `CursorList` ([cursor_list.py](../../expense/tui/widgets/cursor_list.py)) and the other
-   lists that bind it hide the key on the first page.
+4. **A long breadcrumb gives way with `…`,** and the `!` rate alert always shows.
+5. **`pgup Prev` shows only where there is a page before.**
+6. **Incomes read as question 4 picks.**
+
+## How the owner knows it is done
+
+1. A refused save on any form shows as question 1 picks.
+2. On any form, a value typed and then sent with `^s` without `⏎` is saved, if question 2
+   picks so.
+3. At 80×24, every screen spends its top lines as question 3 picks.
+4. With a 50-letter account name, the crumb ends in `…` and the `!` shows when a rate is
+   missing.
+5. No list's first page offers `pgup Prev`.
+6. Every list writes incomes as question 4 picks.
+7. The unit suite, the live suite and the drift check pass.
+
+## Decided
+
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | A form's refusal? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 3 | A: a block under the form, on every form, which stays until the next key (2026-11-03). |
+| 2 | `^s` and a value typed but not yet entered? | B: `^s` also keeps what is in the bar, on every form, then saves (2026-11-03). |
+| 3 | The blank lines around the breadcrumb? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 4 | A: dropped on every screen (2026-11-03). |
+| 4 | Incomes in lists? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 5 | A: every list writes an income with its `+` (2026-11-03). |
+| 5 | Which positive figures get the `+`: transaction amounts only, or balances and totals too? | Transaction amounts only; account balances and totals stay unsigned, as the statement drawings draw them (`12,450.00 PEN` on the browse, `+800.00` on a line) (2026-11-03). |
+
+---
+
+## Tasks
+
+Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
+so one change reaches them all.
+
 6. **Incomes carry their `+`** (Decided 4 and 5): every list writes `+` before a positive
    transaction amount, through the shared amount cell
    ([cells.py](../../expense/tui/widgets/cells.py), `AMOUNT_RULE` in
@@ -57,3 +87,5 @@ Not built in this spec; drafted into a new spec when it is done.
 - In [test_tui_create_forms.py](../../tests/unit/test_tui_create_forms.py), `_run_refused` and
   its callers still take a `monkeypatch` they no longer use, and
   `test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch` asks for toasts it never reads.
+- The `pgup` footer test's reload step ([test_tui_pgup_footer.py](../../tests/unit/test_tui_pgup_footer.py))
+  checks only that `pgup Prev` is gone, not that the list is back (`pgdn Next` shown).

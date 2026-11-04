@@ -373,10 +373,10 @@ class CursorList(WindowedList):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "more":
             return bool(self._more)
-        if action == "page":  # hide the page keys when one page holds it all
+        if action == "page":  # the base's rule: none on one page, no `pgup` on page 1
             if self._more is not None and parameters and parameters[0] > 0:
                 return False  # growing: pgdn is "more", never "next page"
-            return len(self._rows) > self._page_size
+            return super().check_action(action, parameters)
         if action == "toggle":  # only where a screen owns a selection
             try:
                 host = self.screen
