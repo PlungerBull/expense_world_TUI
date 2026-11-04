@@ -616,20 +616,21 @@ def peek_rows(
     return rows
 
 
-def peek_status(shown: int, total: int) -> str:
-    """The panel's border subtitle — how much of the account you are seeing.
+def peek_status(shown: int, total: int, label: str) -> str:
+    """The panel's border subtitle — how much of the pick's ledger you are seeing.
 
-    `shown` is what the panel had room for, so on a screen with a long staged
-    list it can be nothing at all: the panel says so rather than pretending the
-    account is empty.
+    `label` is the pick's label, the one the panel's title line shows. `shown`
+    is what the panel had room for, so on a screen with a long staged list it
+    can be nothing at all: the panel says so rather than pretending the account
+    is empty.
     """
     if not total:
-        return "nothing in this account yet"
+        return f"nothing in {label} yet"
     if not shown:
-        return f"{total} in this account · no room to show them"
+        return f"{total} in {label} · no room to show them"
     if shown >= total:
-        return f"{total} in this account · newest first"
-    return f"{shown} of {total} in this account · newest first"
+        return f"{total} in {label} · newest first"
+    return f"{shown} of {total} in {label} · newest first"
 
 
 class AccountPeek(Static):
@@ -676,7 +677,7 @@ class AccountPeek(Static):
 
     @property
     def panel_status(self) -> str:
-        """`n of 214 in this account · newest first`, or empty on a note."""
+        """`n of 214 in <label> · newest first`, or empty on a note."""
         return self._status
 
     @property
@@ -702,7 +703,7 @@ class AccountPeek(Static):
             self._status = ""
             return Group(self._heading(), Text("  " + self._note, style="dim"))
         shown = min(len(self._rows), self.capacity)
-        self._status = peek_status(shown, self._total)
+        self._status = peek_status(shown, self._total, self._account)
         # `expand=False`, like the staged table above it: the columns pack to
         # their content instead of spreading to the panel edge, so a row reads
         # the same in both tables.

@@ -58,11 +58,6 @@ an account and a currency (done on 2026-10-30), turned up while it ran.
 
 Approved by the owner on 2026-11-03.
 
-1. **The peek's count names what it lists** (Decided 1): every wording of `peek_status` in
-   [log_bar.py](../../expense/tui/screens/log_bar.py) says the pick's label where it says "this
-   account" today (`3 of 48 in VISA Infinite Sapphire · USD · newest first`, `nothing in … yet`,
-   `48 in … · no room to show them`); its tests in `test_tui_log_bar.py`; tui.md "The account
-   peek".
 2. **The LOG bar's unit tests name accounts holding currencies** (What it must do 3): the
    fixtures in `test_tui_log_bar.py` (`BCP Signature PEN` and the like) become accounts with no
    currency in their names, holding their currencies; every assertion still proves what it
@@ -76,3 +71,8 @@ Approved by the owner on 2026-11-03.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **A long account name wraps the peek's count line.** The count is one line in the panel's
+  sizing, but at 80 columns a pick label over about 40 letters (`1716 of 1716 in <long name> ·
+  PEN · newest first`) wraps to two, and the panel clips the second. Seen in review of task 1
+  (2026-11-03), in [log_bar.py](../../expense/tui/screens/log_bar.py) `AccountPeek`.

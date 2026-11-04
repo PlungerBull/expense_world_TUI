@@ -1745,12 +1745,13 @@ def test_peek_row_of_an_unnamed_category_still_renders():
     assert rows and str(rows[0][1]) == "—"
 
 
-def test_peek_status_says_how_much_of_the_account_you_are_seeing():
-    assert peek_status(6, 214) == "6 of 214 in this account · newest first"
-    assert peek_status(3, 3) == "3 in this account · newest first"
-    assert peek_status(0, 0) == "nothing in this account yet"
+def test_peek_status_names_the_label_the_title_shows():
+    label = "VISA Infinite Sapphire · USD"
+    assert peek_status(3, 48, label) == f"3 of 48 in {label} · newest first"
+    assert peek_status(3, 3, label) == f"3 in {label} · newest first"
+    assert peek_status(0, 0, label) == f"nothing in {label} yet"
     # squeezed out by a long staged list: say so, do not read as an empty account
-    assert peek_status(0, 214) == "214 in this account · no room to show them"
+    assert peek_status(0, 48, label) == f"48 in {label} · no room to show them"
 
 
 async def _peeked(pilot, screen):
@@ -1777,7 +1778,7 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         assert panel.display
         # content lines, not border decorations (docs/tui.md §2)
         assert panel.panel_title == "BCP Signature PEN · PEN"
-        assert "of 214 in this account" in panel.panel_status
+        assert f"of 214 in {panel.panel_title}" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
 
     run_app(scenario, size=(110, 30))
@@ -1949,7 +1950,7 @@ def test_the_peek_total_is_the_engine_count_read_with_the_rows(fake_client, monk
         await _peeked(pilot, screen)
         assert fetch.accounts == ["acc1"] and fetch.counted == ["acc1"]
         # the figure is the count, not the length of the page in hand
-        assert "of 1716 in this account" in _peek(screen).panel_status
+        assert f"of 1716 in {_peek(screen).panel_title}" in _peek(screen).panel_status
 
     run_app(scenario, size=(110, 30))
 
