@@ -1150,16 +1150,18 @@ def test_a_title_on_a_line_in_a_completed_statement_is_read_only_and_never_sent(
 
 def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client, target, scratch):
     """The statement screen's own path, end to end: a draft month's list is the
-    statement's lines (`statement_id=`) and the account's lines in no statement inside
-    the period (`account_id`, `unreconciled=true`, the period's own days), read by
-    `_fetch_all_lines`; a purchase split 60 + 40 is one row of its signed total with its
-    title, day and operation code; a line late on the period's last day is in it and one
-    past it is not. A tick is one `PUT` of `statement_id` on the one part `line_rows`
-    names, which moves the whole line into the statement, and `null` there takes it out
+    statement's lines (`reconciliation=`, `account=`, `sort=statement`: the statement's
+    order) and the account's lines in no statement inside the period (`account_id`,
+    `unreconciled=true`, the period's own days, `sort=date_asc`: oldest first), both read
+    by `fetch_month_lines`, the screen's own function; a purchase split 60 + 40 is one
+    row of its signed total with its title, day and operation code; a line late on the
+    period's last day is in it and one past it is not. A tick is one `PUT` of `statement_id`
+    on the one part `line_rows` names, which moves the whole line into the statement, and
+    `null` there takes it out
     (contract: GET /v1/bank-lines)
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
     from expense.formatting import format_short_date
-    from expense.tui.screens.reconciliations import _fetch_all_lines, line_rows
+    from expense.tui.screens.reconciliations import fetch_month_lines, line_rows
 
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)
@@ -1167,13 +1169,13 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     code = f"OP-{uuid4().hex[:10]}"
 
     def month() -> tuple[list, list, dict]:
-        assigned = _fetch_all_lines(target, reconciliation=recon)
-        available = _fetch_all_lines(
+        assigned, available = fetch_month_lines(
             target,
-            account=account,
-            unreconciled=True,
-            date_from=statement["date_start"],
-            date_to=statement["date_end"],
+            recon,
+            account,
+            statement["date_start"],
+            statement["date_end"],
+            with_available=True,
         )
         return line_rows(assigned, available)
 
@@ -1186,18 +1188,19 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
 
     rows, checked, part_of = month()
     assert checked == []
-    assert [r[0] for r in rows] == [last_day["bank_line_id"], split_line]
+    # lines in no statement, oldest first: the 11th, then the 30th
+    assert [r[0] for r in rows] == [split_line, last_day["bank_line_id"]]
     # the day as every list shows it: the response's own day (format_short_date)
-    assert rows[0][1:] == (
+    assert rows[1][1:] == (
         format_short_date(last_day["date"]),
         "UBER *TRIP",
         None,
         -4200,
         "PEN",
-        1,
+        2,
         False,
     )
-    assert rows[1][1:] == ("2026-04-11", "FARMACIA", code, -10000, "PEN", 2, False)
+    assert rows[0][1:] == ("2026-04-11", "FARMACIA", code, -10000, "PEN", 1, False)
     assert part_of[split_line] in {p["id"] for p in parts}
 
     # Tick: one part named, the whole line in the statement.
@@ -1210,18 +1213,21 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
         assert client.get(f"/transactions/{part['id']}")["statement_id"] == recon
 
     # Without the period's days, `unreconciled=true` on the account lists every
-    # line in no statement, any date, newest first: the ticked purchase is not in it.
-    no_statement = fetch_bank_lines(target, account=account, unreconciled=True)["items"]
+    # line in no statement, any date, oldest first (`sort=date_asc`): the ticked
+    # purchase is not in it.
+    no_statement = fetch_bank_lines(target, account=account, unreconciled=True, sort="date_asc")[
+        "items"
+    ]
     assert [line["id"] for line in no_statement] == [
-        after["bank_line_id"],
         last_day["bank_line_id"],
+        after["bank_line_id"],
     ]
 
     # Untick: `null` on the same part takes every part out.
     scratch.assign(part_of[split_line], None)
     rows, checked, _ = month()
     assert checked == []
-    assert [r[0] for r in rows] == [last_day["bank_line_id"], split_line]
+    assert [r[0] for r in rows] == [split_line, last_day["bank_line_id"]]
     for part in parts:
         assert client.get(f"/transactions/{part['id']}")["statement_id"] is None
 
@@ -1230,11 +1236,11 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     """The "no batch" list's own path: the account's lines in no statement,
     any day (`account_id`, `unreconciled=true`, no dates), read by
     `fetch_bank_lines` page by page and counted by `count_bank_lines` with the
-    same filter. Newest first; a purchase split 60 + 40 is one row of its
+    same filter. Oldest first (`UNFILED_SORT`); a purchase split 60 + 40 is one row of its
     signed total and title; a line ticked into a month is in neither the list
     nor the count; and the pages add up to the count
     (contract: GET /v1/bank-lines) (contract: GET /v1/bank-lines/count)."""
-    from expense.tui.screens.reconciliations import UNFILED_FILTER, unfiled_rows
+    from expense.tui.screens.reconciliations import UNFILED_FILTER, UNFILED_SORT, unfiled_rows
 
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)["id"]
@@ -1243,7 +1249,12 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
         lines, after = [], None
         while True:
             body = fetch_bank_lines(
-                target, account=account, after=after, limit=limit, **UNFILED_FILTER
+                target,
+                account=account,
+                after=after,
+                limit=limit,
+                sort=UNFILED_SORT,
+                **UNFILED_FILTER,
             )
             assert len(body["items"]) <= limit
             lines.extend(body["items"])
@@ -1258,7 +1269,7 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     parts = replace_parts(client, purchase["bank_line_id"], [-6000, -4000], scratch.transactions)
     scratch.assign(ticked["id"], statement)
 
-    expected = [new["bank_line_id"], parts[0]["bank_line_id"], old["bank_line_id"]]
+    expected = [old["bank_line_id"], parts[0]["bank_line_id"], new["bank_line_id"]]
     count = count_bank_lines(target, account=account, **UNFILED_FILTER)
     assert count == 3
     for limit in (1, 2, 10):

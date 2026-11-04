@@ -1341,6 +1341,39 @@ def _fetch_all_lines(cfg, **kw) -> list[dict]:
     )
 
 
+def fetch_month_lines(
+    cfg,
+    recon_id: str,
+    account_id: str,
+    date_start: str,
+    date_end: str,
+    *,
+    with_available: bool,
+    **kw,
+) -> tuple[list[dict], list[dict]]:
+    """`(assigned, available)`: the statement screen's two reads.
+
+    The statement's lines on the opened account, any date, in the statement's order
+    (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines, "Ordering");
+    and, on a draft that offers them, the account's lines in no statement inside the
+    period, oldest first, as a statement lists lines with no place."""
+    assigned = _fetch_all_lines(
+        cfg, reconciliation=recon_id, account=account_id, sort="statement", **kw
+    )
+    available = []
+    if with_available:
+        available = _fetch_all_lines(
+            cfg,
+            account=account_id,
+            unreconciled=True,
+            date_from=date_start,
+            date_to=date_end,
+            sort="date_asc",
+            **kw,
+        )
+    return assigned, available
+
+
 def _status_span(status: str, palette: Palette) -> tuple[str, str]:
     """(text, style) for the header's status word — completed→success, draft→warning."""
     return status, palette.success if status == "completed" else palette.warning
@@ -1664,25 +1697,15 @@ class ReconciliationDetailScreen(
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
                 call_while_attached(self, self._apply_fresh_record, statement)
-            # the statement's lines on the opened account (always; any date)
-            # (contract: GET /v1/bank-lines, "Filters")
-            # in the statement's order, every currency of the account together
-            # (contract: GET /v1/bank-lines, "Ordering")
-            assigned = _fetch_all_lines(
-                cfg, reconciliation=self._id, account=self._account_id, sort="statement", **kw
+            assigned, available = fetch_month_lines(
+                cfg,
+                self._id,
+                self._account_id,
+                self._record["date_start"],
+                self._record["date_end"],
+                with_available=not self._completed and not self._waits_for_pdf,
+                **kw,
             )
-            available = []
-            if not self._completed and not self._waits_for_pdf:
-                # a draft also offers the account's lines in no batch
-                available = _fetch_all_lines(
-                    cfg,
-                    account=self._account_id,
-                    unreconciled=True,
-                    date_from=self._record["date_start"],
-                    date_to=self._record["date_end"],
-                    sort="date_asc",  # oldest first, as a statement lists lines with no place
-                    **kw,
-                )
             acct_name = resolve_name(self._account_id, load_account_name_map())
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:

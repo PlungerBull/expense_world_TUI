@@ -50,17 +50,7 @@ file is deleted.
 Point 1 already holds: [edit_form.py](../../expense/tui/screens/edit_form.py) notes
 `Saved. It left its statement.` and its crumb names `Statements`; the acceptance check confirms it.
 
-1. **The statement screens' live tests read what the screens read.** In
-   [test_bank_lines.py](../../tests/contract/test_bank_lines.py),
-   `test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads` reads a draft's lines
-   with exactly the arguments `ReconciliationDetailScreen` sends
-   ([reconciliations.py](../../expense/tui/screens/reconciliations.py): the statement's lines with
-   `account` and `sort="statement"`, the lines in no statement with the period's days and
-   `sort="date_asc"`), and `test_the_no_batch_list_reads_through_its_own_reads` reads and counts
-   with the list's own `UNFILED_FILTER` and `UNFILED_SORT`, oldest first, its docstring no longer
-   saying newest first. Where a screen builds its arguments inline, the builder may lift them into
-   one shared name both the screen and the test use, so the two cannot drift.
-2. **A live test drives the flagged lines' screen's own reads.** A new live test reads a
+1. **A live test drives the flagged lines' screen's own reads.** A new live test reads a
    statement's review list through the app's own calls, as the flagged lines' screen and the
    statement upload's result do (`count_bank_lines` with `review_of=` and the screen's list read
    with `sort="statement"`), on a draft and after its close: the count agrees with the list, and
@@ -71,3 +61,9 @@ Point 1 already holds: [edit_form.py](../../expense/tui/screens/edit_form.py) no
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- In [test_bank_lines.py](../../tests/contract/test_bank_lines.py),
+  `test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads` writes the lines in no
+  statement's sort as the literal `"date_asc"` where `UNFILED_SORT` names it, and its docstring
+  mixes the read's argument names (`reconciliation=`, `account=`) with the engine's (`account_id`,
+  `unreconciled=true`) in one sentence. Nothing you see changes.
