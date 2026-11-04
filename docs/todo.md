@@ -97,7 +97,7 @@ New, from part 7: [the Statements screens as drawn](specs/statements-screens-as-
 
 New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
 [accounts carry their numbers, and a PDF is checked against its account](specs/accounts-carry-their-numbers.md)
-(3 questions, and the account form's mockup to draw), and
+(answered on 2026-11-03; its mockup waits for your pick), and
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question), both waiting on no other spec.
 

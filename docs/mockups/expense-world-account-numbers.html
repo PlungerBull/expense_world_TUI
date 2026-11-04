@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Account numbers</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:1100px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Accounts carry their numbers</h1>
+  <p>An account gets its <b>bank</b> and the <b>last 4 digits</b> of its card or account number, and an optional <b>alias</b>. It shows as <code>BCP 5678</code>, or as its alias when it has one, on every screen. Cash and people have no number: their alias is their name, and it is required.</p>
+  <p>When a card is replaced, the new card is added to the same account from a day on: the name follows the new card, and the old number stays in the account's history. A month's PDF whose number is not the account's number for that month is refused.</p>
+  <p>This page draws the account form (New and Edit), adding a replacement card, Manage ▸ Accounts, the LOG bar's <code>$</code>, and the refused PDF. The statement code line and every other line stay as you know them. Accounts, numbers and amounts are invented, and so are the engine's words in pane 6. Drawn at 80 columns.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · The bank line <span>— New and Edit, on a bank account · pick A or B</span></div>
+<p class="blurb">The new lines sit after <b>type</b>, where <b>name</b> is today: <b>bank</b>, <b>last 4</b>, <b>alias</b>. Both are optional on a bank account, but an account needs either a bank and its last 4 digits, or an alias; the engine refuses one with neither.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>picked from the engine's list of banks</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BANK            </span>bc<span class="a">▍</span>
+   <span class="d">optional · type a bank · ↑↓ highlight · enter picks</span>
+   <span class="rev">  BCP  </span>
+     BBVA
+     Interbank
+
+   type            bank
+   <span class="b">bank            </span><span class="d">—  (optional)</span>
+   last 4          <span class="d">—  (optional)</span>
+   alias           <span class="d">—  *</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The engine holds the banks it knows, so <code>BCP</code> is spelled the same in every account and every client, and the engine knows which bank's PDF to expect. Typing narrows the list, as the currencies line does.</p></div>
+
+<div class="var"><div class="oh">B · <span>typed, any short name</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BANK            </span>BC<span class="a">▍</span>
+   <span class="d">optional · the bank's short name, e.g. BCP · enter to go on</span>
+
+
+
+   type            bank
+   <span class="b">bank            </span><span class="d">—  (optional)</span>
+   last 4          <span class="d">—  (optional)</span>
+   alias           <span class="d">—  *</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Any bank, even one the engine cannot read papers from. Small letters show as capitals while typing, as on the statement code line. <code>BCP</code> and <code>Bcp.</code> typed on two accounts would be two banks.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · The alias line, and an account with no number <span>— pick A or B</span></div>
+<p class="blurb">A card with its number needs no alias: it shows as <code>BCP 5678</code>. Cash has no number, so its alias is its name and is required (<code>*</code>). A person has no bank: the <b>bank</b> and <b>last 4</b> lines leave the form when the type is <b>person</b>, as the statement code line does today.</p>
+
+<div class="var"><div class="oh">A · <span>the line is called alias on every account</span><span class="rec">recommended</span></div>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a card</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">ALIAS           </span><span class="a">▍</span>
+   <span class="d">optional · shows instead of BCP 5678
+   · enter to go on</span>
+
+   type            bank
+   bank            BCP
+   last 4          5678
+   <span class="b">alias           </span><span class="d">—  (optional)</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a person</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">ALIAS           </span>Eliana<span class="a">▍</span>
+   <span class="d">required · no bank number · enter to go on</span>
+
+
+   type            person
+   <span class="b">alias           </span><span class="d">—  *</span>
+   currencies      <span class="d">—  *</span>
+   color           <span class="d">—  (optional)</span>
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+</div>
+<p class="cap">One word for one thing: the line is the same on a card, on cash and on a person, and only its hint changes. On cash (a bank account with no bank or last 4 picked) the line is marked <code>*</code> and says <code>required · no bank number</code>. (Narrow here only to fit two side by side.)</p></div>
+
+<div class="var"><div class="oh">B · <span>the line keeps its name, name, and is optional on a card</span></div>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a card</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span><span class="a">▍</span>
+   <span class="d">optional · shows instead of BCP 5678
+   · enter to go on</span>
+
+   type            bank
+   bank            BCP
+   last 4          5678
+   <span class="b">name            </span><span class="d">—  (optional)</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a person</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
+   <span class="d">free text · enter to go on</span>
+
+
+   type            person
+   <span class="b">name            </span><span class="d">—  *</span>
+   currencies      <span class="d">—  *</span>
+   color           <span class="d">—  (optional)</span>
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+</div>
+<p class="cap">A person's form reads exactly as today. On a card the same line becomes optional, and when filled it shows instead of <code>BCP 5678</code>.</p></div>
+</div>
+
+<!-- ================================================================== 3 -->
+<div class="pane">
+<div class="lbl">3 · A replaced card <span>— the Visa's card 1234 was lost; the bank sent 5678 · pick A or B</span></div>
+<p class="blurb">The account keeps its statements and its balance. From the day you give, its number is <code>5678</code> and it shows as <code>BCP 5678</code>; months before that day are checked against <code>1234</code>. Typing over <b>last 4</b> only fixes a mistyped number, with no history.</p>
+
+<div class="var"><div class="oh">A · <span>on the account's Edit form: a new card line and its day</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  BCP 1234  ▸  <span class="b">Edit</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NEW CARD FROM   </span>2026-08-15<span class="a">▍</span>
+   <span class="d">YYYY-MM-DD · the first day of the new card · enter to go on</span>
+
+   <span class="d">type            bank  read-only</span>
+   bank            BCP
+   last 4          1234
+   <span class="d">since           first card</span>
+   new card        5678
+   <span class="b">new card from   </span><span class="d">—  *</span>
+   alias           <span class="d">—  (optional)</span>
+   <span class="d">currencies      PEN · USD  read-only</span>
+   statement code  SIG
+   color           <span class="s1">██</span> blue
+   PEN opening     <span class="n">-1,200.00</span>
+   PEN as of       2026-01-01
+   USD opening     <span class="d">—  (optional)</span>
+   USD as of       <span class="d">—</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<div class="term" style="margin-top:14px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the same form after the save</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  BCP 5678  ▸  <span class="b">Edit</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BANK            </span>BCP<span class="a">▍</span>
+   <span class="d">optional · type a bank · ↑↓ highlight · enter picks</span>
+
+   <span class="d">type            bank  read-only</span>
+   bank            BCP
+   last 4          5678
+   since           2026-08-15
+   <span class="d">cards before    1234 until 2026-08-14</span>
+   new card        <span class="d">—  (optional)</span>
+   alias           <span class="d">—  (optional)</span>
+   <span class="d">currencies      PEN · USD  read-only</span>
+   statement code  SIG
+   color           <span class="s1">██</span> blue
+   PEN opening     <span class="n">-1,200.00</span>
+   PEN as of       2026-01-01
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Everything about the account stays on one form. <b>new card</b> takes the replacement's last 4 digits, and <b>new card from</b> its first day (required once a new card is typed). After the save the new card is the account's number, its <b>since</b> day can still be fixed, and the old ones read <code>cards before</code>, read-only.</p></div>
+
+<div class="var"><div class="oh">B · <span>a Cards screen of its own, from Manage ▸ Accounts</span></div>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · k on the Visa</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts
+  ▸  BCP 1234  ▸  <span class="b">Cards</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+    Card    From          Until
+    <span class="d">───────────────────────────────</span>
+    <span class="rev">1234    first card    —           </span>
+
+
+
+
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New card  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · after n, 5678 from 2026-08-15</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts
+  ▸  BCP 5678  ▸  <span class="b">Cards</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+    Card    From          Until
+    <span class="d">───────────────────────────────</span>
+    <span class="rev">5678    2026-08-15    —           </span>
+    1234    first card    2026-08-14
+
+
+                                <span class="a">▌</span> Saved.
+
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New card  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
+</div>
+<p class="cap"><code>k</code> on Manage ▸ Accounts opens the account's cards, newest first. <code>n</code> asks the new card's last 4 and its first day; <code>e</code> fixes a card's number or day; <code>d</code> removes a card added by mistake, after a question. More keys to learn, and a place to fix any card's day, not only the current one's. (Narrow here only to fit two side by side.)</p></div>
+</div>
+
+<!-- ================================================================== 4 -->
+<div class="pane">
+<div class="lbl">4 · Manage ▸ Accounts <span>— pick A or B</span></div>
+<p class="blurb">Every screen shows the name the engine gives: <code>BCP 5678</code>, or the alias. Here, <b>Ahorros</b> is an alias on a BCP account numbered 9902.</p>
+
+<div class="var"><div class="oh">A · <span>no new column: Name is the name shown</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+    Name            Type    Code  Color          PEN        USD  Status
+    <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">BCP 5678        bank    SIG   <span class="s1">██</span>       -2,340.50    -185.20  active  </span>
+    BCP 4471        bank    PEN   —        <span class="p">12,450.00</span>          —  active
+    Ahorros         bank    —     <span class="s2">██</span>        <span class="p">3,820.15</span>          —  active
+    Efectivo        bank    —     —           <span class="p">350.00</span>          —  active
+    Eliana          person  —     —          <span class="n">-150.00</span>          —  active
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">Ahorros's number shows on its Edit form. The list keeps today's columns.</p></div>
+
+<div class="var"><div class="oh">B · <span>a Number column beside Name</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+    Name          Number    Type    Code  Color        PEN        USD  Status
+    <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">BCP 5678      BCP 5678  bank    SIG   <span class="s1">██</span>     -2,340.50    -185.20  active  </span>
+    BCP 4471      BCP 4471  bank    PEN   —      <span class="p">12,450.00</span>          —  active
+    Ahorros       BCP 9902  bank    —     <span class="s2">██</span>      <span class="p">3,820.15</span>          —  active
+    Efectivo      —         bank    —     —         <span class="p">350.00</span>          —  active
+    Eliana        —         person  —     —        <span class="n">-150.00</span>          —  active
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">Every account's number in sight, at the price of repeating it on the accounts with no alias, and less room for the name.</p></div>
+</div>
+
+<!-- ================================================================== 5 -->
+<div class="pane">
+<div class="lbl">5 · The LOG bar's <code>$</code> <span>— pick A or B</span></div>
+<p class="blurb"><code>$</code> picks an account by its name, as today. With names like <code>BCP 5678</code>, either word finds it.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the name shown, either word</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">LOG</span>  Almuerzo <span class="a">$56</span><span class="a">▍</span> <span class="n">-24.00</span> hoy
+  <span class="d">"$56" matches 1 account — ↵ writes the full name</span>
+  <span class="rev">  BCP 5678  </span>
+
+  <span class="b">LOG</span>  Almuerzo <span class="a">$bcp</span><span class="a">▍</span> <span class="n">-24.00</span> hoy
+  <span class="d">"$bcp" matches 2 accounts — ↑↓ moves</span>
+  <span class="rev">  BCP 5678  </span>
+    BCP 4471
+
+  <span class="b">LOG</span>  Retiro <span class="a">$ahorros</span><span class="a">▍</span> <span class="n">-100.00</span> hoy
+  <span class="d">"$ahorros" matches 1 account</span>
+  <span class="rev">  Ahorros  </span></pre></div></div>
+<p class="cap">One rule, as today: <code>$</code> matches what you see. An account under an alias is found by its alias only; <code>$9902</code> finds nothing.</p></div>
+
+<div class="var"><div class="oh">B · <span>the name shown, or the card's last 4</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">LOG</span>  Almuerzo <span class="a">$56</span><span class="a">▍</span> <span class="n">-24.00</span> hoy
+  <span class="d">"$56" matches 1 account — ↵ writes the full name</span>
+  <span class="rev">  BCP 5678  </span>
+
+  <span class="b">LOG</span>  Almuerzo <span class="a">$bcp</span><span class="a">▍</span> <span class="n">-24.00</span> hoy
+  <span class="d">"$bcp" matches 3 accounts — ↑↓ moves</span>
+  <span class="rev">  BCP 5678  </span>
+    BCP 4471
+    Ahorros  <span class="d">BCP 9902</span>
+
+  <span class="b">LOG</span>  Retiro <span class="a">$9902</span><span class="a">▍</span> <span class="n">-100.00</span> hoy
+  <span class="d">"$9902" matches 1 account — ↵ writes the full name</span>
+  <span class="rev">  Ahorros  </span></pre></div></div>
+<p class="cap">The number on the card in your hand always works, even under an alias; the list names the number beside an alias.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 6 -->
+<div class="pane">
+<div class="lbl">6 · A PDF sent to the wrong account <span>— no pick: the engine's words, as every refusal</span></div>
+<p class="blurb">You pick <b>BCP 4471</b> for the Visa's paper. Nothing is written; the screen stays on the account question, so the right account is one pick away. The engine's words are invented here: the engine writes them.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Upload a statement</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Which account is this statement?</span>   <span class="d">EECC_2026-10.pdf</span>
+
+     BCP 5678
+   <span class="rev">  BCP 4471  </span>
+     Ahorros
+     Efectivo
+
+                              <span class="n">▌</span> <span class="b">Failed</span>
+                              <span class="n">▌</span> VALIDATION_ERROR — The paper is not this
+                              <span class="n">▌</span> account's.
+                              <span class="n">▌</span>   account_id: The paper prints card 5678;
+                              <span class="n">▌</span> BCP 4471's number on 2026-10-25 is 4471.
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Pick  <span class="a">↑↓</span> Move</pre></div></div>
+<p class="cap">The Visa's papers from before 2026-08-15 print 1234, and still close the Visa's months.</p>
+</div>
+
+<div class="pick">
+<b>To pick:</b> one letter per pane, e.g. <code>1A 2A 3A 4A 5A</code>.
+<ol>
+<li><b>Bank line:</b> A picked from the engine's list · B typed.</li>
+<li><b>Alias line:</b> A called alias everywhere · B keeps the word name.</li>
+<li><b>Replaced card:</b> A on the Edit form · B a Cards screen.</li>
+<li><b>Manage ▸ Accounts:</b> A no new column · B a Number column.</li>
+<li><b>LOG bar <code>$</code>:</b> A the name shown · B also the last 4.</li>
+</ol>
+</div>
+
+</body>
+</html>
