@@ -50,13 +50,7 @@ file is deleted.
 Point 1 already holds: [edit_form.py](../../expense/tui/screens/edit_form.py) notes
 `Saved. It left its statement.` and its crumb names `Statements`; the acceptance check confirms it.
 
-1. **A live test drives the flagged lines' screen's own reads.** A new live test reads a
-   statement's review list through the app's own calls, as the flagged lines' screen and the
-   statement upload's result do (`count_bank_lines` with `review_of=` and the screen's list read
-   with `sort="statement"`), on a draft and after its close: the count agrees with the list, and
-   after the close the list is exactly the close's `review_lines` in their order, every currency
-   of the account together. It cleans up after itself like every live test (conftest.py
-   `scratch`).
+Every task is done; the acceptance check and the doc sweep remain.
 
 ## Found along the way
 

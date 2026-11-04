@@ -67,6 +67,10 @@ stand on rules only the engine can confirm. Pinned here:
     statement's last day to the statement's last day, in every currency of the account
     (a dollar line on a soles-only statement's days included), the same before and after the
     close, dropped when assigned; it is taken alone and in no other order;
+  · the flagged lines' screen's own reads of the review list (the count and every page in
+    the statement's order): on a draft the count is the list's length, and after the close
+    the list is the draft's, oldest first across both currencies, each currency's
+    `review_lines` being that list's lines in that currency, in its order;
   · the statement screen's own reads of a draft month (the statement's lines, and the
     account's lines in no statement inside the period) list a split purchase as one row of
     its total, and a tick on the one part it names moves the whole line in and out;
@@ -740,6 +744,45 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
     scratch.assign(client.get(f"/bank-lines/{pen_loose}")["parts"][0]["id"], march)
     assert _review(client, march) == [usd_loose, edge]
     assert _lines_counted(client, unassigned_in_period_of=march) == 2
+
+
+def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, target, scratch):
+    """The flagged lines' screen counts the review list with `count_bank_lines(review_of=)`
+    and lists every page of it with `_fetch_all_lines(review_of=, sort="statement")`, the
+    reads the statement screen and the upload's result count with too. On an account of
+    two currencies the count is the list's length on a draft, and after the close the list
+    is the draft's, oldest first across the currencies: each currency's `review_lines`
+    is that list's lines in that currency, in its order
+    (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it")
+    (contract: POST /v1/statements/{statement_id}/complete, "`review_lines`")."""
+    from expense.tui.screens.reconciliations import _fetch_all_lines
+
+    def screen_reads(statement: str) -> tuple[list[str], int]:
+        count = count_bank_lines(target, review_of=statement)
+        lines = _fetch_all_lines(target, review_of=statement, sort="statement")
+        return [line["id"] for line in lines], count
+
+    account = scratch.account("PEN", "USD")
+    march = scratch.statement(account, *MARCH, balances=_pen(-1000))["id"]
+    scratch.assign(scratch.row(account, "2026-03-12", -1000)["id"], march)
+    pen_loose = scratch.row(account, "2026-03-20", -200)["bank_line_id"]
+    scratch.opening_balance(account, "2026-03-02", "USD")
+    usd_loose = scratch.row(account, "2026-03-15", -300, "USD")["bank_line_id"]
+    edge = scratch.row(account, "2026-03-31", -100, "USD")["bank_line_id"]
+
+    listed, count = screen_reads(march)
+    assert listed == [usd_loose, pen_loose, edge]
+    assert count == len(listed)
+
+    done = client.post(f"/statements/{march}/complete")
+    (dollars,) = done["not_covered"]
+    soles = balance_of(done, "PEN")["review_lines"]
+    assert (soles, dollars["review_lines"]) == ([pen_loose], [usd_loose, edge])
+    listed, count = screen_reads(march)
+    assert listed == [usd_loose, pen_loose, edge]
+    assert count == len(listed)
+    for review in (soles, dollars["review_lines"]):
+        assert [line for line in listed if line in review] == review
 
 
 @pytest.mark.parametrize(
