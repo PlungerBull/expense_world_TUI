@@ -266,3 +266,20 @@ def test_startup_fetch_is_silent_before_first_time_setup(configured):
         assert app.is_running
 
     run_app(scenario)
+
+
+def test_a_crumb_on_a_pushed_screen_is_repainted():
+    """A section screen pushed over home: `app.query` does not reach a pushed screen,
+    so the rate landing while one is open must walk the screen stack."""
+    from expense.tui.screens.reconciliations import ReconciliationsScreen
+    from tests.unit.helpers import screen_lines
+
+    async def scenario(pilot, app):
+        await app.push_screen(ReconciliationsScreen())
+        await pilot.pause()
+        assert RATE_ALERT_MARK not in screen_lines(app)[0]
+        app._set_rate_stale(True)
+        await pilot.pause()
+        assert screen_lines(app)[0].endswith(RATE_ALERT_MARK)
+
+    run_app(scenario)

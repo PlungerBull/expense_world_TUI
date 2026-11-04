@@ -1912,3 +1912,79 @@ def test_a_wide_terminal_measures_the_caption_at_the_card_width(monkeypatch):
         assert rows and len(rows) == screen._batch_list._page_size
 
     run_app(scenario, size=(140, 24))
+
+
+# ---- a long account name in the crumb ------------------------------------
+
+CRUMB_NAME = "Cuenta de ahorros en soles del Banco de Credito del Peru"[:50]
+
+
+def _crumb_name_accounts(monkeypatch):
+    reads = _patch_browse(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts",
+        lambda *a, **k: whole(
+            [account_with_currencies(id="acc1", name=CRUMB_NAME, currencies=[held_currency("PEN")])]
+        ),
+    )
+    return reads
+
+
+def _drawn_crumb(app) -> tuple[str, str]:
+    """The crumb line as drawn, and the line under it (the rule)."""
+    lines = screen_lines(app)
+    return lines[0].strip(), lines[1].strip()
+
+
+@pytest.mark.parametrize(("stale", "ending"), [(True, "…  !"), (False, "…"), (None, "…")])
+def test_a_long_account_name_cuts_the_crumb_to_one_line_and_keeps_the_alert(
+    monkeypatch, stale, ending
+):
+    reads = _crumb_name_accounts(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert _crumb(screen)[-1] == CRUMB_NAME
+        app._set_rate_stale(stale)
+        await pilot.pause()
+        crumb, rule = _drawn_crumb(app)
+        assert crumb.startswith("◈ EXPENSE WORLD") and crumb.endswith(ending), crumb
+        assert ("!" in crumb) is bool(stale)
+        assert rule and set(rule) <= set("▁─━ "), rule  # the line under it is the rule
+        assert reads == ["acc1"]
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_short_crumb_is_not_cut(monkeypatch):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        await _open_panel(pilot, app)
+        app._set_rate_stale(True)
+        await pilot.pause()
+        crumb, rule = _drawn_crumb(app)
+        assert "…" not in crumb
+        assert crumb.endswith("BCP PEN  !")
+        assert rule and set(rule) <= set("▁─━ "), rule
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_crumb_is_cut_again_whenever_the_terminal_is_resized(monkeypatch):
+    _crumb_name_accounts(monkeypatch)
+
+    async def scenario(pilot, app):
+        await _open_panel(pilot, app)
+        app._set_rate_stale(True)
+        for width in (80, 60, 140, 80):
+            await pilot.resize_terminal(width, 24)
+            await pilot.pause()
+            crumb, _rule = _drawn_crumb(app)
+            assert len(crumb) <= width, (width, crumb)
+            if width < 100:
+                assert crumb.endswith("…  !"), (width, crumb)
+            else:
+                assert crumb.endswith(CRUMB_NAME + "  !"), (width, crumb)
+
+    run_app(scenario, size=(80, 24))

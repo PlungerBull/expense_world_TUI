@@ -113,6 +113,8 @@ so it also shows on an ordinary morning before the engine's fetch job has run.
   stale). There is no screen behind the mark.
 - **App-owned, fetched once per launch** into `ExpenseApp.rate_stale` (`True` / `False` /
   `None`); a screen pushed later reads it, one already mounted is repainted.
+- **The `!` always shows.** A trail wider than the crumb is cut at its end with `…`, to the
+  crumb's own width, so the alert after it is never pushed off.
 - **`None` renders nothing** (offline, unconfigured, pre-fetch, an unexpected body).
   Warning-coloured, not error: a carried-forward rate is the engine's designed fallback.
 - Guard: [tests/unit/test_rate_alert.py](../tests/unit/test_rate_alert.py).

@@ -106,8 +106,11 @@ class ExpenseApp(App):
         self.rate_stale = stale
         # Repaint whatever header is on screen right now. Screens mounted later
         # read the value at render time and need no notification.
-        for crumb in self.query(Breadcrumb).results(Breadcrumb):
-            crumb.refresh()
+        # Every screen on the stack: `self.query` does not reach a pushed screen, the
+        # top one included.
+        for screen in self.screen_stack:
+            for crumb in screen.query(Breadcrumb):
+                crumb.refresh()
         # The home screen builds its own header instead of using Breadcrumb, so
         # it opts in by name. Named hook rather than poking a private method:
         # the app must not depend on how any screen paints itself.

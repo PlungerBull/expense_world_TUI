@@ -72,9 +72,14 @@ class Breadcrumb(Static):
 
         app = _app(self)
         alert = rate_alert(getattr(app, "rate_stale", None), PALETTE)
-        if alert.plain:
-            text.append(RATE_ALERT_GAP)
-            text.append_text(alert)
+        tail = Text(RATE_ALERT_GAP) + alert if alert.plain else Text("")
+        # The trail gives way with `…` so the alert, which sits after it, always shows.
+        # Unmounted (width 0) there is nothing to fit to.
+        room = self.content_size.width - tail.cell_len
+        if self.content_size.width and text.cell_len > room:
+            text.truncate(max(room, 1), overflow="ellipsis")
+        text.no_wrap = True
+        text.append_text(tail)
         return text
 
 
