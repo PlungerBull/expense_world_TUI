@@ -5,10 +5,9 @@ own: today the owner names a PDF's account by hand, and the engine never compare
 the paper prints with the account picked, so the preview is the only check against a wrong
 account's paper.
 
-**Status: every question answered and the mockup picked on 2026-11-03; the tasks wait for the
-owner's approval, and then for the engine ask "An account carries its bank and its card numbers
-over time, and a PDF is checked against them"**, in [to-engine/](../to-engine/) for the owner to
-hand over. The engine's hand-off for it is planned into these tasks, with the reply this spec
+**Status: every question answered, the mockup picked and the tasks approved on 2026-11-03; the
+tasks wait for the engine ask "An account carries its bank and its card numbers over time, and a
+PDF is checked against them"**, in [to-engine/](../to-engine/) for the owner to hand over. The engine's hand-off for it is planned into these tasks, with the reply this spec
 then ends with. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
@@ -65,8 +64,8 @@ day. A card that is closed ends its account, and a new card is a new account.
 
 ## Tasks
 
-Waiting on the owner's approval, then on the engine ask named in the status above; each task
-reads the live contract once the hand-off lands, and its "passes if…" is written then.
+Approved; waiting on the engine ask named in the status above. Each task reads the live contract
+once the hand-off lands, and its "passes if…" is written then.
 
 1. **Every screen shows the engine's name to show.** The account reads carry it, and each
    screen and the LOG bar's `$` (either word, 5A) use it in place of the typed name.
