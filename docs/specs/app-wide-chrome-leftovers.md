@@ -3,8 +3,8 @@
 What part 7 of the currencies catch-up, an account's statement on one screen (done on
 2026-11-03), turned up that touches every screen, not only the Statements ones.
 
-**Status: the four questions answered on 2026-11-03; six tasks drafted for the owner to
-approve, and one new question for task 6.** It waits on no other spec, and
+**Status: every question answered on 2026-11-03; six tasks drafted for the owner to
+approve.** It waits on no other spec, and
 [the Statements screens as drawn](statements-screens-as-drawn.md) runs after it. When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -61,17 +61,7 @@ showed differences that come from what every screen shares:
 | 2 | `^s` and a value typed but not yet entered? | B: `^s` also keeps what is in the bar, on every form, then saves (2026-11-03). |
 | 3 | The blank lines around the breadcrumb? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 4 | A: dropped on every screen (2026-11-03). |
 | 4 | Incomes in lists? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 5 | A: every list writes an income with its `+` (2026-11-03). |
-
-## Questions for the owner
-
-5. **Which positive figures get the `+`** (blocks task 6). Lists show transaction amounts, but
-   also account balances (Home, Manage ▸ Accounts, the Statements browse) and totals (Home's
-   month grid, the LOG bar's staged totals).
-   - **A.** Transaction amounts only; balances and totals stay as they are, as the statement
-     drawings draw them (`12,450.00 PEN` on the browse, `+800.00` on a line).
-   - **B.** Every positive figure in a list: amounts, balances and totals.
-
-   **Recommended:** A, because a balance is not an income, and the drawings already show it so.
+| 5 | Which positive figures get the `+`: transaction amounts only, or balances and totals too? | Transaction amounts only; account balances and totals stay unsigned, as the statement drawings draw them (`12,450.00 PEN` on the browse, `+800.00` on a line) (2026-11-03). |
 
 ---
 
@@ -96,10 +86,11 @@ so one change reaches them all.
 5. **`pgup Prev` only where there is a page before** (What it must do 5): the footer of
    `CursorList` ([cursor_list.py](../../expense/tui/widgets/cursor_list.py)) and the other
    lists that bind it hide the key on the first page.
-6. **Incomes carry their `+`** (Decided 4, and question 5 once answered): the shared amount
-   cell ([cells.py](../../expense/tui/widgets/cells.py), `AMOUNT_RULE` in
-   [theme.py](../../expense/tui/theme.py)) writes `+` before a positive figure, in the lists
-   question 5 picks.
+6. **Incomes carry their `+`** (Decided 4 and 5): every list writes `+` before a positive
+   transaction amount, through the shared amount cell
+   ([cells.py](../../expense/tui/widgets/cells.py), `AMOUNT_RULE` in
+   [theme.py](../../expense/tui/theme.py)); account balances and totals, which share that rule
+   today, stay unsigned.
 
 ## Found along the way
 

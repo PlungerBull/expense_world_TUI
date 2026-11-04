@@ -87,7 +87,7 @@ the bank download leftovers (done on 2026-11-03),
 Answered on 2026-11-03, their tasks drafted for you to approve:
 [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (3 tasks), [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
-(6 tasks, and 1 new question for its last task) and, after it,
+(6 tasks) and, after it,
 [the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks).
 
 New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
