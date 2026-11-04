@@ -3,8 +3,8 @@
 What part 7 of the currencies catch-up, an account's statement on one screen (done on
 2026-11-03), turned up that touches every screen, not only the Statements ones.
 
-**Status: every question answered on 2026-11-03; six tasks drafted for the owner to
-approve.** It waits on no other spec, and
+**Status: every question answered and the six tasks approved by the owner on
+2026-11-03.** It waits on no other spec, and
 [the Statements screens as drawn](statements-screens-as-drawn.md) runs after it. When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -67,7 +67,7 @@ showed differences that come from what every screen shares:
 
 ## Tasks
 
-Drafted on 2026-11-03 for the owner to approve. Each lands in the shared code every screen uses,
+Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
 so one change reaches them all.
 
 1. **The blank lines around the breadcrumb go** (Decided 3): the crumb's padding in

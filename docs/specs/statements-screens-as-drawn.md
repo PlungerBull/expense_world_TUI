@@ -5,8 +5,8 @@ What part 7 of the currencies catch-up, an account's statement on one screen (do
 differs from the approved drawing
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html).
 
-**Status: both questions answered on 2026-11-03; seven tasks drafted for the owner to
-approve.** It runs after [every screen's frame](app-wide-chrome-leftovers.md), whose dropped
+**Status: both questions answered and the seven tasks approved by the owner on
+2026-11-03.** It runs after [every screen's frame](app-wide-chrome-leftovers.md), whose dropped
 blank lines around the breadcrumb are what lets `u` read line for line as drawn. When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -79,7 +79,7 @@ smaller differences from the approved drawing, which it listed rather than built
 
 ## Tasks
 
-Drafted on 2026-11-03 for the owner to approve. Each is checked at 80×24 against
+Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 

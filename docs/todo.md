@@ -84,7 +84,7 @@ the bank download leftovers (done on 2026-11-03),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
-Answered on 2026-11-03, their tasks drafted for you to approve:
+Answered on 2026-11-03 and their tasks approved, running in this order:
 [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (3 tasks), [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
 (6 tasks) and, after it,

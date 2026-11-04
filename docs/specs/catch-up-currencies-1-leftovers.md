@@ -3,8 +3,8 @@
 Small things part 1 of the catch-up to contract `f82426fb0a099676`, the app's reads and writes on
 an account and a currency (done on 2026-10-30), turned up while it ran.
 
-**Status: both questions answered on 2026-11-03; three tasks drafted for the owner to
-approve.** It waits on no other spec. When done, the why moves to
+**Status: both questions answered and the three tasks approved by the owner on
+2026-11-03.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -56,7 +56,7 @@ approve.** It waits on no other spec. When done, the why moves to
 
 ## Tasks
 
-Drafted on 2026-11-03 for the owner to approve.
+Approved by the owner on 2026-11-03.
 
 1. **The peek's count names what it lists** (Decided 1): every wording of `peek_status` in
    [log_bar.py](../../expense/tui/screens/log_bar.py) says the pick's label where it says "this
