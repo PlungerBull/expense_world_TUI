@@ -5,9 +5,10 @@ What part 7 of the currencies catch-up, an account's statement on one screen (do
 differs from the approved drawing
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html).
 
-**Status: drafted on 2026-11-03 for the owner to rewrite or approve; two questions, one with a
-mockup to draw.** It waits on no other spec. When done, the why moves to
-[decisions.md](../decisions.md) and this file is deleted.
+**Status: both questions answered on 2026-11-03; seven tasks drafted for the owner to
+approve.** It runs after [every screen's frame](app-wide-chrome-leftovers.md), whose dropped
+blank lines around the breadcrumb are what lets `u` read line for line as drawn. When done,
+the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -67,29 +68,39 @@ smaller differences from the approved drawing, which it listed rather than built
 8. No Statements screen says "batch", unless question 1 keeps it.
 9. The unit suite, the live suite and the drift check pass.
 
-## Questions for the owner
+## Decided
 
-1. **"batch" on the Statements screens:** the lines in no statement are `In no batch` and the
-   key is `u No batch`. Which words?
-   - **A.** "statement": `In no statement`, `u No statement`,
-     `(no transactions in this statement)`.
-   - **B.** Keep "batch".
-
-   **Recommended:** A, because "statement" is the word every other part of these screens uses.
-2. **Below 24 rows** (mockup to draw): with five accounts at 80×20 the statements list can show
-   no row at all, because the accounts list keeps at least five rows.
-   - **A.** Keep it: a terminal too small is yours to make bigger
-     ([decisions.md](../decisions.md) "A terminal too small is the user's to fix").
-   - **B.** The accounts list gives up rows first, so the statements always show at least three.
-
-   **Recommended:** A, because it is the app's rule everywhere and 24 rows is the smallest the
-   drawings plan for.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | "batch" on the Statements screens? | A: "statement": `In no statement`, `u No statement`, `(no transactions in this statement)` (2026-11-03). |
+| 2 | Below 24 rows? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 2 | A: kept; a terminal too small is the user's to make bigger, and the accounts list keeps its rows (2026-11-03). |
 
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+Drafted on 2026-11-03 for the owner to approve. Each is checked at 80×24 against
+[expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
+[reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
+
+1. **"statement" for "batch"** (Decided 1): `In no statement`, the `u No statement` key and its
+   tooltip, `(no transactions in this statement)`, and every other "batch" a Statements screen
+   shows; tests and tui.md follow.
+2. **The lines in no statement read as drawn** (What it must do 1): the `!` mark first, the date
+   after it, the title taking the room left; the caption breaking where the drawing breaks it;
+   the footer `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`.
+3. **The browse as drawn** (What it must do 2 and 7): the header rules 60 wide under the
+   header's first letter; a long account name gives way with `…` so every balance shows whole;
+   a blank line between the accounts' page line and the statements' caption.
+4. **`c`'s refusal under the head** (What it must do 3): `Couldn't complete` and the engine's
+   words as lines between the head and the balance box, no toast, gone at the next key.
+5. **`c`'s boxes wrap** (What it must do 6): below 64 columns a box's words wrap instead of
+   being cut; tested at 60 columns.
+6. **The `⚑` line keeps the page line** (What it must do 5): the list is sized after the `⚑`
+   line is counted, so a statement with flagged lines shows both at 80×24.
+7. **Two small words** (What it must do 4 and 8): a covered currency with no difference yet
+   shows a dim `—`; on a two-currency New statement form an unreadable amount's note names its
+   currency (`Begin balance USD: a signed decimal…`).
 
 ## Found along the way
 

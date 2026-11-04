@@ -3,11 +3,8 @@
 Small things part 1 of the catch-up to contract `f82426fb0a099676`, the app's reads and writes on
 an account and a currency (done on 2026-10-30), turned up while it ran.
 
-**Status: draft, written 2026-10-30 for the owner to rewrite or approve, with two questions.**
-Its tasks are drafted when the owner approves it. It runs after
-part 6 of the currencies catch-up, the main views (done on 2026-10-31), which redrew the
-LOG bar and the account forms it touches; whatever of question 1's words or question 2's CODE
-line that part settled leaves this spec when it is planned. When done, the why moves to
+**Status: both questions answered on 2026-11-03; three tasks drafted for the owner to
+approve.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -48,28 +45,33 @@ line that part settled leaves this spec when it is planned. When done, the why m
 2. A person is created and edited with or without a statement code, as question 2 picked.
 3. The unit suite and the drift check pass.
 
-## Questions for the owner
+## Decided
 
-1. **What the LOG bar says when a name matches one account's two currencies** [mockup to draw].
-   - **A.** Count currencies when they are one account's: `"$visa" matches 2 currencies of VISA
-     Infinite Sapphire`, and the peek reads "of N in VISA Infinite Sapphire · USD".
-   - **B.** Count what the picker shows, whatever it is: `"$visa" matches 2`, and the peek reads
-     "of N in this currency".
-
-   **Recommended:** A. It says why there are two and which account they belong to.
-2. **Whether a person gets a statement code line.**
-   - **A.** No: a statement code matches a bank's statement PDF, and a person has none; the forms
-     stay as they are.
-   - **B.** Yes: New and Edit account show CODE for a person too, as the engine allows.
-
-   **Recommended:** A. A person has no bank statement to match, so the line would only invite a
-   code nothing reads.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | What the LOG bar says when a name matches one account's two currencies? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 1 | A: the peek's count names the account and its currency, `3 of 48 in VISA Infinite Sapphire · USD · newest first`. The hint's half is settled already: since part 6, `$visa` matches the Visa once, so no hint counts its currencies as accounts (2026-11-03). |
+| 2 | Whether a person gets a statement code line? | A: no; the New and Edit forms stay as they are for a person (2026-11-03). |
 
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+Drafted on 2026-11-03 for the owner to approve.
+
+1. **The peek's count names what it lists** (Decided 1): every wording of `peek_status` in
+   [log_bar.py](../../expense/tui/screens/log_bar.py) says the pick's label where it says "this
+   account" today (`3 of 48 in VISA Infinite Sapphire · USD · newest first`, `nothing in … yet`,
+   `48 in … · no room to show them`); its tests in `test_tui_log_bar.py`; tui.md "The account
+   peek".
+2. **The LOG bar's unit tests name accounts holding currencies** (What it must do 3): the
+   fixtures in `test_tui_log_bar.py` (`BCP Signature PEN` and the like) become accounts with no
+   currency in their names, holding their currencies; every assertion still proves what it
+   proved.
+3. **The two code comments say what the code does** (What it must do 4): the module docstring
+   of [accounts.py](../../expense/tui/screens/accounts.py) (a person's Code is its statement
+   code like any account's, `—` when it has none) and the bulk-write receipt's docstring in
+   [transactions.py](../../expense/tui/screens/transactions.py) (the pick's label, not
+   `BCP USD`).
 
 ## Found along the way
 

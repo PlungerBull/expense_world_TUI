@@ -84,16 +84,11 @@ the bank download leftovers (done on 2026-11-03),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
-New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
-(2 questions, one with a mockup to draw), now that part 6 is done.
-
-New, from part 6b's leftovers (done on 2026-11-02): [what part 6b's leftovers turned up](specs/catch-up-currencies-6c-leftovers.md)
-(1 question, with a mockup to draw), waiting on no other spec.
-
-New, from part 7: [the Statements screens as drawn](specs/statements-screens-as-drawn.md)
-(2 questions, one with a mockup to draw) and
-[every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
-(4 questions, two with a mockup to draw; one is the `^s` question asked earlier).
+Answered on 2026-11-03, their tasks drafted for you to approve:
+[what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
+(3 tasks), [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
+(6 tasks, and 1 new question for its last task) and, after it,
+[the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks).
 
 New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
 [accounts carry their numbers, and a PDF is checked against its account](specs/accounts-carry-their-numbers.md)

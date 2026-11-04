@@ -256,6 +256,17 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *A fixed 12-row strip* — steals rows from a long batch. *A one-line summary* — does not answer "did I already log this?". *Blanking the peek when the bar is empty* — blinks off at every `↵`. *A navigable peek* — a second cursor on the screen.
 
+## The LOG bar's staged title gives way before the columns that place a line (2026-11-03)
+
+**Context.** At 80 columns, an account and a category of about 20 letters each leave a staged
+row's title a few letters, or a bare `…`.
+
+**Decision.** The title and tags give way first; the marker, date, amount, currency, account
+and category stay whole ([tui.md](tui.md) "The LOG bar's account is one row per account").
+
+**Rejected.** *A least title width of about 10 letters, the account then the category cut
+next*: it cuts the names that say where each line will be written.
+
 ## The legend, the two picker gaps, and day+month dates (2026-08-29)
 
 **Decision.** (1) **The grammar legend is a permanent row** (`$account · @category · #tag · ±amount · //note · when     ↵ stages the line`) that never changes; everything that does change lives on the `#hint` row above it. (2) **A bare `$`/`@`/`#` opens the full list** — it stands unresolved carrying every candidate. (3) **Matching is accent-blind** via one `fold()` ([quickadd/names.py](../expense/quickadd/names.py)). (4) **Day + month means this year**: `28Aug`, `28/ago`, `1set`, `15DEC` — separator optional, month any prefix of three letters or more in English or Spanish (no three-letter prefix reaches two months); an explicit year wins.
