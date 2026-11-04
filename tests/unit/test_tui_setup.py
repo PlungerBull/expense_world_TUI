@@ -389,6 +389,25 @@ def test_no_profile_asks_for_the_name_then_creates_it_and_saves(lima, monkeypatc
     assert os.stat(_settings_file()).st_mode & 0o777 == 0o600
 
 
+def test_ctrl_s_creates_with_the_name_typed_but_not_entered(lima, monkeypatch):
+    stub_home_month(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = app.screen
+        await _until_name(pilot, screen)
+        await _type(pilot, screen, "Alex")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+
+    with respx.mock:
+        _no_profile_yet()
+        boot = respx.post(f"{ENGINE_URL}/v1/auth/bootstrap").mock(
+            return_value=httpx.Response(200, json=ME)
+        )
+        run_app(scenario, setup=True)
+        assert json.loads(boot.calls.last.request.content)["display_name"] == "Alex"
+
+
 def test_an_empty_name_shows_the_engines_refusal_and_saves_nothing(lima):
     async def scenario(pilot, app):
         screen = app.screen

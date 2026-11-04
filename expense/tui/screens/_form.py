@@ -115,6 +115,10 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self._submitting = False
         self._locked: set[str] = set()
         self._refused_line: str | None = None  # the line the last refusal named, if any
+        self._landed = ""  # what the bar held when the cursor landed on its line
+        self._keeping = False  # `_keep_bar` is running a line's commit
+        self._kept = False  # that commit went through (it reached `_advance`)
+        self._entered = False  # `⏎`'s own save is running: the line is already kept
 
     # ---- subclass hooks ----------------------------------------------------
     def _sequence(self) -> list[str]:
@@ -260,6 +264,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self.query_one("#field", Label).update(self._label(key))
         bar = self.query_one("#bar", Input)
         bar.value = self._bar_value(key)
+        self._landed = bar.value
         self._show_bar_word(bar.value)
         self._recompute(bar.value)
 
@@ -305,8 +310,14 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         """`⏎`'s move: on to the next field that can change, or, when no field
         ahead can (the last field, or only read-only ones after it), the save
         `ctrl+s` runs."""
-        if not self._goes_on(self._key):
-            self.action_submit()
+        if self._keeping:
+            self._kept = True  # `^s` keeps the line where it is
+        elif not self._goes_on(self._key):
+            self._entered = True
+            try:
+                self.action_submit()
+            finally:
+                self._entered = False
         else:
             self._current = self._step(1)
             self._refresh_bar()
@@ -386,10 +397,29 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
                 return False
         return True
 
+    def _keep_bar(self) -> bool:
+        """`^s`'s first step: keep what was typed in the bar on the current line
+        exactly as `⏎` does (its own reading, notes and commit), without moving on.
+        False when `⏎` would refuse it: the note is shown, the cursor stays and the
+        save does not go. Nothing is kept on a read-only line, when `⏎` already kept
+        the line (`⏎` on the last line saves), or when the bar holds what it did on
+        landing, so a line nobody typed on is never changed. Success is read from
+        the handler going on through `_advance`: a form's `⏎` handler that keeps a
+        value must go on through `_advance`."""
+        bar = self.query_one("#bar", Input)
+        if self._entered or self._key in self._locked or bar.value == self._landed:
+            return True
+        self._keeping, self._kept = True, False
+        try:
+            self.on_input_submitted(Input.Submitted(bar, bar.value))
+        finally:
+            self._keeping = False
+        return self._kept
+
     def action_submit(self) -> None:
         if self._submitting:
             return
-        if not self._required_met():
+        if not self._keep_bar() or not self._required_met():
             return
         request = self._submit_request()
         if request is None:

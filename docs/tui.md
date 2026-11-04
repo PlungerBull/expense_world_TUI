@@ -1671,11 +1671,15 @@ ahead can change (on the last field, or with only read-only fields after it) it 
 as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class
 in a screen's MRO on one `⏎`, so a form whose handler overrides an inherited one calls it
 itself and prevents the message's default (guarded by
-`test_a_forms_own_enter_handler_stops_the_ones_under_it`). `ctrl+s` saves the form, `esc`
-cancels. `tab` moves to the next field and `shift+tab` to the previous, on every field,
-whether or not a suggestion list is open; `FormScreen` is `inherit_bindings=False`, so the
-bar keeps focus. Plain `↑`/`↓` walk the suggestion list when the field has a non-empty one and
-move to the previous/next field when it has none. `ctrl+↑`/`ctrl+↓` also move fields but are
+`test_a_forms_own_enter_handler_stops_the_ones_under_it`). `ctrl+s` first keeps what was
+typed in the bar on the current line exactly as `⏎` does (same reading, same note), without
+moving on, then saves the form (`FormScreen._keep_bar`). A value `⏎` would refuse stops the
+save the same way: its note shows, the cursor stays and nothing is sent. A line nobody typed
+on, or a read-only one, keeps nothing; a suggestion highlighted with `↑`/`↓` but not typed
+counts as untouched. `esc` cancels. `tab` moves to the next field and `shift+tab` to the
+previous, on every field, whether or not a suggestion list is open; `FormScreen` is
+`inherit_bindings=False`, so the bar keeps focus. Plain `↑`/`↓` walk the suggestion list when
+the field has a non-empty one and move to the previous/next field when it has none. `ctrl+↑`/`ctrl+↓` also move fields but are
 never advertised: macOS claims `⌃↑` (Mission Control) and `⌃↓` (Application Windows) before
 the terminal sees them. Every field move skips read-only fields and stops at either end.
 On a read-only field, where the bar sits only when every field is read-only, the bar

@@ -836,7 +836,7 @@ class EditAccountScreen(NewAccountScreen):
             code = next(c for c in self._codes if self._openings[c].loading)
             toast(self, f"The {code} opening balance is still loading.", severity="error")
             return
-        if not self._required_met():
+        if not self._keep_bar() or not self._required_met():
             return
         account = self._payload()
         openings = [(code, w) for code in self._codes if (w := self._opening_write(code))]
