@@ -5,11 +5,12 @@ own: today the owner names a PDF's account by hand, and the engine never compare
 the paper prints with the account picked, so the preview is the only check against a wrong
 account's paper.
 
-**Status: the owner named it the current spec and answered its questions on 2026-11-03; the
-account form's mockup, [expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html),
-waits for the owner's pick, one letter per pane.** It waits on no other spec. The engine holds the fields
-and the rules, so its first step is an ask to the engine, written once the questions are
-answered. When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: every question answered and the mockup picked on 2026-11-03; the tasks wait for the
+owner's approval, and then for the engine ask "An account carries its bank and its card numbers
+over time, and a PDF is checked against them"**, in [to-engine/](../to-engine/) for the owner to
+hand over. The engine's hand-off for it is planned into these tasks, with the reply this spec
+then ends with. When done, the why moves to [decisions.md](../decisions.md) and this file is
+deleted.
 
 ---
 
@@ -55,12 +56,37 @@ day. A card that is closed ends its account, and a new card is a new account.
 | 2 | People and cash have no bank and no number. What is their name? | Their alias, required when there is no number (2026-11-03). |
 | 3 | A PDF whose number is not the account's number for that month? | Refused, in the engine's words, naming the paper's number and the account's; nothing written (2026-11-03). |
 | 4 | The names accounts already carry, once an account has its bank and last 4 digits? | Dropped: an account with a number shows as bank + last 4; an account with no number keeps its name as its alias (2026-11-03). |
+| 5 | The card numbers over time, as a table? | One row per number, kept by the engine: the first has no start day; each later one starts on its day and the one before ends the day before, so every day has one number (2026-11-03). |
+| 6 | A PDF sent to an account with no number yet? | Refused until the account has its number, as an account with no statement code is today (2026-11-03). |
+| 7 | A replacement whose start day falls inside a month already closed from a PDF? | Refused, naming that month, so a closed month's paper always matches its account's number (2026-11-03). |
+| 8 | The mockup, [expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html) | 1A the bank picked from the engine's list · 2A the line is `alias` on every account · 3A a replacement is `new card` and `new card from` on the Edit form, older numbers read-only as `cards before` · 4A Manage ▸ Accounts keeps its columns, Name the name shown · 5A the LOG bar's `$` matches the name shown, either word (2026-11-03). |
 
 ---
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Waiting on the owner's approval, then on the engine ask named in the status above; each task
+reads the live contract once the hand-off lands, and its "passes if…" is written then.
+
+1. **Every screen shows the engine's name to show.** The account reads carry it, and each
+   screen and the LOG bar's `$` (either word, 5A) use it in place of the typed name.
+2. **The banks and a new account's lines.** The engine's banks read; New takes `bank` (picked,
+   1A), `last 4` and `alias` where `name` is today (2A); a person's form has `alias` alone; the
+   engine's refusals land on their lines.
+3. **The Edit form's number lines.** `bank`, `last 4`, `since` and `alias`, the current number
+   fixed in place; the refusals on their lines.
+4. **A replacement card on the Edit form** (3A): `new card` and `new card from`, the older
+   numbers read-only as `cards before`; a start day refused for a closed month shows in the
+   engine's words on its line.
+5. **The PDF upload's two new refusals**: a wrong account's paper and an account with no number,
+   in the engine's words on the account question, which stays open (pane 6).
+6. **The live contract tests**: the banks read, the fields, the name served, the numbers over
+   time, and each refusal (done check 4).
+
+## Reply to the engine
+
+Drafted from the hand-off once it lands: the range it covers, its "Done when" checks reported
+on, and the ask it closes by title.
 
 ## Found along the way
 
