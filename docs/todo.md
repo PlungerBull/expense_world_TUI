@@ -79,23 +79,18 @@ The engine's hand-off "An account holds its currencies: every route names an acc
 currency code; holders are gone" (contract `f82426fb0a099676`) is caught up: its seven parts are
 done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
 
-Then, rewritten in place: a person's opening balance in the sheet import (done on 2026-11-03),
-the bank download leftovers (done on 2026-11-03),
-[the test-suite leftovers](specs/test-suite-leftovers.md), and last
-[the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
-
-What the reads and writes catch-up turned up is done (2026-11-03); it found
+Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
+[the official import](specs/before-the-official-import.md) (5 questions, facts only you know),
 [a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
-(1 question, mockup to draw). Answered on 2026-11-03 and their tasks approved, next in this
-order: [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
-(6 tasks) and, after it,
-[the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks).
-
-New, from a month's statement closing from the bank's PDF (done on 2026-11-03):
-[accounts carry their numbers, and a PDF is checked against its account](specs/accounts-carry-their-numbers.md)
-(tasks approved; an engine ask to hand over), and
+(1 question, mockup to draw) and
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
-(1 question), both waiting on no other spec.
+(1 question).
+
+Tasks approved, next in this order:
+[every screen's frame](specs/app-wide-chrome-leftovers.md) (6 tasks), then
+[the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks). Also
+approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on an
+engine ask you hand over.
 
 Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
 pick.
@@ -111,21 +106,14 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
-- **About 20 unit test files still name accounts with a currency code** (`BCP Signature PEN`,
-  `BCP PEN`, `BCP USD`), where an account now holds its currencies. Nothing you see changes.
-  Among them `test_tui_engine_words.py`, `test_tui_bracketed_names.py`, `test_tui_dropped.py`,
-  `test_tui_flagged_lines.py` and `test_tui_bulk_edit.py`'s `bulk_receipt` test
-  (`grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`); `test_tui_log_bar.py` shows
-  the shape.
-- **No LOG bar test drives the peek's words on a two-currency pick end to end.** Nothing you
-  see changes. The VISA test in [test_tui_log_bar.py](../tests/unit/test_tui_log_bar.py) checks
-  which account and currency the peek reads, not its title or count line; one test where
-  `-12.50 $visa %usd` shows the title `VISA Infinite Sapphire · USD` and the count
-  `… in VISA Infinite Sapphire · USD · newest first` would.
-- **The shared practice user holds no accounts,** so no LOG bar or account check can be seen
-  live on the practice engine, and the tester proves them with unit tests only. Nothing you see
-  changes. Either the engine's reseed gives that user a two-currency account (an engine ask) or
-  the tester may create and remove one during its check (a CLAUDE.md change for the owner).
+- **About 20 unit test files name accounts with a currency code** (`BCP Signature PEN`,
+  `BCP USD`), where an account holds its currencies; `test_tui_log_bar.py` shows the shape.
+  Nothing you see changes. `grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`.
+- **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
+  Nothing you see changes.
+- **The shared practice user holds no accounts,** so the tester proves LOG bar and account
+  checks with unit tests only. Nothing you see changes. Needs an engine ask (the reseed gives
+  it one) or a CLAUDE.md change (the tester may make and remove one).
 - **The live test of a person's opening balance proves less than it could.** Nothing you see
   changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads the person's

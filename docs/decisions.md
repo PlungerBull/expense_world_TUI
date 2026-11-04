@@ -252,7 +252,7 @@ Decisions whose why lives elsewhere:
 
 ## The LOG bar shows the named account's ledger — elastic, and it stays put (2026-08-29)
 
-**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…&currency_code=…` per account and currency, cached for the screen; a save invalidates the account currencies it wrote to; a failed peek says so in its border and never retries. Its count line names the pick's label (`3 of 48 in VISA Infinite Sapphire · USD · newest first`), since one account holds several currencies and the peek lists one of them.
+**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…&currency_code=…` per account and currency, cached for the screen; a save invalidates the account currencies it wrote to; a failed peek says so in its border and never retries. Its count line names the pick's label, since one account holds several currencies and the peek lists one of them ([tui.md](tui.md) "The account peek").
 
 **Rejected.** *A fixed 12-row strip* — steals rows from a long batch. *A one-line summary* — does not answer "did I already log this?". *Blanking the peek when the bar is empty* — blinks off at every `↵`. *A navigable peek* — a second cursor on the screen.
 
@@ -434,9 +434,9 @@ the bar is where the right file gets dropped next.
 
 ## A move to another account takes the row out of its reconciliation (2026-09-30)
 
-**Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` in Home.
+**Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` on the ledger.
 
-**Decision.** Both paths send `statement_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `statement_id` and keeps its reconciliation. A short note says so: `Saved. It left its statement.` in the edit form, `3 rows → BCP USD · 2 left their statement` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
+**Decision.** Both paths send `statement_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `statement_id` and keeps its reconciliation. A short note says so: `Saved. It left its statement.` in the edit form, `3 rows → Caja Chica · PEN · 2 left their statement` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
 
 The counts are the engine's: each move's answer lists every part of the bank line it changed and whether each left its reconciliation (contract: PUT /v1/transactions/{transaction_id}, "Response"), and the note counts the distinct parts listed across the answers that landed. A move that changes nothing shows no note. A line field reaches every part of a split transaction, so one request can move several rows, and two requests on one line can list the same rows; only the engine knows what moved.
 
@@ -719,8 +719,7 @@ a person's Edit form shows a `<CODE> opening` and `<CODE> as of` pair per curren
 account's, and `t` turns an account into a person keeping its opening balance
 (contract: POST /v1/accounts/{account_id}/make-person). The statement code line stays off a
 person's New and Edit forms, though the engine takes a code on a person
-(contract: "What an account is", "A person carries a code like any account"); Manage ▸ Accounts
-shows a code a person holds, as for any account.
+(contract: "What an account is", "A person carries a code like any account").
 
 **Rejected.** *A person's opening balance only from the sheet import* — a starting debt is a
 balance like any other, and the app would have no way to set or fix one by hand.
