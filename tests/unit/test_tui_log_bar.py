@@ -54,9 +54,11 @@ from tests.unit.helpers import (
 )
 
 ACCOUNTS = [
-    account_with_currencies(id="acc1", name="BCP Signature PEN", currencies=[held_currency("PEN")]),
-    account_with_currencies(id="acc2", name="BCP Signature USD", currencies=[held_currency("USD")]),
-    account_with_currencies(id="acc3", name="BCP PEN", currencies=[held_currency("PEN")]),
+    account_with_currencies(id="acc1", name="BCP Signature", currencies=[held_currency("PEN")]),
+    account_with_currencies(
+        id="acc2", name="BCP Signature Platinum", currencies=[held_currency("USD")]
+    ),
+    account_with_currencies(id="acc3", name="BCP", currencies=[held_currency("PEN")]),
 ]
 CATEGORIES = {
     "items": [
@@ -71,9 +73,9 @@ REFS = QuickAddRefs(
     categories=[("cat1", "KORAKUEN"), ("cat2", "TRANSPORTE")],
     hashtags=[("h1", "CAJA CHICA"), ("h2", "TAXI")],
     account_names={
-        "acc1": "BCP Signature PEN",
-        "acc2": "BCP Signature USD",
-        "acc3": "BCP PEN",
+        "acc1": "BCP Signature",
+        "acc2": "BCP Signature Platinum",
+        "acc3": "BCP",
     },
     category_names={"cat1": "KORAKUEN", "cat2": "TRANSPORTE"},
     hashtag_names={"h1": "CAJA CHICA", "h2": "TAXI"},
@@ -184,12 +186,12 @@ def _stage(line: str, today: date = TODAY) -> Staged:
     return Staged(line=line, parsed=parsed, routing=route(parsed, today))
 
 
-LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN @KORAKUEN #CAJA CHICA"
+LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature @KORAKUEN #CAJA CHICA"
 NO_ACCOUNT_LINE = "apparka mall -3.50 @TRANSPORTE #TAXI 18/08/2026"  # refused on ↵
-NO_CATEGORY_LINE = "apparka mall -3.50 $BCP PEN #TAXI 18/08/2026"  # stages → @Pendiente
-NO_TITLE_LINE = "-6.60 $BCP PEN"  # stages as a titleless row
-AHEAD_LINE = "alquiler -1800 $BCP PEN @KORAKUEN 22/08/2026"  # refused on ↵
-USD_LINE = "shimaya ramen -96.00 $BCP Signature USD @KORAKUEN"
+NO_CATEGORY_LINE = "apparka mall -3.50 $BCP #TAXI 18/08/2026"  # stages → @Pendiente
+NO_TITLE_LINE = "-6.60 $BCP"  # stages as a titleless row
+AHEAD_LINE = "alquiler -1800 $BCP @KORAKUEN 22/08/2026"  # refused on ↵
+USD_LINE = "shimaya ramen -96.00 $BCP Signature Platinum @KORAKUEN"
 
 
 # ---- pure: the staged table -------------------------------------------------
@@ -199,21 +201,21 @@ def test_ledger_row_is_marked():
     assert "goes to" not in out
     assert "TOTTUS" not in out  # the title is shown verbatim, never upper-cased
     assert "tottus porongoche" in out
-    assert "-38.60" in out and "BCP Signature PEN" in out and "#CAJA CHICA" in out
+    assert "-38.60" in out and "BCP Signature" in out and "#CAJA CHICA" in out
 
 
 def test_the_staged_list_has_a_cur_column_and_the_account_cell_names_the_account_alone():
     """Header `date title amount cur account category tags`; a PEN row and a USD
     row each hold their own code in `cur`, and no account cell reads "<name> · <code>"."""
     pen = _stage(LEDGER_LINE)
-    usd = _stage("netflix -9.99 $BCP Signature USD @KORAKUEN")
+    usd = _stage("netflix -9.99 $BCP Signature Platinum @KORAKUEN")
     out = _text(staged_table([pen, usd], REFS, today=TODAY.isoformat()))
     header = out.splitlines()[0].split()
     assert header == ["date", "title", "amount", "cur", "account", "category", "tags"]
     rows = staged_rows([pen, usd], REFS, palette=PALETTE, today=TODAY.isoformat())
     assert [(r[4], r[5]) for r in rows] == [
-        ("PEN", "BCP Signature PEN"),
-        ("USD", "BCP Signature USD"),
+        ("PEN", "BCP Signature"),
+        ("USD", "BCP Signature Platinum"),
     ]
     assert " · PEN" not in out and " · USD" not in out
 
@@ -279,7 +281,7 @@ def test_date_cell_hides_the_current_year_and_shows_any_other():
 
 # ---- pure: the summary ------------------------------------------------------
 def test_summary_with_one_currency_reads_as_the_mockup_drew_it():
-    entries = [_stage(LEDGER_LINE), _stage("shimaya ramen -96.00 $BCP PEN @KORAKUEN")]
+    entries = [_stage(LEDGER_LINE), _stage("shimaya ramen -96.00 $BCP @KORAKUEN")]
     out = _text(staged_summary(entries, REFS))
     assert "2 staged" in out  # everything is going to the ledger
     assert "-134.60 PEN" in out
@@ -314,7 +316,7 @@ def test_span_styles_come_from_the_theme_not_from_literals():
     assert by_kind["category"] == ACCENT
     assert by_kind["title"] == "bold"
 
-    income = _stage("sueldo +2450 $BCP PEN @KORAKUEN").parsed
+    income = _stage("sueldo +2450 $BCP @KORAKUEN").parsed
     amount = next(s for s in income.spans if s.kind == "amount")
     assert span_style(amount, income, PALETTE) == PALETTE.success
 
@@ -402,8 +404,8 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
         screen = await _open(app, pilot)
         _type(screen, "tottus porongoche -38.60 $sig")
         assert [name for _, name in screen._picker.candidates] == [
-            "BCP Signature PEN",
-            "BCP Signature USD",
+            "BCP Signature",
+            "BCP Signature Platinum",
         ]
         assert '"$sig" matches 2 accounts' in screen._hint()
         assert screen._suggest_idx == 0
@@ -438,9 +440,9 @@ def test_state3_enter_completes_the_token_inside_the_line(fake_client, monkeypat
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _type(screen, "tottus porongoche -38.60 $sig")
-        screen.action_move(1)  # the USD one
+        screen.action_move(1)  # the Platinum one
         screen.on_input_submitted()
-        assert _bar(screen).value == "tottus porongoche -38.60 $BCP Signature USD"
+        assert _bar(screen).value == "tottus porongoche -38.60 $BCP Signature Platinum"
         assert screen._picker is None  # it resolves now, so the picker closes
         assert screen._staged == []  # completing is not staging
         assert "completed the token in place" in screen._hint()
@@ -482,7 +484,7 @@ def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypa
         assert "the line names no account" in out
         assert "not staged" in screen._hint()
 
-        _type(screen, NO_ACCOUNT_LINE + " $BCP PEN")  # any edit is a new attempt
+        _type(screen, NO_ACCOUNT_LINE + " $BCP")  # any edit is a new attempt
         assert screen._refused is None
         screen.on_input_submitted()
         assert len(screen._staged) == 2
@@ -495,8 +497,8 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
     the bar, refused with a note naming `-13.853,20`, and nothing is staged or
     sent; the same figure written `-13,853.20` stages and saves as -13,853.20."""
     _patch(monkeypatch)
-    refused = "tottus -13.853,20 $BCP PEN"
-    fixed = "tottus -13,853.20 $BCP PEN"
+    refused = "tottus -13.853,20 $BCP"
+    fixed = "tottus -13,853.20 $BCP"
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -528,10 +530,10 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
 
 
 def test_a_line_with_no_signed_number_keeps_the_needs_a_sign_note(fake_client, monkeypatch):
-    """Typed key by key: `tottus 38 $BCP PEN` has a number but no sign, so `↵`
+    """Typed key by key: `tottus 38 $BCP` has a number but no sign, so `↵`
     refuses it with the note that says a number needs a sign; nothing is sent."""
     _patch(monkeypatch)
-    line = "tottus 38 $BCP PEN"
+    line = "tottus 38 $BCP"
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -841,7 +843,7 @@ def test_a_one_currency_account_stages_with_its_currency_and_nothing_typed(
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _stage_lines(screen, "Pan -4.50 $BCP PEN")
+        _stage_lines(screen, "Pan -4.50 $BCP")
         assert [(e.parsed.account_id, e.parsed.currency_code) for e in screen._staged] == [
             ("acc3", "PEN")
         ]
@@ -937,11 +939,11 @@ def test_a_currency_the_account_does_not_hold_is_refused_under_the_row_and_nothi
     """`CURRENCY_NOT_HELD`: the engine's words under the row, the row kept unsaved, the
     batch's other rows refused too (a refused batch writes none)."""
     _patch(monkeypatch)
-    words = "BCP PEN does not hold USD."
+    words = "BCP does not hold USD."
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _stage_lines(screen, "Taxi -18 $BCP PEN %usd")
+        _stage_lines(screen, "Taxi -18 $BCP %usd")
         _script(fake_client, [_refused(0, "currency_code", words, "CURRENCY_NOT_HELD")])
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
@@ -954,13 +956,13 @@ def test_a_currency_the_account_does_not_hold_is_refused_under_the_row_and_nothi
 
 
 def test_a_one_currency_account_resolves_on_its_name_and_exact_wins(fake_client, monkeypatch):
-    """`$BCP PEN` is the whole name of one account holding one currency: it resolves at
-    once to that pick, though "BCP Signature PEN" holds the words too."""
+    """`$BCP` is the whole name of one account holding one currency: it resolves at
+    once to that pick, though "BCP Signature" holds the words too."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _type(screen, "-6.60 $BCP PEN")
+        _type(screen, "-6.60 $BCP")
         assert screen._picker is None
         assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc3", "PEN")
 
@@ -1487,14 +1489,14 @@ def test_ctrl_s_leaves_a_half_typed_line_in_the_bar_alone(fake_client, monkeypat
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _stage_lines(screen, LEDGER_LINE)
-        _type(screen, "pollo -25 $BCP PEN @KORAKUEN")  # typed, never submitted
+        _type(screen, "pollo -25 $BCP @KORAKUEN")  # typed, never submitted
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
 
         assert len(screen._staged) == 1  # the bar's line was not staged
         batch = fake_client.posts[0][1]["transactions"]
         assert len(batch) == 1 and batch[0]["title"] == "tottus porongoche"
-        assert _bar(screen).value == "pollo -25 $BCP PEN @KORAKUEN"  # still yours
+        assert _bar(screen).value == "pollo -25 $BCP @KORAKUEN"  # still yours
 
     run_app(scenario)
 
@@ -1777,7 +1779,7 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         panel = _peek(screen)
         assert panel.display
         # content lines, not border decorations (docs/tui.md §2)
-        assert panel.panel_title == "BCP Signature PEN · PEN"
+        assert panel.panel_title == "BCP Signature · PEN"
         assert f"of 214 in {panel.panel_title}" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
 
@@ -1835,11 +1837,11 @@ def test_the_staged_rows_never_choose_the_peeks_account(fake_client, monkeypatch
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _type(screen, LEDGER_LINE)  # $BCP Signature PEN → acc1
+        _type(screen, LEDGER_LINE)  # $BCP Signature → acc1
         screen.on_input_submitted()
-        _type(screen, "tran.cel.bm. -6.60 $BCP PEN @TRANSPORTE")
+        _type(screen, "tran.cel.bm. -6.60 $BCP @TRANSPORTE")
         assert screen._peek_account == ("acc3", "PEN")  # the line's, not the staged row's
-        assert _peek(screen).panel_title == "BCP PEN · PEN"
+        assert _peek(screen).panel_title == "BCP · PEN"
 
     run_app(scenario, size=(110, 30))
 
@@ -2219,7 +2221,7 @@ WITH_PENDING = {
         {"id": "hp", "name": "Pendiente", "system_key": "pending"},
     ]
 }
-PENDING_AND_REAL_LINE = "tottus -38.60 $BCP Signature PEN @KORAKUEN #Pendiente #TAXI"
+PENDING_AND_REAL_LINE = "tottus -38.60 $BCP Signature @KORAKUEN #Pendiente #TAXI"
 
 
 def _save_line(fake_client, monkeypatch, line, *, script=None, tags=WITH_PENDING):
@@ -2254,13 +2256,13 @@ def test_a_line_naming_the_pending_hashtag_and_a_real_one_sends_the_real_one(
 
 
 def test_a_line_naming_only_the_pending_hashtag_sends_it_alone(fake_client, monkeypatch):
-    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature PEN #Pendiente")
+    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature #Pendiente")
     assert _sent_tags(fake_client) == [["hp"]]
 
 
 def test_a_line_with_no_hashtag_sends_none(fake_client, monkeypatch):
     """No `hashtag_ids` at all: the engine files the row under the pending hashtag."""
-    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature PEN")
+    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature")
     assert _sent_tags(fake_client) == [None]
 
 
@@ -2296,13 +2298,13 @@ def test_a_staged_line_naming_the_pending_hashtag_and_a_real_one_lists_the_real_
 
 
 def test_a_staged_line_naming_only_the_pending_hashtag_lists_it():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN #Pendiente")
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature #Pendiente")
     assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
 
 
 def test_a_staged_line_with_no_hashtag_reads_as_the_pending_hashtag():
     """In the accent, like the category cell's @Pendiente beside it."""
-    line = "tottus -38.60 $BCP Signature PEN"
+    line = "tottus -38.60 $BCP Signature"
     cell = _tags_cell_of(line)
     assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
     out = _text(staged_table([_stage(line)], REFS_PENDING, today=TODAY.isoformat()))
@@ -2315,11 +2317,11 @@ def test_the_tags_cell_takes_the_pending_hashtags_name_from_the_engine():
         hashtag_names={**REFS.hashtag_names, "hp": "Pend-from-engine"},
         pending_hashtag=("hp", "Pend-from-engine"),
     )
-    assert _tags_cell_of("tottus -38.60 $BCP Signature PEN", refs).plain == "#Pend-from-engine"
+    assert _tags_cell_of("tottus -38.60 $BCP Signature", refs).plain == "#Pend-from-engine"
 
 
 def test_with_no_pending_hashtag_yet_a_line_with_no_hashtag_shows_a_dash():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN", REFS)
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature", REFS)
     assert (cell.plain, cell.style) == ("—", "dim")
 
 
@@ -2333,7 +2335,7 @@ def test_with_no_pending_hashtag_yet_a_hashtag_only_named_like_it_is_listed():
 
 
 def test_an_unknown_tag_still_reads_in_red_with_a_pending_hashtag():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN #nope")
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature #nope")
     assert (cell.plain, cell.style) == ("#nope?", PALETTE.error)
 
 
@@ -2347,7 +2349,7 @@ def test_the_staged_row_lists_the_real_hashtag_and_up_brings_back_the_typed_line
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _stage_lines(screen, PENDING_AND_REAL_LINE, "tottus -38.60 $BCP Signature PEN")
+        _stage_lines(screen, PENDING_AND_REAL_LINE, "tottus -38.60 $BCP Signature")
         rows = staged_rows(screen._staged, screen._refs, palette=PALETTE)
         assert [row[-1].plain for row in rows] == ["#TAXI", "#Pendiente"]
         screen.action_move(1)
@@ -2380,18 +2382,18 @@ def test_the_staged_list_cuts_the_title_and_keeps_every_other_cell_whole(width, 
     date, amount, `cur`, account and category are never cut."""
     title = "x" * title_len
     rows = [
-        _stage(f"{title} -38.60 $BCP Signature PEN @KORAKUEN #CAJA CHICA"),
-        _stage("shimaya ramen -96.00 $BCP Signature USD @KORAKUEN"),
-        _stage("sueldo +1500.00 $BCP Signature PEN @TRANSPORTE"),
+        _stage(f"{title} -38.60 $BCP Signature @KORAKUEN #CAJA CHICA"),
+        _stage("shimaya ramen -96.00 $BCP Signature Platinum @KORAKUEN"),
+        _stage("sueldo +1500.00 $BCP Signature @TRANSPORTE"),
     ]
     lines = render_text(staged_table(rows, REFS, today=TODAY.isoformat()), width=width).splitlines()
     head, body = lines[0], lines[1:4]
     assert "cur" in head and "category" in head
     assert "…" in body[0].split("-38.60")[0]  # the long title ends in …
     expected = [
-        ("• 1", "-38.60", "PEN", "BCP Signature PEN", "KORAKUEN"),
-        ("• 2", "-96.00", "USD", "BCP Signature USD", "KORAKUEN"),
-        ("• 3", "1,500.00", "PEN", "BCP Signature PEN", "TRANSPORTE"),
+        ("• 1", "-38.60", "PEN", "BCP Signature", "KORAKUEN"),
+        ("• 2", "-96.00", "USD", "BCP Signature Platinum", "KORAKUEN"),
+        ("• 3", "1,500.00", "PEN", "BCP Signature", "TRANSPORTE"),
     ]
     for line, cells in zip(body, expected, strict=True):
         assert "20 Aug" in line

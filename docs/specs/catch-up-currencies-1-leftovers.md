@@ -58,10 +58,6 @@ an account and a currency (done on 2026-10-30), turned up while it ran.
 
 Approved by the owner on 2026-11-03.
 
-2. **The LOG bar's unit tests name accounts holding currencies** (What it must do 3): the
-   fixtures in `test_tui_log_bar.py` (`BCP Signature PEN` and the like) become accounts with no
-   currency in their names, holding their currencies; every assertion still proves what it
-   proved.
 3. **The two code comments say what the code does** (What it must do 4): the module docstring
    of [accounts.py](../../expense/tui/screens/accounts.py) (a person's Code is its statement
    code like any account's, `—` when it has none) and the bulk-write receipt's docstring in
@@ -76,3 +72,8 @@ Not built in this spec; drafted into a new spec when it is done.
   sizing, but at 80 columns a pick label over about 40 letters (`1716 of 1716 in <long name> ·
   PEN · newest first`) wraps to two, and the panel clips the second. Seen in review of task 1
   (2026-11-03), in [log_bar.py](../../expense/tui/screens/log_bar.py) `AccountPeek`.
+- **About 20 other unit test files still name accounts with a currency code** (`BCP Signature
+  PEN`, `BCP PEN`, `BCP USD`): among them `test_tui_engine_words.py`,
+  `test_tui_bracketed_names.py`, `test_tui_dropped.py` and `test_tui_flagged_lines.py`
+  (`grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`). Seen in review of task 2
+  (2026-11-03). Nothing you see changes.
