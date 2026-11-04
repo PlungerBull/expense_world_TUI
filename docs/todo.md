@@ -84,9 +84,10 @@ the bank download leftovers (done on 2026-11-03),
 [the test-suite leftovers](specs/test-suite-leftovers.md), and last
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know).
 
-Answered on 2026-11-03 and their tasks approved, running in this order:
-[what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
-(3 tasks), [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
+What the reads and writes catch-up turned up is done (2026-11-03); it found
+[a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
+(1 question, mockup to draw). Answered on 2026-11-03 and their tasks approved, next in this
+order: [every screen's frame, as the Statements drawings show it](specs/app-wide-chrome-leftovers.md)
 (6 tasks) and, after it,
 [the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks).
 
@@ -110,6 +111,21 @@ ships (its why moves to [decisions.md](decisions.md)). What a spec finds along t
 here unless the owner would see it in the app or it is a money or business rule, and the loop
 runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
 
+- **About 20 unit test files still name accounts with a currency code** (`BCP Signature PEN`,
+  `BCP PEN`, `BCP USD`), where an account now holds its currencies. Nothing you see changes.
+  Among them `test_tui_engine_words.py`, `test_tui_bracketed_names.py`, `test_tui_dropped.py`,
+  `test_tui_flagged_lines.py` and `test_tui_bulk_edit.py`'s `bulk_receipt` test
+  (`grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`); `test_tui_log_bar.py` shows
+  the shape.
+- **No LOG bar test drives the peek's words on a two-currency pick end to end.** Nothing you
+  see changes. The VISA test in [test_tui_log_bar.py](../tests/unit/test_tui_log_bar.py) checks
+  which account and currency the peek reads, not its title or count line; one test where
+  `-12.50 $visa %usd` shows the title `VISA Infinite Sapphire · USD` and the count
+  `… in VISA Infinite Sapphire · USD · newest first` would.
+- **The shared practice user holds no accounts,** so no LOG bar or account check can be seen
+  live on the practice engine, and the tester proves them with unit tests only. Nothing you see
+  changes. Either the engine's reseed gives that user a two-currency account (an engine ask) or
+  the tester may create and remove one during its check (a CLAUDE.md change for the owner).
 - **The live test of a person's opening balance proves less than it could.** Nothing you see
   changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads the person's
