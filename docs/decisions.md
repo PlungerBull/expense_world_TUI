@@ -1232,3 +1232,28 @@ a second read and without a taller row.
 moved line by id to show a day the close is about to change, and every moved row takes two
 lines. *Nothing on the rows, only a count under the table* — you see how many lines move, not
 which.
+
+## Every screen's frame: no blank lines at the crumb, refusals under the form, `+` on incomes (2026-11-03)
+
+**Decision.** (1) **The crumb has no blank line above it or under it**: crumb, rule, one blank
+line, content, on every screen. (2) **A form's refused save is a block under the form**,
+`▌ Failed` and the engine's words, kept until the next key, on every form; every form leaves one
+blank line under its hint when no suggestion list shows, so the block fits 80×24.
+(3) **`^s` keeps what is typed in the bar as `⏎` would, then saves**; a line nobody typed on
+keeps nothing. (4) **A long crumb is cut with `…`** and the `!` rate alert always shows after
+it. (5) **`pgup Prev` leaves a list's footer on its first page.** (6) **A positive transaction
+amount is written with its `+`** in every list; balances, totals and sums write no `+`
+([tui.md](tui.md) "Amounts").
+
+**Why.** Each list gains two rows, which is what lets the Statements screens fit 80×24 as
+drawn. A toast fades before its words are read or the line is fixed. A value in the bar is what
+the user sees as typed, and leaving it out drew a refusal for a value they had given. A footer
+offers only keys that act. The sign stays explicit both ways with colour off, as "Sign is always
+literal" holds for typing; a balance or a sum is not a transaction, and the drawings
+write them bare.
+
+**Rejected.** *Keep the blank lines* — two rows fewer on every list. *Keep the toast* — it
+fades. *`^s` sends only lines entered with `⏎`* — the engine refuses the save for the missing
+value. *`^s` also keeps an untouched line* — on a choice line `⏎`'s reading picks the first
+account or colour for the user. *`+` on balances and totals too* — the drawings write them
+without one.

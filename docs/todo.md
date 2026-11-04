@@ -15,9 +15,7 @@ handed over.
 ## Waiting on you
 
 Everything that needs the owner: questions, and things only the owner can do. The orchestrator
-adds an entry instead of guessing, acts on the answer, then deletes the entry. After a round of
-answers it tells the owner what each answer unlocked, and drafts a spec in [specs/](specs/) for
-work that is now unblocked. A question reads:
+adds an entry instead of guessing, acts on the answer, then deletes it. A question reads:
 
 ```
 ### <title>
@@ -96,7 +94,8 @@ Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
 [a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
 (1 question, mockup to draw) and
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
-(1 question).
+(1 question) and [footers that fit the screen](specs/footers-fit-the-screen.md) (1 question,
+mockup to draw).
 
 Approved: [the Statements screens as drawn](specs/statements-screens-as-drawn.md), next, and
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on an engine ask
@@ -109,9 +108,8 @@ you hand over. Each question is in its spec.
 ## Backlog
 
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
-ships (its why moves to [decisions.md](decisions.md)). What a spec finds along the way lands
-here unless the owner would see it in the app or it is a money or business rule, and the loop
-runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
+ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
+CLAUDE.md "Specs and tasks".
 
 - **About 20 unit test files name accounts with a currency code** (`BCP Signature PEN`,
   `BCP USD`), where an account holds its currencies; `test_tui_log_bar.py` shows the shape.
@@ -195,6 +193,9 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   [_base.py](../expense/tui/screens/_base.py)). Send `a` through `list_refusal_text` too, which
   drops `_toggle`'s `error_text` parameter in [accounts.py](../expense/tui/screens/accounts.py);
   the `_toggle_busy` comment there says "archive toggle" though it guards `t` as well.
+- **Unused test parameters in test_tui_create_forms.py.** Nothing you see changes. `_run_refused`
+  and its callers take a `monkeypatch` they no longer use, and
+  `test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch` asks for toasts it never reads.
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
@@ -247,8 +248,10 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   version. One shared copy, with tests.
 - **Code comments still carry mockup tags, and one module docstring is stale.** Sixteen
   comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
-  log_bar.py point at a mockup's pane number, as do the "Screen 1…4" tags in import_cmd.py and
-  test_cmd_import.py (CLAUDE.md doc rule 5 holds for comments too); say what the code does
+  log_bar.py point at a mockup's pane number (the one above `FlaggedLinesScreen #fhead` in
+  app.tcss says "pane 10"), as do the "Screen 1…4" tags in import_cmd.py and
+  test_cmd_import.py and "pane N" in the docstrings of test_tui_flagged_panes.py and
+  test_tui_reconciliations.py (CLAUDE.md doc rule 5 holds for comments too); say what the code does
   instead, and test names like `test_a_cards_preview_is_screen_1a_and_writes_nothing` too.
   bank_import.py, log_bar.py and test_tui_statement_upload.py also point at two mockups
   that do not exist, `expense-world-statement-pdf-screens.html` and

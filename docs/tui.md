@@ -112,7 +112,7 @@ so it also shows on an ordinary morning before the engine's fetch job has run.
   (`reads.rate_is_stale`), and `fetch_rate_staleness` adds the `404` case (no rate at all →
   stale). There is no screen behind the mark.
 - **App-owned, fetched once per launch** into `ExpenseApp.rate_stale` (`True` / `False` /
-  `None`); a screen pushed later reads it, one already mounted is repainted.
+  `None`); a screen pushed later reads it, and every screen already on the stack is repainted.
 - **The `!` always shows.** A trail wider than the crumb is cut at its end with `…`, to the
   crumb's own width, so the alert after it is never pushed off.
 - **`None` renders nothing** (offline, unconfigured, pre-fetch, an unexpected body).
@@ -537,7 +537,8 @@ line of two parts or more it ends as "A split transaction says what reaches ever
 says), and an emptied operation sends `operation_code: null`, which clears the line's
 operation code (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the
 ledger's Edit form does, and a refusal stays under its parts the same way. Saved, the list
-starts again as after any edit (above); a row whose date or account moved it out is gone. `esc` sends nothing and keeps the list and its cursor.
+starts again as after any edit (above); a row whose date or account moved it out is gone.
+`esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py)).
@@ -953,11 +954,12 @@ one.
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
 system category or the pending hashtag draws when sent a new name, and the one a hashtag draws
 when named like the pending hashtag. The note it draws (a toast, a form's block, a LOG bar
-row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE — message`,
-then one `key: …` line per refused field; a LOG bar row the engine names reads `key: …` for
-each refused field, without the code and message, and so does a ledger row refused by `b`,
-`c`, `h` or `m`), and for the reasons below a blank line and one line of the app's saying
-what to do. A reason the table does not list has no line: the engine's words show alone.
+row, the bank import's preview, the Edit form's parts) shows the engine's words whole
+(`CODE — message`, then one `key: …` line per refused field; a LOG bar row the engine names
+reads `key: …` for each refused field, without the code and message, and so does a ledger row
+refused by `b`, `c`, `h` or `m`), and for the reasons below a blank line and one line of the
+app's saying what to do. A reason the table does not list has no line: the engine's words
+show alone.
 
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
 |---|---|---|
@@ -1099,9 +1101,8 @@ account's `statement code` (below) and `color`.
   the order picked, and a person adds `is_person: true`
   (contract: POST /v1/accounts, "Required")
   (contract: POST /v1/accounts, "Optional"). The line is required, as `name` is: with
-  nothing picked the save says `Currencies is required.` and sends nothing. A code typed but
-  not added when `ctrl+s` is pressed is added as `⏎` would add it, after the earlier picks, and
-  the save goes on; one nothing matches says `No currencies match “…”.` and sends nothing.
+  nothing picked the save says `Currencies is required.` and sends nothing. A code still in
+  the bar at `ctrl+s` is added first, as `⏎` would add it (§4 "The bar forms' keys").
 - **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
   the line it names, holding what was typed: `name`, `currencies` (any `currencies.<i>…` key
   too), `statement code` or `color`.
@@ -1235,10 +1236,10 @@ supplies the palette".
 **Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
 statement's lines, the lines in no statement) writes a positive figure with its `+`
-(`+800.00`, beside `-36.40`); zero stays `0.00`. Account balances, Home's totals and grid,
-a statement's balances and difference, and any sum of amounts (the staged total, a day's
-net) stay unsigned (`12,450.00`). The two rules are `TRANSACTION_RULE` and `AMOUNT_RULE` in
-[theme.py](../expense/tui/theme.py).
+(`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's totals and grid, a
+statement's balances and difference, and any sum of amounts (the staged total, a day's net)
+write no `+` (`12,450.00`, `-234.20`). Each rule's reach is in
+[theme.py](../expense/tui/theme.py) beside `TRANSACTION_RULE`.
 
 **Theme the foreground, never the base surface.** The app runs in ANSI mode
 (`ExpenseApp(ansi_color=True)`): the base fill is `ansi_default` — the terminal's *own*
@@ -1315,11 +1316,9 @@ goes through on the `?` card, so the Manage lists neither react to it nor advert
 
 **`pgdn` means "more of this list", in three ways.** In the two growing lists, the ledger
 and the "no batch" pane, it appends the next 10 rows by cursor and puts the cursor on the
-first new one (footer `pgdn 10 more`; gone at the end), and `pgup` just goes up a
-screenful, hidden on the first
-([decisions.md](decisions.md) "Long lists grow, they do not page"). In every
-other list it is the next page of rows already loaded (§5). On Home it walks the month
-window one month older, `pgup` one newer (§2).
+first new one, and `pgup` just goes up a screenful (§5; [decisions.md](decisions.md) "Long
+lists grow, they do not page"). In every other list it is the next page of rows already
+loaded (§5). On Home it walks the month window one month older, `pgup` one newer (§2).
 
 **The Statements browse** opens on the **account list alone**, full height, and reads no
 statements. The list is the bank accounts of one `GET /accounts`, people left out, one row
@@ -1671,8 +1670,8 @@ names that same label: `3 of 48 in VISA Infinite Sapphire · USD · newest first
 * **It stays put.** `↵` clears the bar; the panel keeps the last pick the bar named.
 
 Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
-`GET /transactions?account_id=…&currency_code=…` (contract: GET /v1/transactions) and its count per pick, cached for the life of the screen, and a
-save invalidates what it wrote to.
+`GET /transactions?account_id=…&currency_code=…` (contract: GET /v1/transactions) and its
+count per pick, cached for the life of the screen, and a save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
 one copy for every bar form: the Edit form, the create/edit forms, the new-statement form
@@ -1690,24 +1689,26 @@ on, or a read-only one, keeps nothing; a suggestion highlighted with `↑`/`↓`
 counts as untouched. `esc` cancels. `tab` moves to the next field and `shift+tab` to the
 previous, on every field, whether or not a suggestion list is open; `FormScreen` is
 `inherit_bindings=False`, so the bar keeps focus. Plain `↑`/`↓` walk the suggestion list when
-the field has a non-empty one and move to the previous/next field when it has none. `ctrl+↑`/`ctrl+↓` also move fields but are
-never advertised: macOS claims `⌃↑` (Mission Control) and `⌃↓` (Application Windows) before
-the terminal sees them. Every field move skips read-only fields and stops at either end.
-On a read-only field, where the bar sits only when every field is read-only, the bar
-(`FormBar`) takes nothing typed, pasted or deleted, and `⏎` keeps nothing and moves on as
-from any line (with nothing ahead to change, it saves).
+the field has a non-empty one and move to the previous/next field when it has none.
+`ctrl+↑`/`ctrl+↓` also move fields but are never advertised: macOS claims `⌃↑` (Mission
+Control) and `⌃↓` (Application Windows) before the terminal sees them. Every field move skips
+read-only fields and stops at either end. On a read-only field, where the bar sits only when
+every field is read-only, the bar (`FormBar`) takes nothing typed, pasted or deleted, and `⏎`
+keeps nothing and moves on as from any line (with nothing ahead to change, it saves).
 **A refused save shows under the form**, below the summary and above the footer: `Failed`
 bold, then the engine's words as the shared error text gives them, in the text colour, with
 a bar in the error colour down the left of each line, wrapping at the form's width
 (`FormScreen._show_refusal`). It stays until the next key, which does what it always does;
-nothing typed is lost, and the cursor goes to the line the refusal names. No toast repeats it.
-The suggestion list's rows are gone while no list shows, so the block fits under the New
-statement form at 80×24. The Edit forms of the ledger (a transaction's and a bank line's) and
-Setup lay their refusal out under their own lines instead.
+nothing typed is lost, and the cursor goes to the line the refusal names. No toast repeats
+it. While no suggestion list shows, its rows are gone and one blank line stands under the
+hint, so the block fits under the New statement form at 80×24. The Edit forms of the ledger
+(a transaction's and a bank line's) and Setup lay their refusal out under their own lines
+instead.
 **No hint says "save" on a line where `⏎` moves on, and none says "go on" on a line where
-`⏎` saves** (`FormScreen._goes_on`; guard: [test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py),
-which walks every bar form). NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit)
-and the Edit forms' TITLE read `free text · enter to go on`, and a new statement's NAME
+`⏎` saves** (`FormScreen._goes_on`; guard:
+[test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py), which walks every bar form).
+NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit) and the Edit forms' TITLE
+read `free text · enter to go on`, and a new statement's NAME
 `e.g. “April 2026” · enter to go on`. The account's COLOR, New and Edit, reads
 `optional · enter keeps it · ↑↓ another swatch`, though on New it is the last line and `⏎`
 there saves. Some lines where `⏎` saves say so: a new category's COLOR
@@ -1776,20 +1777,22 @@ Hashtags giving way 3:3:2 before the numbers on a narrow terminal
 through `GrowingRead` in [_growing.py](../expense/tui/screens/_growing.py): it opens with
 the newest `GROW_STEP` (10) rows and the count, read together — a count that cannot be
 read fails the screen — and `pgdn` (footer: `pgdn 10 more`) appends the next 10 by the
-engine's cursor, with no recount, the cursor landing on the first new row. `↑`/`↓` scroll
-everything loaded and `pgup` goes up a screenful (hidden on the first). A resize reads
-nothing. After a write (a
-bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from the newest 10 with the cursor on
-row 1, as `r` does. Leaving the `⏎` form with `esc` is not a write: nothing is read and the
-list comes back as it was, the rows `pgdn` loaded and the cursor on its row. The "no batch"
-list on Statements grows through the same `GrowingRead` (§2).
+engine's cursor, with no recount, the cursor landing on the first new row; at the end it
+leaves the footer. `↑`/`↓` scroll everything loaded and `pgup` goes up a screenful. A resize
+reads nothing. After a write (a bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from
+the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with `esc` is not
+a write: nothing is read and the list comes back as it was, the rows `pgdn` loaded and the
+cursor on its row. The "no batch" list on Statements grows through the same `GrowingRead`
+(§2).
 
 **Full-data screens window locally** — Manage, the Statements account list (full
 height alone, an equal split with the open panel), a statement's list at what fits —
-with `pgdn` next page, `pgup` previous (both hidden when one page holds it all; `pgup` also
-on the first page, where it does nothing); `↑`/`↓` walk through and cursor-restore lands on
-its page. Exempt: Home's month grid, static tables,
-System kv-tables.
+with `pgdn` next page and `pgup` previous; `↑`/`↓` walk through and cursor-restore lands on
+its page. Exempt: Home's month grid, static tables, System kv-tables.
+
+**`pgup` shows only where there is something before**, on every list, growing or paged: the
+footer leaves it off on the first page or screenful. A paged list that one page holds shows
+neither page key.
 
 **The frame:** the breadcrumb on the first line with no blank line above it, the rule
 directly under it, then one blank line and the content. A statement's screen puts its head

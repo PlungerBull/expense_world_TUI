@@ -6,7 +6,7 @@ differs from the approved drawing
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html).
 
 **Status: both questions answered and the seven tasks approved by the owner on
-2026-11-03.** It runs after [every screen's frame](app-wide-chrome-leftovers.md), whose dropped
+2026-11-03.** It runs after every screen's frame (done on 2026-11-04), whose dropped
 blank lines around the breadcrumb are what lets `u` read line for line as drawn. When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
