@@ -28,6 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The gap between a form's hint and its lines
+Asked 2026-11-03 · Blocks: nothing (built this way; changing it is one small task)
+
+When no suggestion list shows, every form now leaves one blank line, not three, between the hint
+under the bar and the form's lines, as the New statement drawings show. That is the room a
+refused save's `▌ Failed` block needs at 80×24.
+
+- **A.** Keep one blank line on every form.
+- **B.** Three again; the block may be cut on a short terminal.
+
+**Recommended:** A, because the newest drawings show it and the block needs the room.
+
 ### The words when an ending balance has no starting balance
 Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
 
@@ -86,14 +98,9 @@ Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question).
 
-Tasks approved, next in this order:
-[every screen's frame](specs/app-wide-chrome-leftovers.md) (6 tasks), then
-[the Statements screens as drawn](specs/statements-screens-as-drawn.md) (7 tasks). Also
-approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on an
-engine ask you hand over.
-
-Every question is in its spec; the ones marked "mockup to draw" get their mockups before you
-pick.
+Approved: [the Statements screens as drawn](specs/statements-screens-as-drawn.md), next, and
+[accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on an engine ask
+you hand over. Each question is in its spec.
 
 **Recommended:** approve the rest.
 
@@ -126,9 +133,6 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   [test_cmd_import.py](../tests/unit/test_cmd_import.py), "Sealed, on a closed statement's day"
   is asserted only on the dry run; `expense import sheet --apply` prints it through the same list
   as the rows of zero. Done when an apply test pins that list's line.
-- **The sheet import's docstrings name screens by number.** Nothing you see changes.
-  [import_cmd.py](../expense/commands/import_cmd.py)'s docstrings and section heads say "Screen
-  1"…"Screen 5" and "screens 3 and 4", tags from a mockup; they should say what each step prints.
 - **The live sheet test's docstring cites nothing for its counts.** Nothing you see changes.
   [test_sheet_import.py](../tests/contract/test_sheet_import.py)'s module docstring says what
   `split_lines` and `split_rows` count with no citation of its own; it could cite
@@ -140,14 +144,6 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   dollar line. `CONCURRENT_CHANGE` is proven only in
   [test_tui_statement_upload.py](../tests/unit/test_tui_statement_upload.py), and the upload
   screens' unit tests pin 120 columns where the app is checked at 80x24.
-- **The statement upload's comments name deleted mockups.** Nothing you see changes.
-  [statement_upload.py](../expense/tui/screens/statement_upload.py) (its docstring's "pane
-  12…15", "Pane 14", "screen A2/1A/1B"), [bank_import.py](../expense/tui/screens/bank_import.py),
-  [log_bar.py](../expense/tui/screens/log_bar.py) and
-  [test_tui_statement_upload.py](../tests/unit/test_tui_statement_upload.py) (its docstring and
-  names like `test_a_cards_preview_is_screen_1a_and_writes_nothing`) point at mockups that no
-  longer exist, by pane and screen tags; they should say what the screen does instead.
-
 - **Old engine words in a mockup and three tests.** Nothing you see changes.
   [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html) draws
   `Amount cannot be zero.` (the engine: `Must not be zero.`);
@@ -253,7 +249,8 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
   log_bar.py point at a mockup's pane number, as do the "Screen 1…4" tags in import_cmd.py and
   test_cmd_import.py (CLAUDE.md doc rule 5 holds for comments too); say what the code does
-  instead. bank_import.py, log_bar.py and test_tui_statement_upload.py also point at two mockups
+  instead, and test names like `test_a_cards_preview_is_screen_1a_and_writes_nothing` too.
+  bank_import.py, log_bar.py and test_tui_statement_upload.py also point at two mockups
   that do not exist, `expense-world-statement-pdf-screens.html` and
   `expense-world-statement-pdf-upload.html`. reconciliations.py's module docstring still describes the old New
   form (`› begin › end`, a required beginning balance), a complete needing a line on one

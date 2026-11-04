@@ -298,3 +298,12 @@ FlaggedLinesScreen #fways {
     padding: 0 0 0 2;
     max-width: 75;
 }
+
+/* a form's refused save (FormScreen._show_refusal): a bar down the left in the
+   error colour, the words as plain text, under the form until the next key */
+#refusal {
+    margin: 0 3;
+    padding: 0 1;
+    height: auto;
+    border-left: outer $error;
+}

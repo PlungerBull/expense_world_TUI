@@ -40,6 +40,8 @@ from tests.unit.helpers import (
     error_response,
     fake_ledger,
     held_currency,
+    no_failed_toast,
+    refusal_block,
     render_text,
     run_app,
     styled_stretches,
@@ -104,6 +106,13 @@ def refusal(code: str = "VALIDATION_ERROR", status: int = 422, key: str = "name"
 def whole_in(shown: str) -> bool:
     """Both the message and the field's words are there, every character."""
     return MESSAGE in shown and FIELD_WORDS in shown
+
+
+async def block_with_words(pilot, app, screen) -> str:
+    """A form's refusal block once it is up, with no `Failed` toast beside it."""
+    await wait_for(pilot, lambda: refusal_block(screen), message="no refusal block shown")
+    assert no_failed_toast(app)
+    return refusal_block(screen)
 
 
 async def toast_with_words(pilot, app) -> str:
@@ -187,7 +196,7 @@ def test_a_refused_archive_shows_the_words_whole(fake_client, monkeypatch):
 
 
 def test_a_refused_create_form_shows_the_words_whole(fake_client):
-    """A new hashtag the engine refuses: the form's "Failed" toast."""
+    """A new hashtag the engine refuses: the form's block, the real one."""
     fake_client.errors["POST"] = refusal()
 
     async def scenario(pilot, app):
@@ -197,7 +206,7 @@ def test_a_refused_create_form_shows_the_words_whole(fake_client):
         screen.query_one("#bar", Input).value = "groceries"
         screen._recompute("groceries")
         screen.on_input_submitted(None)
-        shown = await toast_with_words(pilot, app)
+        shown = await block_with_words(pilot, app, screen)
         assert shown.startswith("Failed\n") and whole_in(shown)
         assert screen.is_attached
 
@@ -457,7 +466,7 @@ def test_an_opening_balance_that_cannot_be_read_shows_the_words_whole(fake_clien
 
 
 def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole(fake_client):
-    """The account saves, its opening balance is refused: the note that says
+    """The account saves, its opening balance is refused: the block that says
     which half went through."""
     fake_client.errors["POST"] = refusal(key="date")
 
@@ -468,7 +477,7 @@ def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole
         _type_account(screen, "color", "green")
         _type_account(screen, "opening:PEN", "350.00")
         _type_account(screen, "as_of:PEN", "2026-01-01")
-        shown = await toast_with_words(pilot, app)
+        shown = await block_with_words(pilot, app, screen)
         assert "The PEN opening balance is not:" in shown and whole_in(shown)
 
     run_app(scenario, toasts=True)

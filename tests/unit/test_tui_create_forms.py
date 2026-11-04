@@ -14,7 +14,14 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from tests.unit.helpers import account_with_currencies, render_text, run_app, wait_for
+from tests.unit.helpers import (
+    account_with_currencies,
+    no_failed_toast,
+    refusal_block,
+    render_text,
+    run_app,
+    wait_for,
+)
 
 
 def _enter(screen, text):
@@ -494,7 +501,7 @@ def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
         await pilot.pause()
         assert _highlighted(screen) == ["██ green"]
 
-    run_app(scenario)
+    run_app(scenario, toasts=True)
 
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
@@ -575,21 +582,18 @@ def test_new_account_required_name_blocks_submit(fake_client):
 
 def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST", refusal=None):
     """Drive `screen` through `steps` with the engine refusing the write, then
-    run `check(pilot, screen, toasts)` **inside** the pilot.
+    run `check(pilot, screen, shown)` **inside** the pilot, `shown` being what the
+    form's refusal block reads (`refusal_block`); no `Failed` toast is up.
 
     The check has to happen there: leaving the `run_test` block shuts the app
     down and detaches every screen, so `is_attached` and the mounted widgets can
     only be read while it is up.
 
-    The captured toast is what proves `_failed` ran at all — `run_write` hands
-    `on_error` back to the UI thread and the callback leaves no other edge.
+    The block is what proves `_failed` ran at all — `run_write` hands `on_error`
+    back to the UI thread and the callback leaves no other edge.
     """
     fake_client.errors[verb] = refusal or EngineError(
         "CONFLICT", "that name is taken", None, 409, {}
-    )
-    toasts: list = []
-    monkeypatch.setattr(
-        type(screen), "notify", lambda self, message, **kw: toasts.append((message, kw))
     )
 
     async def scenario(pilot, app):
@@ -597,11 +601,12 @@ def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST",
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         for text in steps:
             _enter(screen, text)
-        await wait_for(pilot, lambda: toasts, message="the form never reported the failure")
+        await wait_for(pilot, lambda: refusal_block(screen), message="no refusal block shown")
         await pilot.pause()
-        await check(pilot, screen, toasts)
+        assert no_failed_toast(app)
+        await check(pilot, screen, refusal_block(screen))
 
-    run_app(scenario)
+    run_app(scenario, toasts=True)
 
 
 def test_a_refused_create_says_so_and_keeps_the_screen(fake_client, monkeypatch):
@@ -611,10 +616,8 @@ def test_a_refused_create_says_so_and_keeps_the_screen(fake_client, monkeypatch)
     message nowhere to be read — the same rule the LOG bar follows.
     """
 
-    async def check(pilot, screen, toasts):
-        message, kw = toasts[0]
-        assert "CONFLICT — that name is taken" in message
-        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+    async def check(pilot, screen, shown):
+        assert shown == "Failed\nCONFLICT — that name is taken"
         assert screen.is_attached  # never dismissed
         # the typed text survives verbatim; the `#` is stripped in _payload(), not here
         assert screen._values["name"] == "#groceries"
@@ -626,10 +629,10 @@ def test_a_refused_create_restores_the_hint_the_busy_text_replaced(fake_client, 
     """`action_submit` overwrites #hint with "Creating…" before the write.
 
     Without `_refresh_view()` in the failure path the form would sit there
-    claiming to still be creating, under a toast saying it had failed.
+    claiming to still be creating, under a block saying it had failed.
     """
 
-    async def check(pilot, screen, toasts):
+    async def check(pilot, screen, shown):
         hint = str(screen.query_one("#hint", Static).content)
         assert "Creating" not in hint
         assert hint == screen._hint_for(screen._key)
@@ -641,10 +644,10 @@ def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
     """`_submitting` is the double-submit latch — a failure has to release it.
 
     Left set, the first refusal would freeze the form for good: every later
-    submit would return at the guard, silently, with the toast as the only clue.
+    submit would return at the guard, silently, with the block as the only clue.
     """
 
-    async def check(pilot, screen, toasts):
+    async def check(pilot, screen, shown):
         assert screen._submitting is False
         fake_client.errors.clear()
         screen.action_submit()
@@ -661,10 +664,8 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
     screen = EditAccountScreen(_ELIANA)
 
-    async def check(pilot, screen, toasts):
-        message, kw = toasts[0]
-        assert "CONFLICT — that name is taken" in message
-        assert kw.get("title") == "Failed"
+    async def check(pilot, screen, shown):
+        assert shown == "Failed\nCONFLICT — that name is taken"
         assert screen.is_attached
         assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
 
@@ -782,16 +783,14 @@ def _eliana() -> EditAccountScreen:
 def test_a_refusal_on_a_form_ends_with_its_next_step(
     fake_client, monkeypatch, make, steps, verb, refusal, line
 ):
-    """The "Failed" note is the engine's words, then the line picked for its
+    """The refusal block is the engine's words, then the line picked for its
     reason; the form stays open with what was typed."""
 
-    async def check(pilot, screen, toasts):
-        message, kw = toasts[0]
+    async def check(pilot, screen, shown):
         key = next(iter(refusal.fields))
-        assert message == (
-            f"{refusal.code} — {refusal.message}\n  {key}: stand-in field words\n\n{line}"
+        assert shown == (
+            f"Failed\n{refusal.code} — {refusal.message}\n  {key}: stand-in field words\n\n{line}"
         )
-        assert kw.get("title") == "Failed"
         assert screen.is_attached
 
     _run_refused(fake_client, monkeypatch, make(), steps, check, verb=verb, refusal=refusal)
@@ -831,7 +830,7 @@ _NAME_FIXED = "Must be the current name: a system record keeps its name."
 def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, make, steps, path):
     """A system category or the pending hashtag keeps its name: the engine
     refuses a rename with `SYSTEM_NAME_FIXED` on `name`. Manage offers no `e`
-    on these rows, so only a form opened another way meets it. The note is the
+    on these rows, so only a form opened another way meets it. The block is the
     engine's words whole, then the line of pending-hashtag-manage 5 B, and the
     form stays open with what was typed."""
     refusal = EngineError(
@@ -843,13 +842,11 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
         {"name": "SYSTEM_NAME_FIXED"},
     )
 
-    async def check(pilot, screen, toasts):
-        message, kw = toasts[0]
-        assert message == (
-            f"VALIDATION_ERROR — Request validation failed.\n  name: {_NAME_FIXED}\n\n"
+    async def check(pilot, screen, shown):
+        assert shown == (
+            f"Failed\nVALIDATION_ERROR — Request validation failed.\n  name: {_NAME_FIXED}\n\n"
             "Built-in names never change: press esc to leave it as it is."
         )
-        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
         assert screen.is_attached
         assert screen._values["name"] == steps[0]
         assert ("PUT", path) in fake_client.requests
@@ -1212,13 +1209,11 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
 def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
     fake_client, monkeypatch, refusal, line, bar
 ):
-    """The note is the engine's words as every failed write reads them, and the
+    """The block is the engine's words as every failed write reads them, and the
     cursor goes back on the line the refusal names, holding what was typed."""
 
-    async def check(pilot, screen, toasts):
-        message, kw = toasts[0]
-        assert message == format_error(refusal)
-        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+    async def check(pilot, screen, shown):
+        assert shown == f"Failed\n{format_error(refusal)}"
         assert screen.is_attached
         assert screen._key == line
         assert screen.query_one("#bar", Input).value == bar
@@ -1230,13 +1225,9 @@ def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
 
 def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client, monkeypatch):
     """Saved from NAME with ctrl+s, the refusal moves the cursor to COLOR; the
-    note is the engine's words and the colour picked is still held."""
+    block is the engine's words and the colour picked is still held."""
     refusal = _keyed("VALIDATION_ERROR", "color", "INVALID_COLOR", "Color must be a hex.")
     fake_client.errors["POST"] = refusal
-    toasts: list = []
-    monkeypatch.setattr(
-        NewAccountScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
-    )
     screen = NewAccountScreen()
 
     async def scenario(pilot, app):
@@ -1250,14 +1241,13 @@ def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client,
         screen._refresh_bar()
         assert screen._key == "name"
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: toasts, message="the form never reported the failure")
+        await wait_for(pilot, lambda: refusal_block(screen), message="no refusal block shown")
         await pilot.pause()
-        message, kw = toasts[0]
-        assert message == format_error(refusal)
-        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+        assert refusal_block(screen) == f"Failed\n{format_error(refusal)}"
+        assert no_failed_toast(app)
         assert screen.is_attached
         assert screen._key == "color"
         assert screen._values["color"] == "#5ab87a"
         assert _highlighted(screen) == ["██ green"]
 
-    run_app(scenario)
+    run_app(scenario, toasts=True)

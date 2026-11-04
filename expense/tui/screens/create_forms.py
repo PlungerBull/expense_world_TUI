@@ -939,12 +939,7 @@ class EditAccountScreen(NewAccountScreen):
             "" if self._refusal_says_next else "\n\nIt is still in the form: fix it and save again."
         )
         saved = f"The account's changes are saved. The {self._refused_currency} opening balance"
-        toast(
-            self,
-            f"{saved} is not:\n{message}{closing}",
-            title="Failed",
-            severity="error",
-        )
+        self._show_refusal(f"{saved} is not:\n{message}{closing}")
         self._refresh_view()
 
     def action_cancel(self) -> None:

@@ -70,10 +70,6 @@ showed differences that come from what every screen shares:
 Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
 so one change reaches them all.
 
-2. **A form's refusal is a block under the form** (Decided 1): where
-   [_form.py](../../expense/tui/screens/_form.py) toasts `Failed` today, the form shows
-   `▌ Failed` and the engine's words under its lines, kept until the next key, the cursor on the
-   refused line as now; every form, bar forms included; a test per form kind.
 3. **`^s` keeps what is in the bar** (Decided 2): `form_bindings` in
    [_form.py](../../expense/tui/screens/_form.py) keeps the bar's value as `⏎` would, then
    saves; a value `⏎` would refuse stops the save the same way; every form.
@@ -97,3 +93,6 @@ Not built in this spec; drafted into a new spec when it is done.
   comment above `FlaggedLinesScreen #fhead` in [app.tcss](../../expense/tui/app.tcss)
   ("pane 10"), and docstrings in `test_tui_flagged_panes.py` and `test_tui_reconciliations.py`
   ("pane N").
+- In [test_tui_create_forms.py](../../tests/unit/test_tui_create_forms.py), `_run_refused` and
+  its callers still take a `monkeypatch` they no longer use, and
+  `test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch` asks for toasts it never reads.

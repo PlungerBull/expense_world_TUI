@@ -939,13 +939,18 @@ def test_a_refusal_naming_currency_code_lands_under_the_parts_in_the_engines_wor
         _enter(screen, "USD")
         screen.action_submit()
         await wait_for(pilot, lambda: screen._refusal is not None and not screen._submitting)
-        return _summary(screen, width=120), app.screen is screen
+        return (
+            _summary(screen, width=120),
+            app.screen is screen,
+            screen.query_one("#refusal").display,
+        )
 
-    summary, on_top = _open(TXN, steps)
+    summary, on_top, block_up = _open(TXN, steps)
     assert f"VALIDATION_ERROR — {words}" in summary
     assert f"! currency_code: {words}" in summary
     assert summary.rstrip().endswith("Nothing was saved.")
     assert on_top
+    assert not block_up  # this form lays its refusal under its parts, not in the shared block
 
 
 def test_a_currency_the_account_does_not_hold_shows_the_engines_words_alone(

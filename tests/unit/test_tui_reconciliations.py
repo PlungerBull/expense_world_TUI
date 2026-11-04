@@ -27,6 +27,8 @@ from tests.unit.helpers import (
     held_currency,
     import_part,
     in_order,
+    no_failed_toast,
+    refusal_block,
     refusal_text,
     render_text,
     run_app,
@@ -631,7 +633,7 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
 ):
     """The browse was read before its account was deleted, so `n` still offers it:
     the engine refuses the create's `account_id` (contract: POST /v1/statements).
-    The "Failed" note is the engine's words and its
+    The refusal block is the engine's words and its
     field's words under them, with no line of the app's; the form stays open with what
     was typed, and nothing is handed back."""
     from expense.errors import EngineError
@@ -646,12 +648,6 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
         reasons={"account_id": "INVALID_REFERENCE"},
     )
     fake_client.errors["POST"] = err
-    notices: list = []
-    monkeypatch.setattr(
-        NewReconciliationScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, str(message))),
-    )
     handed: list = []
 
     async def scenario(pilot, app):
@@ -665,14 +661,15 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
         _enter(screen, "1250.00")  # begin
         typed = dict(screen._values)
         _enter(screen, "")  # end → submits
-        await wait_for(pilot, lambda: notices and not screen._submitting)
-        assert notices == [
-            ("Failed", f"VALIDATION_ERROR — Statement validation failed.\n  account_id: {words}")
-        ]
-        assert notices[0][1] == refusal_text(err, None)
+        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
+        assert no_failed_toast(app)
+        assert refusal_block(screen) == (
+            f"Failed\nVALIDATION_ERROR — Statement validation failed.\n  account_id: {words}"
+        )
+        assert refusal_block(screen) == f"Failed\n{refusal_text(err, None)}"
         assert app.screen is screen and screen._values == typed
 
-    run_app(scenario)
+    run_app(scenario, toasts=True)
     assert [path for path, _body in fake_client.posts] == ["/statements"]
     assert handed == []
 

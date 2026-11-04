@@ -79,10 +79,15 @@ class FormBar(Input):
     class Passed(Message):
         """`⏎` on a read-only field."""
 
-    def __init__(self, *, read_only, typed=None, **kwargs) -> None:
+    def __init__(self, *, read_only, typed=None, touched=None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._read_only = read_only
         self._typed = typed or (lambda text: text)
+        self._touched = touched or (lambda: None)
+
+    def on_key(self, event) -> None:
+        # every key reaches here before it does what it does (typing, a binding)
+        self._touched()
 
     def replace(self, text: str, start: int, end: int) -> None:
         # every edit of the bar's text (typing, paste, delete, cut) goes through here
@@ -215,17 +220,20 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             id="bar",
             read_only=lambda: self._key in self._locked,
             typed=lambda text: self._typed(self._key, text),
+            touched=self._clear_refusal,
         )
         yield Horizontal(Label("", id="field"), bar, Label("", id="bar-word"), id="inputbar")
         yield Static("", id="hint")
         yield Static("", id="suggest")
         yield Static("", id="summary")
+        yield Static("", id="refusal")
         yield Footer()
 
     def on_mount(self) -> None:
         self._current = self._first_editable()
         self._refresh_bar()
         self._refresh_view()
+        self.query_one("#refusal", Static).display = False
         self.query_one("#bar", Input).focus()
         self._after_mount()
 
@@ -310,7 +318,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         # can save, and a handler may refresh after it
         if not self._submitting:
             self.query_one("#hint", Static).update(self._hint_line(self._key))
-        self.query_one("#suggest", Static).update(self._suggest_renderable())
+        suggest = self.query_one("#suggest", Static)
+        suggest.update(self._suggest_renderable())
+        suggest.display = self._suggests(self._key)  # no empty rows when no list shows
         self.query_one("#summary", Static).update(self._summary_renderable())
 
     def _suggest_renderable(self) -> RenderableType:
@@ -409,5 +419,16 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def _failed(self, message: str) -> None:
         self._land_on_refused_line()
         self._submitting = False
-        toast(self, message, title="Failed", severity="error")
+        self._show_refusal(message)
         self._refresh_view()
+
+    def _show_refusal(self, message: str) -> None:
+        """A refused save's words, titled `Failed`, in a block under the form (a bar
+        in the error colour down its left) until the next key; the words are drawn as
+        text, never read as markup."""
+        block = self.query_one("#refusal", Static)
+        block.update(Group(Text("Failed", style="bold"), Text(message)))
+        block.display = True
+
+    def _clear_refusal(self) -> None:
+        self.query_one("#refusal", Static).display = False

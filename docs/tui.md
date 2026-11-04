@@ -950,8 +950,8 @@ one.
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
 system category or the pending hashtag draws when sent a new name, and the one a hashtag draws
-when named like the pending hashtag. The note it draws (a toast, a LOG bar row, the bank
-import's preview, the Edit form's parts) shows the engine's words whole (`CODE — message`,
+when named like the pending hashtag. The note it draws (a toast, a form's block, a LOG bar
+row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE — message`,
 then one `key: …` line per refused field; a LOG bar row the engine names reads `key: …` for
 each refused field, without the code and message, and so does a ledger row refused by `b`,
 `c`, `h` or `m`), and for the reasons below a blank line and one line of the app's saying
@@ -1681,6 +1681,14 @@ the terminal sees them. Every field move skips read-only fields and stops at eit
 On a read-only field, where the bar sits only when every field is read-only, the bar
 (`FormBar`) takes nothing typed, pasted or deleted, and `⏎` keeps nothing and moves on as
 from any line (with nothing ahead to change, it saves).
+**A refused save shows under the form**, below the summary and above the footer: `Failed`
+bold, then the engine's words as the shared error text gives them, in the text colour, with
+a bar in the error colour down the left of each line, wrapping at the form's width
+(`FormScreen._show_refusal`). It stays until the next key, which does what it always does;
+nothing typed is lost, and the cursor goes to the line the refusal names. No toast repeats it.
+The suggestion list's rows are gone while no list shows, so the block fits under the New
+statement form at 80×24. The Edit forms of the ledger (a transaction's and a bank line's) and
+Setup lay their refusal out under their own lines instead.
 **No hint says "save" on a line where `⏎` moves on, and none says "go on" on a line where
 `⏎` saves** (`FormScreen._goes_on`; guard: [test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py),
 which walks every bar form). NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit)

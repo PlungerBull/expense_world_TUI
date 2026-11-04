@@ -21,6 +21,8 @@ from expense.tui.screens.modals import ConfirmModal
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,
+    no_failed_toast,
+    refusal_block,
     render_text,
     run_app,
     wait_for,
@@ -360,19 +362,7 @@ def _engine_words(err: EngineError) -> str:
     return f"{err.code} — {err.message}\n  {field}: {words}"
 
 
-@pytest.fixture
-def notes(monkeypatch):
-    seen: list = []
-
-    def notify(self, message, **kw):
-        seen.append((message, kw))
-
-    monkeypatch.setattr(NewAccountScreen, "notify", notify)
-    monkeypatch.setattr(EditAccountScreen, "notify", notify)
-    return seen
-
-
-def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client, notes):
+def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client):
     """3·2 A: the engine's words alone, and the cursor back on the code line with what was typed."""
     fake_client.errors["PUT"] = TAKEN
     screen = EditAccountScreen(NO_CODE)
@@ -383,18 +373,19 @@ def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client, notes):
         await pilot.press(*"SIG", "enter")
         _on(screen, "name")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached
         assert screen._key == "statement_code" and _bar(screen).value == "SIG"
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
 
-    run_app(scenario)
-    message, kw = notes[0]
-    assert message == _engine_words(TAKEN)  # nothing after the engine's words
-    assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+    shown: list = []
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{_engine_words(TAKEN)}"]  # nothing after the engine's words
 
 
-def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
+def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client):
     fake_client.errors["POST"] = TAKEN
     screen = NewAccountScreen()
 
@@ -402,13 +393,16 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
         await _open(pilot, app, screen)
         await _to_code(pilot, screen)
         await pilot.press(*"SIG", "enter", "enter")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached
         assert screen._key == "statement_code" and _bar(screen).value == "SIG"
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
 
-    run_app(scenario)
-    assert notes[0][0] == _engine_words(TAKEN)  # nothing after the engine's words
+    shown: list = []
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{_engine_words(TAKEN)}"]  # nothing after the engine's words
 
 
 @pytest.mark.parametrize(
@@ -421,7 +415,7 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client, notes):
     ],
     ids=["shape", "3·4-month-taken", "3·3-completed-joined", "person"],
 )
-def test_other_code_refusals_keep_the_engines_words_alone(fake_client, notes, refusal):
+def test_other_code_refusals_keep_the_engines_words_alone(fake_client, refusal):
     fake_client.errors["PUT"] = refusal
     screen = EditAccountScreen(NO_CODE)
 
@@ -431,9 +425,12 @@ def test_other_code_refusals_keep_the_engines_words_alone(fake_client, notes, re
         await pilot.press(*"S1G", "enter")
         _on(screen, "name")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen._key == "statement_code" and _bar(screen).value == "S1G"
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
 
-    run_app(scenario)
-    assert notes[0][0] == _engine_words(refusal)
+    shown: list = []
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{_engine_words(refusal)}"]

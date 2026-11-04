@@ -9,6 +9,8 @@ from expense.tui.screens.reconciliations import NewReconciliationScreen
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,
+    no_failed_toast,
+    refusal_block,
     render_text,
     run_app,
     wait_for,
@@ -194,7 +196,7 @@ def test_money_at_start_not_covered_lands_on_that_currencys_starting_balance(
         "balances.USD", "MONEY_AT_START_NOT_COVERED",
     )  # fmt: skip
     fake_client.errors["POST"] = err
-    notices = _notices(monkeypatch)
+    shown: list = []
 
     async def scenario(pilot, app):
         screen = _visa()
@@ -205,14 +207,16 @@ def test_money_at_start_not_covered_lands_on_that_currencys_starting_balance(
         _enter(screen, "")  # end PEN
         _enter(screen, "")  # begin USD
         _enter(screen, "")  # end USD → saves
-        await wait_for(pilot, lambda: notices and not screen._submitting)
+        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
         assert screen._key == "begin:USD"
         assert screen.query_one("#bar", Input).value == ""
         assert screen._values == typed
 
-    run_app(scenario)
-    assert notices == [("Failed", format_error(err))]
-    assert "Words of balances.USD." in notices[0][1]
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{format_error(err)}"]
+    assert "Words of balances.USD." in shown[0]
 
 
 def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, monkeypatch):
@@ -222,7 +226,7 @@ def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, monkeypatc
         "balances.1.currency_code", "CURRENCY_NOT_HELD",
     )  # fmt: skip
     fake_client.errors["POST"] = err
-    notices = _notices(monkeypatch)
+    shown: list = []
 
     async def scenario(pilot, app):
         screen = _visa()
@@ -230,13 +234,15 @@ def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, monkeypatc
         _head(screen)
         for text in ("-234.20", "", "-30.98", ""):
             _enter(screen, text)
-        await wait_for(pilot, lambda: notices and not screen._submitting)
+        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
         assert screen._key == "begin:USD"
         assert screen.query_one("#bar", Input).value == "-30.98"
 
-    run_app(scenario)
-    assert notices == [("Failed", format_error(err))]
-    assert "balances.1.currency_code: Words of balances.1.currency_code." in notices[0][1]
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{format_error(err)}"]
+    assert "balances.1.currency_code: Words of balances.1.currency_code." in shown[0]
 
 
 def test_a_currency_joining_or_leaving_mid_write_says_save_again(fake_client, monkeypatch):
@@ -244,7 +250,7 @@ def test_a_currency_joining_or_leaving_mid_write_says_save_again(fake_client, mo
     ending `save again.`; no currency's line is named, so the cursor stays."""
     err = _refused("CONFLICT", "The account changed.", "account_id", "CONCURRENT_CHANGE", 409)
     fake_client.errors["POST"] = err
-    notices = _notices(monkeypatch)
+    shown: list = []
 
     async def scenario(pilot, app):
         screen = _visa()
@@ -252,12 +258,15 @@ def test_a_currency_joining_or_leaving_mid_write_says_save_again(fake_client, mo
         _head(screen)
         for text in ("-234.20", "", "", ""):
             _enter(screen, text)
-        await wait_for(pilot, lambda: notices and not screen._submitting)
+        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
         assert screen._key == "end:USD"
 
-    run_app(scenario)
-    [(title, text)] = notices
-    assert title == "Failed" and text == format_error(err)
+    run_app(scenario, toasts=True)
+    [block] = shown
+    text = block.removeprefix("Failed\n")
+    assert block == f"Failed\n{format_error(err)}"
     assert "The account changed." in text
     assert text.endswith("It changed at the same moment: save again.")
 
@@ -302,7 +311,7 @@ def test_a_refused_index_counts_the_entries_sent_not_the_currencies_of_the_accou
         "balances.0.currency_code", "CURRENCY_NOT_HELD",
     )  # fmt: skip
     fake_client.errors["POST"] = err
-    notices = _notices(monkeypatch)
+    shown: list = []
 
     async def scenario(pilot, app):
         screen = _visa()
@@ -310,12 +319,14 @@ def test_a_refused_index_counts_the_entries_sent_not_the_currencies_of_the_accou
         _head(screen)
         for text in ("", "", "-30.98", ""):
             _enter(screen, text)
-        await wait_for(pilot, lambda: notices and not screen._submitting)
+        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
+        assert no_failed_toast(app)
+        shown.append(refusal_block(screen))
         assert screen._key == "begin:USD"
 
-    run_app(scenario)
-    assert notices == [("Failed", format_error(err))]
-    assert "Words of balances.0.currency_code." in notices[0][1]
+    run_app(scenario, toasts=True)
+    assert shown == [f"Failed\n{format_error(err)}"]
+    assert "Words of balances.0.currency_code." in shown[0]
 
 
 def test_every_hint_fits_one_row_at_80_columns(fake_client):

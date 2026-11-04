@@ -1317,6 +1317,20 @@ def toasts_shown(app) -> list[str]:
     return [toast.render().plain for toast in app.screen.query("Toast")]
 
 
+def refusal_block(screen) -> str | None:
+    """What a form's refusal block shows (`FormScreen._show_refusal`): `Failed`, then the
+    engine's words, one line per line; None while the block is hidden."""
+    block = screen.query_one("#refusal")
+    if not block.display:
+        return None
+    return "\n".join(part.plain for part in block.content.renderables)
+
+
+def no_failed_toast(app) -> bool:
+    """True when no `Failed` toast is up. Needs `run_app(..., toasts=True)`."""
+    return not any(shown.startswith("Failed") for shown in toasts_shown(app))
+
+
 def styled_stretches(markup: str) -> list[tuple[int, str, str]]:
     """Each styled stretch of content markup as drawn, in order: `(start, words,
     style)`, its words without the line break that may end it, since a line

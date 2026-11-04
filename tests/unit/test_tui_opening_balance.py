@@ -32,6 +32,7 @@ from tests.unit.helpers import (
     LOCKED_WORDS,
     account_with_currencies,
     held_currency,
+    refusal_block,
     render_text,
     run_app,
     wait_for,
@@ -87,6 +88,11 @@ def notes(monkeypatch):
         EditAccountScreen, "notify", lambda self, message, **kw: seen.append((message, kw))
     )
     return seen
+
+
+def _no_failed_toast(notes) -> None:
+    """The refusal was a block under the form: no `Failed` note went to `notify`."""
+    assert not [m for m, kw in notes if kw.get("title") == "Failed"]
 
 
 def _on(screen, key):
@@ -495,10 +501,11 @@ def test_a_refusal_on_the_dollars_lands_on_usd_opening_and_resends_only_it(
         screen._values["as_of:USD"] = "2026-01-01"
         _on(screen, "name")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         seen["key"] = screen._key
         seen["bar"] = screen.query_one("#bar", Input).value
+        seen["block"] = refusal_block(screen)
         seen["first"] = list(fake_client.requests)
         fake_client.errors.clear()
         await pilot.press("ctrl+s")
@@ -506,7 +513,8 @@ def test_a_refusal_on_the_dollars_lands_on_usd_opening_and_resends_only_it(
 
     _form(VISA, body)
     assert (seen["key"], seen["bar"]) == ("opening:USD", "40")
-    assert notes[0][0].startswith("CONFLICT — Account already has an opening balance.")
+    assert seen["block"].startswith("Failed\nCONFLICT — Account already has an opening balance.")
+    _no_failed_toast(notes)
     assert seen["first"] == [
         ("PUT", "/transactions/tx-open"),
         ("POST", "/accounts/acc-visa/opening-balance"),
@@ -522,7 +530,7 @@ def test_a_dated_refusal_on_the_dollars_lands_on_usd_as_of(fake_client, notes, r
         screen._values["as_of:USD"] = "2026-11-01"
         _on(screen, "name")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen._key == "as_of:USD"
         assert screen.query_one("#bar", Input).value == "2026-11-01"
@@ -546,7 +554,7 @@ def test_a_refusal_stops_the_currency_behind_it(fake_client, notes, reads_log):
         _type(screen, "opening:USD", "40.00")
         screen._values["as_of:USD"] = "2026-01-01"
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen._key == "opening:PEN"
 
@@ -608,7 +616,7 @@ def test_a_posted_opening_balance_is_changed_by_its_id_on_the_next_save(
         screen._values["as_of:PEN"] = "2026-01-01"
         _type(screen, "opening:USD", "50.00")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached and screen._key == "opening:USD"
         fake_client.errors.clear()
@@ -994,9 +1002,10 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
         _type(screen, "color", "green")
         _type(screen, "opening:PEN", "350.00")
         _type(screen, "as_of:PEN", "2026-11-01")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached and screen._key == "as_of:PEN"
+        seen["block"] = refusal_block(screen)
         assert screen.query_one("#bar", Input).value == "2026-11-01"  # still in the form
         assert (screen._values["opening:PEN"], screen._values["as_of:PEN"]) == (35000, "2026-11-01")
         seen["first"] = list(fake_client.requests)
@@ -1005,10 +1014,9 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
-    message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error", "markup": False}
-    assert message == (
-        "The account's changes are saved. The PEN opening balance is not:\n"
+    _no_failed_toast(notes)
+    assert seen["block"] == (
+        "Failed\nThe account's changes are saved. The PEN opening balance is not:\n"
         "VALIDATION_ERROR — Transaction validation failed.\n"
         "  date: Must not be in the future.\n\n"
         "It is still in the form: fix it and save again."
@@ -1041,7 +1049,7 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
 )
 def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, key, reason, line):
     """The account saved, the opening balance was refused for a reason that has
-    its own line: the note is the half sentence, the engine's words, then that
+    its own line: the block is the half sentence, the engine's words, then that
     line, which takes the place of the form's own closing line."""
     fake_client.errors["POST"] = EngineError(
         "CONFLICT", "stand-in", {key: "stand-in field words"}, 409, {}, {key: reason}
@@ -1051,14 +1059,15 @@ def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, 
         _type(screen, "color", "green")
         _type(screen, "opening:PEN", "350.00")
         _type(screen, "as_of:PEN", "2026-01-01")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
+        seen["block"] = refusal_block(screen)
 
+    seen: dict = {}
     _form(EFECTIVO, body)
-    message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error", "markup": False}
-    assert message == (
-        "The account's changes are saved. The PEN opening balance is not:\n"
+    _no_failed_toast(notes)
+    assert seen["block"] == (
+        "Failed\nThe account's changes are saved. The PEN opening balance is not:\n"
         f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
     )
 
@@ -1089,7 +1098,7 @@ def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fa
         _type(screen, "as_of:PEN", "2026-01-01")
         _type(screen, "opening:USD", "40.00")
         _type(screen, "as_of:USD", "2026-11-01")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached
         await pilot.press("escape")
@@ -1103,9 +1112,9 @@ def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fa
     assert result == [True]
 
 
-def test_the_half_saved_note_names_the_currency_refused(fake_client, notes):
+def test_the_half_saved_block_names_the_currency_refused(fake_client, notes):
     """The account saves, the soles' opening balance lands and the dollars' is
-    refused: the note names the dollars."""
+    refused: the block names the dollars."""
     plain = account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")])
     sent = fake_client.post
 
@@ -1122,12 +1131,15 @@ def test_the_half_saved_note_names_the_currency_refused(fake_client, notes):
         _type(screen, "as_of:PEN", "2026-01-01")
         _type(screen, "opening:USD", "40.00")
         _type(screen, "as_of:USD", "2026-11-01")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
+        seen["block"] = refusal_block(screen)
 
+    seen: dict = {}
     _form(plain, body)
-    assert notes[0][0].startswith(
-        "The account's changes are saved. The USD opening balance is not:\n"
+    _no_failed_toast(notes)
+    assert seen["block"].startswith(
+        "Failed\nThe account's changes are saved. The USD opening balance is not:\n"
     )
 
 
@@ -1142,7 +1154,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         _type(screen, "color", "green")
         _type(screen, "opening:PEN", "350.00")
         _type(screen, "as_of:PEN", "2026-11-01")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.press("escape")
         await wait_for(pilot, lambda: result)
 
@@ -1236,17 +1248,18 @@ def test_screen_7_each_refusal_shows_in_the_engines_words(
     async def body(pilot, app, screen):
         for key, text in steps:
             _type(screen, key, text)
-        if screen.is_attached and not notes:
+        if screen.is_attached and not refusal_block(screen):
             await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached  # nothing saved, the form stays
         typed.update(screen._values)
+        typed["block"] = refusal_block(screen)
 
     _form(record, body)
-    message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error", "markup": False}
-    assert message.startswith(f"{error.code} — {error.message}")
+    _no_failed_toast(notes)
+    message = typed.pop("block")
+    assert message.startswith(f"Failed\n{error.code} — {error.message}")
     for field, words in (error.fields or {}).items():
         assert f"  {field}: {words}" in message
     assert "account's changes" not in message  # the account was not part of this save
@@ -1412,9 +1425,9 @@ def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
         screen._values["as_of:PEN"] = "2026-11-01" if error is FUTURE else "2026-01-01"
         _on(screen, "name")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
-        half = "The account's changes are saved." in notes[0][0]
+        half = "The account's changes are saved." in refusal_block(screen)
         assert half is change_colour
         assert screen._key == lands_on
         assert screen.query_one("#bar", Input).value == bar  # what was typed
