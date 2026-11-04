@@ -87,9 +87,6 @@ the bank download leftovers (done on 2026-11-03),
 New, from part 1: [what the reads and writes catch-up turned up](specs/catch-up-currencies-1-leftovers.md)
 (2 questions, one with a mockup to draw), now that part 6 is done.
 
-New, from part 4: [what the live tests for the upload, bank lines and kinds turned up](specs/catch-up-currencies-4-leftovers.md)
-(1 question, on the Edit form's words), after part 7.
-
 New, from part 6b's leftovers (done on 2026-11-02): [what part 6b's leftovers turned up](specs/catch-up-currencies-6c-leftovers.md)
 (1 question, with a mockup to draw), waiting on no other spec.
 

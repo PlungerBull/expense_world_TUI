@@ -3,10 +3,9 @@
 What part 4 of the catch-up to contract `f82426fb0a099676`, the live tests for the upload, bank
 lines and kinds (done on 2026-10-31), turned up while it ran.
 
-**Status: drafted on 2026-10-31 for the owner to rewrite or approve; one question.** It runs
-after part 7 of the currencies catch-up (done on 2026-11-03),
-which rewrites the statement screens these points touch. When done, the why moves to
-[decisions.md](../decisions.md) and this file is deleted.
+**Status: approved on 2026-11-03; question 1 answered (A), already shipped by part 7.** It
+waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and this
+file is deleted.
 
 ---
 
@@ -19,8 +18,6 @@ which rewrites the statement screens these points touch. When done, the why move
 - **Two live tests still drive the old Statements screen's reads** (the lines of a statement and
   the lines in no statement), and no live test drives the flagged lines' own read of the review
   list. Part 7 rewrites those screens; their live tests should then test the new screens' reads.
-- **No live test has a line whose parts carry different dates** on the review list, though the
-  engine states that such a line is listed when any of its parts counts.
 
 ## What it must do
 
@@ -28,8 +25,6 @@ which rewrites the statement screens these points touch. When done, the why move
    question 1 picks.
 2. **The live tests drive the statement screens' own reads**, the flagged lines' review list
    included, once part 7 has rewritten them.
-3. **A live test lists a line whose parts carry different dates** on the review list when any of
-   its parts counts.
 
 ## How the owner knows it is done
 
@@ -46,11 +41,32 @@ which rewrites the statement screens these points touch. When done, the why move
 
    **Recommended:** A: the engine's word, one word swapped.
 
+   **Picked:** A.
+
 ---
 
 ## Tasks
 
-Drafted when the owner approves this spec.
+Point 1 already holds: [edit_form.py](../../expense/tui/screens/edit_form.py) notes
+`Saved. It left its statement.` and its crumb names `Statements`; the acceptance check confirms it.
+
+1. **The statement screens' live tests read what the screens read.** In
+   [test_bank_lines.py](../../tests/contract/test_bank_lines.py),
+   `test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads` reads a draft's lines
+   with exactly the arguments `ReconciliationDetailScreen` sends
+   ([reconciliations.py](../../expense/tui/screens/reconciliations.py): the statement's lines with
+   `account` and `sort="statement"`, the lines in no statement with the period's days and
+   `sort="date_asc"`), and `test_the_no_batch_list_reads_through_its_own_reads` reads and counts
+   with the list's own `UNFILED_FILTER` and `UNFILED_SORT`, oldest first, its docstring no longer
+   saying newest first. Where a screen builds its arguments inline, the builder may lift them into
+   one shared name both the screen and the test use, so the two cannot drift.
+2. **A live test drives the flagged lines' screen's own reads.** A new live test reads a
+   statement's review list through the app's own calls, as the flagged lines' screen and the
+   statement upload's result do (`count_bank_lines` with `review_of=` and the screen's list read
+   with `sort="statement"`), on a draft and after its close: the count agrees with the list, and
+   after the close the list is exactly the close's `review_lines` in their order, every currency
+   of the account together. It cleans up after itself like every live test (conftest.py
+   `scratch`).
 
 ## Found along the way
 
