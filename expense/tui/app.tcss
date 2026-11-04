@@ -42,7 +42,7 @@ Screen {
 
 /* ---- section interface (SectionScreen: crumb + card + legend) ---- */
 #crumb {
-    padding: 1 2;
+    padding: 0 2;
     color: $text-muted;
     border-bottom: solid $secondary;
 }

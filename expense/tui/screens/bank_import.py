@@ -103,12 +103,12 @@ NOTHING_WRITTEN = "Nothing was written."
 RERUN = "It changed while the import ran: ⏎ checks the file against the ledger again."
 RERUN_KEY = "Preview again"
 
-#: Lines the preview spends on everything but its rows: the breadcrumb (4 with
-#: its padding and rule), the body's padding (2), the title and the blank under
+#: Lines the preview spends on everything but its rows: the breadcrumb (2 with
+#: its rule), the body's padding (2), the title and the blank under
 #: it, the table's header, the `… more` line, the blank and the counts' first
 #: line under the table, and the footer. The counts' second line and the notes
 #: under them are counted per screen.
-PREVIEW_CHROME = 13
+PREVIEW_CHROME = 11
 
 #: The fewest rows a page shows, however short the terminal.
 MIN_PAGE = 3

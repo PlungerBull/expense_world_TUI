@@ -215,7 +215,7 @@ def test_a_completed_statement_with_flagged_lines_reads_as_pane_10_at_80_columns
         await wait_for(pilot, lambda: _screen_lines(app)[-1].find("f Flagged") >= 0)
         return _screen_lines(app)
 
-    lines = run_app(scenario, size=(80, 26))
+    lines = run_app(scenario, size=(80, 24))
     assert_pane(lines, PANE_10_STATEMENT)
     # the count is read once, on the review list itself, when the screen opens
     assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}]
@@ -238,7 +238,7 @@ def test_the_flag_and_f_show_on_an_open_statement_too(fake_client, monkeypatch, 
         line = screen.query_one("#rflag", Static)
         return line.display, bool(screen.check_action("flagged", ())), str(line.visual)
 
-    shown, f_live, text = run_app(scenario, size=(80, 26))
+    shown, f_live, text = run_app(scenario, size=(80, 24))
     assert shown and f_live
     assert text.startswith("⚑ 3 lines flagged for review")
     assert engine.counts == [{"unassigned_in_period_of": record["id"]}]
@@ -257,7 +257,7 @@ def test_neither_shows_when_the_review_list_counts_none(fake_client, monkeypatch
             app.screen is screen,
         )
 
-    assert run_app(scenario, size=(80, 26)) == (False, False, True)
+    assert run_app(scenario, size=(80, 24)) == (False, False, True)
     assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}]
 
 
@@ -273,7 +273,7 @@ def test_the_screen_counts_again_each_time_it_reads_the_statement(fake_client, m
         await wait_for(pilot, lambda: screen.query_one("#rflag", Static).display)
         assert str(screen.query_one("#rflag", Static).visual).startswith("⚑ 2 lines flagged")
 
-    run_app(scenario, size=(80, 26))
+    run_app(scenario, size=(80, 24))
     assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}] * 2
 
 
@@ -304,7 +304,7 @@ def test_a_refused_delete_or_revert_keeps_the_flag_and_f(fake_client, monkeypatc
             )
         return seen
 
-    assert run_app(scenario, size=(80, 26)) == [(True, True), (True, True)]
+    assert run_app(scenario, size=(80, 24)) == [(True, True), (True, True)]
 
 
 def test_a_count_that_cannot_be_read_toasts_the_engines_words(fake_client, monkeypatch):
@@ -322,7 +322,7 @@ def test_a_count_that_cannot_be_read_toasts_the_engines_words(fake_client, monke
         await wait_for(pilot, lambda: notes)
         return screen.query_one("#rflag", Static).display
 
-    assert run_app(scenario, size=(80, 26)) is False
+    assert run_app(scenario, size=(80, 24)) is False
     assert notes == [(format_error(engine.count_error), "error")]
 
 
@@ -344,7 +344,7 @@ def test_the_flagged_screen_of_a_coded_account_reads_as_pane_10_at_80_columns(
         await pilot.pause()
         return _screen_lines(app)
 
-    lines = run_app(scenario, size=(80, 26))
+    lines = run_app(scenario, size=(80, 24))
     assert_pane(lines, PANE_10_FLAGGED)
     # one read of the review list, every currency together in the statement's order, and
     # its count: nothing names a currency or a line
@@ -368,7 +368,7 @@ def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client
         assert screen is not app.screen
         return _screen_lines(app), bool(app.screen.query("#fways"))
 
-    lines, ways = run_app(scenario, size=(80, 26))
+    lines, ways = run_app(scenario, size=(80, 24))
     wanted = _pane(PANE_10_FLAGGED)
     assert lines[:2] == [wanted[0].replace("VIS-202610", "Octubre 2026"), wanted[1]]
     assert lines[3:5] == [

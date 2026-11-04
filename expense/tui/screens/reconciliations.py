@@ -579,11 +579,15 @@ class ReconciliationsScreen(SectionScreen):
         """Rows per page of the panel: its share, or what the accounts really leave under
         them when that is less (at least one), so a short terminal pages the panel instead
         of scrolling `#content`: `#content` less the title, the accounts' frame and rows,
-        and the panel's frame and caption."""
+        and the panel's frame and caption. The lines in no batch take all the room the
+        accounts leave; the statements list keeps the equal split."""
         accounts = self.BROWSE_FRAME_LINES + min(self.pane_rows(), max(1, len(self._accounts)))
         frame = self.UNFILED_FRAME_LINES if self._mode == "unfiled" else self.BROWSE_FRAME_LINES
         panel = frame + self._caption_lines()
-        return min(self.pane_rows(), self.fit_rows(chrome=2 + accounts + panel, floor=1))
+        room = self.fit_rows(chrome=2 + accounts + panel, floor=1)
+        # The lines in no batch take all the room the accounts leave; the statements stop
+        # at the equal split.
+        return room if self._mode == "unfiled" else min(self.pane_rows(), room)
 
     def _caption_lines(self) -> int:
         """Lines the caption the panel is about to draw takes at the width the list really

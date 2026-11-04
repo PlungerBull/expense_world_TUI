@@ -1766,6 +1766,10 @@ with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑
 through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,
 System kv-tables.
 
+**The frame:** the breadcrumb on the first line with no blank line above it, the rule
+directly under it, then one blank line and the content. A statement's screen puts its head
+right under the rule.
+
 **The Statements screens fit 80×24.** The browse's panel pages to fit, below the floor
 (`panel_page_rows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)):
 four accounts and three statements fit on one page, and with five accounts the panel pages

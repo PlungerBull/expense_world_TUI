@@ -200,15 +200,13 @@ def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statem
 
 
 def _screen_lines(app) -> list[str]:
-    """The screen as drawn, a line each, trailing blanks off. The app's own chrome is
-    left out: the blank row above the crumb and the one under it, which the mockups
-    do not draw. An income is written without the plus the mockups draw, as every
-    list of the app writes it (`+800.00` reads ` 800.00`)."""
+    """The screen as drawn, a line each, trailing blanks off. An income is
+    written without the plus the mockups draw, as every list of the app writes it
+    (`+800.00` reads ` 800.00`)."""
     lines = screen_lines(app)
     while lines and not lines[-1]:
         lines.pop()
-    assert lines[0] == "" and lines[2] == "", lines[:3]
-    return [line for n, line in enumerate(lines) if n not in (0, 2)]
+    return lines
 
 
 def _pane(text: str) -> list[str]:
@@ -235,14 +233,14 @@ def _open(statement: dict, code: str | None = None):
 
 def test_a_completed_statement_reads_as_pane_4_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
-    _, lines, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 26))
+    _, lines, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 24))
     # the footer has `d` and no `c`, and no `space Toggle` (Question 9 B)
     assert lines == _pane(PANE_4)
 
 
 def test_a_draft_reads_as_pane_5_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=OCTUBRE_IN, other_lines=OCTUBRE_OUT)
-    _, lines, _ = run_app(_open(OCTUBRE), size=(80, 18))
+    _, lines, _ = run_app(_open(OCTUBRE), size=(80, 16))
     assert lines == _pane(PANE_5)
 
 
@@ -274,7 +272,7 @@ def test_the_rows_keep_the_order_the_engine_gave_them(fake_client, monkeypatch):
     engine put them, and the numbers follow the rows."""
     odd = [AGOSTO[4], AGOSTO[0], AGOSTO[2]]
     _engine(fake_client, monkeypatch, statement_lines=odd)
-    screen, _, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 26))
+    screen, _, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 24))
     assert [row.key for row in screen._list._rows] == ["l5", "l1", "l3"]
     assert [row.number for row in screen._list._rows] == [1, 2, 3]
 
@@ -287,7 +285,7 @@ def test_a_currency_the_statement_does_not_cover_shows_nothing(fake_client, monk
         {**VIS_AGOSTO, "balances": [_balance("PEN", 0, -60210, 0)], "name": "VIS-202609"}
     )
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO[:4])
-    _, _, visual = run_app(_open(soles), size=(80, 26))
+    _, _, visual = run_app(_open(soles), size=(80, 24))
     head = visual.text
     assert [line.split()[0] for line in head.splitlines()[2:]] == ["PEN"]
     assert "USD" not in head
@@ -296,7 +294,7 @@ def test_a_currency_the_statement_does_not_cover_shows_nothing(fake_client, monk
 def test_a_statement_covering_nothing_has_no_balances_table(fake_client, monkeypatch):
     bare = statement_record({**VIS_AGOSTO, "balances": []})
     _engine(fake_client, monkeypatch, statement_lines=[])
-    _, _, visual = run_app(_open(bare), size=(80, 26))
+    _, _, visual = run_app(_open(bare), size=(80, 24))
     head = visual.text
     assert head.splitlines() == [
         "  [VIS] Agosto  ·  Visa BCP  ·  2026-07-26 → 2026-08-25  ·  status completed"
@@ -314,7 +312,7 @@ def test_a_blank_balance_is_a_dim_dash_and_its_difference_stays_blank(fake_clien
     assert len(dashes) == 2 and all(Style.parse(str(style)).dim for style in dashes)
 
 
-@pytest.mark.parametrize("height", [30, 24, 23, 19])
+@pytest.mark.parametrize("height", [30, 24, 22, 21, 17])
 def test_every_row_and_the_page_status_show_at_any_height(fake_client, monkeypatch, height):
     """The opening balances' blank line and label cost two lines on a page that shares
     it with numbered rows, and the pages count them: no page is taller than the room
@@ -341,7 +339,7 @@ def test_every_row_and_the_page_status_show_at_any_height(fake_client, monkeypat
 
     seen, statuses = run_app(scenario, size=(80, height))
     assert seen == [f"l{n}" for n in range(1, 13)]
-    assert (statuses == [None]) == (height >= 26)
+    assert (statuses == [None]) == (height >= 24)
 
 
 def test_a_page_of_opening_balances_alone_draws_the_label_where_the_header_stands():
@@ -465,7 +463,7 @@ def test_a_tick_into_a_soles_only_draft_reads_the_statement_again_as_pane_5(
         await pilot.pause()
         return _screen_lines(app)
 
-    lines = run_app(scenario, size=(80, 18))
+    lines = run_app(scenario, size=(80, 16))
     assert fake_client.puts == [("/transactions/t23", {"statement_id": "ibk-oct"})]
     assert reads == ["/statements/ibk-oct"]
     assert lines == _pane(PANE_5)
@@ -503,7 +501,7 @@ def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pa
         await pilot.pause()
         return _screen_lines(app)
 
-    lines = run_app(scenario, size=(80, 26))
+    lines = run_app(scenario, size=(80, 24))
     top = _pane(PANE_8_TOP)
     assert lines[: len(top)] == top  # an empty `not_covered` entry draws nothing
     assert lines[len(top)] == ""  # then the list, which keeps its own blank line
@@ -538,7 +536,7 @@ def test_a_completed_statement_on_an_account_with_no_code_draws_no_number_as_pan
     # The pane's two `⚠` lines are left out: they show only just after `c`, and
     # test_the_close_notes_of_a_currency_not_covered_… pins them.
     _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
-    _, lines, _ = run_app(_open(SEPTIEMBRE_DONE), size=(80, 15))
+    _, lines, _ = run_app(_open(SEPTIEMBRE_DONE), size=(80, 13))
     assert lines == _pane(PANE_8_LIST)
 
 
@@ -553,7 +551,7 @@ def test_only_a_completed_statement_on_an_account_with_a_code_is_numbered(fake_c
         ("open, code", NOVIEMBRE, "VIS"),
         ("open, no code", SEPTIEMBRE, None),
     ]:
-        _, lines, _ = run_app(_open(statement, code), size=(80, 26))
+        _, lines, _ = run_app(_open(statement, code), size=(80, 24))
         headers[key] = next(line for line in lines if "Date " in line and "Title" in line)
     numbered = {key: line.lstrip().startswith("#") for key, line in headers.items()}
     assert numbered == {
@@ -621,7 +619,7 @@ def test_a_long_close_note_wraps_under_its_first_word_after_the_warning_sign(
         await pilot.pause()
         return _screen_lines(app)
 
-    lines = run_app(scenario, size=(80, 26))
+    lines = run_app(scenario, size=(80, 24))
     start = next(n for n, line in enumerate(lines) if line.startswith("  ⚠ The statement"))
     note = lines[start : start + 2]
     assert note[1].startswith("    ") and not note[1].startswith("     ")  # under `The`
@@ -717,9 +715,9 @@ def test_the_keys_show_and_act_as_the_statements_state_allows(fake_client, monke
 
         return scenario
 
-    completed = run_app(keys(VIS_AGOSTO, "VIS"), size=(80, 26))
-    draft = run_app(keys(OCTUBRE, None), size=(80, 26))
-    waiting = run_app(keys(NOVIEMBRE, "VIS"), size=(80, 26))
+    completed = run_app(keys(VIS_AGOSTO, "VIS"), size=(80, 24))
+    draft = run_app(keys(OCTUBRE, None), size=(80, 24))
+    waiting = run_app(keys(NOVIEMBRE, "VIS"), size=(80, 24))
     assert "Complete" not in completed and "Toggle" not in completed
     assert "Delete" in completed and "Revert" in completed
     assert {"Toggle", "Complete", "Revert", "Delete"} <= set(draft)
@@ -764,6 +762,6 @@ def test_c_and_space_do_nothing_on_a_completed_statement(fake_client, monkeypatc
         await pilot.pause()
         return screen, app.screen is screen, before == screen._list.checked
 
-    screen, still_here, same = run_app(scenario, size=(80, 26))
+    screen, still_here, same = run_app(scenario, size=(80, 24))
     assert still_here and same and not screen._busy
     assert fake_client.puts == [] and fake_client.posts == []

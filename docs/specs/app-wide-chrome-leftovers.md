@@ -70,9 +70,6 @@ showed differences that come from what every screen shares:
 Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
 so one change reaches them all.
 
-1. **The blank lines around the breadcrumb go** (Decided 3): the crumb's padding in
-   [app.tcss](../../expense/tui/app.tcss), so every screen reads crumb, rule, one blank line,
-   content; the row counts every list's tests pin follow; tui.md says so.
 2. **A form's refusal is a block under the form** (Decided 1): where
    [_form.py](../../expense/tui/screens/_form.py) toasts `Failed` today, the form shows
    `▌ Failed` and the engine's words under its lines, kept until the next key, the cursor on the
@@ -95,3 +92,8 @@ so one change reaches them all.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- A code comment and some test docstrings name drawing panes, which is provenance: the
+  comment above `FlaggedLinesScreen #fhead` in [app.tcss](../../expense/tui/app.tcss)
+  ("pane 10"), and docstrings in `test_tui_flagged_panes.py` and `test_tui_reconciliations.py`
+  ("pane N").

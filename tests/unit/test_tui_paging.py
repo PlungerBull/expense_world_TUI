@@ -535,7 +535,7 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
 
 
 def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
-    """The window is the screenful (a 30-line terminal fits 15 rows: chrome 13,
+    """The window is the screenful (a 30-line terminal fits 17 rows: chrome 11,
     the legend 2), capped at ENGINE_PAGE_CAP and floored at 5 — and it
     sizes only what is drawn, never a read: every open asks for
     `GROW_STEP`."""
@@ -549,7 +549,7 @@ def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
 
         return checks
 
-    _drive_transactions((120, 30), sized(15))
+    _drive_transactions((120, 30), sized(17))
     _drive_transactions((120, 14), sized(5))
     _drive_transactions((120, 300), sized(ENGINE_PAGE_CAP))
 

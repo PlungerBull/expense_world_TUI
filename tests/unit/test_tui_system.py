@@ -10,7 +10,14 @@ from expense.tui.screens.system import (
     ConfigScreen,
     _redact_token,
 )
-from tests.unit.helpers import error_body, render_text, run_app, wait_for, wait_for_loaded
+from tests.unit.helpers import (
+    error_body,
+    render_text,
+    run_app,
+    screen_lines,
+    wait_for,
+    wait_for_loaded,
+)
 
 CFG = Config(
     engine_url="https://engine.example",
@@ -43,6 +50,20 @@ def test_config_screen_shows_only_the_engine_connection(monkeypatch):
         assert "client id" not in card and "cache" not in card
 
     run_app(scenario, size=(120, 40))
+
+
+def test_a_section_screen_opens_on_the_crumb_then_the_rule_then_one_blank_line(monkeypatch):
+    monkeypatch.setattr("expense.config.load", lambda: CFG)
+
+    async def scenario(pilot, app):
+        await app.push_screen(ConfigScreen())
+        await wait_for_loaded(pilot, app)
+        lines = screen_lines(app)
+        assert "EXPENSE WORLD" in lines[0] and "Config" in lines[0]
+        assert set(lines[1]) == {"─"}
+        assert lines[2] == "" and lines[3] != ""
+
+    run_app(scenario)
 
 
 def test_config_screen_reads_and_saves(monkeypatch):

@@ -44,6 +44,7 @@ from tests.unit.helpers import (
     import_row,
     render_text,
     run_app,
+    screen_lines,
     statement_record,
     stub_home_month,
     unclaimed_line,
@@ -1009,6 +1010,33 @@ def test_the_preview_pages_with_pgdn(fake_client, monkeypatch, tmp_path):
         assert preview._start == size
         await pilot.press("pageup")
         assert preview._start == 0
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_the_preview_rows_run_down_to_the_blank_line_above_the_footer(
+    fake_client, monkeypatch, tmp_path
+):
+    """`PREVIEW_CHROME` is exact: at a fixed height the page fills the room, with no gap
+    left under the counts and the counts not pushed off."""
+    path = _bank_file(tmp_path)
+    rows = [
+        import_row(d + 1, -d, day=f"2026-09-{d:02d}", title=f"SHOP {d}", account_id="bcp")
+        for d in range(1, 29)
+    ]
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): rows})
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")
+        await _previewed(pilot, app)
+        await pilot.pause()
+        lines = screen_lines(app)
+        assert lines[-2] == "" and lines[-3] != ""
+        assert "28 rows" in lines[-3]
 
     run_app(scenario, size=(120, 30))
 
