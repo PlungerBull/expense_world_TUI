@@ -166,11 +166,17 @@ runs Backlog items when the owner names them (CLAUDE.md "Specs and tasks").
   proves; the drift script's note for `l12` describes the match loosely;
   [test_statement_codes.py](../tests/contract/test_statement_codes.py) names the account holding
   a code `holder`. Done when each says what the code and the contract do, and both suites pass.
-- **The live "no batch" test reads newest first** while the screen reads oldest first
-  (`UNFILED_SORT`), so the screen's own order is never tested live; that test's docstring and
-  the statement-screen test's docstring miss the currency and number they check. No test pins
-  that `u` on the Statements browse brings back the shared table's edge and gap and `esc` takes
-  them away. Done when the live test reads as the screen does and the switch is pinned.
+- **The statement screens' live tests say less than they check, and `u` is unpinned.** Nothing
+  you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no batch"
+  and statement-screen tests' docstrings miss the currency and number they check, and the latter
+  writes `"date_asc"` for `UNFILED_SORT`. No test pins that `u` on the Statements browse brings
+  back the shared table's edge and gap and `esc` takes them away.
+- **The flagged lines' screen shares no read with its live test.** Nothing you see changes.
+  [reconciliations.py](../expense/tui/screens/reconciliations.py) builds the review-list read
+  inline and the live test types it again; decisions.md "A screen's live test reads through the
+  screen's own read" wants one function both call.
+- **[edit_form.py](../expense/tui/screens/edit_form.py)'s module docstring says reconciliation
+  where it means statement.** Nothing you see changes.
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
   [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) (the seed it sends
   twice), [test_opening_balance.py](../tests/contract/test_opening_balance.py) (`_seed_body`,

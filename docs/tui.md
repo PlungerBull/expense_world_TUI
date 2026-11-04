@@ -481,7 +481,7 @@ already read, never by its name. With none yet nothing is dropped, and a LOG bar
 **`u` on the Statements browse — the account's bank lines in no batch.** The **panel swaps**:
 same screen, same place, and the open account's statements are replaced by its bank lines
 assigned to no statement, any day, every currency of the account together: `GET /bank-lines`
-with `account_id`, `unreconciled=true` and `sort=date_asc` and no dates or currency
+with `account_id` and `unreconciled=true` and no dates or currency
 (contract: GET /v1/bank-lines, "Filters"), through `fetch_bank_lines` in
 [reads.py](../expense/reads.py). `u` works only while an account's panel is open — on the
 plain account list it does nothing and is not in the footer. Why this is not a filtered
@@ -496,8 +496,8 @@ transaction split into parts is **one row**, its title alone and its total; noth
 says it is split, and its parts are not listed. No category, hashtags or note. Every
 bank-line list (a statement's, the flagged lines') draws its rows this way.
 
-The list is **oldest first**, `sort=date_asc` (contract: GET /v1/bank-lines, "Ordering"),
-and the caption says so:
+The list is **oldest first**, `sort=date_asc` (`UNFILED_SORT`)
+(contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
 `In no batch · <account>   ·   N of M loaded · oldest first   ·
 ! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
 `GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`;
@@ -1398,8 +1398,9 @@ again by its id, `GET /statements/{id}` (`fetch_statement` in [reads.py](../expe
 screen says `This statement no longer exists.` and goes back, and any other refused read shows
 the engine's words and stays.
 
-Under the head is one list of **bank lines** (`CheckList`), read through `fetch_bank_lines` in
-[reads.py](../expense/reads.py), every page of each read, by account and never by one currency:
+Under the head is one list of **bank lines** (`CheckList`), read by `fetch_month_lines` in
+[reconciliations.py](../expense/tui/screens/reconciliations.py), every page of each read, by
+account and never by one currency:
 `account_id=` with `statement_id=` and `sort=statement`, so the statement's lines come in the
 paper's order, both currencies together, then those holding no place oldest first
 (contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. Its rows are the "no batch"
@@ -1755,7 +1756,7 @@ everything loaded and `pgup` goes up a screenful. A resize reads nothing. After 
 bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from the newest 10 with the cursor on
 row 1, as `r` does. Leaving the `⏎` form with `esc` is not a write: nothing is read and the
 list comes back as it was, the rows `pgdn` loaded and the cursor on its row. The "no batch"
-list on Statements grows through the same `GrowingRead`, oldest first.
+list on Statements grows through the same `GrowingRead` (§2).
 
 **Full-data screens window locally** — Manage, the Statements account list (full
 height alone, an equal split with the open panel), a statement's list at what fits —

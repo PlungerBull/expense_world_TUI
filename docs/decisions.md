@@ -939,9 +939,9 @@ the statement, a `⚑` line under the header and `f` open the list again while f
 left (contract: POST /v1/statements/{statement_id}/complete).
 Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
 lines a close flags. (2) **The screen reads the flagged lines as the statement's review list**, opened on the
-statement's id: `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement`, page by
-page in the statement's order with no id sent, its count the engine's from
-`GET /bank-lines/count` on the same filter (contract: GET /v1/bank-lines, "It has no bound"); the
+statement's id with no id sent, and its count is the engine's on the same filter
+(contract: GET /v1/bank-lines, "It has no bound"); the request is in [tui.md](tui.md) "The lines
+a complete flagged for review". The
 `⚑` count after a close, and whether the screen opens, are that count too, never a sum of the
 close's `review_lines`: the review list also holds earlier lines in no statement, so a sum can
 disagree with the list it opens. The screen reads the count first and its head shows it before
@@ -1130,6 +1130,19 @@ engine picks another allowed answer.
 **Rejected.** *Porting every old case onto the new shapes* — it keeps rules the engine no longer
 states. *Pinning what the engine does today where it breaks its contract* — the suite would fail
 the day the engine is fixed.
+
+## A screen's live test reads through the screen's own read (2026-11-03)
+
+**Decision.** A live test of what a screen lists calls the read the screen itself calls, with the
+same filters and order, through one function both call (`fetch_month_lines` in
+[reconciliations.py](../expense/tui/screens/reconciliations.py) for a statement's lines).
+
+**Why.** A test that rebuilds the screen's arguments keeps passing after the screen changes what
+it sends, and then proves the old screen: a list the screen reads oldest first stays tested
+newest first.
+
+**Rejected.** *Testing the engine's filters alone, with the client's raw calls* — that proves the
+engine, not this client's use of it, which is what the live suite is for.
 
 ## A live test dates a recent row and reads its month from one moment (2026-11-02)
 
