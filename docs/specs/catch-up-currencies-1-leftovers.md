@@ -58,11 +58,7 @@ an account and a currency (done on 2026-10-30), turned up while it ran.
 
 Approved by the owner on 2026-11-03.
 
-3. **The two code comments say what the code does** (What it must do 4): the module docstring
-   of [accounts.py](../../expense/tui/screens/accounts.py) (a person's Code is its statement
-   code like any account's, `—` when it has none) and the bulk-write receipt's docstring in
-   [transactions.py](../../expense/tui/screens/transactions.py) (the pick's label, not
-   `BCP USD`).
+Every task is done.
 
 ## Found along the way
 

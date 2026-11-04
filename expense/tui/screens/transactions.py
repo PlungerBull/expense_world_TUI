@@ -262,7 +262,7 @@ def refusal_notes(failed: list[RefusedRow]) -> list[str]:
 def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     """The toast after a bulk write: `3 rows → KORAKUEN`, and with `left`
     rows taken out of their statement by an account move,
-    `3 rows → BCP USD · 2 left their statement`."""
+    `3 rows → BCP Signature · USD · 2 left their statement`."""
     receipt = f"{count} {'row' if count == 1 else 'rows'} → {label}"
     if left == 1:
         receipt += " · 1 left its statement"

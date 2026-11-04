@@ -6,7 +6,8 @@ currency the client knows (`SUPPORTED_CURRENCIES`, in its order) and Status. Eac
 currency column holds the account's balance in that currency, never summed with
 another, or a dim `—` when the account does not hold it. Includes people and
 archived accounts (archived rows dimmed whole); the Code column shows the account's
-statement code, a dim `—` when it has none (a person always); the Color column
+statement code, a dim `—` when it has none; a person's is its statement code like any account's
+(contract: "What an account is", "A person carries a code like any account"); the Color column
 renders the account's hex color as a swatch. Balances are native currency — no
 surface converts an account balance to the home currency. `n` creates; `e` edits
 the cursor row's account (prefilled EditAccountScreen, an opening balance's
