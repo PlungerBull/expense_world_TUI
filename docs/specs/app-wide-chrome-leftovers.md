@@ -70,11 +70,7 @@ showed differences that come from what every screen shares:
 Approved by the owner on 2026-11-03. Each lands in the shared code every screen uses,
 so one change reaches them all.
 
-7. **The `pgup` footer tests wait for the footer** (the acceptance check, 2026-11-03):
-   `test_a_manage_list_shows_pgup_only_past_its_first_page_and_loses_it_on_reload` in
-   [test_tui_pgup_footer.py](../../tests/unit/test_tui_pgup_footer.py) reads its first footer
-   before it is drawn and fails under parallel load; it and the statement test beside it wait
-   for the footer before every read, and pass in repeated whole-suite runs.
+Every task is done.
 
 ## Found along the way
 

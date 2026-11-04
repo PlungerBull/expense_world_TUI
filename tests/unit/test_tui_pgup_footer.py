@@ -15,6 +15,15 @@ def _footer(app) -> str:
     return next(line for line in reversed(screen_lines(app)) if line.strip())
 
 
+async def _drawn(pilot, app, *, paged: bool = True) -> str:
+    """The footer once the list's own keys are on it: `pgdn Next` for a list of pages,
+    `esc Back` for a one-page list (that key is also in the loading footer, so it proves
+    only that a footer was drawn). Neither is the text a test asserts absent."""
+    key = "pgdn Next" if paged else "esc Back"
+    await wait_for(pilot, lambda: key in _footer(app), message=f"the footer never showed {key}")
+    return _footer(app)
+
+
 async def _settled(pilot, app, *, prev: bool | None) -> str:
     """The footer once it shows `pgup Prev` or not, as asked (`None`: whatever it shows
     after a beat): the footer repaints a beat after the key."""
@@ -35,8 +44,7 @@ def _statement_footers(fake_client, monkeypatch, lines, size, *, paged=True):
         screen = ReconciliationDetailScreen(dict(VIS_AGOSTO), statement_code="VIS")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
-        await pilot.pause()
-        seen = [_footer(app)]
+        seen = [await _drawn(pilot, app, paged=paged)]
         for key, prev in (("pagedown", True), ("pageup", False)):
             await pilot.press(key)
             seen.append(await _settled(pilot, app, prev=prev if paged else None))
@@ -65,18 +73,21 @@ def test_a_manage_list_shows_pgup_only_past_its_first_page_and_loses_it_on_reloa
         screen = HashtagsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        seen = [_footer(app)]
+        seen = [await _drawn(pilot, app)]
         for key, prev in (("pagedown", True), ("pageup", False), ("pagedown", True), ("r", False)):
             await pilot.press(key)
             seen.append(await _settled(pilot, app, prev=prev))
+        await wait_for_list(pilot, app)
+        seen.append(await _drawn(pilot, app))
         return seen
 
-    first, second, back, again, reloaded = run_app(scenario, size=(100, 24))
+    first, second, back, again, reloaded, listed = run_app(scenario, size=(100, 24))
     assert "pgdn Next" in first and "pgup Prev" not in first
     assert "pgup Prev" in second
-    assert "pgup Prev" not in back
+    assert "pgup Prev" not in back and "pgdn Next" in back
     assert "pgup Prev" in again
     assert "pgup Prev" not in reloaded
+    assert "pgup Prev" not in listed and "pgdn Next" in listed
 
 
 def test_a_manage_list_of_one_page_never_shows_pgup(monkeypatch):
@@ -87,6 +98,7 @@ def test_a_manage_list_of_one_page_never_shows_pgup(monkeypatch):
         screen = HashtagsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
+        await _drawn(pilot, app, paged=False)
         await pilot.press("pagedown")
         await pilot.pause()
         return _footer(app)
