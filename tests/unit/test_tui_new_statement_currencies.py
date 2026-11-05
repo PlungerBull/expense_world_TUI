@@ -1,6 +1,6 @@
 """The New statement form: a starting and an ending balance line for each currency of
 the account, each optional, one `POST /statements`, and the engine's refusals landing on
-the currency's line (pane 7 of docs/mockups/expense-world-statements-screens.html)."""
+the currency's line."""
 
 from textual.widgets import Input, Label, Static
 
@@ -71,7 +71,7 @@ def test_a_one_currency_account_has_one_pair_of_lines_and_a_two_currency_one_two
     assert not any(k.startswith(("begin", "end")) for k in _visa()._required())
 
 
-def test_the_form_reads_as_pane_7_at_80_columns(fake_client):
+def test_the_form_reads_at_80_columns(fake_client):
     """Each currency's lines named by it, the starting balance's second hint line on each,
     the account stated in the summary and never edited."""
 

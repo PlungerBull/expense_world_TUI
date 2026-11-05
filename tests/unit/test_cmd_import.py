@@ -1,6 +1,6 @@
-"""`expense import sheet`: what the terminal prints, screen by screen, as
-docs/mockups/expense-world-sheet-import-engine.html draws it (screens 1 to 5,
-`--create-names`, and the apply refused while a name is missing).
+"""`expense import sheet`: what the terminal prints, step by step: the dry runs,
+`--create-names`, the apply, a sheet with bad rows and the apply refused while a name
+is missing.
 
 The engine is respx: every answer is the fake engine's `sheet_import_answer`
 (tests/unit/helpers.py), every refusal an envelope shaped as the practice
@@ -38,7 +38,7 @@ STEP_IDS = ["dry", "create", "apply"]
 
 @pytest.fixture
 def sheet(configured, tmp_path, monkeypatch):
-    """A file named as the mockup names it, in the working folder."""
+    """A sheet file, in the working folder."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / FILE).write_bytes(b"PK\x03\x04 a made-up workbook")
 
@@ -55,10 +55,10 @@ def _body(request: httpx.Request) -> dict:
     return json.loads(request.content)
 
 
-# ---- the mockup's made-up sheet ----------------------------------------------------
+# ---- a made-up sheet ----------------------------------------------------
 def _names(*, yours: bool) -> dict:
-    """Screen 1's names (`yours` False, `BCP` renamed to `Sueldo Soles`), or
-    screen 3's, every one proposed."""
+    """The names before any exists (`yours` False, `BCP` renamed to `Sueldo Soles`), or
+    once every one is proposed."""
 
     def p(ident: str) -> str | None:
         return ident if yours else None
@@ -92,7 +92,7 @@ def _answer(*, yours: bool, dry_run: bool = True, rows=None, counts=None) -> dic
     )
 
 
-#: Screen 3's counts: 1,961 rows, 7 of them zero.
+#: The counts once every name exists: 1,961 rows, 7 of them zero.
 SKIPPED = [14, 90, 311, 1201, 1202, 1555, 1960]
 COUNTS = {
     "new": 1954,
@@ -166,7 +166,7 @@ def _saved() -> dict[str, str]:
     return config_module.ensure_loaded().sheet_account_names
 
 
-SCREEN_1 = """\
+DRY_RUN_NAMES_MISSING = """\
 Accounts (4)
   SHEET NAME   CUR          ROWS   GOES TO
   BCP          PEN + USD   1,515   Sueldo Soles  missing
@@ -194,10 +194,10 @@ Dry run — nothing written.
 """
 
 
-# ---- screen 1: the first dry run ---------------------------------------------------
+# ---- the first dry run ---------------------------------------------------
 @respx.mock
 def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missing(sheet):
-    """Screen 1 with --account-name: the renamed account shows its new name,
+    """The first dry run with --account-name: the renamed account shows its new name,
     `SALDO INICIAL` is a name like any other, no counts, the create step's
     command line; only the dry run without the table is sent, and the rename
     is remembered."""
@@ -206,7 +206,7 @@ def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missin
     creates = _creates()
     result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
-    assert result.stdout == SCREEN_1
+    assert result.stdout == DRY_RUN_NAMES_MISSING
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     assert route.call_count == 1 and accounts.call_count == 1
     assert all(r.call_count == 0 for r in creates.values())
@@ -245,10 +245,10 @@ def test_one_missing_name_reads_in_the_singular(sheet):
     )
 
 
-# ---- screen 2: creating the names --------------------------------------------------
+# ---- creating the names --------------------------------------------------
 @respx.mock
 def test_the_create_step_creates_every_missing_name_and_imports_nothing(sheet):
-    """Screen 2: the renamed account is created under its new name; the sheet
+    """The renamed account is created under its new name; the sheet
     goes only as a dry run without the table, first."""
     config_module.save(
         config_module.ensure_loaded().model_copy(
@@ -345,8 +345,8 @@ def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(
     )
 
 
-# ---- screen 3: the dry run once every name exists ----------------------------------
-SCREEN_3 = """\
+# ---- the dry run once every name exists ----------------------------------
+DRY_RUN_NAMES_EXIST = """\
 Accounts (4)
   SHEET NAME   CUR          ROWS   GOES TO
   BCP          PEN + USD   1,515   Sueldo Soles  yours
@@ -377,7 +377,7 @@ Dry run — nothing written. Run again with --apply to import.
 
 @respx.mock
 def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
-    """Screen 3: the remembered rename finds your account; the dry run goes
+    """The remembered rename finds your account; the dry run goes
     again with the table, still a dry run, and nothing is created."""
     config_module.save(
         config_module.ensure_loaded().model_copy(
@@ -389,7 +389,7 @@ def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
     creates = _creates()
     result = _run()
     assert result.exit_code == 0, _out(result)
-    assert result.stdout == SCREEN_3
+    assert result.stdout == DRY_RUN_NAMES_EXIST
     assert _sent() == [("/v1/transactions/import-sheet", True, False)] + [
         ("/v1/transactions/import-sheet", True, True)
     ]
@@ -486,7 +486,7 @@ def test_the_apply_while_a_name_is_missing_is_refused_and_names_the_step(sheet):
     assert all(r.call_count == 0 for r in creates.values())
 
 
-# ---- screen 4: the apply, then the same sheet again --------------------------------
+# ---- the apply, then the same sheet again --------------------------------
 @respx.mock
 def test_the_apply_writes_and_says_what_was_written(sheet):
     _engine(
@@ -569,7 +569,7 @@ def test_a_sheet_of_zero_rows_only_applied_lists_them_and_never_says_nothing_new
     )
 
 
-# ---- screen 5: a sheet with bad rows -----------------------------------------------
+# ---- a sheet with bad rows -----------------------------------------------
 ROWS_REFUSED = error_body(
     "VALIDATION_ERROR",
     "Import validation failed.",
@@ -587,7 +587,7 @@ ROWS_REFUSED = error_body(
     },
 )
 
-SCREEN_5 = """\
+BAD_ROWS_REFUSAL = """\
 Refused — nothing written. 4 rows:
   Row 77: FECHA is empty.
   Row 120: MONTO is not a whole number of cents.
@@ -604,7 +604,7 @@ def test_a_bad_row_stops_every_step_and_lists_each_refusal_by_row(sheet, step):
     creates = _creates()
     result = _run(*step)
     assert result.exit_code == 1
-    assert result.stdout == SCREEN_5
+    assert result.stdout == BAD_ROWS_REFUSAL
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     assert all(r.call_count == 0 for r in creates.values())
 

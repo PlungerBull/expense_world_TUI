@@ -1,6 +1,5 @@
 """Refused rows read one line per kind of error: each refused field's name and the
-engine's words for it, then the rows they hit (screens 1 A, 2 A and 3 A,
-docs/mockups/expense-world-grouped-refusals.html).
+engine's words for it, then the rows they hit.
 
 The batch writer says what kind each failure is (`BatchFailure.kind`),
 `formatting.grouped_refusals` turns kinds into lines, and the LOG bar and the
@@ -50,7 +49,7 @@ def test_grouped_refusals_joins_a_kind_and_keeps_an_own_line_alone():
 
 
 def test_row_words_name_each_field_then_its_words():
-    """Screen 3 A: the field the engine names, then its words; two fields on one
+    """The field the engine names, then its words; two fields on one
     row are kept apart by ` · `; a refusal naming no field reads its message."""
     one = EngineError("VALIDATION_ERROR", "Invalid input.", {"date": "Must not be null."}, 422, {})
     two = EngineError(

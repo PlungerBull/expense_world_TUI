@@ -1,5 +1,4 @@
-"""`c` on a draft asks for every balance it needs: pane 6 of
-docs/mockups/expense-world-statements-screens.html at 80 columns.
+"""`c` on a draft asks for every balance it needs, at 80 columns.
 
 A box for each blank balance, currency by currency, the starting balance first; one
 `PUT /statements/{id}` naming only the currencies that change (contract: PUT
@@ -218,13 +217,13 @@ def test_the_balances_a_refusal_names_are_read_off_its_reasons_by_key():
     )
 
 
-# ---- c on a draft with blank balances (pane 6, steps 1 to 3) -----------------------
+# ---- c on a draft with blank balances (the starting box, then the ending box) ------------
 
 
 def test_c_asks_the_starting_then_the_ending_balance_saves_once_then_asks_to_complete(
     fake_client, monkeypatch
 ):
-    """Pane 6, steps 1-3: the starting box, then the ending box, both for the
+    """The starting box, then the ending box, both for the
     dollars; one `PUT` naming the dollars alone with both figures; the header shows
     the engine's answer; then the usual question, and only `y` completes."""
     _engine(fake_client, monkeypatch)
@@ -337,7 +336,7 @@ def test_text_the_box_cannot_read_keeps_it_open_and_sends_nothing(fake_client, m
     run_app(scenario, size=(80, 26))
 
 
-# ---- a refused complete that names a balance (pane 6, last two screens) ----------------
+# ---- a refused complete that names a balance (the question, then the box) ----------------
 
 
 def _money_at_start() -> EngineError:
@@ -357,7 +356,7 @@ def _money_at_start() -> EngineError:
 def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_names(
     fake_client, monkeypatch
 ):
-    """Pane 6's last two screens: the question, `y`, the refusal naming the dollars the
+    """The question, `y`, the refusal naming the dollars the
     statement does not cover; the starting box and the ending box (empty) open for
     them, one `PUT` adds both, and the question asks again."""
     _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
@@ -467,7 +466,7 @@ def test_a_refusal_naming_no_balance_opens_no_box(fake_client, monkeypatch):
     run_app(scenario, size=(80, 26))
 
 
-# ---- the refusal under the head, as pane 6 draws it ---------------------------------
+# ---- the refusal under the head ---------------------------------
 
 _NOVIEMBRE_HEAD = [
     "  Noviembre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft",
@@ -486,7 +485,7 @@ async def _refused_with_the_box_up(pilot, app) -> ReconciliationDetailScreen:
     return screen
 
 
-def test_pane_6_the_refusal_stands_between_the_head_and_the_box_at_80x24(fake_client, monkeypatch):
+def test_the_refusal_stands_between_the_head_and_the_box_at_80x24(fake_client, monkeypatch):
     """The engine names a currency the draft does not cover: `Couldn't complete` and the
     engine's code, message and field line, each wrapping under its own first word, stand
     between the head's last currency row and the box's top rule, the box below them,
@@ -541,7 +540,7 @@ def test_the_next_key_takes_the_refusal_away_and_the_box_keeps_its_place(
             return
         typed = "5" if key == "5" else ""
         assert _is_box(app)
-        assert _under_head(app) == _pane6(
+        assert _under_head(app) == _boxes_screen(
             _NOVIEMBRE_HEAD,
             [*_starting("USD")[:3], typed, "[enter] save    [esc] cancel"],
             " esc Cancel",
@@ -623,7 +622,7 @@ def test_a_complete_refused_after_the_save_says_the_balances_are_saved(fake_clie
     run_app(scenario, size=(80, 26))
 
 
-# ---- where the boxes sit: under the head, as pane 6 draws them ------------------------
+# ---- where the boxes sit: under the head ------------------------
 
 RULE = "  " + "─" * 60
 #: Where the box's text ends at most: column 4 and 60 wide.
@@ -639,8 +638,8 @@ def _under_head(app) -> list[str]:
     return [*rows[first : last + 1], rows[-1]]
 
 
-def _pane6(head: list[str], box: list[str], footer: str) -> list[str]:
-    """Pane 6's lines: the head, a blank line, the rule, a blank line, the text at
+def _boxes_screen(head: list[str], box: list[str], footer: str) -> list[str]:
+    """The head, a blank line, the rule, a blank line, the text at
     column 4, a blank line, the rule, the footer."""
     return [*head, "", RULE, "", *[("    " + line).rstrip() for line in box], "", RULE, footer]
 
@@ -649,10 +648,8 @@ def _cells(rows: list[str]) -> list[list[str]]:
     return [row.split() for row in rows]
 
 
-def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
-    fake_client, monkeypatch
-):
-    """Pane 6, steps 1-3, as drawn at 80x24: the head's lines (both currencies) stay on
+def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client, monkeypatch):
+    """At 80x24: the head's lines (both currencies) stay on
     screen above each box and above the question, the blank line, the rule, the text at
     column 4, the blank line, the closing rule, and the footer naming only that box's or
     that question's keys."""
@@ -669,7 +666,7 @@ def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
         for ch in "0.00":
             await pilot.press(ch)
         await pilot.pause()
-        step1 = _pane6(
+        step1 = _boxes_screen(
             [title, columns, pen, "  USD           —            —"],
             [
                 "Starting balance first",
@@ -686,7 +683,7 @@ def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
         for ch in "-24.99":
             await pilot.press(ch)
         await pilot.pause()
-        step2 = _pane6(
+        step2 = _boxes_screen(
             step1[:4],
             [
                 "Ending balance first",
@@ -703,7 +700,7 @@ def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
         await pilot.pause()
         step3 = _under_head(app)
         head = [title, columns, pen, "  USD        0.00       -24.99         —"]
-        want = _pane6(
+        want = _boxes_screen(
             head,
             [
                 "Complete statement?",
@@ -721,7 +718,7 @@ def test_pane_6_octubre_the_boxes_and_the_question_under_the_head_at_80x24(
     run_app(scenario, size=(80, 24))
 
 
-def test_pane_6_noviembre_the_saved_dollar_line_shows_above_the_question_asked_again(
+def test_noviembre_the_saved_dollar_line_shows_above_the_question_asked_again(
     fake_client, monkeypatch
 ):
     """The head grows by a `USD` line when the dollars are saved; the question that

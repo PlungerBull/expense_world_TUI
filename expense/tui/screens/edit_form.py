@@ -32,8 +32,7 @@ write would refuse on it as it stands
 field in `locked_fields` and each part field in `locked_part_fields` shows
 `read-only`, dimmed, the bar skipping it, and the form opens on the first line
 that can change; with `parts_fixed` there is no `^n Add part` and no `^x Drop
-part`. Each locked field carries the engine's sentence for it, shown as sent
-(screen 1 B of mockups/expense-world-read-only-reasons.html): under the line
+part`. Each locked field carries the engine's sentence for it, shown as sent: under the line
 fields one dim line per sentence names the lines it covers
 (`date, title, account: <sentence>`, `reason_lines`), and under the parts each
 column's `read-only` line carries its sentences (`amount  read-only · <sentence>`,

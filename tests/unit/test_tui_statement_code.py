@@ -1,10 +1,9 @@
 """The account form's STATEMENT CODE line, New and Edit.
 
-The screens are docs/mockups/expense-world-statement-code-field.html: 1 A (the
-line after CURRENCIES, on a bank account only), 1b A (its hint), 2 A (emptied and
-saved clears the code, no question), 3·1 B (small letters show as capitals while
-typing) and every refusal of a code, a taken one (`STATEMENT_CODE_EXISTS`)
-included, in the engine's words alone (owner, 2026-10-28). The code is optional on
+The line sits after CURRENCIES, on a bank account only, with a hint; emptied and
+saved it clears the code, no question; small letters show as capitals while
+typing; and every refusal of a code, a taken one (`STATEMENT_CODE_EXISTS`)
+included, in the engine's words alone. The code is optional on
 `POST /accounts`, set, changed or cleared with `null` on `PUT /accounts/{id}` in the
 same write as the name and the colour, and never sent for a person
 (contract: "What an account is", "Statement code")
@@ -363,7 +362,7 @@ def _engine_words(err: EngineError) -> str:
 
 
 def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client):
-    """3·2 A: the engine's words alone, and the cursor back on the code line with what was typed."""
+    """The engine's words alone, and the cursor back on the code line with what was typed."""
     fake_client.errors["PUT"] = TAKEN
     screen = EditAccountScreen(NO_CODE)
 
@@ -413,7 +412,7 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client):
         _refusal("VALIDATION_ERROR", "COMPLETED_STATEMENT_JOINED"),
         _refusal("VALIDATION_ERROR", "PERSON_ACCOUNT"),
     ],
-    ids=["shape", "3·4-month-taken", "3·3-completed-joined", "person"],
+    ids=["shape", "month-taken", "completed-joined", "person"],
 )
 def test_other_code_refusals_keep_the_engines_words_alone(fake_client, refusal):
     fake_client.errors["PUT"] = refusal

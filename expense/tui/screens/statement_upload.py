@@ -6,13 +6,11 @@ screens of its own, in the import door's run (`bank_import.ImportRun`): its
 bytes read at the drop, its account list read once per run, its way back to the
 LOG bar.
 
-    StatementAccountScreen   which account is this statement? (pane 12 of
-                             docs/mockups/expense-world-statements-screens.html)
-    StatementPreviewScreen   the engine's dry run, nothing written yet (pane 13
-                             of the same mockup), or a refused upload in the
-                             engine's words (pane 14)
+    StatementAccountScreen   which account is this statement?
+    StatementPreviewScreen   the engine's dry run, nothing written yet, or a
+                             refused upload in the engine's words
     StatementResultScreen    the month closed, and `f` for the lines the close
-                             flagged (pane 15)
+                             flagged
 
 The app sends the PDF whole and reads nothing in it: every row, its outcome, the
 lines taken out, the balances and every refusal are the engine's
@@ -68,11 +66,11 @@ from expense.tui.screens.reconciliations import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, BALANCE_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.refusal import hanging, toast
 
-#: The account list's breadcrumb (screen A2).
+#: The account list's breadcrumb.
 ACCOUNT_CRUMB = ("Upload a statement",)
 
 #: The statement's state on the preview's second line: created, or an open
-#: draft filled (screens 1A and 1B).
+#: draft filled.
 A_NEW_STATEMENT = "a new statement"
 A_DRAFT_FILLED = "a draft, filled from the paper"
 
@@ -116,7 +114,7 @@ def changed_meanwhile(err: Exception) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# which account is this statement? — screen A2
+# which account is this statement?
 # ---------------------------------------------------------------------------
 class StatementAccountScreen(ImportAccountScreen):
     """Which account is this statement? The download's account list, an account
@@ -137,7 +135,7 @@ class StatementAccountScreen(ImportAccountScreen):
 
 
 # ---------------------------------------------------------------------------
-# the preview — screen 1, a refused upload screen 2
+# the preview, and a refused upload
 # ---------------------------------------------------------------------------
 #: Each outcome's mark, its reason and their style: ✓ in the ledger, + created
 #: on ⏎ (accent), · a row of 0.00, nothing to look at.
@@ -218,7 +216,7 @@ def _cents(value: object) -> int:
 def row_line(row: StatementRow, columns: Columns) -> Text:
     """A row of the paper, its outcome's mark and reason (and the fee note on a
     card's undated line, `· day moved` on a row whose line moves). An empty
-    row's `0.00` is plain, as drawn: it is no money in or out."""
+    row's `0.00` is plain: it is no money in or out."""
     text = columns.line(
         str(row.place),
         row.date_iso,
@@ -306,7 +304,7 @@ class StatementPreviewScreen(PreviewScreen):
     ran offers `⏎ Preview again`, a fresh dry run before any write."""
 
     RERUN_LINE = RERUN
-    #: Pane 14: the engine's words once, on the screen, with no toast.
+    #: The engine's words once, on the screen, with no toast.
     TOAST_REFUSAL = False
 
     def __init__(self, run: ImportRun, owner, pick: AccountPick) -> None:
@@ -482,7 +480,7 @@ class StatementPreviewScreen(PreviewScreen):
         answer = self._answer
         if answer is None:
             if self._failure:
-                # A refused upload (screen 2): its words alone, nothing written.
+                # A refused upload: its words alone, nothing written.
                 return Group(title, Text(""), *(hanging(t) for t in self._failure))
             title.append(" · ")
             title.append("nothing written yet", style="dim")
@@ -506,7 +504,7 @@ class StatementPreviewScreen(PreviewScreen):
 
 
 # ---------------------------------------------------------------------------
-# after ⏎ — screen 3
+# after ⏎ — the result
 # ---------------------------------------------------------------------------
 def result_head(answer: StatementAnswer, pick: AccountPick) -> Text:
     """`✓ SIG-202610 closed · Signature PEN + USD`, then where the created lines

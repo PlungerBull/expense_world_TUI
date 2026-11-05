@@ -280,7 +280,7 @@ def test_date_cell_hides_the_current_year_and_shows_any_other():
 
 
 # ---- pure: the summary ------------------------------------------------------
-def test_summary_with_one_currency_reads_as_the_mockup_drew_it():
+def test_summary_with_one_currency_reads_with_its_one_total():
     entries = [_stage(LEDGER_LINE), _stage("shimaya ramen -96.00 $BCP @KORAKUEN")]
     out = _text(staged_summary(entries, REFS))
     assert "2 staged" in out  # everything is going to the ledger
@@ -1454,7 +1454,7 @@ def test_one_save_ticks_a_replayed_row_names_a_refused_one_and_lands_the_rest(
 def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reason, line):
     """Only a replay of the row's own id is a tick. A row refused for another
     reason keeps no ✓ and shows the engine's words, then the line saying what to
-    do: `ctrl+s` is how this screen saves again (screens 5A and 6B)."""
+    do: `ctrl+s` is how this screen saves again."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1632,8 +1632,8 @@ def _two_kinds() -> EngineError:
     )
 
 
-def test_refused_rows_read_one_line_per_kind_screen_2a(fake_client, monkeypatch):
-    """Screen 2 A: the engine's words, then the rows they hit — `row 3` for one,
+def test_refused_rows_read_one_line_per_kind(fake_client, monkeypatch):
+    """The engine's words, then the rows they hit — `row 3` for one,
     `rows 2, 4` for several — and the line saying what to press, dim, last."""
     _patch(monkeypatch)
 

@@ -1,8 +1,7 @@
 """The import door — a bank file dropped on the LOG bar → account → preview → result.
 
-The screens are docs/mockups/expense-world-import-whole-file.html (the account
-list, a skipped row 2 B, a card's `cur` column 3 B, a refused file 4, the
-result 5). Pure builders first, then pilot tests through the LOG bar the way a
+The screens are the account list, a skipped row, a card's `cur` column, a refused
+file and the result. Pure builders first, then pilot tests through the LOG bar the way a
 drop arrives. A dropped file is a few made-up bytes: the app sends them whole
 and reads no cell, and the one engine call, `POST /transactions/import`, is
 answered by a fake on the shared FakeClient that reads the file it was sent
@@ -405,7 +404,7 @@ def test_the_hint_says_the_file_cannot_be_read_in_both_forms(several, monkeypatc
         assert str(span.style) == PALETTE.error
 
 
-# ---- which account — pane 1 -------------------------------------------------------
+# ---- which account -------------------------------------------------------
 def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_in_one_line(
     fake_client, monkeypatch, tmp_path
 ):
@@ -436,7 +435,7 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
             ["Interbank Ahorros", "USD"],
         ]
         assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
-        assert _footer(account) == ["esc Cancel", "⏎ Pick", "↑↓ Move"]  # pane 1, in order
+        assert _footer(account) == ["esc Cancel", "⏎ Pick", "↑↓ Move"]  # in order
         assert _imports(fake_client) == []  # nothing asked of the import yet
         await pilot.press("down")
         assert account._cursor == 1
@@ -521,7 +520,7 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
 
 
 def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypatch, tmp_path):
-    """`cur` is a card's alone (3 B): a current account's download holds its
+    """`cur` is a card's alone: a current account's download holds its
     one currency."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
@@ -657,7 +656,7 @@ def _statements(monkeypatch, answer=None) -> list:
 def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_path):
     """One table of the rows the engine read, numbered by the spreadsheet,
     each with its mark and reason alone: a row of 0 a dim `·` and `Skipped:
-    amount 0` (2 B). A move a completed statement stops names that
+    amount 0`. A move a completed statement stops names that
     statement, read once by its id in the worker; the counts add the
     engine's moved count, and the closed and skipped counts go on a line of
     their own."""
@@ -1109,7 +1108,7 @@ def test_the_preview_rows_run_down_to_the_blank_line_above_the_footer(
     run_app(scenario, size=(120, 30))
 
 
-# ---- pane 4: a file the engine refuses ---------------------------------------------
+# ---- a file the engine refuses ---------------------------------------------
 def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
     fake_client, monkeypatch, tmp_path
 ):
@@ -1488,9 +1487,9 @@ def test_nothing_new_shows_the_preview_and_enter_writes_nothing(fake_client, mon
     run_app(scenario, size=(120, 40))
 
 
-# ---- the apply and pane 5 ------------------------------------------------------------
+# ---- the apply and its result ------------------------------------------------------------
 def test_apply_writes_once_and_the_result_gives_the_counts(fake_client, monkeypatch, tmp_path):
-    """Pane 5: the title line and the counts in the past tense, `1 skipped`
+    """The title line and the counts in the past tense, `1 skipped`
     among them; no table and no days, though the apply reported one. The apply
     sends the same file on the same account."""
     path = _bank_file(tmp_path)

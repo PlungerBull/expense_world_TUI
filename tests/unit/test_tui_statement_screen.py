@@ -1,5 +1,4 @@
-"""A statement's screen: its head and its one list, panes 4, 5, 8 and 9 of
-docs/mockups/expense-world-statements-screens.html at 80 columns.
+"""A statement's screen: its head and its one list, at 80 columns.
 
 The head shows each covered currency's begin, end and diff once; the list is the
 paper's order, both currencies mixed and numbered 1, 2, 3 … with no gaps, a `Cur`
@@ -127,7 +126,7 @@ OCTUBRE_IN = [
 ]
 OCTUBRE_OUT = [_line(26, "2026-10-24", "SPOTIFY P2F3", -599, "USD", None, account="acc-ibk")]
 
-PANE_4 = """
+COMPLETED_SCREEN = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  [VIS] Agosto
 ────────────────────────────────────────────────────────────────────────────────
   [VIS] Agosto  ·  Visa BCP  ·  2026-07-26 → 2026-08-25  ·  status completed
@@ -154,7 +153,7 @@ PANE_4 = """
  esc Back  r Refresh  u Revert  d Delete  ? Keys
 """
 
-PANE_5 = """
+DRAFT_SCREEN = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  Octubre 2026
 ────────────────────────────────────────────────────────────────────────────────
   Octubre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft
@@ -202,7 +201,7 @@ def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statem
 
 def _screen_lines(app) -> list[str]:
     """The screen as drawn, a line each, trailing blanks off. An income is
-    written with its plus, as the mockups draw it (`+800.00`)."""
+    written with its plus (`+800.00`)."""
     lines = screen_lines(app)
     while lines and not lines[-1]:
         lines.pop()
@@ -210,7 +209,7 @@ def _screen_lines(app) -> list[str]:
 
 
 def _pane(text: str) -> list[str]:
-    """A pane's lines as the mockup draws them, trailing blanks off."""
+    """A screen's lines as text, trailing blanks off."""
     return [line.rstrip() for line in text.strip("\n").splitlines()]
 
 
@@ -230,17 +229,17 @@ def _open(statement: dict, code: str | None = None):
     return scenario
 
 
-def test_a_completed_statement_reads_as_pane_4_at_80_columns(fake_client, monkeypatch):
+def test_a_completed_statement_reads_whole_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
     _, lines, _ = run_app(_open(VIS_AGOSTO, "VIS"), size=(80, 24))
-    # the footer has `d` and no `c`, and no `space Toggle` (Question 9 B)
-    assert lines == _pane(PANE_4)
+    # the footer has `d` and no `c`, and no `space Toggle`
+    assert lines == _pane(COMPLETED_SCREEN)
 
 
-def test_a_draft_reads_as_pane_5_at_80_columns(fake_client, monkeypatch):
+def test_a_draft_reads_whole_at_80_columns(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=OCTUBRE_IN, other_lines=OCTUBRE_OUT)
     _, lines, _ = run_app(_open(OCTUBRE), size=(80, 16))
-    assert lines == _pane(PANE_5)
+    assert lines == _pane(DRAFT_SCREEN)
 
 
 def test_lines_are_read_by_account_every_currency_together_in_the_engines_order(
@@ -301,7 +300,7 @@ def test_a_statement_covering_nothing_has_no_balances_table(fake_client, monkeyp
 
 
 def test_a_blank_balance_is_a_dim_dash_and_its_difference_stays_blank(fake_client, monkeypatch):
-    """Question 3 B: a balance not entered is a dim `—`, never zero
+    """A balance not entered is a dim `—`, never zero
     (contract: "Statements", "A balance not entered is `null`, never zero")."""
     _engine(fake_client, monkeypatch, statement_lines=OCTUBRE_IN, other_lines=OCTUBRE_OUT)
     _, _, head = run_app(_open(OCTUBRE), size=(80, 18))
@@ -365,7 +364,7 @@ def test_pages_hold_rows_by_their_lines():
     assert chk.cursor_key == "l9" and chk.page_status == "rows 9-12 of 12 · page 2 of 2"
 
 
-PANE_8_TOP = """
+UNCOVERED_NOTES_TOP = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  Septiembre 2026
 ────────────────────────────────────────────────────────────────────────────────
   Septiembre 2026  ·  IBK Visa  ·  2026-08-26 → 2026-09-25  ·  status completed
@@ -375,7 +374,7 @@ PANE_8_TOP = """
   ⚠ USD: Dollars held 0.00 all through the statement's days.
 """
 
-PANE_9 = """
+OPEN_AWAITING_PDF = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  Noviembre 2026
 ────────────────────────────────────────────────────────────────────────────────
   Noviembre 2026  ·  Visa BCP  ·  2026-10-26 → 2026-11-25  ·  status draft
@@ -423,9 +422,7 @@ SEPTIEMBRE_LINES = [
 ]
 
 
-def test_a_tick_into_a_soles_only_draft_reads_the_statement_again_as_pane_5(
-    fake_client, monkeypatch
-):
+def test_a_tick_into_a_soles_only_draft_reads_the_statement_again(fake_client, monkeypatch):
     """Ticking a dollar line in: the screen reads the statement and its lines again,
     and the dollars the statement now covers show blank, a dim `—`, their difference
     blank (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
@@ -465,10 +462,10 @@ def test_a_tick_into_a_soles_only_draft_reads_the_statement_again_as_pane_5(
     lines = run_app(scenario, size=(80, 16))
     assert fake_client.puts == [("/transactions/t23", {"statement_id": "ibk-oct"})]
     assert reads == ["/statements/ibk-oct"]
-    assert lines == _pane(PANE_5)
+    assert lines == _pane(DRAFT_SCREEN)
 
 
-def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pane_8(
+def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones(
     fake_client, monkeypatch
 ):
     """The close reviews every currency: a covered one's note sits under its balances,
@@ -501,18 +498,18 @@ def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones_as_pa
         return _screen_lines(app)
 
     lines = run_app(scenario, size=(80, 24))
-    top = _pane(PANE_8_TOP)
+    top = _pane(UNCOVERED_NOTES_TOP)
     assert lines[: len(top)] == top  # an empty `not_covered` entry draws nothing
     assert lines[len(top)] == ""  # then the list, which keeps its own blank line
 
 
-#: Pane 8's list: a completed statement on an account with no statement code has no `#`.
+#: A completed statement on an account with no statement code has no `#`.
 SEPTIEMBRE_DONE = statement_record(SEPTIEMBRE | {"status": 2})
 SEPTIEMBRE_PAPER = SEPTIEMBRE_LINES + [
     _line(43, "2026-09-12", "PAGO TARJETA", 30000, "PEN", "003260", account="acc-ibk"),
     _line(44, "2026-09-19", "RAPPI", -5970, "PEN", "003281", account="acc-ibk"),
 ]
-PANE_8_LIST = """
+UNNUMBERED_LIST = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  Septiembre 2026
 ────────────────────────────────────────────────────────────────────────────────
   Septiembre 2026  ·  IBK Visa  ·  2026-08-26 → 2026-09-25  ·  status completed
@@ -529,19 +526,16 @@ PANE_8_LIST = """
 """
 
 
-def test_a_completed_statement_on_an_account_with_no_code_draws_no_number_as_pane_8(
-    fake_client, monkeypatch
-):
+def test_a_completed_statement_on_an_account_with_no_code_draws_no_number(fake_client, monkeypatch):
     # The pane's two `⚠` lines are left out: they show only just after `c`, and
     # test_the_close_notes_of_a_currency_not_covered_… pins them.
     _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
     _, lines, _ = run_app(_open(SEPTIEMBRE_DONE), size=(80, 13))
-    assert lines == _pane(PANE_8_LIST)
+    assert lines == _pane(UNNUMBERED_LIST)
 
 
 def test_only_a_completed_statement_on_an_account_with_a_code_is_numbered(fake_client, monkeypatch):
-    """`#` leads the list of a completed statement with a code (pane 4) and no other
-    (panes 5, 8 and 9)."""
+    """`#` leads the list of a completed statement with a code and no other."""
     _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
     headers = {}
     for key, statement, code in [
@@ -887,9 +881,7 @@ def _bound(app) -> dict[str, bool]:
     }
 
 
-def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf_as_pane_9(
-    fake_client, monkeypatch
-):
+def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf(fake_client, monkeypatch):
     queries = _engine(fake_client, monkeypatch, statement_lines=NOVIEMBRE_LINES)
 
     async def scenario(pilot, app):
@@ -900,7 +892,7 @@ def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf_as_pane_9
         return screen, lines, app.screen is screen, visual
 
     screen, lines, still_here, visual = run_app(scenario, size=(80, 18))
-    pane = _pane(PANE_9)
+    pane = _pane(OPEN_AWAITING_PDF)
     assert lines[:-1] == [*pane[:-1], *[""] * (len(lines) - len(pane))]  # then the room left
     assert lines[-1] == pane[-1]
     line = visual.parts[-1]  # the line under the balances
@@ -913,7 +905,7 @@ def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf_as_pane_9
 
 
 def test_the_keys_show_and_act_as_the_statements_state_allows(fake_client, monkeypatch):
-    """Panes 4, 5 and 9: a completed statement has `d` and no `c` or toggle; a draft all
+    """A completed statement has `d` and no `c` or toggle; a draft all
     three; an open statement waiting for its PDF has neither `c` nor a toggle, nor `u`."""
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
 

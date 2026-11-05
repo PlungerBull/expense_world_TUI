@@ -1,7 +1,6 @@
 """`d` deletes the row under the cursor — Accounts, Categories, Hashtags, the ledger.
 
-Screens: docs/mockups/expense-world-delete.html (1, 2, 3A, 4B, 5). The DELETE
-goes through the real HTTP client against a respx-mocked engine, so the
+The DELETE goes through the real HTTP client against a respx-mocked engine, so the
 idempotency key and the error envelope are the client's own; the lists' reads
 are stubbed. Every refusal's words here are stand-ins: the line under them is
 chosen by the engine's code and reason, never by its words.
@@ -134,7 +133,7 @@ def _footer(screen) -> list[str]:
     ]
 
 
-# ---- 1 · the key, on four screens -------------------------------------------
+# ---- the key, on four screens -------------------------------------------
 
 
 @pytest.mark.parametrize("resource", sorted(MANAGE))
@@ -239,7 +238,7 @@ def test_d_is_off_on_an_empty_list(configured, monkeypatch, resource):
     ],
 )
 def test_footer_and_card_end_with_d_delete(configured, monkeypatch, resource, tail):
-    """Screen 1: `d Delete` is the last of the screen's own keys in the footer,
+    """`d Delete` is the last of the screen's own keys in the footer,
     and the `?` card lists it."""
     make, _fetch, build, *_ = MANAGE[resource]
     _stub_manage(monkeypatch, resource, [build(1)])
@@ -257,7 +256,7 @@ def test_footer_and_card_end_with_d_delete(configured, monkeypatch, resource, ta
     run_app(scenario, size=SIZE)
 
 
-# ---- the ledger: 3A ----------------------------------------------------------
+# ---- the ledger ----------------------------------------------------------
 
 LEDGER = [
     {
@@ -363,7 +362,7 @@ def test_d_on_the_ledger_deletes_the_cursor_row_and_reads_the_newest_ten(
 
 
 def test_d_is_off_while_ledger_rows_are_selected(configured, monkeypatch):
-    """3A: with a selection `d` leaves the footer and does nothing; `esc` clears
+    """With a selection `d` leaves the footer and does nothing; `esc` clears
     the selection and it is back. The `?` card always lists it."""
     _stub_ledger(monkeypatch, list(LEDGER[:3]))
 
@@ -416,7 +415,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
     assert not route.called
 
 
-# ---- 4B · the engine says no -------------------------------------------------
+# ---- the engine says no -------------------------------------------------
 # Each refusal carries `fields` and `reasons` keyed by the thing refused
 # (contract: "Base Conventions", "`fields` and `reasons` semantics"); the line
 # under the engine's words is chosen by the code and the reason alone.
@@ -468,7 +467,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  category_id: stand-in field words\n\n"
             "Move its transactions to another category first.",
         ),
-        # `d` is not offered on a system category (pending-hashtag-manage 2 A);
+        # `d` is not offered on a system category;
         # the refusal still shows its line on a row the list read as ordinary
         (
             CategoriesScreen,
@@ -484,7 +483,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  category_id: stand-in field words\n\n"
             "System categories cannot be renamed or deleted.",
         ),
-        # the same for the pending hashtag (pending-hashtag-manage 4 B)
+        # the same for the pending hashtag
         (
             HashtagsScreen,
             "fetch_hashtags",
@@ -544,7 +543,7 @@ def test_a_refusal_shows_the_engine_words_and_what_to_do(
     configured, monkeypatch, make, fetch, row, path, status, code, words, key, reason, note
 ):
     """The engine refuses the delete. Nothing is deleted, the list is not read
-    again, and the row stays. A race names the list's own key, `r` (screen 5A)."""
+    again, and the row stays. A race names the list's own key, `r`."""
     monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole([row]))
 
     async def scenario(pilot, app):
@@ -603,7 +602,7 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
 
 
 def test_a_transaction_on_an_archived_account_shows_only_the_engine_words(configured, monkeypatch):
-    """Screen 3 A of expense-world-archived-account.html: the ledger was read
+    """The ledger was read
     before the row's account was archived, and `d` then `y` is refused. The
     "Failed" note is the engine's words alone, no line of the app's under them,
     and the list is as it was: not read again, its rows and cursor kept."""
@@ -699,8 +698,7 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
 def test_the_delete_question_names_the_whole_account_and_each_currency(
     configured, monkeypatch, account, line
 ):
-    """Pane "1 · d on an account" of expense-world-currencies-accounts-picks.html and
-    pane A of expense-world-currencies-delete.html: the question's second line is the
+    """The delete question on an account: the question's second line is the
     account, its kind, then each currency it holds with its balance, then today's
     sentence; `y` sends one DELETE with the account's id, never one per currency."""
     _stub_manage(monkeypatch, "accounts", [account])
@@ -790,8 +788,8 @@ def test_a_cancelled_delete_keeps_the_archive_re_selection(configured, monkeypat
     run_app(scenario, size=SIZE)
 
 
-# ---- a part of a split purchase: d deletes the purchase whole ---------------
-# docs/mockups/expense-world-bank-lines-whole.html 3a, 3c, 3d, 3e. Each ledger row
+# ---- a part of a split transaction: d deletes the transaction whole ---------------
+# Each ledger row
 # names its bank line; `d` reads that line once (contract: GET
 # /v1/bank-lines/{bank_line_id}) and a line of more than one part goes whole, in
 # one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}).
@@ -990,7 +988,7 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
         (404, "NOT_FOUND", "bank_line not found.", None, None),
-        # archived-account 3 A: the engine's words alone
+        # an archived account: the engine's words alone
         (
             409,
             "CONFLICT",

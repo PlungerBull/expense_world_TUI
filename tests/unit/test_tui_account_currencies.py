@@ -1,6 +1,6 @@
 """`c` on Manage ▸ Accounts adds a currency to the account under the cursor.
 
-Pane 6 A of docs/mockups/expense-world-currencies-accounts-picks.html: `c Currency`
+`c Currency`
 opens the pick `Add a currency · <account>`, the account on one line, the supported currencies
 it does not hold in `SUPPORTED_CURRENCIES` order and `[enter] add    [esc] cancel`.
 `⏎` sends one `POST /accounts/{id}/currencies` naming the picked currency, with no
@@ -115,7 +115,7 @@ def test_the_currencies_to_add_are_the_supported_ones_not_held_in_order():
 def test_c_lists_the_currencies_the_account_does_not_hold(
     configured, monkeypatch, row, line, choices
 ):
-    """Pane 6 A: the title, the account on one line, the choices, the hint; the
+    """The title, the account on one line, the choices, the hint; the
     footer says `esc Cancel`; nothing is sent until `⏎`."""
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
     seen: dict = {}

@@ -1,12 +1,11 @@
 """`x` on Manage ▸ Accounts removes a currency from the account under the cursor.
 
-docs/mockups/expense-world-currencies-remove-key.html: `x Remove currency` opens
-the pick `Remove a currency · <account>`, the account on one line, the currencies
-it holds and `[enter] pick    [esc] cancel` (panes 2 and 5). `⏎` asks
-`Remove USD from Visa Inventada?` (pane 3) and only `y` sends one
+`x Remove currency` opens the pick `Remove a currency · <account>`, the account on one line, the
+currencies it holds and `[enter] pick    [esc] cancel`. `⏎` asks
+`Remove USD from Visa Inventada?` and only `y` sends one
 `DELETE /accounts/{id}/currencies/{code}`; the list then reads again with the
 cursor on the same account. `LAST_CURRENCY`, `HAS_TRANSACTIONS` (without the
-account delete's archive line, answer 4 A), `IN_LIVE_STATEMENT` and
+account delete's archive line), `IN_LIVE_STATEMENT` and
 `ACCOUNT_ARCHIVED` read in the engine's words alone, nothing written
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 The write goes through the real HTTP client against a respx-mocked engine, so the
@@ -149,7 +148,7 @@ def test_the_currencies_held_are_the_account_s_in_the_engine_order():
 def test_x_lists_the_currencies_the_account_holds(
     configured, monkeypatch, row, title, line, choices
 ):
-    """Panes 2 and 5: the title naming the account, the account on one line, its
+    """The title naming the account, the account on one line, its
     currencies, the hint; the footer says `esc Cancel`; nothing is sent."""
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
     seen: dict = {}
@@ -173,7 +172,7 @@ def test_x_lists_the_currencies_the_account_holds(
 
 
 def test_x_sits_after_c_in_the_footer(configured, monkeypatch):
-    """Pane 1: `c Currency  x Remove currency` before `a Archive`."""
+    """`c Currency  x Remove currency` before `a Archive`."""
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
     seen: dict = {}
 
@@ -236,7 +235,7 @@ def test_x_is_off_on_an_empty_list(configured, monkeypatch):
 
 
 def test_the_question_names_the_account_and_the_currency():
-    """Pane 3, and pane 5's body for an account's only currency."""
+    """The question, and its body for an account's only currency."""
     rows = {r["id"]: r for r in _rows()}
     assert removal_question(rows["a-visa"], "USD") == (
         "Remove USD from Visa Inventada?",
@@ -440,7 +439,7 @@ REFUSALS = [
         ),
         f"CONFLICT — {_LAST}\n  currency_code: {_LAST}",
     ),
-    # the account delete's archive line stays off (answer 4 A)
+    # the account delete's archive line stays off
     (
         "a-visa",
         "USD",

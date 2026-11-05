@@ -5,7 +5,7 @@ brackets, and a `[/]` or a lone `[` neither vanishes nor breaks the list. The
 app's own styled cells (`Text`: a swatch, a coloured amount, a mark) keep their
 styling. Pinned where the owner meets it: Home's balances, Manage ▸ Accounts,
 the ledger, the bank import's preview, the reconciliation tick list and the LOG
-bar's staged rows (mockup expense-world-bracketed-names.html).
+bar's staged rows.
 """
 
 import re

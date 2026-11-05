@@ -83,7 +83,7 @@ def test_new_category_ctrl_s_on_the_name_line_saves_without_a_color(fake_client)
 
 
 def test_new_category_color_line_reads_optional(fake_client):
-    """Mockup Part 2: the line reads optional, in the hint and the summary tag."""
+    """The line reads optional, in the hint and the summary tag."""
 
     async def scenario(pilot, app):
         screen = NewCategoryScreen()
@@ -716,7 +716,7 @@ def _eliana() -> EditAccountScreen:
             "Try again; if it happens again, report it.",
         ),
         # a user hashtag, new or renamed, cannot take the pending hashtag's name
-        # (pending-hashtag-manage 4 B, one line for every system row)
+        # (one line for every system row)
         (
             NewHashtagScreen,
             ["pendiente"],
@@ -770,10 +770,10 @@ def _eliana() -> EditAccountScreen:
         ),
     ],
     ids=[
-        "screen-2",
+        "name-exists",
         "category-no-color",
-        "screen-3A",
-        "screen-9A",
+        "cap-reached",
+        "id-exists",
         "reserved-name-new",
         "reserved-name-rename",
         "reserved-category-name-new",
@@ -829,7 +829,7 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, make, steps, 
     """A system category or the pending hashtag keeps its name: the engine
     refuses a rename with `SYSTEM_NAME_FIXED` on `name`. Manage offers no `e`
     on these rows, so only a form opened another way meets it. The block is the
-    engine's words whole, then the line of pending-hashtag-manage 5 B, and the
+    engine's words whole, then the built-in hashtag's line, and the
     form stays open with what was typed."""
     refusal = EngineError(
         "VALIDATION_ERROR",
@@ -984,8 +984,7 @@ def test_ctrl_arrows_still_move_fields():
 
 
 # ---------------------------------------------------------------------------
-# New account's CURRENCIES — picked as the Edit form's HASHTAGS picks hashtags
-# (docs/mockups/expense-world-currencies-accounts-picks.html, question 3 A), the
+# New account's CURRENCIES — picked as the Edit form's HASHTAGS picks hashtags, the
 # account and its currencies sent as one `POST /accounts`
 # (contract: POST /v1/accounts, "Required").
 # ---------------------------------------------------------------------------

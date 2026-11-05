@@ -1,8 +1,7 @@
 """`expense import sheet <file>` — the owner's spreadsheet, sent to the engine whole.
 
 The engine reads the sheet and answers (expense/import_/engine.py); this module
-only prints the answer, as docs/mockups/expense-world-sheet-import-engine.html
-draws it, and saves the renames `--account-name` gives.
+only prints the answer, and saves the renames `--account-name` gives.
 """
 
 import shlex
@@ -58,7 +57,7 @@ def _plural(count: int, one: str, many: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# the names tables (screens 1 and 3)
+# the names tables
 # ---------------------------------------------------------------------------
 def _table_lines(kind: str, entries: list[NameEntry]) -> list[str]:
     """One kind's table: its title and count, the column heads, then a line per
@@ -95,7 +94,7 @@ def _print_tables(result: SheetImport) -> None:
 
 
 # ---------------------------------------------------------------------------
-# the counts (screens 3 and 4)
+# the counts
 # ---------------------------------------------------------------------------
 def _counts_lines(result: SheetImport, head: str) -> list[str]:
     """The engine's counts: `head` (`Rows: 1,961` on the dry run, `Written:`
@@ -127,7 +126,7 @@ def _row_lists(result: SheetImport) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# names still missing: the lines screen 1 and the refused apply print
+# names still missing: the lines the first dry run and the refused apply print
 # ---------------------------------------------------------------------------
 def _create_command(file: str) -> str:
     return f"expense import sheet {shlex.quote(file)} --create-names"
@@ -147,7 +146,7 @@ def _missing_lines(result: SheetImport, file: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# a refused sheet (screen 5)
+# a refused sheet
 # ---------------------------------------------------------------------------
 def _rows_refusal(err: Exception) -> bool:
     """A refusal the sheet itself causes: the `422` `VALIDATION_ERROR` the
@@ -232,7 +231,7 @@ _NOT_IMPORTED = "Not imported — nothing written."
 
 
 def _print_dry_run(result: SheetImport, file: str) -> None:
-    """Screen 1 while a name is missing, else screen 3."""
+    """The dry run: the names still missing while any is, else the counts."""
     _print_tables(result)
     if not result.counted:
         typer.echo("No counts yet: the engine counts once every name exists.")
@@ -253,7 +252,7 @@ def _print_dry_run(result: SheetImport, file: str) -> None:
 
 
 def _print_applied(result: SheetImport) -> None:
-    """Screen 4: what was written, then the rows of zero and on a closed day,
+    """What was written, then the rows of zero and on a closed day,
     or, when rows matched and none is new or sealed, that every row is already
     in the ledger. A blank line separates the counts from what follows, and only
     when something follows."""
@@ -272,7 +271,7 @@ def _print_applied(result: SheetImport) -> None:
 
 
 def _print_created(result: SheetImport) -> None:
-    """Screen 2."""
+    """The names the run created."""
     if not result.created:
         typer.echo("Created no names: every one is yours.")
         return

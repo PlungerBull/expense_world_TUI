@@ -149,7 +149,7 @@ def _split_route_hits(root: Path) -> list[str]:
 def test_nothing_in_the_repo_names_the_split_route():
     """Every rewrite of a line's parts goes through the whole-line write
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"), so no file in the
-    repo (code, tests, scripts, docs, mockups) names a per-transaction split
+    repo (code, tests, scripts, docs) names a per-transaction split
     route, as a call or as a citation. The files are the ones the citation check
     reads: every tracked or new text file but docs/from-engine/, the engine's own
     words, and the citation check itself."""

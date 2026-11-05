@@ -1,14 +1,14 @@
 """The Statements browse: one row per bank account, and an account's statements.
 
-Panes 2 and 3 of docs/mockups/expense-world-statements-screens.html. The browse lists
+The browse lists
 every bank account once, with its currencies and a balance in each, and reads no
 statements. `⏎` on an account reads `GET /statements?account_id=<its id>`, its
 statements whole, and nothing else about statements (contract: GET /v1/statements,
 "`?account_id=<id>` is required"); each row is one statement, a Diff per currency the
 account holds from that currency's entry in `balances` (contract: "Statements"), its
 status and, on an account with a statement code, its order (contract: "What an
-account is", "Statement code"). A currency the statement does not cover shows nothing
-(question 2 B), and a difference not checked yet stays blank (question 3 B). On a
+account is", "Statement code"). A currency the statement does not cover shows nothing,
+and a difference not checked yet stays blank. On a
 statement's screen opened from the account, `c`, `u` and `d` each send one write.
 
 The engine is a `FakeClient` behind the reads module's own HTTP client, so the query
@@ -131,7 +131,7 @@ AGO = ("2026-07-26", "2026-08-25")
 SEP = ("2026-08-26", "2026-09-25")
 OCT = ("2026-09-26", "2026-10-25")
 
-#: Visa BCP's three statements of pane 3, in the engine's order: `date_start` ascending,
+#: Visa BCP's three statements, in the engine's order: `date_start` ascending,
 #: then creation time, oldest first (contract: "Statements", "Ordering"). Septiembre had
 #: no dollar line and no dollars owed, so it covers soles alone. Octubre is a draft, its
 #: dollars off by -2.99, two lines unplaced and a place held twice.
@@ -180,7 +180,7 @@ STATEMENTS = [*VISA_STATEMENTS, *IBK_STATEMENTS, *SUELDO_STATEMENTS]
 VISA_TITLE = "Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest"
 VISA_HEADERS = ["Name", "Period", "Diff PEN", "Diff USD", "Status", "Order"]
 
-#: Pane 3's rows for Visa BCP, cell by cell: Septiembre's dollar cell is empty, the
+#: The rows for Visa BCP, cell by cell: Septiembre's dollar cell is empty, the
 #: currency not being covered.
 VISA_ROWS = [
     ["[VIS] Agosto", "2026-07-26 → 2026-08-25", "—", "—", "completed", "in order"],
@@ -269,7 +269,7 @@ def _marked(screen) -> list[str]:
 def test_the_browse_lists_one_row_per_bank_account_with_its_currencies_and_balances(
     monkeypatch,
 ):
-    """Pane 2: every bank account once under its own name, its currencies as
+    """Every bank account once under its own name, its currencies as
     `PEN + USD` and a balance in each, never added together. Nothing about statements is
     read until `⏎`."""
     client = _engine(monkeypatch)
@@ -331,7 +331,7 @@ def test_an_archived_accounts_row_is_not_listed(monkeypatch):
 
 
 def test_an_account_with_a_code_lists_its_statements_from_one_read_by_account(monkeypatch):
-    """Pane 3, Visa BCP: one `GET /statements?account_id=`, no other read, a
+    """Visa BCP: one `GET /statements?account_id=`, no other read, a
     row per statement with a Diff per currency, its status and its order."""
     client = _engine(monkeypatch)
     seen: dict = {}
@@ -358,7 +358,7 @@ def test_an_account_with_a_code_lists_its_statements_from_one_read_by_account(mo
 
 
 def test_a_currency_the_statement_does_not_cover_shows_nothing(monkeypatch):
-    """Question 2 B: VIS-202609 had no dollar line and no dollars owed, so it holds no
+    """VIS-202609 had no dollar line and no dollars owed, so it holds no
     dollar balances and its Diff USD is simply empty, not a row or a figure."""
     _engine(monkeypatch)
     seen: dict = {}
@@ -374,8 +374,8 @@ def test_a_currency_the_statement_does_not_cover_shows_nothing(monkeypatch):
 def test_an_account_without_a_code_has_no_order_column_and_a_blank_balance_a_blank_diff(
     monkeypatch,
 ):
-    """Pane 3, IBK Visa: no statement code, so the engine sends no order and the list has
-    no Order column. Octubre's dollar balances are blank (question 3 B): its Diff USD is
+    """IBK Visa: no statement code, so the engine sends no order and the list has
+    no Order column. Octubre's dollar balances are blank: its Diff USD is
     blank, not a figure."""
     client = _engine(monkeypatch)
     seen: dict = {}
@@ -448,7 +448,7 @@ def test_enter_on_a_statement_opens_the_whole_statement(monkeypatch):
 
 
 def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch):
-    """Question 3 B: a blank beginning balance is a dim `—`, as an empty ending balance
+    """A blank beginning balance is a dim `—`, as an empty ending balance
     reads, and its difference stays blank."""
     _engine(monkeypatch)
     statement = IBK_STATEMENTS[2]
@@ -877,12 +877,12 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
     assert writes[0].headers["X-Idempotency-Key"]
 
 
-# ---- the screen at 80 columns, as panes 2 and 3 of the mockup draw it ---------------
+# ---- the screen at 80 columns ----------------------------------------------------
 
 
-#: Pane 3's three Visa BCP statements: Septiembre had no dollar line and no dollars owed,
+#: The three Visa BCP statements: Septiembre had no dollar line and no dollars owed,
 #: so it covers soles alone; all three are in order.
-PANE_3_VISA = [
+VISA_BCP_STATEMENTS_80 = [
     _statement("p-ago", "acc-visa", "[VIS] Agosto", AGO, {"PEN": 0, "USD": 0}, status=2),
     _statement("p-sep", "acc-visa", "VIS-202609", SEP, {"PEN": 0}, status=2),
     _statement("p-oct", "acc-visa", "VIS-202610", OCT, {"PEN": 0, "USD": 0}, status=2),
@@ -917,7 +917,7 @@ FIGURE = re.compile(r"-?[\d,]+\.\d\d (?:PEN|USD)")
 
 
 def test_the_browse_at_80_columns_keeps_each_accounts_first_figure_in_one_place(monkeypatch):
-    """Pane 2: every account's first figure ends in one column (`-234.20 PEN`,
+    """Every account's first figure ends in one column (`-234.20 PEN`,
     `12,450.00 PEN`, `820.15 USD` under each other) and the second follows it three cells
     on; the names stand in one column, the header over them."""
     lines = _at_80(monkeypatch, VISA, STATEMENTS, open_panel=False)
@@ -935,7 +935,7 @@ def test_the_browse_at_80_columns_keeps_each_accounts_first_figure_in_one_place(
 
 
 def test_the_open_accounts_marker_stands_in_a_gutter_and_no_name_moves(monkeypatch):
-    """Pane 2 and 3: `▸` before the open account's name, names aligned with the ones
+    """`▸` before the open account's name, names aligned with the ones
     without it."""
     closed = _at_80(monkeypatch, VISA, STATEMENTS, open_panel=False)
     opened = _at_80(monkeypatch, VISA, STATEMENTS)
@@ -947,11 +947,11 @@ def test_the_open_accounts_marker_stands_in_a_gutter_and_no_name_moves(monkeypat
     assert not any("▸" in _row(opened, name) for name in ("IBK Visa", "Sueldo", "BBVA"))
 
 
-def test_visa_bcps_statements_at_80_columns_are_pane_3_whole(monkeypatch):
-    """Pane 3, Visa BCP, which has a statement code and so its columns one space apart:
+def test_visa_bcps_statements_at_80_columns_show_every_cell_whole(monkeypatch):
+    """Visa BCP, which has a statement code and so its columns one space apart:
     every cell whole at 80 columns, the Diff headers telling PEN from USD, the
     statement that does not cover dollars empty under Diff USD."""
-    lines = _at_80(monkeypatch, VISA, PANE_3_VISA)
+    lines = _at_80(monkeypatch, VISA, VISA_BCP_STATEMENTS_80)
     assert "  Statements — pick an account" in lines
     assert "  Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest" in lines
     ours = ("  Name", "  [VIS]", "  VIS-")
@@ -966,8 +966,8 @@ def test_visa_bcps_statements_at_80_columns_are_pane_3_whole(monkeypatch):
     assert "…" not in "".join(lines)
 
 
-def test_ibk_visas_statements_at_80_columns_are_pane_3_whole(monkeypatch):
-    """Pane 3, IBK Visa: no statement code, so no Order column; Octubre's blank dollar
+def test_ibk_visas_statements_at_80_columns_show_every_cell_whole(monkeypatch):
+    """IBK Visa: no statement code, so no Order column; Octubre's blank dollar
     balances leave its Diff USD empty."""
     lines = _at_80(monkeypatch, IBK, IBK_STATEMENTS)
     assert "  Statements · IBK Visa · PEN + USD   ·   oldest → newest" in lines
@@ -999,7 +999,7 @@ def test_a_not_in_order_row_shows_whole_when_the_terminal_is_wide_enough(monkeyp
     space apart on an account with a statement code."""
     stray = _statement("p-nov", "acc-visa", "VIS-202611", OCT, {"PEN": 0, "USD": 0}, status=2)
     stray["unplaced_count"] = 2
-    lines = _at_80(monkeypatch, VISA, [*PANE_3_VISA, stray], width=90)
+    lines = _at_80(monkeypatch, VISA, [*VISA_BCP_STATEMENTS_80, stray], width=90)
     row = next(line for line in lines if line.startswith("  VIS-202611"))
     assert row.endswith("completed not in order")
 
@@ -1022,7 +1022,7 @@ def test_a_statement_not_in_order_shows_whole_at_80_columns_with_the_columns_one
     order` and every name show whole at 80 columns."""
     draft = _statement("n-ago", "acc-visa", "VIS-202610", OCT, {"PEN": -1240, "USD": 0}, status=1)
     draft["unplaced_count"] = 2
-    items = [PANE_3_VISA[0], NOT_IN_ORDER_ITEMS[0], draft]
+    items = [VISA_BCP_STATEMENTS_80[0], NOT_IN_ORDER_ITEMS[0], draft]
     lines = _visa_statement_lines(_at_80(monkeypatch, VISA, items))
     assert lines == [
         "  Name         Period                  Diff PEN Diff USD Status    Order",

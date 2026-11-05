@@ -623,7 +623,7 @@ def test_a_tick_at_the_same_moment_as_another_write_says_to_press_r(fake_client,
 
 
 def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
-    """Screen 3 A of expense-world-archived-account.html: the batch was opened
+    """The batch was opened
     before its account was archived, and `space` is refused. `Couldn't update`
     carries the engine's words and its `statement_id` words, no line of
     the app's; the list is read again as after any refused tick, the engine's
@@ -1109,7 +1109,7 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
         ("RECONCILIATION_NOT_DRAFT", "Press u to revert it, then d again."),
         ("CONCURRENT_CHANGE", "It changed at the same moment: press r, then try again."),
     ],
-    ids=["screen-8B", "screen-5A"],
+    ids=["not-a-draft", "concurrent-change"],
 )
 def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch, reason, line):
     """The engine's words, on `statement_id` (contract: DELETE /v1/statements/{statement_id}),
@@ -1162,7 +1162,7 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
 def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     fake_client, monkeypatch, key, verb, method, path
 ):
-    """Screen 3 A of expense-world-archived-account.html: the statement was opened
+    """The statement was opened
     before its account was archived; `c`, `u` or `d`, then `y`, is refused on
     `statement_id` (contract: POST /v1/statements/{statement_id}/complete, "An archived
     account"). `Couldn't <verb>` carries the engine's words and its `statement_id`
@@ -1706,8 +1706,10 @@ async def _type(pilot, text: str) -> None:
         await pilot.press(ch)
 
 
-def test_c_without_an_ending_balance_opens_the_box_as_drawn(fake_client, monkeypatch):
-    """Screen A1: the box's title, its two dim lines naming the account and its
+def test_c_without_an_ending_balance_opens_the_box_with_its_title_and_keys(
+    fake_client, monkeypatch
+):
+    """The box's title, its two dim lines naming the account and its
     currency, and its keys."""
     _patch(monkeypatch)
 
@@ -1727,7 +1729,7 @@ def test_c_without_an_ending_balance_opens_the_box_as_drawn(fake_client, monkeyp
 
 
 def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_client, monkeypatch):
-    """Screens A1 → A2 → 5: `enter` PUTs the balance as typed, the header shows the
+    """`enter` PUTs the balance as typed, the header shows the
     engine's saved end and diff, then "Complete statement?" and only `y`
     completes."""
     _patch(monkeypatch)
@@ -1884,7 +1886,7 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
 def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answer):
-    """A2: say no and the reconciliation stays a draft with its balance saved;
+    """Say no and the reconciliation stays a draft with its balance saved;
     the next `c` goes straight to the question, no box."""
     _patch(monkeypatch)
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
@@ -1907,7 +1909,7 @@ def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answe
 
 
 def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
-    """A1: `esc` goes back with nothing saved."""
+    """`esc` goes back with nothing saved."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1924,7 +1926,7 @@ def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
 
 @pytest.mark.parametrize("typed", ["13.853.20", "13.853,20", "abc", ""])
 def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, typed):
-    """Screen 2: the New Reconciliation form's note for a badly typed balance;
+    """The New Reconciliation form's note for a badly typed balance;
     the box stays open with what was typed, and nothing is sent."""
     from textual.widgets import Input
 
@@ -1985,7 +1987,7 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
 def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
     fake_client, monkeypatch
 ):
-    """Screen 3 A of expense-world-archived-account.html: `c` on a draft with
+    """`c` on a draft with
     no ending balance, opened before its account was archived; the figure's
     save is refused on the balance sent, `balances.<currency_code>.ending_balance_cents`
     (contract: PUT /v1/statements/{statement_id}, "An archived account").
@@ -2021,7 +2023,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
 def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_is_not(
     fake_client, monkeypatch
 ):
-    """Screen 3: the balance saves, the complete is refused. The note says the
+    """The balance saves, the complete is refused. The note says the
     balance is saved, then the engine's words; the header keeps the saved end,
     and the next `c` goes straight to the question."""
     _patch(monkeypatch)
@@ -2102,7 +2104,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_bo
 
 
 def test_a_draft_with_its_balance_skips_the_box(fake_client, monkeypatch):
-    """Screen 5's caption: a reconciliation that already has its ending balance
+    """A reconciliation that already has its ending balance
     completes as before — `c` goes straight to the question."""
     _patch(monkeypatch)
 

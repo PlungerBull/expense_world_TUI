@@ -22,12 +22,14 @@ account's own (contract: "What an account is", "Statement code"); an account wit
 one has no Order column. The panel's title names the account, its currencies and its
 code.
 
-New statement: name › account › date start › date end › begin › end. Both balances
-are typed off the paper statement — the engine never derives a begin, so
-`beginning_balance_cents` is required. Both dates are required too
-(contract: POST /v1/statements), and are
-calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
-the field. One POST /statements with `account_id` and the currency's balances.
+New statement (NewReconciliationScreen): name › account (skipped when opened from the
+browse on an account) › date start › date end › a begin and an end balance line for each
+currency of the account. The balances are typed off the paper statement, and every
+balance line is optional: which currency the statement needs is the engine's call
+(contract: POST /v1/statements). The dates are calendar days sent as typed
+(contract: "Date inputs"); both are required, and the form refuses an empty one or any
+other shape at the field. One POST /statements with `account_id` and an entry in
+`balances` for each currency that has a balance typed.
 
 Working screen (ReconciliationDetailScreen): the whole statement. Its head
 shows each currency in the statement's `balances` once, begin, end and diff
@@ -50,10 +52,11 @@ every balance (contract: POST /v1/statements/{statement_id}/complete,
 "Every balance must be entered"): `c` on a draft with a blank balance first asks
 for each in a box, saves them in the statement's `balances` with one
 PUT /statements/{id}, then asks the usual "Complete statement?". A complete
-that leaves the statement's review list holding a line opens FlaggedLinesScreen on it
-(pane 10 of docs/mockups/expense-world-statements-screens.html). The working screen
-keeps a `⚑` line and `f` while the review list counts any line, open or completed,
-counted each time the screen reads the statement.
+that leaves the statement's review list holding a line opens FlaggedLinesScreen on it. The working
+screen keeps a `⚑` line and `f` while the review list counts any line, open or completed,
+counted each time the screen reads the statement. An open statement on an account with a
+statement code waits for its PDF to be dropped on the LOG bar: it lists no bank lines from
+outside the statement, is read-only, and has no `c`, `u` or toggle.
 """
 
 import uuid
@@ -589,14 +592,13 @@ class ReconciliationsScreen(SectionScreen):
         )
 
     # ---- adaptive window: the panel splits #content -----------------------
-    #: Lines each of the browse's lists spends beside its rows and caption, drawn as panes 2,
-    #: 3 and 11 of the statements mockup draw them: the account list its header, the rule
-    #: under it and the page status; the statements their divider under
+    #: Lines each of the browse's lists spends beside its rows and caption: the account
+    #: list its header, the rule under it and the page status; the statements their divider under
     #: the caption (a rule), the header and the page status; the lines in no statement
     #: (`UNFILED_FRAME_LINES`) a blank divider and the header, no status line.
     BROWSE_FRAME_LINES = 3
     #: The lines in no statement grow by cursor and say what is loaded in their caption, so
-    #: they draw no page-status line: one line less than the other two (pane 11).
+    #: they draw no page-status line: one line less than the other two.
     UNFILED_FRAME_LINES = BROWSE_FRAME_LINES - 1
 
     def pane_rows(self) -> int:
@@ -764,8 +766,8 @@ class ReconciliationsScreen(SectionScreen):
             return self._mode == "batches"
         if action == "back":
             return self._mode != "batches"
-        # the lines in no statement have `⏎ Edit` and `d Delete` of their own (pane 11 of
-        # docs/mockups/expense-world-statements-screens.html), and neither `n` nor `u`
+        # the lines in no statement have `⏎ Edit` and `d Delete` of their own, and neither
+        # `n` nor `u`
         if action == "delete_row":
             return self._mode == "unfiled"
         if action == "unfiled":
@@ -2260,9 +2262,8 @@ def flagged_note(n: int) -> Text:
     )
 
 
-#: What to do with a flagged line on an account with a statement code, under the list
-#: (pane 10 of docs/mockups/expense-world-statements-screens.html): the engine's two
-#: ways, one paragraph each, `(indent beyond the list's, words)`
+#: What to do with a flagged line on an account with a statement code, under the list:
+#: the engine's two ways, one paragraph each, `(indent beyond the list's, words)`
 #: (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a
 #: flagged line"). The app does none of the steps here: each is done on the screen it
 #: belongs to.
@@ -2330,8 +2331,7 @@ class _FlaggedList(CheckList):
 
 
 class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMixin, Screen):
-    """The lines a statement's close flagged for review (pane 10 of
-    docs/mockups/expense-world-statements-screens.html).
+    """The lines a statement's close flagged for review.
 
     Opened on the statement's id, the screen reads its review list, the lines
     its close flagged and still unresolved, every currency of the account

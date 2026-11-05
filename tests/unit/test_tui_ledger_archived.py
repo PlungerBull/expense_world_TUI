@@ -229,7 +229,7 @@ def _footer_pairs(screen) -> list[tuple[str, str]]:
 
 @pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
 def test_the_footer_says_s_edit_and_the_card_says_what_the_form_does(engine, flt):
-    """Screen 1 A of expense-world-edit-form-words.html: the footer reads
+    """The footer reads
     `s Edit` before `d Delete`, and the `?` card's line for `s` reads "Edit the
     transaction and its parts"; every other footer slot and card row keeps its
     words and its place."""
@@ -317,7 +317,7 @@ def test_s_and_d_work_as_today_on_an_active_or_a_persons_row(engine, key):
 
 
 def test_the_archived_accounts_row_is_drawn_as_any_other(engine):
-    """Screen 1 A: no dimming, no mark. The list drawn over the archived
+    """No dimming, no mark. The list drawn over the archived
     account reads character for character, colour for colour, as the same
     list drawn with the account active, the cursor elsewhere."""
 

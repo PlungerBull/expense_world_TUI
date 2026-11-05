@@ -4,8 +4,7 @@ Pure builders, no app and no event loop: the part model the form edits, the
 table of the parts (amount, category, hashtags, note), the dim `read-only` lines
 under it and the ones under the shared fields, each with the engine's sentence
 for the lock, the line adding the parts up against the line's total, and a
-refused save's lines. The read-only lines' sentences, screen 1 B of
-mockups/expense-world-read-only-reasons.html.
+refused save's lines.
 
 **The only arithmetic is the count line**: the parts' amounts summed against
 the engine's own `net_cents`. It never stops a save; the engine decides whether
@@ -25,7 +24,7 @@ from expense.tui.theme import ACCENT, AMOUNT_RULE, Palette
 from expense.tui.widgets.cells import amount_text
 from expense.tui.widgets.refusal import hanging, under_itself
 
-#: A cell with nothing in it, as drawn.
+#: A cell with nothing in it.
 EMPTY = "—"
 #: Under a refused save, unless the engine failed (a `5xx`).
 NOTHING_SAVED = "Nothing was saved."
@@ -47,7 +46,7 @@ FIELD_WORDS = {engine: field for field, engine in ENGINE_FIELDS.items()}
 #: Between `read-only` and the engine's sentence, and between two sentences.
 SENTENCE_GAP = " · "
 
-#: Columns of the table, as drawn: the marker and number, then each cell at
+#: Columns of the table: the marker and number, then each cell at
 #: least as wide as its header leaves room for, and the gap after each.
 MIN_WIDTHS = (7, 11, 12, 0)
 MARKER_GAP = "  "

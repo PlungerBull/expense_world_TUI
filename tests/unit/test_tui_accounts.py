@@ -63,7 +63,7 @@ def _dash(cell) -> bool:
 
 
 def test_the_columns_are_name_type_code_color_a_column_per_currency_and_status():
-    """Answer 1 C: a balance column per currency the client knows, in its order, the
+    """A balance column per currency the client knows, in its order, the
     two right-aligned; no Cur column, no single Balance column."""
     assert AccountsScreen.HEADERS == COLUMNS
     assert AccountsScreen.ALIGN_RIGHT == {4, 5}
@@ -113,7 +113,7 @@ def test_an_archived_account_is_one_row_dimmed_whole():
 
 
 def test_the_code_column_shows_the_statement_code_or_a_dim_dash():
-    """statement-code-field 4 B: the account's statement code, or a dim `—` when it
+    """The account's statement code, or a dim `—` when it
     has none (a person always)."""
     items = [account_with_currencies(ITEMS[0], statement_code="SIG"), ITEMS[1]]
     by_id = {r[0]: r[1] for r in account_rows(items)}
@@ -121,7 +121,7 @@ def test_the_code_column_shows_the_statement_code_or_a_dim_dash():
     assert _dash(by_id["a2"][2])
 
 
-def test_the_list_reads_as_pane_1_c_draws_it(monkeypatch):
+def test_the_list_reads_at_its_card_width(monkeypatch):
     """The list at its card width: one line per account, no `<account> · <code>`
     line, each balance under its currency's header and a dim `—` under USD for a
     soles-only account."""

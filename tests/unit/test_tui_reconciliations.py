@@ -734,7 +734,7 @@ def test_statement_windows_are_the_days_of_every_statement_of_the_account():
 
 
 def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
-    """Pane 11: date · title · operation · currency · amount, the signed `net_cents`, a
+    """Date · title · operation · currency · amount, the signed `net_cents`, a
     dim `—` for no operation code; a split purchase is one row with its title alone and
     its total; `!` on the rows dated inside a statement's days."""
     from expense.tui.screens.reconciliations import statement_windows, unfiled_rows
@@ -991,7 +991,7 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
             await _cursor_on(pilot, screen, key)
             assert _enter_label(app) == "Edit", key
             assert "enter" in _footer_keys(app), key
-            # screen 2 A of expense-world-edit-form-words.html: the ledger's `s` words
+            # the ledger's `s` words
             assert _card_enter_rows(screen) == ["Edit the transaction and its parts"], key
             assert _card_group(screen, "Moving around") == [
                 ("⏎", "Edit the transaction and its parts"),
@@ -1302,7 +1302,7 @@ def test_a_refused_save_shows_the_engine_words_under_the_parts_and_the_form_stay
 
 
 def test_a_save_on_an_archived_account_shows_the_engine_words_alone(monkeypatch, fake_client):
-    """Screen 3 A of expense-world-archived-account.html: the form was opened
+    """The form was opened
     before the line's account was archived, and a new operation number is
     saved. Under the parts, the engine's words, its field's words under them,
     and no line of the app's; the form stays open with what was typed, and
@@ -1560,7 +1560,7 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
 def test_a_delete_on_an_archived_account_shows_the_engine_words_alone(
     monkeypatch, fake_client, row, path, thing, key
 ):
-    """Screen 3 A of expense-world-archived-account.html: the pane was read
+    """The pane was read
     before the account was archived, and `d` then `y` is refused. The "Failed"
     note is the engine's words alone, no line of the app's under them, and the
     list is as it was: not read again, its rows and cursor kept."""
@@ -1732,8 +1732,8 @@ def _numbered_statements(count: int) -> list[dict]:
     ]
 
 
-def test_pane_3_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
-    """Four accounts and three statements, as pane 3 draws them: every statement on one
+def test_the_statements_browse_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
+    """Four accounts and three statements, every statement on one
     page, no `pgdn`, and the footer's last key `u No statement` whole."""
     _five_accounts(monkeypatch, _numbered_statements(3))
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS[:4]))
@@ -2007,7 +2007,7 @@ def test_the_crumb_is_cut_again_whenever_the_terminal_is_resized(monkeypatch):
     run_app(scenario, size=(80, 24))
 
 
-# ---- the browse as drawn: panes 2 and 3 of the statements mockup ----------
+# ---- the browse at 80 columns ----------
 
 LONG_NAME_50 = "Cuenta corriente en soles y dolares del Banco de Credito"[:50]
 

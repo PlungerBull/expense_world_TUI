@@ -1,5 +1,4 @@
-"""The flagged lines and the lines in no statement, panes 10 and 11 of
-docs/mockups/expense-world-statements-screens.html at 80 columns.
+"""The flagged lines and the lines in no statement at 80 columns.
 
 A statement shows `⚑` and `f` whenever its review list counts a line, open or completed,
 counted when the screen reads the statement (contract: GET /v1/bank-lines/count). The
@@ -75,7 +74,7 @@ FLAGGED = [
     _line(13, "2026-10-21", "SPOTIFY P2F3", -599, "USD", None),
 ]
 
-PANE_10_STATEMENT = """
+COMPLETED_WITH_FLAGGED = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  VIS-202610
 ────────────────────────────────────────────────────────────────────────────────
   VIS-202610  ·  Visa BCP  ·  2026-09-26 → 2026-10-25  ·  status completed
@@ -98,7 +97,7 @@ PANE_10_STATEMENT = """
  esc Back  r Refresh  u Revert  d Delete  f Flagged  ? Keys
 """
 
-PANE_10_FLAGGED = """
+CODED_FLAGGED = """
   ◈ EXPENSE WORLD  ▸  Statements  ▸  VIS-202610  ▸  Flagged
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -204,7 +203,7 @@ def _statement(record: dict, code: str | None):
 # ---- the statement: ⚑ and f --------------------------------------------------------
 
 
-def test_a_completed_statement_with_flagged_lines_reads_as_pane_10_at_80_columns(
+def test_a_completed_statement_with_flagged_lines_reads_whole_at_80_columns(
     fake_client, monkeypatch
 ):
     engine = Engine(fake_client, monkeypatch, in_statement=IN_STATEMENT, flagged=FLAGGED)
@@ -215,7 +214,7 @@ def test_a_completed_statement_with_flagged_lines_reads_as_pane_10_at_80_columns
         return _screen_lines(app)
 
     lines = run_app(scenario, size=(80, 24))
-    assert_pane(lines, PANE_10_STATEMENT)
+    assert_pane(lines, COMPLETED_WITH_FLAGGED)
     # the count is read once, on the review list itself, when the screen opens
     assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}]
     assert engine.review_reads() == []
@@ -328,9 +327,7 @@ def test_a_count_that_cannot_be_read_toasts_the_engines_words(fake_client, monke
 # ---- the flagged screen ----------------------------------------------------------------
 
 
-def test_the_flagged_screen_of_a_coded_account_reads_as_pane_10_at_80_columns(
-    fake_client, monkeypatch
-):
+def test_the_flagged_screen_of_a_coded_account_reads_whole_at_80_columns(fake_client, monkeypatch):
     engine = Engine(fake_client, monkeypatch, in_statement=IN_STATEMENT, flagged=FLAGGED)
 
     async def scenario(pilot, app):
@@ -344,7 +341,7 @@ def test_the_flagged_screen_of_a_coded_account_reads_as_pane_10_at_80_columns(
         return _screen_lines(app)
 
     lines = run_app(scenario, size=(80, 24))
-    assert_pane(lines, PANE_10_FLAGGED)
+    assert_pane(lines, CODED_FLAGGED)
     # one read of the review list, every currency together in the statement's order, and
     # its count: nothing names a currency or a line
     assert engine.review_reads() == [
@@ -354,7 +351,7 @@ def test_the_flagged_screen_of_a_coded_account_reads_as_pane_10_at_80_columns(
 
 
 def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client, monkeypatch):
-    """No statement code: pane 10 draws the two ways for an account with one and nothing
+    """No statement code: the two ways show for an account with one and nothing
     for one without, so no words show under the list."""
     Engine(fake_client, monkeypatch, in_statement=[], flagged=FLAGGED)
 
@@ -368,13 +365,13 @@ def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client
         return _screen_lines(app), bool(app.screen.query("#fways"))
 
     lines, ways = run_app(scenario, size=(80, 24))
-    wanted = _pane(PANE_10_FLAGGED)
+    wanted = _pane(CODED_FLAGGED)
     assert lines[:2] == [wanted[0].replace("VIS-202610", "Octubre 2026"), wanted[1]]
     assert lines[3:5] == [
         "  Octubre 2026 has 3 flagged lines. 3 lines dated up to its last day are in",
         "  no statement.",
     ]
-    assert lines[5:11] == wanted[5:11]  # the list, as pane 10 draws it
+    assert lines[5:11] == wanted[5:11]  # the list
     assert not ways
     assert lines[-1] == wanted[-1]  # and nothing between the list and the footer
     assert lines[11:-1] == [""] * (len(lines) - 12)
@@ -382,8 +379,8 @@ def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client
 
 # ---- `u` on the browse: the account's lines in no statement ----------------------------
 
-#: Pane 11's caption and list, from the caption to the footer, at 80 columns.
-PANE_11 = """
+#: The caption and list of the lines in no statement, from the caption to the footer, at 80 columns.
+NO_STATEMENT_LIST = """
   In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·
   ! dated inside a statement
 
@@ -397,7 +394,7 @@ PANE_11 = """
 
  esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys
 """
-PANE_11_CAPTION = (
+NO_STATEMENT_CAPTION = (
     "In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·\n! dated inside a statement"
 )
 UNFILED = [
@@ -440,9 +437,7 @@ def _browse(fake_client, monkeypatch, lines, count=None):
     return reads, counts
 
 
-def test_u_lists_the_accounts_lines_in_no_statement_in_one_read_as_pane_11(
-    fake_client, monkeypatch
-):
+def test_u_lists_the_accounts_lines_in_no_statement_in_one_read(fake_client, monkeypatch):
     reads, counts = _browse(fake_client, monkeypatch, UNFILED)
 
     async def scenario(pilot, app):
@@ -464,8 +459,8 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read_as_pane_11(
     assert headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
     # the caption, the list and the footer, line for line
     first = next(n for n, line in enumerate(lines) if "In no statement" in line)
-    assert_pane(lines[first:], PANE_11)
-    assert screen_caption == PANE_11_CAPTION
+    assert_pane(lines[first:], NO_STATEMENT_LIST)
+    assert screen_caption == NO_STATEMENT_CAPTION
 
 
 def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
@@ -480,7 +475,7 @@ def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
         return screen._batch_list._caption
 
     caption = run_app(scenario, size=(80, 40))
-    assert caption == PANE_11_CAPTION.replace("6 of 6", "6 of 1716")
+    assert caption == NO_STATEMENT_CAPTION.replace("6 of 6", "6 of 1716")
     assert counts == [{"account_id": "acc-visa", "unreconciled": "true"}]
     assert all(r["sort"] == "date_asc" for r in reads)
 

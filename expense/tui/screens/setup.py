@@ -3,8 +3,7 @@
 The app opens on this screen, pushed over Home, when there is no settings file
 it can use: none at all, or one that cannot be read (`config.load_usable`,
 decided in `launch`). Drawn like every other bar form (FormScreen): one question on the
-bar, the answers listed under it. Screens in
-docs/mockups/expense-world-first-time-setup.html.
+bar, the answers listed under it.
 
 1. **ENGINE ADDRESS** starts filled with the local engine's address
    (`config.LOCAL_ENGINE_URL`); `⏎` accepts it, typing replaces it. An answer

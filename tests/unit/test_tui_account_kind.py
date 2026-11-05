@@ -1,6 +1,5 @@
 """`t` on Manage ▸ Accounts turns an account into a person and back.
 
-Screens 1 A, 2 A, 3 and 5 B of docs/mockups/expense-world-account-to-person.html.
 `t Make person` on a bank account's row sends `POST /accounts/{id}/make-person`,
 `t Make bank` on a person's sends `POST /accounts/{id}/make-account`, each with no
 body and no question (contract: POST /v1/accounts/{account_id}/make-person)
@@ -39,7 +38,7 @@ SIZE = (120, 40)
 
 
 def _rows() -> list[dict]:
-    """Manage ▸ Accounts as screen 1 draws it, plus a second person."""
+    """Manage ▸ Accounts as the Accounts screen lists it, plus a second person."""
 
     def held(*codes: str, opening: str | None = None) -> list[dict]:
         return [held_currency(c, 125000, opening_balance_transaction_id=opening) for c in codes]
@@ -121,7 +120,7 @@ async def _open(pilot, app, monkeypatch, cursor: str):
     return screen, notes
 
 
-# ---- 1 A and 2 A · both directions ------------------------------------------
+# ---- both directions ------------------------------------------
 
 TURNS = [
     # cursor row, route, the row's kind after, the note, its index after, the label after;
@@ -190,7 +189,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
 
 
 def test_the_label_follows_the_cursor_row_and_t_sits_before_d(configured, monkeypatch):
-    """Screen 1 A: `t Make person` on a bank account, `t Make bank` on a person,
+    """`t Make person` on a bank account, `t Make bank` on a person,
     between `a Archive` and `d Delete`, which stays last."""
     _stub_list(monkeypatch, _rows())
     footers: dict = {}
@@ -212,7 +211,7 @@ def test_the_label_follows_the_cursor_row_and_t_sits_before_d(configured, monkey
     assert footers["back"] == footers["bank"]
 
 
-# ---- 5 B · an archived row --------------------------------------------------
+# ---- an archived row --------------------------------------------------
 
 
 def test_t_leaves_the_footer_on_an_archived_row_and_sends_nothing(configured, monkeypatch):
@@ -409,13 +408,13 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
     assert sent.call_count == 2
 
 
-# ---- person-reconciliations 1 B · refused until its reconciliations go ------
+# ---- refused until its reconciliations go ------
 
 
 def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
     configured, monkeypatch
 ):
-    """Screen 1 B of expense-world-person-reconciliations.html: `t Make person`
+    """`t Make person`
     on a bank account with a reconciliation, draft or completed, is refused
     with the engine's words alone, and the account stays a
     bank account where it was (contract: POST /v1/accounts/{account_id}/make-person,
@@ -474,7 +473,7 @@ def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
     assert "t Make bank" in seen["after_footer"]
 
 
-# ---- 3 · Home shows it in its new group --------------------------------------
+# ---- Home shows it in its new group --------------------------------------
 
 
 def _dashboard(rows: list[dict]) -> dict:

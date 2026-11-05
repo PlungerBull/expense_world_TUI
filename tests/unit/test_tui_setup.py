@@ -1,6 +1,5 @@
 """First-time setup — the screen the app opens on with no usable settings file.
 
-Screens: docs/mockups/expense-world-first-time-setup.html (1A, 2A, 3, 4, 5, 6, 7A).
 The engine is mocked with respx, so the real HTTP client (idempotency key and
 all) runs. Every address typed here is `ENGINE_URL` (a public name the network
 backstop would catch), never the local engine's.
@@ -128,7 +127,7 @@ def test_load_usable_is_none_for_a_folder_in_the_files_place():
     assert config_module.load_usable() is None
 
 
-# ---- screen 1 / 2A: the first thing seen -------------------------------------------
+# ---- the first thing seen -------------------------------------------
 def test_setup_opens_on_the_address_filled_with_the_local_engine():
     async def scenario(pilot, app):
         screen = app.screen
@@ -166,7 +165,7 @@ def test_enter_accepts_the_offered_address_and_asks_for_the_key():
         assert not respx.calls
 
 
-# ---- screen 3 + 6: the key works and the engine knows it --------------------------------
+# ---- the key works and the engine knows it --------------------------------
 @pytest.mark.parametrize("before", [None, b"{ not json"], ids=["no-file", "damaged-file"])
 def test_a_working_key_saves_the_settings_and_lands_on_home(monkeypatch, before):
     if before is not None:
@@ -227,7 +226,7 @@ def test_ctrl_s_connects_from_any_field(monkeypatch):
     assert config_module.load().token == KEY
 
 
-# ---- screen 4: when it does not work -------------------------------------------------
+# ---- when it does not work -------------------------------------------------
 def test_engine_not_answering_goes_back_to_the_address_and_keeps_the_key():
     async def scenario(pilot, app):
         screen = app.screen
@@ -325,7 +324,7 @@ def test_esc_quits_and_saves_nothing():
     assert not _settings_file().exists()
 
 
-# ---- screen 5: a key the engine has never seen ------------------------------------------
+# ---- a key the engine has never seen ------------------------------------------
 @pytest.fixture
 def lima(monkeypatch):
     monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
@@ -438,7 +437,7 @@ def test_an_empty_name_shows_the_engines_refusal_and_saves_nothing(lima):
     assert not _settings_file().exists()
 
 
-# ---- screen 7A: the Mac's time zone cannot be read ---------------------------------------
+# ---- the Mac's time zone cannot be read ---------------------------------------
 def test_an_unreadable_time_zone_becomes_one_more_question(no_zone, monkeypatch):
     stub_home_month(monkeypatch)
 

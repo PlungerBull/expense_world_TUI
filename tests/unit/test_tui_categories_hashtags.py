@@ -1,8 +1,7 @@
 """The Categories and Hashtags TUI screens.
 
-Screens: docs/mockups/expense-world-pending-hashtag-manage.html — 1 (Hashtags as
-a table), 2 A (no `e`, no `d` on a system category), 3 B (the hashtag delete
-question). A built-in row is the one with a `system_key`, never a name.
+Hashtags are a table, a system category has no `e` and no `d`, and the hashtag delete
+asks a question. A built-in row is the one with a `system_key`, never a name.
 """
 
 import pytest
@@ -73,7 +72,7 @@ def test_category_rows_swatch_and_system():
 
 def test_categories_legend_is_the_shared_hint():
     """One copy of the system-category rule: the legend is the line under the
-    engine's `SYSTEM_CATEGORY` refusal (2 A)."""
+    engine's `SYSTEM_CATEGORY` refusal."""
     from expense.errors import SYSTEM_HINT
 
     assert CategoriesScreen.LEGEND is SYSTEM_HINT
@@ -87,7 +86,7 @@ def test_hashtag_rows_name_and_system():
 
 
 def test_hashtag_rows_mark_the_pending_hashtag_by_its_system_key():
-    """Screen 1: `system 🔒` on the row with a `system_key`, under whatever name
+    """`system 🔒` on the row with a `system_key`, under whatever name
     it has; `—` on the rest, a user hashtag named `Pendiente` included. The
     engine's order is kept."""
     rows = hashtag_rows(ENGINE_ORDER_TAGS)
@@ -158,7 +157,7 @@ def _walk_footers(monkeypatch, make, fetch, items, size=(120, 30)) -> dict:
 
 
 def test_hashtags_footer_offers_neither_e_nor_d_on_the_pending_hashtag(monkeypatch):
-    """Screen 1: on the pending hashtag the footer ends at `n New`, and `e` and
+    """On the pending hashtag the footer ends at `n New`, and `e` and
     `d` do nothing; on every other row `e Edit` and `d Delete` close the footer,
     a user hashtag named `Pendiente` included. The table has Name and System
     and the legend, in the engine's order."""
@@ -177,7 +176,7 @@ def test_hashtags_footer_offers_neither_e_nor_d_on_the_pending_hashtag(monkeypat
 
 
 def test_categories_footer_offers_neither_e_nor_d_on_a_system_category(monkeypatch):
-    """2 A: on `@Opening` and `@Pendiente` (a `system_key`) neither `e` nor `d`
+    """On `@Opening` and `@Pendiente` (a `system_key`) neither `e` nor `d`
     is offered and both do nothing; other rows keep `e Edit` and `d Delete`.
     The legend reads as drawn."""
     seen = _walk_footers(monkeypatch, CategoriesScreen, "fetch_categories", CATS)
@@ -220,7 +219,7 @@ def test_hashtags_empty_list_still_says_so(monkeypatch):
     ids=["named-as-listed", "none-yet"],
 )
 def test_the_hashtag_delete_question_says_where_its_rows_go(monkeypatch, items, goes_to):
-    """3 B: the question adds that a transaction left with no other hashtag
+    """The question adds that a transaction left with no other hashtag
     goes to the pending hashtag, named as the list gives it, or called the
     pending hashtag while the user has none yet."""
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole(items))

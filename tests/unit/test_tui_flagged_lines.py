@@ -1,5 +1,4 @@
-"""The lines a statement's close flagged for review (pane 10 of
-docs/mockups/expense-world-statements-screens.html).
+"""The lines a statement's close flagged for review.
 
 A complete goes through with lines left in no statement and names them by id, each
 balance's `review_lines`, every currency of the statement's account
@@ -315,7 +314,7 @@ def test_a_close_on_an_account_with_no_code_shows_its_flagged_lines_and_no_ways(
     """The lines are the statement's review list, in one page read with no id sent,
     the count the engine's, and no line read by its id; the rows in the engine's order,
     not the close's, as the bank's columns with the currency; the head's two sentences;
-    the footer as pane 10 draws it. With no statement code the engine's two ways have
+    the footer. With no statement code the engine's two ways have
     nothing to say, so none show."""
     _patch(monkeypatch)
     lines = [{**line, "account_id": "acc1"} for line in (TAMBO, UBER)]
@@ -978,7 +977,7 @@ def test_f_then_esc_before_the_close_count_lands_opens_no_second_flagged_screen(
 def test_a_draft_that_shows_f_keeps_its_last_key_whole_at_80_columns(fake_client, monkeypatch):
     """A draft's footer is `space`, `esc`, `r`, `c`, `u`, `d`, `f` and `?`: wider than 80
     columns as spaced usually, so it is drawn with less whitespace and `? Keys` stays
-    whole (pane 10's footer, the draft's keys added)."""
+    whole (the draft's keys added)."""
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO)
     engine.count = 3
@@ -1006,7 +1005,7 @@ def test_a_draft_that_shows_f_keeps_its_last_key_whole_at_80_columns(fake_client
 
 
 def test_a_footer_that_fits_keeps_its_usual_spacing(fake_client, monkeypatch):
-    """Pane 10's footer, a completed statement with `f`, is spaced as it is drawn there."""
+    """A completed statement's footer with `f` is spaced as usual."""
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO)
     engine.count = 3

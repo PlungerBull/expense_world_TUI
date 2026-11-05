@@ -197,13 +197,12 @@ ConfirmModal #modal, PromptBox #modal {
     width: 52;
     max-width: 90%;
 }
-/* A box drawn under the screen's head (`UnderHead`, modals.py), as pane 6 of
-   docs/mockups/expense-world-statements-screens.html draws it. The card covers the
-   screen from its top line to the footer, full width, in the terminal's own background
-   (`ansi_default`, the base fill: no colour of its own), so nothing of the list shows
-   beside or below the box. Inside it, a rule 60 wide indented 2 above and below the
-   text, which sits at column 4, 60 wide and narrower with the terminal, its words
-   wrapping. The card's top is set where it is placed. `:ansi`
+/* A box drawn under the screen's head (`UnderHead`, modals.py), for the Statements
+   screen's boxes. The card covers the screen from its top line to the footer, full width,
+   in the terminal's own background (`ansi_default`, the base fill: no colour of its own),
+   so nothing of the list shows beside or below the box. Inside it, a rule 60 wide
+   indented 2 above and below the text, which sits at column 4, 60 wide and narrower
+   with the terminal, its words wrapping. The card's top is set where it is placed. `:ansi`
    matches the scrim rule it overrides. */
 ConfirmModal.under-head:ansi, PromptBox.under-head:ansi {
     background: transparent;
@@ -271,9 +270,8 @@ CursorList, CheckList {
     padding: 0 1;
 }
 
-/* The Statements browse's lists are wider than a screen's usual card: pane 3 of
-   docs/mockups/expense-world-statements-screens.html holds a statement's name, period, a
-   Diff per currency, status and order whole on 80 columns, which the card's margins and
+/* The Statements browse's lists are wider than a screen's usual card: they hold a statement's name,
+   period, a Diff per currency, status and order whole on 80 columns, which the card's margins and
    the lists' own gutter would cut. */
 ReconciliationsScreen #content {
     padding: 1 0 1 2;
@@ -294,8 +292,7 @@ ReconciliationDetailScreen #rflag {
 }
 
 /* The flagged lines' words stand two cells in and wrap at 75 columns, the head a blank
-   line under the crumb and the list's own last row, blank, between it and the ways (pane 10
-   of docs/mockups/expense-world-statements-screens.html). */
+   line under the crumb and the list's own last row, blank, between it and the ways. */
 FlaggedLinesScreen #fhead {
     padding: 0 0 0 2;
     margin: 1 0 0 0;

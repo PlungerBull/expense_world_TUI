@@ -461,7 +461,7 @@ APP_FAULT = (
 @pytest.mark.parametrize(
     ("code", "key", "reason", "on_list", "line"),
     [
-        # 1 · the approved delete lines, word for word
+        # the delete lines, word for word
         (
             "CONFLICT",
             "account_id",
@@ -483,7 +483,7 @@ APP_FAULT = (
             True,
             "System categories cannot be renamed or deleted.",
         ),
-        # pending-hashtag-manage 4 B, both refusals, and 5 B
+        # the built-in hashtag's refusals, both
         (
             "FORBIDDEN",
             "hashtag_id",
@@ -505,7 +505,7 @@ APP_FAULT = (
             False,
             "Built-in names never change: press esc to leave it as it is.",
         ),
-        # pending-hashtag-manage 7 B: the ledger's bulk h, on a transaction write's key
+        # the ledger's bulk h, on a transaction write's key
         (
             "VALIDATION_ERROR",
             "hashtag_ids",
@@ -519,7 +519,7 @@ APP_FAULT = (
         ("VALIDATION_ERROR", "parts.2.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", True, None),
         # a transaction in a completed statement: the engine's words alone
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
-        # archived-account 3 A: ACCOUNT_ARCHIVED draws no line under either code it
+        # ACCOUNT_ARCHIVED draws no line under either code it
         # comes with, a CONFLICT on a delete or a statement's complete, revert or delete,
         # a VALIDATION_ERROR on a save, whatever the key, on a list or off one
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),
@@ -529,10 +529,10 @@ APP_FAULT = (
         # `t` on an account already of that kind, or archived: the engine's words alone
         ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
         ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
-        # person-reconciliations 1 B: an account that has been in a statement stops `t`,
+        # an account that has been in a statement stops `t`,
         # in the engine's words alone
         ("CONFLICT", "account_id", "HAS_RECONCILIATION", True, None),
-        # 2
+        # a taken name
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
         # a statement code another account has, and a code that is not three capital
         # letters, keep the engine's words alone
@@ -542,9 +542,9 @@ APP_FAULT = (
         # statement and on a statement PDF: the engine's words alone
         ("VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN", False, None),
         ("VALIDATION_ERROR", "file", "STATEMENT_MONTH_TAKEN", False, None),
-        # 3A
+        # a cap reached
         ("LIMIT_REACHED", "id", "CAP_REACHED", False, "Delete one first."),
-        # 4, on a form and in a batch or an import
+        # a taken operation number, on a form and in a batch or an import
         (
             "CONFLICT",
             "operation_code",
@@ -561,7 +561,7 @@ APP_FAULT = (
             "That account already has a row with this operation number: "
             "look there for a duplicate.",
         ),
-        # 5A: the key for the screen you are on
+        # a concurrent change: the key for the screen you are on
         (
             "CONFLICT",
             "hashtag_id",
@@ -576,7 +576,7 @@ APP_FAULT = (
             False,
             "It changed at the same moment: save again.",
         ),
-        # 6B
+        # a reserved name held
         (
             "CONFLICT",
             "category_id",
@@ -599,7 +599,7 @@ APP_FAULT = (
         # the pending hashtag beside another, a hashtag deleted meanwhile: no line
         ("VALIDATION_ERROR", "hashtag_ids", "PENDING_HASHTAG_NOT_ALONE", False, None),
         ("VALIDATION_ERROR", "transactions.0.hashtag_ids", "INVALID_REFERENCE", False, None),
-        # 7
+        # an opening balance that exists
         (
             "CONFLICT",
             "account_id",
@@ -607,7 +607,7 @@ APP_FAULT = (
             False,
             "It got one meanwhile: close the form and open it again to change it.",
         ),
-        # 8B
+        # a statement that is not a draft
         (
             "CONFLICT",
             "statement_id",
@@ -615,13 +615,13 @@ APP_FAULT = (
             True,
             "Press u to revert it, then d again.",
         ),
-        # 9A, both cases
+        # the app's own fault, both cases
         ("CONFLICT", "id", "ID_EXISTS", False, APP_FAULT),
         ("CONFLICT", "transactions.0.id", "ID_EXISTS", False, APP_FAULT),
         ("CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED", False, APP_FAULT),
         # never met by the app: not wired
         ("CONFLICT", "X-Idempotency-Key", "SECRET_NOT_REPLAYABLE", False, None),
-        # opening-balance rows 2B, on a list (bulk b / c) and on the Edit form
+        # an opening-balance row, on a list (bulk b / c) and on the Edit form
         (
             "VALIDATION_ERROR",
             "account_id",

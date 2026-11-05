@@ -541,7 +541,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
 def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
     """`b` onto an account that already holds row 2's operation number: the
     "Refused" note names the row, gives the engine's words, and closes with the
-    line saying what to do (screen 4); the other rows still move."""
+    line saying what to do; the other rows still move."""
     _stub_ledger(monkeypatch)
     toasts: list[tuple[str, str]] = []
     real_put = fake_client.put
@@ -587,7 +587,7 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
 def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
     fake_client, monkeypatch
 ):
-    """Screen 3 A of expense-world-archived-account.html: `b` over a selection
+    """`b` over a selection
     that holds a row of an account archived since the ledger was read. The
     "Refused" note names the row and gives the engine's words, each key it
     refused with its words, and no line of the app's; the other rows still
@@ -699,7 +699,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
             "Must not move an opening balance out of the opening-balance category.",
             "An opening balance always stays in @Opening.",
         ),
-        # pending-hashtag-manage 7 B: `com` + ↵ picks #COMIDA, the second ↵ applies
+        # `com` + ↵ picks #COMIDA, the second ↵ applies
         (
             "h",
             ["c", "o", "m", "enter"],
@@ -715,7 +715,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
 def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
     fake_client, monkeypatch, key, typed, field, reason, message, words, line
 ):
-    """Opening-balance rows 2B, and pending-hashtag-manage 7 B: `b`, `c` or `h`
+    """`b`, `c` or `h`
     over a selection holding an opening balance sends every row as usual; the
     engine refuses that one
     (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"),
@@ -774,8 +774,7 @@ def _settings_missing() -> EngineError:
 
 
 #: The LOG bar's note for the same refusal, word for word
-#: (test_tui_log_bar.py's settings-missing test), screen 2 A of
-#: expense-world-read-only-reasons.html.
+#: (test_tui_log_bar.py's settings-missing test).
 SETTINGS_MISSING_NOTE = (
     "Failed",
     "SETTINGS_MISSING — User settings have not been provisioned.\n"
@@ -1201,8 +1200,7 @@ def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
 
 
 # ---- the pick screen over the ledger ---------------------------------------------
-# Drawn in docs/mockups/expense-world-wording-picks.html, Question 6: a full screen, the
-# rows it changes over the bar in the ledger's columns, five at most.
+# A full screen: the rows it changes over the bar in the ledger's columns, five at most.
 
 
 def _rows_shown(screen) -> str:
@@ -1372,7 +1370,7 @@ def test_h_collects_picks_under_the_list_and_backspace_drops_the_last(fake_clien
 
 
 def test_the_pick_screen_footer_offers_esc_only(fake_client, monkeypatch):
-    """The footer reads `esc Cancel`, as the mockup draws it; `↑↓` work unadvertised."""
+    """The footer reads `esc Cancel`; `↑↓` work unadvertised."""
     _stub_ledger(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1392,7 +1390,6 @@ def test_the_pick_screen_footer_offers_esc_only(fake_client, monkeypatch):
 
 # ---- refused rows read one note per kind --------------------------------------
 # the LOG bar's and the sheet import's style (`formatting.grouped_refusals`),
-# Question 5 A of docs/mockups/expense-world-wording-picks.html
 
 
 def _sealed(period: str, name: str = "August 2026") -> EngineError:
@@ -1496,8 +1493,8 @@ def test_a_backslash_ending_the_words_shows_and_the_colours_hold(words):
     assert _coloured(note) == [(words, "$error"), (words, "dim")]
 
 
-def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, monkeypatch):
-    """Question 5 A of docs/mockups/expense-world-wording-picks.html: rows 1, 2
+def test_b_with_two_of_three_rows_refused_reads_one_note_per_kind(fake_client, monkeypatch):
+    """Rows 1, 2
     and 3 selected, `b` onto BCP Oro · PEN, rows 1 and 3 in a completed
     statement. The receipt counts the row that moved; the refusal is one
     note under "2 of 3 refused": the field and the engine's words for it, in the

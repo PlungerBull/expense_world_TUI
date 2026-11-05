@@ -18,10 +18,9 @@ from expense.tui.widgets.refusal import toast
 
 class UnderHead:
     """A box drawn under the screen's head, the head still in sight above it, as the
-    Statements pane 6 draws `c`'s boxes (docs/mockups/expense-world-statements-
-    screens.html). The card covers the screen from its top line to the footer, in the
-    terminal's own background, so nothing of the list shows beside or below it. `under`
-    says the line the card starts on, asked each time the box is placed (when it
+    Statements screen's `c` boxes are. The card covers the screen from its top line to the
+    footer, in the terminal's own background, so nothing of the list shows beside or
+    below it. `under` says the line the card starts on, asked each time the box is placed (when it
     opens, once it is laid out, on a resize), so the box follows a head that grew. The
     box is never cut: where the space under the head is too short it rises over the
     head's last lines. With `under` None the box stays where every modal is, centred

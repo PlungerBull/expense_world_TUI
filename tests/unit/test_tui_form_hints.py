@@ -2,7 +2,7 @@
 
 `⏎` on a line goes on to the next line that can change; only on a line with
 none after it does `⏎` save (`FormScreen._advance`). So a hint says "save" only
-there (expense-world-wording-picks.html, questions 4a and 4b, both A).
+there.
 
 The pins drive the screens with real key presses; the guard walks every bar
 form in `expense/tui/screens/`, in each of its shapes, so a new form or a new
@@ -230,7 +230,6 @@ def test_new_statement_name_goes_on(fake_client):
 
 
 #: The begin balance hint's second line, the same on every begin field
-#: (drawn in docs/mockups/expense-world-opening-balance-note.html).
 OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
 
 

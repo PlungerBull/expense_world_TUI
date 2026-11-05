@@ -1,10 +1,7 @@
 """The account Edit form's opening balances — a pair of lines per currency,
 `PEN opening` and `PEN as of`, then the next currency's.
 
-The screens are docs/mockups/expense-world-opening-balance.html's, each pair
-labelled as panes "5 A" of
-docs/mockups/expense-world-currencies-accounts-picks.html draw it; a person's
-form is pane A of docs/mockups/expense-world-person-opening-balance.html. Each
+A person's form has the same pair. Each
 currency of the account names its opening balance by id
 (contract: "Bank Accounts", "Opening balance"); the form reads that row signed
 with one `GET /transactions/{id}`
@@ -166,10 +163,10 @@ def reads_log(monkeypatch):
     return log
 
 
-# ---- 1 · an account with no opening balance ------------------------------------
+# ---- an account with no opening balance ------------------------------------
 
 
-def test_screen_1_two_empty_lines_after_colour_and_no_read(fake_client):
+def test_two_empty_lines_after_colour_and_no_read(fake_client):
     async def body(pilot, app, screen):
         assert screen._sequence() == [
             "type",
@@ -189,7 +186,7 @@ def test_screen_1_two_empty_lines_after_colour_and_no_read(fake_client):
     assert fake_client.calls == []  # null id: nothing to read
 
 
-def test_screen_1_left_empty_the_save_is_the_account_alone(fake_client, notes):
+def test_left_empty_the_save_is_the_account_alone(fake_client, notes):
     async def body(pilot, app, screen):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
@@ -199,10 +196,10 @@ def test_screen_1_left_empty_the_save_is_the_account_alone(fake_client, notes):
     assert ("Saved.", {}) in notes
 
 
-# ---- 2 · typing the amount, then the date ----------------------------------------
+# ---- typing the amount, then the date ----------------------------------------
 
 
-def test_screen_2_no_hint_under_the_amount_and_the_star_once_there_is_one(fake_client):
+def test_no_hint_under_the_amount_and_the_star_once_there_is_one(fake_client):
     async def body(pilot, app, screen):
         _on(screen, "opening:PEN")
         assert _hint(screen) == ""  # no line under the amount
@@ -217,7 +214,7 @@ def test_screen_2_no_hint_under_the_amount_and_the_star_once_there_is_one(fake_c
     _form(EFECTIVO, body)
 
 
-def test_screen_2_the_amount_is_taken_as_typed_in_its_currency(fake_client):
+def test_the_amount_is_taken_as_typed_in_its_currency(fake_client):
     async def body(pilot, app, screen):
         assert screen._label("opening:USD") == "USD OPENING"
         _type(screen, "opening:USD", "-350.00")
@@ -228,7 +225,7 @@ def test_screen_2_the_amount_is_taken_as_typed_in_its_currency(fake_client):
     _form(account_with_currencies(EFECTIVO, currencies=[held_currency("USD")]), body)
 
 
-def test_screen_2_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
+def test_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "lots")
         assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
@@ -286,7 +283,7 @@ def test_the_word_shows_on_landing_on_a_filled_amount(fake_client, reads_log):
     _form(SUELDO, body)
 
 
-def test_screen_2_a_new_opening_balance_posts_signed_with_no_title(fake_client, notes):
+def test_a_new_opening_balance_posts_signed_with_no_title(fake_client, notes):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-350.00")
         _type(screen, "as_of:PEN", "2026-01-01")  # last line: enter saves
@@ -670,10 +667,10 @@ def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
     assert fake_client.puts[0][1] == {"name": "Efectivo", "color": "#5ab87a"}
 
 
-# ---- 3 · an account that already has one -------------------------------------------
+# ---- an account that already has one -------------------------------------------
 
 
-def test_screen_3_the_lines_open_filled_from_one_signed_read(fake_client, reads_log):
+def test_the_lines_open_filled_from_one_signed_read(fake_client, reads_log):
 
     async def body(pilot, app, screen):
         assert screen._values["opening:PEN"] == -320000  # the signed amount, not the type's
@@ -690,7 +687,7 @@ def test_screen_3_the_lines_open_filled_from_one_signed_read(fake_client, reads_
     assert fake_client.calls == []
 
 
-def test_screen_3_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
+def test_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
 
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-3000")
@@ -701,7 +698,7 @@ def test_screen_3_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
     assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
 
 
-def test_screen_3_a_changed_date_puts_only_the_date(fake_client, reads_log):
+def test_a_changed_date_puts_only_the_date(fake_client, reads_log):
 
     async def body(pilot, app, screen):
         _type(screen, "as_of:PEN", "2026-02-01")
@@ -713,7 +710,7 @@ def test_screen_3_a_changed_date_puts_only_the_date(fake_client, reads_log):
     ]
 
 
-def test_screen_3_unchanged_the_save_is_the_account_alone(fake_client, reads_log):
+def test_unchanged_the_save_is_the_account_alone(fake_client, reads_log):
 
     async def body(pilot, app, screen):
         await pilot.press("ctrl+s")
@@ -842,7 +839,7 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
     assert ("Saved.", {}) in notes
 
 
-# ---- 4 · emptying the amount and saving -----------------------------------------------
+# ---- emptying the amount and saving -----------------------------------------------
 
 
 def _empty_and_save(fake_client, answer, record=SUELDO):
@@ -866,7 +863,7 @@ def _empty_and_save(fake_client, answer, record=SUELDO):
     return asked
 
 
-def test_screen_4_emptying_the_amount_asks_first(fake_client, reads_log):
+def test_emptying_the_amount_asks_first(fake_client, reads_log):
     asked = _empty_and_save(fake_client, "y")
     assert asked == {
         "title": "Delete this opening balance?",
@@ -875,7 +872,7 @@ def test_screen_4_emptying_the_amount_asks_first(fake_client, reads_log):
     }
 
 
-def test_screen_4_y_saves_the_account_then_deletes(fake_client, reads_log):
+def test_y_saves_the_account_then_deletes(fake_client, reads_log):
     _empty_and_save(fake_client, "y")
     assert fake_client.requests == [
         ("PUT", "/accounts/acc-sue"),
@@ -884,15 +881,15 @@ def test_screen_4_y_saves_the_account_then_deletes(fake_client, reads_log):
 
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
-def test_screen_4_any_other_answer_saves_nothing(fake_client, reads_log, answer):
+def test_any_other_answer_saves_nothing(fake_client, reads_log, answer):
     _empty_and_save(fake_client, answer)
     assert fake_client.requests == []
 
 
-# ---- a person: pane A of expense-world-person-opening-balance.html ----------------------
+# ---- a person ----------------------------------------------------------------------
 
 
-def test_pane_a1_a_person_has_both_lines_after_colour_and_no_code_line(fake_client):
+def test_a_person_has_both_lines_after_colour_and_no_code_line(fake_client):
     async def body(pilot, app, screen):
         assert screen._sequence() == [
             "type",
@@ -915,7 +912,7 @@ def test_pane_a1_a_person_has_both_lines_after_colour_and_no_code_line(fake_clie
     assert fake_client.calls == []  # null id: nothing to read
 
 
-def test_pane_a1_a_person_adds_an_opening_balance(fake_client, notes):
+def test_a_person_adds_an_opening_balance(fake_client, notes):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
         _type(screen, "opening:PEN", "-150.00")
@@ -935,7 +932,7 @@ def test_pane_a1_a_person_adds_an_opening_balance(fake_client, notes):
     assert ("Saved.", {}) in notes
 
 
-def test_pane_a2_a_person_who_has_one_opens_with_both_lines_filled(fake_client, reads_log):
+def test_a_person_who_has_one_opens_with_both_lines_filled(fake_client, reads_log):
     reads_log.row = ELIANA_ROW
 
     async def body(pilot, app, screen):
@@ -953,7 +950,7 @@ def test_pane_a2_a_person_who_has_one_opens_with_both_lines_filled(fake_client, 
     assert fake_client.calls == []
 
 
-def test_pane_a2_a_person_changes_its_opening_balance(fake_client, reads_log):
+def test_a_person_changes_its_opening_balance(fake_client, reads_log):
     reads_log.row = ELIANA_ROW
 
     async def body(pilot, app, screen):
@@ -965,7 +962,7 @@ def test_pane_a2_a_person_changes_its_opening_balance(fake_client, reads_log):
     assert fake_client.puts == [("/transactions/tx-eli", {"amount_cents": -20000})]
 
 
-def test_pane_a2_a_person_empties_its_opening_balance(fake_client, reads_log):
+def test_a_person_empties_its_opening_balance(fake_client, reads_log):
     reads_log.row = ELIANA_ROW
     asked = _empty_and_save(fake_client, "y", ELIANA_OPENED)
     assert asked == {
@@ -980,7 +977,7 @@ def test_pane_a2_a_person_empties_its_opening_balance(fake_client, reads_log):
     assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
 
 
-# ---- 6 · the account saves, the opening balance is refused -----------------------------
+# ---- the account saves, the opening balance is refused -----------------------------
 
 FUTURE = EngineError(
     "VALIDATION_ERROR",
@@ -992,9 +989,7 @@ FUTURE = EngineError(
 )
 
 
-def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_opening(
-    fake_client, notes
-):
+def test_the_note_says_which_half_went_through_and_resends_only_the_opening(fake_client, notes):
     fake_client.errors["POST"] = FUTURE
     seen: dict = {}
 
@@ -1045,7 +1040,7 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
         ),
         ("category_id", "CONCURRENT_CHANGE", "It changed at the same moment: save again."),
     ],
-    ids=["screen-7", "screen-6B", "screen-5A-form"],
+    ids=["reserved-name", "opening-balance-exists", "concurrent-change"],
 )
 def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, key, reason, line):
     """The account saved, the opening balance was refused for a reason that has
@@ -1143,7 +1138,7 @@ def test_the_half_saved_block_names_the_currency_refused(fake_client, notes):
     )
 
 
-def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
+def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
     fake_client.errors["POST"] = FUTURE
     result: list = []
 
@@ -1163,7 +1158,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     assert len(fake_client.calls) == 2  # leaving sends nothing more
 
 
-# ---- 7 · when the engine says no -------------------------------------------------------
+# ---- when the engine says no -------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -1239,7 +1234,7 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
         "LOCKED",
     ],
 )
-def test_screen_7_each_refusal_shows_in_the_engines_words(
+def test_each_refusal_shows_in_the_engines_words(
     fake_client, notes, reads_log, record, steps, verb, error
 ):
     fake_client.errors[verb] = error
@@ -1267,7 +1262,7 @@ def test_screen_7_each_refusal_shows_in_the_engines_words(
         assert key in typed  # what was typed is still there
 
 
-# ---- 8 · after a successful save -------------------------------------------------------
+# ---- after a successful save -------------------------------------------------------
 
 
 def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
@@ -1299,7 +1294,7 @@ def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
     return seen
 
 
-def test_screen_8_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, notes, monkeypatch):
+def test_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, notes, monkeypatch):
     steps = [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")]
     seen = _list_then_edit(fake_client, monkeypatch, steps, save=True)
     assert seen["cursor"] == "acc-sue"  # first page, cursor on row 1

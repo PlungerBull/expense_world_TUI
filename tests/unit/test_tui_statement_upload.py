@@ -1,8 +1,6 @@
 """The statement upload — a statement PDF dropped on the LOG bar → account → preview → close.
 
-The screens are A1 and A2 of docs/mockups/expense-world-statement-pdf-upload.html
-and 1 to 3 and 6A of docs/mockups/expense-world-statement-pdf-screens.html. A
-dropped PDF is a few made-up bytes: the app sends them whole and reads nothing in
+A dropped PDF is a few made-up bytes: the app sends them whole and reads nothing in
 them, and the one engine call, `POST /statements/import`, is answered by a fake
 on the shared FakeClient that reads the file it was sent and answers that paper
 (`statement_upload_answer`); one test goes through the real HTTP client
@@ -68,7 +66,7 @@ ACCOUNTS = [
     account_with_currencies(id="cash", name="Efectivo"),
 ]
 
-#: A card's paper as screen 1A draws it: both currencies, matched, new and empty
+#: A card's paper: both currencies, matched, new and empty
 #: rows, and two undated fees.
 CARD_ROWS = [
     statement_row(1, -750, day="2026-09-24", description="TAMBO MIRAFLORES"),
@@ -107,7 +105,7 @@ CARD = {
     "taken_out": ["bl-farm"],
 }
 
-#: A savings account's paper as screen 1B draws it: one currency, its open draft
+#: A savings account's paper: one currency, its open draft
 #: filled, nothing taken out.
 SAVINGS = {
     "rows": [
@@ -346,7 +344,7 @@ def test_the_answer_reads_as_the_engine_sent_it():
     assert answer.counts.taken_out == 1 and answer.counts.rows == 10
 
 
-# ---- A1 · the PDF dropped on the LOG bar ------------------------------------------
+# ---- the PDF dropped on the LOG bar ------------------------------------------
 def test_a_dropped_pdf_says_upload_it(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path)
     _patch(monkeypatch)
@@ -367,7 +365,7 @@ def test_a_dropped_pdf_says_upload_it(fake_client, monkeypatch, tmp_path):
 
 
 def test_files_of_both_kinds_list_each_with_its_kind():
-    """6A: every file with its kind, taken one by one."""
+    """Every file with its kind, taken one by one."""
     from pathlib import Path
 
     files = [Path("/d/Movimientos.xlsx"), Path("/d/BCP Visa 1492 2026-10.pdf")]
@@ -400,7 +398,7 @@ def test_a_pdf_gone_from_disk_stays_in_the_bar(fake_client, monkeypatch, tmp_pat
     run_app(scenario)
 
 
-# ---- A2 · which account is this statement? -------------------------------------------
+# ---- which account is this statement? -------------------------------------------
 def test_the_account_list_is_the_downloads_with_the_statements_question(
     fake_client, monkeypatch, tmp_path
 ):
@@ -428,7 +426,7 @@ def test_the_account_list_is_the_downloads_with_the_statements_question(
 def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencies(
     fake_client, monkeypatch, tmp_path
 ):
-    """Pane 12: a bank account with no statement code is listed too (the engine
+    """A bank account with no statement code is listed too (the engine
     refuses it in its words if picked), a dollar account reads `USD`, an account
     in the way of nothing is left out: archived accounts and people."""
     path = _pdf(tmp_path)
@@ -463,8 +461,8 @@ def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencie
     run_app(scenario, size=(120, 40))
 
 
-# ---- 1A · a card's paper ---------------------------------------------------------------
-def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatch, tmp_path):
+# ---- a card's paper ---------------------------------------------------------------
+def test_a_cards_preview_shows_its_rows_and_writes_nothing(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path)
     reads_by_ids = _patch(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD})
@@ -664,7 +662,7 @@ def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monke
     run_app(scenario, size=(120, 50))
 
 
-# ---- 1B · a savings account's paper ---------------------------------------------------
+# ---- a savings account's paper ---------------------------------------------------
 def test_a_savings_preview_has_one_balance_line_and_no_currency(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
     reads_by_ids = _patch(monkeypatch)
@@ -720,7 +718,7 @@ def test_esc_on_the_preview_sends_nothing(fake_client, monkeypatch, tmp_path):
 
 
 def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monkeypatch, tmp_path):
-    """Screen 3, nothing flagged: no ⚑ line and no `f`; the apply sends the
+    """Nothing flagged: no ⚑ line and no `f`; the apply sends the
     same file on the same account."""
     path = _pdf(tmp_path)
     _patch(monkeypatch)
@@ -745,7 +743,7 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
 
 
 def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path):
-    """Screen 3: the ⚑ line shows the engine's count of the completed statement's
+    """The ⚑ line shows the engine's count of the completed statement's
     review list, and `f` opens the flagged lines' screen on that statement, which reads its
     review list and its count, no id sent; back from it, the screen stays."""
     path = _pdf(tmp_path)
@@ -816,7 +814,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
     run_app(scenario, size=(120, 50))
 
 
-# ---- 2 · refused uploads -------------------------------------------------------------
+# ---- refused uploads -------------------------------------------------------------
 @pytest.mark.parametrize(
     ("err", "shown"),
     [
@@ -1123,7 +1121,7 @@ def test_the_flagged_lines_of_an_account_with_no_code_show_no_ways(
     run_app(scenario, size=(120, 50))
 
 
-# ---- 6A · several files of both kinds ------------------------------------------------
+# ---- several files of both kinds ------------------------------------------------
 def test_a_download_and_a_pdf_go_one_by_one_each_its_own_way(fake_client, monkeypatch, tmp_path):
     download = _xlsx(tmp_path)
     paper = _pdf(tmp_path)
@@ -1299,7 +1297,7 @@ def test_a_long_paper_pages_with_pgdn_and_pgup(fake_client, monkeypatch, tmp_pat
 
 
 def test_an_empty_rows_amount_is_plain():
-    """Screen 1A draws an empty row's `0.00` in no colour: it is no money in or out."""
+    """An empty row's `0.00` is drawn in no colour: it is no money in or out."""
     answer = statement_answer(statement_upload_answer(**CARD, dry_run=True))
     columns = Columns(answer, [], width=116)
     empty = row_line(answer.rows[9], columns)

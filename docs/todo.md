@@ -97,13 +97,10 @@ CLAUDE.md "Specs and tasks".
   currencies-transaction-picks, no-batch-caption, opening-balance-rows, pending-hashtag-home,
   refusal-hints and screen-map; leftover-picks is linked only from a retired spec, and
   statements-screens only from code and tests.
-- **Code comments still carry mockup tags, and one module docstring is stale.** About sixteen
-  comments (app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py,
-  log_bar.py), the "Screen 1…4" tags in import_cmd.py and test_cmd_import.py, "pane N" in test
-  docstrings and names like `test_a_cards_preview_is_screen_1a_and_writes_nothing` point at
-  mockup panes; say what the code does. bank_import.py, log_bar.py and
-  test_tui_statement_upload.py name two mockups that do not exist. reconciliations.py's module
-  docstring describes the old New form, complete and delete.
+- **No guard keeps mockup tags out of code.** test_doc_hygiene.py scans docs only; a pane,
+  screen or pick tag ("pane 10", "Screen 1a", "3 A", a mockup file name) can come back into a
+  comment, docstring, test name or parametrize id in expense/ or tests/. A guard test fails on
+  one, naming its file and line.
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at

@@ -1,7 +1,6 @@
 """The bulk pick — what `c`, `b`, `h` and `m` on the ledger open.
 
-Drawn in docs/mockups/expense-world-wording-picks.html, Question 6. A full pushed
-screen, not a pop-up: it carries rows. The crumb adds `Category for 3 rows`
+A full pushed screen, not a pop-up: it carries rows. The crumb adds `Category for 3 rows`
 (`Account for …`, `Hashtags for …`, `Currency for …`) to the ledger's. On top, `the 3 rows it
 changes` and those rows in the ledger's own columns, at most five and then
 `+ N more` (the ledger draws them: `changed_rows` in transactions.py). Under
@@ -56,7 +55,7 @@ def rows_word(count: int) -> str:
 
 
 def pick_hint(kind: str, count: int) -> str:
-    """The hint under the bar, as the mockup words it."""
+    """The hint under the bar, as the screen words it."""
     rows = rows_word(count)
     if kind == "hashtags":
         return (

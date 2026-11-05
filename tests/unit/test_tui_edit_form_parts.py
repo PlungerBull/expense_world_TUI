@@ -76,7 +76,7 @@ ACCOUNTS = [
         id="acc-old", name="Ahorro viejo", is_archived=True, currencies=[held_currency("PEN")]
     ),
 ]
-#: In the engine's order, as the mockup's lists draw it: @Pendiente first.
+#: In the engine's order, @Pendiente first.
 CATEGORIES = [
     {"id": "c-pend", "name": "@Pendiente", "is_system": True, "system_key": "pending"},
     {"id": "c-com", "name": "COMIDA", "is_system": False, "system_key": None},
@@ -123,7 +123,7 @@ def _tx(
     }
 
 
-#: The mockup's Tottus Jockey Plaza, split -60.00 + -40.00, and Cine Plaza, never split.
+#: Tottus Jockey Plaza, split -60.00 + -40.00, and Cine Plaza, never split.
 P1 = _tx("p1", -6000, line="bl-9", category="c-com", tags=["h-casa"], note="verduras")
 P2 = _tx("p2", -4000, line="bl-9", category="c-hog", note="lejía y papel")
 CINE = _tx(
@@ -407,7 +407,7 @@ def _fresh(part_id: str) -> bool:
 
 @pytest.mark.parametrize("key", ["p1", "p2"])
 def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key):
-    """Screen 2a: the shared fields on top, both parts below whichever part `⏎`
+    """The shared fields on top, both parts below whichever part `⏎`
     was on, the line adding them up; the bar on DATE, its hint DATE's own
     (`YYYY-MM-DD · enter to accept, or type a date`) and then
     `changes every part of the transaction` in the accent; the footer offers
@@ -445,7 +445,7 @@ def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key
 
 
 def test_s_opens_the_same_form_on_date(engine):
-    """Question 6 A: `s` on the ledger opens the form exactly as `⏎` does."""
+    """`s` on the ledger opens the form exactly as `⏎` does."""
 
     async def scenario(pilot, app):
         _ledger, screen = await _open(pilot, app, "p2", press="s")
@@ -461,7 +461,7 @@ def test_s_opens_the_same_form_on_date(engine):
 
 
 def test_the_bar_names_the_part_and_the_table_marks_it(engine):
-    """Screen 2b: `⇥` three times puts the bar on PART 1 AMOUNT, its hint
+    """`⇥` three times puts the bar on PART 1 AMOUNT, its hint
     AMOUNT's own (`signed decimal · − expense / + income · in the account's
     currency`); part 1 reads `▌ 1` in the accent, bold; `^x Drop part` joins
     the footer."""
@@ -489,7 +489,7 @@ def test_the_bar_names_the_part_and_the_table_marks_it(engine):
 
 
 def test_a_parts_note_says_enter_goes_on_and_the_last_one_saves(engine):
-    """Question 3 A: part 1's NOTE, `⏎` going on to part 2, reads `optional ·
+    """Part 1's NOTE, `⏎` going on to part 2, reads `optional ·
     enter to go on`; part 2's NOTE, the last line, keeps `optional · enter saves
     · (ctrl+s anytime)`. `⏎` on part 1's NOTE goes on to PART 2 AMOUNT."""
 
@@ -510,10 +510,10 @@ def test_a_parts_note_says_enter_goes_on_and_the_last_one_saves(engine):
 
 
 def test_ctrl_n_adds_a_part_and_the_line_says_what_is_left(engine):
-    """Screen 2c: `^n` adds part 3, empty, the bar on its AMOUNT; `-15` `⏎`
+    """`^n` adds part 3, empty, the bar on its AMOUNT; `-15` `⏎`
     moves to its CATEGORY, the list starting on @Pendiente, and the line reads
     `3 parts · -115.00 of -100.00 · 15.00 left`, what is left in the error
-    colour. Screen 2d: `^x` drops it at once, the bar on PART 2 CATEGORY."""
+    colour. `^x` drops it at once, the bar on PART 2 CATEGORY."""
 
     async def scenario(pilot, app):
         _ledger, screen = await _open(pilot, app, "p1")
@@ -539,7 +539,7 @@ def test_ctrl_n_adds_a_part_and_the_line_says_what_is_left(engine):
 
 
 def test_a_line_never_split_shows_one_part_and_no_line_adding_up(engine):
-    """Screens 2e and 2f: Cine Plaza has one part, no line under the table, no
+    """Cine Plaza has one part, no line under the table, no
     `changes every part` in the hints, no `^x`; `^n` makes it two parts, the
     line adding up against the -28.00 it holds."""
 
@@ -644,7 +644,7 @@ def test_check_4_a_two_part_line_goes_back_to_one_part_in_one_write(engine):
 
 
 def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_write(engine):
-    """Question 5 A: the line on an archived account opens on PART 1 CATEGORY;
+    """The line on an archived account opens on PART 1 CATEGORY;
     date, title, account and both amounts are read-only, the engine's sentence
     under the shared fields and beside `amount  read-only` under the table; no
     `^n`, no `^x`. Both parts re-categorised: one write,
@@ -694,7 +694,7 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
 
 
 def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
-    """Question 5 A: an opening balance opens on DATE; its account, category and
+    """An opening balance opens on DATE; its account, category and
     hashtags are read-only, the engine's sentence under the account and beside
     `category  read-only` and `hashtags  read-only` under the table, the two
     cells dimmed; no `^n`. Its amount and note go in
@@ -782,7 +782,7 @@ def test_check_6_a_line_shows_read_only_exactly_what_its_edit_limits_names(engin
 
 
 def test_check_6_a_completed_statements_split_line_opens_on_part_1s_amount(engine):
-    """Screen 3a: date, title and account read-only; the parts' amounts stay
+    """Date, title and account read-only; the parts' amounts stay
     changeable and parts can still be added and dropped."""
 
     async def scenario(pilot, app):
@@ -801,7 +801,7 @@ def test_check_6_a_completed_statements_split_line_opens_on_part_1s_amount(engin
 
 
 def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine):
-    """Screen 3b: one part, its amount the line's total, read-only and dimmed
+    """One part, its amount the line's total, read-only and dimmed
     with `amount  read-only` and the engine's sentence under the table; the form
     opens on its category.
     With the total fixed and the parts not, `^n` makes two parts and the amounts
@@ -829,7 +829,7 @@ def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine
 def test_check_6_a_completed_split_line_re_split_with_its_total_saves_its_parts_alone(
     engine, notes
 ):
-    """Screen 3a saved: 60 + 40 re-split into 70 + 30, the total kept. The one
+    """A completed line saved: 60 + 40 re-split into 70 + 30, the total kept. The one
     write is `parts` alone, both under their own ids: no line field changed, so
     none is sent, and nothing else goes."""
 
@@ -854,7 +854,7 @@ def test_check_6_a_completed_split_line_re_split_with_its_total_saves_its_parts_
 
 
 def test_check_6_a_completed_line_of_one_part_saves_a_new_category_alone(engine, notes):
-    """Screen 3b saved: the form opens on the category; a new one, `^s`. The one
+    """A completed one-part line saved: the form opens on the category; a new one, `^s`. The one
     write is its part at the line's total and the new category, no line field."""
 
     async def scenario(pilot, app):
@@ -1018,7 +1018,7 @@ def test_the_write_carries_one_idempotency_key_and_a_retry_reuses_it(configured,
     assert ids[:2] == ["p1", "p2"] and _fresh(ids[2])
 
 
-# ---- question 4 A: a refused save shows under the parts --------------------------
+# ---- a refused save shows under the parts --------------------------
 
 
 def _mismatch() -> EngineError:
@@ -1038,7 +1038,7 @@ def _mismatch() -> EngineError:
 
 
 def test_a_refused_save_shows_under_the_parts_each_part_named_by_its_number(engine):
-    """Question 4 A on Tottus Jockey Plaza in a completed reconciliation: part 1
+    """On Tottus Jockey Plaza in a completed reconciliation: part 1
     at -85.00, `^s`, refused: under the line adding up, the engine's words,
     `! part 1 (amount): …` for each part, `Nothing was saved.`; the amounts it
     names red and bold; the form stays, and a change clears it."""
@@ -1222,7 +1222,7 @@ def test_a_failed_line_read_says_why_and_the_form_takes_nothing(engine, notes):
     assert engine.puts == []
 
 
-# ---- question 1 A: ⏎ in "no statement" opens the same form ---------------------------
+# ---- ⏎ in "no statement" opens the same form ---------------------------
 
 
 async def _open_no_batch(pilot, app) -> BankLineEditFormScreen:
@@ -1243,7 +1243,7 @@ async def _open_no_batch(pilot, app) -> BankLineEditFormScreen:
 
 
 def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(engine):
-    """Question 1 A: the heading (the line as saved), OPERATION among the
+    """The heading (the line as saved), OPERATION among the
     shared fields, the parts below, the same keys; no read of the line."""
 
     async def scenario(pilot, app):
@@ -1332,8 +1332,7 @@ def test_the_line_adds_the_parts_up_against_the_engines_total():
 
 
 def test_a_refused_key_reads_its_part_by_number():
-    """Each part field by its column's word (screen 3 A of
-    mockups/expense-world-edit-form-words.html)."""
+    """Each part field by its column's word."""
     assert key_words("parts.0.amount_cents") == "part 1 (amount)"
     assert key_words("parts.11.category_id") == "part 12 (category)"
     assert key_words("parts.1.hashtag_ids") == "part 2 (hashtags)"

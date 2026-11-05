@@ -178,13 +178,11 @@ def bank_files_hint(files: list[Path]) -> Text:
     """What the bar says while it holds dropped files instead of a line.
 
     One file: `bank file · Sueldo Soles (1).xlsx · ⏎ import it`, or for a
-    statement PDF `statement PDF · <name> · ⏎ upload it` (screen A1 of
-    docs/mockups/expense-world-statement-pdf-upload.html). Several downloads:
+    statement PDF `statement PDF · <name> · ⏎ upload it`. Several downloads:
     `bank files · 2 · ⏎ import them, one by one`, each name on its own
     indented line under it — they are imported one after the other. Several
     with a PDF among them: `files · 2 · ⏎ take them, one by one`, each name
-    with its kind (`· bank download`, `· statement PDF`), each going its own way
-    (pane 6A of docs/mockups/expense-world-statement-pdf-screens.html).
+    with its kind (`· bank download`, `· statement PDF`), each going its own way.
     """
     if len(files) == 1 and is_statement(files[0]):
         return Text.assemble(
@@ -797,7 +795,7 @@ class LogBarScreen(Screen):
         self._peek_timer = None
         # the files the bar holds instead of a line — `None` when it is a line
         self._files: list[Path] | None = None
-        # why the files in the bar cannot be imported (screen 5 A), until the
+        # why the files in the bar cannot be imported, until the
         # next keystroke
         self._file_problem: Text | None = None
         # where leaving goes: the screen under the bar, or Home after an import
@@ -852,7 +850,7 @@ class LogBarScreen(Screen):
         self._file_problem = None
         files = dropped_bank_files(text)
         if files is not None:
-            # One statement PDF is uploaded; anything else is imported (A1, 6A).
+            # One statement PDF is uploaded; anything else is imported.
             one_pdf = len(files) == 1 and is_statement(files[0])
             relabel(self, "enter", "Upload" if one_pdf else "Import")
         if (files is None) != (self._files is None):

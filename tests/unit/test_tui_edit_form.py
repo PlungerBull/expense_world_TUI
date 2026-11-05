@@ -742,7 +742,7 @@ def _is_dim(row: Text) -> bool:
 def test_an_account_holding_one_currency_shows_the_line_dim_with_why_and_the_bar_skips_it(
     fake_client, monkeypatch
 ):
-    """Question 12 A: no picker, the currency just shown, dim, with why; `⏎` on ACCOUNT goes
+    """No picker, the currency just shown, dim, with why; `⏎` on ACCOUNT goes
     straight to part 1's amount, `⇥` and the arrows pass over it."""
     record = {**TXN, "account_id": "acc3"}
     _patch(monkeypatch, _line(record))
@@ -767,7 +767,7 @@ def test_an_account_holding_one_currency_shows_the_line_dim_with_why_and_the_bar
 def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_it_was(
     fake_client, monkeypatch
 ):
-    """Question 13 A, a one-currency account: BCP in dollars to Ahorros (soles only): the
+    """A one-currency account: BCP in dollars to Ahorros (soles only): the
     currency becomes PEN by itself, the line says it was USD, the bar goes on to the
     amount, and the save sends both keys."""
     record = {**TXN, "currency_code": "USD"}
@@ -805,7 +805,7 @@ def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_
 def test_a_change_of_account_to_one_holding_two_empties_the_currency_and_steps_to_it(
     fake_client, monkeypatch
 ):
-    """Question 13 A: Ahorros (soles) to BCP (soles and dollars): the currency empties
+    """Ahorros (soles) to BCP (soles and dollars): the currency empties
     (`— pick one`) even though BCP holds soles, the bar stops on CURRENCY with BCP's two."""
     record = {**TXN, "account_id": "acc3"}
     _patch(monkeypatch, _line(record))
@@ -828,7 +828,7 @@ def test_a_change_of_account_to_one_holding_two_empties_the_currency_and_steps_t
 def test_ctrl_s_with_no_currency_picked_stops_on_the_line_and_sends_nothing(
     fake_client, monkeypatch
 ):
-    """Question 13 A: saving before a pick stops on the CURRENCY line with the note
+    """Saving before a pick stops on the CURRENCY line with the note
     `! currency: pick one — BCP holds PEN and USD.` and `Nothing was saved.`; picking
     one clears the note and the save then goes."""
     record = {**TXN, "account_id": "acc3"}
@@ -919,7 +919,7 @@ def test_an_edit_limit_naming_the_currency_makes_the_line_read_only(fake_client,
 def test_a_refusal_naming_currency_code_lands_under_the_parts_in_the_engines_words(
     fake_client, monkeypatch
 ):
-    """Question 9: `CURRENCY_NOT_HELD` keyed `currency_code` (the account's currencies
+    """`CURRENCY_NOT_HELD` keyed `currency_code` (the account's currencies
     changed since the list was read): the engine's words under the parts, nothing saved,
     the form stays (contract: "Error reasons")."""
     words = "BCP does not hold USD."
@@ -1037,7 +1037,7 @@ def test_a_move_on_a_completed_statement_shows_the_lock_under_the_parts(fake_cli
 def test_a_move_onto_an_account_holding_its_operation_code_says_what_to_do(
     fake_client, monkeypatch
 ):
-    """Screen 4: the engine refuses the move keyed on `operation_code`, though
+    """The engine refuses the move keyed on `operation_code`, though
     the body did not send it (contract: PUT /v1/bank-lines/{bank_line_id}, "Body");
     under the parts its words, then the app's line, and the form stays."""
     err = EngineError(
@@ -1277,8 +1277,8 @@ def test_no_field_move_lands_on_a_read_only_line(fake_client, monkeypatch, line)
     assert "0.note" in open_lines
 
 
-# ---- why a line is read-only: the engine's sentences, screen 1 B ----------------
-# of mockups/expense-world-read-only-reasons.html. Each locked field comes as
+# ---- why a line is read-only: the engine's sentences ----------------
+# Each locked field comes as
 # `{reason, message}` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields");
 # the form shows the message as sent.
 
@@ -1347,7 +1347,7 @@ def test_an_archived_accounts_line_says_why_with_the_engines_sentence(fake_clien
 def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkeypatch):
     """Three locked lines, three sentences: the account's under the shared
     fields, each part column's beside its `read-only`, a long one wrapping
-    under the `·` that opens it at 80 columns, as the mockup draws it."""
+    under the `·` that opens it at 80 columns, as the form draws it."""
     line = _opening_line()
     _patch(monkeypatch, line)
     assert _drawn(OPENING, line) == [
@@ -1834,9 +1834,8 @@ def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client
 
 # ---- stepping through the form never changes it --------------------------------
 # ACCOUNT and CATEGORY open with the bar empty and the highlight on the line's own
-# account or the part's own category, so `⏎` with nothing typed keeps it (Question
-# 1 A of expense-world-enter-and-esc.html). The line sits on the third account and
-# the part on the second category, so a highlight left on the first entry would
+# account or the part's own category, so `⏎` with nothing typed keeps it. The line sits on the
+# third account and the part on the second category, so a highlight left on the first entry would
 # move it.
 ON_THIRD = {**TXN, "account_id": "acc3", "category_id": "cat2"}
 SPLIT_ON_THIRD = [ON_THIRD, {**ON_THIRD, "id": "tx2", "amount_cents": -1000}]
@@ -1994,7 +1993,7 @@ def test_arrows_still_choose_another_and_an_erased_bar_returns_to_the_own_one(
 
 
 # ---- @Pendiente is in the CATEGORY list, where the engine lists it --------------
-# Question 3 A of expense-world-enter-and-esc.html: a part's category list is the
+# A part's category list is the
 # bulk `c` pick's (`reads.pickable_categories`), so a part in @Pendiente starts on
 # it and a part can be sent back there; @Opening is never offered. The engine lists
 # @Pendiente between two user categories here, so its place is the engine's.

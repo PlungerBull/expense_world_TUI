@@ -14,12 +14,9 @@ The app reads no cell of the file: it sends the file whole, and every row, its
 outcome and every refusal is the engine's (contract: POST /v1/transactions/import).
 Every step is the shared code in expense/bank_import/: the read, the account
 picks and the one call in flow.py, how the answer reads in engine.py. What is
-here is only what the screens draw, from
-docs/mockups/expense-world-import-whole-file.html (the account list, a skipped
-row, a card's `cur` column, a refused file, the result), the days where the
-file and the ledger disagree and a ledger line changed while the import ran
-from docs/mockups/expense-world-bank-lines-upload.html, and the several-files
-words from docs/mockups/expense-world-import-door.html.
+here is only what the screens draw: the account list, a skipped row, a card's
+`cur` column, a refused file, the result, the days where the file and the ledger
+disagree, a ledger line changed while the import ran, and the several-files words.
 
 The screens replace one another (`switch_screen`), so the stack is always
 `… → LOG bar → the current import screen`, and leaving any of them lands on
@@ -89,7 +86,7 @@ from expense.tui.widgets.refusal import hanging, toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: The breadcrumb's trail before the file part: a download's, and a statement
-#: PDF's (docs/mockups/expense-world-statement-pdf-screens.html).
+#: PDF's.
 CRUMB = ("Capture & ledger", "Import")
 UPLOAD_CRUMB = ("Capture & ledger", "Upload")
 
@@ -104,8 +101,8 @@ WRITING = "writing…"
 NOTHING_NEW = "nothing to import"
 #: Under every refusal: the engine writes nothing when it refuses.
 NOTHING_WRITTEN = "Nothing was written."
-#: What `⏎` does after the apply met a ledger line changed while it ran (mockup
-#: expense-world-bank-lines-upload.html screen 4 A), and its footer word.
+#: What `⏎` does after the apply met a ledger line changed while it ran, and its
+#: footer word.
 RERUN = "It changed while the import ran: ⏎ checks the file against the ledger again."
 RERUN_KEY = "Preview again"
 
@@ -219,7 +216,7 @@ class ImportRun:
 
     def cancel_label(self) -> str:
         """esc's word before a file is written: it stops this file and every
-        file after it (screen 7 B), so it counts them — `Cancel all` (three or
+        file after it, so it counts them — `Cancel all` (three or
         more), `Cancel both` (two), `Cancel` (this one alone)."""
         if self.left >= 3:
             return "Cancel all"
@@ -268,7 +265,7 @@ class ImportScreen(Screen):
 
 
 # ---------------------------------------------------------------------------
-# which account is this file? — expense-world-import-whole-file.html 1
+# which account is this file?
 # ---------------------------------------------------------------------------
 def account_lines(picks: list[AccountPick], cursor: int) -> list[Text]:
     """One line per pick, an account holding two currencies one line
@@ -385,8 +382,7 @@ class ImportAccountScreen(ImportScreen):
 
 
 # ---------------------------------------------------------------------------
-# the preview — with a skipped row (2 B) and a card's `cur` column (3 B) from
-# expense-world-import-whole-file.html
+# the preview — with a skipped row and a card's `cur` column
 # ---------------------------------------------------------------------------
 
 #: Each verdict's mark and its style: ✓ in the ledger after the import, ✗ left
@@ -540,7 +536,7 @@ def preview_days(
     """The days where the file and the ledger disagree, each with its two
     totals and the rows behind it: the file's by its spreadsheet row, the
     ledger's by title and amount, each part of a split transaction on its own
-    line (mockup expense-world-bank-lines-upload.html screen 2 B). A report
+    line. A report
     only: nothing on it changes what `⏎` writes."""
     if not days:
         return []
@@ -599,10 +595,9 @@ def changed_while_running(err: Exception) -> bool:
 
 
 def refusal_lines(err: EngineError) -> list[Text]:
-    """A refusal as the preview shows it (expense-world-import-whole-file.html
-    4): `CODE — message`, then a `!` line per refused key in the engine's
-    order, then `Nothing was written.` A row's words that begin with its
-    spreadsheet row (`Row 12: …`) show alone; any other key (`file`,
+    """A refusal as the preview shows it (`CODE — message`, then a `!` line per refused
+    key in the engine's order, then `Nothing was written.`). A row's words that begin with
+    its spreadsheet row (`Row 12: …`) show alone; any other key (`file`,
     `account_id`, a row whose words do not name it) shows before its words."""
     lines = [Text(f"{err.code} — {err.message}", style=PALETTE.error)]
     for key, message in (err.fields or {}).items():
@@ -617,7 +612,7 @@ def failure_lines(err: Exception, *, again: str | None = None) -> list[Text]:
 
     A refusal naming what it refused is `refusal_lines`, then, after a blank
     line, `again`, what `⏎` does next when the apply met something changed
-    while it ran (screen 4 A), or else the app's line for the refusal when it
+    while it ran, or else the app's line for the refusal when it
     has one (`app_lines`); anything else is the app's own error text."""
     if isinstance(err, EngineError) and is_keyed_refusal(err):
         lines = refusal_lines(err)
@@ -702,7 +697,7 @@ class PreviewScreen(ImportScreen):
             relabel(self, "enter", RERUN_KEY)
             message = f"{engine_words(err)}\n\n{self.RERUN_LINE}"
         elif not self._run.has_next:
-            # Nothing of this file can be written: esc only goes back (pane 4).
+            # Nothing of this file can be written: esc only goes back.
             relabel(self, "escape", "Back")
         if self.TOAST_REFUSAL:
             toast(self, message, title="Failed", severity="error")
@@ -736,7 +731,7 @@ class PreviewScreen(ImportScreen):
 
 class ImportPreviewScreen(PreviewScreen):
     """The engine's dry run of this file on this account. Nothing is written
-    until `⏎`. With nothing new (screen 6 A), `⏎` opens the next file's
+    until `⏎`. With nothing new, `⏎` opens the next file's
     account list when a file follows, and does nothing on the last one. When
     the apply meets a ledger line changed while it ran, `⏎ Preview again`
     asks for a fresh dry run; nothing is sent again without one."""
@@ -860,7 +855,7 @@ class ImportPreviewScreen(PreviewScreen):
             # esc still stops this file and the ones after it.
             relabel(self, "enter", "Next file")
         else:
-            # Nothing to write and no file after: esc only goes back (screen 6 A).
+            # Nothing to write and no file after: esc only goes back.
             relabel(self, "escape", "Back")
         self.refresh_bindings()
         self._repaint()
@@ -929,7 +924,7 @@ class ImportPreviewScreen(PreviewScreen):
 
 
 # ---------------------------------------------------------------------------
-# the result — expense-world-import-whole-file.html 5: its title line and the counts
+# the result: its title line and the counts
 # ---------------------------------------------------------------------------
 def result_head(pick: AccountPick, counts: AnswerCounts) -> Text:
     """`✓ 9 rows imported · Sueldo Soles   new ones under @Pendiente and
