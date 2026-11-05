@@ -15,7 +15,8 @@ A bad row refuses the whole sheet on every step, keyed by its row, its message
 naming the row, a day after today's included, before any name is created
 (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
 The counts hold `split_lines` (the `COD_EECC` values shared by rows) and `split_rows` (the
-rows holding them), on the dry run and on the apply. The same sheet sent again matches
+rows holding them), on the dry run and on the apply
+(contract: POST /v1/transactions/import-sheet, "Response"). The same sheet sent again matches
 every row and writes nothing
 (contract: POST /v1/transactions/import-sheet, "Matching"). An existing person holding two
 currencies gets each currency's first non-zero `SALDO INICIAL` row as its opening balance under

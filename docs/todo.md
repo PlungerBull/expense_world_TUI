@@ -63,14 +63,6 @@ CLAUDE.md "Specs and tasks".
   `rows[].is_opening_balance` or `counts.opening_balances`; both balances are positive (one
   negative would prove the sign). A zero-amount earlier `SALDO INICIAL` row waits on the engine
   ask "Say whether a zero-amount row dated earlier stops a sheet row being the opening balance".
-- **No unit test covers an apply that lists sealed rows.** Nothing you see changes. In
-  [test_cmd_import.py](../tests/unit/test_cmd_import.py), "Sealed, on a closed statement's day"
-  is asserted only on the dry run; `expense import sheet --apply` prints it through the same list
-  as the rows of zero. Done when an apply test pins that list's line.
-- **The live sheet test's docstring cites nothing for its counts.** Nothing you see changes.
-  [test_sheet_import.py](../tests/contract/test_sheet_import.py)'s module docstring says what
-  `split_lines` and `split_rows` count with no citation of its own; it could cite
-  (contract: POST /v1/transactions/import-sheet, "Response").
 - **The statement upload's live-test gaps.** Nothing you see changes. In
   [test_statement_import.py](../tests/contract/test_statement_import.py) no live test opens a
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars

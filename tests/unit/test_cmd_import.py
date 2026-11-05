@@ -507,6 +507,24 @@ def test_the_apply_writes_and_says_what_was_written(sheet):
 
 
 @respx.mock
+def test_an_apply_lists_the_rows_on_a_closed_statements_day_under_the_zero_rows(sheet):
+    counts = {**COUNTS, "new": 1952, "sealed": 2}
+    rows = _counted_rows(sealed=(40, 41))
+    _engine(
+        _answer(yours=True),
+        _answer(yours=True, dry_run=False, rows=rows, counts=counts),
+    )
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Written: new 1,952 · matched 0 · sealed 2 · skipped 7\n"
+        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
+        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
+        "Sealed, on a closed statement's day: rows 40, 41\n"
+    )
+
+
+@respx.mock
 def test_an_apply_with_nothing_skipped_or_sealed_ends_on_its_counts(sheet):
     counts = {**COUNTS, "new": 1961, "skipped": 0}
     rows = [sheet_row(r, outcome="new", account_id="acc-ib") for r in range(2, 1963)]
