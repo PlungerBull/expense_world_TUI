@@ -468,6 +468,23 @@ def test_d_asks_and_y_deletes_and_the_list_drops_the_line(fake_client, monkeypat
     run_app(scenario)
 
 
+def test_the_delete_question_names_an_untitled_line_as_untitled(fake_client, monkeypatch):
+    """A line with no title reads `(untitled)` in the question, as it does in the list."""
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, _line("l-bare", -300, "2026-10-02", ""))
+    _flags(fake_client, SOLES, ["l-bare"], [])
+
+    async def scenario(pilot, app):
+        await _complete(pilot, app, SOLES)
+        await _flagged_screen(pilot, app)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._message.startswith("(untitled) · -3.00")
+        assert "—" not in app.screen._message.split("\n")[0]
+
+    run_app(scenario)
+
+
 def test_a_split_line_goes_whole_after_the_question_naming_its_parts(fake_client, monkeypatch):
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, FARMACIA, UBER)

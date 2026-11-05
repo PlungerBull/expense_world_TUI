@@ -89,11 +89,11 @@ CLAUDE.md "Specs and tasks".
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
   "Send each transaction's calendar day with it"; the lists then show that day.
-- **"A transaction is split" is spelled three ways.** `is_split_line` in
-  [reconciliations.py](../expense/tui/screens/reconciliations.py) and the inline
-  `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
-  formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no statement"
-  rows), and the delete question shows `—` for the same untitled line: `(untitled)` everywhere.
+- **Three more places show `—` for a line with no title.** The ledger's title cell
+  (transactions.py `title_or_untitled` not used), the LOG bar peek's row (log_bar.py; a test
+  pins `—`) and the statement upload's `NO_TITLE` (statement_upload.py) show `—`, where the
+  owner's choice (2026-11-05) is `(untitled)` everywhere: use `title_or_untitled`
+  ([formatting.py](../expense/formatting.py)).
 - **A guard against "purchase" in the app's words.** The owner's word is "transaction"
   (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
   fails when a user-visible string in `expense/` says "purchase". Code comments and docstrings

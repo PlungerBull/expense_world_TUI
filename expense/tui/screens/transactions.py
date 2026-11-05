@@ -77,11 +77,11 @@ from expense.errors import (
     row_note,
 )
 from expense.formatting import (
-    bank_line_part_count,
     currency_label,
     format_hashtag_cell,
     format_short_date,
     grouped_refusals,
+    is_split_line,
     resolve_name,
 )
 from expense.reads import (
@@ -546,7 +546,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self._delete_reading = False
         if self.app.screen is not self:
             return
-        if bank_line_part_count(line) > 1:
+        if is_split_line(line):
             account_id = line.get("account_id") or record.get("account_id")
             self.confirm_delete(
                 "bank-lines",

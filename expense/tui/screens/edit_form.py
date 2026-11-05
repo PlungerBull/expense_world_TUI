@@ -122,6 +122,7 @@ from expense.formatting import (
     codes_and,
     resolve_name,
     signed_cents,
+    title_or_untitled,
     whole_number,
 )
 from expense.quickadd.money import amount_to_text, parse_amount
@@ -993,7 +994,7 @@ class BankLineEditFormScreen(EditFormScreen):
     def _heading(self) -> RenderableType:
         line = self._line or {}
         _day, title, _operation, net_cents = bank_line_columns(line)
-        head = Text(str(title or "(untitled)"), style="bold")
+        head = Text(title_or_untitled(title), style="bold")
         head.append("  ·  ", style="dim")
         head.append_text(amount_text(net_cents, PALETTE, AMOUNT_RULE))
         if line.get("currency_code"):

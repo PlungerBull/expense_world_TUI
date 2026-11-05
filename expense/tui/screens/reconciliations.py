@@ -77,10 +77,11 @@ from expense.dates import is_calendar_day
 from expense.errors import EngineError, format_error
 from expense.formatting import (
     bank_line_columns,
-    bank_line_part_count,
     format_cents,
+    is_split_line,
     resolve_name,
     signed_cents,
+    title_or_untitled,
 )
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
@@ -222,7 +223,7 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
                 [
                     flag,
                     day,
-                    title or "(untitled)",
+                    title_or_untitled(title),
                     operation_cell(operation),
                     line.get("currency_code") or "",
                     amount_cell(net_cents, palette, TRANSACTION_RULE),
@@ -230,11 +231,6 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
             )
         )
     return rows
-
-
-def is_split_line(line: object) -> bool:
-    """A bank line holding more than one part, as the engine counts them."""
-    return bank_line_part_count(line) > 1
 
 
 def lone_transaction(line: dict) -> dict | None:

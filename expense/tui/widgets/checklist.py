@@ -29,6 +29,7 @@ from rich.text import Text
 from textual.binding import Binding
 from textual.message import Message
 
+from expense.formatting import title_or_untitled
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.theme import PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, operation_cell
@@ -222,7 +223,7 @@ class CheckList(WindowedList):
                 *(("lead",) if lead is not None else ()),
             )
         )
-        longest = max([TITLE_WIDTH, *(len(str(r.title or "(untitled)")) for r in window)])
+        longest = max([TITLE_WIDTH, *(len(title_or_untitled(r.title)) for r in window)])
         return max(min(longest, width - fixed - GAP), 8)
 
     def _table(
@@ -248,7 +249,7 @@ class CheckList(WindowedList):
         for i, row in rows:
             cells: list = [
                 str(row.date or "")[:10],
-                str(row.title or "(untitled)"),
+                title_or_untitled(row.title),
                 operation_cell(row.operation),
                 row.currency or "",
                 amount_cell(row.amount_cents, self._palette, TRANSACTION_RULE),

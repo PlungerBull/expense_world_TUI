@@ -33,6 +33,7 @@ from expense.formatting import (
     bank_line_part_count,
     format_cents,
     format_short_date,
+    title_or_untitled,
 )
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
@@ -302,7 +303,7 @@ def delete_row_line(title: object, amount_cents: object, day: str, account_name:
     """The row a delete question names, one line: `TITLE · AMOUNT · DAY · ACCOUNT`.
     Shared by the question for a single transaction and the one for a whole
     split bank line."""
-    return f"{title or '—'} · {format_cents(amount_cents)} · {day} · {account_name}"
+    return f"{title_or_untitled(title)} · {format_cents(amount_cents)} · {day} · {account_name}"
 
 
 def transaction_delete_message(record: dict, account_name: str) -> str:

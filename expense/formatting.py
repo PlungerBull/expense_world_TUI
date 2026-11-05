@@ -136,6 +136,19 @@ def bank_line_part_count(line: object) -> int:
     return 0 if count is None else count
 
 
+def is_split_line(line: object) -> bool:
+    """A bank line holding more than one part, as the engine counts them."""
+    return bank_line_part_count(line) > 1
+
+
+UNTITLED = "(untitled)"
+
+
+def title_or_untitled(title: object) -> str:
+    """A line's title as a list cell or a question names it: `(untitled)` when it has none."""
+    return str(title) if title else UNTITLED
+
+
 UNRATED_SUFFIX = "unrated"
 
 
