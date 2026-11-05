@@ -78,7 +78,7 @@ from expense.formatting import (
 )
 from expense.reads import items_of
 from expense.tui.dropped import is_statement
-from expense.tui.screens._base import relabel, screen_fetch_kwargs
+from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
@@ -324,9 +324,9 @@ class ImportAccountScreen(ImportScreen):
             body = reads.fetch_accounts(cfg, include_people=False, **screen_fetch_kwargs(self.app))
             picks = account_picks(items_of(body))
         except Exception as exc:  # surfaced on the screen, never a crash
-            self.app.call_from_thread(self._load_failed, format_error(exc))
+            call_while_attached(self, self._load_failed, format_error(exc))
             return
-        self.app.call_from_thread(self._loaded, picks)
+        call_while_attached(self, self._loaded, picks)
 
     def _loaded(self, picks: list[AccountPick]) -> None:
         self._run.picks = picks
@@ -831,12 +831,12 @@ class ImportPreviewScreen(PreviewScreen):
                 names, names_error = statement_names(cfg, rows, verbose=self.app._verbose)
                 lines = [preview_line(r, names) for r in rows]
         except Exception as err:  # every failure is shown, none swallowed
-            self.app.call_from_thread(self._failed, err)
+            call_while_attached(self, self._failed, err)
             return
         if dry_run:
-            self.app.call_from_thread(self._previewed, lines, mismatches, counts, names_error)
+            call_while_attached(self, self._previewed, lines, mismatches, counts, names_error)
         else:
-            self.app.call_from_thread(self._applied, counts)
+            call_while_attached(self, self._applied, counts)
 
     def _previewed(
         self,

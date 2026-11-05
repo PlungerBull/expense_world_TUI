@@ -23,6 +23,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
+from textual.types import NoActiveAppError
 from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
@@ -64,7 +65,9 @@ def relabel(screen: Screen, key: str, description: str) -> None:
 
 def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> None:
     """From a thread worker of `node`: run `callback(*args, **kwargs)` on the UI thread,
-    unless `node` has left the app by the time it would run.
+    unless `node` has left the app by the time it would run (then the answer is
+    dropped, a write's included). The TUI's workers hand back only through this,
+    besides the app's own rate check (guard: tests/unit/test_suite_hygiene.py).
 
     A thread worker cannot be interrupted, so a read that was in flight when
     its screen was popped, or when the app quit, still lands. Textual cancels
@@ -83,7 +86,11 @@ def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> No
             return callback(*args, **kwargs)
         return None
 
-    node.app.call_from_thread(guarded)
+    try:
+        app = node.app
+    except NoActiveAppError:
+        return  # a node that has left the app cannot name it: nothing to hand to
+    app.call_from_thread(guarded)
 
 
 @dataclass
@@ -213,7 +220,7 @@ class EngineWriteMixin:
         except Exception as exc:
             error = item.error_text(exc)
             failure = exc
-        self.app.call_from_thread(self._write_finished, item, error, body, failure)
+        call_while_attached(self, self._write_finished, item, error, body, failure)
 
     def _write_finished(
         self,

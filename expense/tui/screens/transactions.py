@@ -622,9 +622,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             cfg = config_module.ensure_loaded()
             refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:
-            self.app.call_from_thread(self._refs_failed, format_error(exc))
+            call_while_attached(self, self._refs_failed, format_error(exc))
             return
-        self.app.call_from_thread(self._set_refs, refs)
+        call_while_attached(self, self._set_refs, refs)
 
     def _refs_failed(self, message: str) -> None:
         self._pending_pick = None
@@ -735,8 +735,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         except Exception as exc:
             failed.append((None, 0, None, format_error(exc)))
         count, left = moved_parts(answers) if move else (len(answers), 0)
-        self.app.call_from_thread(
-            self._bulk_finished, len(answers), failed, label, left, held, count, stop
+        call_while_attached(
+            self, self._bulk_finished, len(answers), failed, label, left, held, count, stop
         )
 
     def _bulk_finished(

@@ -54,7 +54,11 @@ from expense import formatting, reads
 from expense.errors import format_error
 from expense.formatting import currency_label, settled_label, split_settled
 from expense.reads import load_hashtag_name_map
-from expense.tui.screens._base import LogTransactionMixin, screen_fetch_kwargs
+from expense.tui.screens._base import (
+    LogTransactionMixin,
+    call_while_attached,
+    screen_fetch_kwargs,
+)
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -466,9 +470,9 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
                 "end": end,
             }
         except Exception as exc:
-            self.app.call_from_thread(self._set_data, None, format_error(exc))
+            call_while_attached(self, self._set_data, None, format_error(exc))
             return
-        self.app.call_from_thread(self._set_data, data, None)
+        call_while_attached(self, self._set_data, data, None)
 
     def _set_data(self, data: dict | None, error: str | None) -> None:
         if data is not None and data.get("end", self._end) != self._end:

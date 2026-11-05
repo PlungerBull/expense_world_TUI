@@ -47,7 +47,7 @@ from expense.formatting import (
     title_or_untitled,
     truncate,
 )
-from expense.tui.screens._base import relabel
+from expense.tui.screens._base import call_while_attached, relabel
 from expense.tui.screens.bank_import import (
     ASKING,
     MIN_PAGE,
@@ -368,10 +368,10 @@ class StatementPreviewScreen(PreviewScreen):
             else:
                 statement_id = str((response.get("statement") or {}).get("id") or "")
         except Exception as err:  # every failure is shown, none swallowed
-            self.app.call_from_thread(self._failed, err)
+            call_while_attached(self, self._failed, err)
             return
         if dry_run:
-            self.app.call_from_thread(self._previewed, answer, lines, lines_error)
+            call_while_attached(self, self._previewed, answer, lines, lines_error)
             return
         # the apply is done: a count that fails is a toast, never a failed close
         flagged, count_error = 0, None
@@ -379,7 +379,7 @@ class StatementPreviewScreen(PreviewScreen):
             flagged = reads.count_bank_lines(cfg, review_of=statement_id, verbose=verbose)
         except Exception as err:
             count_error = format_error(err)
-        self.app.call_from_thread(self._applied, answer, statement_id, flagged, count_error)
+        call_while_attached(self, self._applied, answer, statement_id, flagged, count_error)
 
     def _previewed(
         self, answer: StatementAnswer, lines: dict[str, dict], lines_error: str | None

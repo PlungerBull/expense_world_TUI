@@ -137,3 +137,87 @@ def test_a_load_that_lands_as_the_app_closes_builds_nothing(fake_client, monkeyp
         assert built == []  # the answer was dropped, not built
 
     run_app(scenario)
+
+
+def test_a_home_read_that_lands_as_the_app_closes_paints_nothing(fake_client, monkeypatch):
+    """Home's month read, still in flight when the app begins to close, hands its answer
+    back while the screen is still linked: it is dropped, not painted."""
+    import threading
+
+    from expense.tui.screens.home import HomeScreen
+
+    release = threading.Event()
+    submitted = threading.Event()
+    returned = threading.Event()
+    asked: list = []
+    painted: list = []
+
+    def held(*a, **k):
+        asked.append(1)
+        release.wait(timeout=5)
+        return {}
+
+    monkeypatch.setattr("expense.reads.fetch_dashboard", held)
+    monkeypatch.setattr("expense.reads.fetch_range", lambda *a, **k: {"months": []})
+    monkeypatch.setattr(HomeScreen, "_set_data", lambda self, *a: painted.append(self))
+
+    async def scenario(pilot, app):
+        real_call = app.call_from_thread
+
+        def spy(callback, *args, **kwargs):
+            submitted.set()
+            try:
+                return real_call(callback, *args, **kwargs)
+            finally:
+                returned.set()
+
+        monkeypatch.setattr(app, "call_from_thread", spy)
+        await wait_for(pilot, lambda: asked, message="Home never read")
+        app.exit()
+        release.set()
+        assert submitted.wait(timeout=5), "the read never handed back"
+        await wait_for(pilot, returned.is_set, message="the hand-back never returned")
+        assert painted == []
+
+    run_app(scenario)
+
+
+def test_a_write_that_lands_after_its_screen_is_popped_touches_nothing(fake_client, monkeypatch):
+    """A write answered after its screen was popped: none of its callbacks run, no
+    toast shows, and nothing is raised in the worker."""
+    import threading
+
+    release = threading.Event()
+    finished = threading.Event()
+    sent: list = []
+    ran: list = []
+    seen: list = []
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
+    real_post = fake_client.post
+
+    def held(*a, **k):
+        sent.append(1)
+        release.wait(timeout=5)
+        try:
+            return real_post(*a, **k)
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(fake_client, "post", held)
+
+    async def scenario(pilot, app):
+        monkeypatch.setattr(app, "notify", lambda message, **kw: seen.append(message))
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        screen.run_write("POST", "/x", success="Saved it.", on_success=lambda: ran.append(1))
+        await wait_for(pilot, lambda: sent)
+        await app.pop_screen()
+        release.set()
+        await wait_for(pilot, finished.is_set)
+        for _ in range(5):
+            await pilot.pause()
+        assert ran == [] and seen == []
+        assert not app._exception
+
+    run_app(scenario)

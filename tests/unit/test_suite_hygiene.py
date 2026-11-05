@@ -315,3 +315,40 @@ def test_purchase_guard_trips(tmp_path):
     (pkg / "e.bin").write_bytes(b"\xff\xfepurchase")
     hits = [h.split(": ")[0] for h in _purchase_hits(pkg)]
     assert hits == ["expense/a.py:2", "expense/b.tcss:1", "expense/d.md:1"]
+
+
+# `call_from_thread` hands a worker's result to the UI thread. Every TUI worker does
+# it through `call_while_attached` (screens/_base.py), which drops the result once the
+# screen has gone. Two lines are exempt, matched whole so a second call in either file
+# trips: the one inside `call_while_attached`, and the app's own rate check, which has
+# no screen to lose.
+_RAW_HAND_BACK = re.compile(r"\bcall_from_thread\b")
+RAW_HAND_BACKS_ALLOWED = {
+    ("screens/_base.py", "app.call_from_thread(guarded)"),
+    ("app.py", "self.call_from_thread(self._set_rate_stale, stale)"),
+}
+
+
+def _raw_hand_backs(root: Path) -> list[str]:
+    return [
+        f"{path.relative_to(root.parent)}:{lineno}: {line.strip()}"
+        for path in sorted(root.rglob("*.py"))
+        for lineno, line in enumerate(path.read_text().splitlines(), start=1)
+        if _RAW_HAND_BACK.search(line)
+        and (path.relative_to(root).as_posix(), line.strip()) not in RAW_HAND_BACKS_ALLOWED
+    ]
+
+
+def test_no_worker_hands_back_raw():
+    hits = _raw_hand_backs(EXPENSE_DIR / "tui")
+    assert not hits, f"hand back through call_while_attached (screens/_base.py): {hits}"
+
+
+def test_raw_hand_back_guard_trips(tmp_path):
+    tui = tmp_path / "expense" / "tui"
+    tui.mkdir(parents=True)
+    (tui / "a.py").write_text("x = 1\nself.app.call_from_thread(f)\n")
+    (tui / "app.py").write_text(
+        "self.call_from_thread(self._set_rate_stale, stale)\nself.call_from_thread(g)\n"
+    )
+    assert [h.split(": ")[0] for h in _raw_hand_backs(tui)] == ["tui/a.py:2", "tui/app.py:2"]

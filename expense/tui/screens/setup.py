@@ -49,6 +49,7 @@ from expense.errors import (
     format_error,
 )
 from expense.formatting import redact_token
+from expense.tui.screens._base import call_while_attached
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.theme import PALETTE
 
@@ -242,7 +243,7 @@ class SetupScreen(FormScreen):
     @work(thread=True, exclusive=True, group="setup-check")
     def _check(self, cfg: Config) -> None:
         outcome, words = self._ask(cfg)
-        self.app.call_from_thread(self._checked, outcome, words)
+        call_while_attached(self, self._checked, outcome, words)
 
     def _ask(self, cfg: Config) -> tuple[str, str]:
         """Ask the engine about `cfg`; save it only when there is nothing left to ask.

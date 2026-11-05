@@ -835,13 +835,13 @@ class ReconciliationsScreen(SectionScreen):
             statements = _read_statements(cfg, account_id, kw)
         except Exception as exc:
             if not worker.is_cancelled:
-                self.app.call_from_thread(
-                    toast, self, format_error(exc), title="Failed", severity="error"
+                call_while_attached(
+                    self, toast, self, format_error(exc), title="Failed", severity="error"
                 )
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._open_panel, account_id, statements)
+        call_while_attached(self, self._open_panel, account_id, statements)
 
     async def _open_panel(self, account_id: str, recons: list) -> None:
         if self._mode != "accts" or self._accts_list is None:
@@ -981,11 +981,11 @@ class ReconciliationsScreen(SectionScreen):
             )
         except Exception as exc:
             if not worker.is_cancelled:
-                self.app.call_from_thread(self._unfiled_failed, format_error(exc))
+                call_while_attached(self, self._unfiled_failed, format_error(exc))
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._show_unfiled, items, total, next_cursor)
+        call_while_attached(self, self._show_unfiled, items, total, next_cursor)
 
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn` in the unfiled pane: the next `GROW_STEP` rows, appended."""
@@ -1237,9 +1237,9 @@ class NewReconciliationScreen(FormScreen):
             cfg = config_module.ensure_loaded()
             body = reads.fetch_accounts(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            self.app.call_from_thread(toast, self, format_error(exc), severity="error")
+            call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
-        self.app.call_from_thread(self._set_accounts, browse_accounts(items_of(body)))
+        call_while_attached(self, self._set_accounts, browse_accounts(items_of(body)))
 
     def _set_accounts(self, rows: list[BrowseAccount]) -> None:
         self._accounts = [(a.id, a.name) for a in rows]

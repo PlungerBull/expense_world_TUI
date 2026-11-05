@@ -85,8 +85,9 @@ stopped, so a read still in flight when its screen is popped or the app quits st
 lands, and painting it then queries widgets already taken down (`NoMatches`).
 `call_while_attached(node, callback, …)` in [_base.py](../expense/tui/screens/_base.py)
 checks on the UI thread, at the moment the callback would run, and drops it once the node
-has left the app. `SectionScreen._load`, every worker of the LOG bar and the Edit form's
-reads hand back this way.
+has left the app. Every thread worker in `expense/tui/` hands back this way (guard:
+`test_no_worker_hands_back_raw`), a write's included: once its screen is gone its answer is
+dropped. Only the app's rate check hands back without a screen.
 
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
 needs resolved names, resolve them in `fetch()` and hand `build()` precomputed cells —

@@ -36,6 +36,9 @@ and [footers that fit the screen](specs/footers-fit-the-screen.md).
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
+New, two questions: [a save that answers after you leave its
+screen](specs/a-save-that-answers-after-you-leave.md).
+
 Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
 
@@ -96,11 +99,6 @@ CLAUDE.md "Specs and tasks".
 - **No TUI test follows first-time setup to the held settings.** `config.save` replaces the
   settings the app holds ([config.py](../expense/config.py)); only test_config.py proves it. A
   test drives Setup's save through the app, then an engine call that uses the new settings.
-- **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
-  gone still runs its callback on pruned widgets ([tui.md](tui.md) "Async / workers"). About 20
-  hand-backs in `expense/tui/` still call `self.app.call_from_thread`; move them (checking whether
-  a write's `on_success` must run after a dismiss) and guard against a raw one in
-  `test_suite_hygiene.py`.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.

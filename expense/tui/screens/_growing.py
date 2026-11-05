@@ -30,6 +30,7 @@ from typing import Any
 
 from expense.errors import format_error
 from expense.reads import items_of
+from expense.tui.screens._base import call_while_attached
 from expense.tui.widgets.cursor_list import GROW_STEP
 from expense.tui.widgets.refusal import toast
 
@@ -90,13 +91,14 @@ class GrowingRead:
         )
 
     def _read(self, fetch_page: FetchPage, after: str, generation: int) -> None:
-        call = self._host.app.call_from_thread
         try:
             body = fetch_page(GROW_STEP, after)
         except Exception as exc:
-            call(self._failed, format_error(exc), generation)
+            call_while_attached(self._host, self._failed, format_error(exc), generation)
             return
-        call(self._arrived, items_of(body), body.get("next_cursor"), generation)
+        call_while_attached(
+            self._host, self._arrived, items_of(body), body.get("next_cursor"), generation
+        )
 
     def _arrived(self, items: list, next_cursor: str | None, generation: int) -> None:
         if generation != self._generation:
