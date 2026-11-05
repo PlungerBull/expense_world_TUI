@@ -107,16 +107,15 @@ fixes it.
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
-[the official import](specs/before-the-official-import.md) (5 questions, facts only you know),
+Open, to approve: [the official import](specs/before-the-official-import.md) (5 questions, facts only you know),
 [a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
 (1 question, mockup to draw),
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question) and [footers that fit the screen](specs/footers-fit-the-screen.md) (1 question,
-mockup to draw). Each question is in its spec.
+mockup to draw), each question in its spec.
 
-Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
-engine's hand-off for its ask.
+Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run, and
+[accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
 
 **Recommended:** approve the rest.
 
