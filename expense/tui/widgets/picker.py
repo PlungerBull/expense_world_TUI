@@ -70,9 +70,20 @@ def suggestion_list(
     return Group(*rows)
 
 
-def matching(entities: Sequence[tuple], typed: str, *, chosen: Collection[str] = ()) -> list[tuple]:
+def matching(
+    entities: Sequence[tuple],
+    typed: str,
+    *,
+    chosen: Collection[str] = (),
+    by_id: bool = False,
+) -> list[tuple]:
     """The `(id, name, …)` entities whose name holds `typed`, case- and
     accent-blind (`names.matches`), in their order, without the ids in
     `chosen` (the hashtags a field already holds). An empty `typed` holds
-    every name."""
-    return [e for e in entities if matches(typed, e[1]) and e[0] not in chosen]
+    every name. With `by_id`, an entity whose id holds `typed` is found too (a
+    choice's value beside its label)."""
+    return [
+        e
+        for e in entities
+        if (matches(typed, e[1]) or (by_id and matches(typed, e[0]))) and e[0] not in chosen
+    ]

@@ -84,7 +84,6 @@ from expense.formatting import (
     title_or_untitled,
 )
 from expense.quickadd.money import amount_to_text, parse_amount
-from expense.quickadd.names import matches
 from expense.reads import (
     fetch_all_cursor_pages,
     items_of,
@@ -112,6 +111,7 @@ from expense.tui.widgets.checklist import AMOUNT_WIDTH, TITLE_WIDTH, CheckList
 from expense.tui.widgets.cursor_list import CursorList, list_cell
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.picker import matching
 from expense.tui.widgets.refusal import toast, under_itself
 
 # Status labels + period formatting are owned by expense/formatting.py
@@ -1250,10 +1250,7 @@ class NewReconciliationScreen(FormScreen):
         key = self._key
         needle = text.strip()
         if key == "account":
-            # `quickadd.names.matches` — the one matcher every picker in the
-            # app uses: substring, case-blind AND accent-blind, so `bcp credito`
-            # finds `BCP Crédito` here as it does everywhere else.
-            self._suggestions = [(i, n) for (i, n) in self._accounts if matches(needle, n)]
+            self._suggestions = matching(self._accounts, needle)
         else:
             self._suggestions = []
         self._suggest_idx = 0

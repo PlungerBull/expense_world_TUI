@@ -97,10 +97,6 @@ CLAUDE.md "Specs and tasks".
   currencies-transaction-picks, no-batch-caption, opening-balance-rows, pending-hashtag-home,
   refusal-hints and screen-map; leftover-picks is linked only from a retired spec, and
   statements-screens only from code and tests.
-- **Two more copies of the name filter.** `matching` in
-  [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
-  (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
-  version. One shared copy, with tests.
 - **Code comments still carry mockup tags, and one module docstring is stale.** About sixteen
   comments (app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py,
   log_bar.py), the "Screen 1…4" tags in import_cmd.py and test_cmd_import.py, "pane N" in test

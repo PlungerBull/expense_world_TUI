@@ -60,3 +60,12 @@ def test_matching_finds_a_name_anywhere_case_and_accent_blind_without_the_chosen
     assert matching(pool, "") == pool
     accounts = [("a1", "Sueldo Soles", "PEN")]
     assert matching(accounts, "soles") == accounts
+
+
+def test_matching_by_id_finds_a_choice_by_its_value_too():
+    """A choice `(value, label)` is found by either; without `by_id` only by its label."""
+    choices = [("PEN", "Soles"), ("USD", "Dólares")]
+    assert matching(choices, "usd") == []
+    assert matching(choices, "usd", by_id=True) == [("USD", "Dólares")]
+    assert matching(choices, "sol", by_id=True) == [("PEN", "Soles")]
+    assert matching(choices, "", by_id=True) == choices

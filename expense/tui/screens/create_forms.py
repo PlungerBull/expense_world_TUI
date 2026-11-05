@@ -27,7 +27,6 @@ from expense.dates import is_calendar_day, to_canonical_aware
 from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
-from expense.quickadd.names import matches
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
@@ -152,9 +151,7 @@ class BarFormScreen(FormScreen):
             self._suggest_idx = 0
             return
         if f.kind in ("choice", "color"):
-            self._suggestions = [
-                (v, d) for (v, d) in f.choices if matches(needle, d) or matches(needle, v)
-            ]
+            self._suggestions = matching(f.choices, needle, by_id=True)
         else:
             self._suggestions = []
         if needle:
