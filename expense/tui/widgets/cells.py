@@ -31,11 +31,11 @@ def operation_cell(code: object) -> str | Text:
 
 
 def difference_cell(cents: object, palette: Palette | None) -> str | Text:
-    """A reconciliation's `difference_cents`, in three distinguishable states.
+    """A statement's `difference_cents`, in three distinguishable states.
 
     | value | cell | means |
     |---|---|---|
-    | `0` | dim em-dash | checked, and the batch adds up |
+    | `0` | dim em-dash | checked, and the statement adds up |
     | non-zero | sign-colored figure | checked, and it is off by this much |
     | `None` | **blank** | not checked — no ending balance has been entered |
 
@@ -47,7 +47,7 @@ def difference_cell(cents: object, palette: Palette | None) -> str | Text:
     entered the closing figure yet*, which is the opposite of "it balances" —
     and the em-dash is designed to read as "nothing to see, move on". Non-int
     junk goes to the blank too: whatever it is, the one thing this cell must
-    not do is assert that the batch balances. Why, with the rejected
+    not do is assert that the statement balances. Why, with the rejected
     renderings: docs/decisions.md "A null difference is blank, a zero
     difference is the em-dash".
     """

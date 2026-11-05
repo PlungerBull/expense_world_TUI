@@ -22,7 +22,7 @@ account's own (contract: "What an account is", "Statement code"); an account wit
 one has no Order column. The panel's title names the account, its currencies and its
 code.
 
-New batch: name › account › date start › date end › begin › end. Both balances
+New statement: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine never derives a begin, so
 `beginning_balance_cents` is required. Both dates are required too
 (contract: POST /v1/statements), and are
@@ -243,7 +243,7 @@ def ask_line_delete(
     `DELETE /transactions/{id}`, after the ledger's question. Each question says no
     screen can bring it back. The line in hand is the list's own read, so nothing is
     read before asking. Deleted, `after` reads the list again. Shared by the "no
-    batch" pane and the flagged lines' screen."""
+    statement" pane and the flagged lines' screen."""
     if is_split_line(line):
         screen.confirm_delete(
             "bank-lines",
@@ -438,7 +438,7 @@ class _AccountList(CursorList):
 
 class _PanelList(CursorList):
     """The panel under the accounts. It lists two things: a
-    reconciliation, which `enter` opens, or a row in no statement, which `enter`
+    statement, which `enter` opens, or a row in no statement, which `enter`
     edits — so the footer says `Edit` there. Two bindings on one key: Textual takes the first whose
     `check_action` allows it."""
 
@@ -862,13 +862,13 @@ class ReconciliationsScreen(SectionScreen):
 
     def action_back(self) -> None:
         if self._mode == "unfiled":
-            # the pane swaps back to the reconciliations; the screen stays put
+            # the pane swaps back to the statements; the screen stays put
             self._show_batches()
         elif self._mode == "accts":
             self.app.pop_screen()
 
     def _show_batches(self) -> None:
-        """The panel lists the open account's reconciliations again."""
+        """The panel lists the open account's statements again."""
         self._mode = "batches"
         self._unfiled = []
         self._unfiled_grow.reset()
@@ -916,8 +916,8 @@ class ReconciliationsScreen(SectionScreen):
 
         Only while a panel is open: the panel is the slot
         it swaps into, and the account whose rows it lists is the open one.
-        `esc` swaps it back. Reconciliation work stays in the
-        reconciliation view, so this is a pane, not a filtered ledger.
+        `esc` swaps it back. Statement work stays in the
+        Statements view, so this is a pane, not a filtered ledger.
         """
         acct = self._open_account()
         if acct is None or self._batch_list is None or self._unfiled_busy:
@@ -1032,8 +1032,8 @@ class ReconciliationsScreen(SectionScreen):
         """`d` — delete the line under the cursor, in the unfiled pane only.
 
         Cursor row only, never a selection, and the question says a delete is
-        final (`ask_line_delete`). Why: docs/decisions.md "Rows in no batch
-        live in the reconciliation view".
+        final (`ask_line_delete`). Why: docs/decisions.md "Rows in no statement
+        live in the Statements view".
         """
         if self._mode != "unfiled":
             return
@@ -1099,7 +1099,7 @@ def balance_key(kind: str, code: str) -> str:
 def unreadable_note(kind: str, code: str) -> str:
     """The note for a `begin` or `end` balance the money parser cannot read, naming
     its currency like the form's line label: `Begin balance USD: a signed decimal,
-    e.g. 9580.00`. The New statement form and the batch screen's balance boxes
+    e.g. 9580.00`. The New statement form and the statement screen's balance boxes
     share it."""
     example = "9580.00" if kind == "begin" else "9460.00"
     return f"{kind.capitalize()} balance {code}: a signed decimal, e.g. {example}"
@@ -1612,9 +1612,9 @@ class ReconciliationDetailScreen(
     AdaptiveRowsMixin,
     Screen,
 ):
-    """One batch: header + a bank-line checklist (draft) or read-only list
+    """One statement: header + a bank-line checklist (draft) or read-only list
     (completed). `space` toggles membership; `c`/`u`/`d` complete/revert/delete;
-    `r` refetches the batch + checklist (r = refresh everywhere, never a write).
+    `r` refetches the statement + checklist (r = refresh everywhere, never a write).
 
     A complete whose answer flags lines for review opens `FlaggedLinesScreen` on
     them. The `⚑` line under the header says how many the statement's review list
@@ -1707,7 +1707,7 @@ class ReconciliationDetailScreen(
             self._list.set_page_size(self._checklist_items())
 
     def _apply_fresh_record(self, fresh: dict) -> None:
-        """Main-thread: rebind _record from a refreshed batch, then repaint the
+        """Main-thread: rebind _record from a refreshed statement, then repaint the
         header. Called on the UI thread so the worker never mutates screen
         state directly, and a cancelled stale load can't clobber _record."""
         self._record = fresh
@@ -1856,7 +1856,7 @@ class ReconciliationDetailScreen(
         which puts every part in the statement or takes every part out
         (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). The
         mixin queue sends one PUT at a time, in order; once the last one is in,
-        the screen reads the batch and its lines again, the cursor on the line
+        the screen reads the statement and its lines again, the cursor on the line
         just ticked."""
         part = self._part_of.get(event.key)
         if part is None:

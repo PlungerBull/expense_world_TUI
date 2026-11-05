@@ -226,8 +226,8 @@ def test_new_statement_date_end_is_required(fake_client, monkeypatch):
 
 
 def test_new_statement_date_start_is_required(fake_client, monkeypatch):
-    """date_start orders the batch now, so an empty enter is refused in place
-    rather than silently creating an unorderable batch."""
+    """date_start orders the statement now, so an empty enter is refused in place
+    rather than silently creating an unorderable statement."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -669,8 +669,8 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
 
 
 # ---- the "no statement" list (`u`) ----------------------------------------------
-# Reconciliation work stays
-# in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
+# Statement work stays
+# in the Statements view, so `u` swaps the LOWER PANE of this screen — it
 # does not push a filtered ledger, and it does not touch the account cursor.
 # It lists bank lines (`GET /bank-lines`), oldest first, every currency together, a split
 # purchase once.

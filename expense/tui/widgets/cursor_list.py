@@ -90,7 +90,7 @@ def list_cell(value: object) -> Text:
     amount, a mark: the app's own styling) is drawn as built; anything else is
     words, a name or a title as the engine holds it, drawn as `Text` so a
     `[like this]`, a `[/]` or a lone `[` shows as it is, never read as markup.
-    Called by `list_table`, the reconciliation tick list (checklist.py) and
+    Called by `list_table`, the statement tick list (checklist.py) and
     the LOG bar's staged rows (`staged_table` in screens/log_bar.py)."""
     return value if isinstance(value, Text) else Text(str(value))
 
@@ -339,7 +339,7 @@ class CursorList(WindowedList):
 
     def append_rows(self, rows: Iterable[RowInput], *, more: bool) -> None:
         """Add rows at the end and put the cursor on the first new one.
-        An empty batch leaves the cursor where it was."""
+        An empty page leaves the cursor where it was."""
         first_new = len(self._rows)
         self._rows.extend(Row.coerce(r) for r in rows)
         self._more = more
@@ -373,7 +373,7 @@ class CursorList(WindowedList):
         header_rule_span: tuple[int, int] | None = None,
     ) -> None:
         """Relabel the columns in place — for a pane that lists two different
-        things (the Reconciliations lower pane: batches, or the account's rows in
+        things (the Statements lower pane: statements, or the account's rows in
         no statement). Rebuilding the widget instead would drop the
         caption, the page size the screen computed and the focus. `align_right`, `gap`,
         `flex`, `edge`, `header_rule`, `gives_way`, `min_widths`, `lead` and `header_rule_span`

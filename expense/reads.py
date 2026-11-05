@@ -285,7 +285,7 @@ def fetch_bank_lines(
     """GET /v1/bank-lines → the raw engine body: one row per bank line, each
     the shape `fetch_bank_line` reads (contract: GET /v1/bank-lines).
 
-    Read by the reconciliation batch screen, the "no batch" list and the
+    Read by the statement screen, the "no statement" list and the
     flagged lines' screen, which list a purchase as one row and never half of
     it, and through `fetch_bank_lines_by_ids` by the statement upload's
     preview. Each filter applies to a whole line; `ids` lists the lines among
@@ -388,7 +388,7 @@ def count_bank_lines(
     """GET /v1/bank-lines/count → how many bank lines the same filters match.
 
     It counts lines, so a purchase split into parts counts once
-    (contract: GET /v1/bank-lines/count). Read by the "no batch" list for its
+    (contract: GET /v1/bank-lines/count). Read by the "no statement" list for its
     `N of M loaded`, by the flagged lines' screen for how many lines a
     statement's review list holds (`review_of`), and by a statement's screen and a
     statement upload's result for the same count behind their `⚑` line.

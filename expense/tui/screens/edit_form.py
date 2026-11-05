@@ -15,7 +15,7 @@ last.
 on a ledger row open this form on the row's bank line (`EditFormScreen`), on
 the first line that can change, with every part of the line in the table
 whichever part the row is;
-`⏎` in the reconciliations' "no statement" list opens it on the line the list
+`⏎` in the Statements screen's "no statement" list opens it on the line the list
 holds (`BankLineEditFormScreen`). Entity fields (account, a part's category
 and hashtags) show a live-filtered suggestion list — pick existing entities
 only. Their bar opens empty, the list in its usual order; on ACCOUNT and
@@ -38,9 +38,9 @@ fields one dim line per sentence names the lines it covers
 (`date, title, account: <sentence>`, `reason_lines`), and under the parts each
 column's `read-only` line carries its sentences (`amount  read-only · <sentence>`,
 `readonly_lines`). With the total fixed and the parts not (a completed
-reconciliation's line), a line of one part has its amount, the total,
+statement's line), a line of one part has its amount, the total,
 read-only; once the table holds two parts or more, the amounts move between
-the parts, so none is read-only. The form reads no reconciliation and keeps no rule of its own on
+the parts, so none is read-only. The form reads no statement and keeps no rule of its own on
 what a line may change.
 
 `^n` adds an empty part at the end and puts the bar on its AMOUNT; `^x`, on a

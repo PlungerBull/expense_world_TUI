@@ -750,7 +750,7 @@ def test_has_transactions_on_one_currency_reads_in_the_engine_words_alone():
 
 def test_a_missing_balance_has_no_line_of_the_apps():
     """A refused complete naming a missing balance keeps the engine's words
-    whole: the batch screen opens the box for it instead of saying what to do
+    whole: the statement screen opens the box for it instead of saying what to do
     (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")."""
     from expense.errors import next_step
 
