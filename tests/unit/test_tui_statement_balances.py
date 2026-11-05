@@ -70,8 +70,6 @@ def _ibk(*balances: dict, name: str = "Octubre 2026") -> dict:
 
 #: Octubre: soles entered, dollars added blank by a dollar line ticked in.
 OCTUBRE = _ibk(_balance("PEN", -82000, -34860), _balance("USD", None, None))
-#: Noviembre: soles alone; the dollars hold money at its start.
-NOVIEMBRE = NOVIEMBRE_IBK
 
 
 def _engine(fake_client, monkeypatch, fresh: dict | None = None) -> None:
@@ -362,7 +360,7 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
     """Pane 6's last two screens: the question, `y`, the refusal naming the dollars the
     statement does not cover; the starting box and the ending box (empty) open for
     them, one `PUT` adds both, and the question asks again."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     notices = _notes(monkeypatch)
     fake_client.errors["POST"] = _money_at_start()
     saved = _ibk(
@@ -371,7 +369,7 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
     fake_client.write_responses[PATH] = statement_put_answer(saved)
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, NOVIEMBRE)
+        screen = await _open(pilot, app, NOVIEMBRE_IBK)
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
@@ -426,13 +424,13 @@ def test_a_missing_balance_refusal_opens_the_box_for_it_then_asks_again(
     """The screen read the balance as entered, the engine says it is blank: the same box
     opens for the currency and balance named, one `PUT` sends it alone, and the
     question asks again."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     fake_client.errors["POST"] = _refused(**{field: reason})
-    fake_client.write_responses[PATH] = statement_put_answer(NOVIEMBRE)
+    fake_client.write_responses[PATH] = statement_put_answer(NOVIEMBRE_IBK)
     key = "beginning_balance_cents" if box == "beginning" else "ending_balance_cents"
 
     async def scenario(pilot, app):
-        await _open(pilot, app, NOVIEMBRE)
+        await _open(pilot, app, NOVIEMBRE_IBK)
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
@@ -447,14 +445,14 @@ def test_a_missing_balance_refusal_opens_the_box_for_it_then_asks_again(
 
 
 def test_a_refusal_naming_no_balance_opens_no_box(fake_client, monkeypatch):
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     notices = _notes(monkeypatch)
     fake_client.errors["POST"] = _refused(
         **{"balances.PEN.difference_cents": "DIFFERENCE_NOT_ZERO"}
     )
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, NOVIEMBRE)
+        screen = await _open(pilot, app, NOVIEMBRE_IBK)
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
@@ -479,7 +477,7 @@ _NOVIEMBRE_HEAD = [
 
 
 async def _refused_with_the_box_up(pilot, app) -> ReconciliationDetailScreen:
-    screen = await _open(pilot, app, NOVIEMBRE)
+    screen = await _open(pilot, app, NOVIEMBRE_IBK)
     await pilot.press("c")
     await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
     await pilot.press("y")
@@ -493,7 +491,7 @@ def test_pane_6_the_refusal_stands_between_the_head_and_the_box_at_80x24(fake_cl
     engine's code, message and field line, each wrapping under its own first word, stand
     between the head's last currency row and the box's top rule, the box below them,
     and nothing in the corner."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     notices = _notes(monkeypatch)
     fake_client.errors["POST"] = money_at_start_refusal()
 
@@ -528,7 +526,7 @@ def test_the_next_key_takes_the_refusal_away_and_the_box_keeps_its_place(
 ):
     """The first character typed, `enter` and `esc` each remove the lines; the box moves
     up to where it stands without them and still works."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     _notes(monkeypatch)
     fake_client.errors["POST"] = money_at_start_refusal()
 
@@ -728,7 +726,7 @@ def test_pane_6_noviembre_the_saved_dollar_line_shows_above_the_question_asked_a
 ):
     """The head grows by a `USD` line when the dollars are saved; the question that
     asks again is drawn below that line, never over it."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     _notes(monkeypatch)
     fake_client.errors["POST"] = _money_at_start()
     saved = _ibk(
@@ -737,7 +735,7 @@ def test_pane_6_noviembre_the_saved_dollar_line_shows_above_the_question_asked_a
     fake_client.write_responses[PATH] = statement_put_answer(saved)
 
     async def scenario(pilot, app):
-        await _open(pilot, app, NOVIEMBRE)
+        await _open(pilot, app, NOVIEMBRE_IBK)
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.pause()
@@ -918,6 +916,10 @@ STARTING_WORDS = (
     "Starting balance first The statement's opening figure for IBK Visa, "
     "in USD · signed · e.g. 13,853.20 [enter] save [esc] cancel"
 )
+#: An account name longer than the 56 columns a box has at 60: it must wrap, not be cut.
+LONG_ACCOUNT = (
+    "Interbank Visa Signature Cuenta Sueldo Personal Soles y Dolares de Alejandro Ternero"
+)
 QUESTION_WORDS = (
     "Complete statement? Locks the amount, date, title, account, operation number and "
     "statement of the 0 ticked rows. [y] confirm [enter / n / esc] cancel"
@@ -933,6 +935,12 @@ def _box_rows(app, first_word: str, last_word: str) -> list[str]:
     return [row.strip() for row in rows[top : bottom + 1] if row.strip()]
 
 
+def _box_is_drawn(app, first_word: str, last_word: str) -> bool:
+    rows = screen_lines(app)
+    top = next((i for i, row in enumerate(rows) if first_word in row), None)
+    return top is not None and any(last_word in row for row in rows[top:])
+
+
 def _box_at(record, width, first, last, keys=()):
     """Open the statement at `width` columns, press `c` (and `keys` after it) and
     return the rows of the box standing."""
@@ -943,8 +951,11 @@ def _box_at(record, width, first, last, keys=()):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal | AmountPromptModal))
         for key in keys:
             await pilot.press(key)
-            await pilot.pause()
-        await pilot.pause()
+        await wait_for(
+            pilot,
+            lambda: _box_is_drawn(app, first, last),
+            message=f"the box from {first!r} to {last!r} was never drawn",
+        )
         return _box_rows(app, first, last)
 
     return run_app(scenario, size=(width, 24))
@@ -967,7 +978,7 @@ def _wrapped_whole(rows: list[str], words: str) -> None:
             "[esc]",
             ("0", "enter"),
         ),
-        (NOVIEMBRE, QUESTION_WORDS, "Complete", "cancel", ()),
+        (NOVIEMBRE_IBK, QUESTION_WORDS, "Complete", "cancel", ()),
     ],
     ids=["starting", "ending", "question"],
 )
@@ -975,12 +986,16 @@ def test_at_60_columns_each_box_wraps_its_words_and_cuts_none(
     fake_client, monkeypatch, record, words, first, last, keys
 ):
     _engine(fake_client, monkeypatch)
-    _wrapped_whole(_box_at(record, 60, first, last, keys), words)
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map",
+        lambda: {"acc-ibk": LONG_ACCOUNT},
+    )
+    _wrapped_whole(_box_at(record, 60, first, last, keys), words.replace("IBK Visa", LONG_ACCOUNT))
 
 
 def test_a_long_account_name_wraps_in_the_box_under_its_line(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch)
-    name = "Interbank Visa Signature Cuenta Sueldo Personal Soles y Dolares de Alejandro Ternero"
+    name = LONG_ACCOUNT
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc-ibk": name}
     )
@@ -989,3 +1004,34 @@ def test_a_long_account_name_wraps_in_the_box_under_its_line(fake_client, monkey
     assert len(narrow) > len(wide)
     words = STARTING_WORDS.replace("IBK Visa", name)
     _wrapped_whole(narrow, words)
+
+
+def test_at_60_columns_the_refusal_lines_wrap_under_themselves_and_cut_none(
+    fake_client, monkeypatch
+):
+    """The refused complete's lines between the head and the box at 60 columns: each
+    of the engine's lines wraps under its own first word, none cut off."""
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
+    _notes(monkeypatch)
+    fake_client.errors["POST"] = money_at_start_refusal()
+
+    def refusal_rows(app) -> list[str]:
+        rows = screen_lines(app)
+        top = next((i for i, row in enumerate(rows) if "Couldn't complete" in row), None)
+        if top is None:
+            return []
+        rule = next((i for i, row in enumerate(rows) if i > top and "─" in row), None)
+        return [] if rule is None else [row.rstrip() for row in rows[top:rule] if row.strip()]
+
+    async def scenario(pilot, app):
+        await _refused_with_the_box_up(pilot, app)
+        await wait_for(pilot, lambda: refusal_rows(app), message="the refusal was never drawn")
+        return refusal_rows(app)
+
+    assert run_app(scenario, size=(60, 24)) == [
+        "  Couldn't complete",
+        "  MONEY_AT_START_NOT_COVERED — Every currency with money at",
+        "  the start needs balances in the statement.",
+        "    balances.USD: USD has -24.99 at the statement's start,",
+        "    and the statement holds no balances for it.",
+    ]

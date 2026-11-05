@@ -69,17 +69,9 @@ CLAUDE.md "Specs and tasks".
   (imported by home.py, help.py, statement_upload.py); reads.py's `reconciliation` parameter (the
   engine's `statement_id`); home.py's `"reconciliations"` key; and comments in formatting.py,
   dates.py, theme.py, _base.py, help.py, transactions.py, bank_import.py and log_bar.py.
-- **A Statements test fails at random under the parallel suite.**
-  `test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_whole` in
-  test_tui_reconciliations.py found no `PEN + USD` row once (2026-11-05) and passes alone; it
-  waits for the rows it reads.
 - **The Statements screens' unit tests prove less than they could.** Nothing you see changes.
   No test pins the revert question, `u`'s tooltip, the "it orders the statement" hint or the
-  `loading…` caption. In test_tui_statement_balances.py the 60-column starting and ending boxes
-  pass without the fix (give one the long name), `_box_at` waits with `pilot.pause()`, nothing
-  covers the refusal lines at 60 columns, and `NOVIEMBRE` aliases `NOVIEMBRE_IBK`; in
-  test_tui_statement_screen.py the refusal-lines test (c) waits on a condition true before and
-  after (wait for the rows to grow).
+  `loading…` caption.
 - **Small tidy-ups in the Statements code.** Nothing you see changes. In reconciliations.py,
   `_UNFILED_LAYOUT` writes a literal gap `2` beside checklist.py's `GAP` and is a
   `dict[str, object]` unpacked with `**`; `_panel_gap` repeats `pane_rows`' chrome sum.

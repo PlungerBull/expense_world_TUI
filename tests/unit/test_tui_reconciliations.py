@@ -2008,6 +2008,14 @@ def _two_currency_accounts(monkeypatch, names):
     return reads
 
 
+def _has_header_and_rule(app) -> bool:
+    lines = screen_lines(app)
+    return any(
+        "Account" in line and "Balances" in line and "─" in lines[i + 1]
+        for i, line in enumerate(lines[:-1])
+    )
+
+
 def _header_and_rule(app) -> tuple[str, str]:
     lines = screen_lines(app)
     at = next(i for i, line in enumerate(lines) if "Account" in line and "Balances" in line)
@@ -2021,11 +2029,12 @@ def test_the_rule_under_the_accounts_header_is_60_wide_under_its_first_letter(mo
         screen = ReconciliationsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
+        await wait_for(pilot, lambda: _has_header_and_rule(app), message="header never drawn")
         header, rule = _header_and_rule(app)
         assert rule == " " * header.index("Account") + "─" * 60
         await pilot.press("enter")
         await wait_for(pilot, lambda: screen._mode == "batches")
-        await pilot.pause()
+        await wait_for(pilot, lambda: _has_header_and_rule(app), message="header never drawn")
         header, rule = _header_and_rule(app)
         assert rule == " " * header.index("Account") + "─" * 60
 
@@ -2039,8 +2048,12 @@ def test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_who
         screen = ReconciliationsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
+        await wait_for(
+            pilot,
+            lambda: len([line for line in screen_lines(app) if "PEN + USD" in line]) == 3,
+            message="the three account rows were never drawn",
+        )
         rows = [line for line in screen_lines(app) if "PEN + USD" in line]
-        assert len(rows) == 3
         assert all(row.rstrip().endswith("-260.50 PEN   -30.98 USD") for row in rows), rows
         assert "…" in rows[0] and LONG_NAME_50 not in rows[0]
         assert rows[0].lstrip().startswith(LONG_NAME_50[:20])

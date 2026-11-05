@@ -815,6 +815,10 @@ def test_the_flagged_line_arriving_under_a_box_keeps_the_page_line_after_esc(
     assert whole, status
 
 
+def last_row(status: str) -> int:
+    return int(status.split("-")[1].split()[0])
+
+
 def test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc(
     fake_client, monkeypatch
 ):
@@ -840,13 +844,18 @@ def test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc(
         with_refusal = screen._list.page_status
         await pilot.press("escape")  # clears the refusal and closes the box
         await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(
+            pilot,
+            lambda: last_row(screen._list.page_status) > last_row(with_refusal),
+            message="the list never took the refusal's room back",
+        )
         await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
         whole, status = _page_is_whole(screen, app)
         return whole, with_refusal, status
 
     whole, with_refusal, status = run_app(scenario, size=(80, 24))
     assert whole, status
-    assert int(status.split("-")[1].split()[0]) > int(with_refusal.split("-")[1].split()[0])
+    assert last_row(status) > last_row(with_refusal)
 
 
 def test_a_refit_with_the_size_unchanged_sets_nothing(fake_client, monkeypatch):
