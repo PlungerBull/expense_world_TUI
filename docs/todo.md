@@ -66,13 +66,9 @@ CLAUDE.md "Specs and tasks".
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
   account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
   line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
-- **Old engine words in a mockup and three tests.** Nothing you see changes.
-  [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html) draws
-  `Amount cannot be zero.` (the engine: `Must not be zero.`);
-  [test_tui_statement_list.py](../tests/unit/test_tui_statement_list.py),
-  [test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) and
-  [test_tui_bulk_edit.py](../tests/unit/test_tui_bulk_edit.py) quote `Validation failed.` Done
-  when each is the practice engine's own words.
+- **Two bulk-edit refusals carry made-up field words.** Nothing you see changes. In
+  [test_tui_bulk_edit.py](../tests/unit/test_tui_bulk_edit.py) the `b` and `c` cases' field words
+  are stand-ins; the engine's are in (contract: "Opening balances stay put").
 - **Part 7's test leftovers.** Nothing you see changes. test_no_read_only_fields.py's sample
   paths read `/reconciliations/…`; balance refusals in test_tui_reconcile_detail.py and
   test_errors.py are keyed `balances.<account_id>.…`, where the engine keys them by currency

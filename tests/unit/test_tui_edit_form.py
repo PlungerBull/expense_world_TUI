@@ -1156,9 +1156,13 @@ def test_an_opening_balances_account_refusal_shows_its_line_under_the_parts(
 ):
     """If the refusal reaches the form anyway (here, a line the engine closed
     after the form read it), its words, then the app's line, and the form stays."""
+    refusal = (
+        "Transaction tx1, a part of this bank line, refuses this change. "
+        "An opening balance stays on its account and in its category."
+    )
     err = EngineError(
         "VALIDATION_ERROR",
-        "Validation failed.",
+        refusal,
         {"account_id": "stand-in field words"},
         422,
         {},
@@ -1166,8 +1170,8 @@ def test_an_opening_balances_account_refusal_shows_its_line_under_the_parts(
     )
     summary, on_top = _move_refused(err, fake_client, monkeypatch)
     lines = [row.strip() for row in summary.splitlines() if row.strip()]
-    assert lines[-4:] == [
-        "VALIDATION_ERROR — Validation failed.",
+    assert " ".join(lines[:-3]).endswith(f"VALIDATION_ERROR — {refusal}")
+    assert lines[-3:] == [
         "! account_id: stand-in field words",
         "Nothing was saved.",
         "To move an opening balance, set it on the other account's Edit form.",

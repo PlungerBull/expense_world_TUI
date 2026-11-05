@@ -679,13 +679,14 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
 
 
 @pytest.mark.parametrize(
-    ("key", "typed", "field", "reason", "words", "line"),
+    ("key", "typed", "field", "reason", "message", "words", "line"),
     [
         (
             "b",
             "oro",
             "account_id",
             "OPENING_BALANCE_ACCOUNT_FIXED",
+            "An opening balance stays on its account and in its category.",
             "An opening balance cannot move to another account.",
             "To move an opening balance, set it on the other account's Edit form.",
         ),
@@ -694,6 +695,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
             "kor",
             "category_id",
             "OPENING_BALANCE_CATEGORY_FIXED",
+            "An opening balance stays on its account and in its category.",
             "An opening balance must stay in @Opening.",
             "An opening balance always stays in @Opening.",
         ),
@@ -703,6 +705,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
             ["c", "o", "m", "enter"],
             "hashtag_ids",
             "OPENING_BALANCE_NOT_TAGGED",
+            "An opening balance carries no hashtag.",
             "Must be empty: an opening balance carries no hashtag.",
             "Leave the opening balance out of the selection.",
         ),
@@ -710,7 +713,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
     ids=["b", "c", "h"],
 )
 def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
-    fake_client, monkeypatch, key, typed, field, reason, words, line
+    fake_client, monkeypatch, key, typed, field, reason, message, words, line
 ):
     """Opening-balance rows 2B, and pending-hashtag-manage 7 B: `b`, `c` or `h`
     over a selection holding an opening balance sends every row as usual; the
@@ -727,7 +730,7 @@ def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
         if path.endswith("/t3"):
             raise EngineError(
                 "VALIDATION_ERROR",
-                "Validation failed.",
+                message,
                 {field: words},
                 422,
                 {},

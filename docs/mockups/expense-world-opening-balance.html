@@ -208,7 +208,7 @@
                          <span class="n">▌</span> <span class="b">Failed</span>
                          <span class="n">▌</span> The account's changes are saved. The opening
                          <span class="n">▌</span> balance is not:
-                         <span class="n">▌</span> FUTURE_DATE — Date cannot be in the future.
+                         <span class="n">▌</span> FUTURE_DATE — Must not be in the future.
                          <span class="n">▌</span>
                          <span class="n">▌</span> It is still in the form: fix it and save again.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
@@ -238,7 +238,7 @@
    opening   350.00
    <span class="b">as of     </span>2026-11-01
                                     <span class="n">▌</span> <span class="b">Failed</span>
-                                    <span class="n">▌</span> FUTURE_DATE — Date cannot be in the future.
+                                    <span class="n">▌</span> FUTURE_DATE — Must not be in the future.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap">The day has not happened yet. Type a past day and save again.</p></div>
 <div class="var"><div class="oh"><span>a zero amount</span></div>
@@ -261,7 +261,7 @@
    opening   0.00
    <span class="b">as of     </span>2026-01-01
                                     <span class="n">▌</span> <span class="b">Failed</span>
-                                    <span class="n">▌</span> ZERO_AMOUNT — Amount cannot be zero.
+                                    <span class="n">▌</span> ZERO_AMOUNT — Must not be zero.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap">An opening balance of nothing is refused. To have none, leave the amount empty instead.</p></div>
 <div class="var"><div class="oh"><span>a date inside a sealed period</span></div>
@@ -284,8 +284,9 @@
    opening   3,200.00
    <span class="b">as of     </span>2026-03-20
                        <span class="n">▌</span> <span class="b">Failed</span>
-                       <span class="n">▌</span> SEALED_PERIOD — Date falls in a sealed period:
-                       <span class="n">▌</span> Marzo 2026 (2026-03-01 to 2026-03-31).
+                       <span class="n">▌</span> SEALED_PERIOD — Period 2026-03-01 to 2026-03-30 is sealed by
+                       <span class="n">▌</span> completed statement 'Marzo 2026'. Revert it to draft to
+                       <span class="n">▌</span> change anything inside it.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap">The day falls in a period that is already closed, and the engine names which one. Pick a day outside it and save again.</p></div>
 </div>

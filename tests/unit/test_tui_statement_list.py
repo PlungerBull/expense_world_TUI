@@ -587,7 +587,9 @@ def test_no_counts_show_no_order():
 
 
 def test_a_refused_read_leaves_the_panel_closed_with_the_engines_words(monkeypatch):
-    err = EngineError("VALIDATION_ERROR", "Validation failed.", {"account_id": "Bad."}, 422, {})
+    err = EngineError(
+        "VALIDATION_ERROR", "Request validation failed.", {"account_id": "Bad."}, 422, {}
+    )
     client = _engine(monkeypatch, fail=err)
     notes: list = []
     monkeypatch.setattr(
