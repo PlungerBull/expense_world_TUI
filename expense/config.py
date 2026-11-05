@@ -95,10 +95,40 @@ def save(cfg: Config) -> None:
     if os.name != "nt":
         os.chmod(tmp_path, 0o600)
     os.replace(tmp_path, path)
+    if _holding:
+        hold(cfg)
+
+
+#: The settings the running app holds (`hold`), read once at launch. While the
+#: app holds them, no engine call reads the settings file again, so the file
+#: may be a pipe that gives its contents to the first read only.
+_held: Config | None = None
+_holding = False
+
+
+def hold(cfg: Config | None) -> None:
+    """Make `cfg` the settings every read and screen uses; None holds "no settings yet".
+
+    `save` replaces what is held, so the app's setup and Config screens take
+    effect with no second read and no restart.
+    """
+    global _held, _holding
+    _held, _holding = cfg, True
+
+
+def release() -> None:
+    """Stop holding: `ensure_loaded` reads the file again (for tests)."""
+    global _held, _holding
+    _held, _holding = None, False
+
+
+def current() -> Config | None:
+    """The held settings while the app holds them, else the file's (`load`)."""
+    return _held if _holding else load()
 
 
 def ensure_loaded() -> Config:
-    return require(load())
+    return require(current())
 
 
 def require(cfg: Config | None) -> Config:

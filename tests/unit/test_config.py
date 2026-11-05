@@ -182,3 +182,75 @@ def test_a_stale_bank_files_key_loads_and_is_dropped_on_save():
     saved = json.loads(path.read_text())
     assert "bank_files" not in saved
     assert saved["token"] == "ewe_pat_abc123"
+
+
+def _settings(**over):
+    return config.Config(engine_url="https://example.com", token="ewe_pat_a", **over)
+
+
+def test_held_settings_are_used_without_reading_the_file_again(tmp_config):
+    config.save(_settings())
+    config.hold(config.load())
+    tmp_config.unlink()
+
+    assert config.ensure_loaded().token == "ewe_pat_a"
+    assert config.ensure_loaded().engine_url == "https://example.com"
+
+
+def test_save_replaces_the_held_settings(tmp_config):
+    config.hold(None)
+    with pytest.raises(ConfigMissingError):
+        config.ensure_loaded()
+
+    config.save(_settings(main_currency="PEN"))
+    tmp_config.unlink()
+
+    assert config.ensure_loaded().main_currency == "PEN"
+
+
+def test_save_without_holding_leaves_reads_on_the_file(tmp_config):
+    config.save(_settings())
+    config.save(_settings(main_currency="USD"))
+    assert config.ensure_loaded().main_currency == "USD"
+
+
+def test_launch_reads_the_settings_once_so_a_pipe_works(tmp_config, monkeypatch):
+    """`launch` is the only read of the file: a named pipe gives its contents once."""
+    import os
+    import threading
+
+    from expense.tui import app as app_module
+
+    os.mkfifo(tmp_config)
+    payload = json.dumps({"engine_url": "http://127.0.0.1:8002", "token": "k"})
+
+    def feed():
+        with open(tmp_config, "w") as pipe:
+            pipe.write(payload)
+
+    writer = threading.Thread(target=feed, daemon=True)
+    writer.start()
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
+    seen = {}
+    real, calls = config.load, []
+
+    def counted():
+        calls.append(1)
+        assert len(calls) == 1, "second read of the settings file"
+        return real()
+
+    monkeypatch.setattr(config, "load", counted)
+
+    def run(self, **kw):
+        seen["setup"] = self._setup
+        seen["cfg"] = config.ensure_loaded()
+
+    monkeypatch.setattr(app_module.ExpenseApp, "run", run)
+    monkeypatch.setattr(app_module, "get_verbose", lambda ctx: False)
+    app_module.launch(None)
+    writer.join(timeout=5)
+
+    assert len(calls) == 1
+    assert seen["setup"] is False
+    assert seen["cfg"].token == "k"

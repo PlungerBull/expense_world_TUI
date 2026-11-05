@@ -108,7 +108,9 @@ def _hermetic_paths(tmp_path, monkeypatch):
     var afterward and still wins.
     """
     monkeypatch.setenv("EXPENSE_CONFIG", str(tmp_path / "hermetic-config"))
+    config_module.release()
     yield
+    config_module.release()
 
 
 #: The terminal every unit test sees: 80x24, the size `shutil.get_terminal_size`

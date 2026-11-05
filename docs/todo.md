@@ -93,12 +93,9 @@ CLAUDE.md "Specs and tasks".
   screen or pick tag ("pane 10", "Screen 1a", "3 A", a mockup file name) can come back into a
   comment, docstring, test name or parametrize id in expense/ or tests/. A guard test fails on
   one, naming its file and line.
-- **The app reads its settings file on every engine call.** `load_usable` at launch, then about
-  25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
-  the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
-  the practice engine without the key reaching a file. Load the settings once at launch and hand
-  them to every screen; then the pipe form in [runtime.md](runtime.md) works for the app.
-
+- **No TUI test follows first-time setup to the held settings.** `config.save` replaces the
+  settings the app holds ([config.py](../expense/config.py)); only test_config.py proves it. A
+  test drives Setup's save through the app, then an engine call that uses the new settings.
 - **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
   gone still runs its callback on pruned widgets ([tui.md](tui.md) "Async / workers"). About 20
   hand-backs in `expense/tui/` still call `self.app.call_from_thread`; move them (checking whether

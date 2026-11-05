@@ -56,7 +56,7 @@ class ConfigScreen(SectionScreen):
     def fetch(self) -> dict:
         from expense import config as config_module
 
-        return {"cfg": config_module.load()}
+        return {"cfg": config_module.current()}
 
     def build(self, data: dict) -> list[Widget]:
         self._cfg = data["cfg"]

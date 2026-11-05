@@ -134,11 +134,17 @@ def launch(ctx: typer.Context) -> None:
     sys.stdout.flush()
     from expense import config as config_module
 
-    # No settings file, or one that cannot be read → the app opens on Setup.
-    setup = config_module.load_usable() is None
+    # The one read of the settings file: the app holds the result, and every
+    # screen and read uses it. No usable file → the app opens on Setup.
+    cfg = config_module.load_usable()
+    config_module.hold(cfg)
+    setup = cfg is None
     # mouse=False: the TUI is keyboard-only. Textual otherwise enables terminal
     # mouse tracking on launch (clicks/scroll act on widgets AND the terminal's
     # native text-selection/copy is suppressed). Disabling it makes the app
     # ignore the mouse and restores native select-to-copy.
     # Why: docs/decisions.md "TUI is keyboard-only".
-    ExpenseApp(verbose=get_verbose(ctx), setup=setup).run(mouse=False)
+    try:
+        ExpenseApp(verbose=get_verbose(ctx), setup=setup).run(mouse=False)
+    finally:
+        config_module.release()
