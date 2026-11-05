@@ -89,14 +89,6 @@ CLAUDE.md "Specs and tasks".
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
   "Send each transaction's calendar day with it"; the lists then show that day.
-- **Mockups that back no open work.** A mockup lives only while it backs open work; many in
-  [mockups/](mockups/) back built screens and draw an older app. Delete each one no spec, todo
-  item or to-engine file links, with its links from docs, code and docstrings.
-  `expense-world-sheet-import-engine.html` is one (named only in import_cmd.py's and
-  test_cmd_import.py's docstrings); seven are linked from nowhere: bank-import-10b,
-  currencies-transaction-picks, no-batch-caption, opening-balance-rows, pending-hashtag-home,
-  refusal-hints and screen-map; leftover-picks is linked only from a retired spec, and
-  statements-screens only from code and tests.
 - **No guard keeps mockup tags out of code.** test_doc_hygiene.py scans docs only; a pane,
   screen or pick tag ("pane 10", "Screen 1a", "3 A", a mockup file name) can come back into a
   comment, docstring, test name or parametrize id in expense/ or tests/. A guard test fails on

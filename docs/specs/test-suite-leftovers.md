@@ -116,6 +116,7 @@ None.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Drafted when the owner names this the current spec. Item 5 needs no task: test_errors.py's
+refusal-row comments already say what their rows prove.
 
 ## Found along the way
