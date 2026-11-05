@@ -73,12 +73,6 @@ CLAUDE.md "Specs and tasks".
   returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
   type it as `_UnfiledLayout` is.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.**
-- **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
-  goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
-  and `c` say the list's `press r, then try again` (`list_refusal_text` in
-  [_base.py](../expense/tui/screens/_base.py)). Send `a` through `list_refusal_text` too, which
-  drops `_toggle`'s `error_text` parameter in [accounts.py](../expense/tui/screens/accounts.py);
-  the `_toggle_busy` comment there says "archive toggle" though it guards `t` as well.
 - **[UI] The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
   every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,

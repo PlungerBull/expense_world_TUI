@@ -27,8 +27,6 @@ only `y` answers. After either the list reloads with the cursor on the same acco
 one currency write at a time, as for `a` and `t`. `enter` on the list does nothing.
 """
 
-from collections.abc import Callable
-
 from rich.text import Text
 from textual.binding import Binding
 
@@ -279,22 +277,17 @@ class AccountsScreen(ResourceListScreen):
             self._turn("make-account", "Now a bank account.")
 
     def _turn(self, verb: str, note: str) -> None:
-        """`t`: a refusal is met on a list, so it reads in the list's words."""
+        """`t`: turn the cursor account into a person or a bank."""
         item = self.selected_record()
         if item:
-            self._toggle(item, verb, note, error_text=list_refusal_text)
+            self._toggle(item, verb, note)
 
-    def _toggle(
-        self,
-        item: dict,
-        verb: str,
-        note: str,
-        error_text: Callable[[Exception], str] = format_error,
-    ) -> None:
-        """Send `POST /accounts/{id}/{verb}` at once, with no question; the list
-        reloads with the cursor on the same account. One toggle at a time: a
-        second press while one is in flight does nothing until the engine
-        refuses it or the list builds from a read that began after it was answered
+    def _toggle(self, item: dict, verb: str, note: str) -> None:
+        """`a`'s and `t`'s write: `POST /accounts/{id}/{verb}` at once, with no
+        question, a refusal read in the list's words; the list reloads with the
+        cursor on the same account. One toggle at a time: a second press while
+        one is in flight does nothing until the engine refuses it or the list
+        builds from a read that began after it was answered
         (`run_guarded_write`)."""
         if self._toggle_busy:
             return
@@ -304,7 +297,7 @@ class AccountsScreen(ResourceListScreen):
             f"/{self.RESOURCE}/{item['id']}/{verb}",
             success=note,
             on_error=self._toggle_failed,
-            error_text=error_text,
+            error_text=list_refusal_text,
         )
 
     def _toggle_failed(self, message: str) -> None:

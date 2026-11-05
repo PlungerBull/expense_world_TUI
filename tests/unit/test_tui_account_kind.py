@@ -546,3 +546,47 @@ def test_home_shows_the_turned_account_in_its_new_group(
     (banks_before, people_before), (banks_after, people_after) = seen["before"], seen["after"]
     assert (name in banks_before, name in people_before) == (person is True, person is False)
     assert (name in banks_after, name in people_after) == (person is False, person is True)
+
+
+@pytest.mark.parametrize(("ident", "route"), [("a-alejo", "archive"), ("a-viejo", "unarchive")])
+@pytest.mark.parametrize(
+    ("message", "reason", "shown"),
+    [
+        (
+            "Changed by another request.",
+            "CONCURRENT_CHANGE",
+            "CONFLICT — Changed by another request.\n  account_id: stand-in field words\n\n"
+            "It changed at the same moment: press r, then try again.",
+        ),
+        (
+            _ARCHIVED_WORDS,
+            "ACCOUNT_ARCHIVED",
+            f"CONFLICT — {_ARCHIVED_WORDS}\n  account_id: stand-in field words",
+        ),
+    ],
+    ids=["concurrent-change", "other-refusal"],
+)
+def test_a_refusal_reads_in_the_lists_words(
+    configured, monkeypatch, ident, route, message, reason, shown
+):
+    """`a` (archive and unarchive) is refused in the words `t` is: the list's
+    `press r, then try again` under a `CONCURRENT_CHANGE`, the engine's words alone
+    for any other refusal."""
+    rows = _rows()
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(list(rows)))
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        _screen, notes = await _open(pilot, app, monkeypatch, ident)
+        await pilot.press("a")
+        await wait_for(pilot, lambda: notes)
+        seen["notes"] = list(notes)
+
+    fields = {"account_id": "stand-in field words"}
+    with respx.mock() as engine:
+        sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
+            error_response(409, "CONFLICT", message, fields, {"account_id": reason})
+        )
+        run_app(scenario, size=SIZE)
+    assert seen["notes"] == [("Failed", shown)]
+    assert sent.call_count == 1

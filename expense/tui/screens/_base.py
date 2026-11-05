@@ -619,8 +619,8 @@ class ResourceListScreen(SectionScreen):
         super().__init__()
         self._by_id: dict = {}
         self._restore_key: object | None = None  # cursor row to re-select after a reload
-        # One guarded write at a time (a, t, c, x): set when it is sent, lifted by the first
-        # list build whose read began after it was answered, or by its refusal.
+        # One guarded write at a time (Accounts' a, t, c, x): set when it is sent, lifted by
+        # the first list build whose read began after it was answered, or by its refusal.
         self._toggle_busy = False
         self._guarded: _QueuedWrite | None = None  # the guarded write, until it is answered
         self._guard_from = 0  # answered-count a read must have started at to lift the guard
