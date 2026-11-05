@@ -220,7 +220,7 @@ def test_fake_client_place_leak(fake_client):
     from expense.http import ExpenseClient as Factory
 
     body = {"name": "Octubre", "statement_place": 3}
-    _swallowed(lambda: Factory().put("/reconciliations/r1", json_body=body))
+    _swallowed(lambda: Factory().put("/statements/r1", json_body=body))
 
 
 @respx.mock
@@ -274,7 +274,7 @@ def test_a_swallowed_leak_still_fails_the_test(tmp_path):
     assert "ERROR tests/unit/test_leak.py::test_fake_client_place_leak" in out
     assert "ERROR tests/unit/test_leak.py::test_respx_leak" in out
     assert "POST /transactions/batch sends line_code at body.transactions[0].line_code" in out
-    assert "PUT /reconciliations/r1 sends statement_place at body.statement_place" in out
+    assert "PUT /statements/r1 sends statement_place at body.statement_place" in out
     assert (
         "POST /v1/transactions/batch sends statement_line at body.transactions[0].statement_line"
         in out

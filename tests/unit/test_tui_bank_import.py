@@ -448,7 +448,7 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
 
 def test_the_account_list_shows_the_engines_order(fake_client, monkeypatch, tmp_path):
     """The list shows the accounts exactly as `GET /accounts` returned them —
-    not alphabetical, not by `sort_order`; the person is left out and nothing
+    not alphabetical; the person is left out and nothing
     else moves."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch, ENGINE_ORDER_HOLDING_ACCOUNTS)

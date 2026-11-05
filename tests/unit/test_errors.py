@@ -525,7 +525,7 @@ APP_FAULT = (
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),
         ("CONFLICT", "statement_id", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
-        ("VALIDATION_ERROR", "balances.acc1.ending_balance_cents", "ACCOUNT_ARCHIVED", False, None),
+        ("VALIDATION_ERROR", "balances.PEN.ending_balance_cents", "ACCOUNT_ARCHIVED", False, None),
         # `t` on an account already of that kind, or archived: the engine's words alone
         ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
         ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),

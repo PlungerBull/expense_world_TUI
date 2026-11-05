@@ -687,7 +687,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
             "account_id",
             "OPENING_BALANCE_ACCOUNT_FIXED",
             "An opening balance stays on its account and in its category.",
-            "An opening balance cannot move to another account.",
+            "Must not move an opening balance to another account or currency.",
             "To move an opening balance, set it on the other account's Edit form.",
         ),
         (
@@ -696,7 +696,7 @@ def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engin
             "category_id",
             "OPENING_BALANCE_CATEGORY_FIXED",
             "An opening balance stays on its account and in its category.",
-            "An opening balance must stay in @Opening.",
+            "Must not move an opening balance out of the opening-balance category.",
             "An opening balance always stays in @Opening.",
         ),
         # pending-hashtag-manage 7 B: `com` + ↵ picks #COMIDA, the second ↵ applies

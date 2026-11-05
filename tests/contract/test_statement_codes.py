@@ -122,11 +122,11 @@ def test_one_account_holds_a_code_whatever_its_currencies(client, scratch):
     """A second live account of the caller's with a code another holds is `409` on
     `statement_code` (`STATEMENT_CODE_EXISTS`), nothing written, on the create and on
     `PUT`, whatever its currencies: a dollar account is refused the code of a soles one.
-    The holder keeps it archived; a deleted account holds no code
+    The account holding it keeps it while archived; a deleted account holds no code
     (contract: "What an account is", "One account per code")
     (contract: PUT /v1/accounts/{account_id})."""
     (code,) = free_statement_codes(client, 1)
-    holder = scratch.account("PEN", code=code)
+    coded_account = scratch.account("PEN", code=code)
     other = scratch.account("PEN", "USD")
 
     def refusals() -> None:
@@ -140,10 +140,10 @@ def test_one_account_holds_a_code_whatever_its_currencies(client, scratch):
             assert_refusal(err, 409, "CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS")
 
     refusals()
-    scratch.archive(holder)
+    scratch.archive(coded_account)
     refusals()
-    client.post(f"/accounts/{holder}/unarchive")
-    client.delete(f"/accounts/{holder}")
+    client.post(f"/accounts/{coded_account}/unarchive")
+    client.delete(f"/accounts/{coded_account}")
     assert _set_code(client, other, code) == code
     assert _code_of(client, other) == code
 

@@ -66,15 +66,6 @@ CLAUDE.md "Specs and tasks".
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
   account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
   line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
-- **Two bulk-edit refusals carry made-up field words.** Nothing you see changes. In
-  [test_tui_bulk_edit.py](../tests/unit/test_tui_bulk_edit.py) the `b` and `c` cases' field words
-  are stand-ins; the engine's are in (contract: "Opening balances stay put").
-- **Part 7's test leftovers.** Nothing you see changes. test_no_read_only_fields.py's sample
-  paths read `/reconciliations/…`; balance refusals in test_tui_reconcile_detail.py and
-  test_errors.py are keyed `balances.<account_id>.…`, where the engine keys them by currency
-  code; docstrings in test_tui_bank_import.py and test_tui_reconciliations.py claim a list is
-  "not by `sort_order`", which the fixture no longer proves; the drift script's note for `l12` is
-  loose; test_statement_codes.py calls the account holding a code `holder`.
 - **The statement screens' live tests say less than they check, and `u` is unpinned.** Nothing
   you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no statement"
   and statement-screen tests' docstrings miss the currency and number they check, and the latter

@@ -249,7 +249,7 @@ def test_new_statement_date_start_is_required(fake_client, monkeypatch):
 
 def test_the_new_form_account_picker_shows_the_engines_order(fake_client, monkeypatch):
     """The account field lists the accounts exactly as `GET /accounts` returned
-    them — not alphabetical, not by `sort_order`; people have no statements, so
+    them — not alphabetical; people have no statements, so
     the person is left out and nothing else moves."""
     monkeypatch.setattr(
         "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_HOLDING_ACCOUNTS)

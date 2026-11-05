@@ -208,13 +208,13 @@ def _statement(**balance) -> dict:
     """Statement r1 as `GET /statements/{id}` reads it: April 2026, a draft of
     acc1, its soles balances a begin of 9,580.00, an end of 9,460.00 and a
     difference of -35.00, `balance` spread over them."""
-    acc1 = {
+    soles = {
         "currency_code": "PEN",
         "beginning_balance_cents": 958000,
         "ending_balance_cents": 946000,
         "difference_cents": -3500,
     }
-    return statement_record({"id": "r1", "balances": [{**acc1, **balance}]})
+    return statement_record({"id": "r1", "balances": [{**soles, **balance}]})
 
 
 #: The statement as the engine holds it, and as the browse opens it.
@@ -227,14 +227,14 @@ REVERT_PATH = "/statements/r1/revert"
 
 #: The dollar balances of statement r1, on an account holding soles and dollars: none of
 #: the soles figures.
-ACC2 = {
+DOLLARS = {
     "currency_code": "USD",
     "beginning_balance_cents": 5000,
     "ending_balance_cents": 7000,
     "difference_cents": 120,
 }
 #: Statement r1 covering both currencies: the dollars first, then the soles as `STATEMENT`'s.
-CARD = statement_record({"id": "r1", "balances": [ACC2, *STATEMENT["balances"]]})
+CARD = statement_record({"id": "r1", "balances": [DOLLARS, *STATEMENT["balances"]]})
 
 
 def _patch(monkeypatch):
@@ -1200,15 +1200,16 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
 
 
 #: The engine's message on a complete of a statement with no transaction on any of its
-#: accounts (the engine's hand-off of 2026-10-28, its section 4).
+#: accounts
+#: (contract: POST /v1/statements/{statement_id}/complete).
 NO_TRANSACTIONS_WORDS = "Cannot complete a statement with no transaction on any of its accounts."
 
 
-def _no_transactions(*accounts: str) -> EngineError:
+def _no_transactions(*currencies: str) -> EngineError:
     """The engine's refusal of a complete with no transaction on any account: keyed
-    `balances.<account_id>.transactions` once for every account of the statement
+    `balances.<currency_code>.transactions` once for every currency of the statement
     (contract: POST /v1/statements/{statement_id}/complete)."""
-    keys = [f"balances.{account}.transactions" for account in accounts]
+    keys = [f"balances.{code}.transactions" for code in currencies]
     fields = dict.fromkeys(keys, "At least one transaction must be assigned.")
     reasons = dict.fromkeys(keys, "NO_TRANSACTIONS_ASSIGNED")
     body = error_body("VALIDATION_ERROR", NO_TRANSACTIONS_WORDS, fields, reasons)
@@ -1217,12 +1218,10 @@ def _no_transactions(*accounts: str) -> EngineError:
     )
 
 
-def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactions(
-    fake_client, monkeypatch
-):
+def test_complete_with_no_transaction_shows_the_engines_words_whole(fake_client, monkeypatch):
     """No ≥1-assigned pre-guard: the confirm opens and the POST fires on a statement
-    covering two currencies. The engine refuses it on every account's
-    `transactions`, and `Couldn't complete` shows its words whole, acc1's line
+    covering two currencies. The engine refuses it on every currency's
+    `transactions`, and `Couldn't complete` shows its words whole, PEN's line
     among them, no line of the app's."""
     _patch(monkeypatch)
     _fresh_read(monkeypatch, CARD)
@@ -1233,7 +1232,7 @@ def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactio
         return cursor_page([])
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
-    err = _no_transactions("acc2", "acc1")
+    err = _no_transactions("USD", "PEN")
     fake_client.errors["POST"] = err
     notices = _notes(monkeypatch)
 
@@ -1252,7 +1251,7 @@ def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactio
             *refusal_text(err, None).splitlines(),
         ]
         assert (
-            "  balances.acc1.transactions: At least one transaction must be assigned."
+            "  balances.PEN.transactions: At least one transaction must be assigned."
             in refusal_text(err, None).splitlines()
         )
         assert complete_refusal(screen)[1] == f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}"
@@ -1338,7 +1337,7 @@ def test_a_gap_on_any_currency_draws_its_line(fake_client, monkeypatch):
     """The close's notes are per balance: a gap on the dollar balance alone is the
     dollars', and the statement's screen draws it."""
     _patch(monkeypatch)
-    balances = [{**ACC2, "warnings": [GAP], "coverage_gap": GAP_DAYS}, CARD["balances"][1]]
+    balances = [{**DOLLARS, "warnings": [GAP], "coverage_gap": GAP_DAYS}, CARD["balances"][1]]
     _complete_with_warnings(fake_client, [], statement={**CARD, "balances": balances})
 
     async def scenario(pilot, app):
@@ -1463,7 +1462,7 @@ CARD_FRESH = statement_record(
         "id": "r1",
         "status": 2,
         "balances": [
-            ACC2,
+            DOLLARS,
             {
                 "currency_code": "PEN",
                 "beginning_balance_cents": 958000,
@@ -1476,7 +1475,7 @@ CARD_FRESH = statement_record(
 
 
 def _detail_lines(mock) -> None:
-    """The checklist's reads on the mocked engine: the statement's line on acc1, and
+    """The checklist's reads on the mocked engine: the statement's line, and
     none in no statement."""
     mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(
         side_effect=lambda request: httpx.Response(
@@ -1660,7 +1659,7 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
 NO_END = NO_END_STATEMENT
 SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
-#: The ending balance's save of 13,853.20 on acc1, in the statement's `balances`.
+#: The ending balance's save of 13,853.20 on the soles, in the statement's `balances`.
 SAVED_BODY = {"balances": [{"currency_code": "PEN", "ending_balance_cents": 1385320}]}
 
 
@@ -1792,8 +1791,8 @@ def test_a_save_on_a_two_currency_statement_names_the_opened_currency_alone(
     naming the soles with the figure and not the dollars; the header then shows the
     soles' entry of the engine's answer, never the dollars' figures."""
     _patch(monkeypatch)
-    no_end = statement_record({"id": "r1", "balances": [ACC2, *NO_END_STATEMENT["balances"]]})
-    saved = statement_record({"id": "r1", "balances": [ACC2, *SAVED_STATEMENT["balances"]]})
+    no_end = statement_record({"id": "r1", "balances": [DOLLARS, *NO_END_STATEMENT["balances"]]})
+    saved = statement_record({"id": "r1", "balances": [DOLLARS, *SAVED_STATEMENT["balances"]]})
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(saved)
 
     async def scenario(pilot, app):
@@ -1952,7 +1951,7 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
     balance (contract: PUT /v1/statements/{statement_id}, "Field locking on COMPLETED"):
     its words whole, no line of the app's, and no complete is asked or sent."""
     _patch(monkeypatch)
-    balance = "balances.acc1.ending_balance_cents"
+    balance = "balances.PEN.ending_balance_cents"
     fake_client.errors["PUT"] = EngineError(
         "VALIDATION_ERROR",
         "Engine words for LOCKED.",
@@ -1988,12 +1987,12 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
 ):
     """Screen 3 A of expense-world-archived-account.html: `c` on a draft with
     no ending balance, opened before its account was archived; the figure's
-    save is refused on the balance sent, `balances.<account_id>.ending_balance_cents`
+    save is refused on the balance sent, `balances.<currency_code>.ending_balance_cents`
     (contract: PUT /v1/statements/{statement_id}, "An archived account").
     `Couldn't save` carries the engine's words and that field's words, no line of the
     app's; nothing is completed and the end stays empty."""
     _patch(monkeypatch)
-    field = "balances.acc1.ending_balance_cents"
+    field = "balances.PEN.ending_balance_cents"
     err = archived_refusal(422, ARCHIVED_FIELD_WORDS, field)
     fake_client.errors["PUT"] = err
     notices = _notes(monkeypatch)
@@ -2027,7 +2026,7 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
     and the next `c` goes straight to the question."""
     _patch(monkeypatch)
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
-    fake_client.errors["POST"] = _no_transactions("acc1")
+    fake_client.errors["POST"] = _no_transactions("PEN")
     _fresh_read(monkeypatch, SAVED_STATEMENT)
     notices = _notes(monkeypatch)
 
@@ -2042,7 +2041,7 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
             "Couldn't complete",
             "The balances are saved. The statement is not completed:",
             f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}",
-            "  balances.acc1.transactions: At least one transaction must be assigned.",
+            "  balances.PEN.transactions: At least one transaction must be assigned.",
         ]
         assert notices == []
         await pilot.pause()
