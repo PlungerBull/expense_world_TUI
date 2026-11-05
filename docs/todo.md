@@ -63,11 +63,6 @@ CLAUDE.md "Specs and tasks".
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
   account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
   line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
-- **The statement screens' live tests say less than they check, and `u` is unpinned.** Nothing
-  you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no statement"
-  and statement-screen tests' docstrings miss the currency and number they check, and the latter
-  writes `"date_asc"` for `UNFILED_SORT`. No test pins that `u` on the Statements browse brings
-  back the shared table's edge and gap and `esc` takes them away.
 - **The flagged lines' screen shares no read with its live test.** Nothing you see changes.
   [reconciliations.py](../expense/tui/screens/reconciliations.py) builds the review-list read
   inline and the live test types it again; decisions.md "A screen's live test reads through the

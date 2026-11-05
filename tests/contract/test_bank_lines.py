@@ -1197,14 +1197,18 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     order) and the account's lines in no statement inside the period (`account_id`,
     `unreconciled=true`, the period's own days, `sort=date_asc`: oldest first), both read
     by `fetch_month_lines`, the screen's own function; a purchase split 60 + 40 is one
-    row of its signed total with its title, day and operation code; a line late on the
-    period's last day is in it and one past it is not. A tick is one `PUT` of `statement_id`
+    row of its signed total (-10000 cents, `-100.00`) with its title, day, operation code,
+    currency `PEN` and its number on the paper (1 for the purchase, 2 for the line late on the
+    30th, -4200 cents), neither of them apart; a line late on the period's last day is in it
+    and one past it is not. A tick is one `PUT` of `statement_id`
     on the one part `line_rows` names, which moves the whole line into the statement, and
-    `null` there takes it out
+    `null` there takes it out. Without the period's days, `unreconciled=true` on the account
+    lists the lines in no statement of any date, oldest first (`UNFILED_SORT`): the two
+    that are not ticked, the 30th of April and the 1st of May, and not the ticked purchase
     (contract: GET /v1/bank-lines)
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
     from expense.formatting import format_short_date
-    from expense.tui.screens.reconciliations import fetch_month_lines, line_rows
+    from expense.tui.screens.reconciliations import UNFILED_SORT, fetch_month_lines, line_rows
 
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)
@@ -1256,9 +1260,9 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
         assert client.get(f"/transactions/{part['id']}")["statement_id"] == recon
 
     # Without the period's days, `unreconciled=true` on the account lists every
-    # line in no statement, any date, oldest first (`sort=date_asc`): the ticked
+    # line in no statement, any date, oldest first (`UNFILED_SORT`): the ticked
     # purchase is not in it.
-    no_statement = fetch_bank_lines(target, account=account, unreconciled=True, sort="date_asc")[
+    no_statement = fetch_bank_lines(target, account=account, unreconciled=True, sort=UNFILED_SORT)[
         "items"
     ]
     assert [line["id"] for line in no_statement] == [
@@ -1280,8 +1284,10 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     any day (`account_id`, `unreconciled=true`, no dates), read by
     `fetch_bank_lines` page by page and counted by `count_bank_lines` with the
     same filter. Oldest first (`UNFILED_SORT`); a purchase split 60 + 40 is one row of its
-    signed total and title; a line ticked into a month is in neither the list
-    nor the count; and the pages add up to the count
+    signed total and title (the split purchase's row reads a blank mark, `2026-06-11`,
+    `FARMACIA`, `—` for its operation, `PEN`, `-100.00`); a line ticked into a month is
+    in neither the list nor the count; the count is 3 and pages of 1, 2 and 10 lines
+    each list those same 3
     (contract: GET /v1/bank-lines) (contract: GET /v1/bank-lines/count)."""
     from expense.tui.screens.reconciliations import UNFILED_FILTER, UNFILED_SORT, unfiled_rows
 

@@ -516,6 +516,37 @@ def test_the_footer_and_u_stay_as_today(monkeypatch):
     }
 
 
+def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypatch):
+    """`u` lays the panel out as the lines in no statement (no side edge, columns two
+    apart, the `!` mark packed to the date); `esc` gives the statements list their own back:
+    no side edge, and on an account with a statement code the Order column's gap of one."""
+    from expense.tui.screens.reconciliations import BROWSE_GAP, ORDER_GAP
+
+    _engine(monkeypatch)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, VISA)
+        lst = screen._batch_list
+
+        def layout() -> tuple:
+            return (lst._edge, lst._gap, lst._lead)
+
+        seen["before"] = layout()
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and not screen._unfiled_busy)
+        seen["unfiled"] = layout()
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: screen._mode == "batches")
+        seen["after"] = layout()
+
+    run_app(scenario, size=(140, 50))
+    assert ORDER_GAP != BROWSE_GAP
+    assert seen["before"] == (False, ORDER_GAP, False)
+    assert seen["unfiled"] == (False, BROWSE_GAP, True)
+    assert seen["after"] == seen["before"]
+
+
 def test_u_then_esc_brings_the_statements_back(monkeypatch):
     """`u` swaps the panel to the open account's rows in no statement; `esc` swaps the
     statements back, their columns and title with them."""
