@@ -133,8 +133,8 @@ CLAUDE.md "Specs and tasks".
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **The shared practice user holds no accounts,** so the tester proves LOG bar and account
-  checks with unit tests only. Nothing you see changes. Needs an engine ask (the reseed gives
-  it one) or a CLAUDE.md change (the tester may make and remove one).
+  checks with unit tests only. Nothing you see changes. Waits on the engine ask "Give the
+  shared practice user an account that every reseed keeps".
 - **The live test of a person's opening balance proves less than it could.** Nothing you see
   changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads `currencies[]` but not
@@ -193,8 +193,8 @@ CLAUDE.md "Specs and tasks".
   `_UNFILED_LAYOUT` writes a literal gap `2` beside checklist.py's `GAP` and is a
   `dict[str, object]` unpacked with `**`; `_panel_gap` repeats `pane_rows`' chrome sum.
   `CursorList`'s `header_rule_span` needs `header_rule=False`, unenforced; `UnderHead` takes
-  `screen_stack[-2]`, not its own place in the stack. Below 66 columns the "no statement" list
-  cuts the amount.
+  `screen_stack[-2]`, not its own place in the stack.
+- **[UI] Below 66 columns the "no statement" list cuts the amount.**
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
   test_create_sent_again.py, test_opening_balance.py (`_seed_body`) and
   test_reserved_name_held.py in [tests/contract/](../tests/contract/) should start from
@@ -216,7 +216,7 @@ CLAUDE.md "Specs and tasks".
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
+- **[UI] The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
   every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
   with a test; the tests pinning today's doubled rows (`CARD_THIS_SCREEN` in
@@ -233,13 +233,13 @@ CLAUDE.md "Specs and tasks".
 - **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
   ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
-  Rows dated by day alone (00:00 in the user's time zone) show right. Decide between showing the
-  day in the user's `display_timezone` and an engine ask for each row's local day.
+  Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
+  "Send each transaction's calendar day with it"; the lists then show that day.
 - **"A transaction is split" is spelled three ways.** `is_split_line` in
   [reconciliations.py](../expense/tui/screens/reconciliations.py) and the inline
   `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
   formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no statement"
-  rows), and the delete question shows `—` for the same untitled line: one fallback everywhere.
+  rows), and the delete question shows `—` for the same untitled line: `(untitled)` everywhere.
 - **A guard against "purchase" in the app's words.** The owner's word is "transaction"
   (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
   fails when a user-visible string in `expense/` says "purchase". Code comments and docstrings
