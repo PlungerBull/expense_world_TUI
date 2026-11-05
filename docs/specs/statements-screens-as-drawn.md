@@ -74,6 +74,7 @@ smaller differences from the approved drawing, which it listed rather than built
 |---|---|---|
 | 1 | "batch" on the Statements screens? | A: "statement": `In no statement`, `u No statement`, `(no transactions in this statement)` (2026-11-03). |
 | 2 | Below 24 rows? [expense-world-leftover-picks.html](../mockups/expense-world-leftover-picks.html) pane 2 | A: kept; a terminal too small is the user's to make bigger, and the accounts list keeps its rows (2026-11-03). |
+| 3 | A covered currency with no difference yet: blank or a dim `—`? | Blank, as drawn: a dim `—` means the currency adds up. What it must do 4 and done-check 3 are dropped (2026-11-05). |
 
 ---
 
@@ -83,9 +84,7 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-7. **Two small words** (What it must do 4 and 8): a covered currency with no difference yet
-   shows a dim `—`; on a two-currency New statement form an unreadable amount's note names its
-   currency (`Begin balance USD: a signed decimal…`).
+All done; the acceptance check runs next.
 
 ## Found along the way
 
@@ -125,3 +124,7 @@ Not built in this spec; drafted into a new spec when it is done.
   test_tui_statement_screen.py captures the rows once `#rnote` shows and, after esc, waits on
   `_page_is_whole`; waiting for the row count to grow would pin it. test_tui_statement_balances.py
   keeps `NOVIEMBRE` as an alias of `NOVIEMBRE_IBK`.
+- **`unreadable_note`'s small leftovers.** Nothing you see changes. Its docstring in
+  reconciliations.py says "the batch screen"; its `toast(` call spreads a short argument list
+  over five lines; tui.md's line quoting the notes (around line 1498) runs to about 120
+  characters.

@@ -346,3 +346,30 @@ def test_every_hint_fits_one_row_at_80_columns(fake_client):
             await app.pop_screen()
 
     run_app(scenario)
+
+
+def test_an_unreadable_balance_names_its_currency_on_a_two_currency_form(fake_client):
+    """The note carries the code the line's label carries, so USD's reads as USD's."""
+
+    async def scenario(pilot, app):
+        screen = _visa()
+        await app.push_screen(screen)
+        notes: list[str] = []
+        screen.notify = lambda message, **kw: notes.append(str(message))
+        _head(screen)
+        _enter(screen, "abc")  # begin:PEN
+        assert screen._key == "begin:PEN"
+        screen.action_field(1)  # end:PEN
+        screen.action_field(1)  # begin:USD
+        assert screen._key == "begin:USD"
+        _enter(screen, "abc")
+        screen.action_field(1)  # end:USD
+        assert screen._key == "end:USD"
+        _enter(screen, "abc")
+        assert notes == [
+            "Begin balance PEN: a signed decimal, e.g. 9580.00",
+            "Begin balance USD: a signed decimal, e.g. 9580.00",
+            "End balance USD: a signed decimal, e.g. 9460.00",
+        ]
+
+    run_app(scenario)

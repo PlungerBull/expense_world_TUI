@@ -1088,16 +1088,21 @@ _R_HINTS = {
     "date_start": "YYYY-MM-DD · the statement's first day · it orders the statement",
     "date_end": "YYYY-MM-DD · the statement's last day",
 }
-_BEGIN_UNREADABLE = "Begin balance: a signed decimal, e.g. 9580.00"
-#: The note for an ending balance the money parser cannot read — the New
-#: Statement form's and the batch screen's ending-balance box.
-_END_UNREADABLE = "End balance: a signed decimal, e.g. 9460.00"
 _DATES = {"date_start", "date_end"}
 
 
 def balance_key(kind: str, code: str) -> str:
     """The form line of a currency's `begin` or `end` balance: `begin:PEN`."""
     return f"{kind}:{code}"
+
+
+def unreadable_note(kind: str, code: str) -> str:
+    """The note for a `begin` or `end` balance the money parser cannot read, naming
+    its currency like the form's line label: `Begin balance USD: a signed decimal,
+    e.g. 9580.00`. The New statement form and the batch screen's balance boxes
+    share it."""
+    example = "9580.00" if kind == "begin" else "9460.00"
+    return f"{kind.capitalize()} balance {code}: a signed decimal, e.g. {example}"
 
 
 def balance_label(kind: str, code: str) -> str:
@@ -1290,7 +1295,7 @@ class NewReconciliationScreen(FormScreen):
                 if cents is None:
                     toast(
                         self,
-                        _BEGIN_UNREADABLE if line[0] == "begin" else _END_UNREADABLE,
+                        unreadable_note(*line),
                         severity="error",
                     )
                     return
@@ -1951,13 +1956,13 @@ class ReconciliationDetailScreen(
             title, message, unreadable = (
                 "Starting balance first",
                 f"The statement's opening figure for {where}",
-                _BEGIN_UNREADABLE,
+                unreadable_note("begin", currency),
             )
         else:
             title, message, unreadable = (
                 "Ending balance first",
                 f"The statement's closing figure for {where}",
-                _END_UNREADABLE,
+                unreadable_note("end", currency),
             )
 
         def typed_in(cents: int | None) -> None:
