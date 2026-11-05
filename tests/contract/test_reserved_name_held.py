@@ -47,7 +47,6 @@ and the real-ledger guard: conftest.py.
 
 from collections.abc import Callable
 from datetime import date
-from uuid import uuid4
 
 import pytest
 
@@ -212,12 +211,7 @@ def test_deleting_a_transactions_only_hashtag_is_refused(reserved_client, made):
 
 def test_an_opening_balance_needing_opening_is_refused(reserved_client, made):
     account = made.account()
-    body = {
-        "transaction_id": str(uuid4()),
-        "currency_code": "PEN",
-        "amount_cents": 50000,
-        "date": made.noon(DAY),
-    }
+    body = made.opening_balance_body(DAY)
     made.transactions.append(body["transaction_id"])
     _refused_writing_nothing(
         reserved_client,

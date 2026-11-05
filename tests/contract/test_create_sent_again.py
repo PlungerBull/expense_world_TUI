@@ -81,15 +81,10 @@ def test_a_landed_opening_balance_sent_again_answers_id_exists(client, scratch):
     (contract: POST /v1/accounts/{account_id}/opening-balance)
     (contract: "Base Conventions", "Which refusal comes first on a create")."""
     account = scratch.account()
-    seed_id = str(uuid4())
+    seed = scratch.opening_balance_body("2026-04-14")
+    seed_id = seed["transaction_id"]
     scratch.transactions.append(seed_id)
     path = f"/accounts/{account}/opening-balance"
-    seed = {
-        "transaction_id": seed_id,
-        "currency_code": "PEN",
-        "amount_cents": 50000,
-        "date": scratch.noon("2026-04-14"),
-    }
     client.post(path, json_body=seed)
 
     err = refused(lambda: client.post(path, json_body=seed))

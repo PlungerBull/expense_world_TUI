@@ -26,8 +26,6 @@ What it pins, in the order the form meets it:
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from uuid import uuid4
-
 from tests.contract.conftest import assert_refusal, assert_refusals, refused
 
 DAY = "2026-01-01"
@@ -39,12 +37,17 @@ def _ids(client, account_id: str) -> dict[str, str | None]:
     return {entry["currency_code"]: entry["opening_balance_transaction_id"] for entry in held}
 
 
-def _seed_body(scratch, currency: str | None, **fields) -> dict:
-    """An opening-balance body under a fresh transaction id, with `currency` named when given."""
-    body = {"transaction_id": str(uuid4()), "amount_cents": 1000, "date": scratch.noon(DAY)}
-    if currency is not None:
-        body["currency_code"] = currency
-    return {**body, **fields}
+def _no_currency(scratch) -> dict:
+    """A seed body that names no `currency_code`."""
+    body = scratch.opening_balance_body(DAY, amount_cents=1000)
+    del body["currency_code"]
+    return body
+
+
+def _post_new_seed(client, scratch, account_id: str, currency: str):
+    """Posts an opening balance of `currency` under a fresh transaction id."""
+    body = scratch.opening_balance_body(DAY, currency, 1000)
+    return _post_seed(client, account_id, body)
 
 
 def _post_seed(client, account_id: str, body: dict):
@@ -144,15 +147,14 @@ def test_a_seed_names_a_currency_the_account_holds(client, scratch):
     "Validation")."""
     account_id = scratch.account("PEN")
 
-    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, None)))
+    err = refused(lambda: _post_seed(client, account_id, _no_currency(scratch)))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
 
     for unsupported in ("usd", "EUR"):
-        body = _seed_body(scratch, unsupported)
-        err = refused(lambda body=body: _post_seed(client, account_id, body))
+        err = refused(lambda u=unsupported: _post_new_seed(client, scratch, account_id, u))
         assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "UNSUPPORTED_VALUE")
 
-    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "USD")))
+    err = refused(lambda: _post_new_seed(client, scratch, account_id, "USD"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
     assert err.fields["currency_code"] == "Must be a currency the account holds."
 
@@ -168,7 +170,7 @@ def test_one_opening_balance_per_currency_and_each_named_by_its_own_entry(client
     account_id = scratch.account("PEN", "USD")
     scratch.opening_balance(account_id, DAY, "PEN")
 
-    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "PEN")))
+    err = refused(lambda: _post_new_seed(client, scratch, account_id, "PEN"))
     assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
 
     scratch.opening_balance(account_id, DAY, "USD", -7000)
@@ -177,7 +179,7 @@ def test_one_opening_balance_per_currency_and_each_named_by_its_own_entry(client
     for code, tx_id in ids.items():
         assert client.get(f"/transactions/{tx_id}")["currency_code"] == code
 
-    err = refused(lambda: _post_seed(client, account_id, _seed_body(scratch, "USD")))
+    err = refused(lambda: _post_new_seed(client, scratch, account_id, "USD"))
     assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
     assert _ids(client, account_id) == ids
 
@@ -204,7 +206,7 @@ def test_a_person_takes_one_opening_balance_per_currency(client, scratch, status
     assert (seeded["account_id"], seeded["currency_code"]) == (person_id, "PEN")
     assert client.get(f"/categories/{seeded['category_id']}")["system_key"] == "opening_balance"
 
-    err = refused(lambda: _post_seed(client, person_id, _seed_body(scratch, "PEN")))
+    err = refused(lambda: _post_new_seed(client, scratch, person_id, "PEN"))
     assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
     assert _ids(client, person_id) == {"PEN": tx_id, "USD": None}
 

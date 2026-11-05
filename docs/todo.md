@@ -73,11 +73,6 @@ CLAUDE.md "Specs and tasks".
   returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
   type it as `_UnfiledLayout` is.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.**
-- **Three live files still build an opening balance's body by hand.** Nothing you see changes.
-  test_create_sent_again.py, test_opening_balance.py (`_seed_body`) and
-  test_reserved_name_held.py in [tests/contract/](../tests/contract/) should start from
-  `Scratch.opening_balance_body` and change only what their refusal needs. Done when the three
-  pass against the practice engine, leaving nothing on either practice user.
 - **Three small finds in the practice engine's start script and the drift script.** The `$!`
   comment calls the launcher's pid "the backgrounded subshell" and runs past 100 characters; the
   guard's launcher-name exemption passes a name built at run time (its docstring states the
