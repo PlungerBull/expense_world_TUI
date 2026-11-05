@@ -1482,7 +1482,7 @@ statement has a place in its order
 ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
 A complete with no transaction in any currency is refused as `NO_TRANSACTIONS_ASSIGNED` on
 each currency's `balances.<currency>.transactions`, and `Couldn't complete` shows the engine's
-words whole.
+words whole (below).
 
 **`c` needs every balance**: the engine completes no statement with a balance blank
 (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
@@ -1512,7 +1512,11 @@ the same boxes, empty, for the currency the engine names (`balances_named`, read
 refusal's `reasons` keys `balances.<currency>[.<field>]`): the named balance's box, or for a
 currency not covered its starting then its ending balance. A currency with no movement closes
 the same way, its ending balance typed and the engine judging it. Then the question asks
-again. A refused save shows `Couldn't save` with the engine's words. A refused complete after a
+again. Every refused complete shows `Couldn't complete` and the engine's words whole as
+lines between the head and the list, each wrapping under its own first word, and no toast; they
+stand until the next key, which a box open under them counts too (a character typed, `⏎`,
+`esc`), and the box then moves up to where it stands without them. A refused save shows
+`Couldn't save` with the engine's words. A refused complete after a
 save in the same `c` puts the line `The balances are saved. The statement is not completed:`
 above the engine's words, and the screen reads the statement fresh, so the head and the next
 `c` go by what the engine holds.

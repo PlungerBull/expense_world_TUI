@@ -281,6 +281,11 @@ ReconciliationsScreen #batches {
     padding: 0;
 }
 
+/* A refused complete's lines stand a blank line under the head. */
+ReconciliationDetailScreen #rnote {
+    margin: 1 0 0 0;
+}
+
 /* A statement's `⚑` line stands two cells in, its second line under its first. */
 ReconciliationDetailScreen #rflag {
     padding: 0 0 0 2;

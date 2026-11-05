@@ -23,6 +23,7 @@ from expense.tui.screens.reconciliations import (
 )
 from tests.unit.helpers import (
     bank_line_row,
+    complete_refusal,
     cursor_page,
     import_part,
     run_app,
@@ -374,12 +375,12 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
         await pilot.press("y")
         await wait_for(pilot, lambda: _is_box(app))
         await pilot.pause()
-        assert notices[0] == (
+        assert complete_refusal(screen) == [
             "Couldn't complete",
-            "VALIDATION_ERROR — Engine words for MONEY_AT_START_NOT_COVERED.\n"
+            "VALIDATION_ERROR — Engine words for MONEY_AT_START_NOT_COVERED.",
             "  balances.USD: Engine field words.",
-            "error",
-        )
+        ]
+        assert notices == []
         assert _lines(app) == _starting("USD")
         await _type_in(pilot, "-24.99")
         await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
@@ -455,12 +456,119 @@ def test_a_refusal_naming_no_balance_opens_no_box(fake_client, monkeypatch):
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
-        await pilot.pause()
+        await wait_for(pilot, lambda: complete_refusal(screen))
+        assert complete_refusal(screen)[0] == "Couldn't complete"
+        assert notices == []
         assert app.screen is screen
         assert fake_client.puts == []
+        await pilot.press("down")  # the next key takes the lines away
+        assert complete_refusal(screen) is None
 
     run_app(scenario, size=(80, 26))
+
+
+# ---- the refusal under the head, as pane 6 draws it ---------------------------------
+
+#: The engine's sentences as pane 6 draws them (stand-ins for the engine's own words).
+_ENGINE_WORDS = "Every currency with money at the start needs balances in the statement."
+_FIELD_WORDS = (
+    "USD has -24.99 at the statement's start, and the statement holds no balances for it."
+)
+
+
+def _money_at_start_in_words() -> EngineError:
+    return EngineError(
+        "MONEY_AT_START_NOT_COVERED",
+        _ENGINE_WORDS,
+        {"balances.USD": _FIELD_WORDS},
+        422,
+        {},
+        {"balances.USD": "MONEY_AT_START_NOT_COVERED"},
+    )
+
+
+_NOVIEMBRE_HEAD = [
+    "  Noviembre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft",
+    "            begin          end      diff",
+    "  PEN     -348.60      -512.90",
+]
+
+
+async def _refused_with_the_box_up(pilot, app) -> ReconciliationDetailScreen:
+    screen = await _open(pilot, app, NOVIEMBRE)
+    await pilot.press("c")
+    await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+    await pilot.press("y")
+    await wait_for(pilot, lambda: _is_box(app))
+    await pilot.pause()
+    return screen
+
+
+def test_pane_6_the_refusal_stands_between_the_head_and_the_box_at_80x24(fake_client, monkeypatch):
+    """The engine names a currency the draft does not cover: `Couldn't complete` and the
+    engine's code, message and field line, each wrapping under its own first word, stand
+    between the head's last currency row and the box's top rule, the box below them,
+    and nothing in the corner."""
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    notices = _notes(monkeypatch)
+    fake_client.errors["POST"] = _money_at_start_in_words()
+
+    async def scenario(pilot, app):
+        await _refused_with_the_box_up(pilot, app)
+        assert _under_head(app) == [
+            *_NOVIEMBRE_HEAD,
+            "",
+            "  Couldn't complete",
+            "  MONEY_AT_START_NOT_COVERED — Every currency with money at the start needs",
+            "  balances in the statement.",
+            "    balances.USD: USD has -24.99 at the statement's start, and the statement",
+            "    holds no balances for it.",
+            "",
+            RULE,
+            "",
+            *[("    " + line).rstrip() for line in _starting("USD", "")[:3]],
+            "",
+            "    [enter] save    [esc] cancel",
+            "",
+            RULE,
+            " esc Cancel",
+        ]
+        assert notices == []
+
+    run_app(scenario, size=(80, 24))
+
+
+@pytest.mark.parametrize("key", ["5", "enter", "escape"])
+def test_the_next_key_takes_the_refusal_away_and_the_box_keeps_its_place(
+    fake_client, monkeypatch, key
+):
+    """The first character typed, `enter` and `esc` each remove the lines; the box moves
+    up to where it stands without them and still works."""
+    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
+    _notes(monkeypatch)
+    fake_client.errors["POST"] = _money_at_start_in_words()
+
+    async def scenario(pilot, app):
+        screen = await _refused_with_the_box_up(pilot, app)
+        assert complete_refusal(screen)[0] == "Couldn't complete"
+        await pilot.press(key)
+        await pilot.pause()
+        assert complete_refusal(screen) is None
+        if key == "escape":
+            assert app.screen is screen
+            return
+        typed = "5" if key == "5" else ""
+        assert _is_box(app)
+        assert _under_head(app) == _pane6(
+            _NOVIEMBRE_HEAD,
+            [*_starting("USD")[:3], typed, "[enter] save    [esc] cancel"],
+            " esc Cancel",
+        )
+        if key == "5":
+            await pilot.press("enter")
+            await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
+
+    run_app(scenario, size=(80, 24))
 
 
 # ---- a refused save -------------------------------------------------------------------
@@ -515,16 +623,20 @@ def test_a_complete_refused_after_the_save_says_the_balances_are_saved(fake_clie
     )
 
     async def scenario(pilot, app):
-        await _open(pilot, app, OCTUBRE)
+        screen = await _open(pilot, app, OCTUBRE)
         await _press_c(pilot, app)
         await _type_in(pilot, "0.00")
         await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
         await _type_in(pilot, "0.00")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
-        assert notices[0][0] == "Couldn't complete"
-        assert notices[0][1].startswith(f"{SAVED_WORDS}\nVALIDATION_ERROR — Engine words.")
+        await wait_for(pilot, lambda: complete_refusal(screen))
+        assert complete_refusal(screen)[:3] == [
+            "Couldn't complete",
+            SAVED_WORDS,
+            "VALIDATION_ERROR — Engine words.",
+        ]
+        assert notices == []
 
     run_app(scenario, size=(80, 26))
 

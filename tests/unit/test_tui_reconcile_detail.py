@@ -31,6 +31,7 @@ from tests.unit.helpers import (
     ENGINE_URL,
     archived_refusal,
     bank_line_row,
+    complete_refusal,
     cursor_page,
     edit_limits,
     error_body,
@@ -1179,16 +1180,16 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
         await pilot.press(key)
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
+        words = f"CONFLICT — {ARCHIVED_FIELD_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}"
+        if verb == "complete":  # a refused complete is lines under the head, not a toast
+            await wait_for(pilot, lambda: complete_refusal(screen))
+            assert complete_refusal(screen) == ["Couldn't complete", *words.splitlines()]
+            assert notices == []
+        else:
+            await wait_for(pilot, lambda: notices)
+            assert notices == [(f"Couldn't {verb}", words, "error")]
         await pilot.pause()
-        assert notices == [
-            (
-                f"Couldn't {verb}",
-                f"CONFLICT — {ARCHIVED_FIELD_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}",
-                "error",
-            )
-        ]
-        assert notices[0][1] == refusal_text(err, None)
+        assert words == refusal_text(err, None)
         assert app.screen is screen
         assert screen._record["status"] == 1 and not screen._busy
         assert screen._list.checked == {"l1"}
@@ -1243,14 +1244,18 @@ def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactio
         await pilot.press("c")  # no pre-block: confirm opens
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: complete_refusal(screen))
         assert fake_client.posts == [(COMPLETE_PATH, None)]
-        assert notices[0] == ("Couldn't complete", refusal_text(err, None), "error")
+        assert complete_refusal(screen) == [
+            "Couldn't complete",
+            *refusal_text(err, None).splitlines(),
+        ]
         assert (
             "  balances.acc1.transactions: At least one transaction must be assigned."
-            in notices[0][1].splitlines()
+            in refusal_text(err, None).splitlines()
         )
-        assert notices[0][1].splitlines()[0] == f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}"
+        assert complete_refusal(screen)[1] == f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}"
+        assert notices == []  # nothing in the corner
 
     run_app(scenario)
 
@@ -2031,14 +2036,14 @@ def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
-        assert notices[0] == (
+        await wait_for(pilot, lambda: complete_refusal(screen))
+        assert complete_refusal(screen) == [
             "Couldn't complete",
-            "The balances are saved. The statement is not completed:\n"
-            f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}\n"
+            "The balances are saved. The statement is not completed:",
+            f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}",
             "  balances.acc1.transactions: At least one transaction must be assigned.",
-            "error",
-        )
+        ]
+        assert notices == []
         await pilot.pause()
         head = shown(screen.query_one("#rhead", Static))
         assert _head_row(screen, "PEN")[:3] == ["PEN", "9,580.00", "13,853.20"]
@@ -2082,11 +2087,12 @@ def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_bo
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
-        assert notices[0] == (
+        assert complete_refusal(screen) == [
             "Couldn't complete",
-            f"VALIDATION_ERROR — {words}\n  {field}: Must be entered before completing.",
-            "error",
-        )
+            f"VALIDATION_ERROR — {words}",
+            f"  {field}: Must be entered before completing.",
+        ]
+        assert notices == []
         await wait_for(pilot, lambda: _end(screen) is None)
         # the head as it stands for a missing end: a dim `—`, the difference blank
         assert _head_row(screen, "PEN") == ["PEN", "9,580.00", "—"]

@@ -83,8 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-4. **`c`'s refusal under the head** (What it must do 3): `Couldn't complete` and the engine's
-   words as lines between the head and the balance box, no toast, gone at the next key.
 5. **`c`'s boxes wrap** (What it must do 6): below 64 columns a box's words wrap instead of
    being cut; tested at 60 columns.
 6. **The `⚑` line keeps the page line** (What it must do 5): the list is sized after the `⚑`
@@ -117,3 +115,6 @@ Not built in this spec; drafted into a new spec when it is done.
   `header_rule_span` says it needs `header_rule=False` but nothing enforces it; tui.md's browse
   paragraph names `ACCOUNT_NAME_WIDTH`, leaves unclear which list loses a row to the gap, and does
   not say the `u` list shares the 60-wide rule.
+- **The box under a statement's head.** Nothing you see changes. `UnderHead` in modals.py takes
+  `screen_stack[-2]` as the screen below it, where `stack[stack.index(self) - 1]` says so
+  outright; tui.md's paragraph on a refused complete (around line 1515) is ragged.

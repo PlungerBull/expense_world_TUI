@@ -1307,6 +1307,18 @@ def screen_lines(app) -> list[str]:
     return [strip.text.rstrip() for strip in app.screen._compositor.render_strips()]
 
 
+def complete_refusal(screen) -> list[str] | None:
+    """A statement's screen's refused complete as drawn between the head and the list:
+    `Couldn't complete`, then the engine's words, a line each as the engine sent it
+    (laid out wide enough that none wraps), the two-cell indent off; None while no
+    refusal is shown."""
+    note = screen.query_one("#rnote")
+    if not note.display:
+        return None
+    text = render_text(note.content, width=500)
+    return [line.rstrip().removeprefix("  ") for line in text.splitlines()]
+
+
 def toasts_shown(app) -> list[str]:
     """What each toast on the screen shows, its title and its message as drawn,
     oldest first. Needs `run_app(..., toasts=True)`.

@@ -1660,12 +1660,14 @@ class ReconciliationDetailScreen(
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
         yield Static("", id="rhead")
+        yield Static("", id="rnote")  # a refused complete's words; hidden until the next key
         yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
         yield Static("", id="rflag")  # the flagged lines; hidden until a complete flags one
         yield Container(id="rlist")
         yield FittingFooter()
 
     def on_mount(self) -> None:
+        self.query_one("#rnote", Static).display = False
         self.query_one("#rwarn", Static).display = False
         self.query_one("#rflag", Static).display = False
         self._render_header()
@@ -1854,6 +1856,10 @@ class ReconciliationDetailScreen(
             error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
         )
 
+    def on_key(self, _event) -> None:
+        """The next key takes a refused complete's lines away."""
+        self._clear_refusal()
+
     def _is_tick(self, write) -> bool:
         return write.on_success == self._assigned
 
@@ -1957,7 +1963,13 @@ class ReconciliationDetailScreen(
             self._ask_balances(rest, {**typed, (currency, kind): cents})
 
         self.app.push_screen(
-            AmountPromptModal(title, message, unreadable=unreadable, under=self._below_head),
+            AmountPromptModal(
+                title,
+                message,
+                unreadable=unreadable,
+                under=self._below_head,
+                touched=self._clear_refusal,
+            ),
             typed_in,
         )
 
@@ -2155,8 +2167,11 @@ class ReconciliationDetailScreen(
     def _action_failed(self, message: str, verb: str, failure: Exception | None = None) -> None:
         self._busy = False
         done = verb.split()[0]
-        toast(self, message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
-        if verb == "completed":
+        title = f"Couldn't {_UNDONE.get(done, done)}"
+        if verb != "completed":
+            toast(self, message, title=title, severity="error")
+        else:
+            self._show_refusal(title, message)
             # Read the statement fresh: a refusal can say what the screen
             # last read is out of date (an ending balance cleared elsewhere),
             # and the next `c` decides on the header it shows.
@@ -2165,6 +2180,30 @@ class ReconciliationDetailScreen(
             asks = balances_named(failure) if failure is not None else []
             if asks:
                 self._ask_balances(asks, {})
+
+    def _show_refusal(self, title: str, message: str) -> None:
+        """A refused complete as lines between the head and the list, or the box that
+        opens under them: `title`, then the engine's words as sent, each line wrapping
+        under its own first word, until the next key."""
+        words = [
+            # a line the engine's words indent wraps under its own first word
+            under_itself(
+                Text("  " + line[: len(line) - len(line.lstrip())]),
+                Text(line.lstrip(), style="dim"),
+            )
+            for line in message.split("\n")
+        ]
+        note = self.query_one("#rnote", Static)
+        note.update(Group(Text(f"  {title}", style=f"bold {PALETTE.error}"), *words))
+        note.display = True
+        self.call_after_refresh(self._refit_list)
+
+    def _clear_refusal(self) -> None:
+        note = self.query_one("#rnote", Static)
+        if note.display:
+            note.display = False
+            note.update("")
+            self.call_after_refresh(self._refit_list)
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False

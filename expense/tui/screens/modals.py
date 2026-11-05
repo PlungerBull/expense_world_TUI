@@ -33,6 +33,10 @@ class UnderHead:
         if self._under is None:
             return
         self.add_class("under-head")  # type: ignore[attr-defined]
+        # the box follows every layout of the screen under it (its head grew, a note
+        # above its list came or went); the signal drops the box once it is gone
+        below = self.app.screen_stack[-2]  # type: ignore[attr-defined]
+        below.screen_layout_refresh_signal.subscribe(self, lambda _screen: self._place())
         self._place()
         self.call_after_refresh(self._place)  # type: ignore[attr-defined]
 
@@ -160,6 +164,18 @@ class PickModal(ModalScreen[str | None]):
 _T = TypeVar("_T")
 
 
+class _TouchedInput(Input):
+    """The box's input, telling `touched` of every key before it does what it does."""
+
+    def __init__(self, *args, touched: Callable[[], None] | None = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._touched = touched
+
+    def on_key(self, _event) -> None:
+        if self._touched is not None:
+            self._touched()
+
+
 class PromptBox(UnderHead, ModalScreen[_T]):
     """One line typed in a box: the title, an optional dim message, the input
     and `[enter] save    [esc] cancel`. `esc` cancels (None). Each subclass
@@ -175,10 +191,12 @@ class PromptBox(UnderHead, ModalScreen[_T]):
         value: str = "",
         password: bool = False,
         under: Callable[[], int] | None = None,
+        touched: Callable[[], None] | None = None,
     ) -> None:
-        """`under`: see `UnderHead`."""
+        """`under`: see `UnderHead`. `touched` is called on every key typed in the box."""
         super().__init__()
         self._title = title
+        self._touched = touched
         self._message = message
         self._value = value
         self._password = password
@@ -188,7 +206,11 @@ class PromptBox(UnderHead, ModalScreen[_T]):
         rows = [*self._lead(), Static(Text(self._title), classes="modal-title")]
         if self._message:
             rows.append(Static(Text(self._message, style="dim")))
-        rows.append(Input(value=self._value, password=self._password, id="prompt"))
+        rows.append(
+            _TouchedInput(
+                value=self._value, password=self._password, id="prompt", touched=self._touched
+            )
+        )
         rows.append(Static(Text("[enter] save    [esc] cancel", style="dim")))
         yield Vertical(*rows, *self._tail(), id="modal")
         yield Footer()
@@ -236,8 +258,9 @@ class AmountPromptModal(PromptBox[int | None]):
         *,
         unreadable: str,
         under: Callable[[], int] | None = None,
+        touched: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__(title, message, under=under)
+        super().__init__(title, message, under=under, touched=touched)
         self._unreadable = unreadable
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
