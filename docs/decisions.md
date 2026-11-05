@@ -458,7 +458,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Context.** The engine coders work in the same checkout the practice engine runs from. A practice engine started from that working tree serves their unfinished work, including contract versions that never ship, and fails to restart while the checkout is mid-edit.
 
-**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). The drift script records a contract version only when the served contract's own change log lists it, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
+**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). The drift script records a contract version only when it is the first entry of the served contract's own change log, the entry the contract says is always the current version, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
 
 **Rejected.** *Starting uvicorn from the checkout with its own Python* — it serves whatever the checkout holds, half-built work included. *Trusting the served version alone* — a draft looks like any other version until it never ships.
 

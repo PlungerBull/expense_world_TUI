@@ -20,8 +20,8 @@ makes the target explicit.
 CONTRACT VERSION. Every run also compares the engine's `info.version` with the one
 saved in `scripts/engine-contract-version`, fails when they differ and prints what
 moved; the rules live in docs/runtime.md "Contract version". Saving a new
-version is its own step, refused for a version the contract's change log does not
-list:
+version is its own step, refused unless the version is the first entry of the
+contract's change log:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
@@ -266,17 +266,22 @@ def changelog(doc: dict) -> list | None:
 
 
 def is_listed(doc: dict, engine: str) -> bool:
-    """Whether the contract's change log lists `engine`, so it is a released version.
+    """Whether the contract's change log lists `engine` anywhere, so it is a released version.
 
     False when the log is absent or malformed (any entry not an object with a string
-    `version`), as well as when no entry is `engine`: a version is recorded only
-    when the log can be trusted to say it shipped."""
+    `version`), as well as when no entry is `engine`. Recording needs more: `is_current`."""
     log = changelog(doc)
     if log is None:
         return False
     if not all(isinstance(e, dict) and isinstance(e.get("version"), str) for e in log):
         return False
     return any(entry["version"] == engine for entry in log)
+
+
+def is_current(doc: dict, engine: str) -> bool:
+    """Whether `engine` is the change log's first entry, the only version that is recorded
+    (contract: "Base Conventions", "The contract")."""
+    return is_listed(doc, engine) and doc["x-changelog"][0]["version"] == engine
 
 
 def changes_since(doc: dict, saved: str, engine: str) -> list[dict] | None:
@@ -521,7 +526,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             f"save the engine's current contract version to scripts/{SAVED_VERSION_FILE.name} "
-            "when the contract's change log lists it, and check nothing else"
+            "when it is the first entry of the contract's change log, and check nothing else"
         ),
     )
     args = parser.parse_args(argv)
@@ -532,11 +537,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.record_version:
         saved = read_saved_version()
-        if not is_listed(doc, engine_version):
+        if not is_current(doc, engine_version):
+            why = (
+                "lists it but not as its first entry, so it is not the engine's current release"
+                if is_listed(doc, engine_version)
+                else "does not list it, or the log is missing or unreadable, so it may be a "
+                "draft that never shipped"
+            )
             print(
-                f"not recorded: the engine serves contract version {engine_version}, which "
-                "the contract's change log (x-changelog) does not list, or the log is missing "
-                "or unreadable, so it may be a draft that never shipped. "
+                f"not recorded: the engine serves contract version {engine_version}, and the "
+                f"contract's change log (x-changelog) {why}. "
                 f"The saved version stays {saved or 'none'}."
             )
             return 1

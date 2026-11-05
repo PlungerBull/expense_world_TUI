@@ -306,6 +306,20 @@ def test_record_version_refuses_a_version_the_change_log_does_not_list(drift, ca
 
 
 @respx.mock
+def test_record_version_refuses_a_version_listed_but_not_first(drift, capsys):
+    _serve(MOVED, LOG)  # LOG's first entry is NEWEST; MOVED is listed second
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE, "--record-version"]) == 1
+    assert drift.SAVED_VERSION_FILE.read_text() == SAVED + "\n"
+    out = capsys.readouterr().out
+    assert f"not recorded: the engine serves contract version {MOVED}" in out
+    assert "lists it but not as its first entry" in out
+    assert f"The saved version stays {SAVED}." in out
+    assert "recorded contract version" not in out
+
+
+@respx.mock
 def test_record_version_refused_with_no_saved_version_writes_no_file(drift, capsys):
     _serve(DRAFT, LOG)
 

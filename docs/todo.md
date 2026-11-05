@@ -73,10 +73,6 @@ CLAUDE.md "Specs and tasks".
   returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
   type it as `_UnfiledLayout` is.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.**
-- **Three small finds in the practice engine's start script and the drift script.** The `$!`
-  comment calls the launcher's pid "the backgrounded subshell" and runs past 100 characters; the
-  guard's launcher-name exemption passes a name built at run time (its docstring states the
-  limit); `--record-version` takes a version listed anywhere in the change log, untested.
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in

@@ -57,7 +57,7 @@ What it blocks:
   allowed: the ops guide does not give it to the tester.
 - **The practice-engine script** (`scripts/practice-engine`, "Stay inside this repo"): every agent
   may run it, but a Bash command that names it (`practice-engine` anywhere in its text, in any
-  case, but for the launcher's name `client-practice-engine`, or a word resolving, symlinks
+  case, but for the launcher's file name `client-practice-engine.sh`, or a word resolving, symlinks
   followed, to the script) passes only as one exact
   shape, the whole command and nothing else: `scripts/practice-engine up` or `… down` (or
   `./scripts/…`, both from the repo root, or the repo's absolute path from anywhere in
@@ -139,7 +139,9 @@ describes. What passes:
   script, so the script's own text (reviewed like any change) is what keeps it on `:8002`
   and its environment clean (`bash -p`, every inherited variable unset);
 - the script reached under a name the guard cannot see: built at run time (a variable,
-  a substitution, `bash -c` text assembled from parts), a `~` glob, a
+  a substitution, `bash -c` text assembled from parts such as `x=practice-engin;
+  scripts/${x}e`; a name carrying the launcher's `client-practice-engine` is seen, as only
+  its `.sh` file name is exempt), a `~` glob, a
   hard link, or a copy or link made without naming it (`cp -r scripts x`,
   a link to the `scripts` folder). Quotes and escapes inside the name
   (`pract''ice-engine`) and a glob that matches it (`scripts/practice-engin?`) are seen.
@@ -235,8 +237,8 @@ _SHELL_STATE = frozenset(
 _EXPANSION = re.compile(r"\$[\w{(]")
 _GREP_FLAGS = re.compile(r"-[viEFocqxw]+")
 _PRACTICE_NAME = "practice-engine"
-# The script's name, not as the tail of the engine launcher's `client-practice-engine`.
-_PRACTICE_MENTION = re.compile(r"(?<!client-)practice-engine")
+# The script's name, but for the engine launcher's own `client-practice-engine.sh`.
+_PRACTICE_MENTION = re.compile(r"(?<!client-)practice-engine|(?<=client-)practice-engine(?!\.sh)")
 _PRACTICE_RELATIVE = frozenset({f"scripts/{_PRACTICE_NAME}", f"./scripts/{_PRACTICE_NAME}"})
 # Shell text that never belongs in a practice-engine run: groups, substitutions, lists,
 # expansions, escapes and line breaks.
@@ -446,7 +448,7 @@ def _practice_path(ctx: Context) -> Path:
 
 def _mentions_practice(ctx: Context, command: str) -> bool:
     """`command` names the practice-engine script: its name in any case, but as the tail of
-    the launcher's `client-practice-engine`, in the text or in a word once the shell's
+    the launcher's `client-practice-engine.sh`, in the text or in a word once the shell's
     quotes and escapes are gone (`pract''ice-engine`), or a word
     that resolves (symlinks followed, globs expanded) to the script itself."""
     words = tokens(command)

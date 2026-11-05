@@ -85,7 +85,9 @@ up() {
         pid="$(
             cd "${ENGINE}"
             clean nohup "${LAUNCHER}" "${PORT}" > "${LOG}" 2>&1 < /dev/null &
-            # the pid of the backgrounded subshell: it lives as long as the launcher, so kill -0 holds
+            # $! is the pid of the background job (the subshell running `clean`, which waits for
+            # the launcher), so kill -0 holds while the launcher runs; `down` finds the engine by
+            # its port, never by this pid
             echo $!
         )"
     fi

@@ -547,15 +547,29 @@ PRACTICE_NAMED_ONLY = [
 @pytest.mark.parametrize(
     "command",
     [
-        "grep -rn client-practice-engine docs CLAUDE.md > /dev/null",
-        "echo client-practice-engine | tee /dev/null",
-        "printf 'Client-Practice-Engine' | cat",
+        "grep -rn client-practice-engine.sh docs CLAUDE.md > /dev/null",
+        "echo client-practice-engine.sh | tee /dev/null",
+        "printf 'Client-Practice-Engine.sh' | cat",
     ],
 )
 def test_guard_does_not_read_the_launchers_name_as_the_practice_engine_script(box, agent, command):
-    """The engine launcher's name ends in the script's: alone it names no script, so its
-    commands go to the other rules (here none applies)."""
+    """The engine launcher's file name, `client-practice-engine.sh`, ends in the script's:
+    alone it names no script, so its commands go to the other rules (here none applies)."""
     _allowed(box.guard("Bash", {"command": command}, agent=agent))
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize(
+    "command",
+    [
+        "x=client-practice-engine; scripts/${{x#client-}} up",  # `fill` turns `{{` into `{`
+        "echo client-practice-engine | tee /dev/null",
+    ],
+)
+def test_guard_reads_the_launchers_name_without_its_sh_as_the_script(box, agent, command):
+    """Only the launcher's `.sh` file name is exempt; the bare `client-practice-engine` is a
+    spelling of the script (`${x#client-}` strips its prefix at run time)."""
+    _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
 
 
 @pytest.mark.parametrize("agent", EVERY_AGENT)
