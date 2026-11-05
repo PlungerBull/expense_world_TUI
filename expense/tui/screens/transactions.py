@@ -30,9 +30,9 @@ count them, and a move that changes nothing shows no receipt. A refused row is n
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
-`s` opens the same Edit form on the cursor row, on DATE as `⏎` does: its parts
-are changed, added and dropped there (edit_form.py). A save reads the list
-fresh from the newest 10.
+`s` opens the same Edit form on the cursor row, on the first line that can
+change, as `⏎` does: its parts are changed, added and dropped there
+(edit_form.py). A save reads the list fresh from the newest 10.
 
 `d` deletes the cursor row after the question and reads the list fresh from
 the newest 10. It first reads the row's bank line once

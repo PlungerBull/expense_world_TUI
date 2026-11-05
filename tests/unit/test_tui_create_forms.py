@@ -501,7 +501,7 @@ def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
         await pilot.pause()
         assert _highlighted(screen) == ["██ green"]
 
-    run_app(scenario, toasts=True)
+    run_app(scenario)
 
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
@@ -580,7 +580,7 @@ def test_new_account_required_name_blocks_submit(fake_client):
 # and EditFormScreen — so a regression there is a regression in all of them.
 
 
-def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST", refusal=None):
+def _run_refused(fake_client, screen, steps, check, *, verb="POST", refusal=None):
     """Drive `screen` through `steps` with the engine refusing the write, then
     run `check(pilot, screen, shown)` **inside** the pilot, `shown` being what the
     form's refusal block reads (`refusal_block`); no `Failed` toast is up.
@@ -609,7 +609,7 @@ def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST",
     run_app(scenario, toasts=True)
 
 
-def test_a_refused_create_says_so_and_keeps_the_screen(fake_client, monkeypatch):
+def test_a_refused_create_says_so_and_keeps_the_screen(fake_client):
     """The engine's envelope reaches the user and the form stays put.
 
     Dismissing on failure would throw away everything typed and leave the
@@ -622,10 +622,10 @@ def test_a_refused_create_says_so_and_keeps_the_screen(fake_client, monkeypatch)
         # the typed text survives verbatim; the `#` is stripped in _payload(), not here
         assert screen._values["name"] == "#groceries"
 
-    _run_refused(fake_client, monkeypatch, NewHashtagScreen(), ["#groceries"], check)
+    _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
 
 
-def test_a_refused_create_restores_the_hint_the_busy_text_replaced(fake_client, monkeypatch):
+def test_a_refused_create_restores_the_hint_the_busy_text_replaced(fake_client):
     """`action_submit` overwrites #hint with "Creating…" before the write.
 
     Without `_refresh_view()` in the failure path the form would sit there
@@ -637,10 +637,10 @@ def test_a_refused_create_restores_the_hint_the_busy_text_replaced(fake_client, 
         assert "Creating" not in hint
         assert hint == screen._hint_for(screen._key)
 
-    _run_refused(fake_client, monkeypatch, NewHashtagScreen(), ["#groceries"], check)
+    _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
 
 
-def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
+def test_a_refused_create_can_be_submitted_again(fake_client):
     """`_submitting` is the double-submit latch — a failure has to release it.
 
     Left set, the first refusal would freeze the form for good: every later
@@ -657,10 +657,10 @@ def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
             message="a second submit after a failure never reached the engine",
         )
 
-    _run_refused(fake_client, monkeypatch, NewHashtagScreen(), ["#groceries"], check)
+    _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
 
 
-def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
+def test_a_refused_edit_reports_through_the_same_path(fake_client):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
     screen = EditAccountScreen(_ELIANA)
 
@@ -670,7 +670,7 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
         assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
 
     # name, colour, opening, as of: the last line's `enter` saves
-    _run_refused(fake_client, monkeypatch, screen, ["Eliana Vega", "", "", ""], check, verb="PUT")
+    _run_refused(fake_client, screen, ["Eliana Vega", "", "", ""], check, verb="PUT")
 
 
 def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
@@ -780,9 +780,7 @@ def _eliana() -> EditAccountScreen:
         "reserved-category-name-rename",
     ],
 )
-def test_a_refusal_on_a_form_ends_with_its_next_step(
-    fake_client, monkeypatch, make, steps, verb, refusal, line
-):
+def test_a_refusal_on_a_form_ends_with_its_next_step(fake_client, make, steps, verb, refusal, line):
     """The refusal block is the engine's words, then the line picked for its
     reason; the form stays open with what was typed."""
 
@@ -793,7 +791,7 @@ def test_a_refusal_on_a_form_ends_with_its_next_step(
         )
         assert screen.is_attached
 
-    _run_refused(fake_client, monkeypatch, make(), steps, check, verb=verb, refusal=refusal)
+    _run_refused(fake_client, make(), steps, check, verb=verb, refusal=refusal)
 
 
 #: The engine's words on a renamed system row
@@ -827,7 +825,7 @@ _NAME_FIXED = "Must be the current name: a system record keeps its name."
     ],
     ids=["pendiente-case-only", "opening", "pending-hashtag"],
 )
-def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, make, steps, path):
+def test_a_system_rows_rename_shows_the_engines_words(fake_client, make, steps, path):
     """A system category or the pending hashtag keeps its name: the engine
     refuses a rename with `SYSTEM_NAME_FIXED` on `name`. Manage offers no `e`
     on these rows, so only a form opened another way meets it. The block is the
@@ -851,7 +849,7 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
         assert screen._values["name"] == steps[0]
         assert ("PUT", path) in fake_client.requests
 
-    _run_refused(fake_client, monkeypatch, make(), steps, check, verb="PUT", refusal=refusal)
+    _run_refused(fake_client, make(), steps, check, verb="PUT", refusal=refusal)
 
 
 # ---------------------------------------------------------------------------
@@ -1206,9 +1204,7 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
     ],
     ids=["duplicate-currency", "unsupported-currency", "currencies", "name"],
 )
-def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
-    fake_client, monkeypatch, refusal, line, bar
-):
+def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(fake_client, refusal, line, bar):
     """The block is the engine's words as every failed write reads them, and the
     cursor goes back on the line the refusal names, holding what was typed."""
 
@@ -1220,10 +1216,10 @@ def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(
         assert screen._values["currencies"] == ["PEN", "USD"]
 
     steps = ["", "Visa Inventada", "PEN", "USD", "", "", ""]
-    _run_refused(fake_client, monkeypatch, NewAccountScreen(), steps, check, refusal=refusal)
+    _run_refused(fake_client, NewAccountScreen(), steps, check, refusal=refusal)
 
 
-def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client, monkeypatch):
+def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client):
     """Saved from NAME with ctrl+s, the refusal moves the cursor to COLOR; the
     block is the engine's words and the colour picked is still held."""
     refusal = _keyed("VALIDATION_ERROR", "color", "INVALID_COLOR", "Color must be a hex.")

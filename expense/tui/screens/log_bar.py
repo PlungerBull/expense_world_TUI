@@ -234,8 +234,9 @@ class Staged:
     a row here always routes to the ledger; `routing` is kept because the
     reasons a line was *not* refused for are the row's own record.
 
-    `saved` is the phase-4 half. A saved row is done: it keeps a `✓`, it is
-    never re-sent, and `ctrl+s` only ever covers the rows without one.
+    `saved` marks a row the engine has taken. A saved row is done: it keeps a
+    `✓`, it is never re-sent, and `ctrl+s` only ever covers the rows without
+    one.
 
     **`row_id` and `date` are frozen at stage time too**, for the same reason
     the routing is. The id makes a retry safe: a row whose response was lost

@@ -431,7 +431,7 @@ class AdaptiveRowsMixin:
     # stable across window sizes and short lists keep a tidy card. Transactions
     # overrides it to grow with the terminal; its cap is
     # the engine's own `limit` ceiling, so the fetch contract can't be broken by
-    # a tall window. See docs/decisions.md "the ledger fills the window".
+    # a tall window. See docs/decisions.md "The ledger fills the window".
     PAGE_ROWS_CAP = DEFAULT_PAGE_ROWS
 
     def list_extra_lines(self) -> int:

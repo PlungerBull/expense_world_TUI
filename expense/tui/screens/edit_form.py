@@ -13,7 +13,8 @@ last.
 
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)). `⏎` and `s`
 on a ledger row open this form on the row's bank line (`EditFormScreen`), on
-DATE, with every part of the line in the table whichever part the row is;
+the first line that can change, with every part of the line in the table
+whichever part the row is;
 `⏎` in the reconciliations' "no statement" list opens it on the line the list
 holds (`BankLineEditFormScreen`). Entity fields (account, a part's category
 and hashtags) show a live-filtered suggestion list — pick existing entities

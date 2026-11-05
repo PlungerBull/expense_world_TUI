@@ -132,12 +132,6 @@ CLAUDE.md "Specs and tasks".
   [_base.py](../expense/tui/screens/_base.py)). Send `a` through `list_refusal_text` too, which
   drops `_toggle`'s `error_text` parameter in [accounts.py](../expense/tui/screens/accounts.py);
   the `_toggle_busy` comment there says "archive toggle" though it guards `t` as well.
-- **Unused test parameters in test_tui_create_forms.py.** Nothing you see changes. `_run_refused`
-  and its callers take a `monkeypatch` they no longer use, and
-  `test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch` asks for toasts it never reads.
-- **A code comment speaks of a "phase".** The `Staged` docstring in
-  [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
-  `saved` means instead.
 - **[UI] The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
   every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
@@ -149,9 +143,6 @@ CLAUDE.md "Specs and tasks".
   repr) raises `ValueError`. The bound belongs to the engine: read the live contract for the
   largest amount it takes, and if it states none, it becomes an engine ask; the client never
   invents one.
-- **A comment cites a decisions.md heading in the wrong case.**
-  [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
-  heading in [decisions.md](decisions.md) is "The ledger fills the window".
 - **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
   ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
@@ -198,12 +189,6 @@ CLAUDE.md "Specs and tasks".
   hand-backs in `expense/tui/` still call `self.app.call_from_thread`; move them (checking whether
   a write's `on_success` must run after a dismiss) and guard against a raw one in
   `test_suite_hygiene.py`.
-- **Three comments still describe the split screen.** `key_index`'s docstring in
-  [errors.py](../expense/errors.py) says "the split's `parts`"; the
-  [transactions.py](../expense/tui/screens/transactions.py) module docstring says `s` opens the
-  Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
-  [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
-  DATE, though it opens on the first line that can change.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.
