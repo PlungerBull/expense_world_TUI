@@ -96,7 +96,7 @@ def test_rows_run_categories_totals_accounts_people_screens():
     lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
     assert lefts[:3] == ["CATEGORIES", "▶ @Pendiente", "▶ WANTS"]
     assert lefts[3:7] == ["", "inflow", "outflow", "net"]
-    assert lefts[7:12] == ["BANK ACCOUNTS", "BCP PEN", "PEN", "BCP USD", "USD"]
+    assert lefts[7:12] == ["BANK ACCOUNTS", "BCP", "PEN", "BCP Ahorros", "USD"]
     assert lefts[12:13] == ["PEOPLE"]
     assert lefts[13:] == [x.strip() for x in SECTIONS]
 
@@ -269,14 +269,14 @@ def test_a_combo_of_several_hashtags_cannot_filter():
 def test_a_one_currency_account_is_its_row_and_one_indented_line():
     shown = _accounts(home.home_rows(DATA, palette=PALETTE))
     assert shown == [
-        ("  BCP PEN", "account:a-pen", "", False),
+        ("  BCP", "account:a-pen", "", False),
         ("    PEN", "account:a-pen:PEN", "5,145.82", False),
-        ("  BCP USD", "account:a-usd", "", False),
+        ("  BCP Ahorros", "account:a-usd", "", False),
         ("    USD", "account:a-usd:USD", "1.30", False),
     ]
     rows = home.home_rows(DATA, palette=PALETTE)
     pen = next(r for r in _live(rows) if r.id == "account:a-pen:PEN")
-    assert pen.name == "BCP PEN" and pen.right.style == PALETTE.success
+    assert pen.name == "BCP" and pen.right.style == PALETTE.success
     assert _plain(_by_left(rows)["BANK ACCOUNTS"].right) == "balance today"
 
 

@@ -22,9 +22,9 @@ from expense.quickadd.route import (
 )
 
 ACCOUNTS = [
-    ("a-pen", "BCP Signature PEN", ("PEN",)),
-    ("a-usd", "BCP Signature USD", ("USD",)),
-    ("a-bcp", "BCP PEN", ("PEN",)),
+    ("a-pen", "BCP Signature", ("PEN",)),
+    ("a-usd", "BCP Signature Platinum", ("USD",)),
+    ("a-bcp", "BCP Plus", ("PEN",)),
 ]
 CATEGORIES = [("c-kor", "KORAKUEN"), ("c-tra", "TRANSPORTE")]
 HASHTAGS = [("h-caja", "CAJA CHICA"), ("h-taxi", "TAXI")]
@@ -37,30 +37,30 @@ def _route(line, *, today=TODAY):
 
 
 def test_complete_and_dated_today_reaches_the_ledger():
-    result = _route("tottus -38.60 $BCP Signature PEN @korakuen #caja hoy")
+    result = _route("tottus -38.60 $BCP Signature @korakuen #caja hoy")
     assert result.target == LEDGER
     assert result.reasons == ()
     assert not result.refused
 
 
 def test_a_past_date_is_still_the_ledger():
-    assert _route("tottus -38.60 $BCP PEN @korakuen 18/8/2026").target == LEDGER
+    assert _route("tottus -38.60 $BCP Plus @korakuen 18/8/2026").target == LEDGER
 
 
 def test_no_category_is_the_ledger_it_lands_under_pendiente():
-    result = _route("apparka mall -3.50 $BCP PEN #taxi")
+    result = _route("apparka mall -3.50 $BCP Plus #taxi")
     assert result.target == LEDGER
     assert result.reasons == ()
 
 
 def test_no_title_is_the_ledger_a_titleless_row():
-    result = _route("-6.60 $BCP PEN")
+    result = _route("-6.60 $BCP Plus")
     assert result.target == LEDGER
     assert result.reasons == ()
 
 
 def test_dated_ahead_is_refused_even_when_complete():
-    result = _route("alquiler -1800 $BCP PEN @hogar manana")
+    result = _route("alquiler -1800 $BCP Plus @hogar manana")
     assert result.target == REFUSED
     assert "it is dated ahead" in result.reasons
 
@@ -76,7 +76,7 @@ def test_each_missing_required_field_is_its_own_reason():
 
 def test_a_number_without_a_sign_is_not_an_amount():
     """The sign is what makes a number money — 'gasté 38' is a title."""
-    result = _route("gaste 38 $BCP PEN @korakuen")
+    result = _route("gaste 38 $BCP Plus @korakuen")
     assert result.target == REFUSED
     assert "the line has no amount — a number needs a sign to be one" in result.reasons
 
@@ -84,10 +84,10 @@ def test_a_number_without_a_sign_is_not_an_amount():
 @pytest.mark.parametrize(
     ("line", "token"),
     [
-        ("tottus -13.853,20 $BCP PEN", "-13.853,20"),
-        ("bonus +1.000,00 $BCP PEN", "+1.000,00"),
-        ("tottus -$13.853,20 $BCP PEN", "-$13.853,20"),  # named as typed
-        ("tottus -1.2.3 -13.853,20 $BCP PEN", "-1.2.3"),  # the first one is named
+        ("tottus -13.853,20 $BCP Plus", "-13.853,20"),
+        ("bonus +1.000,00 $BCP Plus", "+1.000,00"),
+        ("tottus -$13.853,20 $BCP Plus", "-$13.853,20"),  # named as typed
+        ("tottus -1.2.3 -13.853,20 $BCP Plus", "-1.2.3"),  # the first one is named
     ],
 )
 def test_a_signed_number_it_cannot_read_is_named(line, token):
@@ -100,7 +100,7 @@ def test_a_signed_number_it_cannot_read_is_named(line, token):
 
 def test_a_readable_amount_after_an_unreadable_one_routes_to_the_ledger():
     """A later amount still reads, so the line has one and nothing is refused."""
-    assert _route("tottus -13.853,20 -13853.20 $BCP PEN").reasons == ()
+    assert _route("tottus -13.853,20 -13853.20 $BCP Plus").reasons == ()
 
 
 def test_an_ambiguous_name_says_how_many_it_matched():
@@ -122,19 +122,19 @@ def test_an_unresolved_name_is_not_also_reported_as_missing():
 
 def test_an_unmatched_hashtag_refuses_the_line():
     """Optional, but never invented — a typo would otherwise become a tag."""
-    result = _route("tottus -38.60 $BCP PEN @korakuen #nope")
+    result = _route("tottus -38.60 $BCP Plus @korakuen #nope")
     assert result.target == REFUSED
     assert result.reasons == ('"#nope" matches no hashtags',)
 
 
 def test_the_plural_of_category_reads_as_english():
     """ "2 categorys" would be the giveaway that a machine wrote the sentence."""
-    result = _route("tottus -38.60 $BCP PEN @o")
+    result = _route("tottus -38.60 $BCP Plus @o")
     assert result.reasons == ('"@o" matches 2 categories',)
 
 
 def test_an_impossible_date_refuses_rather_than_sliding_into_the_title():
-    result = _route("tottus -38.60 $BCP PEN @korakuen 32/13/2026")
+    result = _route("tottus -38.60 $BCP Plus @korakuen 32/13/2026")
     assert result.target == REFUSED
     assert '"32/13/2026" is not a real date' in result.reasons
 

@@ -249,7 +249,7 @@ LEDGER = [
     }
     for i in range(23)
 ]
-NAMES = {"acc1": "BCP Signature PEN", "cat1": "KORAKUEN", "pend": "@Pendiente"}
+NAMES = {"acc1": "BCP Signature", "cat1": "KORAKUEN", "pend": "@Pendiente"}
 REFS = QuickAddRefs(
     picks=currency_picks(
         [
@@ -260,7 +260,7 @@ REFS = QuickAddRefs(
     ),
     categories=[("cat1", "KORAKUEN")],
     hashtags=[],
-    account_names={"acc1": "BCP Signature PEN"},
+    account_names={"acc1": "BCP Signature"},
     category_names={"cat1": "KORAKUEN", "pend": "@Pendiente"},
     hashtag_names={},
     pending=("pend", "@Pendiente"),

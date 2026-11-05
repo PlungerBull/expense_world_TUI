@@ -58,11 +58,11 @@ ACCOUNTS = [
     account_with_currencies(
         id="sig", name="BCP Signature", currencies=[held_currency("PEN"), held_currency("USD")]
     ),
-    account_with_currencies(id="bcp", name="BCP PEN"),
-    account_with_currencies(id="old", name="Retired PEN", is_archived=True),
+    account_with_currencies(id="bcp", name="BCP"),
+    account_with_currencies(id="old", name="Retired", is_archived=True),
     account_with_currencies(id="ana", name="Ana", is_person=True, currencies=[]),
 ]
-LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN"
+LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature"
 
 #: A card's download as the engine reads it: rows 2–5, row 3 in dollars.
 CARD_ROWS = [
@@ -139,7 +139,7 @@ def _patch_log_accounts(monkeypatch) -> None:
     held = whole(
         [
             account_with_currencies(
-                id="sig-pen", name="BCP Signature PEN", currencies=[held_currency("PEN")]
+                id="sig-pen", name="BCP Signature", currencies=[held_currency("PEN")]
             )
         ]
     )
@@ -267,7 +267,7 @@ def test_an_account_of_two_currencies_is_one_line():
     lines = [line.plain.rstrip() for line in account_lines(account_picks(ACCOUNTS), 0)]
     assert [re.split(r"\s{2,}", line.strip()) for line in lines] == [
         ["BCP Signature", "PEN + USD"],
-        ["BCP PEN", "PEN"],
+        ["BCP", "PEN"],
     ]
     assert "Retired" not in " ".join(lines)  # archived
 
@@ -277,9 +277,9 @@ def test_the_result_head_is_the_engines_new_count_and_where_the_rows_landed():
     pending category and hashtag, dim."""
     pick = account_picks(ACCOUNTS)[1]
     head = result_head(pick, AnswerCounts(14, 9, 5, 0, 0, 2, 1))
-    assert head.plain == "✓ 9 rows imported · BCP PEN   new ones under @Pendiente and #Pendiente"
+    assert head.plain == "✓ 9 rows imported · BCP   new ones under @Pendiente and #Pendiente"
     assert result_head(pick, AnswerCounts(1, 1, 0, 0, 0, 0, 0)).plain.startswith(
-        "✓ 1 row imported · BCP PEN"
+        "✓ 1 row imported · BCP   "
     )
 
 
@@ -432,7 +432,7 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
         listed = [re.split(r"\s{2,}", line.strip()) for line in body[2:] if line.strip()]
         assert listed == [
             ["BCP Signature", "PEN + USD"],
-            ["BCP PEN", "PEN"],
+            ["BCP", "PEN"],
             ["Interbank Ahorros", "USD"],
         ]
         assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
@@ -531,7 +531,7 @@ def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypa
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
         assert lines[1].split() == ["#", "date", "title", "amount", "reason"]
@@ -653,7 +653,7 @@ def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_p
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
         assert lines[1].split() == ["#", "date", "title", "amount", "reason"]
@@ -993,7 +993,7 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         assert _days_shown(preview) == [
             "! 1 day where the file and the ledger disagree",
@@ -1090,10 +1090,10 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _refused(pilot, app)
         assert _lines_shown(preview) == [
-            "Preview · BCP PEN · nothing written yet",
+            "Preview · BCP · nothing written yet",
             "VALIDATION_ERROR — Import validation failed.",
             "! Row 12: Monto holds 'abc', not a number.",
             "! Row 15: operation number 0001 is on row 3 too.",
@@ -1618,11 +1618,11 @@ def test_two_files_go_one_after_the_other_then_home(fake_client, monkeypatch, tm
         account = await _preview(pilot, app)
         assert "Import  ▸  file 2 of 2" in _crumb(account)
         assert _lines_shown(account)[0] == "Which account is this file?   Cuenta Corriente.xlsx"
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         await _previewed(pilot, app)
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no second result")
-        assert result is not None and "· BCP PEN" in _body(result)
+        assert result is not None and "· BCP   new ones" in _body(result)
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
         sent = [(body["account_id"], body["file"]) for _, body in fake_client.posts]
         assert sent == [
@@ -1709,7 +1709,7 @@ def test_nothing_new_with_a_file_to_come_moves_on_without_writing(
         assert "Import  ▸  file 2 of 2" in _crumb(account)
         assert _imports(fake_client) == [True]  # the dry run only; nothing written
         assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 1 row"}
 
@@ -1736,7 +1736,7 @@ def test_nothing_new_on_the_last_of_several_files_goes_back_only(
         await _on(pilot, app, ImportResultScreen, "no first result")
         await pilot.press("enter")
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         assert _lines_shown(preview)[-1] == "nothing to import"
         assert _shown(preview) == {"escape": "Back"}

@@ -226,7 +226,7 @@ def test_new_statement_name_goes_on(fake_client):
         assert screen._key == "date_start"
         assert fake_client.posts == []
 
-    _open(NewReconciliationScreen(account_id="acc1", account_name="BCP PEN"), body)
+    _open(NewReconciliationScreen(account_id="acc1", account_name="BCP"), body)
 
 
 #: The begin balance hint's second line, the same on every begin field
@@ -299,9 +299,7 @@ SHAPES = {
     ],
     NewReconciliationScreen: lambda: [
         NewReconciliationScreen(),
-        NewReconciliationScreen(
-            account_id="acc1", account_name="BCP PEN", currencies=("PEN", "USD")
-        ),
+        NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN", "USD")),
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
 }

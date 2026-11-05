@@ -256,7 +256,7 @@ def _patch(monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
     monkeypatch.setattr("expense.reads.fetch_statement", fake_statement)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     return statement_reads
 
@@ -395,7 +395,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     """A tick is one logical write: one `PUT`, one `X-Idempotency-Key`, through
     the shared write path and the real HTTP client."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
 
     async def scenario(pilot, app):
@@ -1491,7 +1491,7 @@ def test_r_reads_the_statement_by_its_id_and_shows_its_balances(configured, monk
     checklist; the head shows every currency's entry in `balances`, and the status
     read. No write, no dismiss."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     seen: dict = {}
 
@@ -1530,7 +1530,7 @@ def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch)
     screen learns it (contract: GET /v1/statements/{statement_id}); it says so and
     goes back."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     notices: list = []
     monkeypatch.setattr(
@@ -1714,12 +1714,12 @@ def test_c_without_an_ending_balance_opens_the_box_as_drawn(fake_client, monkeyp
 
     async def scenario(pilot, app):
         screen = await _open_box(pilot, app)
-        await wait_for(pilot, lambda: screen._acct_name == "BCP PEN")
+        await wait_for(pilot, lambda: screen._acct_name == "BCP")
         box = app.screen
         texts = [str(s.visual) for s in box.query(Static)]
         assert texts[0] == "Ending balance first"
         assert texts[1] == (
-            "The statement's closing figure for BCP PEN,\nin PEN · signed · e.g. 13,853.20"
+            "The statement's closing figure for BCP,\nin PEN · signed · e.g. 13,853.20"
         )
         assert texts[-1] == "[enter] save    [esc] cancel"
         assert fake_client.calls == []  # nothing sent by opening it
@@ -1817,7 +1817,7 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
     from expense.tui.screens.modals import AmountPromptModal
 
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     blank = _statement(beginning_balance_cents=None, ending_balance_cents=None)
     refused = error_response(

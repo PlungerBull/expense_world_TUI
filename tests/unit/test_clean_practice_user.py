@@ -140,7 +140,7 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
             account_with_currencies(id="a1", name="contract-stmt-1"),
             account_with_currencies(
                 id="a2",
-                name="BCP Signature PEN",
+                name="BCP Signature",
             ),
         ],
         statements=[_statement("r1", "a1"), _statement("r2", "a2")],
@@ -219,7 +219,7 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
 @respx.mock
 def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
     engine = FakeEngine(
-        accounts=[account_with_currencies(id="a1", name="BCP PEN")],
+        accounts=[account_with_currencies(id="a1", name="BCP")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
         hashtags=[dict(id="h1", name="contract-h-1")],
     )
@@ -266,7 +266,7 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
 def test_a_system_row_appearing_between_two_snapshots_is_no_leftover(script):
     """The engine creates `@Pendiente`, `@Opening` and the pending hashtag on first need
     and never deletes them, so a test that brings one about leaves nothing behind."""
-    engine = FakeEngine(accounts=[account_with_currencies(id="a1", name="BCP PEN")])
+    engine = FakeEngine(accounts=[account_with_currencies(id="a1", name="BCP")])
     _serve(engine)
     with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
         before = script.holdings(client)

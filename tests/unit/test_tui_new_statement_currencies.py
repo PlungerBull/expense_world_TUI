@@ -56,7 +56,7 @@ def _notices(monkeypatch) -> list:
 
 
 def test_a_one_currency_account_has_one_pair_of_lines_and_a_two_currency_one_two():
-    one = NewReconciliationScreen(account_id="a", account_name="BCP PEN", currencies=("PEN",))
+    one = NewReconciliationScreen(account_id="a", account_name="BCP", currencies=("PEN",))
     assert one._sequence() == ["name", "date_start", "date_end", "begin:PEN", "end:PEN"]
     assert _visa()._sequence() == [
         "name",
@@ -152,9 +152,7 @@ def test_both_currencies_typed_send_one_entry_each(fake_client):
 
 def test_nothing_typed_sends_an_empty_balances_for_the_engine_to_judge(fake_client):
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(
-            account_id="a", account_name="BCP PEN", currencies=("PEN",)
-        )
+        screen = NewReconciliationScreen(account_id="a", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _head(screen)
         _enter(screen, "")

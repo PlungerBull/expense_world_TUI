@@ -28,7 +28,7 @@ async def _open(pilot, app, screen):
 
 
 def _statement():
-    return NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
+    return NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
 
 
 def _notes(monkeypatch, cls):
@@ -172,7 +172,7 @@ def test_ctrl_s_on_an_untouched_pick_line_picks_nothing(fake_client, monkeypatch
     on a line nobody typed on changes nothing and the required line stops the save."""
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
-        lambda *a, **k: whole([account_with_currencies(id="acc1", name="BCP PEN")]),
+        lambda *a, **k: whole([account_with_currencies(id="acc1", name="BCP")]),
     )
     notes = _notes(monkeypatch, NewReconciliationScreen)
 

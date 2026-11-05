@@ -37,7 +37,7 @@ from tests.unit.helpers import (
     wait_for,
 )
 
-NAMES = {"sig-pen": "Signature PEN", "sig-usd": "Signature USD", "acc1": "BCP PEN"}
+NAMES = {"sig-pen": "Signature", "sig-usd": "Signature Platinum", "acc1": "BCP"}
 
 
 def _line(

@@ -169,7 +169,7 @@ def test_the_bank_import_preview_shows_a_bracketed_title_whole(fake_client, monk
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
         assert re.split(r"\s{2,}", lines[2]) == ["2", "2026-09-12", NAME, "+6,519.00", "✓", "New"]
@@ -195,7 +195,7 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fetch)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
 
     async def scenario(pilot, app):
@@ -223,7 +223,7 @@ def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypat
     status."""
     monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page([]))
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     statement = {**DRAFT, "name": name}
 
@@ -234,7 +234,7 @@ def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypat
         return shown(screen.query_one("#rhead", Static)).splitlines()[0]
 
     first = run_app(scenario)
-    assert first == f"  {name}  ·  BCP PEN  ·  2026-04-01 → 2026-04-30  ·  status draft"
+    assert first == f"  {name}  ·  BCP  ·  2026-04-01 → 2026-04-30  ·  status draft"
 
 
 @pytest.mark.parametrize(("account", "category"), [(NAME, "Comida [/]"), ("[/]", "[bold]x[/bold]")])

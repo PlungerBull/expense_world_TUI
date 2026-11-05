@@ -145,9 +145,9 @@ def test_one_good_and_one_bad_path_leave_the_whole_line_quick_add(files, tmp_pat
         "",
         "   ",
         "Cine -28 @BCP #ocio",
-        "tottus porongoche -38.60 $BCP Signature PEN @KORAKUEN #CAJA CHICA",
-        "McDonald's -20 $BCP PEN",  # an unclosed quote to shlex
-        "-6.60 $BCP PEN //movimientos.xlsx",
+        "tottus porongoche -38.60 $BCP Signature @KORAKUEN #CAJA CHICA",
+        "McDonald's -20 $BCP Plus",  # an unclosed quote to shlex
+        "-6.60 $BCP Plus //movimientos.xlsx",
         "~nobody_here_at_all/x.xlsx",
     ],
 )

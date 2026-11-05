@@ -128,13 +128,13 @@ def test_an_account_holding_two_currencies_is_one_pick_sending_its_id():
                 name="VISA Infinite Sapphire",
                 currencies=[held_currency("PEN"), held_currency("USD")],
             ),
-            account_with_currencies(id="bcp", name="BCP PEN"),
+            account_with_currencies(id="bcp", name="BCP"),
             account_with_currencies(id="usd", name="Dolares", currencies=[held_currency("USD")]),
         ]
     )
     assert [(p.name, p.currencies, p.account_id, p.holds_two) for p in picks] == [
         ("VISA Infinite Sapphire", "PEN + USD", "visa", True),
-        ("BCP PEN", "PEN", "bcp", False),
+        ("BCP", "PEN", "bcp", False),
         ("Dolares", "USD", "usd", False),
     ]
 

@@ -1569,12 +1569,12 @@ _DASHBOARD = {
     "bank_accounts": [
         {
             "id": "a-pen",
-            "name": "BCP PEN",
+            "name": "BCP",
             "currencies": [{"currency_code": "PEN", "current_balance_cents": 514582}],
         },
         {
             "id": "a-usd",
-            "name": "BCP USD",
+            "name": "BCP Ahorros",
             "currencies": [{"currency_code": "USD", "current_balance_cents": 130}],
         },
     ],

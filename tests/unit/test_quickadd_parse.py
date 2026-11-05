@@ -19,8 +19,8 @@ TODAY = date(2026, 8, 20)
 # Two accounts share "Signature" so `$sig` is genuinely ambiguous;
 # "CAJA" is a prefix of "CAJA CHICA" so exact-beats-contains gets exercised.
 ACCOUNTS = [
-    ("a1", "BCP Signature USD", ("USD",)),
-    ("a2", "BCP PEN", ("PEN",)),
+    ("a1", "BCP Signature Platinum", ("USD",)),
+    ("a2", "BCP Plus", ("PEN",)),
     ("a3", "Mi Signature", ("PEN",)),
     ("a4", "Nico", ("PEN",)),
     ("a5", "Efectivo", ("PEN",)),
@@ -141,7 +141,7 @@ def test_dollar_splits_on_the_next_character():
 
 
 def test_multi_word_names_need_no_quotes():
-    assert _p("pago -5 $bcp pen").account_id == "a2"
+    assert _p("pago -5 $bcp plus").account_id == "a2"
     assert _p("pago -5 #caja chica").hashtag_ids == ("t3",)
 
 
@@ -152,7 +152,7 @@ def test_exact_name_beats_a_longer_one_that_contains_it():
 
 def test_a_name_never_swallows_the_next_token():
     """The lookahead stops at a sigil or an amount, so `$bcp` cannot eat `-5`."""
-    result = _p("$bcp pen -5 @wants")
+    result = _p("$bcp plus -5 @wants")
     assert (result.account_id, result.amount_cents, result.category_id) == ("a2", -500, "c3")
 
 
@@ -313,8 +313,8 @@ def test_spans_cover_every_token_in_source_order():
 
 
 def test_a_multi_word_span_covers_every_word_it_took():
-    (span,) = [s for s in _p("pago -5 $bcp pen").spans if s.kind == "account"]
-    assert (span.start, span.end, span.text) == (8, 16, "$bcp pen")
+    (span,) = [s for s in _p("pago -5 $bcp plus").spans if s.kind == "account"]
+    assert (span.start, span.end, span.text) == (8, 17, "$bcp plus")
 
 
 # --- shape of the reference arguments ---------------------------------------
@@ -322,8 +322,8 @@ def test_a_multi_word_span_covers_every_word_it_took():
 
 def test_extra_columns_on_a_reference_row_are_ignored():
     """A row's columns past the currencies are ignored."""
-    rows = [("a2", "BCP PEN", ("PEN",), "extra", 7)]
-    result = parse("x -5 $bcp pen", accounts=rows, categories=[], hashtags=[], today=TODAY)
+    rows = [("a2", "BCP Plus", ("PEN",), "extra", 7)]
+    result = parse("x -5 $bcp plus", accounts=rows, categories=[], hashtags=[], today=TODAY)
     assert (result.account_id, result.currency_code) == ("a2", "PEN")
 
 
@@ -425,7 +425,7 @@ def test_a_bare_sigil_opens_the_picker_even_when_one_candidate_exists():
     reference list of one, which is the ordinary state of a new ledger. It
     must not pick that sole entry and skip the picker it was typed to open."""
     one_each = dict(
-        accounts=[("a1", "BCP PEN", ("PEN",))],
+        accounts=[("a1", "BCP Plus", ("PEN",))],
         categories=[("c1", "WANTS")],
         hashtags=[("t1", "TAXI")],
     )

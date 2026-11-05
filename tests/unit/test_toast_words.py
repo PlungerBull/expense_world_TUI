@@ -159,7 +159,7 @@ def test_an_account_no_name_matches_on_a_new_statement_shows_it_whole(fake_clien
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
-            [{"id": "acc1", "name": "BCP PEN", "currency_code": "PEN", "is_person": False}]
+            [{"id": "acc1", "name": "BCP", "currency_code": "PEN", "is_person": False}]
         ),
     )
 

@@ -669,7 +669,7 @@ def test_the_frame_costs_exactly_list_frame_lines():
     assert _frame_lines(_list(3, page_size=10)) - 3 == frame
     assert _frame_lines(_checklist(3, page_size=10)) - 3 == CheckList.FRAME_LINES
 
-    captioned = _list(3, page_size=10, caption="BCP PEN · by statement start date")
+    captioned = _list(3, page_size=10, caption="BCP · by statement start date")
     assert _frame_lines(captioned) - 3 == frame + AdaptiveRowsMixin.CAPTION_LINES
 
 
@@ -698,7 +698,7 @@ def test_the_frame_draws_no_colour():
     across every list in the app. The frame must pass an explicit style, and
     only a render can prove it did.
     """
-    painted = render_text(_list(30, page_size=3, caption="BCP PEN").framed(), width=50, ansi=True)
+    painted = render_text(_list(30, page_size=3, caption="BCP").framed(), width=50, ansi=True)
     colour = re.compile(r"\x1b\[(?:[0-9;]*;)?(3[0-7]|9[0-7]|4[0-7]|10[0-7])(?:;[0-9;]*)?m")
     offenders = [ln for ln in painted.splitlines() if colour.search(ln)]
     assert not offenders, f"the frame painted a colour: {offenders}"
@@ -773,14 +773,14 @@ def test_the_batch_caption_repaints_when_the_account_changes():
     to go through `set_caption`, which repaints. Asserted on the rendered text
     rather than on the attribute — the attribute was never the bug.
     """
-    lst = CursorList(["Title", "Amount"], _rows(3), caption="BCP PEN · by statement start date")
+    lst = CursorList(["Title", "Amount"], _rows(3), caption="BCP · by statement start date")
     painted: list[str] = []
     lst.update = lambda renderable: painted.append(render_text(renderable, width=60))
 
-    lst.set_caption("BCP USD · by statement start date")
+    lst.set_caption("BCP Ahorros · by statement start date")
     assert painted, "set_caption did not repaint"
-    assert "BCP USD" in painted[-1]
+    assert "BCP Ahorros" in painted[-1]
 
     before = len(painted)
-    lst.set_caption("BCP USD · by statement start date")  # unchanged
+    lst.set_caption("BCP Ahorros · by statement start date")  # unchanged
     assert len(painted) == before, "an unchanged caption repainted anyway"

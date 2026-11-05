@@ -241,9 +241,9 @@ def test_moved_parts_counts_each_part_once_across_the_answers():
 
 
 def test_bulk_receipt_counts_the_rows_that_left_their_statement():
-    assert bulk_receipt(3, "BCP USD", 0) == "3 rows → BCP USD"
-    assert bulk_receipt(3, "BCP USD", 1) == "3 rows → BCP USD · 1 left its statement"
-    assert bulk_receipt(3, "BCP USD", 2) == "3 rows → BCP USD · 2 left their statement"
+    assert bulk_receipt(3, "BCP Ahorros", 0) == "3 rows → BCP Ahorros"
+    assert bulk_receipt(3, "BCP Ahorros", 1) == "3 rows → BCP Ahorros · 1 left its statement"
+    assert bulk_receipt(3, "BCP Ahorros", 2) == "3 rows → BCP Ahorros · 2 left their statement"
 
 
 # ---- selection ---------------------------------------------------------------

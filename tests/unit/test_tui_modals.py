@@ -19,7 +19,7 @@ from expense.tui.screens.modals import (
 from tests.unit.helpers import run_app, wait_for
 
 _MODALS = [
-    lambda: ConfirmModal("Archive account?", "Archive BCP USD."),
+    lambda: ConfirmModal("Archive account?", "Archive BCP Ahorros."),
     lambda: PromptModal("Rename", "New name"),
     lambda: PickModal(
         "Add a currency · Caja Chica", "Caja Chica · bank · PEN 350.00", ["USD"], verb="add"

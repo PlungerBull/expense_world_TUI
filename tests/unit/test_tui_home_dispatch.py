@@ -257,7 +257,7 @@ def test_enter_on_an_account_opens_the_ledger_on_every_currency(monkeypatch):
         await _month_loaded(app, pilot)
         await _select(app, pilot, "account:a-pen")
         await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
+        assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP")
         assert app.screen._scope() == {"account": "a-pen"}
 
     run_app(scenario)

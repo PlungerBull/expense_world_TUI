@@ -60,7 +60,7 @@ from tests.unit.helpers import (
 ACCOUNTS = [
     account_with_currencies(
         id="sig",
-        name="BCP Signature",
+        name="BCP Premier",
         currencies=[held_currency("PEN"), held_currency("USD")],
         statement_code="SIG",
     ),
@@ -166,7 +166,7 @@ def _patch(
     monkeypatch.setattr("expense.reads.fetch_bank_lines_by_ids", by_ids)
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map",
-        lambda: {"sig-pen": "BCP Signature PEN", "sig-usd": "BCP Signature USD"},
+        lambda: {"sig-pen": "BCP Premier", "sig-usd": "BCP Premier Plus"},
     )
     return reads_by_ids
 
@@ -319,7 +319,7 @@ def test_the_call_sends_exactly_three_keys_on_the_accounts_id():
     file's bytes in standard base64 (contract: POST /v1/statements/import)."""
     client = FakeClient()
     data = bytes(range(256)) * 50
-    account = AccountPick("BCP Signature", "acc-sig", ("PEN",))
+    account = AccountPick("BCP Premier", "acc-sig", ("PEN",))
     statement_call(client, account, data, dry_run=True)
     ((path, body),) = client.posts
     assert path == "/statements/import"
@@ -415,7 +415,7 @@ def test_the_account_list_is_the_downloads_with_the_statements_question(
         lines = _lines(account)
         assert lines[0] == "Which account is this statement?  BCP Visa 1492 2026-10.pdf"
         assert [_cells(line) for line in lines[1:]] == [
-            ["BCP Signature", "PEN + USD"],
+            ["BCP Premier", "PEN + USD"],
             ["Sueldo Soles", "PEN"],
             ["Efectivo", "PEN"],
         ]
@@ -474,7 +474,7 @@ def test_a_cards_preview_is_screen_1a_and_writes_nothing(fake_client, monkeypatc
         assert "Capture & ledger  ▸  Upload  ▸  BCP Visa 1492 2026-10.pdf" in _crumb(preview)
         lines = _lines(preview)
         assert lines[:2] == [
-            "Preview · BCP Signature PEN + USD · nothing written yet",
+            "Preview · BCP Premier PEN + USD · nothing written yet",
             "SIG-202610 · 2026-09-26 → 2026-10-25 · a new statement",
         ]
         assert [line.split() for line in lines[2:5]] == [
@@ -707,8 +707,7 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
         result = await _on(pilot, app, StatementResultScreen, "no result screen")
         assert _uploads(fake_client) == [True, False]
         assert _lines(result) == [
-            "✓ SIG-202610 closed · BCP Signature PEN + USD  new ones under @Pendiente and "
-            "#Pendiente",
+            "✓ SIG-202610 closed · BCP Premier PEN + USD  new ones under @Pendiente and #Pendiente",
             "10 rows · 5 were in the ledger · 4 created · 1 empty · 1 taken out",
         ]
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
@@ -911,7 +910,7 @@ def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
         await _accounts(pilot, app)
         await pilot.press("enter")
         preview = await _refused(pilot, app)
-        assert _lines(preview) == ["Preview · BCP Signature PEN + USD", *shown]
+        assert _lines(preview) == ["Preview · BCP Premier PEN + USD", *shown]
         assert _shown(preview) == {"escape": "Back"}
         assert not list(app._notifications)  # the words once, on the screen
         await pilot.press("enter")  # ⏎ sends nothing more

@@ -98,9 +98,9 @@ def _patch(monkeypatch):
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                account_with_currencies(id="acc1", name="BCP PEN"),
+                account_with_currencies(id="acc1", name="BCP"),
                 account_with_currencies(
-                    id="acc2", name="Interbank USD", currencies=[held_currency("USD")]
+                    id="acc2", name="Interbank Plus", currencies=[held_currency("USD")]
                 ),
             ]
         ),
@@ -153,9 +153,7 @@ def test_new_statement_refuses_a_balance_with_a_comma_after_its_dot(fake_client,
     notes: list[str] = []
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(
-            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
-        )
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         screen.notify = lambda message, **kw: notes.append(message)
         _enter(screen, "April 2026")  # name
@@ -187,9 +185,7 @@ def test_new_statement_sends_the_typed_days_and_refuses_other_shapes(fake_client
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(
-            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
-        )
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _enter(screen, "August 2026")  # name
         for bad in ("2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
@@ -216,9 +212,7 @@ def test_new_statement_date_end_is_required(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(
-            account_id="acc1", account_name="BCP PEN", currencies=("PEN",)
-        )
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _enter(screen, "August 2026")
         _enter(screen, "2026-08-01")
@@ -315,10 +309,10 @@ def _patch_browse(monkeypatch, items=None, fail=False):
         lambda *a, **k: whole(
             [
                 account_with_currencies(
-                    id="acc1", name="BCP PEN", currencies=[held_currency("PEN", 100)]
+                    id="acc1", name="BCP", currencies=[held_currency("PEN", 100)]
                 ),
                 account_with_currencies(
-                    id="acc2", name="Interbank USD", currencies=[held_currency("USD")]
+                    id="acc2", name="Interbank Plus", currencies=[held_currency("USD")]
                 ),
             ]
         ),
@@ -384,12 +378,12 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
         assert reads == ["acc2"]  # that account, and only that one
         assert [r.key for r in screen._batch_list._rows] == ["r2"]
         assert screen._batch_list.has_focus
-        assert "Statements · Interbank USD" in (screen._batch_list._caption or "")
+        assert "Statements · Interbank Plus" in (screen._batch_list._caption or "")
         assert "oldest → newest" in (screen._batch_list._caption or "")
-        assert _crumb(screen) == ("Capture & ledger", "Statements", "Interbank USD")
+        assert _crumb(screen) == ("Capture & ledger", "Statements", "Interbank Plus")
         # the open account keeps a ▸ so you can see whose panel this is
         names = [str(r.cells[0]) for r in screen._accts_list._rows]
-        assert names == ["  BCP PEN", "▸ Interbank USD"]
+        assert names == ["  BCP", "▸ Interbank Plus"]
 
     run_app(scenario)
 
@@ -490,7 +484,7 @@ def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
         assert app.screen is screen  # the panel closed; the screen stayed
         assert screen._batch_list is None and screen._accts_list.has_focus
         assert _crumb(screen) == ("Capture & ledger", "Statements")
-        assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "  BCP PEN"
+        assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "  BCP"
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is not screen)
 
@@ -560,14 +554,14 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         assert reads == ["acc2"]
         assert screen._mode == "batches"
         assert screen._batch_list.cursor_key == "new-1"
-        assert _crumb(screen)[-1] == "Interbank USD"
+        assert _crumb(screen)[-1] == "Interbank Plus"
 
     run_app(scenario)
 
 
 def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     """The id is minted client-side in `_payload`; `_done` returns it."""
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
     screen._values.update(
         {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin:PEN": 0}
     )
@@ -580,10 +574,10 @@ def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
 
 
 def test_new_statement_from_account_drops_account_field():
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN", currencies=("PEN",))
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
     assert "account" not in screen._sequence()  # account preset from browse
     assert screen._values["account"] == "acc1"
-    assert screen.crumb == ("Statements", "BCP PEN", "New")
+    assert screen.crumb == ("Statements", "BCP", "New")
 
 
 def test_new_statement_fetch_error_notifies_not_crash(fake_client, monkeypatch):
@@ -616,7 +610,7 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     screen = NewReconciliationScreen()
     screen._accounts = [
         ("acc1", "BCP Crédito"),
-        ("acc2", "Interbank USD"),
+        ("acc2", "Interbank Plus"),
     ]
     screen._current = screen._sequence().index("account")  # `_key` is derived
 
@@ -652,7 +646,7 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
 
     async def scenario(pilot, app):
         screen = NewReconciliationScreen(
-            account_id="acc1", account_name="ALEJO PEN", currencies=("PEN",)
+            account_id="acc1", account_name="ALEJO", currencies=("PEN",)
         )
         await app.push_screen(screen, handed.append)
         _enter(screen, "October 2026")  # name
@@ -807,7 +801,7 @@ def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
         assert [r.key for r in screen._batch_list._rows] == ["bl-net", "bl-farm", "bl-uber"]
         assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
         assert screen._batch_list._caption == (
-            "In no statement · BCP PEN   ·   3 of 3 loaded · oldest first"
+            "In no statement · BCP   ·   3 of 3 loaded · oldest first"
             "   ·\n! dated inside a statement"
         )
         # one read of the account's lines in no statement, every currency together, no
@@ -1059,7 +1053,7 @@ def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_cli
             "currency",
             *(f"0.{f}" for f in PART_FIELDS),
         ]
-        assert form._locked == {"currency"}  # BCP PEN holds one currency: shown dim, skipped
+        assert form._locked == {"currency"}  # BCP holds one currency: shown dim, skipped
         assert form._key == "date"
         assert form.query_one("#crumb", Breadcrumb)._trail == (
             "Capture & ledger",
@@ -1071,8 +1065,8 @@ def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_cli
             "date       2026-03-20",
             "title      UBER *TRIP",
             "operation  —  (optional)",
-            "account    BCP PEN",
-            "currency   PEN  · BCP PEN holds only PEN",
+            "account    BCP",
+            "currency   PEN  · BCP holds only PEN",
             "",
             "      amount    category       hashtags        note",
             "  1   -24.50    —              —",
@@ -1099,8 +1093,8 @@ def test_a_split_transaction_opens_the_line_and_every_part(monkeypatch, fake_cli
             "date       2026-03-10",
             "title      FARMACIA",
             "operation  48201764",
-            "account    BCP PEN",
-            "currency   PEN  · BCP PEN holds only PEN",
+            "account    BCP",
+            "currency   PEN  · BCP holds only PEN",
             "",
             "      amount    category       hashtags        note",
             "  1   -60.00    —              —",
@@ -1399,7 +1393,7 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == "Delete this transaction?"
         assert app.screen._message == (
-            "ROW 11 · -11.00 · 2025-01-11 · BCP PEN\n"
+            "ROW 11 · -11.00 · 2025-01-11 · BCP\n"
             "It leaves every balance and report, and no screen can bring it back."
         )
         reads = len(calls)
@@ -1438,7 +1432,7 @@ def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, 
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == f"Delete this transaction and its {parts} parts?"
         assert app.screen._message == (
-            "FARMACIA · -100.00 · 2026-03-10 · BCP PEN\nNo screen can bring it back."
+            "FARMACIA · -100.00 · 2026-03-10 · BCP\nNo screen can bring it back."
         )
         reads = len(calls)
         await pilot.press("y")
@@ -1965,7 +1959,7 @@ def test_a_short_crumb_is_not_cut(monkeypatch):
         await pilot.pause()
         crumb, rule = _drawn_crumb(app)
         assert "…" not in crumb
-        assert crumb.endswith("BCP PEN  !")
+        assert crumb.endswith("BCP  !")
         assert rule and set(rule) <= set("▁─━ "), rule
 
     run_app(scenario, size=(80, 24))
