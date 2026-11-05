@@ -63,12 +63,16 @@ CLAUDE.md "Specs and tasks".
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
   account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
   line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
-- **Code calls a statement a "batch" or a reconciliation.** Nothing you see changes. The module
-  docstrings of edit_form.py and reconciliations.py ("New batch:"), comments there ("no batch",
-  "One batch", `unreadable_note`), reads.py's and cursor_list.py's `set_headers` docstrings, a
-  test docstring ("date_start orders the batch now"), and the decisions.md heading "Rows in no
-  batch live in the reconciliation view…", renamed with its citations in tui.md,
-  reconciliations.py and decisions.md in one change.
+- **Code names still call a statement a "batch" or a reconciliation.** Nothing you see changes.
+  In reconciliations.py `_batch_list`, `_show_batches`, `_load_batches`, the mode and widget id
+  `"batches"`, `ReconciliationsScreen`, `ReconciliationDetailScreen`, `NewReconciliationScreen`
+  (imported by home.py, help.py, statement_upload.py); reads.py's `reconciliation` parameter (the
+  engine's `statement_id`); home.py's `"reconciliations"` key; and comments in formatting.py,
+  dates.py, theme.py, _base.py, help.py, transactions.py, bank_import.py and log_bar.py.
+- **A Statements test fails at random under the parallel suite.**
+  `test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_whole` in
+  test_tui_reconciliations.py found no `PEN + USD` row once (2026-11-05) and passes alone; it
+  waits for the rows it reads.
 - **The Statements screens' unit tests prove less than they could.** Nothing you see changes.
   No test pins the revert question, `u`'s tooltip, the "it orders the statement" hint or the
   `loading…` caption. In test_tui_statement_balances.py the 60-column starting and ending boxes

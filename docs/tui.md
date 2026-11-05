@@ -487,7 +487,7 @@ with `account_id` and `unreconciled=true` and no dates or currency
 (contract: GET /v1/bank-lines, "Filters"), through `fetch_bank_lines` in
 [reads.py](../expense/reads.py). `u` works only while an account's panel is open — on the
 plain account list it does nothing and is not in the footer. Why this is not a filtered
-ledger: [decisions.md](decisions.md) "Rows in no batch live in the reconciliation view, not
+ledger: [decisions.md](decisions.md) "Rows in no statement live in the Statements view, not
 in a filtered ledger".
 
 Every row is **one line of the bank's own columns**, `Date · Title · Operation · Cur ·
