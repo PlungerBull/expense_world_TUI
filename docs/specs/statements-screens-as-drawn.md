@@ -84,7 +84,7 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-All done; the acceptance check runs next.
+All done; the acceptance check runs again.
 
 ## Found along the way
 

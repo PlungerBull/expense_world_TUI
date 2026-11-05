@@ -1992,7 +1992,7 @@ def test_the_crumb_is_cut_again_whenever_the_terminal_is_resized(monkeypatch):
 
 # ---- the browse as drawn: panes 2 and 3 of the statements mockup ----------
 
-LONG_NAME = "Cuenta corriente en soles y dolares del Banco de Credito"[:50]
+LONG_NAME_50 = "Cuenta corriente en soles y dolares del Banco de Credito"[:50]
 
 
 def _two_currency_accounts(monkeypatch, names):
@@ -2039,7 +2039,7 @@ def test_the_rule_under_the_accounts_header_is_60_wide_under_its_first_letter(mo
 
 
 def test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_whole(monkeypatch):
-    _two_currency_accounts(monkeypatch, [LONG_NAME, "Visa BCP", "IBK Visa"])
+    _two_currency_accounts(monkeypatch, [LONG_NAME_50, "Visa BCP", "IBK Visa"])
 
     async def scenario(pilot, app):
         screen = ReconciliationsScreen()
@@ -2048,8 +2048,8 @@ def test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_who
         rows = [line for line in screen_lines(app) if "PEN + USD" in line]
         assert len(rows) == 3
         assert all(row.rstrip().endswith("-260.50 PEN   -30.98 USD") for row in rows), rows
-        assert "…" in rows[0] and LONG_NAME not in rows[0]
-        assert rows[0].lstrip().startswith(LONG_NAME[:20])
+        assert "…" in rows[0] and LONG_NAME_50 not in rows[0]
+        assert rows[0].lstrip().startswith(LONG_NAME_50[:20])
         assert all("…" not in row for row in rows[1:])
 
     run_app(scenario, size=(80, 24))

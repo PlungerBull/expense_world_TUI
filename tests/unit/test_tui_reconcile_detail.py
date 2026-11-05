@@ -1181,7 +1181,8 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         words = f"CONFLICT — {ARCHIVED_FIELD_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}"
-        if verb == "complete":  # a refused complete is lines under the head, not a toast
+        under_the_head = verb == "complete"  # a refused complete is lines, not a toast
+        if under_the_head:
             await wait_for(pilot, lambda: complete_refusal(screen))
             assert complete_refusal(screen) == ["Couldn't complete", *words.splitlines()]
             assert notices == []
