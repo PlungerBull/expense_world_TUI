@@ -30,7 +30,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import NamedTuple
 
 from rich import box
-from rich.console import RenderableType
+from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
+from rich.segment import Segment
 from rich.style import Style
 from rich.table import Table
 from rich.text import Text
@@ -105,6 +106,26 @@ def _with_mark_joined(row: "Row") -> "Row":
     mark.pad_right(max(1 - mark.cell_len, 0))
     joined = Text.assemble(mark, " ", list_cell(row.cells[1]))
     return row._replace(cells=[joined, *row.cells[2:]])
+
+
+class RuleUnderHeader:
+    """A table drawn with a rule of its own under its header row: `width` cells of `─`
+    starting `indent` cells in, whatever the table's width (the rule of a table's box always
+    spans the table). Cut to the room there is."""
+
+    def __init__(self, table: Table, *, indent: int, width: int) -> None:
+        self._table, self._indent, self._width = table, indent, width
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        lines = console.render_lines(self._table, options, pad=False)
+        rule = max(min(self._width, options.max_width - self._indent), 0)
+        for number, line in enumerate(lines):
+            yield from line
+            yield Segment.line()
+            if number == 0:
+                yield Segment(" " * self._indent)
+                yield Segment("─" * rule, console.get_style("dim"))
+                yield Segment.line()
 
 
 def list_table(
@@ -277,8 +298,11 @@ class CursorList(WindowedList):
         gives_way: Iterable[int] = (),
         min_widths: Mapping[int, int] | None = None,
         lead: bool = False,
+        header_rule_span: tuple[int, int] | None = None,
     ) -> None:
-        """``header_rule=False`` draws no line under the header; ``divider`` is what stands
+        """``header_rule=False`` draws no line under the header; ``header_rule_span`` is the
+        ``(indent, width)`` of a rule drawn there on its own, at that width whatever the
+        table's (`RuleUnderHeader`), and needs ``header_rule=False``; ``divider`` is what stands
         between the caption and the rows (`WindowedList.set_divider`).
         ``gap`` is the blank cells between two columns, three when left out.
         ``edge=False`` draws the table without its one-cell side edge (see `list_table`).
@@ -304,6 +328,7 @@ class CursorList(WindowedList):
         self._gives_way = set(gives_way)
         self._min_widths = dict(min_widths or {})
         self._lead = lead
+        self._header_rule_span = header_rule_span
         self._more: bool | None = None  # None: not growing; else "more rows exist"
 
     def set_growth(self, *, more: bool | None) -> None:
@@ -345,13 +370,15 @@ class CursorList(WindowedList):
         gives_way: Iterable[int] = (),
         min_widths: Mapping[int, int] | None = None,
         lead: bool = False,
+        header_rule_span: tuple[int, int] | None = None,
     ) -> None:
         """Relabel the columns in place — for a pane that lists two different
         things (the Reconciliations lower pane: batches, or the account's rows in
         no statement). Rebuilding the widget instead would drop the
         caption, the page size the screen computed and the focus. `align_right`, `gap`,
-        `flex`, `edge`, `header_rule`, `gives_way`, `min_widths` and `lead` are set afresh:
-        one left out falls back to its default, it does not keep the earlier headers' value.
+        `flex`, `edge`, `header_rule`, `gives_way`, `min_widths`, `lead` and `header_rule_span`
+        are set afresh: one left out falls back to its default, it does not keep the earlier
+        headers' value.
         """
         self._headers = list(headers)
         self._align = set(align_right)
@@ -362,6 +389,7 @@ class CursorList(WindowedList):
         self._gives_way = set(gives_way)
         self._min_widths = dict(min_widths or {})
         self._lead = lead
+        self._header_rule_span = header_rule_span
         self._refresh()
 
     def index_of(self, key: object) -> int:
@@ -388,7 +416,7 @@ class CursorList(WindowedList):
         if not self._rows:
             return Text("  " + self._empty, style="dim")
         start, window = self._window()
-        return list_table(
+        table = list_table(
             self._headers,
             window,
             align_right=self._align,
@@ -401,6 +429,10 @@ class CursorList(WindowedList):
             min_widths=self._min_widths,
             lead=self._lead,
         )
+        if self._header_rule_span is None:
+            return table
+        indent, width = self._header_rule_span
+        return RuleUnderHeader(table, indent=indent, width=width)
 
     def _cursor_moved(self) -> None:
         self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))

@@ -354,8 +354,14 @@ BROWSE_GAP = 2
 #: The statements' gap on an account with a statement code, whose Order column needs the room.
 ORDER_GAP = 1
 #: The account list's headers: `Account` over the names, which stand two cells in, after
-#: the open account's `▸`. The Balances column takes the width left over.
+#: the open account's `▸`.
 _ACCOUNT_HEADERS = ["  Account", "Currencies", "Balances"]
+#: The rule under that header: 60 cells of `─` starting under the `A` of `Account`.
+ACCOUNT_RULE_INDENT = 2
+ACCOUNT_RULE_WIDTH = 60
+#: The Account column's least width (its two-cell gutter included); a longer name is cut with
+#: `…` before a balance loses a letter.
+ACCOUNT_NAME_WIDTH = 18
 
 
 def statement_headers(
@@ -590,8 +596,26 @@ class ReconciliationsScreen(SectionScreen):
         if self._open_aid is None:
             return self.fit_rows(chrome=2 + self.BROWSE_FRAME_LINES)
         return self.fit_rows(
+            chrome=2 + 2 * self.BROWSE_FRAME_LINES + self._panel_gap() + self.CAPTION_LINES,
+            lines_per_row=2,
+        )
+
+    def _panel_gap(self) -> int:
+        """Blank lines between the accounts' page line and the panel's caption: one when the
+        accounts page (the page line says `rows 1-5 of 6 · page 1 of 2`), none when it stands
+        blank on one page, as it is itself the blank line. The accounts page when they outnumber
+        the rows the panel's equal split gives them with no gap."""
+        if self._open_aid is None:
+            return 0
+        rows = self.fit_rows(
             chrome=2 + 2 * self.BROWSE_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
         )
+        return 1 if len(self._accounts) > rows else 0
+
+    def _space_panel(self) -> None:
+        """Set the blank line `_panel_gap` says stands over the panel."""
+        if self._batch_list is not None:
+            self._batch_list.styles.margin = (self._panel_gap(), 0, 0, 0)
 
     def panel_page_rows(self) -> int:
         """Rows per page of the panel: its share, or what the accounts really leave under
@@ -601,7 +625,7 @@ class ReconciliationsScreen(SectionScreen):
         accounts leave; the statements list keeps the equal split."""
         accounts = self.BROWSE_FRAME_LINES + min(self.pane_rows(), max(1, len(self._accounts)))
         frame = self.UNFILED_FRAME_LINES if self._mode == "unfiled" else self.BROWSE_FRAME_LINES
-        panel = frame + self._caption_lines()
+        panel = self._panel_gap() + frame + self._caption_lines()
         room = self.fit_rows(chrome=2 + accounts + panel, floor=1)
         # The lines in no statement take all the room the accounts leave; the statements stop
         # at the equal split.
@@ -624,6 +648,7 @@ class ReconciliationsScreen(SectionScreen):
         if self._accts_list is not None and self._accts_list.is_attached:
             self._accts_list.set_page_size(self.pane_rows())
         if self._batch_list is not None and self._batch_list.is_attached:
+            self._space_panel()
             self._batch_list.set_page_size(self.panel_page_rows())
 
     def _account_rows(self) -> list:
@@ -659,6 +684,7 @@ class ReconciliationsScreen(SectionScreen):
             **self._panel_layout(),
         )
         batch_list.id = "batches"
+        batch_list.styles.margin = (self._panel_gap(), 0, 0, 0)
         return batch_list
 
     def build(self, data: dict) -> list[Widget]:
@@ -676,7 +702,10 @@ class ReconciliationsScreen(SectionScreen):
             page_size=self.pane_rows(),
             gap=BROWSE_GAP,
             edge=False,
-            flex={2: 1},
+            header_rule=False,
+            header_rule_span=(ACCOUNT_RULE_INDENT, ACCOUNT_RULE_WIDTH),
+            gives_way={0},
+            min_widths={0: ACCOUNT_NAME_WIDTH},
             divider=None,
         )
         self._accts_list.id = "accts"

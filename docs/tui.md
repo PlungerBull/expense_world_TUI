@@ -1371,6 +1371,13 @@ statements list the Name is the one column that gives way (`_panel_layout`, `giv
 `CursorList`): a name too long for the room left is cut with `…` (`Noviembre 2026` reads
 `Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order, and the
 list does not stretch to the card's edge, so the cursor's highlight ends after the last column.
+On the account list the Account column is the one that gives way (`ACCOUNT_NAME_WIDTH` least): a
+name too long is cut with `…` so both balances of a two-currency account show whole at 80
+columns. Its rule under the header is 60 cells of `─` starting under the `A` of `Account`
+(`header_rule_span` on `CursorList`, drawn by `RuleUnderHeader`), whatever the table's width.
+When the accounts page (`rows 1-5 of 6 · page 1 of 2`) a blank line stands between that page
+line and the statements' caption (`_panel_gap`); on one page the page line is itself blank, so
+none is added, and a panel row is spent on the gap.
 
 **Keys**: `⏎` opens the row's statement on its screen, every currency it covers, none
 picked first; `n` creates a statement for the open account, or with no panel for the account

@@ -1988,3 +1988,85 @@ def test_the_crumb_is_cut_again_whenever_the_terminal_is_resized(monkeypatch):
                 assert crumb.endswith(CRUMB_NAME + "  !"), (width, crumb)
 
     run_app(scenario, size=(80, 24))
+
+
+# ---- the browse as drawn: panes 2 and 3 of the statements mockup ----------
+
+LONG_NAME = "Cuenta corriente en soles y dolares del Banco de Credito"[:50]
+
+
+def _two_currency_accounts(monkeypatch, names):
+    """The browse's accounts: each of `names` holding soles and dollars, in a debt."""
+    reads = _patch_browse(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts",
+        lambda *a, **k: whole(
+            [
+                account_with_currencies(
+                    id=f"acc{i}",
+                    name=name,
+                    currencies=[held_currency("PEN", -26050), held_currency("USD", -3098)],
+                )
+                for i, name in enumerate(names)
+            ]
+        ),
+    )
+    return reads
+
+
+def _header_and_rule(app) -> tuple[str, str]:
+    lines = screen_lines(app)
+    at = next(i for i, line in enumerate(lines) if "Account" in line and "Balances" in line)
+    return lines[at], lines[at + 1]
+
+
+def test_the_rule_under_the_accounts_header_is_60_wide_under_its_first_letter(monkeypatch):
+    _two_currency_accounts(monkeypatch, ["Visa BCP", "IBK Visa"])
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        header, rule = _header_and_rule(app)
+        assert rule == " " * header.index("Account") + "─" * 60
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: screen._mode == "batches")
+        await pilot.pause()
+        header, rule = _header_and_rule(app)
+        assert rule == " " * header.index("Account") + "─" * 60
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_whole(monkeypatch):
+    _two_currency_accounts(monkeypatch, [LONG_NAME, "Visa BCP", "IBK Visa"])
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        rows = [line for line in screen_lines(app) if "PEN + USD" in line]
+        assert len(rows) == 3
+        assert all(row.rstrip().endswith("-260.50 PEN   -30.98 USD") for row in rows), rows
+        assert "…" in rows[0] and LONG_NAME not in rows[0]
+        assert rows[0].lstrip().startswith(LONG_NAME[:20])
+        assert all("…" not in row for row in rows[1:])
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_blank_line_stands_between_the_accounts_page_line_and_the_statements_caption(
+    monkeypatch,
+):
+    _two_currency_accounts(monkeypatch, [f"Account {n}" for n in range(1, 7)])
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        lines = screen_lines(app)
+        at = next(i for i, line in enumerate(lines) if "rows 1-5 of 6 · page 1 of 2" in line)
+        assert lines[at + 1] == ""
+        assert lines[at + 2].strip().startswith("Statements · Account 1")
+        assert screen.query_one("#content").max_scroll_y == 0
+
+    run_app(scenario, size=(80, 24))

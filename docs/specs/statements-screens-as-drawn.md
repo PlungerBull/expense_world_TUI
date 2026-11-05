@@ -83,9 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-3. **The browse as drawn** (What it must do 2 and 7): the header rules 60 wide under the
-   header's first letter; a long account name gives way with `…` so every balance shows whole;
-   a blank line between the accounts' page line and the statements' caption.
 4. **`c`'s refusal under the head** (What it must do 3): `Couldn't complete` and the engine's
    words as lines between the head and the balance box, no toast, gone at the next key.
 5. **`c`'s boxes wrap** (What it must do 6): below 64 columns a box's words wrap instead of
@@ -115,3 +112,8 @@ Not built in this spec; drafted into a new spec when it is done.
   says the title is the column cut. In reconciliations.py, `_UNFILED_LAYOUT` writes the gap as a
   literal `2` beside checklist.py's `GAP`, and is a `dict[str, object]` unpacked with `**`, so
   nothing checks its keyword names.
+- **The browse's sizing and its tui.md paragraph.** Nothing you see changes. `_panel_gap` in
+  reconciliations.py writes `pane_rows`' chrome sum a second time; `CursorList`'s
+  `header_rule_span` says it needs `header_rule=False` but nothing enforces it; tui.md's browse
+  paragraph names `ACCOUNT_NAME_WIDTH`, leaves unclear which list loses a row to the gap, and does
+  not say the `u` list shares the 60-wide rule.

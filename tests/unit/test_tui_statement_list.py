@@ -843,8 +843,8 @@ def test_visa_bcps_statements_at_80_columns_are_pane_3_whole(monkeypatch):
         "  VIS-202609   2026-08-26 → 2026-09-25        —          completed in order",
         "  VIS-202610   2026-09-26 → 2026-10-25        —        — completed in order",
     ]
-    assert "  ▸ Visa BCP      PEN + USD     -234.20 PEN   -30.98 USD" in lines
-    assert "    IBK Visa      PEN + USD     -512.90 PEN   -24.99 USD" in lines
+    assert "  ▸ Visa BCP          PEN + USD     -234.20 PEN   -30.98 USD" in lines
+    assert "    IBK Visa          PEN + USD     -512.90 PEN   -24.99 USD" in lines
     assert "…" not in "".join(lines)
 
 
