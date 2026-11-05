@@ -52,9 +52,6 @@ CLAUDE.md "Specs and tasks".
 - **About 20 unit test files name accounts with a currency code** (`BCP Signature PEN`,
   `BCP USD`), where an account holds its currencies; `test_tui_log_bar.py` shows the shape.
   Nothing you see changes. `grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`.
-- **A LOG bar test fails at random under the parallel suite.**
-  `test_the_peek_total_is_the_engine_count_read_with_the_rows` in test_tui_log_bar.py read
-  `· no room to show them` once (2026-11-05) and passes alone; it waits for what it reads.
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **The shared practice user holds no accounts,** so the tester proves LOG bar and account

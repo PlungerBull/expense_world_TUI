@@ -1771,8 +1771,18 @@ def test_peek_status_names_the_label_the_title_shows():
 
 
 async def _peeked(pilot, screen):
-    """Until the panel's fetch has landed (it is debounced, then threaded)."""
+    """Until the panel's fetch has landed (it is debounced, then threaded) and
+    the panel has measured its room and drawn rows, so its status line and
+    content are the settled ones (before its first layout it reads "no room")."""
     await wait_for(pilot, lambda: bool(screen._peek_cache), message="the peek never loaded")
+    panel = _peek(screen)
+    await wait_for(
+        pilot,
+        lambda: (
+            panel.capacity > 0 and bool(panel.panel_status) and "no room" not in panel.panel_status
+        ),
+        message="the peek never drew its rows",
+    )
 
 
 def _peek(screen) -> AccountPeek:
