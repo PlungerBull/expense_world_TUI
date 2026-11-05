@@ -115,8 +115,7 @@ Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
 (1 question) and [footers that fit the screen](specs/footers-fit-the-screen.md) (1 question,
 mockup to draw). Each question is in its spec.
 
-Approved: [the Statements screens as drawn](specs/statements-screens-as-drawn.md), running now,
-and [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
+Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
 engine's hand-off for its ask.
 
 **Recommended:** approve the rest.
@@ -139,12 +138,10 @@ CLAUDE.md "Specs and tasks".
   it one) or a CLAUDE.md change (the tester may make and remove one).
 - **The live test of a person's opening balance proves less than it could.** Nothing you see
   changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
-  [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads the person's
-  `currencies[]` but not the engine's own answers to the rule (`rows[].is_opening_balance` and
-  `counts.opening_balances`, on the dry run and the apply). Both of its opening balances are
-  positive, where one negative would show the sign survives too. It also leaves out a zero-amount
-  `SALDO INICIAL` row dated earlier; that case waits on the engine ask "Say whether a zero-amount
-  row dated earlier stops a sheet row being the opening balance".
+  [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads `currencies[]` but not
+  `rows[].is_opening_balance` or `counts.opening_balances`; both balances are positive (one
+  negative would prove the sign). A zero-amount earlier `SALDO INICIAL` row waits on the engine
+  ask "Say whether a zero-amount row dated earlier stops a sheet row being the opening balance".
 - **No unit test covers an apply that lists sealed rows.** Nothing you see changes. In
   [test_cmd_import.py](../tests/unit/test_cmd_import.py), "Sealed, on a closed statement's day"
   is asserted only on the dry run; `expense import sheet --apply` prints it through the same list
@@ -154,12 +151,10 @@ CLAUDE.md "Specs and tasks".
   `split_lines` and `split_rows` count with no citation of its own; it could cite
   (contract: POST /v1/transactions/import-sheet, "Response").
 - **The statement upload's live-test gaps.** Nothing you see changes. In
-  [test_statement_import.py](../tests/contract/test_statement_import.py): no live test opens a
-  card's month before its paper; none applies a card paper with $0 dollars to a soles-and-dollars
-  account; the "balances alone" form of `ACCOUNT_CURRENCY_NOT_ON_PAPER` is drawn only beside a
-  dollar line. `CONCURRENT_CHANGE` is proven only in
-  [test_tui_statement_upload.py](../tests/unit/test_tui_statement_upload.py), and the upload
-  screens' unit tests pin 120 columns where the app is checked at 80x24.
+  [test_statement_import.py](../tests/contract/test_statement_import.py) no live test opens a
+  card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
+  account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
+  line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
 - **Old engine words in a mockup and three tests.** Nothing you see changes.
   [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html) draws
   `Amount cannot be zero.` (the engine: `Must not be zero.`);
@@ -174,7 +169,7 @@ CLAUDE.md "Specs and tasks".
   "not by `sort_order`", which the fixture no longer proves; the drift script's note for `l12` is
   loose; test_statement_codes.py calls the account holding a code `holder`.
 - **The statement screens' live tests say less than they check, and `u` is unpinned.** Nothing
-  you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no batch"
+  you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no statement"
   and statement-screen tests' docstrings miss the currency and number they check, and the latter
   writes `"date_asc"` for `UNFILED_SORT`. No test pins that `u` on the Statements browse brings
   back the shared table's edge and gap and `esc` takes them away.
@@ -182,20 +177,34 @@ CLAUDE.md "Specs and tasks".
   [reconciliations.py](../expense/tui/screens/reconciliations.py) builds the review-list read
   inline and the live test types it again; decisions.md "A screen's live test reads through the
   screen's own read" wants one function both call.
-- **[edit_form.py](../expense/tui/screens/edit_form.py)'s module docstring says reconciliation
-  where it means statement.** Nothing you see changes.
+- **Code calls a statement a "batch" or a reconciliation.** Nothing you see changes. The module
+  docstrings of edit_form.py and reconciliations.py ("New batch:"), comments there ("no batch",
+  "One batch", `unreadable_note`), reads.py's and cursor_list.py's `set_headers` docstrings, a
+  test docstring ("date_start orders the batch now"), and the decisions.md heading "Rows in no
+  batch live in the reconciliation view…", renamed with its citations in tui.md,
+  reconciliations.py and decisions.md in one change.
+- **The Statements screens' unit tests prove less than they could.** Nothing you see changes.
+  No test pins the revert question, `u`'s tooltip, the "it orders the statement" hint or the
+  `loading…` caption. In test_tui_statement_balances.py the 60-column starting and ending boxes
+  pass without the fix (give one the long name), `_box_at` waits with `pilot.pause()`, nothing
+  covers the refusal lines at 60 columns, and `NOVIEMBRE` aliases `NOVIEMBRE_IBK`; in
+  test_tui_statement_screen.py the refusal-lines test (c) waits on a condition true before and
+  after (wait for the rows to grow).
+- **Small tidy-ups in the Statements code.** Nothing you see changes. In reconciliations.py,
+  `_UNFILED_LAYOUT` writes a literal gap `2` beside checklist.py's `GAP` and is a
+  `dict[str, object]` unpacked with `**`; `_panel_gap` repeats `pane_rows`' chrome sum.
+  `CursorList`'s `header_rule_span` needs `header_rule=False`, unenforced; `UnderHead` takes
+  `screen_stack[-2]`, not its own place in the stack. Below 66 columns the "no statement" list
+  cuts the amount.
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
   test_create_sent_again.py, test_opening_balance.py (`_seed_body`) and
   test_reserved_name_held.py in [tests/contract/](../tests/contract/) should start from
   `Scratch.opening_balance_body` and change only what their refusal needs. Done when the three
   pass against the practice engine, leaving nothing on either practice user.
-- **Three small finds from the practice engine's start script and the drift script:** the
-  comment at the start script's `$!` capture calls that pid "the backgrounded subshell", though
-  after the exec chain it is the launcher's own, and the line runs past 100 characters; the
-  guard's exemption for the launcher's name lets a script name built at run time from it
-  through, a limit its docstring already states for names built at run time; and
-  `--record-version` takes a version listed anywhere in the change log, not only first, with no
-  test pinning that choice.
+- **Three small finds in the practice engine's start script and the drift script.** The `$!`
+  comment calls the launcher's pid "the backgrounded subshell" and runs past 100 characters; the
+  guard's launcher-name exemption passes a name built at run time (its docstring states the
+  limit); `--record-version` takes a version listed anywhere in the change log, untested.
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in
@@ -230,7 +239,7 @@ CLAUDE.md "Specs and tasks".
 - **"A transaction is split" is spelled three ways.** `is_split_line` in
   [reconciliations.py](../expense/tui/screens/reconciliations.py) and the inline
   `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
-  formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no batch"
+  formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no statement"
   rows), and the delete question shows `—` for the same untitled line: one fallback everywhere.
 - **A guard against "purchase" in the app's words.** The owner's word is "transaction"
   (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
@@ -244,23 +253,19 @@ CLAUDE.md "Specs and tasks".
   `expense-world-sheet-import-engine.html` is one (named only in import_cmd.py's and
   test_cmd_import.py's docstrings); seven are linked from nowhere: bank-import-10b,
   currencies-transaction-picks, no-batch-caption, opening-balance-rows, pending-hashtag-home,
-  refusal-hints and screen-map.
+  refusal-hints and screen-map; leftover-picks is linked only from a retired spec, and
+  statements-screens only from code and tests.
 - **Two more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
   version. One shared copy, with tests.
-- **Code comments still carry mockup tags, and one module docstring is stale.** Sixteen
-  comments in app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py and
-  log_bar.py point at a mockup's pane number (the one above `FlaggedLinesScreen #fhead` in
-  app.tcss says "pane 10"), as do the "Screen 1…4" tags in import_cmd.py and
-  test_cmd_import.py and "pane N" in the docstrings of test_tui_flagged_panes.py and
-  test_tui_reconciliations.py (CLAUDE.md doc rule 5 holds for comments too); say what the code does
-  instead, and test names like `test_a_cards_preview_is_screen_1a_and_writes_nothing` too.
-  bank_import.py, log_bar.py and test_tui_statement_upload.py also point at two mockups
-  that do not exist, `expense-world-statement-pdf-screens.html` and
-  `expense-world-statement-pdf-upload.html`. reconciliations.py's module docstring still describes the old New
-  form (`› begin › end`, a required beginning balance), a complete needing a line on one
-  account of the statement, and delete as draft-only.
+- **Code comments still carry mockup tags, and one module docstring is stale.** About sixteen
+  comments (app.tcss, reconciliations.py, statement_upload.py, bank_import.py, modals.py,
+  log_bar.py), the "Screen 1…4" tags in import_cmd.py and test_cmd_import.py, "pane N" in test
+  docstrings and names like `test_a_cards_preview_is_screen_1a_and_writes_nothing` point at
+  mockup panes; say what the code does. bank_import.py, log_bar.py and
+  test_tui_statement_upload.py name two mockups that do not exist. reconciliations.py's module
+  docstring describes the old New form, complete and delete.
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
@@ -268,13 +273,10 @@ CLAUDE.md "Specs and tasks".
   them to every screen; then the pipe form in [runtime.md](runtime.md) works for the app.
 
 - **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
-  popped or the app closing still runs its callback, which then queries pruned widgets
-  ([tui.md](tui.md) "Async / workers"). `SectionScreen._load` and the LOG bar use the guard; about
-  20 hand-backs still call `self.app.call_from_thread` directly: `_base.py` (`_execute_write`),
-  `_growing.py`, `reconciliations.py`, `home.py`, `bank_import.py`, `transactions.py`,
-  `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
-  write's `on_success` must still run after a dismiss, and add a guard in
-  `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
+  gone still runs its callback on pruned widgets ([tui.md](tui.md) "Async / workers"). About 20
+  hand-backs in `expense/tui/` still call `self.app.call_from_thread`; move them (checking whether
+  a write's `on_success` must run after a dismiss) and guard against a raw one in
+  `test_suite_hygiene.py`.
 - **Three comments still describe the split screen.** `key_index`'s docstring in
   [errors.py](../expense/errors.py) says "the split's `parts`"; the
   [transactions.py](../expense/tui/screens/transactions.py) module docstring says `s` opens the
@@ -291,13 +293,10 @@ CLAUDE.md "Specs and tasks".
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **A superseded read can paint on a statement's list.** A read started mid-burst of
-  `space` ticks can still reach `_populate` after the last tick's answer empties the queue, when
-  its worker passed the `is_cancelled` check just before the newer load cancelled it
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `_load_txns`, `_populate`).
-  The stale read paints and spends `_land_on`, so the fresh read after it lands the cursor on row
-  1, not on the line ticked last. Narrow window, not yet reproduced. The fix lets `_populate`
-  paint only the newest load, with a test that holds the old read past the cancel.
+- **A superseded read can paint on a statement's list.** A read started mid-burst of `space`
+  ticks can pass `_load_txns`' `is_cancelled` check just before a newer load cancels it, then
+  paint in `_populate` and spend `_land_on`, so the cursor lands on row 1, not the line ticked
+  last. Not yet reproduced. `_populate` paints only the newest load, with a test.
 
 ---
 

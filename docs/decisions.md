@@ -78,7 +78,7 @@ Decisions whose why lives elsewhere:
 
 ## A split transaction is reconciled and deleted whole (2026-10-17)
 
-**Decision.** (1) **The reconciliation screens list bank lines, not ledger rows**: one row per bank line, in the bank's columns only (date · title · operation · amount) with the line's total, and nothing marks a split, because the bank sees one movement (contract: GET /v1/bank-lines). (2) **A tick is one write on any part**; the engine puts every part in the reconciliation or takes every part out, so no screen shows half a line ticked (contract: PUT /v1/transactions/{transaction_id}). (3) **`d` on any part of a split transaction deletes the whole line**, from the ledger or from "no batch", after a question naming how many parts go: "Delete this transaction and its N parts? No screen can bring it back." (contract: DELETE /v1/bank-lines/{bank_line_id}). `b` moves the whole line, as the engine does. (4) **`⏎` in "no batch" opens the Edit form**, as on the ledger. (5) **The app's word is "transaction"**, for a split one too; a variant of a form keeps that form's name.
+**Decision.** (1) **The reconciliation screens list bank lines, not ledger rows**: one row per bank line, in the bank's columns only (date · title · operation · amount) with the line's total, and nothing marks a split, because the bank sees one movement (contract: GET /v1/bank-lines). (2) **A tick is one write on any part**; the engine puts every part in the reconciliation or takes every part out, so no screen shows half a line ticked (contract: PUT /v1/transactions/{transaction_id}). (3) **`d` on any part of a split transaction deletes the whole line**, from the ledger or from "no statement", after a question naming how many parts go: "Delete this transaction and its N parts? No screen can bring it back." (contract: DELETE /v1/bank-lines/{bank_line_id}). `b` moves the whole line, as the engine does. (4) **`⏎` in "no statement" opens the Edit form**, as on the ledger. (5) **The app's word is "transaction"**, for a split one too; a variant of a form keeps that form's name.
 
 **Rejected.** *Category and hashtags on the reconciliation rows* — a reconciliation checks the bank's movements, and the owner wants only the bank's columns. *A part count or a split mark on the row* — nothing in a reconciliation depends on how a transaction is split. *Deleting one part with `d`* — the bank holds one movement, so deleting a part would leave the line's total short of the bank's; re-splitting changes the parts. *A form of its own for a split transaction* — a new screen name for a variant of the Edit form.
 
@@ -108,7 +108,7 @@ Decisions whose why lives elsewhere:
 
 ## Every data table pages at 20 rows (2026-07-11)
 
-**Decision.** `DEFAULT_PAGE_ROWS = 20` in [reads.py](../expense/reads.py), one copy. Full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
+**Decision.** `DEFAULT_PAGE_ROWS = 20` in [reads.py](../expense/reads.py), one copy. Full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no statement" pane grow instead ("Long lists grow, they do not page").
 
 **Rejected.** *Client-side slicing of engine-paged reads* — the next client must inherit real pagination. *Auto-fetching when `↓` reaches the edge* — holding a key would fire a read per keystroke.
 
@@ -166,11 +166,11 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *A client-side "move between accounts" that writes both legs* — a new UX with a non-atomic failure (one leg lands, the other 422s).
 
-## Reconciliation de-chaining — a batch is a statement period, ordered by its date (2026-08-16)
+## Reconciliation de-chaining — a statement is a period, ordered by its date (2026-08-16)
 
-**Decision.** Both balances are typed off the paper statement — one form, no chained/manual fork. A batch is positioned by its period's days; repositioning is editing its dates. `difference_cents` shows on the list surfaces and the working screen (see "A null difference is blank").
+**Decision.** Both balances are typed off the paper statement — one form, no chained/manual fork. A statement is positioned by its period's days; repositioning is editing its dates. `difference_cents` shows on the list surfaces and the working screen (see "A null difference is blank").
 
-**Rejected.** *A client-side "chained" prefill of the beginning balance from the previous batch's end* — the deleted engine feature reimplemented in the client, with the same stale-neighbour bug.
+**Rejected.** *A client-side "chained" prefill of the beginning balance from the previous statement's end* — the deleted engine feature reimplemented in the client, with the same stale-neighbour bug.
 
 ## Home aggregates are nullable — `3 unrated` is a state, not a number (2026-08-16)
 
@@ -323,9 +323,9 @@ the bar is where the right file gets dropped next.
 
 ## A null difference is blank, a zero difference is the em-dash (2026-09-14)
 
-**Decision.** A reconciliation's `ending_balance_cents` and `difference_cents` are nullable (not entered yet). In the TUI ([cells.py](../expense/tui/widgets/cells.py)): `0` difference is the dim em-dash ("balances, move on"); `None` or junk is a **blank** cell — never the em-dash, which would assert the batch balances; a null amount renders `—`, not `(null)`.
+**Decision.** A reconciliation's `ending_balance_cents` and `difference_cents` are nullable (not entered yet). In the TUI ([cells.py](../expense/tui/widgets/cells.py)): `0` difference is the dim em-dash ("balances, move on"); `None` or junk is a **blank** cell — never the em-dash, which would assert the statement balances; a null amount renders `—`, not `(null)`.
 
-**Rejected.** *Null and zero both `—`* — tells you an unfinished batch balances. *A `?` glyph for null* — a blank already reads correctly. *Changing `format_cents` globally* — blunts a signal meant to be noticed.
+**Rejected.** *Null and zero both `—`* — tells you an unfinished statement balances. *A `?` glyph for null* — a blank already reads correctly. *Changing `format_cents` globally* — blunts a signal meant to be noticed.
 
 ## The TUI sees the response body only where it asks for it (2026-09-20)
 
@@ -365,7 +365,7 @@ the bar is where the right file gets dropped next.
 
 ## Long lists grow, they do not page (2026-09-25)
 
-**Decision.** The ledger and the "no batch" pane are **one list that grows**, both through `GrowingRead` ([_growing.py](../expense/tui/screens/_growing.py)): **10 rows** to start; `pgdn` **appends** the next 10 with the cursor on the first new row; `↑↓` scroll everything loaded; `pgup` moves up a screenful with no read; a resize fetches nothing. The caption reads `N of M loaded`.
+**Decision.** The ledger and the "no statement" pane are **one list that grows**, both through `GrowingRead` ([_growing.py](../expense/tui/screens/_growing.py)): **10 rows** to start; `pgdn` **appends** the next 10 with the cursor on the first new row; `↑↓` scroll everything loaded; `pgup` moves up a screenful with no read; a resize fetches nothing. The caption reads `N of M loaded`.
 - **Rows and count load together; a missing count fails the whole list** — never rows beside a guessed total.
 - **After any write the list starts over**: `+`, an edit, `c` / `b` / `h`, `d` and `r` read the first 10 fresh with the cursor on row 1. A refused bulk row stays selected only if the fresh read brings it back.
 
@@ -505,7 +505,7 @@ paper, has none. (2) **An open statement on an account with a statement code wai
 PDF**: no ticking and no `c`, since the PDF closes it ("A card's statement is one statement, and
 a month closes from the bank's PDF"). (3) **Lists page rather than scroll**: the browse's panel
 takes the rows the accounts leave, its caption measured as it wraps, so `#content` never
-scrolls and no scrollbar cuts a column; the lines in no batch, a growing list, draw no page line
+scrolls and no scrollbar cuts a column; the lines in no statement, a growing list, draw no page line
 ([tui.md](tui.md) "The Statements screens fit 80×24"). (4) **On an account with a statement code
 the statements list's columns sit one space apart, and on every account the name is the column
 that gives way**, cut with `…`: the order and the figures are what the list is read for. An
@@ -863,7 +863,7 @@ transaction, and the engine's words already say what is refused.
 
 **Rejected.** *Keeping `s` hidden on an archived row* — it hides a form `⏎` opens anyway.
 *Keeping `s Split` in the footer* — `s` opens the Edit form; it does not split. *Listing every
-field on the "no batch" card* — three lines for what "the transaction and its parts" says in
+field on the "no statement" card* — three lines for what "the transaction and its parts" says in
 one. *A line of the form's own for the opening balance's hashtag refusal* — rare, its field
 already shows read-only, and the engine's words are enough.
 
@@ -960,7 +960,7 @@ disagree with the list it opens. The screen reads the count first and its head s
 the lines arrive: it shows sooner and is still the engine's number. (3) **A statement is
 the account's**: it covers the currencies the account holds, and the statement code is the
 account's (contract: "What an account is", "Statement code"), never a match of statement codes
-across accounts. (4) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
+across accounts. (4) **The "no statement" list explains its `!` as `! dated inside a statement`**: a
 close flags such a line instead of being blocked by it. (5) **The practice engine's second key,
 the reserved-names practice user's, is handled like the first** ([runtime.md](runtime.md)
 "Working against the live engine").
@@ -1257,3 +1257,23 @@ fades. *`^s` sends only lines entered with `⏎`* — the engine refuses the sav
 value. *`^s` also keeps an untouched line* — on a choice line `⏎`'s reading picks the first
 account or colour for the user. *`+` on balances and totals too* — the drawings write them
 without one.
+
+## The Statements screens say "statement", and a statement's screen follows its own layout (2026-11-05)
+
+**Decision.** (1) **The Statements screens say "statement", never "batch"**: `In no statement`,
+`u No statement`, a statement's screen. (2) **A refused complete is lines between the head and
+the box**, `Couldn't complete` and the engine's words, kept until the next key; the other
+refusals on that screen stay toasts. (3) **A statement's list measures itself again after every
+layout of its screen, and a box under the head places itself after every layout of the screen
+beneath it** (Textual's `screen_layout_refresh_signal`), so the `⚑` line and the refusal lines
+never cost the page line and give their room back when they go. (4) **A difference not checked
+yet stays blank** on a draft too, as "A null difference is blank, a zero difference is the
+em-dash" holds. (5) **An unreadable balance's note names its currency**, as its line does.
+
+**Why.** "Statement" is the owner's word for what the screens show. The box under the head is
+where the refused complete is fixed; a toast covers it and fades. A refit timed with
+`call_after_refresh` runs after whatever screen is on top, so under a box it measured the list
+before its own screen was laid out again and lost the page line on a slower terminal.
+
+**Rejected.** *A dim `—` for a difference not checked yet* — it reads as "adds up". *Timing the
+refit with chained `call_after_refresh`* — it raced the layout beneath a box at 20 fps and below.

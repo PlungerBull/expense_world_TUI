@@ -500,17 +500,17 @@ bank-line list (a statement's, the flagged lines') draws its rows this way.
 
 The columns sit as the statement's own list sits: the `!` mark first, the date one blank
 after it, the other columns two cells apart and packed to the left, never spread over the
-room. The title is at least 24 wide, the amount 9, and the title is the column that is
-cut, with `…`, when a row outgrows the terminal; on a wider one it shows whole, the columns
-behind it following it ([cursor_list.py](../expense/tui/widgets/cursor_list.py), `lead`
-and `min_widths` of `list_table`).
+room. The title is the column that gives way, cut with `…` when a row outgrows the terminal,
+down to 24 wide; on a wider terminal it shows whole, the columns behind it following it
+([cursor_list.py](../expense/tui/widgets/cursor_list.py), `lead` and `min_widths` of
+`list_table`).
 
 The list is **oldest first**, `sort=date_asc` (`UNFILED_SORT`)
 (contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
-`In no statement · <account>   ·   N of M loaded · oldest first   ·` and, on a line of
-its own, `! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
-`GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`;
-the count takes no order), read together with the first rows, and counts a split
+`In no statement · <account>   ·   N of M loaded · oldest first   ·`, then
+`! dated inside a statement` on a line of its own. It reads ten lines at a time and grows like
+the ledger (§5, `GrowingRead`); M is `GET /bank-lines/count` with the same filters
+(`count_bank_lines`; the count takes no order), read together with the first rows, and counts a split
 transaction once (contract: GET /v1/bank-lines/count); a count that cannot be read fails
 the pane. `r`, an edit and a delete all start again from the oldest ten, cursor on row 1. The
 **`!` flag is a hint, not a ruling** — it marks a row whose date falls inside the days of a
@@ -521,9 +521,9 @@ and names the ones it flags in its answer ("The lines a complete flagged for rev
 and which lines those are is the engine's alone.
 
 **Keys**: the footer reads `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`
-(`ReconciliationsScreen.active_bindings` sets that order), then `pgdn 10 more` while the
-engine holds more lines and `pgup Prev` once a page lies before the one shown; `n` and
-`u` are off here, and out of the footer. `esc` swaps back to the panel. `⏎ Edit`, on
+(`ReconciliationsScreen.active_bindings` sets that order), then the growing list's
+`pgdn 10 more` and `pgup Prev` where they apply (§5); `n` and `u` are off here, and out of the
+footer. `esc` swaps back to the panel. `⏎ Edit`, on
 every row, opens the Edit form on the line and its parts (below); the `?` card words it "Edit
 the transaction and its parts", as the ledger's `s`. `d` deletes the line under the cursor
 after a question ("`d` is the TUI's one destructive key" below), with the line the list
@@ -963,11 +963,11 @@ one.
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
 system category or the pending hashtag draws when sent a new name, and the one a hashtag draws
 when named like the pending hashtag. The note it draws (a toast, a form's block, a LOG bar
-row, the bank import's preview, the Edit form's parts) shows the engine's words whole
-(`CODE — message`, then one `key: …` line per refused field; a LOG bar row the engine names
-reads `key: …` for each refused field, without the code and message, and so does a ledger row
-refused by `b`, `c`, `h` or `m`), and for the reasons below a blank line and one line of the
-app's saying what to do. A reason the table does not list has no line: the engine's words
+row, the bank import's preview, the Edit form's parts, a statement's refused complete) shows the
+engine's words whole (`CODE — message`, then one `key: …` line per refused field; a LOG bar row
+the engine names reads `key: …` for each refused field, without the code and message, and so
+does a ledger row refused by `b`, `c`, `h` or `m`), and for the reasons below a blank line and
+one line of the app's saying what to do. A reason the table does not list has no line: the engine's words
 show alone.
 
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
@@ -1215,15 +1215,15 @@ passes through: a plain rule opens the section, the page status sits dim beneath
 and there is no title, the breadcrumb already naming the screen. **The status line is drawn
 on every windowed list, blank when there is nothing to say**, except where a screen turns it
 off for a mode that never has a status (`set_status_line(False)`, the Statements lines in no
-batch): the line is fixed per list or mode, never by rows, since `AdaptiveRowsMixin` measures
+statement): the line is fixed per list or mode, never by rows, since `AdaptiveRowsMixin` measures
 the widget's height. **The rule passes an explicit style**: Rich's default `rule.line`
 resolves to a literal green that `test_no_literal_color_styles_in_tui` cannot see, because
 it greps source rather than renders.
 
 ⚠️ **One exception.** A title that is *chrome* disappears; one that is *information*
-becomes a line of content above the rule. The Statements browse stacks two lists once
-a panel is open, and its caption (`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`) is the
-only thing tying the lower rows to an account above. Ask "would the screen still be
+becomes a line of content above the rule. The Statements browse stacks two lists once a
+panel is open, and its caption (`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`)
+is the only thing tying the lower rows to an account above. Ask "would the screen still be
 unambiguous without this?" — not "is this a title?".
 
 ---
@@ -1371,13 +1371,13 @@ statements list the Name is the one column that gives way (`_panel_layout`, `giv
 `CursorList`): a name too long for the room left is cut with `…` (`Noviembre 2026` reads
 `Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order, and the
 list does not stretch to the card's edge, so the cursor's highlight ends after the last column.
-On the account list the Account column is the one that gives way (`ACCOUNT_NAME_WIDTH` least): a
-name too long is cut with `…` so both balances of a two-currency account show whole at 80
-columns. Its rule under the header is 60 cells of `─` starting under the `A` of `Account`
-(`header_rule_span` on `CursorList`, drawn by `RuleUnderHeader`), whatever the table's width.
-When the accounts page (`rows 1-5 of 6 · page 1 of 2`) a blank line stands between that page
-line and the statements' caption (`_panel_gap`); on one page the page line is itself blank, so
-none is added, and a panel row is spent on the gap.
+On the account list the Account column gives way, down to 18 cells with its `▸` gutter
+(`ACCOUNT_NAME_WIDTH`): a long name is cut with `…` before a balance loses a letter, so both
+balances of a two-currency account show whole at 80 columns. The rule under its header is 60
+cells of `─` from under the `A` of `Account`, whatever the table's width (`header_rule_span` on
+`CursorList`). When the accounts page (`rows 1-5 of 6 · page 1 of 2`), a blank line stands
+between that page line and the panel's caption, taken from the room the two lists split
+(`_panel_gap`); on one page the page line is itself blank, and no line is added.
 
 **Keys**: `⏎` opens the row's statement on its screen, every currency it covers, none
 picked first; `n` creates a statement for the open account, or with no panel for the account
@@ -1481,8 +1481,7 @@ statement has a place in its order
 (contract: POST /v1/statements/{statement_id}/complete), and no screen sets the order
 ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
 A complete with no transaction in any currency is refused as `NO_TRANSACTIONS_ASSIGNED` on
-each currency's `balances.<currency>.transactions`, and `Couldn't complete` shows the engine's
-words whole (below).
+each currency's `balances.<currency>.transactions`.
 
 **`c` needs every balance**: the engine completes no statement with a balance blank
 (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").
@@ -1491,36 +1490,35 @@ the statement's order, a currency's starting balance before its ending one
 (`blank_balances`): `Starting balance first` (`The statement's opening figure for <account>,
 in <currency> · signed · e.g. 13,853.20`) or `Ending balance first` (`The statement's closing
 figure for <account>, in <currency> · signed · e.g. 13,853.20`), each with
-`[enter] save    [esc] cancel`. A box is 60 wide at most and narrows with the terminal, its
-words wrapping, never cut. Each figure is read by the shared money parser exactly as
+`[enter] save    [esc] cancel`. Each figure is read by the shared money parser exactly as
 typed, the sign never added or flipped; text it cannot read keeps the box open with what was
 typed and notes `Begin balance USD: a signed decimal, e.g. 9580.00` or
-`End balance USD: a signed decimal, e.g. 9460.00` (the box's own currency), and nothing is sent. `esc` closes the box with
-nothing sent. The boxes and the `Complete statement?` question after them open under the
-statement's head, the crumb, the balances and any note staying in sight
-(`UnderHead` in [modals.py](../expense/tui/screens/modals.py)); every other modal stays
-centred. After the last box one `PUT /statements/{id}` saves everything typed: its `balances`
+`End balance USD: a signed decimal, e.g. 9460.00`, naming the box's currency as the New
+statement form's note names its line's, and nothing is sent. `esc` closes the box with nothing
+sent. The boxes and the `Complete statement?` question after them open under the statement's
+head, the crumb, the balances and any note staying in sight
+(`UnderHead` in [modals.py](../expense/tui/screens/modals.py)), each 60 wide at most and
+narrower with the terminal, its words wrapping, never cut; every other modal stays centred.
+After the last box one `PUT /statements/{id}` saves everything typed: its `balances`
 names only the currencies that change, each with only the balances typed (`balances_body`), so
 the engine keeps every other (contract: PUT /v1/statements/{statement_id}, "`balances`"). The
 head shows the engine's saved figures, and then `Complete statement?` asks; only `y`
 completes, and any other answer leaves a draft with its balances saved, so the next `c` goes
 straight to the question, as it does on a draft with every balance.
 
-A refused complete that names a missing balance (`BEGINNING_BALANCE_REQUIRED`,
-`ENDING_BALANCE_REQUIRED`) or a currency the statement does not cover
-(`MONEY_AT_START_NOT_COVERED`) shows `Couldn't complete` with the engine's words, then opens
-the same boxes, empty, for the currency the engine names (`balances_named`, read off the
-refusal's `reasons` keys `balances.<currency>[.<field>]`): the named balance's box, or for a
-currency not covered its starting then its ending balance. A currency with no movement closes
-the same way, its ending balance typed and the engine judging it. Then the question asks
-again. Every refused complete shows `Couldn't complete` and the engine's words whole as
-lines between the head and the list, each wrapping under its own first word, and no toast; they
-stand until the next key, which a box open under them counts too (a character typed, `⏎`,
-`esc`), and the box then moves up to where it stands without them. A refused save shows
-`Couldn't save` with the engine's words. A refused complete after a
-save in the same `c` puts the line `The balances are saved. The statement is not completed:`
-above the engine's words, and the screen reads the statement fresh, so the head and the next
-`c` go by what the engine holds.
+**A refused complete** shows `Couldn't complete` and the engine's words whole as lines right
+under the head, and no toast. They stand until the next key, a key in a box open under them
+included (a character typed, `⏎`, `esc`), and the box then moves up into their room. After a
+save in the same `c`, the line `The balances are saved. The statement is not completed:` stands
+above the engine's words. Every refused complete reads the statement fresh, so the head and the
+next `c` go by what the engine holds. One that names a missing balance
+(`BEGINNING_BALANCE_REQUIRED`, `ENDING_BALANCE_REQUIRED`) or a currency the statement does not
+cover (`MONEY_AT_START_NOT_COVERED`) then opens the same boxes, empty, for the currency the
+engine names (`balances_named`, read off the refusal's `reasons` keys
+`balances.<currency>[.<field>]`): the named balance's box, or for a currency not covered its
+starting then its ending balance. A currency with no movement closes the same way, its ending
+balance typed and the engine judging it. Then the question asks again. A refused save toasts
+`Couldn't save` with the engine's words.
 
 **The close's notes.** A complete's answer carries each balance's `warnings` and
 `coverage_gap` (contract: POST /v1/statements/{statement_id}/complete, "Response"), and the
@@ -1826,9 +1824,9 @@ instead of scrolling `#content`, whose scrollbar would cut the Order column; a c
 account name wraps is counted. The "no statement" list draws no page status
 (`UNFILED_FRAME_LINES`) and fills the room the accounts leave, down to the blank line above
 the footer; its caption's `N of M loaded` says the rest. A statement's list is measured again
-after every layout of the screen, beneath a box too, so it always fills the room left by the
-head, its notes and the `⚑` line, whichever of them is showing; the rows set apart count toward
-the page, so its page status always shows. The browse and a statement's screen use a
+after every layout of the screen, beneath a box too, so it fills the room the head, a refused
+complete's lines, the close's notes and the `⚑` line leave, whichever of them shows; the rows
+set apart count toward the page, so its page status always shows. The browse and a statement's screen use a
 `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)), so no key is cut at 80
 columns: not `u No statement` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
 
