@@ -29,24 +29,21 @@ Asked <date> · Blocks: <task or spec>
 ### Keys the drawing leaves out of the "no statement" footer
 Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
 
-`u` on the Statements browse now shows the drawn footer
-`esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`. Two keys the drawing doesn't show appear only when they work: `pgdn 10 more` while the
-engine holds lines not yet loaded, and `pgup Prev` once you've moved past the first screenful.
-They go at the end: `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys  pgdn 10 more`.
+`u` on the Statements browse shows the drawn footer, then, only when they work, `pgdn 10 more`
+(more lines to load) and `pgup Prev` (past the first screenful) at its end.
 
 - **A.** Keep them at the end.
 - **B.** Somewhere else: tell me where.
 
-**Recommended:** A, because the drawn keys keep their places and nothing that works is hidden.
+**Recommended:** A: the drawn keys keep their places.
 
 ### How wide the title is in the "no statement" list
 Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
 
-The list now reads as drawn at 80 columns: columns packed together, 67 wide. On a wider
-terminal the title widens only as far as the longest title needs, and the list does not stretch
-to the screen's edge. A statement's own list works the same way.
+On a terminal wider than 80 columns the title widens only as far as the longest title needs; the
+list does not stretch to the right edge. A statement's own list works the same way.
 
-- **A.** Keep it: as wide as the titles need.
+- **A.** Keep it.
 - **B.** The title stretches so the list reaches the right edge.
 
 **Recommended:** A, because it matches the drawing and the statement's own list.
@@ -110,21 +107,17 @@ fixes it.
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-The engine's hand-off "An account holds its currencies: every route names an account and a
-currency code; holders are gone" (contract `f82426fb0a099676`) is caught up: its seven parts are
-done, and their replies wait in [to-engine/](to-engine/) for you to hand over.
-
 Open, to approve: [the test-suite leftovers](specs/test-suite-leftovers.md),
 [the official import](specs/before-the-official-import.md) (5 questions, facts only you know),
 [a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
-(1 question, mockup to draw) and
+(1 question, mockup to draw),
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
 (1 question) and [footers that fit the screen](specs/footers-fit-the-screen.md) (1 question,
-mockup to draw).
+mockup to draw). Each question is in its spec.
 
-Approved: [the Statements screens as drawn](specs/statements-screens-as-drawn.md), next, and
-[accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on an engine ask
-you hand over. Each question is in its spec.
+Approved: [the Statements screens as drawn](specs/statements-screens-as-drawn.md), running now,
+and [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
+engine's hand-off for its ask.
 
 **Recommended:** approve the rest.
 
@@ -174,16 +167,12 @@ CLAUDE.md "Specs and tasks".
   [test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) and
   [test_tui_bulk_edit.py](../tests/unit/test_tui_bulk_edit.py) quote `Validation failed.` Done
   when each is the practice engine's own words.
-- **Part 7's test leftovers.** Nothing you see changes.
-  [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py)'s sample paths read
-  `/reconciliations/…`; balance refusals in
-  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) and
-  [test_errors.py](../tests/unit/test_errors.py) are keyed `balances.<account_id>.…` where the
-  engine keys them by currency code; two docstrings, in test_tui_bank_import.py and
-  test_tui_reconciliations.py, claim a list is "not by `sort_order`", which the fixture no longer
-  proves; the drift script's note for `l12` describes the match loosely;
-  [test_statement_codes.py](../tests/contract/test_statement_codes.py) names the account holding
-  a code `holder`. Done when each says what the code and the contract do, and both suites pass.
+- **Part 7's test leftovers.** Nothing you see changes. test_no_read_only_fields.py's sample
+  paths read `/reconciliations/…`; balance refusals in test_tui_reconcile_detail.py and
+  test_errors.py are keyed `balances.<account_id>.…`, where the engine keys them by currency
+  code; docstrings in test_tui_bank_import.py and test_tui_reconciliations.py claim a list is
+  "not by `sort_order`", which the fixture no longer proves; the drift script's note for `l12` is
+  loose; test_statement_codes.py calls the account holding a code `holder`.
 - **The statement screens' live tests say less than they check, and `u` is unpinned.** Nothing
   you see changes. In [test_bank_lines.py](../tests/contract/test_bank_lines.py), the "no batch"
   and statement-screen tests' docstrings miss the currency and number they check, and the latter
@@ -196,15 +185,10 @@ CLAUDE.md "Specs and tasks".
 - **[edit_form.py](../expense/tui/screens/edit_form.py)'s module docstring says reconciliation
   where it means statement.** Nothing you see changes.
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
-  [test_create_sent_again.py](../tests/contract/test_create_sent_again.py) (the seed it sends
-  twice), [test_opening_balance.py](../tests/contract/test_opening_balance.py) (`_seed_body`,
-  which leaves out the currency or adds fields to draw refusals) and
-  [test_reserved_name_held.py](../tests/contract/test_reserved_name_held.py) (on the
-  reserved-names practice user) build it themselves, though `Scratch.opening_balance_body` in
-  [tests/contract/conftest.py](../tests/contract/conftest.py) is the one opening-balance body.
-  Each takes its body from it and changes it where its refusal needs, keeping what each test
-  proves. Done when the three pass against the practice engine, leaving nothing on either
-  practice user, and the unit suite passes.
+  test_create_sent_again.py, test_opening_balance.py (`_seed_body`) and
+  test_reserved_name_held.py in [tests/contract/](../tests/contract/) should start from
+  `Scratch.opening_balance_body` and change only what their refusal needs. Done when the three
+  pass against the practice engine, leaving nothing on either practice user.
 - **Three small finds from the practice engine's start script and the drift script:** the
   comment at the start script's `$!` capture calls that pid "the backgrounded subshell", though
   after the exec chain it is the launcher's own, and the line runs past 100 characters; the
@@ -224,15 +208,11 @@ CLAUDE.md "Specs and tasks".
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
-  Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
-  once every row is loaded; on a 30-row terminal it clips its last line
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py)). One row per key that works,
-  with a test. Two tests pin today's cards whole, the doubled rows included, and change with the
-  fix: the ledger's `CARD_THIS_SCREEN` (doubled `esc`) in
-  [test_tui_ledger_archived.py](../tests/unit/test_tui_ledger_archived.py) and the "no batch"
-  "Moving around" group (doubled `pgdn`) in
-  [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py).
+- **The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
+  Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
+  every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
+  with a test; the tests pinning today's doubled rows (`CARD_THIS_SCREEN` in
+  test_tui_ledger_archived.py, "Moving around" in test_tui_reconciliations.py) change with it.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
@@ -258,15 +238,13 @@ CLAUDE.md "Specs and tasks".
   say "purchase" too (transactions.py, reconciliations.py, reads.py, bank_import.py,
   quickadd/route.py, app.tcss): make them "split transaction" or "bank line" first, so the guard
   needs no exemption for comments.
-- **Mockups that back no open work.** A mockup lives only while it backs open work, and most in
-  [mockups/](mockups/) back screens already built; many also draw an older app (`s Split`
-  footers, the split screen, the import's old preview, one currency per account). Delete each
-  one that no spec, todo item or to-engine file links, removing its links from docs, code and
-  test docstrings in the same change. `expense-world-sheet-import-engine.html` is one: only the
-  docstrings of import_cmd.py and test_cmd_import.py still name it. Seven more are linked from
-  nowhere: bank-import-10b, currencies-transaction-picks, no-batch-caption, opening-balance-rows,
-  pending-hashtag-home, refusal-hints and screen-map (which still draws the `s` split pane and
-  links `expense-world-split-screen.html`).
+- **Mockups that back no open work.** A mockup lives only while it backs open work; many in
+  [mockups/](mockups/) back built screens and draw an older app. Delete each one no spec, todo
+  item or to-engine file links, with its links from docs, code and docstrings.
+  `expense-world-sheet-import-engine.html` is one (named only in import_cmd.py's and
+  test_cmd_import.py's docstrings); seven are linked from nowhere: bank-import-10b,
+  currencies-transaction-picks, no-batch-caption, opening-balance-rows, pending-hashtag-home,
+  refusal-hints and screen-map.
 - **Two more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 1181) still copies it, and create_forms.py (around line 156) has a two-field
