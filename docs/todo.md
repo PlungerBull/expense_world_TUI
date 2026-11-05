@@ -63,10 +63,6 @@ CLAUDE.md "Specs and tasks".
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
   account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
   line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
-- **The flagged lines' screen shares no read with its live test.** Nothing you see changes.
-  [reconciliations.py](../expense/tui/screens/reconciliations.py) builds the review-list read
-  inline and the live test types it again; decisions.md "A screen's live test reads through the
-  screen's own read" wants one function both call.
 - **Code calls a statement a "batch" or a reconciliation.** Nothing you see changes. The module
   docstrings of edit_form.py and reconciliations.py ("New batch:"), comments there ("no batch",
   "One batch", `unreadable_note`), reads.py's and cursor_list.py's `set_headers` docstrings, a

@@ -748,18 +748,18 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
 
 def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, target, scratch):
     """The flagged lines' screen counts the review list with `count_bank_lines(review_of=)`
-    and lists every page of it with `_fetch_all_lines(review_of=, sort="statement")`, the
+    and lists every page of it with `fetch_review_lines`, the
     reads the statement screen and the upload's result count with too. On an account of
     two currencies the count is the list's length on a draft, and after the close the list
     is the draft's, oldest first across the currencies: each currency's `review_lines`
     is that list's lines in that currency, in its order
     (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it")
     (contract: POST /v1/statements/{statement_id}/complete, "`review_lines`")."""
-    from expense.tui.screens.reconciliations import _fetch_all_lines
+    from expense.tui.screens.reconciliations import fetch_review_lines
 
     def screen_reads(statement: str) -> tuple[list[str], int]:
         count = count_bank_lines(target, review_of=statement)
-        lines = _fetch_all_lines(target, review_of=statement, sort="statement")
+        lines = fetch_review_lines(target, statement)
         return [line["id"] for line in lines], count
 
     account = scratch.account("PEN", "USD")

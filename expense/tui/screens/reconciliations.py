@@ -1439,6 +1439,13 @@ def fetch_month_lines(
     return assigned, available
 
 
+def fetch_review_lines(cfg, statement_id: str, **kw) -> list[dict]:
+    """The flagged lines' screen's list: every page of the statement's review list, in the
+    statement's order
+    (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it")."""
+    return _fetch_all_lines(cfg, review_of=statement_id, sort="statement", **kw)
+
+
 def _status_span(status: str, palette: Palette) -> tuple[str, str]:
     """(text, style) for the header's status word — completed→success, draft→warning."""
     return status, palette.success if status == "completed" else palette.warning
@@ -2389,8 +2396,7 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
     def _load(self) -> None:
         """The engine's count of the statement's review list, painted into the head
         the moment it arrives; then the list itself, every page of it in the
-        statement's order (`unassigned_in_period_of` with `sort=statement`, through
-        `_fetch_all_lines`), and the accounts' names
+        statement's order (`fetch_review_lines`), and the accounts' names
         (contract: GET /v1/bank-lines, "It has no bound"). A failed read shows
         the engine's words and keeps what is listed."""
         from expense import config as config_module
@@ -2404,7 +2410,7 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
                 return
             if count > 0:  # a count of none paints no head: the list is gone, the screen leaves
                 call_while_attached(self, self._paint_head, count)
-            lines = _fetch_all_lines(cfg, review_of=self._statement_id, sort="statement", **kw)
+            lines = fetch_review_lines(cfg, self._statement_id, **kw)
             names = load_account_name_map()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
