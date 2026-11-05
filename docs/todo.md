@@ -26,95 +26,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Keys the drawing leaves out of the "no statement" footer
-Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
-
-`u` on the Statements browse shows the drawn footer, then, only when they work, `pgdn 10 more`
-(more lines to load) and `pgup Prev` (past the first screenful) at its end.
-
-- **A.** Keep them at the end.
-- **B.** Somewhere else: tell me where.
-
-**Recommended:** A: the drawn keys keep their places.
-
-### How wide the title is in the "no statement" list
-Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
-
-On a terminal wider than 80 columns the title widens only as far as the longest title needs; the
-list does not stretch to the right edge. A statement's own list works the same way.
-
-- **A.** Keep it.
-- **B.** The title stretches so the list reaches the right edge.
-
-**Recommended:** A, because it matches the drawing and the statement's own list.
-
-### The gap between a form's hint and its lines
-Asked 2026-11-03 · Blocks: nothing (built this way; changing it is one small task)
-
-When no suggestion list shows, every form now leaves one blank line, not three, between the hint
-under the bar and the form's lines, as the New statement drawings show. That is the room a
-refused save's `▌ Failed` block needs at 80×24.
-
-- **A.** Keep one blank line on every form.
-- **B.** Three again; the block may be cut on a short terminal.
-
-**Recommended:** A, because the newest drawings show it and the block needs the room.
-
-### The words when an ending balance has no starting balance
-Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
-
-On the New statement form, the engine takes a currency's ending balance only together with its
-starting balance. When you type `END BALANCE USD` and leave `BEGIN BALANCE USD` empty, the form
-saves nothing, puts the cursor on `BEGIN BALANCE USD` and says:
-
-`Begin balance USD: an end balance needs it too.`
-
-- **A.** Keep these words.
-- **B.** Other words: tell me which.
-
-**Recommended:** A, because it names the empty line and why it is needed, and the cursor is
-already on it.
-
-### The note when `c` saves the balances but the statement does not complete
-Asked 2026-11-03 · Blocks: nothing (built with these words; changing them is one small task)
-
-`c` now saves starting balances as well as ending ones. When the save goes through and completing
-is refused, the note above the engine's words read `The ending balance is saved. The statement is
-not completed:`; it now reads:
-
-`The balances are saved. The statement is not completed:`
-
-- **A.** Keep these words.
-- **B.** Other words: tell me which.
-
-**Recommended:** A, because it is the old note with "balances" for "ending balance".
-
-### The words when your saved sheet renames disagree
-Asked 2026-10-30 · Blocks: nothing (built with these words; changing them is one small task)
-
-When your saved renames send one sheet account to two different ledger accounts (say an old
-`BCP:PEN` → `Sueldo Soles` and `BCP:USD` → `Sueldo Dólares`), `expense import sheet` stops
-before writing anything and says:
-
-`Your saved renames send "BCP" to both "Sueldo Soles" and "Sueldo Dólares". Choose one with --account-name "BCP=<ledger name>".`
-
-- **A.** Keep these words.
-- **B.** Other words: tell me which.
-
-**Recommended:** A, because it names the account, both destinations and the one command that
-fixes it.
-
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-Open, to approve: [the official import](specs/before-the-official-import.md) (5 questions, facts only you know),
+To approve, every question answered: [the official import](specs/before-the-official-import.md).
+To pick from a mockup, then approve:
 [a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
-(1 question, mockup to draw),
-[a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md)
-(1 question) and [footers that fit the screen](specs/footers-fit-the-screen.md) (1 question,
-mockup to draw), each question in its spec.
+and [footers that fit the screen](specs/footers-fit-the-screen.md).
 
-Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run, and
+Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
+[a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
+
+Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
 
 **Recommended:** approve the rest.

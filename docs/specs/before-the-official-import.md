@@ -1,6 +1,7 @@
 # The official import
 
-**Status: draft, written 2026-10-29 for the owner to approve, with five questions. It runs last:
+**Status: draft, written 2026-10-29 for the owner to approve; its five questions answered on
+2026-11-05. It runs last:
 after the catch-up to contract `f82426fb0a099676`
 (1 (done on 2026-10-30), 2 (done on 2026-10-30),
 3 (done on 2026-10-30), 4 (done on 2026-10-31),
@@ -25,8 +26,8 @@ approved by the owner.
 An **account** is one bank product or one person, holding its currencies
 (contract: "What an account is", "Its currencies"). The sheet names an account once for all its
 currencies, so the Visa is one account holding soles and dollars, and each person is one account,
-ALEJO in soles and in dollars on one. Each BCP savings account is an account of its own when the
-sheet gives it a name of its own (question 1). An account holds the statement code its PDFs print
+ALEJO in soles and in dollars on one. Each BCP savings account is an account of its own: the sheet
+gives each a name of its own. An account holds the statement code its PDFs print
 (contract: "What an account is", "Statement code"), and one PDF closes one account's month.
 
 ## The sheet as it is imported (checked 2026-10-21)
@@ -65,8 +66,13 @@ sheet gives it a name of its own (question 1). An account holds the statement co
 | 7 | Archive the closed accounts (both Interbank accounts, Alcancía)? | Yes, done by the owner in the app after the import (2026-10-21): each closed account is archived, every currency of it with it (contract: POST /v1/accounts/{account_id}/archive). |
 | 8 | Is the sheet frozen after the import? | The app is the record; the sheet is not imported again (2026-10-21). |
 | 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
-| — | Account names | The BCP accounts carry the bank's names, through the sheet import's `--account-name` ([commands.md](../commands.md) "Renaming an account") (2026-10-17): `Sueldo Soles`, `Cuenta Digital Dólares` and the Visa's name (question 3). A rename names a sheet name, with no currency, and gives one account; the app shows each of its currencies as "<account> · <code>" (`Sueldo Soles · PEN`). |
-| — | People | Imported as bank accounts, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21). Each person is one account, so one `t` turns it with every currency it holds (contract: "What an account is", "The kind changes on the account"); nothing is paired first. Question 4 asks whether that stays the way. |
+| 10 | Does the sheet use one name for both BCP savings accounts? | No: Sueldo Soles and Cuenta Digital Dólares already have names of their own, so each is an account of its own (2026-11-05). |
+| 11 | Oro and Interbank? | As the sheet names them: each name one account holding every currency its rows use (2026-11-05). |
+| 12 | The Visa's name? | `VISA Infinite Sapphire`, with no currency in the name (2026-11-05). |
+| 13 | People in the import? | As planned: the create step makes bank accounts, then `t` on each in the app (2026-11-05). |
+| 14 | The engine's ledger update before the wipe? | Wipe first, then update the engine on the empty database; nothing old is kept to check (2026-11-05). |
+| — | Account names | The BCP accounts carry the bank's names, through the sheet import's `--account-name` ([commands.md](../commands.md) "Renaming an account") (2026-10-17): `Sueldo Soles`, `Cuenta Digital Dólares` and `VISA Infinite Sapphire`. A rename names a sheet name, with no currency, and gives one account; the app shows each of its currencies as "<account> · <code>" (`Sueldo Soles · PEN`). |
+| — | People | Imported as bank accounts, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21). Each person is one account, so one `t` turns it with every currency it holds (contract: "What an account is", "The kind changes on the account"); nothing is paired first. |
 
 ## What the engine settled
 
@@ -105,46 +111,3 @@ sheet gives it a name of its own (question 1). An account holds the statement co
 2. Each split purchase shows as one split transaction.
 3. Each account's balance in each currency equals the sheet's total for that account and
    currency.
-
-## Questions for the owner
-
-1. **Does the sheet use one name for both BCP savings accounts?** Sueldo Soles is in soles and
-   Cuenta Digital Dólares in dollars. If the sheet calls both by one name, the engine makes them
-   one account, while the bank sends each its own PDF with its own statement code.
-   - **A.** Rename one of them in the sheet (its rows' `CUENTA`) before the import, so each is an
-     account of its own.
-   - **B.** Ask the engine to let one sheet name split into two accounts by currency.
-
-   **Recommended:** none: whether the sheet uses one name is a fact only you know. If it does, A:
-   the sheet is imported once, so an engine rule for it would serve one run.
-2. **Oro and Interbank follow the sheet's names, right?** Each name the sheet uses for them
-   becomes one account holding every currency its rows use: Oro one account in soles and
-   dollars, and each Interbank name one account.
-   - **A.** Yes, as the sheet names them.
-   - **B.** No: rename some of their rows in the sheet before the import, so they split
-     differently.
-
-   **Recommended:** A: an account is one bank product, so the ledger shows them as they were;
-   for closed accounts the only effect is that archiving one archives every currency of it.
-3. **The Visa's name.** The app shows each currency after the name, so the old names
-   `VISA Infinite Sapphire PEN` and `VISA Infinite Sapphire USD` would read
-   `VISA Infinite Sapphire PEN · PEN`.
-   - **A.** `VISA Infinite Sapphire`, with no currency in the name.
-   - **B.** Another name you give.
-
-   **Recommended:** A: the currency already shows beside it.
-4. **People in the import.**
-   - **A.** As planned: the create step makes them bank accounts, then `t` on each in the app
-     turns it into a person, every currency with it.
-   - **B.** The create step makes them people directly, told which sheet names are people.
-
-   **Recommended:** A: it is built, and eight presses of `t` is all it takes.
-5. **The engine's ledger update before the wipe.** The engine says the owner moves the live
-   ledger to the new model and checks every balance before and after. The import wipes the
-   database anyway.
-   - **A.** Wipe first, then update the engine on the empty database: nothing old is kept, so
-     there is nothing to check.
-   - **B.** Update the engine on today's ledger and check its balances before and after, then
-     wipe.
-
-   **Recommended:** A: the check would prove a ledger that is thrown away right after.

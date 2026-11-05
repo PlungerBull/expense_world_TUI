@@ -6,8 +6,9 @@ only "after" is built. The upload's preview shows the lines it would take out of
 not the lines the close would flag; those show only once the month is closed, on the result
 screen's `⚑` line and `f`.
 
-**Status: drafted on 2026-11-03 for the owner to rewrite or approve; one question, and the
-preview needs a mockup to draw if the answer is A.** It waits on no other spec. When done, the
+**Status: question 1 answered A on 2026-11-05. It waits on the engine ask "A statement PDF's
+dry run names the lines the close will flag", in [to-engine/](../to-engine/) for the owner to
+hand over, and on a mockup of the preview for the owner to pick.** It waits on no other spec. When done, the
 why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -35,15 +36,11 @@ engine to name them on the dry run, as it already names the lines it would take 
    the close will flag; leaving the preview writes nothing.
 2. After the close, the same line shows on the `⚑` line, as today.
 
-## Questions for the owner
+## Decided
 
-### 1. Show the lines the close will flag in the preview?
-- **A.** Yes: the preview lists them before you confirm. Needs one engine change and a mockup
-  of the preview.
-- **B.** No: seeing them after the close is enough; this spec is dropped.
-
-**Recommended:** A, because the preview is the one place to catch a wrong line before the month
-completes, and every client gets it from the engine.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | Show the lines the close will flag in the preview? | A: yes, before you confirm; the engine names them on the dry run (2026-11-05). |
 
 ---
 
