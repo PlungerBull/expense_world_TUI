@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from textual.widgets import Input
+from textual.widgets import Input, Static
 
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.reconciliations import (
@@ -223,6 +223,29 @@ def test_new_statement_date_end_is_required(fake_client, monkeypatch):
         assert not fake_client.posts
 
     run_app(scenario)
+
+
+def test_the_date_start_line_says_it_orders_the_statement(fake_client, monkeypatch):
+    """The hint under the bar says the first day is what orders the statement, on the
+    first-day line and not on the last-day line."""
+    _patch(monkeypatch)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen()
+        await app.push_screen(screen)
+        await _wait_accounts(screen, pilot)
+        _enter(screen, "April 2026")
+        _enter(screen, "BCP")
+        await wait_for(pilot, lambda: screen._key == "date_start")
+        seen["start"] = screen.query_one("#hint", Static).content.plain
+        _enter(screen, "2026-04-01")
+        await wait_for(pilot, lambda: screen._key == "date_end")
+        seen["end"] = screen.query_one("#hint", Static).content.plain
+
+    run_app(scenario)
+    assert seen["start"] == "YYYY-MM-DD · the statement's first day · it orders the statement"
+    assert seen["end"] == "YYYY-MM-DD · the statement's last day"
 
 
 def test_new_statement_date_start_is_required(fake_client, monkeypatch):

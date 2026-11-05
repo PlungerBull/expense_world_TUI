@@ -17,6 +17,7 @@ says the engine does: `account_id` lists that account's statements, in the engin
 """
 
 import re
+import threading
 from typing import NamedTuple
 
 import httpx
@@ -747,6 +748,90 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
         assert seen["head"].splitlines()[0].endswith(f"status {status}")
     assert seen["panel"].cells == rows
     assert seen["panel"].styles == styles
+
+
+@pytest.mark.parametrize(
+    ("answer", "writes"),
+    [("y", [("POST", "/statements/vis-ago/revert")]), ("n", []), ("escape", []), ("enter", [])],
+)
+def test_reverting_asks_first_and_only_y_sends_it(monkeypatch, answer, writes):
+    """`u` on a completed statement asks in these words; `y` sends the revert, `n`, `esc`
+    and `⏎` send nothing."""
+    client = _writing_engine(monkeypatch)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, VISA)
+        screen._batch_list.set_cursor(0)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        detail = app.screen
+        await wait_for(pilot, lambda: detail._list is not None)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        seen["asked"] = (app.screen._title, app.screen._message)
+        assert not [c for c in client.calls if c[0] != "GET"]
+        await pilot.press(answer)
+        await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmModal))
+        if writes:
+            await wait_for(pilot, lambda: any(c[0] != "GET" for c in client.calls))
+        else:
+            await pilot.pause()  # a wrong confirm sets `_busy` on the UI thread at once
+            assert not detail._busy
+
+    run_app(scenario, size=(140, 50))
+    assert seen["asked"] == (
+        "Revert to draft?",
+        "Unlocks the assigned transactions and this statement's balances.",
+    )
+    assert [(m, p) for m, p, _ in client.calls if m != "GET"] == writes
+
+
+def test_u_on_the_browse_says_it_lists_the_rows_in_no_statement(monkeypatch):
+    """`u`'s footer label is `No statement` and its tooltip names what it lists."""
+    _engine(monkeypatch)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, VISA)
+        seen["binding"] = app.screen.active_bindings["u"].binding
+
+    run_app(scenario, size=(140, 50))
+    assert seen["binding"].description == "No statement"
+    assert seen["binding"].tooltip == "This account's rows that are in no statement"
+
+
+def test_the_no_statement_list_says_loading_until_its_rows_arrive(monkeypatch):
+    """`u` titles the list `In no statement · <account>   ·   loading…` while the read is
+    in flight, and the caption drops `loading…` once the rows are in."""
+    client = _engine(monkeypatch)
+    release = threading.Event()
+    get = client.get
+
+    def held(path: str, *, auth: bool = True, params: dict | None = None):
+        if path == "/bank-lines":
+            release.wait(10)
+        return get(path, auth=auth, params=params)
+
+    client.get = held  # type: ignore[method-assign]
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, VISA)
+        try:
+            await pilot.press("u")
+            await wait_for(pilot, lambda: screen._mode == "unfiled")
+            seen["loading"] = screen._batch_list._caption
+            assert screen._unfiled_busy
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: not screen._unfiled_busy)
+        seen["loaded"] = screen._batch_list._caption
+
+    run_app(scenario, size=(140, 50))
+    assert seen["loading"] == "In no statement · Visa BCP   ·   loading…"
+    assert "loading" not in seen["loaded"]
+    assert seen["loaded"].startswith("In no statement · Visa BCP")
 
 
 @pytest.mark.parametrize("key", list(STATUS_KEYS))
