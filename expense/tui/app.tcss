@@ -202,7 +202,8 @@ ConfirmModal #modal, PromptBox #modal {
    screen from its top line to the footer, full width, in the terminal's own background
    (`ansi_default`, the base fill: no colour of its own), so nothing of the list shows
    beside or below the box. Inside it, a rule 60 wide indented 2 above and below the
-   text, which sits at column 4, 60 wide. The card's top is set where it is placed. `:ansi`
+   text, which sits at column 4, 60 wide and narrower with the terminal, its words
+   wrapping. The card's top is set where it is placed. `:ansi`
    matches the scrim rule it overrides. */
 ConfirmModal.under-head:ansi, PromptBox.under-head:ansi {
     background: transparent;
@@ -217,7 +218,8 @@ ConfirmModal.under-head #modal, PromptBox.under-head #modal {
     padding: 0;
 }
 ConfirmModal.under-head #modal > *, PromptBox.under-head #modal > * {
-    width: 60;
+    width: 1fr;
+    max-width: 60;
     margin: 0 0 0 4;
 }
 ConfirmModal.under-head #modal > .under-rule, PromptBox.under-head #modal > .under-rule {

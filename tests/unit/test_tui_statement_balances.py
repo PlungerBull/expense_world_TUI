@@ -926,3 +926,82 @@ def test_a_resize_while_a_box_is_open_places_it_again_under_the_head(fake_client
         await wait_for(pilot, lambda: app.screen.query_one("#modal").region.y == wide)
 
     run_app(scenario, size=(100, 24))
+
+
+# ---- a narrow terminal: the boxes wrap their words, none is cut ---------------------
+
+STARTING_WORDS = (
+    "Starting balance first The statement's opening figure for IBK Visa, "
+    "in USD · signed · e.g. 13,853.20 [enter] save [esc] cancel"
+)
+QUESTION_WORDS = (
+    "Complete statement? Locks the amount, date, title, account, operation number and "
+    "statement of the 0 ticked rows. [y] confirm [enter / n / esc] cancel"
+)
+
+
+def _box_rows(app, first_word: str, last_word: str) -> list[str]:
+    """The rows on screen from the one holding `first_word` to the one holding
+    `last_word`, blank rows left out."""
+    rows = screen_lines(app)
+    top = next(i for i, row in enumerate(rows) if first_word in row)
+    bottom = next(i for i, row in enumerate(rows) if last_word in row and i >= top)
+    return [row.strip() for row in rows[top : bottom + 1] if row.strip()]
+
+
+def _box_at(record, width, first, last, keys=()):
+    """Open the statement at `width` columns, press `c` (and `keys` after it) and
+    return the rows of the box standing."""
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, record)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal | AmountPromptModal))
+        for key in keys:
+            await pilot.press(key)
+            await pilot.pause()
+        await pilot.pause()
+        return _box_rows(app, first, last)
+
+    return run_app(scenario, size=(width, 24))
+
+
+def _wrapped_whole(rows: list[str], words: str) -> None:
+    got = " ".join(rows).split()
+    assert got == words.split()
+    assert not any("…" in row for row in rows)
+
+
+@pytest.mark.parametrize(
+    ("record", "words", "first", "last", "keys"),
+    [
+        (OCTUBRE, STARTING_WORDS, "Starting", "[esc]", ()),
+        (
+            OCTUBRE,
+            STARTING_WORDS.replace("Starting", "Ending").replace("opening", "closing"),
+            "Ending",
+            "[esc]",
+            ("0", "enter"),
+        ),
+        (NOVIEMBRE, QUESTION_WORDS, "Complete", "cancel", ()),
+    ],
+    ids=["starting", "ending", "question"],
+)
+def test_at_60_columns_each_box_wraps_its_words_and_cuts_none(
+    fake_client, monkeypatch, record, words, first, last, keys
+):
+    _engine(fake_client, monkeypatch)
+    _wrapped_whole(_box_at(record, 60, first, last, keys), words)
+
+
+def test_a_long_account_name_wraps_in_the_box_under_its_line(fake_client, monkeypatch):
+    _engine(fake_client, monkeypatch)
+    name = "Interbank Visa Signature Cuenta Sueldo Personal Soles y Dolares de Alejandro Ternero"
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc-ibk": name}
+    )
+    wide = _box_at(OCTUBRE, 80, "Starting", "[esc]")
+    narrow = _box_at(OCTUBRE, 60, "Starting", "[esc]")
+    assert len(narrow) > len(wide)
+    words = STARTING_WORDS.replace("IBK Visa", name)
+    _wrapped_whole(narrow, words)

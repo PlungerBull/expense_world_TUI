@@ -1491,7 +1491,8 @@ the statement's order, a currency's starting balance before its ending one
 (`blank_balances`): `Starting balance first` (`The statement's opening figure for <account>,
 in <currency> · signed · e.g. 13,853.20`) or `Ending balance first` (`The statement's closing
 figure for <account>, in <currency> · signed · e.g. 13,853.20`), each with
-`[enter] save    [esc] cancel`. Each figure is read by the shared money parser exactly as
+`[enter] save    [esc] cancel`. A box is 60 wide at most and narrows with the terminal, its
+words wrapping, never cut. Each figure is read by the shared money parser exactly as
 typed, the sign never added or flipped; text it cannot read keeps the box open with what was
 typed and notes `Begin balance: a signed decimal, e.g. 9580.00` or
 `End balance: a signed decimal, e.g. 9460.00`, and nothing is sent. `esc` closes the box with

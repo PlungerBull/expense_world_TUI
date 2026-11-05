@@ -83,8 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-5. **`c`'s boxes wrap** (What it must do 6): below 64 columns a box's words wrap instead of
-   being cut; tested at 60 columns.
 6. **The `⚑` line keeps the page line** (What it must do 5): the list is sized after the `⚑`
    line is counted, so a statement with flagged lines shows both at 80×24.
 7. **Two small words** (What it must do 4 and 8): a covered currency with no difference yet
@@ -118,3 +116,9 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The box under a statement's head.** Nothing you see changes. `UnderHead` in modals.py takes
   `screen_stack[-2]` as the screen below it, where `stack[stack.index(self) - 1]` says so
   outright; tui.md's paragraph on a refused complete (around line 1515) is ragged.
+- **The 60-column box tests prove less than they could.** Nothing you see changes. In
+  test_tui_statement_balances.py the starting and ending cases pass with or without the fix
+  (their words fit); the ending case could take the long account name. `_box_at` waits for the
+  ending box with `pilot.pause()`, not `wait_for`. No test covers the refusal lines above the box
+  at 60 columns. tui.md's "A box … wraps" sentence sits in the balance-box paragraph though the
+  `Complete statement?` question wraps too.
