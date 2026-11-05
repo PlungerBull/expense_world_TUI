@@ -8,7 +8,7 @@ with its currencies and their balances; `⏎` on one reads its statements in one
 the cursor in it. They stand in the order the engine returns them: `date_start`
 ascending, then creation time, oldest first (contract: "Statements", "Ordering").
 There `⏎` opens the working screen on the open account, `n` creates one for it, `u`
-swaps the panel for the account's bank lines in no batch (`GET /bank-lines`, every
+swaps the panel for the account's bank lines in no statement (`GET /bank-lines`, every
 currency together, oldest first, a split purchase one row), and `esc` closes the
 panel. Nothing is read for an account until you press `⏎` on it.
 
@@ -119,7 +119,7 @@ _period = formatting.format_period
 
 _UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Cur", "Amount"]
 
-#: What the "no batch" list asks the engine for, with the account and no dates:
+#: What the "no statement" list asks the engine for, with the account and no dates:
 #: this account's bank lines in no statement, any day, every currency together. The
 #: list and its count both take it (`GET /bank-lines`, `GET /bank-lines/count`).
 #: The list alone adds `UNFILED_SORT` (the count takes no order); it opens with the
@@ -143,7 +143,7 @@ def balance_of(statement: dict, currency_code: object) -> dict:
 
 def statement_windows(statements: list[dict]) -> list[tuple[str, str, str]]:
     """`(first_day, last_day, name)` of every statement of the account: the days
-    inside which the "no batch" list marks a row `!` (`unfiled_rows`).
+    inside which the "no statement" list marks a row `!` (`unfiled_rows`).
 
     Drafts are in here as well: a line in no statement dated inside a draft's
     days is one its close will flag for review, not a refusal: the close goes
@@ -158,7 +158,7 @@ def statement_windows(statements: list[dict]) -> list[tuple[str, str, str]]:
 
 
 def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
-    """Rows for the "no batch" list, one per bank line, in the order given (the
+    """Rows for the "no statement" list, one per bank line, in the order given (the
     engine's, oldest first), `!` on the ones dated inside a statement's days
     (`statement_windows`).
 
@@ -416,7 +416,7 @@ class _AccountList(CursorList):
 
 class _PanelList(CursorList):
     """The panel under the accounts. It lists two things: a
-    reconciliation, which `enter` opens, or a row in no batch, which `enter`
+    reconciliation, which `enter` opens, or a row in no statement, which `enter`
     edits — so the footer says `Edit` there. Two bindings on one key: Textual takes the first whose
     `check_action` allows it."""
 
@@ -459,7 +459,7 @@ class ReconciliationsScreen(SectionScreen):
     currency of the account, its status and, on an account with a statement code,
     its order. It opens the panel under the accounts with the cursor in it.
     There `⏎` opens a statement on the open account, `n` creates one, `u` swaps
-    the panel for the account's rows in no batch, and `esc` closes the panel.
+    the panel for the account's rows in no statement, and `esc` closes the panel.
 
     The accounts are one read, archived ones left out; each shows its currencies
     and the balance in each, and its own statement code decides whether the
@@ -475,8 +475,10 @@ class ReconciliationsScreen(SectionScreen):
         Binding("escape", "close_panel", "Close the panel"),
         ("escape", "back", "Back"),
         ("n", "new", "New"),
-        Binding("u", "unfiled", "No batch", tooltip="This account's rows that are in no batch"),
-        Binding("d", "delete_row", "Delete"),  # the lines in no batch only
+        Binding(
+            "u", "unfiled", "No statement", tooltip="This account's rows that are in no statement"
+        ),
+        Binding("d", "delete_row", "Delete"),  # the lines in no statement only
     ]
 
     def __init__(self) -> None:
@@ -486,7 +488,7 @@ class ReconciliationsScreen(SectionScreen):
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
-        self._unfiled: list = []  # every bank line in no batch loaded so far, oldest first
+        self._unfiled: list = []  # every bank line in no statement loaded so far, oldest first
         # the cursor past the last row, the count, and `pgdn` — shared with the ledger
         self._unfiled_grow = GrowingRead(self, on_more=self._append_unfiled)
         self._unfiled_busy = False
@@ -557,10 +559,10 @@ class ReconciliationsScreen(SectionScreen):
     #: Lines each of the browse's lists spends beside its rows and caption, drawn as panes 2,
     #: 3 and 11 of the statements mockup draw them: the account list its header, the rule
     #: under it and the page status; the statements their divider under
-    #: the caption (a rule), the header and the page status; the lines in no batch
+    #: the caption (a rule), the header and the page status; the lines in no statement
     #: (`UNFILED_FRAME_LINES`) a blank divider and the header, no status line.
     BROWSE_FRAME_LINES = 3
-    #: The lines in no batch grow by cursor and say what is loaded in their caption, so
+    #: The lines in no statement grow by cursor and say what is loaded in their caption, so
     #: they draw no page-status line: one line less than the other two (pane 11).
     UNFILED_FRAME_LINES = BROWSE_FRAME_LINES - 1
 
@@ -579,13 +581,13 @@ class ReconciliationsScreen(SectionScreen):
         """Rows per page of the panel: its share, or what the accounts really leave under
         them when that is less (at least one), so a short terminal pages the panel instead
         of scrolling `#content`: `#content` less the title, the accounts' frame and rows,
-        and the panel's frame and caption. The lines in no batch take all the room the
+        and the panel's frame and caption. The lines in no statement take all the room the
         accounts leave; the statements list keeps the equal split."""
         accounts = self.BROWSE_FRAME_LINES + min(self.pane_rows(), max(1, len(self._accounts)))
         frame = self.UNFILED_FRAME_LINES if self._mode == "unfiled" else self.BROWSE_FRAME_LINES
         panel = frame + self._caption_lines()
         room = self.fit_rows(chrome=2 + accounts + panel, floor=1)
-        # The lines in no batch take all the room the accounts leave; the statements stop
+        # The lines in no statement take all the room the accounts leave; the statements stop
         # at the equal split.
         return room if self._mode == "unfiled" else min(self.pane_rows(), room)
 
@@ -705,7 +707,7 @@ class ReconciliationsScreen(SectionScreen):
             return self._mode == "batches"
         if action == "back":
             return self._mode != "batches"
-        # the lines in no batch have `⏎ Edit` and `d Delete` of their own (pane 11 of
+        # the lines in no statement have `⏎ Edit` and `d Delete` of their own (pane 11 of
         # docs/mockups/expense-world-statements-screens.html), and neither `n` nor `u`
         if action == "delete_row":
             return self._mode == "unfiled"
@@ -727,7 +729,7 @@ class ReconciliationsScreen(SectionScreen):
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "unfiled":
             # `⏎` opens the Edit form on the line, the bank's columns only:
-            # date and account are the two remedies for a row in no batch
+            # date and account are the two remedies for a row in no statement
             line = self._unfiled_record()
             if line is not None and first_part(line) is not None:
                 from expense.tui.screens.edit_form import BankLineEditFormScreen
@@ -855,7 +857,7 @@ class ReconciliationsScreen(SectionScreen):
 
     # ---- the unfiled pane ------------------------------------------------
     def action_unfiled(self) -> None:
-        """`u` — swap the panel to the open account's rows in no batch.
+        """`u` — swap the panel to the open account's rows in no statement.
 
         Only while a panel is open: the panel is the slot
         it swaps into, and the account whose rows it lists is the open one.
@@ -872,13 +874,13 @@ class ReconciliationsScreen(SectionScreen):
         )
         self._batch_list.set_divider("blank")
         self._batch_list.set_status_line(False)
-        self._batch_list.set_caption(f"In no batch · {acct.name}   ·   loading…")
+        self._batch_list.set_caption(f"In no statement · {acct.name}   ·   loading…")
         self._batch_list.set_rows([])
         self.refresh_bindings()
         self._load_unfiled(acct.id)
 
     def _unfiled_page(self, account_id: str):
-        """`(limit, after) -> body`: this account's bank lines in no batch, every
+        """`(limit, after) -> body`: this account's bank lines in no statement, every
         currency together, oldest first (worker thread)."""
         from expense import config as config_module
 
@@ -959,16 +961,17 @@ class ReconciliationsScreen(SectionScreen):
         self._batch_list.refresh_bindings()
 
     def _unfiled_caption(self) -> str:
-        """`In no batch · Visa BCP · 20 of 1716 loaded · oldest first · …`"""
+        """`In no statement · Visa BCP · 20 of 1716 loaded · oldest first · …`"""
         acct = self._open_account()
         label = acct.name if acct else "—"
         return (
-            f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
+            f"In no statement · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total}"
+            " loaded"
             " · oldest first   ·   ! dated inside a statement"
         )
 
     def _unfiled_record(self) -> dict | None:
-        """The bank line under the cursor in the "no batch" list, as listed."""
+        """The bank line under the cursor in the "no statement" list, as listed."""
         key = self._batch_list.cursor_key if self._batch_list is not None else None
         return next((it for it in self._unfiled if it.get("id") == key), None)
 
@@ -1029,7 +1032,7 @@ _OPENING_NOTE = "0.00 if it holds the account's opening balance, which already c
 _R_HINTS = {
     "name": "e.g. “April 2026” · enter to go on",
     "account": "pick a bank account · ↑↓ highlight · enter select",
-    "date_start": "YYYY-MM-DD · the statement's first day · it orders the batch",
+    "date_start": "YYYY-MM-DD · the statement's first day · it orders the statement",
     "date_end": "YYYY-MM-DD · the statement's last day",
 }
 _BEGIN_UNREADABLE = "Begin balance: a signed decimal, e.g. 9580.00"
@@ -1759,7 +1762,7 @@ class ReconciliationDetailScreen(
             container = self.query_one("#rlist", Container)
             await container.remove_children()
             empty = (
-                "(no transactions in this batch)"
+                "(no transactions in this statement)"
                 if self._completed or self._waits_for_pdf
                 else "(no transactions for this account in range)"
             )
@@ -1942,7 +1945,7 @@ class ReconciliationDetailScreen(
         # an idempotent 200 no-op (thin wrapper).
         self._confirm(
             "Revert to draft?",
-            "Unlocks the assigned transactions and this batch's balances.",
+            "Unlocks the assigned transactions and this statement's balances.",
             lambda: self._status_action(
                 "POST", f"/statements/{self._id}/revert", 1, "reverted to draft"
             ),
@@ -1955,7 +1958,7 @@ class ReconciliationDetailScreen(
         # `r` reads it again, so a refusal's line is the list one.
         self._confirm(
             "Delete statement?",
-            "Detaches its transactions and removes the batch. Its transactions stay. "
+            "Detaches its transactions and removes the statement. Its transactions stay. "
             "No screen can bring it back.",
             lambda: self._status_action(
                 "DELETE",
@@ -2015,7 +2018,7 @@ class ReconciliationDetailScreen(
 
         The text is the engine's own sentence, verbatim — the dates in it are
         prose, not fields, so this side neither parses them nor goes looking for
-        the rows they name. The review surface for that is the "no batch"
+        the rows they name. The review surface for that is the "no statement"
         pane (`u`).
         """
         notes: list[str] = []

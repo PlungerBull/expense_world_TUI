@@ -1,4 +1,4 @@
-"""The Edit form's fields on a line of one part, and the "no batch" Edit form (fake client).
+"""The Edit form's fields on a line of one part, and the "no statement" Edit form (fake client).
 
 Edit-only: creating is the LOG bar's — see
 [test_tui_log_bar.py](test_tui_log_bar.py). The form owns pre-fill, the one
@@ -1364,7 +1364,7 @@ def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkey
 
 
 def test_the_no_batch_form_names_its_operation_line_among_the_locked(fake_client, monkeypatch):
-    """The "no batch" form shares the lines: OPERATION, read-only on an
+    """The "no statement" form shares the lines: OPERATION, read-only on an
     archived account's line, is named in the form's order, and a sentence too
     long for the line wraps under itself."""
     limits = _archived_limits(*_ARCHIVED_FIELDS, "operation_code")
@@ -1892,7 +1892,7 @@ def test_enter_through_every_line_then_ctrl_s_sends_nothing(fake_client, monkeyp
 def test_enter_through_every_line_of_the_no_batch_form_sends_nothing(
     fake_client, monkeypatch, split
 ):
-    """The "no batch" Edit form: one line per `⏎`, none skipped but the currency line
+    """The "no statement" Edit form: one line per `⏎`, none skipped but the currency line
     of Ahorros (one currency), ACCOUNT kept on the line's own; the last NOTE's `⏎`
     saves, and with nothing changed nothing is sent."""
     line = {**(_line(*SPLIT_ON_THIRD) if split else _line(ON_THIRD)), "operation_code": "1"}
@@ -2092,7 +2092,7 @@ def test_a_non_date_on_date_is_refused_at_enter_and_the_save_never_crashes(
     """Typed key by key on DATE: `abc` + `⏎` notes `Date: use YYYY-MM-DD.`, the
     bar keeps `abc` and the cursor stays on DATE; `ctrl+s` then tries `abc` again,
     sends nothing and the app goes on running, on the Edit form and on the
-    "no batch" Edit form."""
+    "no statement" Edit form."""
     _patch(monkeypatch, _line(TXN) if form == "transaction" else BANK_LINE)
     notes = _date_notes(monkeypatch)
 

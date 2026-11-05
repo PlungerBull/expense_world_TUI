@@ -387,7 +387,7 @@ def test_title_says_save_only_when_it_is_the_one_line_left():
     assert _on(EditFormScreen(record=dict(TXN)), LINE)._hint_for("title") == NAME_GOES_ON
 
 
-# ---- the "no batch" OPERATION line is the whole line's, so it says so on two parts ----
+# ---- the "no statement" OPERATION line is the whole line's, so it says so on two parts ----
 
 _OPERATION_PLAIN = "optional · the bank's operation number · empty clears it"
 

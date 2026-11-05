@@ -674,7 +674,7 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
     assert handed == []
 
 
-# ---- the "no batch" list (`u`) ----------------------------------------------
+# ---- the "no statement" list (`u`) ----------------------------------------------
 # Reconciliation work stays
 # in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
 # does not push a filtered ledger, and it does not touch the account cursor.
@@ -764,7 +764,7 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
 
     def fetch(_cfg, *, limit=None, after=None, **kw):
         assert "offset" not in kw, "the engine refuses offset"
-        assert kw.get("sort") == "date_asc", "the lines in no batch are read oldest first"
+        assert kw.get("sort") == "date_asc", "the lines in no statement are read oldest first"
         calls.append({"limit": limit, "after": after, **kw})
         start = int(after[1:]) if after else 0
         end = start + (limit or 50)
@@ -781,7 +781,7 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
     monkeypatch.setattr("expense.reads.count_bank_lines", count)
 
     def no_ledger_read(*_a, **_k):
-        raise AssertionError("the no batch list reads no transactions")
+        raise AssertionError("the no statement list reads no transactions")
 
     monkeypatch.setattr("expense.reads.fetch_transactions", no_ledger_read)
     monkeypatch.setattr("expense.reads.count_transactions", no_ledger_read)
@@ -807,10 +807,10 @@ def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
         assert [r.key for r in screen._batch_list._rows] == ["bl-net", "bl-farm", "bl-uber"]
         assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
         assert screen._batch_list._caption == (
-            "In no batch · BCP PEN   ·   3 of 3 loaded · oldest first"
+            "In no statement · BCP PEN   ·   3 of 3 loaded · oldest first"
             "   ·   ! dated inside a statement"
         )
-        # one read of the account's lines in no batch, every currency together, no
+        # one read of the account's lines in no statement, every currency together, no
         # dates, oldest first; the count asks the same question, with no order
         assert calls == [
             {
@@ -960,7 +960,7 @@ async def _cursor_on(pilot, screen, key: str) -> None:
 
 
 def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(monkeypatch):
-    """`⏎ Edit` is on for every row in no batch, a split transaction included:
+    """`⏎ Edit` is on for every row in no statement, a split transaction included:
     in the footer, on the `?` card, and the key opens the bank-line Edit form."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
 
@@ -991,7 +991,7 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
     run_app(scenario)
 
 
-# ---- `⏎` in no batch: the Edit form on the line and its parts ----------------
+# ---- `⏎` in no statement: the Edit form on the line and its parts ----------------
 # The same Edit form, OPERATION among the shared fields; one save is one
 # `PUT /bank-lines/{id}` (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
 EDIT_CATEGORIES = whole(
@@ -1010,7 +1010,7 @@ def _heading_text(form) -> str:
 
 
 async def _open_form(pilot, app, key: str):
-    """The no batch list, the cursor on `key`, `⏎`; the form once loaded."""
+    """The no statement list, the cursor on `key`, `⏎`; the form once loaded."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
 
     screen = await _open_unfiled(pilot, app)
@@ -1160,7 +1160,7 @@ def test_saving_sends_one_put_on_the_line_with_the_field_changed_and_its_parts(
     part under its own id with its current amount, a typed amount in its place.
     An emptied operation sends `null`, which clears it, and an account move
     also settles the assignment (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
-    (`unassign_on_move`). Saved, "no batch" reads its oldest ten again, the
+    (`unassign_on_move`). Saved, "no statement" reads its oldest ten again, the
     cursor on row 1."""
     from expense.dates import to_canonical_aware
 
@@ -1235,7 +1235,7 @@ def test_saving_carries_one_idempotency_key(configured, monkeypatch):
 def _refused(monkeypatch, fake_client, err) -> tuple[list[str], tuple[bool, bool, int]]:
     """Type a new operation number on bl-farm and save into `err`; returns the
     summary once refused, then whether the form is still on top, whether it
-    holds what was typed, and how many times "no batch" was read since."""
+    holds what was typed, and how many times "no statement" was read since."""
     calls, _counts = _patch_form(monkeypatch)
     fake_client.errors["PUT"] = err
     seen: list = []
@@ -1262,7 +1262,7 @@ def test_a_refused_save_shows_the_engine_words_under_the_parts_and_the_form_stay
     monkeypatch, fake_client
 ):
     """The engine refuses: its words whole under the parts, then the app's
-    line for the reason, the form still open and "no batch" not read again."""
+    line for the reason, the form still open and "no statement" not read again."""
     from expense.errors import EngineError
 
     err = EngineError(
@@ -1289,7 +1289,7 @@ def test_a_save_on_an_archived_account_shows_the_engine_words_alone(monkeypatch,
     before the line's account was archived, and a new operation number is
     saved. Under the parts, the engine's words, its field's words under them,
     and no line of the app's; the form stays open with what was typed, and
-    "no batch" is not read again."""
+    "no statement" is not read again."""
     err = archived_refusal(422, ARCHIVED_PUT_WORDS, "operation_code")
     summary, seen = _refused(monkeypatch, fake_client, err)
     assert [line.strip() for line in summary[-3:]] == [
@@ -1717,7 +1717,7 @@ def _numbered_statements(count: int) -> list[dict]:
 
 def test_pane_3_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
     """Four accounts and three statements, as pane 3 draws them: every statement on one
-    page, no `pgdn`, and the footer's last key `u No batch` whole."""
+    page, no `pgdn`, and the footer's last key `u No statement` whole."""
     _five_accounts(monkeypatch, _numbered_statements(3))
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS[:4]))
 
@@ -1727,7 +1727,7 @@ def test_pane_3_fits_80x24_with_no_paging_and_its_whole_footer(monkeypatch):
         assert screen._batch_list.page_status is None
         assert "pgdn" not in screen_lines(app)[-1]
         assert len([line for line in screen_lines(app) if "VIS-2026" in line]) == 3
-        assert screen_lines(app)[-1].endswith("u No batch")
+        assert screen_lines(app)[-1].endswith("u No statement")
         _footer_whole(app)
 
     run_app(scenario)
@@ -1744,7 +1744,7 @@ def _drawn_unfiled(app) -> list[str]:
 
 
 def test_u_under_four_accounts_shows_all_four_lines(monkeypatch):
-    """Four accounts, six lines in no batch (the room the frame leaves at 80x24), all six
+    """Four accounts, six lines in no statement (the room the frame leaves at 80x24), all six
     drawn, one blank line under them and the footer, `#content` not scrolling and every key
     whole."""
     _five_accounts(monkeypatch, [])
@@ -1795,7 +1795,7 @@ def test_u_with_five_accounts_fills_the_room_and_pages_the_rest(monkeypatch):
 def test_a_statements_list_that_needs_a_page_keeps_in_order_and_every_key_whole(monkeypatch):
     """Nine statements under five accounts do not fit one page: the panel pages them, so
     `#content` has no scrollbar to cut the Order column to `in or…`, and the footer, with
-    `pgdn`/`pgup` in it, keeps `u No batch` whole."""
+    `pgdn`/`pgup` in it, keeps `u No statement` whole."""
     _five_accounts(monkeypatch, _numbered_statements(9))
 
     async def scenario(pilot, app):
@@ -1884,7 +1884,7 @@ def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
 
         assert drawn(screen._accts_list, 5, 0) == frame
         assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
-        screen._batch_list.set_divider("blank")  # the lines in no batch: no status line
+        screen._batch_list.set_divider("blank")  # the lines in no statement: no status line
         screen._batch_list.set_status_line(False)
         assert drawn(screen._batch_list, 2, screen._caption_lines()) == screen.UNFILED_FRAME_LINES
 

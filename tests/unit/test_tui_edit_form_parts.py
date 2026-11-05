@@ -1,4 +1,4 @@
-"""The Edit form with its parts: `⏎` and `s` on a ledger row, `⏎` in "no batch".
+"""The Edit form with its parts: `⏎` and `s` on a ledger row, `⏎` in "no statement".
 
 On top, the line's shared fields; below, every part of the line in a table,
 and with two parts or more the line adding them up. One save is one
@@ -239,7 +239,7 @@ PART_MISMATCH = "The parts must add up to the line's total."
 
 class LineClient(FakeClient):
     """The fake engine: reference lists whole, the ledger and its count, each
-    bank line with its parts, and "no batch" for Sueldo Soles."""
+    bank line with its parts, and "no statement" for Sueldo Soles."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -1222,7 +1222,7 @@ def test_a_failed_line_read_says_why_and_the_form_takes_nothing(engine, notes):
     assert engine.puts == []
 
 
-# ---- question 1 A: ⏎ in "no batch" opens the same form ---------------------------
+# ---- question 1 A: ⏎ in "no statement" opens the same form ---------------------------
 
 
 async def _open_no_batch(pilot, app) -> BankLineEditFormScreen:

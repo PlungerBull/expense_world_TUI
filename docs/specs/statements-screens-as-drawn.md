@@ -83,9 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-1. **"statement" for "batch"** (Decided 1): `In no statement`, the `u No statement` key and its
-   tooltip, `(no transactions in this statement)`, and every other "batch" a Statements screen
-   shows; tests and tui.md follow.
 2. **The lines in no statement read as drawn** (What it must do 1): the `!` mark first, the date
    after it, the title taking the room left; the caption breaking where the drawing breaks it;
    the footer `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`.
@@ -105,3 +102,14 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **Comments still call a statement a "batch".** Nothing you see changes. reconciliations.py's
+  module docstring ("New batch:"), the comment on the rows shared by the "no batch" pane, "One
+  batch", and two docstrings in reads.py naming the "no batch" list; a test docstring in
+  test_tui_reconciliations.py says "date_start orders the batch now".
+- **The decisions.md heading "Rows in no batch live in the reconciliation view…"** is cited from
+  tui.md, reconciliations.py and decisions.md itself; renaming it to "no statement" moves every
+  citation in one change. todo.md and file-import-plan.md also call the list "no batch".
+- **Statement words no test pins.** Nothing you see changes. The revert question, the `u` key's
+  tooltip, the New statement hint "it orders the statement" and the `loading…` caption; the new
+  test `test_a_completed_statement_with_no_lines_says_so_in_statement_words` has no docstring.

@@ -385,7 +385,7 @@ def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client
 
 #: Pane 11's caption, which its second line finishes at 80 columns.
 PANE_11_CAPTION = (
-    "In no batch · Visa BCP   ·   6 of 6 loaded · oldest first   ·   ! dated inside a statement"
+    "In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·   ! dated inside a statement"
 )
 #: Pane 11's rows, cell by cell.
 PANE_11_ROWS = [
@@ -459,7 +459,7 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read_as_pane_11(
     assert keys == [f"l{n}" for n in range(21, 27)]
     assert headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
     # the caption is pane 11's words, wrapped onto a second line at 80 columns
-    first = next(n for n, line in enumerate(lines) if "In no batch" in line)
+    first = next(n for n, line in enumerate(lines) if "In no statement" in line)
     assert " ".join(lines[first : first + 2]).split() == PANE_11_CAPTION.split()
     assert screen_caption == PANE_11_CAPTION
     rows = [line for line in lines if re.match(r"\s*(! )?\s*2026-1", line)]
@@ -483,7 +483,7 @@ def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
 
     caption = run_app(scenario, size=(80, 40))
     assert caption == (
-        "In no batch · Visa BCP   ·   6 of 1716 loaded · oldest first"
+        "In no statement · Visa BCP   ·   6 of 1716 loaded · oldest first"
         "   ·   ! dated inside a statement"
     )
     assert counts == [{"account_id": "acc-visa", "unreconciled": "true"}]

@@ -2,7 +2,7 @@
 
 One input bar cycles through the line's fields, then every part's; the summary
 below shows them. On top, what every part shares: DATE › TITLE › ACCOUNT (the
-"no batch" form adds OPERATION before ACCOUNT); below, the table of the parts,
+"no statement" form adds OPERATION before ACCOUNT); below, the table of the parts,
 one line each with its amount, category, hashtags and note (`parts_table.py`),
 and, with two parts or more, the line adding them up against the line's total.
 The bar moves from the shared fields to part 1's AMOUNT › CATEGORY › HASHTAGS
@@ -14,7 +14,7 @@ last.
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)). `⏎` and `s`
 on a ledger row open this form on the row's bank line (`EditFormScreen`), on
 DATE, with every part of the line in the table whichever part the row is;
-`⏎` in the reconciliations' "no batch" list opens it on the line the list
+`⏎` in the reconciliations' "no statement" list opens it on the line the list
 holds (`BankLineEditFormScreen`). Entity fields (account, a part's category
 and hashtags) show a live-filtered suggestion list — pick existing entities
 only. Their bar opens empty, the list in its usual order; on ACCOUNT and
@@ -25,7 +25,7 @@ offers: @Pendiente is in it and @Opening never is (`reads.pickable_categories`).
 
 **The form reads the line once and takes what is read-only from it alone.**
 The ledger's form reads the row's line with one `GET /bank-lines/{id}`; the
-"no batch" form has it from the list. The line's `edit_limits` says what a
+"no statement" form has it from the list. The line's `edit_limits` says what a
 write would refuse on it as it stands
 (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"): each line
 field in `locked_fields` and each part field in `locked_part_fields` shows
@@ -55,7 +55,7 @@ on a retry), its body built by
 
 - the line fields the owner changed, and only those, so a read-only one is
   never sent: `date`, `title`, `account_id` and `currency_code`, and on the
-  "no batch" form `operation_code`, whose `null` clears it. The ACCOUNT line
+  "no statement" form `operation_code`, whose `null` clears it. The ACCOUNT line
   picks one account (one row each), the CURRENCY line after it one of the
   currencies that account holds (`_codes`); each starts on the line's own, and
   only the key that changed is sent: the account alone for the same currency on
@@ -180,7 +180,7 @@ TITLE_SAVES = "free text · enter to save"
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
 #: The CURRENCY line's value while an account holding several has none picked.
 NONE_PICKED = "— pick one"
-# The fields every part of a line shares (only the "no batch" form has an
+# The fields every part of a line shares (only the "no statement" form has an
 # OPERATION line), and what the hint adds on them while the line has two parts
 # or more.
 _EVERY_PART = {"date", "title", "operation", "account", "currency"}
@@ -963,9 +963,9 @@ class EditFormScreen(FormScreen):
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 
 
-# ---- the Edit form on a line of "no batch": `⏎` there ---------------------
+# ---- the Edit form on a line of "no statement": `⏎` there ---------------------
 class BankLineEditFormScreen(EditFormScreen):
-    """The Edit form on a line the "no batch" list holds: the same form,
+    """The Edit form on a line the "no statement" list holds: the same form,
     with OPERATION among the shared fields and, over the bar, the line as the
     list shows it, its title and its `net_cents` with the line's own currency.
 

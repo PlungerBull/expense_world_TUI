@@ -313,7 +313,7 @@ class CursorList(WindowedList):
     ) -> None:
         """Relabel the columns in place — for a pane that lists two different
         things (the Reconciliations lower pane: batches, or the account's rows in
-        no batch). Rebuilding the widget instead would drop the
+        no statement). Rebuilding the widget instead would drop the
         caption, the page size the screen computed and the focus. `align_right`,
         `gap`, `flex`, `edge`, `header_rule` and `gives_way` are set afresh: one left out
         falls back to its default, it does not keep the earlier headers' value.

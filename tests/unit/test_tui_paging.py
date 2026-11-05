@@ -6,7 +6,7 @@ is deterministic — a 30-line harness proves the shrink, a tiny one proves the
 floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but `ENGINE_PAGE_CAP` on
 Transactions, which grows with the window. The
 ledger is one growing list: the window sizes what is drawn, and every read
-is `GROW_STEP` rows by cursor (`GrowingRead`, shared with the "no batch" pane).
+is `GROW_STEP` rows by cursor (`GrowingRead`, shared with the "no statement" pane).
 
 Mostly pure tests in the style of the other widget suites: `_build()` renders
 through a Rich Console; action handlers run with `_refresh`/`post_message`

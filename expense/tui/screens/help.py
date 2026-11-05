@@ -75,7 +75,7 @@ NEEDS_SCREEN_HANDLER = {
 #: A widget or a screen may name, in a `CARD_FOLLOWS_CHECK` frozenset, the
 #: actions whose card row follows its `check_action`: listed only while it
 #: allows them, as the footer does. For a key that is off in some states (the
-#: Reconciliations panel's `⏎`: `Edit` in the "no batch" list, `Open` on the
+#: Reconciliations panel's `⏎`: `Edit` in the "no statement" list, `Open` on the
 #: reconciliations; a statement's `f`, only while a complete's flagged lines
 #: are left); every other row of the card lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"

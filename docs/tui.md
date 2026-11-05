@@ -41,10 +41,10 @@ expense/tui/
     transactions.py # the ledger, whole or filtered, and its bulk keys
     bulk_pick.py    # BulkPickScreen — the pick `c`/`b`/`h`/`m` open
     accounts.py  categories.py  hashtags.py   # Manage lists
-    reconciliations.py # Statements: browse, new statement, batch screen, flagged lines
+    reconciliations.py # Statements: browse, new statement, a statement's screen, flagged lines
     system.py       # Config / Auth screens
     setup.py        # SetupScreen — first-time setup
-    edit_form.py    # the Edit form, ledger and "no batch" (BankLineEditFormScreen)
+    edit_form.py    # the Edit form, ledger and "no statement" (BankLineEditFormScreen)
     log_bar.py      # the LOG bar — what `+` opens
     bank_import.py  # the import door: a dropped bank file → account → preview → result
     statement_upload.py # a dropped statement PDF → account → preview → month closed
@@ -268,7 +268,7 @@ CATEGORY's list is the one the ledger's `c` offers (`pickable_categories` in
 part in `@Pendiente` the highlight starts on it and `⏎` keeps it, and picking it on another
 part sends that part back to waiting for a category; `@Opening` is never in it. A value the
 list does not hold leaves the highlight on the first entry, and there `⏎` with nothing typed
-takes that entry. The "no batch" Edit form works the same.
+takes that entry. The "no statement" Edit form works the same.
 **Stepping past COLOR keeps it** on the Edit screens of Manage ▸ Categories and Manage ▸
 Accounts. The line opens with the bar empty and the highlight on the row's own swatch, so `⏎`
 with nothing typed keeps it and the summary goes on showing it; typing filters and highlights
@@ -311,7 +311,7 @@ the part's `description: ""` and says `Saved.`; the engine refuses `null` there 
 On a part with no note it is no change. No field the form sends is `null` except
 `operation_code`, which `null` clears, and the `statement_id: null` a move adds.
 **A date the form can't read is refused at `⏎`.** On DATE, on the Edit form from the ledger
-and from "no batch" alike, `⏎` checks the bar with the reader the save uses
+and from "no statement" alike, `⏎` checks the bar with the reader the save uses
 (`is_readable_date` in [dates.py](../expense/dates.py)): a day `2026-10-23`, with or without
 a time (`2026-10-23 14:30`), is taken, and an emptied bar commits today. Anything else, `abc`
 say, notes `Date: use YYYY-MM-DD.` as an error, the words New statement's dates and the
@@ -333,7 +333,7 @@ row like any other, and the engine refuses it: the other rows still go, and the 
 stays selected ("When the engine says no" below). The LOG bar is untouched: it only creates
 rows, and a typed line cannot name @Opening.
 **A split transaction says what reaches every part.** The engine writes a line's date,
-title, operation (the "no batch" form's OPERATION line), account and currency onto every part
+title, operation (the "no statement" form's OPERATION line), account and currency onto every part
 of it, in one go, while amount, category, hashtags and note stay each part's own
 (contract: "Transactions (Ledger)", "Bank lines").
 So while the Edit form's table holds two parts or more, its hint under the bar adds
@@ -423,7 +423,7 @@ total.`, two parts locked in one column for different sentences showing each onc
 the shared fields, under its own first word. Every sentence is the engine's `message` as sent,
 shown as text, never as styling (`reason_lines` and `readonly_lines` in
 [parts_table.py](../expense/tui/widgets/parts_table.py)); the app keeps no table from reason to
-sentence. The "no batch" Edit form shows the same, OPERATION among the lines it names. Every
+sentence. The "no statement" Edit form shows the same, OPERATION among the lines it names. Every
 field move skips them, and the form opens on its first line that can change. Where
 `parts_fixed` holds (an opening balance's line, a line on an archived account) neither `^n` nor
 `^x` shows. Where `total_fixed` holds and `parts_fixed` does not (a line in a completed
@@ -480,7 +480,7 @@ lifts the line exactly as typed. The rule is one helper, `hashtags_to_send` in
 already read, never by its name. With none yet nothing is dropped, and a LOG bar line with no
 `#tag` reads `—`.
 
-**`u` on the Statements browse — the account's bank lines in no batch.** The **panel swaps**:
+**`u` on the Statements browse — the account's bank lines in no statement.** The **panel swaps**:
 same screen, same place, and the open account's statements are replaced by its bank lines
 assigned to no statement, any day, every currency of the account together: `GET /bank-lines`
 with `account_id` and `unreconciled=true` and no dates or currency
@@ -500,7 +500,7 @@ bank-line list (a statement's, the flagged lines') draws its rows this way.
 
 The list is **oldest first**, `sort=date_asc` (`UNFILED_SORT`)
 (contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
-`In no batch · <account>   ·   N of M loaded · oldest first   ·
+`In no statement · <account>   ·   N of M loaded · oldest first   ·
 ! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
 `GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`;
 the count takes no order), read together with the first rows, and counts a split
@@ -524,7 +524,7 @@ asks the ledger's question for a split transaction and goes whole in one
 a line never split asks the ledger's transaction question and goes as its one transaction
 in `DELETE /transactions/{id}`.
 
-**`⏎` in "no batch" — the Edit form on the line** (`BankLineEditFormScreen` in
+**`⏎` in "no statement" — the Edit form on the line** (`BankLineEditFormScreen` in
 [edit_form.py](../expense/tui/screens/edit_form.py)). It is the ledger's Edit form ("`⏎` and
 `s` open the Edit form" above) with OPERATION among the shared fields,
 `date › title › operation › account › currency`, then every part, and its crumb reads
@@ -793,7 +793,7 @@ engine's sentence, for example `date, title, account: The account is archived. U
 under a dim `amount  read-only` with the same sentence beside it, there is no `^n` or `^x`,
 and the form opens on the first line that can change, a title still empty if the engine leaves
 it open, else part 1's CATEGORY. Each part's category, hashtags and note change as on any
-line, and the save sends each part at its current amount. The "no batch" Edit form follows the
+line, and the save sends each part at its current amount. The "no statement" Edit form follows the
 same `edit_limits` on a line of an archived account, which only a list read before the account
 was archived still shows. When the engine refuses anyway (the account archived after the line
 was read), its words stay under the parts.
@@ -890,7 +890,7 @@ refusal, neither lift nor hold the guard (`run_guarded_write` in
 
 **`d` is the TUI's one destructive key.** It deletes the row under the cursor on Manage ▸
 Accounts, Categories and Hashtags (a built-in row aside, above), on the ledger (whole or
-filtered from Home), in the statement's "no batch" list and on a statement's flagged lines,
+filtered from Home), in the statement's "no statement" list and on a statement's flagged lines,
 always as the last entry of the screen's footer keys but on the flagged lines, whose footer
 ends `d Delete  ↑↓ Move`. Cursor row only, never a selection: on the ledger it is off while
 rows are selected, while a bulk write runs and on an archived account's row (§4 "The ledger's
@@ -915,14 +915,14 @@ screen can bring it back.**
 | Accounts | `Delete this account?` | `Prueba · bank · PEN 0.00 · USD 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, and a line never split in the "no batch" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
-| Ledger, on a part of a split transaction; a split transaction in the "no batch" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
-| A statement's batch screen (`d` deletes the batch itself) | `Delete statement?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
+| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, on a part of a split transaction; a split transaction in the "no statement" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
+| A statement's screen (`d` deletes the statement itself) | `Delete statement?` | `Detaches its transactions and removes the statement. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the "no batch" list's oldest ten, the flagged lines' review
+page, the ledger's newest ten, the "no statement" list's oldest ten, the flagged lines' review
 list read again whole. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
 off every transaction carrying it, and one left with no hashtag carries the pending hashtag
@@ -973,7 +973,7 @@ show alone.
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` or `m` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
@@ -982,8 +982,8 @@ show alone.
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
-| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no batch" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
-| `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no batch" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
+| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
+| `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no statement" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a statement; `c` and `x` on an account's currencies; a tick, or the balances saved at `c`, on a statement (contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write") | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, a new statement, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
@@ -991,7 +991,7 @@ show alone.
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
-| `RECONCILIATION_NOT_DRAFT` | `d` on a statement's batch screen | `Press u to revert it, then d again.` |
+| `RECONCILIATION_NOT_DRAFT` | `d` on a statement's screen | `Press u to revert it, then d again.` |
 | `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) on `currency_code` | `m` on ledger rows that include an opening balance, which moves a currency alone; its Edit form, on a change of currency alone | none: the engine's words show alone |
@@ -1289,9 +1289,9 @@ them — they are hand-written into the `?` card
   advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names
   the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
   `check_action` allows it, as the footer does: the Statements panel's `⏎ Open` and
-  `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
+  `⏎ Edit`, which is on in the "no statement" list alone, on every row, and a statement's
   `space`, `c`, `u` and `f`, each on only where the statement offers it ("A statement's
-  batch screen" below).
+  screen" below).
 
   A currency pick is the exception, and the card says so (`⏎ never changes data, except on a
   currency pick`): Manage ▸ Accounts' `Add a currency · <account>`, opened by `c`, adds the
@@ -1315,7 +1315,7 @@ screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `
 goes through on the `?` card, so the Manage lists neither react to it nor advertise it.
 
 **`pgdn` means "more of this list", in three ways.** In the two growing lists, the ledger
-and the "no batch" pane, it appends the next 10 rows by cursor and puts the cursor on the
+and the "no statement" pane, it appends the next 10 rows by cursor and puts the cursor on the
 first new one, and `pgup` just goes up a screenful (§5; [decisions.md](decisions.md) "Long
 lists grow, they do not page"). In every other list it is the next page of rows already
 loaded (§5). On Home it walks the month window one month older, `pgup` one newer (§2).
@@ -1363,13 +1363,13 @@ statements list the Name is the one column that gives way (`_panel_layout`, `giv
 `Noviembre 20…` at 80 columns), never the period, a Diff, the status or the order, and the
 list does not stretch to the card's edge, so the cursor's highlight ends after the last column.
 
-**Keys**: `⏎` opens the row's statement on its batch screen, every currency it covers, none
+**Keys**: `⏎` opens the row's statement on its screen, every currency it covers, none
 picked first; `n` creates a statement for the open account, or with no panel for the account
 under the cursor, and once saved the panel opens on the new one; `u` swaps the panel to the
-account's rows in no batch (§2); `d` deletes a row **in that list only** (off, and out of the
-footer, on the statements list: a statement's own delete is on its batch screen); `esc`
-retreats one step — no-batch rows → the panel → the account list (`esc Close the panel`) →
-Home. On the batch screen one keypress away, `u` means *revert*.
+account's rows in no statement (§2); `d` deletes a row **in that list only** (off, and out of the
+footer, on the statements list: a statement's own delete is on its screen); `esc`
+retreats one step — no-statement rows → the panel → the account list (`esc Close the panel`) →
+Home. On a statement's screen one keypress away, `u` means *revert*.
 
 **The New statement form** (`n` on an account, or `Statements ▸ New` alone;
 `NewReconciliationScreen`) is one form for every account: `Statements ▸ <account> ▸ New`,
@@ -1396,7 +1396,7 @@ that currency's begin (contract: POST /v1/statements, "Order"). `CONCURRENT_CHAN
 app's line `It changed at the same moment: save again.` Saved, it says `Statement created.`
 and the panel opens on the account's statements, the cursor on the new one.
 
-**A statement's batch screen** (`⏎` on one in the panel) is the whole statement. Its head is
+**A statement's screen** (`⏎` on one in the panel) is the whole statement. Its head is
 the name whole, brackets and all (`[VIS] Agosto`), the account, the period and `status`, then a
 `begin  end  diff` table (`balance_lines`) with a line for each currency the statement covers,
 in the engine's order; a currency it does not cover has no line
@@ -1413,7 +1413,7 @@ Under the head is one list of **bank lines** (`CheckList`), read by `fetch_month
 account and never by one currency:
 `account_id=` with `statement_id=` and `sort=statement`, so the statement's lines come in the
 paper's order, both currencies together, then those holding no place oldest first
-(contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. Its rows are the "no batch"
+(contract: GET /v1/bank-lines, "Ordering"); the app sorts nothing. Its rows are the "no statement"
 rows (§2; `line_rows`): no category, hashtags, note or part count. An opening balance
 (`is_opening_balance`) holds no place on the paper, so its rows come last under a dim
 `Not on the paper` label. The list holds focus, so `pgdn` and `pgup` page it on every
@@ -1526,7 +1526,7 @@ the account or the days, or deleted drops out of the engine's list. The head rea
 (`1 flagged line. 1 line dated up to its last day is in no statement.` for one), the first
 sentence plain and the engine's count and the rest of the second in the warning colour; the
 head and the words under the list stand two cells in and wrap at 75 columns. Under it are the
-lines in one list, the "no batch" rows drawn as the statement's own list is (`CheckList`,
+lines in one list, the "no statement" rows drawn as the statement's own list is (`CheckList`,
 read-only, no numbers), every currency of the account together, in the engine's order, the
 statement's: its lines hold no place, so they are oldest first, the currencies mixed by date
 (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
@@ -1547,7 +1547,7 @@ The screen has no `?`: it does not take `HelpBindingMixin`, so its footer,
 no focus, so the screen holds `⏎`, `d` and `↑↓` itself; `pgdn`/`pgup` page and `r` reads the
 list again, none of them in the footer. `⏎` opens the line in the ledger's Edit form
 (`EditFormScreen`, which reads the line by its id), crumb `… ▸ Flagged ▸ Edit`; `d` asks the
-"no batch" list's question and deletes as it does (`ask_line_delete`). After a save or a
+"no statement" list's question and deletes as it does (`ask_line_delete`). After a save or a
 delete the screen reads the review list and its count again, the cursor on row 1, and with none
 left it goes back to the statement. The head shows the engine's count as soon as it arrives and
 the list fills in when its pages arrive; a read that fails toasts the engine's words and keeps
@@ -1566,7 +1566,7 @@ alone decides, never the answer's `review_lines`: the flagged lines' screen open
 when it is above zero (whichever read brings the count, unless `f` has opened it first or
 another screen, such as `?`, is on top); a read that fails toasts and opens nothing. Back from
 the flagged lines' screen, its last count holds. The lines stay in the ledger, in no statement,
-and show in the account's "no batch" list.
+and show in the account's "no statement" list.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
@@ -1782,7 +1782,7 @@ leaves the footer. `↑`/`↓` scroll everything loaded and `pgup` goes up a scr
 reads nothing. After a write (a bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from
 the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with `esc` is not
 a write: nothing is read and the list comes back as it was, the rows `pgdn` loaded and the
-cursor on its row. The "no batch" list on Statements grows through the same `GrowingRead`
+cursor on its row. The "no statement" list on Statements grows through the same `GrowingRead`
 (§2).
 
 **Full-data screens window locally** — Manage, the Statements account list (full
@@ -1802,13 +1802,13 @@ right under the rule.
 (`panel_page_rows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)):
 four accounts and three statements fit on one page, and with five accounts the panel pages
 instead of scrolling `#content`, whose scrollbar would cut the Order column; a caption a long
-account name wraps is counted. The "no batch" list draws no page status
+account name wraps is counted. The "no statement" list draws no page status
 (`UNFILED_FRAME_LINES`) and fills the room the accounts leave, down to the blank line above
 the footer; its caption's `N of M loaded` says the rest. A statement's list is measured again
 once the head and its notes have drawn at the screen's width, and the rows set apart count
 toward the page, so its page status always shows. The browse and a statement's screen use a
 `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)), so no key is cut at 80
-columns: not `u No batch` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
+columns: not `u No statement` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed

@@ -681,7 +681,7 @@ def test_statements_that_cannot_be_read_show_the_words_whole(monkeypatch):
 
 
 def test_lines_in_no_batch_that_cannot_be_read_show_the_words_whole(monkeypatch):
-    """`u` on an account's panel, its lines in no batch refused: the "Failed" toast."""
+    """`u` on an account's panel, its lines in no statement refused: the "Failed" toast."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
 
@@ -714,7 +714,7 @@ def test_a_new_statement_whose_accounts_cannot_load_shows_the_words_whole(fake_c
 
 
 def test_a_batch_screen_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
-    """A statement's batch screen, its lines' read refused: its toast."""
+    """A statement's screen, its lines' read refused: its toast."""
     _patch_detail(monkeypatch)
 
     def refused(*a, **k):

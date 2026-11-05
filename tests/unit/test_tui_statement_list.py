@@ -512,12 +512,12 @@ def test_the_footer_and_u_stay_as_today(monkeypatch):
         "escape": "Close the panel",
         "r": "Refresh",
         "n": "New",
-        "u": "No batch",
+        "u": "No statement",
     }
 
 
 def test_u_then_esc_brings_the_statements_back(monkeypatch):
-    """`u` swaps the panel to the open account's rows in no batch; `esc` swaps the
+    """`u` swaps the panel to the open account's rows in no statement; `esc` swaps the
     statements back, their columns and title with them."""
     client = _engine(monkeypatch)
     seen: dict = {}

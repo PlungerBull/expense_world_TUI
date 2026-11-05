@@ -276,7 +276,7 @@ async def _wait_list(screen, pilot):
 
 
 def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
-    """The tick-list's in-range read asks for the account's lines in no batch,
+    """The tick-list's in-range read asks for the account's lines in no statement,
     with the period's own days in the engine's day filters, unconverted: a bare
     `date_to` is the whole last day (contract: GET /v1/bank-lines). The statement's
     own lines are read on the opened account, any day
@@ -327,7 +327,7 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
 
 
 def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
-    """The batch's lines first, ticked, then the account's lines in no batch;
+    """The batch's lines first, ticked, then the account's lines in no statement;
     the split purchase is one row with its total."""
     _patch(monkeypatch)
 
@@ -1011,6 +1011,19 @@ def test_completed_is_read_only(fake_client, monkeypatch):
     run_app(scenario)
 
 
+def test_a_completed_statement_with_no_lines_says_so_in_statement_words(fake_client, monkeypatch):
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page([]))
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen({**DRAFT, "status": 2})
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        assert screen._list._empty == "(no transactions in this statement)"
+
+    run_app(scenario)
+
+
 @pytest.mark.parametrize(
     ("ticked", "count"),
     [(1, "1 ticked row"), (2, "2 ticked rows"), (5, "5 ticked rows")],
@@ -1577,7 +1590,7 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == "Delete statement?"
         assert app.screen._message == (
-            "Detaches its transactions and removes the batch. Its transactions stay. "
+            "Detaches its transactions and removes the statement. Its transactions stay. "
             "No screen can bring it back."
         )
         await pilot.press("enter")

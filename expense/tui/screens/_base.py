@@ -306,7 +306,7 @@ def delete_row_line(title: object, amount_cents: object, day: str, account_name:
 
 
 def transaction_delete_message(record: dict, account_name: str) -> str:
-    """The body of "Delete this transaction?" — the ledger's and the "no batch"
+    """The body of "Delete this transaction?" — the ledger's and the "no statement"
     pane's, word for word: the row, then why a delete is final."""
     row = delete_row_line(
         record.get("title"),
