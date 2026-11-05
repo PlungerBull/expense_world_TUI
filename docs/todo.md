@@ -109,10 +109,10 @@ CLAUDE.md "Specs and tasks".
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **A superseded read can paint on a statement's list.** A read started mid-burst of `space`
-  ticks can pass `_load_txns`' `is_cancelled` check just before a newer load cancels it, then
-  paint in `_populate` and spend `_land_on`, so the cursor lands on row 1, not the line ticked
-  last. Not yet reproduced. `_populate` paints only the newest load, with a test.
+- **A superseded read can paint on the flagged lines.** `FlaggedLinesScreen._load` /
+  `_populate` ([reconciliations.py](../expense/tui/screens/reconciliations.py)) checks
+  `is_cancelled` only on the worker thread, so a load a newer one replaced can still paint older
+  lines. Drop it on the UI thread as the statement's own list does (`_if_newest`), with a test.
 
 ---
 

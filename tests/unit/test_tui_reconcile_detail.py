@@ -944,6 +944,144 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
     run_app(scenario)
 
 
+def test_a_read_a_newer_one_replaced_does_not_paint_or_use_up_the_landing(fake_client, monkeypatch):
+    """A read that passed its cancel check before a newer load started still
+    hands back after it; the UI thread drops it, so the newest read paints with the
+    cursor on the line ticked last."""
+    from expense.tui.screens import reconciliations as module
+
+    completed = {**DRAFT, "status": 2}
+    _patch(monkeypatch)
+    fresh_line = bank_line_row(
+        "l9",
+        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", recon="r1")],
+        net_cents=-100,
+        account_id="acc1",
+    )
+    entered, release = threading.Event(), threading.Event()
+    first_thread: list[int] = []
+
+    def fake_fetch(cfg, **k):
+        if not first_thread:
+            first_thread.append(threading.get_ident())
+        if threading.get_ident() == first_thread[0]:
+            entered.set()
+            assert release.wait(5)
+            return cursor_page(ASSIGNED)  # the older read's answer, held until released
+        return cursor_page([*ASSIGNED, fresh_line])
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+
+    class Live:  # a worker whose cancel flag the older read has already passed
+        is_cancelled = False
+
+    monkeypatch.setattr(module, "get_current_worker", lambda: Live())
+    handed_back: list[str] = []
+    real = module.call_while_attached
+
+    def counting(screen, fn, *a, **k):
+        real(screen, fn, *a, **k)
+        handed_back.append(getattr(fn, "__name__", ""))
+
+    monkeypatch.setattr(module, "call_while_attached", counting)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await wait_for(pilot, entered.is_set)
+        screen._land_on = "l9"
+        screen._load_txns()  # the newer load
+        await wait_for(pilot, lambda: screen._list is not None and len(screen._list._rows) == 2)
+        assert screen._list.cursor_key == "l9"
+        release.set()
+        await wait_for(pilot, lambda: handed_back.count("_populate") == 2)
+        await pilot.pause()
+        assert len(screen.query(CheckList)) == 1
+        assert [r[0] for r in screen._list._rows] == ["l1", "l9"]
+        assert screen._list.cursor_key == "l9"
+
+    run_app(scenario)
+
+
+def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
+    fake_client, monkeypatch
+):
+    """The older read hands back after the newer one started and before it paints: its
+    record, count and rows are dropped, `_land_on` stays for the newer read, and the
+    status a complete just set is kept."""
+    from expense.tui.screens import reconciliations as module
+
+    _patch(monkeypatch)
+    entered = {1: threading.Event(), 2: threading.Event()}
+    release = {1: threading.Event(), 2: threading.Event()}
+    threads: list[int] = []
+    stale = {**DRAFT, "status": 0}
+
+    def which() -> int:
+        if threading.get_ident() not in threads:
+            threads.append(threading.get_ident())
+        return threads.index(threading.get_ident()) + 1
+
+    def hold(n: int) -> None:
+        entered[n].set()
+        assert release[n].wait(5)
+
+    def fake_statement(cfg, statement_id, **k):
+        n = which()
+        if n == 1:
+            hold(1)  # read 1 is held before its record lands
+            return stale
+        return {**DRAFT, "status": 2}
+
+    def fake_fetch(cfg, **k):
+        if which() == 2:
+            hold(2)  # read 2 is held before it paints
+        return cursor_page(ASSIGNED)
+
+    monkeypatch.setattr("expense.reads.fetch_statement", fake_statement)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+    monkeypatch.setattr("expense.reads.count_bank_lines", lambda cfg, **k: 3)
+
+    class Live:
+        is_cancelled = False
+
+    monkeypatch.setattr(module, "get_current_worker", lambda: Live())
+    handed_back: list[str] = []
+    real = module.call_while_attached
+    real_load = ReconciliationDetailScreen._load_txns
+
+    def counting(screen, fn, *a, **k):
+        real(screen, fn, *a, **k)
+        handed_back.append(getattr(fn, "__name__", ""))
+
+    monkeypatch.setattr(module, "call_while_attached", counting)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", lambda self, **k: None)
+        await app.push_screen(screen)  # no mount-time read: the test starts both
+        monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", real_load)
+        screen._load_txns(refresh_record=True)  # read 1, held before its record lands
+        await wait_for(pilot, entered[1].is_set)
+        screen._record["status"] = 2  # a complete just landed
+        screen._land_on = "l1"
+        screen._open_when_counted = True
+        screen._load_txns(refresh_record=True)  # read 2, held in its fetch
+        await wait_for(pilot, entered[2].is_set)
+        release[1].set()
+        await wait_for(pilot, lambda: handed_back.count("_if_newest") >= 4)
+        await pilot.pause()
+        assert screen._list is None  # read 1 painted nothing
+        assert screen._land_on == "l1"  # and used up nothing
+        assert screen._open_when_counted is True
+        assert screen._record["status"] == 2
+        release[2].set()
+        await wait_for(pilot, lambda: screen._list is not None)
+        assert screen._list.cursor_key == "l1"
+
+    run_app(scenario)
+
+
 def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
     """The detail fetch never exceeds the engine's 200-row limit cap
     and follows `next_cursor` until it is null — never an offset."""

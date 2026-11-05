@@ -1656,7 +1656,8 @@ class ReconciliationDetailScreen(
         self._list: CheckList | None = None
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
-        self._acct_name: str | None = None  # resolved worker-side in _load_txns
+        self._load_generation = 0  # bumped as each read starts; only the newest paints
+        self._acct_name: str | None = None  # resolved worker-side in _read_txns
         self._open_when_counted = False  # a complete waits for the review list's count
         # how many bank lines the statement's review list counts: the engine's
         # count each time the statement is read, the flagged lines' screen's last
@@ -1720,7 +1721,7 @@ class ReconciliationDetailScreen(
     def _apply_fresh_record(self, fresh: dict) -> None:
         """Main-thread: rebind _record from a refreshed statement, then repaint the
         header. Called on the UI thread so the worker never mutates screen
-        state directly, and a cancelled stale load can't clobber _record."""
+        state directly; a load's hand-back goes through `_if_newest`."""
         self._record = fresh
         self._render_header()
         self.refresh_bindings()
@@ -1730,7 +1731,7 @@ class ReconciliationDetailScreen(
 
     def _render_header(self) -> None:
         r = self._record
-        # short-id placeholder until _load_txns resolves the name worker-side
+        # short-id placeholder until _read_txns resolves the name worker-side
         acct = self._acct_name or resolve_name(self._account_id, {})
         status = formatting.format_status(r.get("status"))
         first = Text.assemble(
@@ -1756,10 +1757,20 @@ class ReconciliationDetailScreen(
         if self._list is not None and self._list.is_attached:
             self._list.set_page_size(self._checklist_items())
 
+    def _load_txns(self, refresh_record: bool = False) -> None:
+        self._load_generation += 1
+        self._read_txns(self._load_generation, refresh_record)
+
+    def _if_newest(self, generation: int, hand_back, *args) -> None:
+        """UI thread: a hand-back of a read a newer one has replaced is dropped, so
+        a stale record, name or count never overwrites what the newest read brings."""
+        if generation == self._load_generation:
+            hand_back(*args)
+
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
     # cancels stale refreshes only, never a run_write ("engine-write") worker
     @work(thread=True, exclusive=True, group="recon-detail-load")
-    def _load_txns(self, refresh_record: bool = False) -> None:
+    def _read_txns(self, generation: int, refresh_record: bool) -> None:
         from expense import config as config_module
 
         # Exclusive cancellation is cooperative: a superseded load keeps
@@ -1784,7 +1795,9 @@ class ReconciliationDetailScreen(
                 if worker.is_cancelled:
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
-                call_while_attached(self, self._apply_fresh_record, statement)
+                call_while_attached(
+                    self, self._if_newest, generation, self._apply_fresh_record, statement
+                )
             assigned, available = fetch_month_lines(
                 cfg,
                 self._id,
@@ -1797,26 +1810,28 @@ class ReconciliationDetailScreen(
             acct_name = resolve_name(self._account_id, load_account_name_map())
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
-                call_while_attached(self, self._count_failed)
+                call_while_attached(self, self._if_newest, generation, self._count_failed)
                 call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         rows, checked, part_of = line_rows(assigned, available)
         if worker.is_cancelled:
             return
-        call_while_attached(self, self._set_acct_name, acct_name)
-        call_while_attached(self, self._render_header)  # picks up _acct_name
-        call_while_attached(self, self._populate, rows, checked, part_of)
+        call_while_attached(self, self._if_newest, generation, self._set_acct_name, acct_name)
+        call_while_attached(
+            self, self._if_newest, generation, self._render_header
+        )  # picks up _acct_name
+        call_while_attached(self, self._populate, rows, checked, part_of, generation)
         # the review list's count, on a draft or a completed statement alike: the list
         # is on screen whatever it says (contract: GET /v1/bank-lines/count)
         try:
             flagged = reads.count_bank_lines(cfg, review_of=self._id, **kw)
         except Exception as exc:
             if not worker.is_cancelled:
-                call_while_attached(self, self._count_failed)
+                call_while_attached(self, self._if_newest, generation, self._count_failed)
                 call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         if not worker.is_cancelled:
-            call_while_attached(self, self._counted, flagged)
+            call_while_attached(self, self._if_newest, generation, self._counted, flagged)
 
     def _counted(self, count: int) -> None:
         """The engine's count of the review list landed: show it, and, when a complete
@@ -1832,11 +1847,12 @@ class ReconciliationDetailScreen(
         opens nothing."""
         self._open_when_counted = False
 
-    async def _populate(self, rows: list, checked: list, part_of: dict) -> None:
+    async def _populate(self, rows: list, checked: list, part_of: dict, generation: int) -> None:
         """Paint a read. Not while a tick is unanswered: the read may predate
         it, and the read after the last tick paints with the cursor on the line
-        ticked last, so ticking down a statement never lands on another row."""
-        if self._ticks_unanswered():
+        ticked last, so ticking down a statement never lands on another row. Not
+        a read a newer one has replaced either, checked here on the UI thread."""
+        if generation != self._load_generation or self._ticks_unanswered():
             return
         land_on, self._land_on = self._land_on, None
         async with self._content_lock():
