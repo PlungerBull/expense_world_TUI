@@ -49,9 +49,6 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
-- **About 20 unit test files name accounts with a currency code** (`BCP Signature PEN`,
-  `BCP USD`), where an account holds its currencies; `test_tui_log_bar.py` shows the shape.
-  Nothing you see changes. `grep -rln 'BCP PEN\|BCP Signature PEN\|BCP USD' tests/unit`.
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **The shared practice user holds no accounts,** so the tester proves LOG bar and account
