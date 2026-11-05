@@ -89,12 +89,6 @@ CLAUDE.md "Specs and tasks".
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
   "Send each transaction's calendar day with it"; the lists then show that day.
-- **A guard against "purchase" in the app's words.** The owner's word is "transaction"
-  (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
-  fails when a user-visible string in `expense/` says "purchase". Code comments and docstrings
-  say "purchase" too (transactions.py, reconciliations.py, reads.py, bank_import.py,
-  quickadd/route.py, app.tcss): make them "split transaction" or "bank line" first, so the guard
-  needs no exemption for comments.
 - **Mockups that back no open work.** A mockup lives only while it backs open work; many in
   [mockups/](mockups/) back built screens and draw an older app. Delete each one no spec, todo
   item or to-engine file links, with its links from docs, code and docstrings.

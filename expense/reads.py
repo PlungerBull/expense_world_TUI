@@ -260,7 +260,7 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     (contract: GET /v1/bank-lines/{bank_line_id}). Read by the ledger's Edit
     form, which opens a row's line from this one read: its parts, its total and
     its `edit_limits`; and by the ledger's `d`, whose question for a part of a
-    split purchase names its part count and total, and whose delete goes whole
+    split transaction names its part count and total, and whose delete goes whole
     when `part_count` is above 1. The app counts and adds no parts itself.
     """
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
@@ -286,7 +286,7 @@ def fetch_bank_lines(
     the shape `fetch_bank_line` reads (contract: GET /v1/bank-lines).
 
     Read by the statement screen, the "no statement" list and the
-    flagged lines' screen, which list a purchase as one row and never half of
+    flagged lines' screen, which list a split transaction as one row and never half of
     it, and through `fetch_bank_lines_by_ids` by the statement upload's
     preview. Each filter applies to a whole line; `ids` lists the lines among
     those bank line ids, sent comma-joined (contract: GET /v1/bank-lines,
@@ -387,7 +387,7 @@ def count_bank_lines(
 ) -> int:
     """GET /v1/bank-lines/count → how many bank lines the same filters match.
 
-    It counts lines, so a purchase split into parts counts once
+    It counts lines, so a split transaction counts once
     (contract: GET /v1/bank-lines/count). Read by the "no statement" list for its
     `N of M loaded`, by the flagged lines' screen for how many lines a
     statement's review list holds (`review_of`), and by a statement's screen and a

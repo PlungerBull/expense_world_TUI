@@ -9,7 +9,7 @@ the cursor in it. They stand in the order the engine returns them: `date_start`
 ascending, then creation time, oldest first (contract: "Statements", "Ordering").
 There `⏎` opens the working screen on the open account, `n` creates one for it, `u`
 swaps the panel for the account's bank lines in no statement (`GET /bank-lines`, every
-currency together, oldest first, a split purchase one row), and `esc` closes the
+currency together, oldest first, a split transaction one row), and `esc` closes the
 panel. Nothing is read for an account until you press `⏎` on it.
 
 The panel lists one row per statement: Name, Period, one Diff per currency the
@@ -36,7 +36,7 @@ currency of its account together in the statement's order, then the account's in
 its period that are in no statement, oldest first (draft) — or a read-only
 list of the statement's lines (completed; numbered only on an account with a
 statement code), read by account from
-`GET /bank-lines` so a purchase split into parts is one row with its total.
+`GET /bank-lines` so a split transaction is one row with its total.
 `space` toggles membership (PUT `statement_id` on one part, which moves
 the whole line) and reads the statement and its list again;
 `c`/`u`/`d` complete/revert/delete the whole statement, every currency of
@@ -199,7 +199,7 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
 
     Each row is one line of the bank's own columns, `bank_line_columns`: the
     day, the title, the operation code (a dim `—` when there is none), the
-    line's currency and the signed `net_cents`. A purchase split into parts is one row
+    line's currency and the signed `net_cents`. A split transaction is one row
     with its title alone and its total; nothing on the row says it is split.
 
     **The flag is a hint, not a ruling.** It compares each row's day with the
@@ -250,7 +250,7 @@ def ask_line_delete(
     screen: EngineWriteMixin, line: dict, account_name: str, *, after: Callable[[], None]
 ) -> None:
     """`d` on a bank line a list holds: the question, then the delete, through
-    `confirm_delete` (only `y` deletes). A split purchase (`part_count` above 1)
+    `confirm_delete` (only `y` deletes). A split transaction (`part_count` above 1)
     goes whole, in one `DELETE /bank-lines/{id}`
     (contract: DELETE /v1/bank-lines/{bank_line_id}), after the question naming its
     part count; a line never split goes as its one transaction, in

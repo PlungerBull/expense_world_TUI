@@ -36,7 +36,7 @@ change, as `⏎` does: its parts are changed, added and dropped there
 
 `d` deletes the cursor row after the question and reads the list fresh from
 the newest 10. It first reads the row's bank line once
-(contract: GET /v1/bank-lines/{bank_line_id}): a part of a split purchase
+(contract: GET /v1/bank-lines/{bank_line_id}): a part of a split transaction
 (`part_count` above 1) asks "Delete this transaction and its N parts?" and goes
 whole, every part in one `DELETE /bank-lines/{id}`
 (contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split asks and
@@ -516,7 +516,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     def _read_line_then_ask(self, record: dict) -> None:
         """One `GET /bank-lines/{id}` for the row's bank line, which every
         transaction names (contract: "Transactions (Ledger)", "Bank lines"): its
-        part count tells a split purchase from a row never split, and its parts
+        part count tells a split transaction from a row never split, and its parts
         and total word the question (contract: GET /v1/bank-lines/{bank_line_id}).
         The answer comes back only to a ledger still on the app."""
         from expense import config as config_module
@@ -532,13 +532,13 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         call_while_attached(self, self._ask_delete, record, line)
 
     def _delete_read_failed(self, message: str) -> None:
-        """The purchase could not be read: no question, nothing sent, the
+        """The bank line could not be read: no question, nothing sent, the
         engine's words in the "Failed" note, and `d` again tries again."""
         self._delete_reading = False
         toast(self, message, title="Failed", severity="error")
 
     def _ask_delete(self, record: dict, line: dict) -> None:
-        """The question, then the delete: a split purchase (`part_count` above
+        """The question, then the delete: a split transaction (`part_count` above
         1) goes whole, in one `DELETE /bank-lines/{id}`
         (contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split goes
         alone, in `DELETE /transactions/{id}`. Nothing is asked once another
