@@ -57,12 +57,10 @@ CLAUDE.md "Specs and tasks".
 - **The shared practice user holds no accounts,** so the tester proves LOG bar and account
   checks with unit tests only. Nothing you see changes. Waits on the engine ask "Give the
   shared practice user an account that every reseed keeps".
-- **The live test of a person's opening balance proves less than it could.** Nothing you see
-  changes. `test_an_existing_person_gets_its_opening_balance_in_each_currency` in
-  [test_sheet_import.py](../tests/contract/test_sheet_import.py) reads `currencies[]` but not
-  `rows[].is_opening_balance` or `counts.opening_balances`; both balances are positive (one
-  negative would prove the sign). A zero-amount earlier `SALDO INICIAL` row waits on the engine
-  ask "Say whether a zero-amount row dated earlier stops a sheet row being the opening balance".
+- **No live test sends a zero-amount `SALDO INICIAL` row dated before a person's opening
+  balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
+  dated earlier stops a sheet row being the opening balance"; then
+  [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
 - **The statement upload's live-test gaps.** Nothing you see changes. In
   [test_statement_import.py](../tests/contract/test_statement_import.py) no live test opens a
   card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars

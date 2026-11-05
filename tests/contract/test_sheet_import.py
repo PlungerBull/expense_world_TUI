@@ -364,7 +364,10 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
     """The first non-zero `SALDO INICIAL` row of a currency on a person is its opening balance,
     under `@Opening` with no hashtag; each later one is an ordinary row under the category the
     table gives `SALDO INICIAL`; the sheet sent again matches all four and writes nothing
-    (contract: POST /v1/transactions/import-sheet, "Opening balances"). The table maps the
+    (contract: POST /v1/transactions/import-sheet, "Opening balances"). The answer marks the
+    two first rows `is_opening_balance` and counts them in `counts.opening_balances`, each row
+    with its positive amount and the direction of the sign sent, the USD opening balance an outflow
+    (contract: POST /v1/transactions/import-sheet, "Response"). The table maps the
     sheet's names to a fresh category and hashtag of the scratch, so nothing fixed-named is
     created."""
     n = Names()
@@ -375,7 +378,7 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
         "categories": [{"name": "SALDO INICIAL", "category_id": category}],
         "hashtags": [{"name": n.home, "hashtag_id": hashtag}],
     }
-    first = {"PEN": (date(2026, 1, 5), 100000), "USD": (date(2026, 1, 6), 25000)}
+    first = {"PEN": (date(2026, 1, 5), 100000), "USD": (date(2026, 1, 6), -25000)}
     later = {"PEN": (date(2026, 2, 1), 30000), "USD": (date(2026, 2, 2), -4000)}
     data = sheet_file(
         [
@@ -407,16 +410,28 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
     def outcomes(answer: dict) -> list[str]:
         return [r["outcome"] for r in answer["rows"]]
 
+    def assert_openings_marked(answer: dict) -> None:
+        # Rows 2 and 3 are the two currencies' first rows, rows 4 and 5 the later ones.
+        assert [r["is_opening_balance"] for r in answer["rows"]] == [True, True, False, False]
+        assert answer["counts"]["opening_balances"] == 2
+        sent = [*first.items(), *later.items()]
+        for row, (currency, (_, cents)) in zip(answer["rows"], sent, strict=True):
+            assert row["currency_code"] == currency
+            assert row["amount_cents"] == abs(cents)
+            assert row["transaction_type"] == (1 if cents < 0 else 2)
+
     # The dry run counts four new rows and writes nothing, no opening balance included.
     held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]
     dry = send(dry_run=True)
     assert outcomes(dry) == ["new"] * 4 and dry["counts"]["new"] == 4
+    assert_openings_marked(dry)
     assert opening_ids() == {"PEN": None, "USD": None}
     assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (held, total)
 
     applied = send(dry_run=False)
     scratch.transactions.extend(r["transaction_id"] for r in applied["rows"])
     assert outcomes(applied) == ["new"] * 4 and applied["counts"]["new"] == 4
+    assert_openings_marked(applied)
     by_row = {r["row"]: r["transaction_id"] for r in applied["rows"]}
     opening_by_currency = opening_ids()
     for place, currency in enumerate(first):
@@ -445,6 +460,7 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
     again = send(dry_run=False)
     assert outcomes(again) == ["matched"] * 4
     assert (again["counts"]["new"], again["counts"]["matched"]) == (0, 4)
+    assert_openings_marked(again)
     assert opening_ids() == opening_by_currency
     assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (held, total)
     assert live_ids(client, person) == written
