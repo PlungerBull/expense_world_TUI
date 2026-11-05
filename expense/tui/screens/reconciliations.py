@@ -64,7 +64,7 @@ from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import ActiveBinding, Binding
 from textual.containers import Container
 from textual.css.query import NoMatches
 from textual.screen import Screen
@@ -107,7 +107,7 @@ from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
-from expense.tui.widgets.checklist import CheckList
+from expense.tui.widgets.checklist import AMOUNT_WIDTH, TITLE_WIDTH, CheckList
 from expense.tui.widgets.cursor_list import CursorList, list_cell
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
@@ -118,6 +118,22 @@ from expense.tui.widgets.refusal import toast, under_itself
 _period = formatting.format_period
 
 _UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Cur", "Amount"]
+#: How the list sits in its room: the `!` mark packed to the date, the columns two cells
+#: apart, the title at least `TITLE_WIDTH` wide and the amount `AMOUNT_WIDTH`, and the
+#: title the one that is cut, with `…`, when the row is too wide (the statement's own
+#: list is drawn the same way, checklist.py).
+_UNFILED_LAYOUT: dict[str, object] = {
+    "align_right": {5},
+    "edge": False,
+    "header_rule": False,
+    "lead": True,
+    "gap": 2,
+    "gives_way": {2},
+    "min_widths": {2: TITLE_WIDTH, 5: AMOUNT_WIDTH},
+}
+#: The keys of the footer in the order it reads while the lines in no statement are
+#: listed; any other key the list offers (`pgdn`, `pgup`) follows them.
+_UNFILED_FOOTER = ("escape", "enter", "d", "r", "question_mark")
 
 #: What the "no statement" list asks the engine for, with the account and no dates:
 #: this account's bank lines in no statement, any day, every currency together. The
@@ -717,6 +733,16 @@ class ReconciliationsScreen(SectionScreen):
             return self._mode != "unfiled"
         return True
 
+    @property
+    def active_bindings(self) -> dict[str, ActiveBinding]:
+        """The keys in play, the lines in no statement with their footer in the order
+        `_UNFILED_FOOTER` gives: a focused list's keys would lead it otherwise."""
+        bindings = super().active_bindings
+        if self._mode != "unfiled":
+            return bindings
+        first = [k for k in _UNFILED_FOOTER if k in bindings]
+        return {k: bindings[k] for k in (*first, *(k for k in bindings if k not in first))}
+
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
         if self._mode == "unfiled" and event.control is self._batch_list:
             return
@@ -869,9 +895,7 @@ class ReconciliationsScreen(SectionScreen):
             return
         self._unfiled_busy = True
         self._mode = "unfiled"
-        self._batch_list.set_headers(
-            _UNFILED_HEADERS, align_right={5}, edge=False, header_rule=False
-        )
+        self._batch_list.set_headers(_UNFILED_HEADERS, **_UNFILED_LAYOUT)
         self._batch_list.set_divider("blank")
         self._batch_list.set_status_line(False)
         self._batch_list.set_caption(f"In no statement · {acct.name}   ·   loading…")
@@ -967,7 +991,7 @@ class ReconciliationsScreen(SectionScreen):
         return (
             f"In no statement · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total}"
             " loaded"
-            " · oldest first   ·   ! dated inside a statement"
+            " · oldest first   ·\n! dated inside a statement"
         )
 
     def _unfiled_record(self) -> dict | None:

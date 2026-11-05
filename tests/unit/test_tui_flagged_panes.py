@@ -10,8 +10,6 @@ does with a flagged line"). `u` on the browse lists the account's lines in no st
 every currency together, oldest first, in one read with their count (contract:
 GET /v1/bank-lines, "Filters")."""
 
-import re
-
 import pytest
 from textual.widgets import Static
 
@@ -24,6 +22,7 @@ from expense.tui.screens.reconciliations import (
 from tests.unit.helpers import (
     cursor_page,
     run_app,
+    screen_lines,
     statement_record,
     stub_home_month,
     wait_for,
@@ -383,19 +382,24 @@ def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client
 
 # ---- `u` on the browse: the account's lines in no statement ----------------------------
 
-#: Pane 11's caption, which its second line finishes at 80 columns.
+#: Pane 11's caption and list, from the caption to the footer, at 80 columns.
+PANE_11 = """
+  In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·
+  ! dated inside a statement
+
+    Date        Title                     Operation  Cur     Amount
+  ! 2026-10-03  UBER *TRIP                —          PEN     -42.00
+  ! 2026-10-18  KFC JOCKEY PLAZA          —          PEN     -31.90
+  ! 2026-10-21  SPOTIFY P2F3              —          USD      -5.99
+    2026-11-03  UBER EATS                 —          PEN     -36.40
+    2026-11-06  APPLE.COM/BILL            004951     USD      -2.99
+    2026-11-11  TOTTUS LA MOLINA          005266     PEN    -118.70
+
+ esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys
+"""
 PANE_11_CAPTION = (
-    "In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·   ! dated inside a statement"
+    "In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·\n! dated inside a statement"
 )
-#: Pane 11's rows, cell by cell.
-PANE_11_ROWS = [
-    ["!", "2026-10-03", "UBER", "*TRIP", "—", "PEN", "-42.00"],
-    ["!", "2026-10-18", "KFC", "JOCKEY", "PLAZA", "—", "PEN", "-31.90"],
-    ["!", "2026-10-21", "SPOTIFY", "P2F3", "—", "USD", "-5.99"],
-    ["2026-11-03", "UBER", "EATS", "—", "PEN", "-36.40"],
-    ["2026-11-06", "APPLE.COM/BILL", "004951", "USD", "-2.99"],
-    ["2026-11-11", "TOTTUS", "LA", "MOLINA", "005266", "PEN", "-118.70"],
-]
 UNFILED = [
     _line(21, "2026-10-03", "UBER *TRIP", -4200, "PEN", None, account="acc-visa"),
     _line(22, "2026-10-18", "KFC JOCKEY PLAZA", -3190, "PEN", None, account="acc-visa"),
@@ -449,7 +453,7 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read_as_pane_11(
         listed = screen._batch_list
         return _screen_lines(app), [r.key for r in listed._rows], listed._headers, listed._caption
 
-    lines, keys, headers, screen_caption = run_app(scenario, size=(80, 40))
+    lines, keys, headers, screen_caption = run_app(scenario, size=(80, 24))
     # one read of the account's lines in no statement, oldest first, every currency
     # together (no currency named), and one count of the same question
     assert reads == [
@@ -458,16 +462,10 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read_as_pane_11(
     assert counts == [{"account_id": "acc-visa", "unreconciled": "true"}]
     assert keys == [f"l{n}" for n in range(21, 27)]
     assert headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
-    # the caption is pane 11's words, wrapped onto a second line at 80 columns
+    # the caption, the list and the footer, line for line
     first = next(n for n, line in enumerate(lines) if "In no statement" in line)
-    assert " ".join(lines[first : first + 2]).split() == PANE_11_CAPTION.split()
+    assert_pane(lines[first:], PANE_11)
     assert screen_caption == PANE_11_CAPTION
-    rows = [line for line in lines if re.match(r"\s*(! )?\s*2026-1", line)]
-    assert [line.split() for line in rows] == PANE_11_ROWS
-    # pane 11's footer keys: the list's `⏎ Edit` leads the footer, the screen's own follow
-    assert sorted(lines[-1].strip().split("  ")) == sorted(
-        ["esc Back", "⏎ Edit", "d Delete", "r Refresh", "? Keys"]
-    )
 
 
 def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
@@ -482,9 +480,73 @@ def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
         return screen._batch_list._caption
 
     caption = run_app(scenario, size=(80, 40))
-    assert caption == (
-        "In no statement · Visa BCP   ·   6 of 1716 loaded · oldest first"
-        "   ·   ! dated inside a statement"
-    )
+    assert caption == PANE_11_CAPTION.replace("6 of 6", "6 of 1716")
     assert counts == [{"account_id": "acc-visa", "unreconciled": "true"}]
     assert all(r["sort"] == "date_asc" for r in reads)
+
+
+LONG_TITLE = "PAGO SERVICIOS INTERNET HOGAR LIMA PERU"  # 39 letters, past the title's 24
+
+
+def _listed_at(fake_client, monkeypatch, width, *, more=False, down=0):
+    """The lines in no statement with the second one's title long, at `width` columns:
+    the screen's lines, the cursor `down` rows from the first (the lines beyond the first
+    six are made up)."""
+    long = _line(22, "2026-10-18", LONG_TITLE, -3190, "PEN", None, account="acc-visa")
+    extra = [
+        _line(30 + n, f"2026-11-{12 + n}", f"MORE {n}", -100, "PEN", None, account="acc-visa")
+        for n in range(down)
+    ]
+    lines = [UNFILED[0], long, *UNFILED[2:], *extra]
+    _browse(fake_client, monkeypatch, lines)
+    if more:
+        get = fake_client.get
+        fake_client.get = lambda path, **kw: {
+            **get(path, **kw),
+            **({"next_cursor": "c6"} if path == "/bank-lines" else {}),
+        }
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, VISA)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.press(*["down"] * down)
+        await pilot.pause()
+        key = "pgup Prev" if down else "10 more" if more else "? Keys"
+        await wait_for(pilot, lambda: key in screen_lines(app)[-1])  # the footer repaints late
+        return _screen_lines(app)
+
+    return run_app(scenario, size=(width, 24))
+
+
+def test_the_title_takes_the_room_it_needs_and_the_other_columns_stay_packed(
+    fake_client, monkeypatch
+):
+    """A title past its 24 letters is cut with `…` when the row would not fit the
+    terminal and whole on a wider one, the title column then as wide as it; Operation,
+    Cur and Amount stay two cells apart behind it, the row never stretched to the room."""
+    narrow = _listed_at(fake_client, monkeypatch, 70)
+    wide = _listed_at(fake_client, monkeypatch, 120)
+    cut = next(line for line in narrow if "PAGO SERV" in line)
+    whole = next(line for line in wide if "PAGO SERV" in line)
+    assert LONG_TITLE not in cut and "…" in cut
+    assert LONG_TITLE in whole
+    header = next(line for line in wide if "Operation" in line)
+    title_at = header.index("Title")
+    assert header.index("Operation") == title_at + len(LONG_TITLE) + 2
+    assert len(header) == len(whole)  # the amount ends the row, nothing stretched past it
+    assert len(whole) == title_at + len(LONG_TITLE) + 2 + 9 + 2 + 3 + 2 + 9
+
+
+def test_the_footer_reads_the_drawn_keys_first_and_the_paging_keys_after_them(
+    fake_client, monkeypatch
+):
+    """`pgdn 10 more` while the engine holds more lines and `pgup Prev` once a page lies
+    before the one shown follow `? Keys`; the footer's drawn keys never move."""
+    drawn = "esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys"
+    assert _listed_at(fake_client, monkeypatch, 80)[-1].strip() == drawn
+    assert _listed_at(fake_client, monkeypatch, 80, more=True)[-1].strip() == (
+        drawn + "  pgdn 10 more"
+    )
+    second_page = _listed_at(fake_client, monkeypatch, 80, down=7)
+    assert second_page[-1].strip() == drawn + "  pgup Prev"

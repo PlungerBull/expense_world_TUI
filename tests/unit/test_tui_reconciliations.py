@@ -808,7 +808,7 @@ def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
         assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
         assert screen._batch_list._caption == (
             "In no statement · BCP PEN   ·   3 of 3 loaded · oldest first"
-            "   ·   ! dated inside a statement"
+            "   ·\n! dated inside a statement"
         )
         # one read of the account's lines in no statement, every currency together, no
         # dates, oldest first; the count asks the same question, with no order

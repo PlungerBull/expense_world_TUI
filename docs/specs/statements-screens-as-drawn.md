@@ -83,9 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-2. **The lines in no statement read as drawn** (What it must do 1): the `!` mark first, the date
-   after it, the title taking the room left; the caption breaking where the drawing breaks it;
-   the footer `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`.
 3. **The browse as drawn** (What it must do 2 and 7): the header rules 60 wide under the
    header's first letter; a long account name gives way with `…` so every balance shows whole;
    a blank line between the accounts' page line and the statements' caption.
@@ -113,3 +110,8 @@ Not built in this spec; drafted into a new spec when it is done.
 - **Statement words no test pins.** Nothing you see changes. The revert question, the `u` key's
   tooltip, the New statement hint "it orders the statement" and the `loading…` caption; the new
   test `test_a_completed_statement_with_no_lines_says_so_in_statement_words` has no docstring.
+- **The lines in no statement below 66 columns.** The title holds at 24 letters and the amount
+  is cut instead, where a statement's own list shrinks its title to keep the amount whole; tui.md
+  says the title is the column cut. In reconciliations.py, `_UNFILED_LAYOUT` writes the gap as a
+  literal `2` beside checklist.py's `GAP`, and is a `dict[str, object]` unpacked with `**`, so
+  nothing checks its keyword names.

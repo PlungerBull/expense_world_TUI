@@ -94,6 +94,19 @@ def list_cell(value: object) -> Text:
     return value if isinstance(value, Text) else Text(str(value))
 
 
+def _past_mark(columns: set[int]) -> set[int]:
+    """`list_table(lead=True)`: the columns' indices once the mark joins the second column."""
+    return {i - 1 for i in columns if i >= 1}
+
+
+def _with_mark_joined(row: "Row") -> "Row":
+    """`list_table(lead=True)`: the row with its mark and second cell in one cell."""
+    mark = list_cell(row.cells[0]).copy()
+    mark.pad_right(max(1 - mark.cell_len, 0))
+    joined = Text.assemble(mark, " ", list_cell(row.cells[1]))
+    return row._replace(cells=[joined, *row.cells[2:]])
+
+
 def list_table(
     headers: Sequence[str],
     rows: Iterable[RowInput],
@@ -105,6 +118,8 @@ def list_table(
     gap: int | None = None,
     header_rule: bool = True,
     gives_way: Iterable[int] = (),
+    min_widths: Mapping[int, int] | None = None,
+    lead: bool = False,
 ) -> Table:
     """The table a `CursorList` draws, for `rows` as given: one column per
     header, right-aligned where `align_right` says, `flex` as `CursorList`
@@ -118,10 +133,22 @@ def list_table(
     `gives_way` is the one that narrows when the row is too wide, its cells cut with `…`,
     before any other column loses a letter; without one, Rich narrows the widest columns.
     With one the table does not stretch to the room (so `flex` is left out): the others sit
-    at their natural width and only that column is cut."""
+    at their natural width and only that column is cut. `min_widths` maps a column index to the
+    least width it is drawn at. `lead=True` makes the first column a one-cell mark (a flag, or
+    nothing) drawn right before the second, one blank between, in the second's column: the
+    mark is packed to the date it flags, whatever `gap` is between the other columns. Every
+    column index above stands for the columns as given, the mark's included."""
     right = set(align_right)
     yields = set(gives_way)
     ratios = dict(flex or {})
+    least = dict(min_widths or {})
+    rows = list(rows)
+    if lead:
+        headers = [" " * (max(len(headers[0]), 1) + 1) + headers[1], *headers[2:]]
+        rows = [_with_mark_joined(Row.coerce(r)) for r in rows]
+        right, yields = _past_mark(right), _past_mark(yields)
+        ratios = {i - 1: v for i, v in ratios.items() if i >= 1}
+        least = {i - 1: v for i, v in least.items() if i >= 1}
     # the box's one blank cell between columns goes with the box, so the padding makes it up
     t = Table(
         box=box.SIMPLE if header_rule else None, expand=not yields, pad_edge=False, show_edge=edge
@@ -138,6 +165,7 @@ def list_table(
             no_wrap=i not in yields,
             overflow="ellipsis",
             ratio=ratios.get(i),
+            min_width=least.get(i),
         )
     for r, item in enumerate(rows):
         row = Row.coerce(item)
@@ -247,12 +275,15 @@ class CursorList(WindowedList):
         header_rule: bool = True,
         divider: str | None = "rule",
         gives_way: Iterable[int] = (),
+        min_widths: Mapping[int, int] | None = None,
+        lead: bool = False,
     ) -> None:
         """``header_rule=False`` draws no line under the header; ``divider`` is what stands
         between the caption and the rows (`WindowedList.set_divider`).
         ``gap`` is the blank cells between two columns, three when left out.
         ``edge=False`` draws the table without its one-cell side edge (see `list_table`).
         ``gives_way`` names the columns that narrow first when the row is too wide.
+        ``min_widths`` and ``lead`` are `list_table`'s.
         ``flex`` maps a column index to a Rich ``ratio``. Columns named there are
         free text: the others take their natural width first and the flex
         columns share whatever the terminal has left, in ratio, each cell cut by
@@ -271,6 +302,8 @@ class CursorList(WindowedList):
         self._header_rule = header_rule
         self._divider = divider
         self._gives_way = set(gives_way)
+        self._min_widths = dict(min_widths or {})
+        self._lead = lead
         self._more: bool | None = None  # None: not growing; else "more rows exist"
 
     def set_growth(self, *, more: bool | None) -> None:
@@ -310,13 +343,15 @@ class CursorList(WindowedList):
         edge: bool = True,
         header_rule: bool = True,
         gives_way: Iterable[int] = (),
+        min_widths: Mapping[int, int] | None = None,
+        lead: bool = False,
     ) -> None:
         """Relabel the columns in place — for a pane that lists two different
         things (the Reconciliations lower pane: batches, or the account's rows in
         no statement). Rebuilding the widget instead would drop the
-        caption, the page size the screen computed and the focus. `align_right`,
-        `gap`, `flex`, `edge`, `header_rule` and `gives_way` are set afresh: one left out
-        falls back to its default, it does not keep the earlier headers' value.
+        caption, the page size the screen computed and the focus. `align_right`, `gap`,
+        `flex`, `edge`, `header_rule`, `gives_way`, `min_widths` and `lead` are set afresh:
+        one left out falls back to its default, it does not keep the earlier headers' value.
         """
         self._headers = list(headers)
         self._align = set(align_right)
@@ -325,6 +360,8 @@ class CursorList(WindowedList):
         self._edge = edge
         self._header_rule = header_rule
         self._gives_way = set(gives_way)
+        self._min_widths = dict(min_widths or {})
+        self._lead = lead
         self._refresh()
 
     def index_of(self, key: object) -> int:
@@ -361,6 +398,8 @@ class CursorList(WindowedList):
             edge=self._edge,
             header_rule=self._header_rule,
             gives_way=self._gives_way,
+            min_widths=self._min_widths,
+            lead=self._lead,
         )
 
     def _cursor_moved(self) -> None:

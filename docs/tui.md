@@ -498,10 +498,17 @@ transaction split into parts is **one row**, its title alone and its total; noth
 says it is split, and its parts are not listed. No category, hashtags or note. Every
 bank-line list (a statement's, the flagged lines') draws its rows this way.
 
+The columns sit as the statement's own list sits: the `!` mark first, the date one blank
+after it, the other columns two cells apart and packed to the left, never spread over the
+room. The title is at least 24 wide, the amount 9, and the title is the column that is
+cut, with `…`, when a row outgrows the terminal; on a wider one it shows whole, the columns
+behind it following it ([cursor_list.py](../expense/tui/widgets/cursor_list.py), `lead`
+and `min_widths` of `list_table`).
+
 The list is **oldest first**, `sort=date_asc` (`UNFILED_SORT`)
 (contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
-`In no statement · <account>   ·   N of M loaded · oldest first   ·
-! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
+`In no statement · <account>   ·   N of M loaded · oldest first   ·` and, on a line of
+its own, `! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
 `GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`;
 the count takes no order), read together with the first rows, and counts a split
 transaction once (contract: GET /v1/bank-lines/count); a count that cannot be read fails
@@ -513,8 +520,10 @@ it costs no request. It stops nothing: a close goes through with such lines in n
 and names the ones it flags in its answer ("The lines a complete flagged for review" below),
 and which lines those are is the engine's alone.
 
-**Keys**: the footer reads `⏎ Edit`, `esc Back`, `r Refresh`, `? Keys` and `d Delete`; `n`
-and `u` are off here, and out of the footer. `esc` swaps back to the panel. `⏎ Edit`, on
+**Keys**: the footer reads `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`
+(`ReconciliationsScreen.active_bindings` sets that order), then `pgdn 10 more` while the
+engine holds more lines and `pgup Prev` once a page lies before the one shown; `n` and
+`u` are off here, and out of the footer. `esc` swaps back to the panel. `⏎ Edit`, on
 every row, opens the Edit form on the line and its parts (below); the `?` card words it "Edit
 the transaction and its parts", as the ledger's `s`. `d` deletes the line under the cursor
 after a question ("`d` is the TUI's one destructive key" below), with the line the list

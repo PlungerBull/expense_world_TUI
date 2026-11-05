@@ -26,6 +26,31 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Keys the drawing leaves out of the "no statement" footer
+Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
+
+`u` on the Statements browse now shows the drawn footer
+`esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`. Two keys the drawing doesn't show appear only when they work: `pgdn 10 more` while the
+engine holds lines not yet loaded, and `pgup Prev` once you've moved past the first screenful.
+They go at the end: `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys  pgdn 10 more`.
+
+- **A.** Keep them at the end.
+- **B.** Somewhere else: tell me where.
+
+**Recommended:** A, because the drawn keys keep their places and nothing that works is hidden.
+
+### How wide the title is in the "no statement" list
+Asked 2026-11-05 · Blocks: nothing (built this way; changing it is one small task)
+
+The list now reads as drawn at 80 columns: columns packed together, 67 wide. On a wider
+terminal the title widens only as far as the longest title needs, and the list does not stretch
+to the screen's edge. A statement's own list works the same way.
+
+- **A.** Keep it: as wide as the titles need.
+- **B.** The title stretches so the list reaches the right edge.
+
+**Recommended:** A, because it matches the drawing and the statement's own list.
+
 ### The gap between a form's hint and its lines
 Asked 2026-11-03 · Blocks: nothing (built this way; changing it is one small task)
 
