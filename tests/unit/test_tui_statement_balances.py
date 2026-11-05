@@ -22,10 +22,12 @@ from expense.tui.screens.reconciliations import (
     blank_balances,
 )
 from tests.unit.helpers import (
+    NOVIEMBRE_IBK,
     bank_line_row,
     complete_refusal,
     cursor_page,
     import_part,
+    money_at_start_refusal,
     run_app,
     screen_lines,
     shown,
@@ -69,7 +71,7 @@ def _ibk(*balances: dict, name: str = "Octubre 2026") -> dict:
 #: Octubre: soles entered, dollars added blank by a dollar line ticked in.
 OCTUBRE = _ibk(_balance("PEN", -82000, -34860), _balance("USD", None, None))
 #: Noviembre: soles alone; the dollars hold money at its start.
-NOVIEMBRE = _ibk(_balance("PEN", -34860, -51290), name="Noviembre 2026")
+NOVIEMBRE = NOVIEMBRE_IBK
 
 
 def _engine(fake_client, monkeypatch, fresh: dict | None = None) -> None:
@@ -469,24 +471,6 @@ def test_a_refusal_naming_no_balance_opens_no_box(fake_client, monkeypatch):
 
 # ---- the refusal under the head, as pane 6 draws it ---------------------------------
 
-#: The engine's sentences as pane 6 draws them (stand-ins for the engine's own words).
-_ENGINE_WORDS = "Every currency with money at the start needs balances in the statement."
-_FIELD_WORDS = (
-    "USD has -24.99 at the statement's start, and the statement holds no balances for it."
-)
-
-
-def _money_at_start_in_words() -> EngineError:
-    return EngineError(
-        "MONEY_AT_START_NOT_COVERED",
-        _ENGINE_WORDS,
-        {"balances.USD": _FIELD_WORDS},
-        422,
-        {},
-        {"balances.USD": "MONEY_AT_START_NOT_COVERED"},
-    )
-
-
 _NOVIEMBRE_HEAD = [
     "  Noviembre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft",
     "            begin          end      diff",
@@ -511,7 +495,7 @@ def test_pane_6_the_refusal_stands_between_the_head_and_the_box_at_80x24(fake_cl
     and nothing in the corner."""
     _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
     notices = _notes(monkeypatch)
-    fake_client.errors["POST"] = _money_at_start_in_words()
+    fake_client.errors["POST"] = money_at_start_refusal()
 
     async def scenario(pilot, app):
         await _refused_with_the_box_up(pilot, app)
@@ -546,7 +530,7 @@ def test_the_next_key_takes_the_refusal_away_and_the_box_keeps_its_place(
     up to where it stands without them and still works."""
     _engine(fake_client, monkeypatch, fresh=NOVIEMBRE)
     _notes(monkeypatch)
-    fake_client.errors["POST"] = _money_at_start_in_words()
+    fake_client.errors["POST"] = money_at_start_refusal()
 
     async def scenario(pilot, app):
         screen = await _refused_with_the_box_up(pilot, app)

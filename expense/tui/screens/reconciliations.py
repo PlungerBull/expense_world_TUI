@@ -1670,6 +1670,10 @@ class ReconciliationDetailScreen(
         self.query_one("#rnote", Static).display = False
         self.query_one("#rwarn", Static).display = False
         self.query_one("#rflag", Static).display = False
+        # the list is measured again after every layout of this screen, beneath a box
+        # too: the head, a note or the `⚑` line coming or going changes its room
+        # (a size that did not change sets nothing)
+        self.screen_layout_refresh_signal.subscribe(self, lambda _screen: self._refit_list())
         self._render_header()
         # First fetch waits for the first layout pass: _populate sizes the
         # checklist to #rlist's real height (adaptive rows).
@@ -1722,7 +1726,6 @@ class ReconciliationDetailScreen(
         if self._waits_for_pdf:
             lines.append(Text(_WAITS_FOR_PDF, style="dim"))
         self.query_one("#rhead", Static).update(Group(*lines))
-        self.call_after_refresh(self._refit_list)
 
     def _refit_list(self) -> None:
         """The checklist's page, measured again once the head or the notes above it
@@ -2104,7 +2107,6 @@ class ReconciliationDetailScreen(
         if not lines:
             line.display = False
             line.update("")
-            self.call_after_refresh(self._refit_list)
             return
         warning = PALETTE.warning
         # each note wraps under its own first word, after the `⚠ `
@@ -2117,7 +2119,6 @@ class ReconciliationDetailScreen(
             )
         )
         line.display = True
-        self.call_after_refresh(self._refit_list)
 
     def _show_flagged(self, count: int) -> None:
         """The `⚑` line under the header, and `f` with it, while the close's
@@ -2196,14 +2197,12 @@ class ReconciliationDetailScreen(
         note = self.query_one("#rnote", Static)
         note.update(Group(Text(f"  {title}", style=f"bold {PALETTE.error}"), *words))
         note.display = True
-        self.call_after_refresh(self._refit_list)
 
     def _clear_refusal(self) -> None:
         note = self.query_one("#rnote", Static)
         if note.display:
             note.display = False
             note.update("")
-            self.call_after_refresh(self._refit_list)
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False

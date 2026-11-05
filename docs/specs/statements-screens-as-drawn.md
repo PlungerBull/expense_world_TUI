@@ -83,8 +83,6 @@ Approved by the owner on 2026-11-03. Each is checked at 80×24 against
 [expense-world-statements-screens.html](../mockups/expense-world-statements-screens.html), in
 [reconciliations.py](../../expense/tui/screens/reconciliations.py) unless named.
 
-6. **The `⚑` line keeps the page line** (What it must do 5): the list is sized after the `⚑`
-   line is counted, so a statement with flagged lines shows both at 80×24.
 7. **Two small words** (What it must do 4 and 8): a covered currency with no difference yet
    shows a dim `—`; on a two-currency New statement form an unreadable amount's note names its
    currency (`Begin balance USD: a signed decimal…`).
@@ -122,3 +120,8 @@ Not built in this spec; drafted into a new spec when it is done.
   ending box with `pilot.pause()`, not `wait_for`. No test covers the refusal lines above the box
   at 60 columns. tui.md's "A box … wraps" sentence sits in the balance-box paragraph though the
   `Complete statement?` question wraps too.
+- **Test (c) of the `⚑` line waits on a condition true before and after.** Nothing you see
+  changes. `test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc` in
+  test_tui_statement_screen.py captures the rows once `#rnote` shows and, after esc, waits on
+  `_page_is_whole`; waiting for the row count to grow would pin it. test_tui_statement_balances.py
+  keeps `NOVIEMBRE` as an alias of `NOVIEMBRE_IBK`.

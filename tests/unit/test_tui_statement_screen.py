@@ -16,9 +16,11 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
+    NOVIEMBRE_IBK,
     bank_line_row,
     cursor_page,
     import_part,
+    money_at_start_refusal,
     render_text,
     run_app,
     screen_lines,
@@ -660,6 +662,210 @@ def test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows(
     assert head_height == 5  # two lines of name, the balances' header and two currencies
     assert fits
     assert status and any(status in line for line in lines)
+
+
+def test_the_flagged_line_keeps_the_page_line_and_gives_its_room_back(fake_client, monkeypatch):
+    """The `⚑` line lands after the list is sized (its count is a separate read): the
+    list is measured again, so on a statement with more rows than fit the page line, the
+    list and the footer all show with the line; when none are flagged the list takes the
+    room back."""
+    many = [
+        _line(n, f"2026-08-{1 + n % 25:02d}", f"SHOP {n}", -100 * n, "PEN", None)
+        for n in range(1, 31)
+    ]
+    _engine(fake_client, monkeypatch, statement_lines=many)
+    flagged = {"count": 3}
+    plain_get = fake_client.get
+
+    def get(path, *, auth=True, params=None):
+        if path == "/bank-lines/count":
+            return dict(flagged)
+        return plain_get(path, auth=auth, params=params)
+
+    fake_client.get = get
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        await app.push_screen(screen)
+        flag = screen.query_one("#rflag", Static)
+        await wait_for(pilot, lambda: flag.display)
+        rlist = screen.query_one("#rlist")
+        await wait_for(
+            pilot,
+            lambda: (
+                screen._list is not None
+                and screen._list.page_status == "rows 1-12 of 30 · page 1 of 3"
+                and screen._list.outer_size.height <= rlist.content_size.height
+            ),
+        )
+        await pilot.pause()
+        with_flag = (
+            screen._list.outer_size.height,
+            screen._list.outer_size.height <= rlist.content_size.height,
+            screen._list.page_status,
+            _screen_lines(app),
+            screen.max_scroll_y,
+        )
+        flagged["count"] = 0
+        screen._load_txns()
+        await wait_for(pilot, lambda: not flag.display)
+        await wait_for(pilot, lambda: (screen._list.page_status or "").startswith("rows 1-14"))
+        return with_flag, screen._list.outer_size.height, screen._list.page_status
+
+    (_, fits, status, lines, scroll), freed, freed_status = run_app(scenario, size=(80, 24))
+    assert fits and scroll == 0
+    assert status and any(status in line for line in lines)
+    flag_at = next(i for i, line in enumerate(lines) if line.startswith("  ⚑ 3 lines flagged"))
+    assert lines[flag_at + 1].strip() == "· f shows them"
+    assert "f Flagged" in lines[-1]
+    assert freed_status != status  # a page of 14 rows, not 12
+    assert freed_status.startswith("rows 1-14 of 30")
+
+
+def _many(account: str = "acc-visa") -> list[dict]:
+    return [
+        _line(n, f"2026-10-{1 + n % 25:02d}", f"SHOP {n}", -100 * n, "PEN", None, account=account)
+        for n in range(1, 31)
+    ]
+
+
+def _count_answers(fake_client, flagged: dict) -> None:
+    """The review list's count answers `flagged`, read at each call."""
+    plain_get = fake_client.get
+
+    def get(path, *, auth=True, params=None):
+        if path == "/bank-lines/count":
+            return dict(flagged)
+        return plain_get(path, auth=auth, params=params)
+
+    fake_client.get = get
+
+
+def _page_is_whole(screen, app) -> tuple[bool, str | None]:
+    """The list fits the room under the head, and its page line is on screen."""
+    lst = screen._list
+    fits = lst.outer_size.height <= screen.query_one("#rlist").content_size.height
+    status = lst.page_status
+    return fits and bool(status) and any(status in line for line in screen_lines(app)), status
+
+
+def test_a_complete_that_flags_lines_keeps_the_page_line_back_from_them(fake_client, monkeypatch):
+    """The count lands and opens the flagged lines' screen over the statement; back from
+    it the list has the room the `⚑` line left."""
+    from expense.tui.screens.reconciliations import FlaggedLinesScreen
+
+    review = [_line(90 + n, "2026-08-01", f"REV {n}", -100, "PEN", None) for n in range(3)]
+    _engine(
+        fake_client, monkeypatch, statement_lines=_many(), other_lines=review, statement=VIS_AGOSTO
+    )
+    flagged = {"count": 0}
+    _count_answers(fake_client, flagged)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
+        await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
+        assert _page_is_whole(screen, app)[0]  # drawn once, with no `⚑` line
+        flagged["count"] = 3
+        screen._open_when_counted = True
+        screen._counted(3)
+        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
+        await wait_for(pilot, lambda: any("flagged" in line for line in screen_lines(app)))
+        assert any("flagged" in line for line in screen_lines(app))  # drawn
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
+        return _page_is_whole(screen, app)
+
+    whole, status = run_app(scenario, size=(80, 24))
+    assert whole, status
+
+
+def test_the_flagged_line_arriving_under_a_box_keeps_the_page_line_after_esc(
+    fake_client, monkeypatch
+):
+    """The `⚑` line's count lands while the `c` box is open over the statement: after
+    esc the list has measured itself against the line, and its page line shows."""
+    from expense.tui.screens.modals import AmountPromptModal
+
+    _engine(fake_client, monkeypatch, statement_lines=_many("acc-ibk"), statement=OCTUBRE)
+    flagged = {"count": 0}
+    _count_answers(fake_client, flagged)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(OCTUBRE))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
+        await pilot.pause()
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+        await pilot.pause()
+        flagged["count"] = 3
+        screen._load_txns()
+        flag = screen.query_one("#rflag", Static)
+        await wait_for(pilot, lambda: flag.display)
+        await pilot.pause()
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
+        return _page_is_whole(screen, app)
+
+    whole, status = run_app(scenario, size=(80, 24))
+    assert whole, status
+
+
+def test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc(
+    fake_client, monkeypatch
+):
+    """A refused complete's lines clear with the box that opens under them: after esc the
+    list takes their room back, with the `⚑` line still above it."""
+    from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
+
+    _engine(fake_client, monkeypatch, statement_lines=_many("acc-ibk"), statement=NOVIEMBRE_IBK)
+    _count_answers(fake_client, {"count": 3})
+    fake_client.errors["POST"] = money_at_start_refusal()
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(NOVIEMBRE_IBK))
+        await app.push_screen(screen)
+        flag = screen.query_one("#rflag", Static)
+        await wait_for(pilot, lambda: flag.display and screen._list is not None)
+        await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+        await wait_for(pilot, lambda: screen.query_one("#rnote", Static).display)
+        with_refusal = screen._list.page_status
+        await pilot.press("escape")  # clears the refusal and closes the box
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
+        whole, status = _page_is_whole(screen, app)
+        return whole, with_refusal, status
+
+    whole, with_refusal, status = run_app(scenario, size=(80, 24))
+    assert whole, status
+    assert int(status.split("-")[1].split()[0]) > int(with_refusal.split("-")[1].split()[0])
+
+
+def test_a_refit_with_the_size_unchanged_sets_nothing(fake_client, monkeypatch):
+    """The refit that follows every layout of the screen is a no-op when the room is the
+    same, so it cannot start a layout of its own."""
+    _engine(fake_client, monkeypatch, statement_lines=_many())
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
+        await pilot.pause()
+        calls = []
+        screen._list._refresh = lambda *a, **k: calls.append(1)
+        screen._refit_list()
+        screen._refit_list()
+        return calls
+
+    assert run_app(scenario, size=(80, 24)) == []
 
 
 def _bound(app) -> dict[str, bool]:

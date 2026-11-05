@@ -735,6 +735,49 @@ def statement_record(record: dict | None = None) -> dict:
     return _statement(record, _BALANCE)
 
 
+#: Noviembre 2026 on IBK Visa: a draft whose soles are entered and whose dollars hold
+#: money at its start (the statement's balances as the engine's refusal below names them).
+NOVIEMBRE_IBK = statement_record(
+    {
+        "id": "ibk",
+        "account_id": "acc-ibk",
+        "name": "Noviembre 2026",
+        "date_start": "2026-09-26",
+        "date_end": "2026-10-25",
+        "status": 1,
+        "balances": [
+            {
+                "currency_code": "PEN",
+                "beginning_balance_cents": -34860,
+                "ending_balance_cents": -51290,
+                "difference_cents": None,
+            }
+        ],
+    }
+)
+
+#: The engine's sentences for money at the start of a currency the statement does not
+#: cover (stand-ins for the engine's own words).
+MONEY_AT_START_WORDS = "Every currency with money at the start needs balances in the statement."
+MONEY_AT_START_FIELD_WORDS = (
+    "USD has -24.99 at the statement's start, and the statement holds no balances for it."
+)
+
+
+def money_at_start_refusal() -> EngineError:
+    """The `422` a complete answers when a currency holds money at the start and the
+    statement has no balances for it (contract: POST /v1/statements/{statement_id}/complete,
+    "Every currency with money at the start has balances in it")."""
+    return EngineError(
+        "MONEY_AT_START_NOT_COVERED",
+        MONEY_AT_START_WORDS,
+        {"balances.USD": MONEY_AT_START_FIELD_WORDS},
+        422,
+        {},
+        {"balances.USD": "MONEY_AT_START_NOT_COVERED"},
+    )
+
+
 @answer_of("GET", "/v1/statements")
 def statement_list(items: list[dict] | None = None) -> dict:
     """`GET /statements?account_id=`'s answer, whole and unpaged: `{items}`, each item a

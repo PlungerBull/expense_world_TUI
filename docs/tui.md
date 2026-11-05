@@ -1826,8 +1826,9 @@ instead of scrolling `#content`, whose scrollbar would cut the Order column; a c
 account name wraps is counted. The "no statement" list draws no page status
 (`UNFILED_FRAME_LINES`) and fills the room the accounts leave, down to the blank line above
 the footer; its caption's `N of M loaded` says the rest. A statement's list is measured again
-once the head and its notes have drawn at the screen's width, and the rows set apart count
-toward the page, so its page status always shows. The browse and a statement's screen use a
+after every layout of the screen, beneath a box too, so it always fills the room left by the
+head, its notes and the `⚑` line, whichever of them is showing; the rows set apart count toward
+the page, so its page status always shows. The browse and a statement's screen use a
 `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)), so no key is cut at 80
 columns: not `u No statement` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
 
