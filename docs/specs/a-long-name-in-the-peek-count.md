@@ -4,8 +4,9 @@ What the reads and writes catch-up's leftovers (done on 2026-11-03) turned up: t
 peek's count line now names the pick, `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
 and with a long account name that line no longer fits.
 
-**Status: drafted on 2026-11-03 for the owner to rewrite or approve; one question, with a
-mockup to draw before you pick.** It waits on no other spec. When done, the why moves to
+**Status: drafted on 2026-11-03; question 1 answered on 2026-11-05 from
+[expense-world-peek-long-name.html](../mockups/expense-world-peek-long-name.html); for the owner
+to approve.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -28,14 +29,11 @@ the count, often the currency, is lost.
    nothing under it is cut off.
 2. The unit suite passes.
 
-## Questions for the owner
+## Decided
 
-### 1. A count line too long for the peek? (mockup to draw)
-- **A.** The account name gives way with `…`, keeping the count, the currency and
-  `newest first`.
-- **B.** The count line takes a second line, and the peek shows one row fewer.
-
-**Recommended:** A, because the title just above the count already names the account in full.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | A count line too long for the peek? | A: the account name gives way with `…`, keeping the count, the currency and `newest first` on one line (2026-11-05). |
 
 ---
 

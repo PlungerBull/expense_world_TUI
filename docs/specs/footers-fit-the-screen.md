@@ -4,8 +4,9 @@ What [every screen's frame](../decisions.md) (done on 2026-11-04) turned up: onc
 shows only past a list's first page, some footers outgrow the terminal on page 2 and after, and
 their last key is cut.
 
-**Status: drafted on 2026-11-04 for the owner to rewrite or approve; one question, with a
-mockup to draw before you pick.** It waits on no other spec. When done, the why moves to
+**Status: drafted on 2026-11-04; question 1 answered on 2026-11-05 from
+[expense-world-footers-fit.html](../mockups/expense-world-footers-fit.html); for the owner to
+approve.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -13,7 +14,8 @@ mockup to draw before you pick.** It waits on no other spec. When done, the why 
 ## Why
 
 At 80 columns, Manage's footer draws `d Delete` as `d Del` whenever `pgup Prev` shows. At 140
-columns, the ledger's footer loses `s Edit` the same way. The Statements screens already draw
+columns, the ledger's footer loses `d Delete` on page 1, and past page 1 it cuts `m Currency` and
+loses `s Edit` and `d Delete`; tightening alone leaves it 144 wide there. The Statements screens already draw
 their footer in a tighter spacing when it would not fit, so their last key is never cut; Manage
 and the ledger do not.
 
@@ -27,15 +29,11 @@ and the ledger do not.
    `s Edit` whole.
 2. The unit suite passes.
 
-## Questions for the owner
+## Decided
 
-### 1. A footer too wide for the screen? (mockup to draw)
-- **A.** Every screen draws its footer in the tighter spacing the Statements screens use, only
-  when it would not fit.
-- **B.** The keys that don't fit leave the footer; `?` still lists them all.
-
-**Recommended:** A, because it is already how the Statements screens read, and no key goes
-missing.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | A footer too wide for the screen? | C: the spacing tightens first, as on the Statements screens; keys that still do not fit leave the footer, and `?` lists them all. No key is ever cut mid-word (2026-11-05). |
 
 ---
 
