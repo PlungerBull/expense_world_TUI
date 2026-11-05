@@ -236,9 +236,9 @@ def test_row_with_no_category_reads_as_pendiente():
     assert "apparka mall" in out
 
 
-def test_row_with_no_title_shows_a_dash():
+def test_row_with_no_title_shows_untitled():
     out = _text(staged_table([_stage(NO_TITLE_LINE)], REFS, today=TODAY.isoformat()))
-    assert "—" in out
+    assert "(untitled)" in out
     assert "(no title)" not in out
 
 
@@ -1749,7 +1749,7 @@ def test_peek_rows_carry_the_five_columns_and_never_the_account():
     assert all("Signature" not in str(cell) for cell in (date, title, amount, category, tags))
 
 
-def test_peek_row_of_an_unnamed_category_still_renders():
+def test_peek_row_of_a_titleless_transaction_shows_untitled():
     row = {
         "date": "2026-08-20T10:00:00-05:00",
         "amount_cents": -100,
@@ -1758,7 +1758,7 @@ def test_peek_row_of_an_unnamed_category_still_renders():
         "statement_place": None,
     }
     rows = peek_rows([row], REFS)
-    assert rows and str(rows[0][1]) == "—"
+    assert rows and str(rows[0][1]) == "(untitled)"
 
 
 def test_peek_status_names_the_label_the_title_shows():

@@ -547,6 +547,23 @@ def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypa
     run_app(scenario, size=(120, 40))
 
 
+def test_a_preview_row_with_no_title_shows_untitled(fake_client, monkeypatch, tmp_path):
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    bare = {**CURRENT_ROWS[0], "title": None}
+    _engine(fake_client, {path.read_bytes(): [bare]})
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP
+        preview = await _previewed(pilot, app)
+        assert "(untitled)" in _lines_shown(preview)[2]
+
+    run_app(scenario, size=(120, 40))
+
+
 #: A download with one row of each outcome, numbered by the spreadsheet; row 6 is a
 #: row of 0 the engine skipped, and row 9 has no title.
 EVERY_REASON_ROWS = [
@@ -673,7 +690,7 @@ def test_every_row_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_p
                 "Not moved: Septiembre 2026 is completed",
             ],
             ["8", "2026-08-29", "SHELL SAN ISIDRO", "-120.00", "✗", "Closed period"],
-            ["9", "2026-10-15", "—", "-15.40", "✓", "New"],
+            ["9", "2026-10-15", "(untitled)", "-15.40", "✓", "New"],
         ]
         assert lines[10:] == [
             "8 rows · 2 new · 4 in the ledger · 1 moves to the bank's day · "
@@ -1001,6 +1018,40 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
             "row 2   FARMACIA CENTRAL  -42.90   in the file, not found",
             "Farmacia          -42.00   in the ledger, not in the file",
         ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_flagged_row_and_part_with_no_title_show_untitled(fake_client, monkeypatch, tmp_path):
+    path = _bank_file(tmp_path)
+    rows = [import_row(2, -4290, day="2026-09-12", title=None, account_id="bcp")]
+    bare = {
+        **import_part("t-f", -4200, account_id="bcp", line="bl-f", day="2026-09-12"),
+        "title": None,
+    }
+    day = import_day(
+        "2026-09-12",
+        -4290,
+        -8490,
+        account_id="bcp",
+        unmatched_rows=(2,),
+        lines=(unclaimed_line("bl-f", [bare]),),
+    )
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): rows}, mismatches=[day])
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP
+        preview = await _previewed(pilot, app)
+        shown = _days_shown(preview)
+        assert "row 2   (untitled)  -42.90   in the file, not found" in shown
+        assert any(
+            line.startswith("(untitled)") and "in the ledger, not in the file" in line
+            for line in shown
+        )
 
     run_app(scenario, size=(120, 40))
 

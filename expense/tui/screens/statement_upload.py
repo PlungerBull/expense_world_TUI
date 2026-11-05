@@ -42,7 +42,13 @@ from expense.bank_import.statement import (
     statement_answer,
 )
 from expense.errors import EngineError, format_error
-from expense.formatting import bank_line_columns, format_cents, format_cents_with_plus, truncate
+from expense.formatting import (
+    bank_line_columns,
+    format_cents,
+    format_cents_with_plus,
+    title_or_untitled,
+    truncate,
+)
 from expense.tui.screens._base import relabel
 from expense.tui.screens.bank_import import (
     ASKING,
@@ -87,9 +93,6 @@ TAKEN_OUT_NOTE = " · in the statement, not on the paper; they stay in the ledge
 
 #: What `⏎` does after the apply met something changed while it ran.
 RERUN = "It changed while the upload ran: ⏎ checks the paper against the ledger again."
-
-#: An empty cell: a row or a line with no title.
-NO_TITLE = "—"
 
 
 def pick_label(pick: AccountPick) -> str:
@@ -168,8 +171,8 @@ class Columns:
     and `· day moved` have their room, so no row wraps."""
 
     def __init__(self, answer: StatementAnswer, taken: list[dict], *, width: int) -> None:
-        titles = [row.description or NO_TITLE for row in answer.rows]
-        titles += [str(bank_line_columns(line)[1] or NO_TITLE) for line in taken]
+        titles = [title_or_untitled(row.description) for row in answer.rows]
+        titles += [title_or_untitled(bank_line_columns(line)[1]) for line in taken]
         amounts = [row.amount_cents for row in answer.rows]
         amounts += [_cents(bank_line_columns(line)[3]) for line in taken]
         self.cur = answer.several_currencies
@@ -219,7 +222,7 @@ def row_line(row: StatementRow, columns: Columns) -> Text:
     text = columns.line(
         str(row.place),
         row.date_iso,
-        row.description or NO_TITLE,
+        title_or_untitled(row.description),
         row.amount_cents,
         row.currency,
         rule="plain" if row.outcome == EMPTY else TRANSACTION_RULE,
@@ -243,7 +246,7 @@ def taken_out_lines(
             continue
         day, title, _code, net = bank_line_columns(line)
         currency = str(line.get("currency_code") or "?")
-        out.append(columns.line("", day, str(title or NO_TITLE), _cents(net), currency))
+        out.append(columns.line("", day, title_or_untitled(title), _cents(net), currency))
     return out
 
 

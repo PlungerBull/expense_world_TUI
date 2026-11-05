@@ -72,7 +72,13 @@ from expense.errors import (
     key_index,
     names_its_row,
 )
-from expense.formatting import currency_label, format_cents, format_cents_with_plus, signed_cents
+from expense.formatting import (
+    currency_label,
+    format_cents,
+    format_cents_with_plus,
+    signed_cents,
+    title_or_untitled,
+)
 from expense.reads import items_of
 from expense.tui.dropped import is_statement
 from expense.tui.screens._base import relabel, screen_fetch_kwargs
@@ -382,8 +388,6 @@ class ImportAccountScreen(ImportScreen):
 # the preview — with a skipped row (2 B) and a card's `cur` column (3 B) from
 # expense-world-import-whole-file.html
 # ---------------------------------------------------------------------------
-#: An empty cell: a row with no title.
-EMPTY = "—"
 
 #: Each verdict's mark and its style: ✓ in the ledger after the import, ✗ left
 #: out, · a row of 0, nothing to look at.
@@ -436,7 +440,7 @@ def preview_table(lines: list[PreviewLine], pick: AccountPick) -> Table:
         cells: list[RenderableType] = [
             str(row.row),
             row.date_iso,
-            Text(row.title or EMPTY),  # the engine's words, never read as markup
+            Text(title_or_untitled(row.title)),  # the engine's words, never read as markup
             amount_cell(row.amount_cents, PALETTE, TRANSACTION_RULE),
         ]
         if pick.holds_two:
@@ -502,12 +506,12 @@ def flagged_rows(day: DayMismatch, rows: dict[int, ImportedRow]) -> list[Flagged
     in the engine's order. A part arrives as a magnitude and a type;
     `signed_cents` signs it. Nothing is added up."""
     flagged = [
-        FlaggedRow(n, rows[n].title or "", rows[n].amount_cents)
+        FlaggedRow(n, title_or_untitled(rows[n].title), rows[n].amount_cents)
         for n in day.unmatched_rows
         if n in rows
     ]
     flagged.extend(
-        FlaggedRow(None, str(part.get("title") or ""), signed_cents(part))
+        FlaggedRow(None, title_or_untitled(part.get("title")), signed_cents(part))
         for part in day.unclaimed_parts
     )
     return flagged

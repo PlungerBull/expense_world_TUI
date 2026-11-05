@@ -91,6 +91,7 @@ from expense.formatting import (
     format_short_date,
     grouped_refusals,
     resolve_name,
+    title_or_untitled,
     truncate,
 )
 from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
@@ -356,10 +357,10 @@ def _category_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | No
 
 
 def _title_cell(parsed: ParsedLine) -> Text:
-    """The title in bold, or a dim dash for a titleless row."""
+    """The title in bold, or a dim `(untitled)` for a titleless row."""
     if parsed.title:
         return Text(parsed.title, style="bold")
-    return Text("—", style="dim")
+    return Text(title_or_untitled(None), style="dim")
 
 
 def _tags_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> Text:
@@ -603,7 +604,7 @@ def peek_rows(
         rows.append(
             (
                 Text(format_date_cell(format_short_date(item.get("date")), today), style="dim"),
-                Text(truncate(item.get("title") or "—", 28), style="bold"),
+                Text(truncate(title_or_untitled(item.get("title")), 28), style="bold"),
                 amount_cell(item.get("amount_cents"), palette, TRANSACTION_RULE),
                 Text(resolve_name(item.get("category_id"), refs.category_names), style="dim"),
                 Text(

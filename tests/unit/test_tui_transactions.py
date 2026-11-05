@@ -172,6 +172,24 @@ def test_an_empty_ledger_on_a_currency_names_the_account_and_the_currency(monkey
     run_app(scenario)
 
 
+def test_a_transaction_with_no_title_shows_untitled_in_the_ledger_list(monkeypatch):
+    """The title cell of a titleless row reads `(untitled)`, through the screen."""
+    import expense.tui.screens.transactions as tx_mod
+
+    fake_ledger(monkeypatch, [{**ITEMS[0], "id": "bare", "title": None}])
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_list(pilot, app)
+        assert "(untitled)" in render_text(app.screen.query_one(CursorList)._build(), width=140)
+
+    run_app(scenario, size=(140, 40))
+
+
 def test_transaction_rows_palette_sign_colors_amounts():
     """With a palette the amount cell is a Text sign-colored (rule A)."""
     from expense.tui.theme import Palette

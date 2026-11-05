@@ -83,6 +83,7 @@ from expense.formatting import (
     grouped_refusals,
     is_split_line,
     resolve_name,
+    title_or_untitled,
 )
 from expense.reads import (
     ENGINE_PAGE_CAP,
@@ -161,7 +162,7 @@ def transaction_rows(
             (
                 it.get("id"),
                 [
-                    it.get("title") or "—",
+                    title_or_untitled(it.get("title")),
                     it.get("description") or "",
                     amount_cell(it.get("amount_cents"), palette, TRANSACTION_RULE),
                     it.get("currency_code") or "",

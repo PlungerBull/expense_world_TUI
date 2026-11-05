@@ -599,6 +599,31 @@ def test_a_taken_out_line_shows_its_own_currency(fake_client, monkeypatch, tmp_p
     run_app(scenario, size=(120, 50))
 
 
+def test_a_row_and_a_taken_out_line_with_no_title_show_untitled(fake_client, monkeypatch, tmp_path):
+    path = _pdf(tmp_path)
+    bare = bank_line_row(
+        "bl-bare",
+        [{**import_part("t-bare", -599, account_id="sig", line="bl-bare"), "title": None}],
+        net_cents=-599,
+        account_id="sig",
+    )
+    _patch(monkeypatch, lines={"bl-bare": bare})
+    paper = {
+        **CARD,
+        "rows": [statement_row(1, -750, description=None), *CARD["rows"][1:]],
+        "taken_out": ["bl-bare"],
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert "(untitled)" in next(ln for ln in lines if ln.startswith("1 "))
+        assert sum("(untitled)" in ln for ln in lines) == 2  # the row and the taken-out line
+
+    run_app(scenario, size=(120, 50))
+
+
 def test_a_taken_out_line_lines_up_under_the_tables_columns(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path)
     _patch(monkeypatch)
