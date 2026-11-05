@@ -784,3 +784,13 @@ def test_the_batch_caption_repaints_when_the_account_changes():
     before = len(painted)
     lst.set_caption("BCP Ahorros · by statement start date")  # unchanged
     assert len(painted) == before, "an unchanged caption repainted anyway"
+
+
+def test_header_rule_span_needs_header_rule_off():
+    """A rule of its own stands where the table's would: asking for both is refused, on
+    construction and on `set_headers`."""
+    with pytest.raises(ValueError, match="header_rule=False"):
+        CursorList(["A"], [], header_rule_span=(0, 10))
+    lst = CursorList(["A"], [], header_rule=False, header_rule_span=(0, 10))
+    with pytest.raises(ValueError, match="header_rule=False"):
+        lst.set_headers(["A"], header_rule_span=(0, 10))

@@ -69,11 +69,9 @@ CLAUDE.md "Specs and tasks".
   (imported by home.py, help.py, statement_upload.py); reads.py's `reconciliation` parameter (the
   engine's `statement_id`); home.py's `"reconciliations"` key; and comments in formatting.py,
   dates.py, theme.py, _base.py, help.py, transactions.py, bank_import.py and log_bar.py.
-- **Small tidy-ups in the Statements code.** Nothing you see changes. In reconciliations.py,
-  `_UNFILED_LAYOUT` writes a literal gap `2` beside checklist.py's `GAP` and is a
-  `dict[str, object]` unpacked with `**`; `_panel_gap` repeats `pane_rows`' chrome sum.
-  `CursorList`'s `header_rule_span` needs `header_rule=False`, unenforced; `UnderHead` takes
-  `screen_stack[-2]`, not its own place in the stack.
+- **`_panel_layout` returns an untyped dict.** Nothing you see changes. In reconciliations.py it
+  returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
+  type it as `_UnfiledLayout` is.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.**
 - **Three live files still build an opening balance's body by hand.** Nothing you see changes.
   test_create_sent_again.py, test_opening_balance.py (`_seed_body`) and

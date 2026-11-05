@@ -58,7 +58,7 @@ counted each time the screen reads the statement.
 
 import uuid
 from collections.abc import Callable
-from typing import NamedTuple
+from typing import NamedTuple, TypedDict
 
 from rich.console import Group, RenderableType
 from rich.text import Text
@@ -117,20 +117,38 @@ from expense.tui.widgets.refusal import toast, under_itself
 # (format_status / format_period) — one copy, per the §5 rule.
 _period = formatting.format_period
 
+#: The blank cells between two columns of the browse's lists (accounts, statements, lines in
+#: no statement): two, where the shared table has three.
+BROWSE_GAP = 2
+
 _UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Cur", "Amount"]
+
+
+class _UnfiledLayout(TypedDict):
+    """The keyword arguments of `CursorList.set_headers` the list sets."""
+
+    align_right: set[int]
+    edge: bool
+    header_rule: bool
+    lead: bool
+    gap: int
+    gives_way: set[int]
+    min_widths: dict[int, int]
+
+
 #: How the list sits in its room: the `!` mark packed to the date, the columns two cells
 #: apart, the title at least `TITLE_WIDTH` wide and the amount `AMOUNT_WIDTH`, and the
 #: title the one that is cut, with `…`, when the row is too wide (the statement's own
 #: list is drawn the same way, checklist.py).
-_UNFILED_LAYOUT: dict[str, object] = {
-    "align_right": {5},
-    "edge": False,
-    "header_rule": False,
-    "lead": True,
-    "gap": 2,
-    "gives_way": {2},
-    "min_widths": {2: TITLE_WIDTH, 5: AMOUNT_WIDTH},
-}
+_UNFILED_LAYOUT = _UnfiledLayout(
+    align_right={5},
+    edge=False,
+    header_rule=False,
+    lead=True,
+    gap=BROWSE_GAP,
+    gives_way={2},
+    min_widths={2: TITLE_WIDTH, 5: AMOUNT_WIDTH},
+)
 #: The keys of the footer in the order it reads while the lines in no statement are
 #: listed; any other key the list offers (`pgdn`, `pgup`) follows them.
 _UNFILED_FOOTER = ("escape", "enter", "d", "r", "question_mark")
@@ -348,9 +366,6 @@ def balances_cells(accounts: list[BrowseAccount], palette: Palette | None) -> li
     return cells
 
 
-#: The blank cells between two columns of the browse's lists (panes 2 and 3 of
-#: docs/mockups/expense-world-statements-screens.html), two where the shared table has three.
-BROWSE_GAP = 2
 #: The statements' gap on an account with a statement code, whose Order column needs the room.
 ORDER_GAP = 1
 #: The account list's headers: `Account` over the names, which stand two cells in, after
@@ -595,9 +610,13 @@ class ReconciliationsScreen(SectionScreen):
         frames and the panel's caption."""
         if self._open_aid is None:
             return self.fit_rows(chrome=2 + self.BROWSE_FRAME_LINES)
+        return self._split_rows(self._panel_gap())
+
+    def _split_rows(self, gap: int) -> int:
+        """Rows per page when the accounts and the panel split `#content`, with `gap` blank
+        lines between them."""
         return self.fit_rows(
-            chrome=2 + 2 * self.BROWSE_FRAME_LINES + self._panel_gap() + self.CAPTION_LINES,
-            lines_per_row=2,
+            chrome=2 + 2 * self.BROWSE_FRAME_LINES + gap + self.CAPTION_LINES, lines_per_row=2
         )
 
     def _panel_gap(self) -> int:
@@ -607,10 +626,7 @@ class ReconciliationsScreen(SectionScreen):
         the rows the panel's equal split gives them with no gap."""
         if self._open_aid is None:
             return 0
-        rows = self.fit_rows(
-            chrome=2 + 2 * self.BROWSE_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
-        )
-        return 1 if len(self._accounts) > rows else 0
+        return 1 if len(self._accounts) > self._split_rows(0) else 0
 
     def _space_panel(self) -> None:
         """Set the blank line `_panel_gap` says stands over the panel."""

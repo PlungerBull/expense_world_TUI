@@ -35,7 +35,8 @@ class UnderHead:
         self.add_class("under-head")  # type: ignore[attr-defined]
         # the box follows every layout of the screen under it (its head grew, a note
         # above its list came or went); the signal drops the box once it is gone
-        below = self.app.screen_stack[-2]  # type: ignore[attr-defined]
+        stack = self.app.screen_stack  # type: ignore[attr-defined]
+        below = stack[stack.index(self) - 1]
         below.screen_layout_refresh_signal.subscribe(self, lambda _screen: self._place())
         self._place()
         self.call_after_refresh(self._place)  # type: ignore[attr-defined]

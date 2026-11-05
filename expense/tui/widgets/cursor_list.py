@@ -108,6 +108,13 @@ def _with_mark_joined(row: "Row") -> "Row":
     return row._replace(cells=[joined, *row.cells[2:]])
 
 
+def _check_header_rule(header_rule: bool, header_rule_span: tuple[int, int] | None) -> None:
+    """A rule of its own (`header_rule_span`) stands where the table's would; both is a
+    mistake."""
+    if header_rule and header_rule_span is not None:
+        raise ValueError("header_rule_span needs header_rule=False")
+
+
 class RuleUnderHeader:
     """A table drawn with a rule of its own under its header row: `width` cells of `─`
     starting `indent` cells in, whatever the table's width (the rule of a table's box always
@@ -323,6 +330,7 @@ class CursorList(WindowedList):
         self._flex = dict(flex or {})
         self._gap = gap
         self._edge = edge
+        _check_header_rule(header_rule, header_rule_span)
         self._header_rule = header_rule
         self._divider = divider
         self._gives_way = set(gives_way)
@@ -380,6 +388,7 @@ class CursorList(WindowedList):
         are set afresh: one left out falls back to its default, it does not keep the earlier
         headers' value.
         """
+        _check_header_rule(header_rule, header_rule_span)
         self._headers = list(headers)
         self._align = set(align_right)
         self._gap = gap

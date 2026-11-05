@@ -80,3 +80,25 @@ def test_prompt_esc_cancels_with_none(kwargs):
         assert results == [None]
 
     run_app(scenario)
+
+
+def test_under_head_follows_the_screen_beneath_itself_not_the_stack_top():
+    """The box subscribes to the screen under it, even when another screen has since
+    been pushed over the box."""
+
+    async def scenario(pilot, app):
+        base = app.screen
+        box = ConfirmModal("Q?", "Sure?", under=lambda: 3)
+        await app.push_screen(box)
+        await wait_for(pilot, lambda: app.screen.query("#modal"))
+        await app.push_screen(PromptModal("Rename", "New name"))
+        seen = []
+        original = base.screen_layout_refresh_signal.subscribe
+        base.screen_layout_refresh_signal.subscribe = lambda node, cb: seen.append(node)
+        try:
+            box._place_under_head()
+        finally:
+            base.screen_layout_refresh_signal.subscribe = original
+        assert seen == [box]
+
+    run_app(scenario)
