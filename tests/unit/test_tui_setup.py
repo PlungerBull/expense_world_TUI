@@ -18,6 +18,7 @@ import respx
 from textual.widgets import Input, Label, Static
 
 from expense import config as config_module
+from expense.reads import fetch_body
 from expense.tui import app as tui_app
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.setup import (
@@ -206,6 +207,36 @@ def test_a_working_key_saves_the_settings_and_lands_on_home(monkeypatch, before)
         "sheet_account_names": {},
     }
     assert os.stat(path).st_mode & 0o777 == 0o600
+
+
+def test_the_saved_settings_are_the_ones_the_next_engine_call_uses(monkeypatch):
+    """Launch holds "no settings yet"; Setup's save replaces them, no restart."""
+    real_ensure_loaded = config_module.ensure_loaded
+    stub_home_month(monkeypatch)
+    # stub_home_month stubs ensure_loaded; this test needs the real one.
+    monkeypatch.setattr("expense.config.ensure_loaded", real_ensure_loaded)
+    config_module.hold(None)  # what `launch` holds with no usable settings file
+
+    async def scenario(pilot, app):
+        screen = app.screen
+        assert config_module.current() is None
+        await _address_and_key(pilot, screen)
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        held = config_module.current()
+        assert held is not None and (held.engine_url, held.token) == (ENGINE_URL, KEY)
+        config_module.config_path().unlink()  # only the held copy can answer now
+        fetch_body(config_module.ensure_loaded(), path="/accounts", params=None, verbose=False)
+
+    with respx.mock:
+        _health_ok()
+        respx.get(f"{ENGINE_URL}/v1/auth/me").mock(return_value=httpx.Response(200, json=ME))
+        accounts = respx.get(f"{ENGINE_URL}/v1/accounts").mock(
+            return_value=httpx.Response(200, json={"data": []})
+        )
+        run_app(scenario, setup=True)
+        request = accounts.calls.last.request
+        assert str(request.url).startswith(ENGINE_URL)
+        assert request.headers["Authorization"] == f"Bearer {KEY}"
 
 
 def test_ctrl_s_connects_from_any_field(monkeypatch):

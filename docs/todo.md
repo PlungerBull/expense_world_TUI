@@ -82,9 +82,6 @@ CLAUDE.md "Specs and tasks".
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
   "Send each transaction's calendar day with it"; the lists then show that day.
-- **No TUI test follows first-time setup to the held settings.** `config.save` replaces the
-  settings the app holds ([config.py](../expense/config.py)); only test_config.py proves it. A
-  test drives Setup's save through the app, then an engine call that uses the new settings.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.
