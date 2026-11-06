@@ -1681,14 +1681,12 @@ never changes, so nothing below it moves; everything that *does* change (the amo
 the resolved date in words, how many names a token matches, loading/writing) is the
 `#hint` row above it.
 
-**The account peek.** The moment the typed line names an account, that pick's posted
-ledger fills the room under the staged list once the line has its currency, the one typed
-or the account's only one — `AccountPeek`, five columns (date, title, amount, category, tags;
-no account column, every row names the same one), titled with the pick's label. Its count line
-names that same label: `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
-`nothing in … yet`, `48 in … · no room to show them`. When the count line would not fit the
-panel's width, the account name alone gives way with `…`; the count, the currency and the
-line's ending stay whole.
+**The account peek.** Once the typed line names an account and its currency (typed, or the
+account's only one), that pick's posted ledger fills the room under the staged list —
+`AccountPeek`, five columns (date, title, amount, category, tags; no account column), titled
+with the pick's label. Its count line names the label too, shortening only the account name
+with `…` when too long for the panel: `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
+`nothing in … yet`, `48 in … · no room to show them`.
 
 * **Elastic.** The panel draws exactly the rows the staged list leaves, again on every
   resize. The empty-state invitation stands down while it is up.
@@ -1700,7 +1698,8 @@ line's ending stay whole.
 
 Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 `GET /transactions?account_id=…&currency_code=…` (contract: GET /v1/transactions) and its
-count per pick, cached for the life of the screen, and a save invalidates what it wrote to.
+count per pick, cached for the screen; a save invalidates what it wrote to, and a failed read
+shows its message in the panel and is not retried.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
 one copy for every bar form: the Edit form, the create/edit forms, the new-statement form

@@ -29,9 +29,10 @@ Asked <date> · Blocks: <task or spec>
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-To approve, every question answered: [the official import](specs/before-the-official-import.md),
-[a long account name in the LOG bar peek's count line](specs/a-long-name-in-the-peek-count.md)
+To approve, every question answered: [the official import](specs/before-the-official-import.md)
 and [footers that fit the screen](specs/footers-fit-the-screen.md).
+
+New, two questions: [the LOG bar at 80 columns](specs/the-log-bar-at-80-columns.md).
 
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
@@ -73,6 +74,9 @@ CLAUDE.md "Specs and tasks".
 
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
+- **Two comments in [log_bar.py](../expense/tui/screens/log_bar.py) describe the peek's old
+  border:** the `CHROME_LINES` comment and `AccountPeek._heading`'s docstring. Nothing you
+  see changes.
 - **The shared practice user holds no accounts,** so the tester proves LOG bar and account
   checks with unit tests only. Nothing you see changes. Waits on the engine ask "Give the
   shared practice user an account that every reseed keeps".

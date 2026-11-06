@@ -252,7 +252,7 @@ Decisions whose why lives elsewhere:
 
 ## The LOG bar shows the named account's ledger — elastic, and it stays put (2026-08-29)
 
-**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…&currency_code=…` per account and currency, cached for the screen; a save invalidates the account currencies it wrote to; a failed peek says so in its border and never retries. Its count line names the pick's label, since one account holds several currencies and the peek lists one of them ([tui.md](tui.md) "The account peek").
+**Decision.** Name an account in the line and its ledger shows under the staged list: **elastic**, so a long batch keeps its rows; **the bar's account, never a staged row's**, so it answers "did I already log this?" for the line being typed; and **it stays on the last account named** after `↵` clears the bar. No balance. Its count line names the pick's label, since one account holds several currencies and the peek lists one of them. How it behaves: [tui.md](tui.md) "The account peek".
 
 **Rejected.** *A fixed 12-row strip* — steals rows from a long batch. *A one-line summary* — does not answer "did I already log this?". *Blanking the peek when the bar is empty* — blinks off at every `↵`. *A navigable peek* — a second cursor on the screen.
 
@@ -266,6 +266,18 @@ and category stay whole ([tui.md](tui.md) "The LOG bar's account is one row per 
 
 **Rejected.** *A least title width of about 10 letters, the account then the category cut
 next*: it cuts the names that say where each line will be written.
+
+## The LOG bar peek's count line shortens the account name, never the count or currency (2026-11-06)
+
+**Context.** At 80 columns the peek is 72 letters wide; with an account name over about 40
+letters its count line would need a second line, and the peek keeps room for one.
+
+**Decision.** Only the account name gives way, with `…`, so the count, the currency and the
+line's ending stay whole; the title line just above names the account
+([tui.md](tui.md) "The account peek").
+
+**Rejected.** *The count line wraps and the peek shows one row fewer*: a row given up for words
+the title already shows.
 
 ## The legend, the two picker gaps, and day+month dates (2026-08-29)
 
