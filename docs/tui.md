@@ -979,7 +979,7 @@ screen can bring it back.**
 | Accounts | `Delete this account?` | `Prueba · bank · PEN 0.00 · USD 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` (an income reads `+800.00`) · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
 | Ledger, on a part of a split transaction; a split transaction in the "no statement" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
 | A statement's screen (`d` deletes the statement itself) | `Delete statement?` | `Detaches its transactions and removes the statement. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
 

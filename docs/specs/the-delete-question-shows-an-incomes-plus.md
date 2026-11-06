@@ -29,7 +29,7 @@ screen's frame: no blank lines at the crumb, refusals under the form, `+` on inc
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+All done.
 
 ## Found along the way
 

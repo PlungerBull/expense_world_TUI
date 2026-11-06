@@ -33,7 +33,6 @@ from expense.errors import format_error
 from expense.formatting import (
     bank_line_columns,
     bank_line_part_count,
-    format_cents,
     format_cents_with_plus,
     format_short_date,
     title_or_untitled,
@@ -537,10 +536,11 @@ def list_refusal_text(exc: Exception) -> str:
 
 
 def delete_row_line(title: object, amount_cents: object, day: str, account_name: str) -> str:
-    """The row a delete question names, one line: `TITLE · AMOUNT · DAY · ACCOUNT`.
-    Shared by the question for a single transaction and the one for a whole
-    split bank line."""
-    return f"{title_or_untitled(title)} · {format_cents(amount_cents)} · {day} · {account_name}"
+    """The row a delete question names, one line: `TITLE · AMOUNT · DAY · ACCOUNT`,
+    an income with its `+` as the lists draw it. Shared by the question for a
+    single transaction and the one for a whole split bank line."""
+    amount = format_cents_with_plus(amount_cents)
+    return f"{title_or_untitled(title)} · {amount} · {day} · {account_name}"
 
 
 def _transaction_words(title: object, amount_cents: object) -> str:

@@ -819,10 +819,10 @@ def _ledger_row(tx_id: str, title: str, amount: int, line: str, day: str = "2026
 PARTS = {2: [-6000, -4000], 3: [-6000, -2500, -1500]}
 
 
-def _split_ledger(parts: int) -> tuple[list[dict], dict]:
+def _split_ledger(parts: int, amounts: list[int] | None = None) -> tuple[list[dict], dict]:
     """A ledger whose rows 2.. are FARMACIA's parts, every other row a line of
     its own; and FARMACIA's line as `GET /bank-lines/bl-farm` reads it."""
-    amounts = PARTS[parts]
+    amounts = amounts or PARTS[parts]
     farm = [_ledger_row(f"p{i}", "FARMACIA", a, "bl-farm") for i, a in enumerate(amounts, 1)]
     rows = [
         _ledger_row("t-net", "NETFLIX.COM", -4490, "bl-net", "2026-10-14"),
@@ -920,6 +920,44 @@ def test_d_on_a_part_asks_about_the_whole_purchase_then_deletes_it(
     run_app(scenario, size=SIZE)
     assert line_engine.deletes == ["/bank-lines/bl-farm"]
     assert _line_reads(line_engine) == ["/bank-lines/bl-farm"]
+
+
+def test_the_question_for_an_income_writes_its_plus(configured, monkeypatch):
+    income = {**LEDGER[0], "id": "t11", "title": "Sueldo", "amount_cents": 80000}
+    _stub_ledger(monkeypatch, [income])
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this transaction?"
+        assert app.screen._message.splitlines()[0] == "Sueldo · +800.00 · 2026-10-10 · Sueldo Soles"
+
+    with respx.mock() as engine:
+        _one_part_lines(engine)
+        run_app(scenario, size=SIZE)
+
+
+def test_the_split_line_question_for_an_income_total_writes_its_plus(
+    configured, monkeypatch, line_engine
+):
+    rows, line = _split_ledger(2, [60000, 20000])
+    _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-farm"] = line
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p2")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this transaction and its 2 parts?"
+        assert (
+            app.screen._message.splitlines()[0] == "FARMACIA · +800.00 · 2026-10-11 · Sueldo Soles"
+        )
+
+    run_app(scenario, size=SIZE)
 
 
 def test_y_on_a_purchase_sends_one_delete_with_one_idempotency_key(configured, monkeypatch):
