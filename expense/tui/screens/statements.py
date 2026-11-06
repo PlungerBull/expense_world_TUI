@@ -61,6 +61,7 @@ outside the statement, is read-only, and has no `c`, `u` or toggle.
 
 import uuid
 from collections.abc import Callable
+from functools import partial
 from typing import NamedTuple, TypedDict
 
 from rich.console import Group, RenderableType
@@ -120,7 +121,7 @@ from expense.tui.widgets.cursor_list import CursorList, list_cell
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching
-from expense.tui.widgets.refusal import toast, under_itself
+from expense.tui.widgets.refusal import as_markup, toast, under_itself
 
 # Status labels + period formatting are owned by expense/formatting.py
 # (format_status / format_period) — one copy, per the §5 rule.
@@ -1986,6 +1987,8 @@ class StatementScreen(
         shown, reads again: after the last tick, however it ended, or after a revert or
         a delete that went through."""
         super()._write_finished_after_leaving(app, item, error, *answer)
+        if error is None:
+            self._say_after_leaving(app, item, (answer or ({},))[0] or {})
         if self._reload is None or app.screen is not self._opener:
             return
         if self._is_tick(item):
@@ -1993,6 +1996,49 @@ class StatementScreen(
                 self._reload()
         elif error is None:
             self._reload()
+
+    def _say_after_leaving(self, app, item, body: dict) -> None:
+        """The words of a complete or a balances save that went through after this screen
+        left, which `LeftBehind` has no way to say: the close's notes and the review
+        list's count, or that the statement is still open. No widget of this screen."""
+        name = self._record.get("name") or "(unnamed)"
+        if item.path == f"/statements/{self._id}/complete":
+            app.run_worker(
+                partial(self._count_then_say, app, self._id, name, gap_notes(body)),
+                thread=True,
+                group="engine-read",
+                exit_on_error=False,
+            )
+        elif item.method == "PUT" and item.path == f"/statements/{self._id}":
+            app.notify(
+                as_markup([("The statement is not completed: open it and press c.", "dim")]),
+                title=f"Balances saved · {name}",
+                markup=True,
+            )
+
+    def _count_then_say(self, app, statement_id, name: str, notes: list[str]) -> None:
+        """Thread side: the engine's count of the statement's review list as on screen
+        (a failed read leaves the `⚑` line out), then the message on the app, unless it
+        is quitting. The screen is gone: it is only the node the hand-back is checked on."""
+        from expense import config as config_module
+
+        try:
+            count = reads.count_bank_lines(
+                config_module.ensure_loaded(), review_of=statement_id, verbose=app._verbose
+            )
+        except Exception:
+            count = 0
+        lines = [(f"⚠ {note}", PALETTE.warning) for note in notes]
+        if count:
+            lines.append((flagged_after_leaving(count), PALETTE.warning))
+
+        def say() -> None:
+            if not lines:  # nothing more to say than the screen's own toast
+                toast(app, _status_words("completed"))
+                return
+            app.notify(as_markup(lines), title=f"Statement completed · {name}", markup=True)
+
+        call_while_attached(self, lambda: None, app=app, if_left=say)
 
     def on_key(self, _event) -> None:
         """The next key takes a refused complete's lines away."""
@@ -2066,6 +2112,10 @@ class StatementScreen(
                 "completed",
                 on_response=self._report_gap,
                 lead=_BALANCE_SAVED if after_save else "",
+                left_behind=LeftBehind(
+                    self._not_done("Not completed"),
+                    success_from=lambda _body: None,  # said by `_say_after_leaving`
+                ),
             ),
             under=self._below_head,
         )
@@ -2127,6 +2177,10 @@ class StatementScreen(
             on_success=self._balance_saved,
             on_error=self._balance_failed,
             error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
+            left_behind=LeftBehind(
+                self._not_done("Not saved"),
+                success_from=lambda _body: None,  # said by `_write_finished_after_leaving`
+            ),
         )
 
     def _balance_saved_record(self, body: dict) -> None:
@@ -2235,18 +2289,7 @@ class StatementScreen(
         the rows they name. The review surface for that is the "no statement"
         pane (`u`).
         """
-        notes: list[str] = []
-        for balance in body.get("balances") or []:
-            if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
-                notes.extend(str(w) for w in balance["warnings"] if w)
-        # A currency the statement holds no balances for has no row to sit under, so
-        # its notes follow, each led by its code
-        # (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`").
-        for entry in body.get("not_covered") or []:
-            if isinstance(entry, dict) and isinstance(entry.get("warnings"), list):
-                code = entry.get("currency_code") or "—"
-                notes.extend(f"{code}: {w}" for w in entry["warnings"] if w)
-        self._show_warnings(notes)
+        self._show_warnings(gap_notes(body))
 
     def _show_warnings(self, lines: list[str]) -> None:
         line = self.query_one("#rwarn", Static)
@@ -2362,6 +2405,31 @@ class StatementScreen(
         # the flagged lines' screen opens off the engine's count, whichever read brings it
         self._open_when_counted = verb == "completed"
         self._load_txns()
+
+
+def gap_notes(body: dict) -> list[str]:
+    """The notes of a complete's answer, one sentence each as the engine wrote it, in its
+    order: each currency's `warnings` off its entry in `balances`, then each
+    `not_covered` currency's, led by its code (`USD: …`). One copy for the lines under
+    the head and the message after the screen has left."""
+    notes: list[str] = []
+    for balance in body.get("balances") or []:
+        if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
+            notes.extend(str(w) for w in balance["warnings"] if w)
+    # A currency the statement holds no balances for has no row to sit under, so
+    # its notes follow, each led by its code
+    # (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`").
+    for entry in body.get("not_covered") or []:
+        if isinstance(entry, dict) and isinstance(entry.get("warnings"), list):
+            code = entry.get("currency_code") or "—"
+            notes.extend(f"{code}: {w}" for w in entry["warnings"] if w)
+    return notes
+
+
+def flagged_after_leaving(n: int) -> str:
+    """The `⚑` line of a complete that flagged `n` lines, said on the app once the
+    statement's screen has left."""
+    return f"⚑ {line_count(n)} flagged for review: open the statement and press f."
 
 
 def _status_words(verb: str) -> str:

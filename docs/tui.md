@@ -128,6 +128,14 @@ the name as typed; success `Statement created.`), a tick (`Not ticked · <title>
 still queued are all sent. The Statements screen that opened them (`opener`, `reload`),
 when it is the one shown, reads again: a new statement opens that account's panel on it,
 ticks read the panel once after the last, revert and delete after they went through.
+`c` says its end on the app too, and opens no screen by itself: a complete that went through is
+`Statement completed · <name>` with the engine's notes (`gap_notes`, the lines the head shows),
+then, when the engine's count of the review list is above zero (read after the answer), `⚑ 3 lines
+flagged for review: open the statement and press f.`; with no notes and no flagged lines it is
+the plain `Statement completed.`; a refusal is `Not completed · Statement
+<name>`. The balances `c` asks for first: saved is `Balances saved · <name>` ending, dim, `The
+statement is not completed: open it and press c.` and the question to complete never shows; a
+refusal is `Not saved · Statement <name>` (`StatementScreen._say_after_leaving`).
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

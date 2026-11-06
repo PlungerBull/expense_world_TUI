@@ -53,12 +53,9 @@ screen that sent the write has closed before the engine answered; on a screen st
 nothing changes.
 
 A write opts in by carrying its refused message's first line (a `LeftBehind` on `run_write` and
-`confirm_delete` in `expense/tui/screens/_base.py`); every write but a statement's complete and
-its balances already does; a save of several writes reports once (`SaveReport`).
-
-8. **A statement's complete and its balances** (panes 5 B and 6 B): `Statement completed ·
-   SIG-202610` with its `⚠` notes and the `⚑` line, opening no screen; `Balances saved ·
-   SIG-202611` and `The statement is not completed: open it and press c.`
+`confirm_delete` in `expense/tui/screens/_base.py`); every write that can be left does; a save
+of several writes reports once (`SaveReport`). Every task is done; the acceptance check and the
+doc sweep follow.
 
 **Words to approve with the tasks:** a refused message's first line is what did not happen, then
 `·` and what it was. The mockup draws `Not saved`, `Not created`, `Not deleted`, `Not archived`
