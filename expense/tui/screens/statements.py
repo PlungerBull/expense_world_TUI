@@ -511,7 +511,6 @@ class StatementsScreen(SectionScreen):
     """
 
     crumb = ("Capture & ledger", "Statements")
-    footer_class = FittingFooter
     CARD_WIDTH = 100
     BINDINGS = [
         # Two bindings on one key: Textual takes the first whose `check_action`

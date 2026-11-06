@@ -39,6 +39,7 @@ from expense.formatting import (
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
 
@@ -512,7 +513,7 @@ class SectionScreen(
     ]
     crumb: tuple[str, ...] = ()
     CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
-    footer_class: type[Footer] = Footer  # a screen whose footer can outgrow a line swaps it
+    footer_class: type[Footer] = FittingFooter  # a footer that fits the width, key by key
     _started: bool = False  # first load ran (it waits for the first layout pass)
     _read_started: int | None = None  # writes answered when the read being built began
 
