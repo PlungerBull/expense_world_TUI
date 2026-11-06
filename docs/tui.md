@@ -84,58 +84,58 @@ FIFO queue in EngineWriteMixin, error drops the queue").
 **A thread worker hands back through `call_while_attached`.** A thread worker cannot be
 stopped, so a read still in flight when its screen is popped or the app quits still
 lands, and painting it then queries widgets already taken down (`NoMatches`).
-`call_while_attached(node, callback, …)` in [_base.py](../expense/tui/screens/_base.py)
-checks on the UI thread, at the moment the callback would run, and drops it once the node
-has left the app. Every thread worker in `expense/tui/` hands back this way (guard:
-`test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)),
-a write's included: once its screen is gone its answer is dropped, unless the write carries
-a `LeftBehind` (`left_behind` on `run_write`, `confirm_delete`), whose first line opens its refusal: then success
-toasts its `success` words and a refusal toasts the screen's own words under that line for
-10 seconds, both on the app, and the writes still queued behind it that carry `left_behind` are sent and shown
-the same way, a refusal stopping none, and one without it ends the run (`EngineWriteMixin`). Quitting
-the app sends and shows nothing more. Only the app's rate check hands back
-without a screen.
+`call_while_attached` in [_base.py](../expense/tui/screens/_base.py) runs the hand-back on
+the UI thread only while its node is still in the app, and drops it otherwise. Every thread
+worker in `expense/tui/` hands back this way, but the app's rate check, which has no screen
+(guard: `test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
 
-The first line reads `Not <what did not happen> · <what it was>`: `Not archived · Account
-BCP`, `Not added · PEN on BCP`, `Not provisioned`. A thing is named as its screen shows it,
-by its kind (`Account`, `Person` for a person's account, `Category`, `Hashtag #name`); a
-transaction is `<title> · <amount>` (`not_done_transaction_line`, `not_done_line` in
-[_base.py](../expense/tui/screens/_base.py)). Each write names its own words where it is
-sent.
-The New and Edit forms of Manage ▸ Hashtags and Categories, and New account (`Not created ·
-Category Ropa`; `Not saved · Hashtag #viaje`, the name its list showed before the edit) save
-this way: its refusal ends, dim, `Nothing was saved: open it again to fix it.` (`LeftBehind.note`
-on `run_write`). A save that lands then, while the screen shown is that form's list, reads it
-again from its first page, cursor on row 1.
-The Edit forms (`EditFormScreen`, `BankLineEditFormScreen`) save this way too: `Not saved ·
-<title> · <amount>` (`not_saved_line`), the line as its list showed it; success says `Saved.`
-or `Saved. It left its statement.` from the engine's answer (`LeftBehind.success_from`,
-`saved_words`), and a refusal toasts the words the form shows under its parts (`refusal_text`),
-ending, dim, with the same last line, except under a 5xx or when the engine did not answer
-(`_open_it_again`). The screen that opened the form (`opener`, `reload`),
-when it is the one shown after a save, reads again as after any save.
-The account Edit form saves this way as one message for the whole save, which is several
-writes: left with any unanswered, each still goes in order, a refusal stopping none, and the last
-answer says `Saved.` or an error toast titled `Not all saved · Account <name>` (`Person <name>`;
-`Not saved · …` when every write was refused), a line per write, the engine's words under a
-refused one, then, dim, `Open the account's Edit form to set PEN again.` naming what was refused
-(`SaveReport` in [_base.py](../expense/tui/screens/_base.py)). The list reads again once, if any
-write landed.
-A statement's own writes save this way too: New statement (`Not created · Statement <name>`,
-the name as typed; success `Statement created.`), a tick (`Not ticked · <title> · <amount>`,
-`Not unticked · …`; a tick that lands shows nothing),
-`u` (`Not reverted · Statement <name>`) and `d` (`Not deleted · Statement <name>`). Ticks
-still queued are all sent. The Statements screen that opened them (`opener`, `reload`),
-when it is the one shown, reads again: a new statement opens that account's panel on it,
-ticks read the panel once after the last, revert and delete after they went through.
-`c` says its end on the app too, and opens no screen by itself: a complete that went through is
-`Statement completed · <name>` with the engine's notes (`gap_notes`, the lines the head shows),
-then, when the engine's count of the review list is above zero (read after the answer), `⚑ 3 lines
-flagged for review: open the statement and press f.`; with no notes and no flagged lines it is
-the plain `Statement completed.`; a refusal is `Not completed · Statement
-<name>`. The balances `c` asks for first: saved is `Balances saved · <name>` ending, dim, `The
-statement is not completed: open it and press c.` and the question to complete never shows; a
-refusal is `Not saved · Statement <name>` (`StatementScreen._say_after_leaving`).
+**A write answered after its screen has left still says how it ended** when it carries a
+`LeftBehind` ([_base.py](../expense/tui/screens/_base.py)); one without is dropped with its
+screen. The ending shows on the app: success as the screen's own toast, a refusal as an error
+toast of 10 seconds titled with what was not done, the screen's words for it under the title.
+Every write queued behind it is still sent and shown the same way, a refusal stopping none
+([decisions.md](decisions.md) "A save you left still says how it ended"). Quitting the app
+sends and shows nothing more.
+
+The title reads `Not <what did not happen> · <what it was>`, the thing named as its screen
+showed it: by kind and name (`Not archived · Account BCP`, `Person` for a person's account;
+`not_done_line`), a transaction by title and amount, as its list draws them
+(`not_done_transaction_line`), or alone where there is nothing to name (`Not provisioned`).
+The writes that carry one, each naming its words where it is sent:
+
+- **Manage ▸ Accounts' `a`, `t`, `c` and `x`, every Manage list's `d`, `d` on the ledger, the
+  "no statement" list and the flagged lines, and `b` on Auth & profile.**
+- **The New and Edit forms of Manage ▸ Hashtags and Categories, and New account:** `Not
+  created · Category Ropa`, `Not saved · Hashtag #viaje` (the name its list showed before the
+  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`
+- **A line's Edit forms** (`EditFormScreen`, `BankLineEditFormScreen`): `Not saved · <title> ·
+  <amount>`; success says `Saved.` or `Saved. It left its statement.`, as the form would
+  (`saved_words`); a refusal shows the words the form shows under its parts, ending with the
+  same dim line, except under a 5xx or when the engine did not answer.
+- **The account Edit form** says its whole save, several writes, in one message at the last
+  answer (`SaveReport`): `Saved.`, or an error toast titled `Not all saved · Account <name>`
+  (`Not saved · …` when every write was refused), a line per write with the engine's words
+  under a refused one, then, dim, what is left to set again (`Open the account's Edit form to
+  set PEN again.`).
+- **A statement's writes:** New statement (`Not created · Statement <name>`, the name as
+  typed), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
+  shows nothing), `u` (`Not reverted · Statement <name>`), `d` (`Not deleted · Statement
+  <name>`) and `c`, which opens no screen by itself. A complete that went through is
+  `Statement completed · <name>` with the engine's notes (`gap_notes`, the lines the head
+  shows), then, when the engine's count of the review list read after the answer is above
+  zero, `⚑ 3 lines flagged for review: open the statement and press f.`; with neither, the
+  plain `Statement completed.`; refused, `Not completed · Statement <name>`. The balances `c`
+  asks for first: saved, `Balances saved · <name>` ending, dim, `The statement is not
+  completed: open it and press c.`, and the question to complete never shows; refused, `Not
+  saved · Statement <name>` (`StatementScreen._say_after_leaving`).
+- **The ledger's bulk edit:** "The ledger's bulk edit reads its refused rows the same way"
+  (§2).
+
+When such a write lands while the screen shown is the one it changed, that screen reads
+again: a Manage form's list from its first page, cursor on row 1 (the account Edit form's once,
+if any of its writes landed); the screen that opened a line's Edit form, as after any save; the
+Statements screen, a new statement opening that account's panel on it, and after the last tick
+too, however it ended.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

@@ -39,8 +39,12 @@ rows](specs/the-keys-card-at-24-rows.md).
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
-Approved, running: [a save that answers after you leave its
-screen](specs/a-save-that-answers-after-you-leave.md).
+New, two questions: [a save whose ending is not known](specs/a-save-whose-ending-is-not-known.md).
+
+New, no question: [the delete question shows an income's `+`](specs/the-delete-question-shows-an-incomes-plus.md).
+
+New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
+write, whole or not at all" ([to-engine/](to-engine/)).
 
 Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
@@ -80,6 +84,18 @@ CLAUDE.md "Specs and tasks".
   its module docstring speaks of list screens only; `FittingFooter`'s docstring
   ([footer.py](../expense/tui/widgets/footer.py)) says `?` lists a left-out key without "on a
   screen that has one". Nothing you see changes.
+- **`(unnamed)` for a blank name is written out four times** (`not_done_line` in
+  [_base.py](../expense/tui/screens/_base.py) and the account, category and hashtag lists);
+  `title_or_untitled` is the one shared copy for titles, and names have none. Nothing you see
+  changes.
+- **The after-leaving code has small gaps.** `_landed_after_leaving` in
+  [create_forms.py](../expense/tui/screens/create_forms.py) reads `left_behind.part.report`
+  unguarded; `ReportedPart.record` writes `SaveReport`'s private `_answers`; `_opening_saved`'s
+  `part` has no type. No test drives the real `esc` (the tests pop the screen), none covers an
+  account save whose only write is the account, and the new-statement test calls `_created` by
+  hand instead of driving the late answer. The comment on the balances save's `LeftBehind` in
+  [statements.py](../expense/tui/screens/statements.py) names `_write_finished_after_leaving`
+  where the words come from `_say_after_leaving`. Nothing you see changes.
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **Two comments in [log_bar.py](../expense/tui/screens/log_bar.py) describe the peek's old

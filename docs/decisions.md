@@ -84,9 +84,9 @@ Decisions whose why lives elsewhere:
 
 ## TUI writes: FIFO queue in EngineWriteMixin, error drops the queue (2026-07-08)
 
-**Decision.** `EngineWriteMixin.run_write` ([_base.py](../expense/tui/screens/_base.py)) owns a per-screen FIFO: exactly one request in flight, order preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs. **Once the screen has left, nothing is dropped:** a write carrying its left-behind words is finished at the app, its ending toasted, and a refusal stops none of the writes behind it, since no screen remains to hold them for a retry or to resync, and a dropped write would be a change the owner thinks happened.
+**Decision.** `EngineWriteMixin.run_write` ([_base.py](../expense/tui/screens/_base.py)) owns a per-screen FIFO: exactly one request in flight, order preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs. Once the screen has left, nothing is dropped ("A save you left still says how it ended").
 
-**Rejected.** *Per-screen queues* (N copies of one race fix); *cancelling in-flight writes on supersede* (thread cancellation cannot stop a request, and the idempotency key already covers retries); *continuing past a failure* (later writes may depend on the failed one). Independent bulk writes use their own worker instead — see "Home is the month". A screen that holds back its redraw while a write is unanswered reads that state from the queue (`writes_unanswered()`) and redraws in the `_writes_dropped` hook, so a dropped queue can never leave it waiting.
+**Rejected.** *Per-screen queues* (N copies of one race fix); *cancelling in-flight writes on supersede* (thread cancellation cannot stop a request, and the idempotency key already covers retries); *continuing past a failure* (later writes may depend on the failed one). Independent bulk writes use their own worker instead — see "Home is the month".
 
 ## Connection errors get exit code 6, off the click collision on 2 (2026-07-10)
 
@@ -1326,3 +1326,17 @@ so tightening alone still cuts its last key below that.
 
 **Rejected.** *Tightening alone* — the ledger's `d Delete` is still cut below 144 columns.
 *Leaving keys out without tightening first* — it drops keys the tighter spacing keeps whole.
+
+## A save you left still says how it ended (2026-11-06)
+
+**Decision.** A write that can be left carries a `LeftBehind`
+([_base.py](../expense/tui/screens/_base.py)): answered after its screen has left, it shows the
+message the screen would have shown, a refusal titled with what did not
+happen and what it was; writes still queued are sent, a refusal stopping none. What each screen
+says: [tui.md](tui.md) §1.
+
+**Why.** A refusal you never see is a change you think happened, and once the screen is gone
+nothing holds the queued writes for a retry.
+
+**Rejected.** *One short `Saved.` / `Not saved` for every save* — it hides which refusal and why.
+*Holding `esc` until the save answers* — it keeps you on a form you left.
