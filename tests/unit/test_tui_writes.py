@@ -9,6 +9,7 @@ import asyncio
 import threading
 
 from expense.errors import EngineError
+from expense.tui.screens._base import LeftBehind
 from expense.tui.screens.accounts import AccountsScreen
 from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
 
@@ -217,9 +218,9 @@ def test_writes_queued_behind_a_left_screens_write_are_sent_and_shown(fake_clien
         fake_client,
         monkeypatch,
         [
-            ("/a/one", dict(success="One done.", left_behind="Not one")),
-            ("/a/bad", dict(success="x", left_behind="Not bad")),
-            ("/a/three", dict(success="Three done.", left_behind="Not three")),
+            ("/a/one", dict(success="One done.", left_behind=LeftBehind("Not one"))),
+            ("/a/bad", dict(success="x", left_behind=LeftBehind("Not bad"))),
+            ("/a/three", dict(success="Three done.", left_behind=LeftBehind("Not three"))),
         ],
     )
     assert sent == ["/a/one", "/a/bad", "/a/three"]  # a refusal stopped none after it
@@ -233,7 +234,10 @@ def test_a_write_without_left_behind_words_is_dropped_after_leaving(fake_client,
     sent, notes, _ = _left_screen_scenario(
         fake_client,
         monkeypatch,
-        [("/a/one", dict(success="One done.")), ("/a/two", dict(left_behind="Not two"))],
+        [
+            ("/a/one", dict(success="One done.")),
+            ("/a/two", dict(left_behind=LeftBehind("Not two"))),
+        ],
         toasts=0,
     )
     assert sent == ["/a/one"]  # answered nobody, and the one behind it never went
@@ -245,8 +249,8 @@ def test_with_the_screen_open_a_refusal_still_drops_the_queue(fake_client, monke
         fake_client,
         monkeypatch,
         [
-            ("/a/bad", dict(left_behind="Not bad")),
-            ("/a/two", dict(left_behind="Not two")),
+            ("/a/bad", dict(left_behind=LeftBehind("Not bad"))),
+            ("/a/two", dict(left_behind=LeftBehind("Not two"))),
         ],
         leave=False,
         toasts=1,
@@ -277,8 +281,8 @@ def test_quitting_mid_run_sends_and_shows_nothing_more(fake_client, monkeypatch)
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        screen.run_write("POST", "/a/one", left_behind="Not one")
-        screen.run_write("POST", "/a/two", left_behind="Not two")
+        screen.run_write("POST", "/a/one", left_behind=LeftBehind("Not one"))
+        screen.run_write("POST", "/a/two", left_behind=LeftBehind("Not two"))
         await wait_for(pilot, lambda: sent)
         app.exit()
         release.set()

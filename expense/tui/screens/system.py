@@ -17,7 +17,7 @@ from textual.widgets import Static
 
 from expense.errors import format_error
 from expense.formatting import redact_token
-from expense.tui.screens._base import SectionScreen
+from expense.tui.screens._base import LeftBehind, SectionScreen
 from expense.tui.screens.modals import PromptModal
 from expense.tui.widgets.refusal import toast
 
@@ -211,7 +211,7 @@ class AuthScreen(SectionScreen):
             success="Provisioned.",
             on_success=lambda: self._done("Provisioned."),
             on_error=lambda m: toast(self, m, title="Bootstrap failed", severity="error"),
-            left_behind="Not provisioned",
+            left_behind=LeftBehind("Not provisioned"),
         )
 
     def _done(self, message: str) -> None:

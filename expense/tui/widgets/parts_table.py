@@ -281,6 +281,13 @@ def flagged_parts(err: Exception | None) -> frozenset[int]:
     )
 
 
+def _refusal_heads(err: EngineError) -> list[str]:
+    """`CODE — message`, then a `! <key>: <words>` line per refused key."""
+    heads = [f"{err.code} — {err.message}"]
+    heads += [f"! {key_words(key)}: {message}" for key, message in (err.fields or {}).items()]
+    return heads
+
+
 def refusal_lines(err: Exception, *, palette: Palette | None = None) -> list[RenderableType]:
     """The refusal kept under the parts: `CODE — message`, a `! <key>: <words>`
     line per refused key, `Nothing was saved.`, then the app's line for the
@@ -290,12 +297,20 @@ def refusal_lines(err: Exception, *, palette: Palette | None = None) -> list[Ren
     error = palette.error if palette else ""
     if not isinstance(err, EngineError):
         return [Text(format_error(err), style=error)]
-    lines: list[RenderableType] = [Text(f"{err.code} — {err.message}", style=error)]
-    for key, message in (err.fields or {}).items():
-        lines.append(hanging(Text(f"! {key_words(key)}: {message}", style=error)))
+    lines: list[RenderableType] = [hanging(Text(h, style=error)) for h in _refusal_heads(err)]
     if err.status < 500:
         lines.append(Text(NOTHING_SAVED, style="dim"))
     for line in app_lines(err):
         lines.append(Text(""))
         lines.append(Text(line))
     return lines
+
+
+def refusal_text(err: Exception) -> str:
+    """The words of `refusal_lines` as one plain string, without `Nothing was saved.`
+    (a refusal shown after the form has been left ends with its own last line)."""
+    if not isinstance(err, EngineError):
+        return format_error(err)
+    return "".join(
+        [*(f"{h}\n" for h in _refusal_heads(err)), *(f"\n{line}\n" for line in app_lines(err))]
+    ).rstrip("\n")

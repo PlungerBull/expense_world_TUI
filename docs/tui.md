@@ -89,7 +89,7 @@ checks on the UI thread, at the moment the callback would run, and drops it once
 has left the app. Every thread worker in `expense/tui/` hands back this way (guard:
 `test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)),
 a write's included: once its screen is gone its answer is dropped, unless the write carries
-`left_behind`, the first line of its refusal (`run_write`, `confirm_delete`): then success
+a `LeftBehind` (`left_behind` on `run_write`, `confirm_delete`), whose first line opens its refusal: then success
 toasts its `success` words and a refusal toasts the screen's own words under that line for
 10 seconds, both on the app, and the writes still queued behind it that carry `left_behind` are sent and shown
 the same way, a refusal stopping none, and one without it ends the run (`EngineWriteMixin`). Quitting
@@ -104,9 +104,16 @@ transaction is `<title> · <amount>` (`not_deleted_line`, `not_done_line` in
 sent.
 The New and Edit forms of Manage ▸ Hashtags and Categories, and New account (`Not created ·
 Category Ropa`; `Not saved · Hashtag #viaje`, the name its list showed before the edit) save
-this way: its refusal ends, dim, `Nothing was saved: open it again to fix it.` (`left_behind_note`
+this way: its refusal ends, dim, `Nothing was saved: open it again to fix it.` (`LeftBehind.note`
 on `run_write`). A save that lands then, while the screen shown is that form's list, reads it
 again from its first page, cursor on row 1.
+The Edit forms (`EditFormScreen`, `BankLineEditFormScreen`) save this way too: `Not saved ·
+<title> · <amount>` (`not_saved_line`), the line as its list showed it; success says `Saved.`
+or `Saved. It left its statement.` from the engine's answer (`LeftBehind.success_from`,
+`saved_words`), and a refusal toasts the words the form shows under its parts (`refusal_text`),
+ending, dim, with the same last line, except under a 5xx or when the engine did not answer
+(`_open_it_again`). The screen that opened the form (`opener`, `reload`),
+when it is the one shown after a save, reads again as after any save.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

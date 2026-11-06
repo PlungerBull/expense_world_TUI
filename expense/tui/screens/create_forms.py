@@ -311,11 +311,11 @@ class BarFormScreen(FormScreen):
     def _left_behind(self) -> str | None:
         return not_done_line(self.NOT_DONE, self._kind(), self._shown_name())
 
-    def _write_finished_after_leaving(self, app, item, error) -> None:
+    def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
         """A save that landed once the form was gone: the app says how it ended
         (`EngineWriteMixin`), and if the screen now showing is this form's list,
         it reads again from its first page."""
-        super()._write_finished_after_leaving(app, item, error)
+        super()._write_finished_after_leaving(app, item, error, *answer)
         shown = app.screen
         if error is None and isinstance(shown, ResourceListScreen):
             if shown.RESOURCE == self.RESOURCE:

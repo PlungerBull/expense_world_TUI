@@ -50,12 +50,10 @@ before the engine answers, the screen closes. When the engine answers, the app d
 Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "Left" means the screen that sent the write has closed before the engine answered; on a
 screen still open, nothing changes.
 
-A write opts in by carrying its refused message's first line (`left_behind` on `run_write` and
-`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d`, the list actions
-and the Manage forms already do.
+A write opts in by carrying its refused message's first line (a `LeftBehind` on `run_write` and
+`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d`, the list actions,
+the Manage forms and the Edit forms already do.
 
-4. **The Edit forms.** The ledger's and the "no statement" list's: `Saved.` or `Saved. It left
-   its statement.`, the list reading again; a refusal keeps its `! part 2 (amount): …` lines.
 5. **The account Edit form** (pane 4 B): the account's changes, then each opening balance, all
    sent after you leave; all saved says `Saved.`, otherwise one `Not all saved · Account …` (or
    `Not saved · Account …` when nothing was) saying how each part ended and naming the

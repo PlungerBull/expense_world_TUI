@@ -96,6 +96,7 @@ from expense.reads import (
 )
 from expense.tui.screens._base import (
     DELETE_KEY,
+    LeftBehind,
     LogTransactionMixin,
     SectionScreen,
     bank_line_delete_message,
@@ -497,7 +498,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if not targets:
             return
         record = self._by_id[targets[0]]
-        self.app.push_screen(EditFormScreen(record=record), self._after_detail)
+        self.app.push_screen(
+            EditFormScreen(record=record, opener=self, reload=self._reload_fresh),
+            self._after_detail,
+        )
 
     def action_delete(self) -> None:
         """`d` — delete the row under the cursor, after the question. Never a
@@ -559,7 +563,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                 bank_line_delete_message(line, resolve_name(account_id, self._maps[0])),
                 done="Transaction deleted.",
                 after=self._reload_fresh,
-                left_behind=not_deleted_line(line_title, line_net),
+                left_behind=LeftBehind(not_deleted_line(line_title, line_net)),
             )
             return
         account = resolve_name(record.get("account_id"), self._maps[0])
@@ -570,7 +574,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             transaction_delete_message(record, account),
             done="Transaction deleted.",
             after=self._reload_fresh,
-            left_behind=not_deleted_line(record.get("title"), record.get("amount_cents")),
+            left_behind=LeftBehind(
+                not_deleted_line(record.get("title"), record.get("amount_cents"))
+            ),
         )
 
     def on_cursor_list_toggled(self, event: CursorList.Toggled) -> None:
@@ -790,7 +796,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         item = self._by_id.get(event.key)
         if item:
             self.app.push_screen(
-                EditFormScreen(record=item),
+                EditFormScreen(record=item, opener=self, reload=self._reload_fresh),
                 self._after_detail,
             )
 

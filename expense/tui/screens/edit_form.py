@@ -102,6 +102,7 @@ line picks. The keymap is `form_bindings` in _form.py, with `^n` and `^x`.
 """
 
 import copy
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import date as date_cls
 
@@ -109,13 +110,14 @@ from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
+from textual.screen import Screen
 from textual.widgets import Input
 
 from expense import reads
 from expense.bank_line_write import kept_part, line_body, new_part
 from expense.currencies import only_currency
 from expense.dates import is_readable_date, to_canonical_aware
-from expense.errors import format_error
+from expense.errors import EngineError, format_error
 from expense.formatting import (
     bank_line_columns,
     codes_and,
@@ -126,8 +128,13 @@ from expense.formatting import (
 )
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.reads import QuickAddRefs, hashtags_to_send, load_quickadd_refs
-from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
-from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.screens._base import (
+    LeftBehind,
+    call_while_attached,
+    not_saved_line,
+    screen_fetch_kwargs,
+)
+from expense.tui.screens._form import OPEN_IT_AGAIN, FormScreen, form_bindings
 from expense.tui.screens.log_bar import LOADING_HINT
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_text
@@ -146,6 +153,7 @@ from expense.tui.widgets.parts_table import (
     real_hashtags,
     reason_lines,
     refusal_lines,
+    refusal_text,
 )
 from expense.tui.widgets.picker import matching, suggestion_list
 from expense.tui.widgets.refusal import hanging, toast
@@ -271,6 +279,12 @@ def moved_parts(answers: list[dict]) -> tuple[int, int]:
     return len(moved), len(left)
 
 
+def saved_words(answer: dict) -> str:
+    """What a saved Edit form says, decided from the engine's answer: the form's
+    note, or the app's toast when the save answers after the form was left."""
+    return "Saved. It left its statement." if moved_parts([answer])[1] > 0 else "Saved."
+
+
 def part_payload(part: Part, held: dict | None, pending_hashtag_id: str | None) -> dict:
     """One entry of the save's `parts`: a part read from the line under its own
     id, against `held`, the part as the engine holds it (`kept_part`); a part
@@ -299,6 +313,14 @@ def _changes_nothing(entry: dict, held: dict | None) -> bool:
     return entry.get("amount_cents") == signed_cents(held)
 
 
+def _open_it_again(failure: Exception | None) -> str | None:
+    """The last line of a refused save shown after the form was left: where the form
+    says `Nothing was saved.` (not under a 5xx, nor for a failure that is no answer)."""
+    if isinstance(failure, EngineError) and failure.status < 500:
+        return OPEN_IT_AGAIN
+    return None
+
+
 class EditFormScreen(FormScreen):
     """The Edit form on the bank line of a ledger row, `record`: `⏎` and `s`.
 
@@ -312,9 +334,23 @@ class EditFormScreen(FormScreen):
         Binding("ctrl+x", "drop_part", "Drop part", priority=True),
     ]
 
-    def __init__(self, *, record: dict) -> None:
+    def __init__(
+        self,
+        *,
+        record: dict,
+        opener: Screen | None = None,
+        reload: Callable[[], None] | None = None,
+        shown: tuple[object, object] | None = None,
+    ) -> None:
+        """`opener` is the screen that opened the form and `reload` how it reads again
+        after a save; a save that answers after the form was left calls `reload` if
+        `opener` is the screen shown. `shown` is the (title, amount) the opener's list
+        drew the line with, where that is not the record's own."""
         super().__init__()
         self._record = record
+        self._opener, self._reload = opener, reload
+        # the line as its list showed it, for a refusal shown after the form is left
+        self._shown = shown or (record.get("title"), record.get("amount_cents"))
         self._picks: list = []
         # each account's currencies, in the order the engine lists them
         self._codes: dict[str, tuple[str, ...]] = {}
@@ -332,7 +368,7 @@ class EditFormScreen(FormScreen):
         self._line_reasons: dict[str, str | None] = {}
         self._original: dict = {}
         self._refusal: Exception | None = None  # the engine's, until something changes
-        self._left_statement = False  # the save's answer flags a part as leaving
+        self._saved = saved_words({})  # what the save's answer says
         self._pick_note: str | None = None  # a save stopped on the CURRENCY line with none picked
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
@@ -946,11 +982,21 @@ class EditFormScreen(FormScreen):
             on_success=self._done,
             on_failure=self._refused,
             on_response=self._answered,
+            error_text=refusal_text,
+            left_behind=LeftBehind(not_saved_line(*self._shown), _open_it_again, saved_words),
         )
+
+    def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
+        """A save that answered once the form was gone: the app says how it ended
+        (`EngineWriteMixin`), and the screen that opened the form, if it is the one
+        shown, reads again as after a save."""
+        super()._write_finished_after_leaving(app, item, error, *answer)
+        if error is None and self._reload is not None and app.screen is self._opener:
+            self._reload()
 
     def _answered(self, body: dict) -> None:
         # the note reads the engine's answer, never the line as read before the save
-        self._left_statement = moved_parts([body])[1] > 0
+        self._saved = saved_words(body)
 
     def _refused(self, err: Exception) -> None:
         """The refusal stays under the parts, the form open as it was."""
@@ -959,8 +1005,7 @@ class EditFormScreen(FormScreen):
         self._refresh_view()
 
     def _done(self) -> None:
-        left = self._left_statement
-        self.notify("Saved. It left its statement." if left else "Saved.")
+        toast(self, self._saved)  # a fixed sentence, chosen from the answer by `saved_words`
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 
 
@@ -974,7 +1019,13 @@ class BankLineEditFormScreen(EditFormScreen):
     included, so the form reads no line: the day and title off its first part,
     its `operation_code`, `account_id` and `currency_code`."""
 
-    def __init__(self, *, line: dict) -> None:
+    def __init__(
+        self,
+        *,
+        line: dict,
+        opener: Screen | None = None,
+        reload: Callable[[], None] | None = None,
+    ) -> None:
         first = (line.get("parts") or [{}])[0]
         record = {
             **first,
@@ -983,9 +1034,11 @@ class BankLineEditFormScreen(EditFormScreen):
             "currency_code": line.get("currency_code") or first.get("currency_code"),
             "operation_code": line.get("operation_code"),
         }
-        super().__init__(record=record)
+        super().__init__(record=record, opener=opener, reload=reload)
         self.crumb = ("Capture & ledger", "Statements", "Edit")
         self._take_line(line)
+        _day, title, _operation, net_cents = bank_line_columns(line)
+        self._shown = (title, net_cents)
 
     def _line_keys(self) -> list[str]:
         return ["date", "title", "operation", "account", "currency"]

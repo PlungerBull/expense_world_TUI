@@ -36,6 +36,7 @@ from expense.errors import format_error
 from expense.formatting import format_cents
 from expense.tui.screens._base import (
     DELETE_KEY,
+    LeftBehind,
     ResourceListScreen,
     list_refusal_text,
     not_done_line,
@@ -289,7 +290,7 @@ class AccountsScreen(ResourceListScreen):
             on_success=written,
             on_error=self._toggle_failed,
             error_text=currency_refusal_text,
-            left_behind=left_behind,
+            left_behind=LeftBehind(left_behind),
         )
 
     def action_make_person(self) -> None:
@@ -324,7 +325,7 @@ class AccountsScreen(ResourceListScreen):
             success=note,
             on_error=self._toggle_failed,
             error_text=list_refusal_text,
-            left_behind=_who(not_done, item),
+            left_behind=LeftBehind(_who(not_done, item)),
         )
 
     def _toggle_failed(self, message: str) -> None:

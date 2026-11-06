@@ -21,7 +21,7 @@ from textual.screen import Screen
 from textual.widgets import Input, Label, Static
 
 from expense.errors import format_error
-from expense.tui.screens._base import EngineWriteMixin
+from expense.tui.screens._base import EngineWriteMixin, LeftBehind
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
@@ -29,7 +29,7 @@ from expense.tui.widgets.refusal import toast
 #: What `⏎` on an empty title says, on every form that edits one.
 TITLE_REQUIRED = "Title is required."
 #: The last line of a refused save that answers after its form was left.
-NOTHING_SAVED = "Nothing was saved: open it again to fix it."
+OPEN_IT_AGAIN = "Nothing was saved: open it again to fix it."
 
 
 def form_bindings(
@@ -450,8 +450,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             on_response=self._answered,
             error_text=self._refusal_text,
             success=self._saved_words(),
-            left_behind=first_line,
-            left_behind_note=None if first_line is None else NOTHING_SAVED,
+            left_behind=None if first_line is None else LeftBehind(first_line, OPEN_IT_AGAIN),
         )
 
     def _land_on_refused_line(self) -> None:

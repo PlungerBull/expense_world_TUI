@@ -96,6 +96,7 @@ from expense.tui.screens._base import (
     AdaptiveRowsMixin,
     ContentSwapLockMixin,
     EngineWriteMixin,
+    LeftBehind,
     NewestReadMixin,
     SectionScreen,
     bank_line_delete_message,
@@ -279,7 +280,7 @@ def ask_line_delete(
             bank_line_delete_message(line, account_name),
             done="Transaction deleted.",
             after=after,
-            left_behind=not_deleted_line(line_title, line_net),
+            left_behind=LeftBehind(not_deleted_line(line_title, line_net)),
         )
         return
     record = lone_transaction(line)
@@ -292,7 +293,7 @@ def ask_line_delete(
         transaction_delete_message(record, account_name),
         done="Transaction deleted.",
         after=after,
-        left_behind=not_deleted_line(record.get("title"), record.get("amount_cents")),
+        left_behind=LeftBehind(not_deleted_line(record.get("title"), record.get("amount_cents"))),
     )
 
 
@@ -815,7 +816,7 @@ class StatementsScreen(SectionScreen):
                 from expense.tui.screens.edit_form import BankLineEditFormScreen
 
                 self.app.push_screen(
-                    BankLineEditFormScreen(line=line),
+                    BankLineEditFormScreen(line=line, opener=self, reload=self._reload_unfiled),
                     lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
                 )
             return
@@ -2528,7 +2529,10 @@ class FlaggedLinesScreen(
         if line is None or part is None:
             return
         record = {**part, "bank_line_id": line.get("id")}
-        form = EditFormScreen(record=record)
+        _day, title, _operation, net_cents = bank_line_columns(line)
+        form = EditFormScreen(
+            record=record, opener=self, reload=self._load, shown=(title, net_cents)
+        )
         form.crumb = (*self.crumb, "Edit")
         self.app.push_screen(form, lambda saved: saved and self._load())
 

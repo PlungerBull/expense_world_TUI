@@ -1013,6 +1013,8 @@ def test_enter_edits_every_row_in_no_statement_in_the_footer_the_card_and_the_ke
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, BankLineEditFormScreen))
         assert app.screen._line is UNFILED[1]
+        # a save answered after the form was left reads this list again
+        assert (app.screen._opener, app.screen._reload) == (screen, screen._reload_unfiled)
 
     run_app(scenario)
 

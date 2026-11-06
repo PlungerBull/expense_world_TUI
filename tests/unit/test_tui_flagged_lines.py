@@ -426,6 +426,8 @@ def test_enter_opens_the_line_in_the_ledgers_edit_form(fake_client, monkeypatch)
         assert type(form) is EditFormScreen
         assert form._record["bank_line_id"] == "l-uber"
         assert form.crumb == ("Statements", "Octubre 2026", "Flagged", "Edit")
+        # a save answered after the form was left reads this list again
+        assert (form._opener, form._reload) == (screen, screen._load)
         assert engine.reads == [_review("s-sig")]
         form.dismiss(None)
         await wait_for(pilot, lambda: app.screen is screen)
@@ -435,6 +437,32 @@ def test_enter_opens_the_line_in_the_ledgers_edit_form(fake_client, monkeypatch)
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         app.screen.dismiss(True)
         await wait_for(pilot, lambda: engine.reads == [_review("s-sig")] * 2)
+
+    run_app(scenario)
+
+
+def test_the_edit_form_of_a_split_line_names_it_by_the_total_the_list_shows(
+    fake_client, monkeypatch
+):
+    """A refused save shown after the form is left names the line as the list drew it:
+    its title and its whole `net_cents`, not the first part's amount."""
+    from expense.tui.screens._base import not_saved_line
+
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, FARMACIA, UBER)
+    _flags(fake_client, SOLES, ["l-farmacia", "l-uber"], [])
+
+    async def scenario(pilot, app):
+        await _complete(pilot, app, SOLES)
+        await _flagged_screen(pilot, app)
+        await pilot.press("enter")  # the oldest line: the split one
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+        form = app.screen
+        assert form._record["bank_line_id"] == "l-farmacia"
+        _day, title, _operation, net = bank_line_columns(FARMACIA)
+        assert net == -10000
+        assert not_saved_line(*form._shown) == not_saved_line(title, net)
+        assert "-100.00" in not_saved_line(*form._shown)  # the part's -60.00 is not it
 
     run_app(scenario)
 

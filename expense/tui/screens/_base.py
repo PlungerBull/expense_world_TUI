@@ -133,6 +133,19 @@ class NewestReadMixin:
             hand_back(*args, **kwargs)
 
 
+@dataclass(frozen=True)
+class LeftBehind:
+    """How a write is finished if its screen has left before the engine answers
+    (`EngineWriteMixin`): `first_line` is a refusal's first line, what did not
+    happen; `note` ends that refusal with one more line, dim: a string, or a function
+    of the failure (None: no line); `success_from` makes the success words of the
+    engine's answer, where they depend on it. Touches no widget."""
+
+    first_line: str
+    note: "str | Callable[[Exception | None], str | None] | None" = None
+    success_from: Callable[[dict], str] | None = None
+
+
 @dataclass
 class _QueuedWrite:
     method: str
@@ -145,8 +158,7 @@ class _QueuedWrite:
     config: "Config | None" = None
     error_text: Callable[[Exception], str] = format_error
     on_failure: Callable[[Exception], None] | None = None
-    left_behind: str | None = None  # the first line of the refusal shown if the screen has left
-    left_behind_note: str | None = None  # a last line, dim, under that refusal's words
+    left_behind: LeftBehind | None = None  # set: finished and shown if the screen has left
 
 
 class EngineWriteMixin:
@@ -169,7 +181,7 @@ class EngineWriteMixin:
     **After the screen has left.** A write that carries `left_behind` (the
     refused message's first line) is still answered once its screen is gone:
     success toasts `success`, a refusal toasts `error_text`'s words titled
-    `left_behind` for 10 seconds, both on the app, touching no widget of the
+    its `first_line` for 10 seconds, both on the app, touching no widget of the
     left screen. The writes still queued behind it are then sent in order, each
     ending shown the same way, a refusal stopping none of them (the screen that
     would have resynced is gone). Textual refuses to start a worker of an
@@ -198,8 +210,7 @@ class EngineWriteMixin:
         config: "Config | None" = None,
         error_text: Callable[[Exception], str] = format_error,
         on_failure: Callable[[Exception], None] | None = None,
-        left_behind: str | None = None,
-        left_behind_note: str | None = None,
+        left_behind: LeftBehind | None = None,
     ) -> _QueuedWrite:
         """Queue one engine write and return it. `on_response` receives the engine's own body
         (before `on_success`) for the callers that need it: a `complete`
@@ -215,8 +226,7 @@ class EngineWriteMixin:
         `on_failure` receives the failure itself instead of `on_error`'s words,
         for a screen that lays a refusal out by its keys (the Edit form
         names each refused part by its number). `left_behind` opts the write in
-        to being finished after its screen has left (class docstring);
-        `left_behind_note` ends that refusal with one more line, dim."""
+        to being finished after its screen has left (`LeftBehind`, class docstring)."""
         if self._write_queue is None:
             self._write_queue = deque()
         item = _QueuedWrite(
@@ -231,7 +241,6 @@ class EngineWriteMixin:
             error_text,
             on_failure,
             left_behind,
-            left_behind_note,
         )
         self._write_queue.append(item)
         self._pump_writes()
@@ -297,12 +306,17 @@ class EngineWriteMixin:
             if_left=(
                 None
                 if item.left_behind is None
-                else lambda: self._write_finished_after_leaving(app, item, error)
+                else lambda: self._write_finished_after_leaving(app, item, error, body, failure)
             ),
         )
 
     def _write_finished_after_leaving(
-        self, app: "App", item: _QueuedWrite, error: str | None
+        self,
+        app: "App",
+        item: _QueuedWrite,
+        error: str | None,
+        body: dict | None = None,
+        failure: Exception | None = None,
     ) -> None:
         """UI thread, the screen gone: show how `item` ended on the app, then send
         the next queued write (and so on). A queued write with no `left_behind`
@@ -310,15 +324,25 @@ class EngineWriteMixin:
         self._writes_answered += 1
         self._write_inflight = False
         self._write_current = None
+        behind = item.left_behind
+        assert behind is not None  # only a write that opted in is finished here
+        note = behind.note
+        if callable(note):
+            note = note(failure)
         if error is None:
-            toast(app, item.success)
-        elif item.left_behind_note is None:
-            toast(app, error, title=item.left_behind, severity="error", timeout=10)
+            toast(
+                app,
+                behind.success_from(body or {})
+                if behind.success_from is not None
+                else item.success,
+            )
+        elif note is None:
+            toast(app, error, title=behind.first_line, severity="error", timeout=10)
         else:
             # the engine's words and the app's last line, the words set inside the markup
             app.notify(
-                as_markup([(error, ""), (item.left_behind_note, "dim")]),
-                title=item.left_behind or "",
+                as_markup([(error, ""), (note, "dim")]),
+                title=behind.first_line,
                 severity="error",
                 timeout=10,
                 markup=True,
@@ -384,7 +408,7 @@ class EngineWriteMixin:
         *,
         done: str,
         after: Callable[[], None] | None = None,
-        left_behind: str | None = None,
+        left_behind: LeftBehind | None = None,
     ) -> None:
         """`d` on a row: ask with `ConfirmModal` (only `y` deletes), then send
         `DELETE /{resource}/{id}` through `run_write` — the client's idempotency
@@ -433,10 +457,20 @@ def delete_row_line(title: object, amount_cents: object, day: str, account_name:
     return f"{title_or_untitled(title)} · {format_cents(amount_cents)} · {day} · {account_name}"
 
 
+def _transaction_words(title: object, amount_cents: object) -> str:
+    return f"{title_or_untitled(title)} · {format_cents(amount_cents)}"
+
+
 def not_deleted_line(title: object, amount_cents: object) -> str:
     """The first line of a refused delete shown after its screen has left:
     `Not deleted · TITLE · AMOUNT`."""
-    return f"Not deleted · {title_or_untitled(title)} · {format_cents(amount_cents)}"
+    return f"Not deleted · {_transaction_words(title, amount_cents)}"
+
+
+def not_saved_line(title: object, amount_cents: object) -> str:
+    """The first line of a refused save of a transaction shown after its form has
+    been left: `Not saved · TITLE · AMOUNT`, the line as its list showed it."""
+    return f"Not saved · {_transaction_words(title, amount_cents)}"
 
 
 def not_done_line(not_done: str, kind: str, name: object) -> str:
@@ -916,7 +950,7 @@ class ResourceListScreen(SectionScreen):
             message,
             done=done,
             after=self._deleted,
-            left_behind=self.not_deleted(item),
+            left_behind=LeftBehind(self.not_deleted(item)),
         )
 
     def _deleted(self) -> None:
