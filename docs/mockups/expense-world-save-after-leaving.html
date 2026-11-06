@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Save after leaving</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  :root[data-theme=dark]{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.qs{width:min(1440px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:100ch}
+  .head b,.blurb b,.cap b,.qs b{color:var(--text)}
+  .pane{margin-top:40px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 4px;max-width:100ch}
+  .blurb code,.cap code,.head code,.qs code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad);
+        max-width:calc(80ch + 40px);font-size:12px;font-family:var(--mono)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,640px),1fr));gap:16px}
+  .var{margin-top:14px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:calc(80ch + 40px)}
+  .qs{margin-top:22px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 6px;font-weight:600}
+  .qs ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+  .lbl .rec,.oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .term.wide{max-width:calc(140ch + 40px)}
+  .opt.one{grid-template-columns:1fr}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head"><h1>A save that answers after you leave its screen</h1>
+<p>You press <code>esc</code> while a save is still on its way to the engine. Today, when the engine answers, the app says nothing. From now on the message the screen would have shown comes over the screen you went to.</p>
+<p>Panes 0 and 1 show what changes. Panes 2 to 6 each need a pick, A or B. Everything is drawn at 80 columns, with invented accounts, rows and amounts. The screens behind the messages are sketches; only the messages are proposed. The button at the top right switches between a light and a dark terminal.</p></div>
+<div class="pane"><div class="lbl">0 · Today <span>— nothing</span></div><p class="blurb">You change a category on its Edit form, press <code>ctrl+s</code>, and press <code>esc</code> before the engine answers. The form closes. When the answer comes, the app drops it: no <code>Saved.</code>, no refusal, and the list still shows the old name.</p><div class="opt one"><div class="var"><div class="oh"><span>Manage ▸ Categories, after the save answered</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the save has answered</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Categories</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Status
+<span class="d">    ──────────────────────────────</span>
+    <span class="rev">Comida           active   </span>
+    Transporte       active
+    Salud            active
+    KORAKUEN         active
+    Hogar            archived
+
+
+
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div><p class="cap">The same for every save, delete, bulk edit and statement action you leave.</p></div></div></div><div class="pane"><div class="lbl">1 · A save you left lands <span>— your pick 1B, nothing to pick here</span></div><p class="blurb">The message the screen would have shown, now over the screen you went to. When that screen is the list the save changed, the list reads again from its first page, cursor on row 1, as after any save.</p><div class="opt"><div class="var"><div class="oh"><span>Manage ▸ Categories</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · left the Edit form</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Categories</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Status
+<span class="d">    ──────────────────────────────</span>
+    <span class="rev">Comida           active   </span>
+    Transporte       active
+    Salud            active
+    KORAKUEN         active
+    Hogar            archived
+
+
+
+
+
+
+
+
+
+                                        <span class="a">▌ </span><span class="b">Saved.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div><p class="cap">The list reads again: the new name shows.</p></div><div class="var"><div class="oh"><span>the ledger, after the Edit form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · left the Edit form</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Date        Title          Category         Amount
+<span class="d">    ──────────────────────────────────────────────────</span>
+    <span class="rev">2026-11-04  Wong           Comida           -45.90</span>
+    2026-11-03  Uber           Transporte  <span class="n">     -18.50</span>
+    2026-11-02  Inkafarma      Salud       <span class="n">     -32.00</span>
+    2026-11-01  Sueldo         KORAKUEN    <span class="p">   8,500.00</span>
+    2026-10-31  Tottus         Comida      <span class="n">    -212.40</span>
+    2026-10-30  Cine Plaza     @Pendiente  <span class="n">     -28.00</span>
+
+
+
+
+
+
+
+
+                                        <span class="a">▌ </span><span class="b">Saved. It left its statement.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Edit  <span class="a">space</span> Select  <span class="a">d</span> Delete</pre></div></div><p class="cap">The ledger reads its newest 10 again.</p></div></div></div><div class="pane"><div class="lbl">2 · A save you left is refused <span>— pick A or B</span></div><p class="blurb">On the form, a refusal shows under it and waits for you. Once you have left, the form and what you typed are gone, so the refusal comes as a message over the screen you are on, with the engine's words in full. The question is its first line. Either way it stays 10 seconds, as the bulk edit's refusals do today, not the usual 5. The engine's words here are invented.</p><div class="opt"><div class="var"><div class="oh">A · <span>titled Failed, the words as the form shows them</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · left the Edit form</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Date        Title          Category         Amount
+<span class="d">    ──────────────────────────────────────────────────</span>
+    <span class="rev">2026-11-04  Wong           Comida           -45.90</span>
+    2026-11-03  Uber           Transporte  <span class="n">     -18.50</span>
+    2026-11-02  Inkafarma      Salud       <span class="n">     -32.00</span>
+    2026-11-01  Sueldo         KORAKUEN    <span class="p">   8,500.00</span>
+    2026-10-31  Tottus         Comida      <span class="n">    -212.40</span>
+    2026-10-30  Cine Plaza     @Pendiente  <span class="n">     -28.00</span>
+
+
+
+
+
+                                        <span class="n">▌ </span><span class="b">Failed</span>
+                                        <span class="n">▌ </span><span class="n">VALIDATION_ERROR — Validation failed.</span>
+                                        <span class="n">▌ </span><span class="n">! part 2 (amount): Must not be zero.</span>
+                                        <span class="n">▌ </span><span class="d">Nothing was saved.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Edit  <span class="a">space</span> Select  <span class="a">d</span> Delete</pre></div></div><p class="cap">Today's title for a refusal. It does not say which save it was: you may have left two.</p></div><div class="var"><div class="oh">B · <span>titled with what was not saved</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · left the Edit form</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Date        Title          Category         Amount
+<span class="d">    ──────────────────────────────────────────────────</span>
+    <span class="rev">2026-11-04  Wong           Comida           -45.90</span>
+    2026-11-03  Uber           Transporte  <span class="n">     -18.50</span>
+    2026-11-02  Inkafarma      Salud       <span class="n">     -32.00</span>
+    2026-11-01  Sueldo         KORAKUEN    <span class="p">   8,500.00</span>
+    2026-10-31  Tottus         Comida      <span class="n">    -212.40</span>
+    2026-10-30  Cine Plaza     @Pendiente  <span class="n">     -28.00</span>
+
+
+
+
+                                        <span class="n">▌ </span><span class="b">Not saved · Wong · -45.90</span>
+                                        <span class="n">▌ </span><span class="n">VALIDATION_ERROR — Validation failed.</span>
+                                        <span class="n">▌ </span><span class="n">! part 2 (amount): Must not be zero.</span>
+                                        <span class="n">▌ </span><span class="d">Nothing was saved: open it again to</span>
+                                        <span class="n">▌ </span><span class="d">fix it.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Edit  <span class="a">space</span> Select  <span class="a">d</span> Delete</pre></div></div><p class="cap">The first line names it: <code>Not saved · Wong · -45.90</code>, <code>Not created · Category Viajes</code>, <code>Not deleted · Account Eliana</code>, <code>Not archived · Account BCP 4471</code>. The last line says how to try again.</p></div></div></div><div class="pane"><div class="lbl">3 · A bulk edit you left <span>— pick A or B</span></div><p class="blurb">You select 3 rows on the ledger, press <code>c</code>, pick KORAKUEN, and go back to Home while the rows are sent. Every row is still sent. Then the receipt and the refusals show, as on the ledger. On the ledger a refused row is named by its number in the list; on Home there is no list to count. The engine's words here are invented.</p><div class="opt"><div class="var"><div class="oh">A · <span>rows named by number, as on the ledger</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>                                                      <span class="d">▸ 2026-11</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+<span class="a">    CATEGORIES</span>         2026-09    2026-10  ▸ 2026-11
+    Comida              -790.10    -845.00    -258.30
+    Transporte          -142.00    -160.50     -18.50
+    KORAKUEN          8,500.00   8,500.00   8,500.00
+
+<span class="a">    BANK ACCOUNTS</span><span class="d">  balance today</span>
+    BCP 5678
+      PEN   -2,340.50
+    BCP 4471
+      PEN   12,450.00
+
+<span class="a">    LEDGER</span>                              <span class="a">▌ </span><span class="b">1 row → KORAKUEN</span>
+    Transactions · Statements
+                                        <span class="n">▌ </span><span class="b">2 of 3 refused</span>
+                                        <span class="n">▌ </span><span class="n">account_id: Locked by completed</span>
+                                        <span class="n">▌ </span><span class="n">statement.</span>
+                                        <span class="n">▌ </span>rows 1, 3
+
+
+ <span class="a">+</span> Log  <span class="a">⏎</span> Open  <span class="a">pgdn</span> Month back  <span class="a">?</span> Keys</pre></div></div><p class="cap">The same words the ledger shows today.</p></div><div class="var"><div class="oh">B · <span>rows named by date, title and amount</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>                                                      <span class="d">▸ 2026-11</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+<span class="a">    CATEGORIES</span>         2026-09    2026-10  ▸ 2026-11
+    Comida              -790.10    -845.00    -258.30
+    Transporte          -142.00    -160.50     -18.50
+    KORAKUEN          8,500.00   8,500.00   8,500.00
+
+<span class="a">    BANK ACCOUNTS</span><span class="d">  balance today</span>
+    BCP 5678
+      PEN   -2,340.50
+    BCP 4471
+      PEN   12,450.00
+                                        <span class="a">▌ </span><span class="b">1 row → KORAKUEN</span>
+<span class="a">    LEDGER</span>
+    Transactions · Statements           <span class="n">▌ </span><span class="b">2 of 3 refused</span>
+                                        <span class="n">▌ </span><span class="n">account_id: Locked by completed</span>
+                                        <span class="n">▌ </span><span class="n">statement.</span>
+                                        <span class="n">▌ </span>2026-10-31 · Tottus · -212.40
+                                        <span class="n">▌ </span>2026-10-30 · Cine Plaza · -28.00
+
+
+ <span class="a">+</span> Log  <span class="a">⏎</span> Open  <span class="a">pgdn</span> Month back  <span class="a">?</span> Keys</pre></div></div><p class="cap">You can find each row again without the list you left. Five rows or more show the first four and <code>and 3 more</code>.</p></div></div></div><div class="pane"><div class="lbl">4 · The account form you left <span>— pick A or B</span></div><p class="blurb">Your pick 2B: you leave, the opening balances still go, and you are told how each ended. All saved, it says <code>Saved.</code>, as pane 1. Here BCP 5678's name changed and both its opening balances, and the engine refuses the PEN one. On the form a refusal stops the saves after it, since the form still holds them for the next try. Once you have left, nothing holds them. The question is whether the USD one still goes. The engine's words here are invented.</p><div class="opt"><div class="var"><div class="oh">A · <span>a refusal stops the rest, and the message names them</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Name        Type          PEN        USD
+<span class="d">    ──────────────────────────────────────────</span>
+    <span class="rev">BCP 5678    bank      -2,340.50    -185.20</span>
+    BCP 4471    bank      12,450.00          —
+    Efectivo    bank         350.00          —
+    Eliana      person      -150.00          —
+
+
+
+                                        <span class="n">▌ </span><span class="b">Not all saved · Account BCP 5678</span>
+                                        <span class="n">▌ </span>The account's changes are saved. The
+                                        <span class="n">▌ </span>PEN opening balance is not:
+                                        <span class="n">▌ </span><span class="n">VALIDATION_ERROR — Validation failed.</span>
+                                        <span class="n">▌ </span><span class="n">  date: Must not be in the future.</span>
+                                        <span class="n">▌ </span>The USD opening balance was not sent.
+                                        <span class="n">▌ </span><span class="d">Open the account's Edit form to set</span>
+                                        <span class="n">▌ </span><span class="d">them again.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div><p class="cap">As the form does today, but said, since the form is gone.</p></div><div class="var"><div class="oh">B · <span>each one still goes, and the message says how each ended</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Name        Type          PEN        USD
+<span class="d">    ──────────────────────────────────────────</span>
+    <span class="rev">BCP 5678    bank      -2,340.50    -185.20</span>
+    BCP 4471    bank      12,450.00          —
+    Efectivo    bank         350.00          —
+    Eliana      person      -150.00          —
+
+
+
+                                        <span class="n">▌ </span><span class="b">Not all saved · Account BCP 5678</span>
+                                        <span class="n">▌ </span>The account's changes are saved. The
+                                        <span class="n">▌ </span>PEN opening balance is not:
+                                        <span class="n">▌ </span><span class="n">VALIDATION_ERROR — Validation failed.</span>
+                                        <span class="n">▌ </span><span class="n">  date: Must not be in the future.</span>
+                                        <span class="n">▌ </span>The USD opening balance is saved.
+                                        <span class="n">▌ </span><span class="d">Open the account's Edit form to set</span>
+                                        <span class="n">▌ </span><span class="d">PEN again.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div><p class="cap">Only what the engine refused is left to type again. The same goes for ticks on a statement still waiting to be sent when you leave it.</p></div></div></div><div class="pane"><div class="lbl">5 · A statement completed after you left <span>— pick A or B</span></div><p class="blurb">On the statement, a complete that flags lines shows <code>Statement completed.</code>, the engine's notes under the head, and opens the flagged lines by itself. You pressed <code>c</code>, <code>y</code>, then <code>esc</code> back to the statements list. The engine's note here is invented.</p><div class="opt"><div class="var"><div class="oh">A · <span>the flagged lines open over wherever you are</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · opened by itself</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  SIG-202610  ▸  <span class="b">Flagged</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    SIG-202610 has 3 flagged lines. 3 lines dated up to its last day
+    are in no statement.
+
+    Date        Title          Amount
+<span class="d">    ────────────────────────────────────</span>
+    <span class="rev">2026-10-29  Rappi          -24.90</span>
+    2026-10-30  Cine Plaza     <span class="n">-28.00</span>
+    2026-10-31  Starbucks      <span class="n">-15.40</span>
+
+
+
+
+
+
+
+
+                                        <span class="a">▌ </span><span class="b">Statement completed.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Edit  <span class="a">d</span> Delete</pre></div></div><p class="cap">Exactly what the statement would have done, but a screen you did not open appears.</p></div><div class="var"><div class="oh">B · <span>a message: the notes, and where the flagged lines are</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the statements list</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">BCP 5678</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Statement   Dates                      Status
+<span class="d">    ──────────────────────────────────────────────</span>
+    <span class="rev">SIG-202610  2026-10-01 → 2026-10-31    completed</span>
+    SIG-202609  2026-09-01 → 2026-09-30    completed
+    SIG-202608  2026-08-01 → 2026-08-31    completed
+
+
+
+
+
+
+
+                                        <span class="a">▌ </span><span class="b">Statement completed · SIG-202610</span>
+                                        <span class="a">▌ </span><span class="w">⚠ USD: no balances were given for</span>
+                                        <span class="a">▌ </span><span class="w">this currency.</span>
+                                        <span class="a">▌ </span><span class="w">⚑ 3 lines flagged for review: open</span>
+                                        <span class="a">▌ </span><span class="w">the statement and press f.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">⏎</span> Open  <span class="a">u</span> No statement</pre></div></div><p class="cap">You stay where you went; the statement's <code>⚑</code> line and <code>f</code> are there when you open it.</p></div></div></div><div class="pane"><div class="lbl">6 · A statement's balances saved after you left <span>— pick A or B</span></div><p class="blurb"><code>c</code> on a statement with no balances asks for them, saves them, then asks <code>Complete statement?</code>. If you leave while the balances save, that question never comes, and the statement is not completed. On the statement, a balances save says nothing; the question follows.</p><div class="opt"><div class="var"><div class="oh">A · <span>nothing, as the statement says nothing</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the statements list</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">BCP 5678</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Statement   Dates                      Status
+<span class="d">    ──────────────────────────────────────────────</span>
+    <span class="rev">SIG-202610  2026-10-01 → 2026-10-31    completed</span>
+    SIG-202609  2026-09-01 → 2026-09-30    completed
+    SIG-202608  2026-08-01 → 2026-08-31    completed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">⏎</span> Open  <span class="a">u</span> No statement</pre></div></div><p class="cap">The balances are saved; nothing says the statement is still open.</p></div><div class="var"><div class="oh">B · <span>a message: saved, but not completed</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the statements list</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Statements  ▸  <span class="b">BCP 5678</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+    Statement   Dates                      Status
+<span class="d">    ──────────────────────────────────────────────</span>
+    <span class="rev">SIG-202610  2026-10-01 → 2026-10-31    completed</span>
+    SIG-202609  2026-09-01 → 2026-09-30    completed
+    SIG-202608  2026-08-01 → 2026-08-31    completed
+
+
+
+
+
+
+
+
+
+                                        <span class="a">▌ </span><span class="b">Balances saved · SIG-202611</span>
+                                        <span class="a">▌ </span><span class="d">The statement is not completed: open</span>
+                                        <span class="a">▌ </span><span class="d">it and press c.</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">⏎</span> Open  <span class="a">u</span> No statement</pre></div></div><p class="cap">You know the balances are in and the statement still waits for <code>c</code>.</p></div></div></div>
+
+<div class="qs"><h2>What to pick</h2>
+<ul>
+<li><b>Pane 2</b> · A or B: the first line of a refused save you left. Recommended B, which names the save, since you may have left more than one.</li>
+<li><b>Pane 3</b> · A or B: how a bulk edit you left names its refused rows. Recommended B, since the row numbers point at a list you are no longer on.</li>
+<li><b>Pane 4</b> · A or B: after you leave, does one refused opening balance stop the ones after it? Recommended B, so only what the engine refused is left to redo.</li>
+<li><b>Pane 5</b> · A or B: a completed statement's flagged lines, after you left it. Recommended B, so no screen opens by itself.</li>
+<li><b>Pane 6</b> · A or B: balances saved, completion never asked. Recommended B, so you never think a statement is completed when it is not.</li>
+</ul>
+<p>Saves where <code>esc</code> already waits for the engine are unchanged: the LOG bar, a bank file's import and a statement's PDF close.</p></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',()=>{const r=document.documentElement;
+const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+r.dataset.theme=dark?'light':'dark';});
+</script>
+</body>
+</html>

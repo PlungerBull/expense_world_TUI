@@ -39,7 +39,7 @@ rows](specs/the-keys-card-at-24-rows.md).
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
-New, two questions: [a save that answers after you leave its
+Two questions answered, five more on its mockup: [a save that answers after you leave its
 screen](specs/a-save-that-answers-after-you-leave.md).
 
 Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;

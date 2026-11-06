@@ -4,7 +4,8 @@ The Backlog run of 2026-11-05 found this while it moved the app's background wor
 shared hand-back: you can leave a screen (`esc`) while its save is still on its way to the
 engine, and when the engine answers, the app says nothing.
 
-**Status: drafted on 2026-11-05; questions 1 and 2 for the owner.** It waits on no other spec.
+**Status: questions 1 and 2 answered on 2026-11-06; questions 3 to 7, on the mockup of the
+picked messages, wait for the owner.** It waits on no other spec.
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -34,21 +35,34 @@ before the engine answers, the screen closes. When the engine answers, the app d
    picks.
 3. The unit suite passes.
 
+## Decided
+
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | You leave a screen before its save answers. What does the app show when it answers? | The message the screen would have shown: "Saved.", "Account created.", or the engine's refusal in full; for a bulk edit, the receipt and each refused row (2026-11-06). |
+| 2 | The account form, left while it saves its opening balances? | You leave, the opening balances still go, and you are told how each ended (2026-11-06). |
+
 ## Questions for the owner
 
-1. **You leave a screen before its save answers. What does the app show when it answers?**
-   - **A.** Nothing, as today.
-   - **B.** The message the screen would have shown: "Saved.", "Account created.", or the
-     engine's refusal in full; for a bulk edit, the receipt and each refused row.
-   - **C.** One short message for every save, such as "Saved." or "Not saved".
-   **Recommended:** B. A refusal you never see is a change you think happened.
-2. **The account form, left while it saves its opening balances?**
-   - **A.** `esc` waits: you cannot leave until the whole save is done.
-   - **B.** You leave, the opening balances still go, and you are told how each ended.
-   - **C.** You leave, the opening balances not yet sent are dropped, and a message names them.
-   **Recommended:** B. Nothing you typed is lost, and you are not held on the form.
+The picked messages are drawn in
+[expense-world-save-after-leaving.html](../mockups/expense-world-save-after-leaving.html); each
+question below is an A or B there.
 
-Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is built.
+3. **Pane 2: the first line of a refused save you left.** A: `Failed`, as today. B: what was not
+   saved, `Not saved · Wong · -45.90`. **Recommended:** B, since you may have left two saves.
+4. **Pane 3: a bulk edit's refused rows, once you have left the ledger.** A: by number,
+   `rows 1, 3`. B: by date, title and amount. **Recommended:** B: the numbers point at a list
+   you are no longer on.
+5. **Pane 4: after you leave, does one refused opening balance stop the ones after it?** A: yes,
+   and the message names those not sent. B: no, each still goes and the message says how each
+   ended; the same for ticks on a statement still waiting to be sent. **Recommended:** B: only
+   what the engine refused is left to redo.
+6. **Pane 5: a statement completed after you left, with lines flagged.** A: the flagged lines
+   open by themselves over wherever you are. B: a message with the engine's notes and where the
+   flagged lines are. **Recommended:** B: no screen opens by itself.
+7. **Pane 6: `c` saved a statement's balances after you left, so "Complete statement?" was never
+   asked.** A: nothing. B: `Balances saved`, and that the statement is not completed.
+   **Recommended:** B: you never think a statement is completed when it is not.
 
 ---
 
