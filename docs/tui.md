@@ -114,6 +114,13 @@ or `Saved. It left its statement.` from the engine's answer (`LeftBehind.success
 ending, dim, with the same last line, except under a 5xx or when the engine did not answer
 (`_open_it_again`). The screen that opened the form (`opener`, `reload`),
 when it is the one shown after a save, reads again as after any save.
+The account Edit form saves this way as one message for the whole save, which is several
+writes: left with any unanswered, each still goes in order, a refusal stopping none, and the last
+answer says `Saved.` or an error toast titled `Not all saved · Account <name>` (`Person <name>`;
+`Not saved · …` when every write was refused), a line per write, the engine's words under a
+refused one, then, dim, `Open the account's Edit form to set PEN again.` naming what was refused
+(`SaveReport` in [_base.py](../expense/tui/screens/_base.py)). The list reads again once, if any
+write landed.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

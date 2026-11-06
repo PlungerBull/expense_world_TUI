@@ -28,7 +28,9 @@ from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.tui.screens._base import (
+    LeftBehind,
     ResourceListScreen,
+    SaveReport,
     call_while_attached,
     not_done_line,
     screen_fetch_kwargs,
@@ -311,13 +313,17 @@ class BarFormScreen(FormScreen):
     def _left_behind(self) -> str | None:
         return not_done_line(self.NOT_DONE, self._kind(), self._shown_name())
 
+    def _landed_after_leaving(self, item, error) -> bool:
+        """Whether the answer just shown is the one after which the list reads again."""
+        return error is None
+
     def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
         """A save that landed once the form was gone: the app says how it ended
         (`EngineWriteMixin`), and if the screen now showing is this form's list,
         it reads again from its first page."""
         super()._write_finished_after_leaving(app, item, error, *answer)
         shown = app.screen
-        if error is None and isinstance(shown, ResourceListScreen):
+        if self._landed_after_leaving(item, error) and isinstance(shown, ResourceListScreen):
             if shown.RESOURCE == self.RESOURCE:
                 shown.start_over()
 
@@ -467,6 +473,12 @@ class NewAccountScreen(BarFormScreen):
                     self._refused_line = line
                     break
         return format_error(exc)
+
+
+def _set_again(refused: list[str]) -> str:
+    """The last line of a save's refusal message: what to set again, in the order sent."""
+    names = f"{', '.join(refused[:-1])} and {refused[-1]}" if len(refused) > 1 else refused[0]
+    return f"Open the account's Edit form to set {names} again."
 
 
 def _edit_payload(values: dict, original_color: str | None) -> dict:
@@ -660,6 +672,7 @@ class EditAccountScreen(NewAccountScreen):
         super().__init__()
         self._id = record["id"]
         self._name = record.get("name") or "—"
+        self._was = record.get("name") or ""  # as the list shows it
         # Both read-only here. The currencies change with their own keys on
         # Manage ▸ Accounts; `type` is no field of the account's update: it
         # changes with `t` there, which sends `make-person` or `make-account`
@@ -927,7 +940,18 @@ class EditAccountScreen(NewAccountScreen):
     ) -> None:
         self._submitting = True
         self.query_one("#hint", Static).update(Text("Saving…", style="dim"))
+        report = SaveReport(
+            len(openings) + (account is not None),
+            not_done_line("Not all saved", self._kind(), self._shown_name()),
+            self._left_behind() or "",
+            _set_again,
+        )
         if account is not None:
+            account_part = report.part(
+                "its changes",
+                "The account's changes are saved.",
+                "The account's changes are not saved:",
+            )
 
             def account_saved() -> None:
                 # the colour it sent is now the account's own: picking the old
@@ -938,6 +962,7 @@ class EditAccountScreen(NewAccountScreen):
                     {"statement_code": self._original_code, **account}
                 )
                 self._wrote = True
+                account_part.record(None)
                 if not openings:
                     self._done()
 
@@ -948,30 +973,36 @@ class EditAccountScreen(NewAccountScreen):
                 on_success=account_saved,
                 on_error=self._failed,
                 error_text=self._refusal_text,
+                left_behind=LeftBehind(account_part.refused, part=account_part),
             )
         for i, (code, (method, path, body)) in enumerate(openings):
             sent = {
                 "opening": self._values.get(_pair_key("opening", code)),
                 "as_of": self._values.get(_pair_key("as_of", code)),
             }
+            deleted = method == "DELETE"
+            part = report.part(
+                code,
+                f"The {code} opening balance is {'deleted' if deleted else 'saved'}.",
+                f"The {code} opening balance is not{' deleted' if deleted else ''}:",
+            )
             self.run_write(
                 method,
                 path,
                 json_body=body,
-                on_success=self._opening_saved(code, body, sent, last=i == len(openings) - 1),
+                on_success=self._opening_saved(code, body, sent, part, last=i == len(openings) - 1),
                 on_error=self._half_failed if account is not None else self._failed,
                 error_text=lambda exc, code=code: self._refusal_text(exc, code),
+                left_behind=LeftBehind(part.refused, part=part),
             )
 
-    def _saved_words(self) -> str:
-        return "Saved."
-
-    def _opening_saved(self, code: str, body: dict | None, sent: dict, *, last: bool):
+    def _opening_saved(self, code: str, body: dict | None, sent: dict, part, *, last: bool):
         """The success callback of `code`'s write: the form now knows the row
         as saved, so a later refusal's next save sends only what is unsaved."""
 
         def saved() -> None:
             self._wrote = True
+            part.record(None)
             opening = self._openings[code]
             if sent["opening"] is None:  # deleted
                 opening.id, opening.original = None, {}
@@ -983,6 +1014,17 @@ class EditAccountScreen(NewAccountScreen):
                 self._done()
 
         return saved
+
+    def _shown_name(self) -> str:
+        return self._was
+
+    def _landed_after_leaving(self, item, error) -> bool:
+        """The list reads again once, at the save's last answer, if any part landed."""
+        report = item.left_behind.part.report
+        return report.complete and report.landed
+
+    def _saved_words(self) -> str:
+        return "Saved."
 
     def _half_failed(self, message: str) -> None:
         """The account saved, an opening balance was refused: say which is which.

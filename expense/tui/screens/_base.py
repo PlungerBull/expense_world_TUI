@@ -139,11 +139,85 @@ class LeftBehind:
     (`EngineWriteMixin`): `first_line` is a refusal's first line, what did not
     happen; `note` ends that refusal with one more line, dim: a string, or a function
     of the failure (None: no line); `success_from` makes the success words of the
-    engine's answer, where they depend on it. Touches no widget."""
+    engine's answer, where they depend on it; `part` makes the write one of several
+    that a `SaveReport` reports as one message, in place of its own. Touches no widget."""
 
     first_line: str
     note: "str | Callable[[Exception | None], str | None] | None" = None
     success_from: Callable[[dict], str] | None = None
+    part: "ReportedPart | None" = None  # set: the write is one part of a `SaveReport`
+
+
+class SaveReport:
+    """One message for a save that is several writes, shown when the last answers after
+    its screen has left. Each write is a `part` (`SaveReport.part`, its `LeftBehind.part`)
+    and each answer, from before the screen left or after, is recorded in the order sent.
+    Saved whole, the message is `saved`; else an error toast of 10 seconds, titled
+    `all_refused` when every part was refused and `some_refused` when not, one line per
+    part (its words, then the engine's words under a refused one), and a dim last line
+    from `closing`, given the refused parts' `name`s. Touches no widget."""
+
+    def __init__(
+        self,
+        parts: int,
+        some_refused: str,
+        all_refused: str,
+        closing: Callable[[list[str]], str],
+        saved: str = "Saved.",
+    ) -> None:
+        self.parts = parts
+        self._titles = (some_refused, all_refused)
+        self._closing = closing
+        self._saved = saved
+        self._answers: list[tuple[ReportedPart, str | None]] = []
+
+    def part(self, name: str, saved: str, refused: str) -> "ReportedPart":
+        """A write of this save: `name` is what a refusal leaves to do again, `saved` and
+        `refused` the lines for its two endings."""
+        return ReportedPart(self, name, saved, refused)
+
+    @property
+    def complete(self) -> bool:
+        return len(self._answers) >= self.parts
+
+    @property
+    def landed(self) -> bool:
+        """At least one part was saved."""
+        return any(error is None for _, error in self._answers)
+
+    def show(self, app: "App") -> None:
+        refused = [part.name for part, error in self._answers if error is not None]
+        if not refused:
+            toast(app, self._saved)
+            return
+        lines: list[tuple[str, str]] = []
+        for part, error in self._answers:
+            if error is None:
+                lines.append((part.saved, ""))
+            else:
+                lines += [(part.refused, ""), (error, "")]
+        lines.append((self._closing(refused), "dim"))
+        app.notify(
+            as_markup(lines),
+            title=self._titles[len(refused) == self.parts],
+            severity="error",
+            timeout=10,
+            markup=True,
+        )
+
+
+@dataclass(frozen=True)
+class ReportedPart:
+    """One write of a `SaveReport`; `record` is called with its answer: None when it
+    was saved, else the engine's words."""
+
+    report: SaveReport
+    name: str
+    saved: str
+    refused: str
+
+    def record(self, error: str | None) -> None:
+        self.report._answers.append((self, error))
 
 
 @dataclass
@@ -178,8 +252,9 @@ class EngineWriteMixin:
     typically resyncs. Why, with the rejected alternatives: docs/decisions.md
     "TUI writes: FIFO queue in EngineWriteMixin, error drops the queue".
 
-    **After the screen has left.** A write that carries `left_behind` (the
-    refused message's first line) is still answered once its screen is gone:
+    **After the screen has left.** A write that carries `left_behind` (a
+    `LeftBehind`: the refused message's first line and more) is still answered
+    once its screen is gone:
     success toasts `success`, a refusal toasts `error_text`'s words titled
     its `first_line` for 10 seconds, both on the app, touching no widget of the
     left screen. The writes still queued behind it are then sent in order, each
@@ -187,7 +262,8 @@ class EngineWriteMixin:
     would have resynced is gone). Textual refuses to start a worker of an
     unmounted node, so those sends run as thread workers of the *app*
     (`App.run_worker`, same `engine-write` group); the queue itself is plain
-    state on the screen object, which outlives its mount. A write with no
+    state on the screen object, which outlives its mount. Writes that are parts of a
+    `SaveReport` show no message of their own: the report's, when the last answers. A write with no
     `left_behind` is dropped when its answer lands after the screen has left,
     and nothing queued behind it is sent.
     """
@@ -326,6 +402,12 @@ class EngineWriteMixin:
         self._write_current = None
         behind = item.left_behind
         assert behind is not None  # only a write that opted in is finished here
+        if behind.part is not None:  # one message for the whole save, at its last answer
+            behind.part.record(error)
+            if behind.part.report.complete:
+                behind.part.report.show(app)
+            self._send_next_after_leaving(app)
+            return
         note = behind.note
         if callable(note):
             note = note(failure)
@@ -347,6 +429,9 @@ class EngineWriteMixin:
                 timeout=10,
                 markup=True,
             )
+        self._send_next_after_leaving(app)
+
+    def _send_next_after_leaving(self, app: "App") -> None:
         queue = self._write_queue
         if not queue:
             return
