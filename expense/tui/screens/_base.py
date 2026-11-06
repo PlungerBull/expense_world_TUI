@@ -25,7 +25,7 @@ from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.types import NoActiveAppError
 from textual.widget import Widget
-from textual.widgets import Footer, LoadingIndicator, Static
+from textual.widgets import LoadingIndicator, Static
 from textual.worker import get_current_worker
 
 from expense.errors import format_error
@@ -513,14 +513,13 @@ class SectionScreen(
     ]
     crumb: tuple[str, ...] = ()
     CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
-    footer_class: type[Footer] = FittingFooter  # a footer that fits the width, key by key
     _started: bool = False  # first load ran (it waits for the first layout pass)
     _read_started: int | None = None  # writes answered when the read being built began
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
         yield VerticalScroll(LoadingIndicator(), id="content")
-        yield self.footer_class()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         # First load waits for the first layout pass: adaptive page sizing

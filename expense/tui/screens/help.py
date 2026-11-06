@@ -25,9 +25,10 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.keys import format_key, key_to_character
 from textual.screen import ModalScreen
-from textual.widgets import Footer, Static
+from textual.widgets import Static
 
 from expense.tui.theme import ACCENT
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.refusal import under_itself
 
 #: Only BINDINGS declared by classes under this package reach the card. Textual's
@@ -333,7 +334,7 @@ class HelpModal(ModalScreen):
             Static(Text("[?] or [esc] close", style="dim")),
             id="modal",
         )
-        yield Footer()
+        yield FittingFooter()
 
     def action_close(self) -> None:
         self.dismiss(None)

@@ -38,7 +38,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Footer, Static
+from textual.widgets import Static
 
 from expense import reads
 from expense.bank_import import flow
@@ -81,6 +81,7 @@ from expense.tui.dropped import is_statement
 from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.cells import amount_cell
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import hanging, toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
@@ -239,7 +240,7 @@ class ImportScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb(), id="crumb")
         yield Static("", id="import-body")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self._repaint()

@@ -28,7 +28,7 @@ expense/tui/
     windowed.py     # CURSOR_STYLE + WindowedList, the window/cursor/page arithmetic
     cursor_list.py  # CursorList, list_table(), list_cell(), CursorOptionList (home menu)
     checklist.py    # CheckList — a statement's bank lines, one per row
-    footer.py       # FittingFooter — tighter spacing, then fewer keys, when the keys outgrow the width
+    footer.py       # FittingFooter — every screen's footer: tighter spacing, then fewer keys, when the keys outgrow the width
     picker.py       # suggestion_list() + matching() — the name list under a bar
     refusal.py      # hanging(), under_itself(), toast(), as_markup(), run_stopped()
     parts_table.py  # the Edit form's parts table, read-only lines, refused-save lines
@@ -1835,15 +1835,13 @@ account name wraps is counted. The "no statement" list draws no page status
 the footer; its caption's `N of M loaded` says the rest. A statement's list is measured again
 after every layout of the screen, beneath a box too, so it fills the room the head, a refused
 complete's lines, the close's notes and the `⚑` line leave, whichever of them shows; the rows
-set apart count toward the page, so its page status always shows. The browse and a statement's screen use a
-`FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)), so no key is cut at 80
-columns: not `u No statement` beside the panel's paging keys, nor `? Keys` beside a draft's `f`.
+set apart count toward the page, so its page status always shows.
 
 **A footer too wide for the screen** tightens its spacing first (one space between keys), and
 when the keys are still too wide, whole keys leave it from the end, so none is ever drawn cut.
-A key left out of the footer still works, and `?` lists it. The ledger and Manage's lists, which
-share `SectionScreen`, draw the `FittingFooter`, as do the Statements screens above
-([footer.py](../expense/tui/widgets/footer.py)).
+A key left out of the footer still works, and `?` lists it. Every screen's footer is the
+`FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)): no key is cut at 80 columns,
+not `u No statement` beside the Statements panel's paging keys, nor `? Keys` beside a draft's `f`.
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed

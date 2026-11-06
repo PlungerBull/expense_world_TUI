@@ -79,7 +79,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.screen import Screen
-from textual.widgets import Footer, Input, Label, Static
+from textual.widgets import Input, Label, Static
 
 from expense import reads
 from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_transaction_batch
@@ -115,6 +115,7 @@ from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
 from expense.tui.widgets.cursor_list import list_cell
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import run_stopped, toast
@@ -843,7 +844,7 @@ class LogBarScreen(Screen):
         yield Static("", id="suggest")
         yield Static("", id="staged")
         yield AccountPeek()
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self.query_one("#bar", Input).focus()

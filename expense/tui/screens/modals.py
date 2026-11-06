@@ -9,9 +9,10 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import Footer, Input, Static
+from textual.widgets import Input, Static
 
 from expense.quickadd.money import parse_amount
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import toast
 
@@ -102,7 +103,7 @@ class ConfirmModal(UnderHead, ModalScreen[bool]):
             *self._tail(),
             id="modal",
         )
-        yield Footer()
+        yield FittingFooter()
 
     def action_confirm(self) -> None:
         self.dismiss(True)
@@ -143,7 +144,7 @@ class PickModal(ModalScreen[str | None]):
             Static(Text(f"[enter] {self._verb}    [esc] cancel", style="dim")),
             id="modal",
         )
-        yield Footer()
+        yield FittingFooter()
 
     def _list(self):
         return suggestion_list(self._choices, self._idx)
@@ -213,7 +214,7 @@ class PromptBox(UnderHead, ModalScreen[_T]):
         )
         rows.append(Static(Text("[enter] save    [esc] cancel", style="dim")))
         yield Vertical(*rows, *self._tail(), id="modal")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self._place_under_head()
@@ -307,7 +308,7 @@ class DiscardStagedModal(ModalScreen[str]):
             Static(Text("[enter] keep editing    [d] discard    [^s] save first", style="dim")),
             id="modal",
         )
-        yield Footer()
+        yield FittingFooter()
 
     def action_discard(self) -> None:
         self.dismiss("discard")

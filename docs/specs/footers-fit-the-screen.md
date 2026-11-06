@@ -39,13 +39,7 @@ and the ledger do not.
 
 ## Tasks
 
-Approved on 2026-11-06.
-
-2. **Every screen's footer is the fitting one** (what it must do, 1). The screens that draw
-   Textual's own footer (Home, the forms, the questions, the LOG bar, `?`, the bank import, the
-   bulk pick, the flagged lines) take the fitting footer. Passes if: a guard test fails on any
-   screen that draws Textual's own footer; [tui.md](../tui.md) no longer names the fitting
-   footer as the Statements screens' alone.
+Approved on 2026-11-06. All done; the acceptance check and the doc sweep follow.
 
 ## Found along the way
 
@@ -56,3 +50,7 @@ Not built in this spec; drafted into a new spec when it is done.
   scroll, so a key the footer leaves out shows in neither the footer nor the visible card (at
   80×24 the ledger's footer holds 8 of its 14–15 keys). Seen in task 1's review on 2026-11-06;
   a screen change, so a mockup first.
+- **The footer guard has gaps.** `test_no_screen_draws_textuals_own_footer`
+  (tests/unit/test_tui_fitting_footer.py) misses attribute access (`widgets.Footer()`), skips
+  any file named `footer.py` rather than the one path, and the module docstring still speaks of
+  list screens only. Seen in task 2's review on 2026-11-06.

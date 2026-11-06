@@ -1,8 +1,12 @@
 """A list screen's footer tightens its spacing, then leaves whole keys out from its end,
 so no key is drawn cut; a key left out still works and the `?` card lists it."""
 
+import ast
+from pathlib import Path
+
 import pytest
 
+import expense.tui as tui_pkg
 from expense.reads import AccountIndex
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import screen_inventory
@@ -151,3 +155,32 @@ def test_manage_on_page_2_at_80_is_tightened_and_loses_no_key(monkeypatch):
     assert footer.strip() == (
         "⏎ Open pgdn Next pgup Prev esc Back r Refresh ? Keys n New e Edit d Delete"
     )
+
+
+def own_footer_uses(source: str) -> list[int]:
+    """The lines of `source` that name Textual's own `Footer` (an import or a use)."""
+    lines = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and node.module == "textual.widgets":
+            lines += [node.lineno for a in node.names if a.name == "Footer"]
+        elif isinstance(node, ast.Name) and node.id == "Footer":
+            lines.append(node.lineno)
+    return sorted(set(lines))
+
+
+def test_the_guard_trips_on_a_planted_own_footer():
+    planted = "from textual.widgets import Footer\n\n\ndef compose():\n    yield Footer()\n"
+    assert own_footer_uses(planted) == [1, 5]
+    assert own_footer_uses("yield FittingFooter()\n") == []
+
+
+def test_no_screen_draws_textuals_own_footer():
+    """Guard: every screen's footer is the `FittingFooter`, so none is cut at 80 columns."""
+    tui_dir = Path(tui_pkg.__file__).parent
+    offenders = [
+        f"{path.relative_to(tui_dir)}:{line}"
+        for path in sorted(tui_dir.rglob("*.py"))
+        if path.name != "footer.py"
+        for line in own_footer_uses(path.read_text())
+    ]
+    assert not offenders, f"Textual's own Footer instead of FittingFooter: {offenders}"

@@ -34,8 +34,9 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.events import Key
 from textual.screen import Screen
-from textual.widgets import Footer, Input, Label, Static
+from textual.widgets import Input, Label, Static
 
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching, suggestion_list
 from expense.tui.widgets.refusal import toast
@@ -111,7 +112,7 @@ class BulkPickScreen(Screen[object]):
         yield Static("", id="suggest")
         if self._multi:
             yield Static("", id="summary")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self._recompute("")

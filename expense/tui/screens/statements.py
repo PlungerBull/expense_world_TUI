@@ -72,7 +72,7 @@ from textual.containers import Container
 from textual.css.query import NoMatches
 from textual.screen import Screen
 from textual.widget import Widget
-from textual.widgets import Footer, Input, Static
+from textual.widgets import Input, Static
 from textual.worker import get_current_worker
 
 from expense import formatting, reads
@@ -2414,7 +2414,7 @@ class FlaggedLinesScreen(
         yield Breadcrumb(self.crumb, id="crumb")
         yield Static("", id="fhead")  # the head, once the engine has counted the lines
         yield Container(id="flist")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         # the list sizes itself to #flist's real height: wait for the first layout

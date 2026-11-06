@@ -47,7 +47,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Footer, OptionList, Static
+from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 from expense import formatting, reads
@@ -69,6 +69,7 @@ from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import aggregate_cell, amount_cell
 from expense.tui.widgets.cursor_list import CursorOptionList
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import RATE_ALERT_GAP, rate_alert
 
 _BANNER = "◈  EXPENSE WORLD"
@@ -428,7 +429,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     def compose(self) -> ComposeResult:
         yield Static(_build_header(None, None), id="brand")
         yield CursorOptionList(*home_options(home_rows(None, self._state)), id="menu")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self._load_month()

@@ -18,10 +18,11 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Input, Label, Static
+from textual.widgets import Input, Label, Static
 
 from expense.errors import format_error
 from expense.tui.screens._base import EngineWriteMixin
+from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
 
@@ -231,7 +232,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         yield Static("", id="suggest")
         yield Static("", id="summary")
         yield Static("", id="refusal")
-        yield Footer()
+        yield FittingFooter()
 
     def on_mount(self) -> None:
         self._current = self._first_editable()
