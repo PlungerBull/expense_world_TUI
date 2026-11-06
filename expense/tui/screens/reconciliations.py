@@ -1812,7 +1812,15 @@ class StatementScreen(
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
                 call_while_attached(self, self._if_newest, generation, self._count_failed)
-                call_while_attached(self, toast, self, format_error(exc), severity="error")
+                call_while_attached(
+                    self,
+                    self._if_newest,
+                    generation,
+                    toast,
+                    self,
+                    format_error(exc),
+                    severity="error",
+                )
             return
         rows, checked, part_of = line_rows(assigned, available)
         if worker.is_cancelled:
@@ -1829,7 +1837,15 @@ class StatementScreen(
         except Exception as exc:
             if not worker.is_cancelled:
                 call_while_attached(self, self._if_newest, generation, self._count_failed)
-                call_while_attached(self, toast, self, format_error(exc), severity="error")
+                call_while_attached(
+                    self,
+                    self._if_newest,
+                    generation,
+                    toast,
+                    self,
+                    format_error(exc),
+                    severity="error",
+                )
             return
         if not worker.is_cancelled:
             call_while_attached(self, self._if_newest, generation, self._counted, flagged)

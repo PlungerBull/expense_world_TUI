@@ -30,7 +30,7 @@ from typing import Any
 
 from expense.errors import format_error
 from expense.reads import items_of
-from expense.tui.screens._base import call_while_attached
+from expense.tui.screens._base import NewestReadMixin, call_while_attached
 from expense.tui.widgets.cursor_list import GROW_STEP
 from expense.tui.widgets.refusal import toast
 
@@ -47,7 +47,7 @@ def read_first(fetch_page: FetchPage, count: Callable[[], int]) -> tuple[list, s
     return items_of(body), next_cursor, count()
 
 
-class GrowingRead:
+class GrowingRead(NewestReadMixin):
     """One growing list's cursor, count and `pgdn` read.
 
     `host` is the screen the list lives on (it runs the worker and shows a
@@ -57,7 +57,6 @@ class GrowingRead:
     def __init__(self, host, *, on_more: Callable[[list, bool], None]) -> None:
         self._host = host
         self._on_more = on_more
-        self._generation = 0
         self.next_cursor: str | None = None
         self.total: int | None = None
         self.busy = False  # a `pgdn` read is in flight
@@ -75,7 +74,7 @@ class GrowingRead:
     def reset(self) -> None:
         """A fresh read is coming: forget the cursor and orphan any `pgdn`
         read still in flight."""
-        self._generation += 1
+        self._start_read()
         self.next_cursor = None
         self.busy = False
 
@@ -85,7 +84,7 @@ class GrowingRead:
         if self.busy or self.next_cursor is None:
             return
         self.busy = True
-        after, generation = self.next_cursor, self._generation
+        after, generation = self.next_cursor, self._load_generation
         self._host.run_worker(
             lambda: self._read(fetch_page, after, generation), thread=True, group="grow"
         )
@@ -94,22 +93,25 @@ class GrowingRead:
         try:
             body = fetch_page(GROW_STEP, after)
         except Exception as exc:
-            call_while_attached(self._host, self._failed, format_error(exc), generation)
+            call_while_attached(
+                self._host, self._if_newest, generation, self._failed, format_error(exc)
+            )
             return
         call_while_attached(
-            self._host, self._arrived, items_of(body), body.get("next_cursor"), generation
+            self._host,
+            self._if_newest,
+            generation,
+            self._arrived,
+            items_of(body),
+            body.get("next_cursor"),
         )
 
-    def _arrived(self, items: list, next_cursor: str | None, generation: int) -> None:
-        if generation != self._generation:
-            return  # a fresh read replaced the list this was for
+    def _arrived(self, items: list, next_cursor: str | None) -> None:
         self.busy = False
         self.next_cursor = next_cursor
         self._on_more(items, next_cursor is not None)
 
-    def _failed(self, message: str, generation: int) -> None:
+    def _failed(self, message: str) -> None:
         """The rows already loaded stay; only the next ones did not arrive."""
-        if generation != self._generation:
-            return
         self.busy = False
         toast(self._host, message, title="Failed", severity="error")

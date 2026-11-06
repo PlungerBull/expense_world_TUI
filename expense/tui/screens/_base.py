@@ -94,8 +94,8 @@ def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> No
 
 
 class NewestReadMixin:
-    """A screen whose reads can overlap: each read starts with `_start_read`, and its
-    hand-backs run on the UI thread through `_if_newest` (or check `_is_newest`
+    """Anything that starts reads which can overlap: each read starts with `_start_read`,
+    and its hand-backs run on the UI thread through `_if_newest` (or check `_is_newest`
     themselves, when they are coroutines), so a read a newer one replaced paints
     nothing and changes no state."""
 

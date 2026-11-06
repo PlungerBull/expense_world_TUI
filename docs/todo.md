@@ -44,6 +44,25 @@ Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to ru
 
 **Recommended:** approve the rest.
 
+### What gives way on a narrow "no statement" list
+Asked 2026-11-05 · Blocks: "[UI] Below 66 columns the "no statement" list cuts the amount"
+
+On a terminal under 68 columns, the Statements screen's list of lines in no statement cuts
+the amount, then the currency. Pick in [the mockup](mockups/expense-world-no-statement-narrow.html):
+- **A.** The operation number goes; the title keeps its room.
+- **B.** The title shrinks further; every column stays.
+- **C.** The title shrinks to 16 letters, then the operation number goes.
+**Recommended:** C, because the amount and currency always show whole and every column stays
+down to 60 columns.
+
+### Which keys the "no statement" `?` card lists
+Asked 2026-11-05 · Blocks: "[UI] The "no statement" `?` card lists keys that don't apply"
+
+Pick in [the mockup](mockups/expense-world-no-statement-keys.html):
+- **A.** Only the keys that work there.
+- **B.** Every key of that list, the ones off right now dimmed.
+**Recommended:** A, because every row does what it says, and the card fits a 24-row terminal.
+
 ---
 
 ## Backlog
@@ -66,8 +85,12 @@ CLAUDE.md "Specs and tasks".
   test_tui_reconciliations.py and test_tui_reconcile_detail.py (with the monkeypatch strings
   that name the module); the `recon` abbreviations (`_recons`, `recon=`, the `recon-unfiled` and
   `recon-detail-load` worker groups, `_R_LABELS`, `_RECON_FIELD`) say statement too.
-- **[UI] Below 66 columns the "no statement" list cuts the amount.**
-- **[UI] The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
+- **[UI] Below 66 columns the "no statement" list cuts the amount.** Waits on "What gives way on a
+  narrow "no statement" list" above.
+- **[UI] Below 62 columns the "no statement" caption wraps a lone `·`.** Its last separator moves
+  to a line of its own (`In no statement · BCP · 4 of 4 loaded · oldest first ·`).
+- **[UI] The "no statement" `?` card lists keys that don't apply.** Waits on "Which keys the "no
+  statement" `?` card lists" above. It shows `esc Back` twice, `esc
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
   every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
   with a test; the tests pinning today's doubled rows (`CARD_THIS_SCREEN` in
@@ -92,10 +115,6 @@ CLAUDE.md "Specs and tasks".
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **One newest-read helper everywhere.** `NewestReadMixin` ([_base.py](../expense/tui/screens/_base.py))
-  drops a replaced read's hand-backs; the statement screen's two count-error toasts
-  (reconciliations.py `_read_txns`) still show for a replaced read, and
-  [_growing.py](../expense/tui/screens/_growing.py) keeps its own `_generation`. Both use the mixin.
 
 ---
 

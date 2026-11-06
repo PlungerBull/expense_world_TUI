@@ -1082,6 +1082,78 @@ def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
     run_app(scenario)
 
 
+@pytest.mark.parametrize("failing", ["lines", "count"])
+def test_a_replaced_reads_count_error_shows_no_toast(fake_client, monkeypatch, failing):
+    """The older read fails after a newer one started: its error toast is dropped
+    with the rest of its hand-backs, so only the newest read can speak."""
+    from expense.tui.screens import reconciliations as module
+
+    _patch(monkeypatch)
+    entered, release = threading.Event(), threading.Event()
+    threads: list[int] = []
+
+    def is_older() -> bool:
+        if threading.get_ident() not in threads:
+            threads.append(threading.get_ident())
+        return threads.index(threading.get_ident()) == 0
+
+    def hold_then_fail() -> None:
+        entered.set()
+        assert release.wait(5)
+        raise RuntimeError("engine down")
+
+    def fake_fetch(cfg, **k):
+        if is_older() and failing == "lines":
+            hold_then_fail()
+        return cursor_page(ASSIGNED)
+
+    def fake_count(cfg, **k):
+        if failing == "count" and threading.get_ident() == threads[0]:
+            hold_then_fail()
+        return 3
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+    monkeypatch.setattr("expense.reads.count_bank_lines", fake_count)
+
+    class Live:
+        is_cancelled = False
+
+    monkeypatch.setattr(module, "get_current_worker", lambda: Live())
+    toasts: list[str] = []
+    monkeypatch.setattr(module, "toast", lambda screen, message, **k: toasts.append(message))
+    handed_back: list[int] = []  # the thread of each hand-back, in order
+    real = module.call_while_attached
+
+    def counting(screen, fn, *a, **k):
+        real(screen, fn, *a, **k)
+        handed_back.append(threading.get_ident())
+
+    monkeypatch.setattr(module, "call_while_attached", counting)
+    real_load = StatementScreen._load_txns
+
+    async def scenario(pilot, app):
+        screen = StatementScreen(dict(DRAFT))
+        monkeypatch.setattr(StatementScreen, "_load_txns", lambda self, **k: None)
+        await app.push_screen(screen)
+        monkeypatch.setattr(StatementScreen, "_load_txns", real_load)
+        screen._load_txns()  # the older read, held until the newer one is done
+        await wait_for(pilot, entered.is_set)
+        screen._load_txns()  # the newer read
+        await wait_for(pilot, lambda: screen._list is not None)
+        await wait_for(pilot, lambda: len(threads) > 1)  # the newer worker has registered
+        newer = threads[1]
+        # the newer read's four hand-backs (name, header, rows, count) have all run
+        await wait_for(pilot, lambda: handed_back.count(newer) >= 4)
+        older_so_far = handed_back.count(threads[0])
+        release.set()
+        # the older read's two hand-backs on failure: the count-failed mark and the toast
+        await wait_for(pilot, lambda: handed_back.count(threads[0]) >= older_so_far + 2)
+        await pilot.pause()
+        assert toasts == []
+
+    run_app(scenario)
+
+
 def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
     """The detail fetch never exceeds the engine's 200-row limit cap
     and follows `next_cursor` until it is null — never an offset."""
