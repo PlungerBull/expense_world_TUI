@@ -41,7 +41,7 @@ Answered, waiting on its engine ask (for you to hand over) and a mockup of the p
 
 New, two questions: [a save whose ending is not known](specs/a-save-whose-ending-is-not-known.md).
 
-New, no question: [the delete question shows an income's `+`](specs/the-delete-question-shows-an-incomes-plus.md).
+New, one question: [a split's parts show an income's `+`](specs/a-splits-parts-show-an-incomes-plus.md).
 
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
@@ -78,6 +78,10 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
+- **The `TRANSACTION_RULE` comment speaks of lists only.** Its comment in
+  [theme.py](../expense/tui/theme.py) says the rule covers an amount "in a list"; it also covers
+  a transaction named outside one (the question before a delete, a note after you leave), as
+  [tui.md](tui.md) "Amounts" says. Nothing you see changes.
 - **The footer guard has gaps.** `test_no_screen_draws_textuals_own_footer`
   ([test_tui_fitting_footer.py](../tests/unit/test_tui_fitting_footer.py)) misses attribute
   access (`widgets.Footer()`), skips any file named `footer.py` rather than that one path, and

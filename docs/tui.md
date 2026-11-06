@@ -979,7 +979,7 @@ screen can bring it back.**
 | Accounts | `Delete this account?` | `Prueba · bank · PEN 0.00 · USD 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` (an income reads `+800.00`) · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
 | Ledger, on a part of a split transaction; a split transaction in the "no statement" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
 | A statement's screen (`d` deletes the statement itself) | `Delete statement?` | `Detaches its transactions and removes the statement. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
 
@@ -997,11 +997,10 @@ list gives it (`#Pendiente`), or says `the pending hashtag` while the user has n
 (contract: "Transactions (Ledger)", "Bank lines"), but not how many parts the line holds, so
 `d` on a row first reads its line once with the shared `reads.fetch_bank_line`
 (contract: GET /v1/bank-lines/{bank_line_id}). With `part_count` above 1 the row is a part of
-a split transaction: the question names the real part count, its body is the bank line (its
-date, title and signed total `net_cents` as the statement lists show them, then its
-account), and `y` sends one `DELETE /bank-lines/{id}`, which deletes every
-part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}), through the same
-`confirm_delete`; the ledger reads its newest ten again, cursor on row 1, every part gone. A
+a split transaction: the question names the real part count, its body is the bank line as
+the statement lists show it, then its account, and `y` sends one `DELETE /bank-lines/{id}`,
+which deletes every part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}),
+through the same `confirm_delete`; the ledger reads its newest ten again, cursor on row 1, every part gone. A
 line of one part is a row never split: the ledger's own question and
 `DELETE /transactions/{id}`, as above. A line that cannot be read asks nothing and sends
 nothing: the "Failed" note carries the engine's words, and `d` again reads again. While the
@@ -1304,7 +1303,8 @@ supplies the palette".
 
 **Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
-statement's lines, the lines in no statement) writes a positive figure with its `+`
+statement's lines, the lines in no statement), and wherever one is named (the question before
+a delete, a note after you leave), writes a positive figure with its `+`
 (`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's totals and grid, a
 statement's balances and difference, and any sum of amounts (the staged total, a day's net)
 write no `+` (`12,450.00`, `-234.20`). Each rule's reach is in
