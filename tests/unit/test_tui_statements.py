@@ -593,7 +593,12 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         assert form._opener is screen and form._created is not None
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
-        await wait_for(pilot, lambda: screen._statement_list is not None)
+        await wait_for(
+            pilot,
+            lambda: (
+                screen._statement_list is not None and screen._statement_list.cursor_key == "new-1"
+            ),
+        )
         assert reads == ["acc2"]
         assert screen._mode == "statements"
         assert screen._statement_list.cursor_key == "new-1"
@@ -623,7 +628,12 @@ def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch)
         await wait_for(pilot, lambda: screen._acct_idx == 0)
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form._created("new-1")
-        await wait_for(pilot, lambda: screen._statement_list is not None)
+        await wait_for(
+            pilot,
+            lambda: (
+                screen._statement_list is not None and screen._statement_list.cursor_key == "new-1"
+            ),
+        )
         assert (screen._acct_idx, reads[-1]) == (1, "acc2")
         assert screen._statement_list.cursor_key == "new-1"
 

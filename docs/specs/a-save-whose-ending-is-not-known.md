@@ -54,10 +54,7 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
 
 ## Tasks
 
-5. **`test_a_statement_created_after_leaving_opens_its_accounts_panel` is flaky under the
-   parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py) ~line 628):
-   2 of 3 full runs on 2026-11-06 read the cursor on `r2` instead of `new-1`; alone it passes.
-   It waits for what the create's read brings, so it passes every time.
+Every task is done; the acceptance check runs again, then the doc sweep.
 
 ## Found along the way
 
@@ -86,3 +83,8 @@ Not built in this spec; drafted into a new spec when it is done.
 - **Setup's `esc Quit` leaves through `app.exit()`, not the quit question.** It is refused while
   setup saves, so no save is lost; it is the one quit not going through the shared one.
   Nothing you see changes.
+- **`test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row` waits weakly**
+  ([test_tui_statements.py](../../tests/unit/test_tui_statements.py) ~line 567): it waits for
+  `_statement_list is not None`, which the old list already passes, so it can pass without
+  proving the cursor after the read, or fail at random. It waits for the read's cursor on
+  `b2` instead. Nothing you see changes.
