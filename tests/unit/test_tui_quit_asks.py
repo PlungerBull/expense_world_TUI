@@ -683,7 +683,7 @@ def _setup_created_under_the_question(monkeypatch, answer):
         await pilot.pause()
         if answer == "n":
             await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
-        out.update(notes=list(notes), exited=app._exit)
+        out.update({"toasts said": list(notes), "app exited": app._exit})
 
     with respx.mock:
         _no_profile_yet()
@@ -694,9 +694,9 @@ def _setup_created_under_the_question(monkeypatch, answer):
 
 def test_setup_closes_and_says_connected_after_n(monkeypatch):
     out = _setup_created_under_the_question(monkeypatch, "n")
-    assert out == {"notes": ["Connected."], "exited": False}
+    assert out == {"toasts said": ["Connected."], "app exited": False}
 
 
 def test_y_quits_when_setup_finished_under_the_question(monkeypatch):
     out = _setup_created_under_the_question(monkeypatch, "y")
-    assert out == {"notes": [], "exited": True}
+    assert out == {"toasts said": [], "app exited": True}

@@ -54,9 +54,6 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
 
 ## Tasks
 
-4. **The fixture-drift check reads two quit-test keys as engine fields.** `exited` and `notes`
-   in [test_tui_quit_asks.py](../../tests/unit/test_tui_quit_asks.py) (~lines 697, 702) are
-   flagged by `scripts/check_fixture_drift.py`; the test names them so the check passes.
 5. **`test_a_statement_created_after_leaving_opens_its_accounts_panel` is flaky under the
    parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py) ~line 628):
    2 of 3 full runs on 2026-11-06 read the cursor on `r2` instead of `new-1`; alone it passes.
