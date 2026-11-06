@@ -208,8 +208,10 @@ class AuthScreen(SectionScreen):
             "POST",
             "/auth/bootstrap",
             json_body={"display_name": display_name, "timezone": timezone},
+            success="Provisioned.",
             on_success=lambda: self._done("Provisioned."),
             on_error=lambda m: toast(self, m, title="Bootstrap failed", severity="error"),
+            left_behind="Not provisioned",
         )
 
     def _done(self, message: str) -> None:

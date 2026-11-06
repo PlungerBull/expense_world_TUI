@@ -31,6 +31,7 @@ from tests.unit.helpers import (
     SEALED_LINE_WORDS,
     SEALED_TRANSACTION_WORDS,
     account_with_currencies,
+    app_notes,
     archived_refusal,
     archived_words,
     bank_line_row,
@@ -1188,17 +1189,6 @@ def test_a_line_read_that_lands_off_the_ledger_asks_nothing(
 # ---- a delete answered after the ledger has been left -----------------------
 
 
-def _app_notes(monkeypatch, app) -> list[tuple[str, str, dict]]:
-    """Every toast the app is asked to show: `(title, message, the other options)`."""
-    notes: list[tuple[str, str, dict]] = []
-
-    def notify(message, title="", **options):
-        notes.append((title, str(message), options))
-
-    monkeypatch.setattr(app, "notify", notify)
-    return notes
-
-
 def _left_ledger_delete(monkeypatch, answer: httpx.Response) -> list:
     """Press `d`, `y` on t1 (`Compra 01`, -28.00), leave the ledger with `esc` before
     the engine answers, then let it answer `answer`. Returns the app's toasts."""
@@ -1211,7 +1201,7 @@ def _left_ledger_delete(monkeypatch, answer: httpx.Response) -> list:
         return answer
 
     async def scenario(pilot, app):
-        notes = _app_notes(monkeypatch, app)
+        notes = app_notes(monkeypatch, app)
         screen = TransactionsScreen()
         await _open_ledger(pilot, app, screen)
         await pilot.press("d")
@@ -1267,7 +1257,7 @@ def test_a_refused_split_delete_answered_after_leaving_names_the_line(
     line_engine.delete = refused
 
     async def scenario(pilot, app):
-        notes = _app_notes(monkeypatch, app)
+        notes = app_notes(monkeypatch, app)
         screen = TransactionsScreen()
         await _open_ledger(pilot, app, screen)
         await _cursor_on(pilot, screen, "p2")

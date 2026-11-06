@@ -34,7 +34,12 @@ from expense import reads
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import format_error
 from expense.formatting import format_cents
-from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, list_refusal_text
+from expense.tui.screens._base import (
+    DELETE_KEY,
+    ResourceListScreen,
+    list_refusal_text,
+    not_done_line,
+)
 from expense.tui.screens.modals import ConfirmModal, PickModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
@@ -68,6 +73,13 @@ def account_line(account: dict, *, only: str | None = None) -> str:
         if only is None or h["currency_code"] == only
     ]
     return " · ".join([account.get("name") or "(unnamed)", kind, *held])
+
+
+def _who(not_done: str, account: dict) -> str:
+    """A refused write on an account, left behind: `Account <name>`, `Person <name>`
+    for a person (`not_done_line`)."""
+    kind = "Person" if account.get("is_person") else "Account"
+    return not_done_line(not_done, kind, account.get("name"))
 
 
 def currencies_held(account: dict) -> list[str]:
@@ -155,6 +167,9 @@ class AccountsScreen(ResourceListScreen):
             "Account deleted.",
         )
 
+    def not_deleted(self, item: dict) -> str:
+        return _who("Not deleted", item)
+
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action not in ("make_person", "make_bank", "add_currency", "remove_currency"):
             return super().check_action(action, parameters)
@@ -174,7 +189,7 @@ class AccountsScreen(ResourceListScreen):
         verb, msg = (
             ("unarchive", "Unarchived.") if item.get("is_archived") else ("archive", "Archived.")
         )
-        self._toggle(item, verb, msg)
+        self._toggle(item, verb, msg, f"Not {verb}d")
 
     def action_add_currency(self) -> None:
         """`c`: pick a currency the account does not hold, and `⏎` adds it at
@@ -199,6 +214,7 @@ class AccountsScreen(ResourceListScreen):
                 f"/{self.RESOURCE}/{ident}/currencies",
                 ident,
                 f"Currency added: {code}.",
+                f"Not added · {code} on {name}",
                 json_body={"currency_code": code},
             )
 
@@ -229,6 +245,7 @@ class AccountsScreen(ResourceListScreen):
                 f"/{self.RESOURCE}/{ident}/currencies/{code}",
                 ident,
                 f"Currency removed: {code}.",
+                f"Not removed · {code} on {name}",
             )
 
         def picked(code: str | None) -> None:
@@ -241,7 +258,14 @@ class AccountsScreen(ResourceListScreen):
         self.app.push_screen(pick, picked)
 
     def _currency_write(
-        self, method: str, path: str, ident: str, note: str, *, json_body: dict | None = None
+        self,
+        method: str,
+        path: str,
+        ident: str,
+        note: str,
+        left_behind: str,
+        *,
+        json_body: dict | None = None,
     ) -> None:
         """Send `c`'s or `x`'s one write. Written, the note shows and the list
         reads again with the cursor on the same account; refused, the list
@@ -261,28 +285,30 @@ class AccountsScreen(ResourceListScreen):
             method,
             path,
             json_body=json_body,
+            success=note,
             on_success=written,
             on_error=self._toggle_failed,
             error_text=currency_refusal_text,
+            left_behind=left_behind,
         )
 
     def action_make_person(self) -> None:
         # No body (contract: POST /v1/accounts/{account_id}/make-person).
         if self.check_action("make_person", ()):
-            self._turn("make-person", "Now a person.")
+            self._turn("make-person", "Now a person.", "Not made a person")
 
     def action_make_bank(self) -> None:
         # No body (contract: POST /v1/accounts/{account_id}/make-account).
         if self.check_action("make_bank", ()):
-            self._turn("make-account", "Now a bank account.")
+            self._turn("make-account", "Now a bank account.", "Not made a bank account")
 
-    def _turn(self, verb: str, note: str) -> None:
+    def _turn(self, verb: str, note: str, not_done: str) -> None:
         """`t`: turn the cursor account into a person or a bank."""
         item = self.selected_record()
         if item:
-            self._toggle(item, verb, note)
+            self._toggle(item, verb, note, not_done)
 
-    def _toggle(self, item: dict, verb: str, note: str) -> None:
+    def _toggle(self, item: dict, verb: str, note: str, not_done: str) -> None:
         """`a`'s and `t`'s write: `POST /accounts/{id}/{verb}` at once, with no
         question, a refusal read in the list's words; the list reloads with the
         cursor on the same account. One toggle at a time: a second press while
@@ -298,6 +324,7 @@ class AccountsScreen(ResourceListScreen):
             success=note,
             on_error=self._toggle_failed,
             error_text=list_refusal_text,
+            left_behind=_who(not_done, item),
         )
 
     def _toggle_failed(self, message: str) -> None:

@@ -11,6 +11,7 @@ import functools
 import io
 import json
 import re
+import threading
 import zlib
 from collections.abc import Callable
 from pathlib import Path
@@ -1614,6 +1615,48 @@ def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, cal
         lambda: HOME_TAG_NAMES if names is None else names,
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+
+def app_notes(monkeypatch, app) -> list[tuple[str, str, dict]]:
+    """Every toast the app is asked to show: `(title, message, the other options)`."""
+    notes: list[tuple[str, str, dict]] = []
+
+    def notify(message, title="", **options):
+        notes.append((title, str(message), options))
+
+    monkeypatch.setattr(app, "notify", notify)
+    return notes
+
+
+class LateAnswer:
+    """Holds a `FakeClient` write (`post` or `delete`) in flight until `release` is set,
+    then answers it, or refuses it with `refusal`. `started` is set once the write
+    reached the client. For a test that leaves a screen before the engine answers."""
+
+    def __init__(self, client: "FakeClient", verb: str, refusal: Exception | None = None) -> None:
+        self.release = threading.Event()
+        self.started = threading.Event()
+        real = getattr(client, verb)
+
+        def call(path: str, *args: Any, **kwargs: Any) -> dict:
+            self.started.set()
+            self.release.wait(5)
+            if refusal is not None:
+                raise refusal
+            return real(path, *args, **kwargs)
+
+        setattr(client, verb, call)
+
+
+async def leave_then_answer(pilot, app, screen, late: LateAnswer, notes: list) -> None:
+    """With `late`'s write in flight from `screen`: leave the screen, let the engine
+    answer, and wait for the app's first toast in `notes` (`app_notes`)."""
+    await wait_for(pilot, late.started.is_set)
+    await app.pop_screen()
+    await wait_for(pilot, lambda: app.screen is not screen)
+    late.release.set()
+    await wait_for(pilot, lambda: notes, timeout=3)
+    await pilot.pause()
 
 
 # ---------------------------------------------------------------------------

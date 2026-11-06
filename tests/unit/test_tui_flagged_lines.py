@@ -16,6 +16,7 @@ from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
 from expense.formatting import bank_line_columns
+from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.modals import ConfirmModal
@@ -25,9 +26,12 @@ from expense.tui.screens.statements import (
 )
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
+    LateAnswer,
+    app_notes,
     bank_line_row,
     cursor_page,
     import_part,
+    leave_then_answer,
     render_text,
     run_app,
     screen_lines,
@@ -463,6 +467,37 @@ def test_d_asks_and_y_deletes_and_the_list_drops_the_line(fake_client, monkeypat
         assert _by_id(fake_client) == []
 
     run_app(scenario)
+
+
+@pytest.mark.parametrize("refused", [False, True], ids=["deleted", "refused"])
+def test_a_delete_answered_after_leaving_says_how_it_ended(fake_client, monkeypatch, refused):
+    """`d` on a flagged line, the screen left before the engine answers: the deleted
+    note, or the refusal's words under what was not deleted, 10 seconds."""
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, TAMBO, UBER)
+    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
+    err = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
+    late = LateAnswer(fake_client, "delete", err if refused else None)
+    shown: list = []
+
+    async def scenario(pilot, app):
+        await _complete(pilot, app, SOLES)
+        screen = await _flagged_screen(pilot, app)
+        notes = app_notes(monkeypatch, app)  # after the close's own toasts
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await leave_then_answer(pilot, app, screen, late, notes)
+        shown.extend(notes)
+
+    run_app(scenario)
+    if not refused:
+        assert [(t, m) for t, m, _ in shown] == [("", "Transaction deleted.")]
+        return
+    [(title, message, options)] = shown
+    assert title == "Not deleted · TAMBO MIRAFLORES · -7.50"
+    assert message == list_refusal_text(err)
+    assert (options["severity"], options["timeout"], options["markup"]) == ("error", 10, False)
 
 
 def test_the_delete_question_names_an_untitled_line_as_untitled(fake_client, monkeypatch):

@@ -96,6 +96,13 @@ the same way, a refusal stopping none, and one without it ends the run (`EngineW
 the app sends and shows nothing more. Only the app's rate check hands back
 without a screen.
 
+The first line reads `Not <what did not happen> · <what it was>`: `Not archived · Account
+BCP`, `Not added · PEN on BCP`, `Not provisioned`. A thing is named as its screen shows it,
+by its kind (`Account`, `Person` for a person's account, `Category`, `Hashtag #name`); a
+transaction is `<title> · <amount>` (`not_deleted_line`, `not_done_line` in
+[_base.py](../expense/tui/screens/_base.py)). Each write names its own words where it is
+sent.
+
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer
 paints, counts or toasts; an older one is dropped on the UI thread (`NewestReadMixin` in

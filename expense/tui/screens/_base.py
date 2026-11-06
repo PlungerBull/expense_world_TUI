@@ -426,6 +426,13 @@ def not_deleted_line(title: object, amount_cents: object) -> str:
     return f"Not deleted · {title_or_untitled(title)} · {format_cents(amount_cents)}"
 
 
+def not_done_line(not_done: str, kind: str, name: object) -> str:
+    """The first line of a refused write shown after its screen has left, for a
+    write on a named thing: `Not archived · Account BCP`. `name` is as the list
+    shows it; a blank one reads `(unnamed)`."""
+    return f"{not_done} · {kind} {name or '(unnamed)'}"
+
+
 def transaction_delete_message(record: dict, account_name: str) -> str:
     """The body of "Delete this transaction?" — the ledger's and the "no statement"
     pane's, word for word: the row, then why a delete is final."""
@@ -771,6 +778,11 @@ class ResourceListScreen(SectionScreen):
         """`(title, message, done note)` for `d` on `item`."""
         raise NotImplementedError
 
+    def not_deleted(self, item: dict) -> str:
+        """The first line of a refused delete of `item` shown after the list has
+        left (`not_done_line`)."""
+        raise NotImplementedError
+
     def is_fixed(self, item: dict) -> bool:
         """True for a row with nothing to edit or delete (a built-in row):
         `e` and `d` leave the footer while the cursor is on it."""
@@ -884,7 +896,13 @@ class ResourceListScreen(SectionScreen):
             return
         title, message, done = self.delete_question(item)
         self.confirm_delete(
-            self.RESOURCE, item.get("id"), title, message, done=done, after=self._deleted
+            self.RESOURCE,
+            item.get("id"),
+            title,
+            message,
+            done=done,
+            after=self._deleted,
+            left_behind=self.not_deleted(item),
         )
 
     def _deleted(self) -> None:

@@ -12,7 +12,7 @@ legend says so (`errors.SYSTEM_HINT`, also the line under the engine's
 from expense import reads
 from expense.errors import SYSTEM_HINT
 from expense.reads import is_system_row
-from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
+from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, not_done_line
 from expense.tui.widgets.cells import swatch
 
 _HEADERS = ["Color", "Name", "System"]
@@ -59,6 +59,9 @@ class CategoriesScreen(ResourceListScreen):
             "It is for a category made by mistake: no screen can bring it back.",
             "Category deleted.",
         )
+
+    def not_deleted(self, item: dict) -> str:
+        return not_done_line("Not deleted", "Category", item.get("name"))
 
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditCategoryScreen

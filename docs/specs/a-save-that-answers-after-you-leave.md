@@ -51,10 +51,9 @@ Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "L
 screen still open, nothing changes.
 
 A write opts in by carrying its refused message's first line (`left_behind` on `run_write` and
-`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d` already does.
+`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d` and the list actions
+already do.
 
-2. **The list actions.** Manage's `a`, `t`, `c`, `x` and `d`, the "no statement" list's `d`, the
-   flagged lines' `d` and Auth's bootstrap, each with its words (below).
 3. **The Manage forms.** New and Edit for hashtags and categories, New account: `Hashtag
    created.`, `Category created.`, `Account created.`, `Person created.`, `Saved.`; a refusal ends
    `Nothing was saved: open it again to fix it.` The list you went back to reads again from row
@@ -93,3 +92,6 @@ Not built in this spec; drafted into a new spec when it is done.
   land whole or not at all: an engine ask.
 - Quitting the app (`ctrl+q`) while saves still wait to be sent drops them, and nothing says
   so; this spec keeps quitting as it is.
+- `(unnamed)` for a blank name is written out in four places (`not_done_line` and the account,
+  category and hashtag lists); `title_or_untitled` is the one shared copy for titles, and names
+  have none.

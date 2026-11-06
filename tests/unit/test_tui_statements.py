@@ -5,6 +5,7 @@ import json
 import pytest
 from textual.widgets import Input, Static
 
+from expense.errors import EngineError
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.statements import (
     NewStatementScreen,
@@ -19,7 +20,9 @@ from tests.unit.helpers import (
     SEALED_FIELD_WORDS,
     SEALED_LINE_WORDS,
     SEALED_TRANSACTION_WORDS,
+    LateAnswer,
     account_with_currencies,
+    app_notes,
     archived_refusal,
     archived_words,
     bank_line_row,
@@ -27,6 +30,7 @@ from tests.unit.helpers import (
     held_currency,
     import_part,
     in_order,
+    leave_then_answer,
     no_failed_toast,
     refusal_block,
     refusal_text,
@@ -1675,6 +1679,48 @@ def test_y_on_a_line_never_split_sends_its_transaction_delete_with_an_idempotenc
     assert route.call_count == 1
     assert route.calls.last.request.headers["X-Idempotency-Key"]
     assert not whole_line.called
+
+
+@pytest.mark.parametrize(
+    ("row", "path", "first_line"),
+    [
+        ("bl-net", "/transactions/bl-net-p1", "Not deleted · NETFLIX · -44.90"),
+        ("bl-farm", "/bank-lines/bl-farm", "Not deleted · FARMACIA · -100.00"),
+    ],
+    ids=["never split", "split"],
+)
+@pytest.mark.parametrize("refused", [False, True], ids=["deleted", "refused"])
+def test_a_delete_answered_after_leaving_says_how_it_ended(
+    monkeypatch, fake_client, row, path, first_line, refused
+):
+    """`d` in no statement, the screen left before the engine answers: the deleted note,
+    or the refusal's words under what was not deleted, 10 seconds."""
+    from expense.tui.screens.modals import ConfirmModal
+
+    err = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch)
+    late = LateAnswer(fake_client, "delete", err if refused else None)
+    shown: list = []
+
+    async def scenario(pilot, app):
+        notes = app_notes(monkeypatch, app)
+        screen = await _open_unfiled(pilot, app)
+        await _cursor_on(pilot, screen, row)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await leave_then_answer(pilot, app, screen, late, notes)
+        shown.extend(notes)
+
+    run_app(scenario)
+    if not refused:
+        assert [(t, m) for t, m, _ in shown] == [("", "Transaction deleted.")]
+        return
+    [(title, message, options)] = shown
+    assert title == first_line
+    assert message == list_refusal_text(err)
+    assert (options["severity"], options["timeout"], options["markup"]) == ("error", 10, False)
 
 
 def test_d_does_nothing_outside_the_unfiled_pane(monkeypatch, fake_client):

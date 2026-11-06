@@ -102,6 +102,7 @@ from expense.tui.screens._base import (
     bank_line_delete_question,
     call_while_attached,
     list_refusal_text,
+    not_deleted_line,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -270,6 +271,7 @@ def ask_line_delete(
     read before asking. Deleted, `after` reads the list again. Shared by the "no
     statement" pane and the flagged lines' screen."""
     if is_split_line(line):
+        _day, line_title, _operation, line_net = bank_line_columns(line)
         screen.confirm_delete(
             "bank-lines",
             line.get("id"),
@@ -277,6 +279,7 @@ def ask_line_delete(
             bank_line_delete_message(line, account_name),
             done="Transaction deleted.",
             after=after,
+            left_behind=not_deleted_line(line_title, line_net),
         )
         return
     record = lone_transaction(line)
@@ -289,6 +292,7 @@ def ask_line_delete(
         transaction_delete_message(record, account_name),
         done="Transaction deleted.",
         after=after,
+        left_behind=not_deleted_line(record.get("title"), record.get("amount_cents")),
     )
 
 

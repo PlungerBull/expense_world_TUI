@@ -15,7 +15,7 @@ transaction carrying it, and where a transaction left with no hashtag goes.
 
 from expense import reads
 from expense.reads import is_system_row, pending_hashtag_of
-from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
+from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, not_done_line
 
 _HEADERS = ["Name", "System"]
 
@@ -55,6 +55,9 @@ class HashtagsScreen(ResourceListScreen):
 
     def is_fixed(self, item: dict) -> bool:
         return is_system_row(item)
+
+    def not_deleted(self, item: dict) -> str:
+        return not_done_line("Not deleted", "Hashtag", _tag(item.get("name")))
 
     def delete_question(self, item: dict) -> tuple[str, str, str]:
         # The engine never refuses this delete for being in use: it takes the
