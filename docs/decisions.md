@@ -84,7 +84,7 @@ Decisions whose why lives elsewhere:
 
 ## TUI writes: FIFO queue in EngineWriteMixin, error drops the queue (2026-07-08)
 
-**Decision.** `EngineWriteMixin.run_write` ([_base.py](../expense/tui/screens/_base.py)) owns a per-screen FIFO: exactly one request in flight, order preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs.
+**Decision.** `EngineWriteMixin.run_write` ([_base.py](../expense/tui/screens/_base.py)) owns a per-screen FIFO: exactly one request in flight, order preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs. **Once the screen has left, nothing is dropped:** a write carrying its left-behind words is finished at the app, its ending toasted, and a refusal stops none of the writes behind it, since no screen remains to hold them for a retry or to resync, and a dropped write would be a change the owner thinks happened.
 
 **Rejected.** *Per-screen queues* (N copies of one race fix); *cancelling in-flight writes on supersede* (thread cancellation cannot stop a request, and the idempotency key already covers retries); *continuing past a failure* (later writes may depend on the failed one). Independent bulk writes use their own worker instead — see "Home is the month". A screen that holds back its redraw while a write is unanswered reads that state from the queue (`writes_unanswered()`) and redraws in the `_writes_dropped` hook, so a dropped queue can never leave it waiting.
 

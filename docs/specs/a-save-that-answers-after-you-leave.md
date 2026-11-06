@@ -4,8 +4,8 @@ The Backlog run of 2026-11-05 found this while it moved the app's background wor
 shared hand-back: you can leave a screen (`esc`) while its save is still on its way to the
 engine, and when the engine answers, the app says nothing.
 
-**Status: every question answered and the mockup picked on 2026-11-06; the tasks wait for the
-owner's approval.** It waits on no other spec.
+**Status: every question answered, the mockup picked and the tasks and their words approved on
+2026-11-06; the loop is running.** It waits on no other spec.
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -47,16 +47,12 @@ before the engine answers, the screen closes. When the engine answers, the app d
 
 ## Tasks
 
-Drafted on 2026-11-06 for the owner to approve. Each task's "passes if…" is written when it
-starts. "Left" means the screen that sent the write has closed before the engine answered; on a
+Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "Left" means the screen that sent the write has closed before the engine answered; on a
 screen still open, nothing changes.
 
-1. **A write still finishes after its screen has left.** The shared write plumbing hands an
-   answer that arrives after the screen has left to the app instead of dropping it: a success
-   shows the message the screen would have toasted, a refusal shows the 10-second message
-   titled with what was not saved, the engine's words in full and its app line. Writes still
-   waiting behind it are sent, each one's ending said, a refusal stopping none. Proved on the
-   ledger's `d` (`Transaction deleted.`, or `Not deleted · Wong · -45.90`).
+A write opts in by carrying its refused message's first line (`left_behind` on `run_write` and
+`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d` already does.
+
 2. **The list actions.** Manage's `a`, `t`, `c`, `x` and `d`, the "no statement" list's `d`, the
    flagged lines' `d` and Auth's bootstrap, each with its words (below).
 3. **The Manage forms.** New and Edit for hashtags and categories, New account: `Hashtag
@@ -95,3 +91,5 @@ Not built in this spec; drafted into a new spec when it is done.
 - The account form saves the account and each opening balance as separate writes, so every
   client must chain them and say how each ended. One engine write taking both would let a save
   land whole or not at all: an engine ask.
+- Quitting the app (`ctrl+q`) while saves still wait to be sent drops them, and nothing says
+  so; this spec keeps quitting as it is.

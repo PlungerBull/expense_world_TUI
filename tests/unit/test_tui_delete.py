@@ -16,6 +16,7 @@ import respx
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
 from expense.reads import AccountIndex
+from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -1182,3 +1183,103 @@ def test_a_line_read_that_lands_off_the_ledger_asks_nothing(
     run_app(scenario, size=SIZE)
     assert asked == ["bl-farm"]
     assert line_engine.deletes == []
+
+
+# ---- a delete answered after the ledger has been left -----------------------
+
+
+def _app_notes(monkeypatch, app) -> list[tuple[str, str, dict]]:
+    """Every toast the app is asked to show: `(title, message, the other options)`."""
+    notes: list[tuple[str, str, dict]] = []
+
+    def notify(message, title="", **options):
+        notes.append((title, str(message), options))
+
+    monkeypatch.setattr(app, "notify", notify)
+    return notes
+
+
+def _left_ledger_delete(monkeypatch, answer: httpx.Response) -> list:
+    """Press `d`, `y` on t1 (`Compra 01`, -28.00), leave the ledger with `esc` before
+    the engine answers, then let it answer `answer`. Returns the app's toasts."""
+    _stub_ledger(monkeypatch, list(LEDGER[:3]))
+    release = threading.Event()
+    result: list = []
+
+    def late_answer(request):
+        release.wait(5)
+        return answer
+
+    async def scenario(pilot, app):
+        notes = _app_notes(monkeypatch, app)
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: screen.writes_unanswered())
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is not screen)
+        release.set()
+        await wait_for(pilot, lambda: notes)
+        result.extend(notes)
+
+    with respx.mock() as engine:
+        _one_part_lines(engine)
+        engine.delete(f"{ENGINE_URL}/v1/transactions/t1").mock(side_effect=late_answer)
+        run_app(scenario, size=SIZE)
+    return result
+
+
+def test_a_delete_answered_after_leaving_the_ledger_still_says_it_was_deleted(
+    configured, monkeypatch
+):
+    notes = _left_ledger_delete(monkeypatch, httpx.Response(200, json={}))
+    assert [(t, m) for t, m, _ in notes] == [("", "Transaction deleted.")]
+
+
+def test_a_refused_delete_answered_after_leaving_names_what_was_not_deleted(
+    configured, monkeypatch
+):
+    err = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
+    notes = _left_ledger_delete(monkeypatch, error_response(409, "CONFLICT", err.message))
+    [(title, message, options)] = notes
+    assert title == "Not deleted · Compra 01 · -28.00"
+    assert message == list_refusal_text(err)
+    assert message.startswith("CONFLICT — stand-in [not markup]")
+    assert options["severity"] == "error"
+    assert options["timeout"] == 10
+    assert options["markup"] is False
+
+
+def test_a_refused_split_delete_answered_after_leaving_names_the_line(
+    configured, monkeypatch, line_engine
+):
+    rows, line = _split_ledger(2)
+    _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-farm"] = line
+    release = threading.Event()
+
+    def refused(path: str) -> dict:
+        release.wait(5)
+        raise EngineError("CONFLICT", "stand-in", None, 409, {})
+
+    line_engine.delete = refused
+
+    async def scenario(pilot, app):
+        notes = _app_notes(monkeypatch, app)
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p2")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: screen.writes_unanswered())
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is not screen)
+        release.set()
+        await wait_for(pilot, lambda: notes)
+        assert notes[0][0] == "Not deleted · FARMACIA · -100.00"
+        assert notes[0][2]["timeout"] == 10
+
+    run_app(scenario, size=SIZE)

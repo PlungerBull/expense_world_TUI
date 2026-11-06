@@ -14,12 +14,13 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Group
 from rich.text import Text
 from textual import work
-from textual.app import ComposeResult
+from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
@@ -64,11 +65,21 @@ def relabel(screen: Screen, key: str, description: str) -> None:
         screen.refresh_bindings()
 
 
-def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> None:
+def call_while_attached(
+    node: Widget,
+    callback: Callable,
+    *args,
+    if_left: Callable[[], None] | None = None,
+    app: "App | None" = None,
+    **kwargs,
+) -> None:
     """From a thread worker of `node`: run `callback(*args, **kwargs)` on the UI thread,
     unless `node` has left the app by the time it would run (then the answer is
-    dropped, a write's included). The TUI's workers hand back only through this,
-    besides the app's own rate check (guard: tests/unit/test_suite_hygiene.py).
+    dropped, or, when `if_left` is given, `if_left()` runs instead on the UI thread:
+    it must not touch `node`'s widgets; only a write's ending uses it, and passes
+    `app` too, since a node that has left cannot name it). The TUI's workers hand
+    back only through this, besides the app's own rate check
+    (guard: tests/unit/test_suite_hygiene.py).
 
     A thread worker cannot be interrupted, so a read that was in flight when
     its screen was popped, or when the app quit, still lands. Textual cancels
@@ -82,15 +93,21 @@ def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> No
     touching a node it may be removing.
     """
 
+    if app is None:
+        try:
+            app = node.app
+        except NoActiveAppError:
+            return  # a node that has left the app cannot name it: nothing to hand to
+
     def guarded():
         if node.is_attached and not node._pruning:
             return callback(*args, **kwargs)
+        # `is_attached` is also False once the app is quitting (Textual's private
+        # `_exit`, the one flag it checks itself): then nothing is shown or sent.
+        if if_left is not None and not app._exit:
+            if_left()
         return None
 
-    try:
-        app = node.app
-    except NoActiveAppError:
-        return  # a node that has left the app cannot name it: nothing to hand to
     app.call_from_thread(guarded)
 
 
@@ -128,6 +145,7 @@ class _QueuedWrite:
     config: "Config | None" = None
     error_text: Callable[[Exception], str] = format_error
     on_failure: Callable[[Exception], None] | None = None
+    left_behind: str | None = None  # the first line of the refusal shown if the screen has left
 
 
 class EngineWriteMixin:
@@ -146,6 +164,19 @@ class EngineWriteMixin:
     against a screen state the engine just contradicted; the error callback
     typically resyncs. Why, with the rejected alternatives: docs/decisions.md
     "TUI writes: FIFO queue in EngineWriteMixin, error drops the queue".
+
+    **After the screen has left.** A write that carries `left_behind` (the
+    refused message's first line) is still answered once its screen is gone:
+    success toasts `success`, a refusal toasts `error_text`'s words titled
+    `left_behind` for 10 seconds, both on the app, touching no widget of the
+    left screen. The writes still queued behind it are then sent in order, each
+    ending shown the same way, a refusal stopping none of them (the screen that
+    would have resynced is gone). Textual refuses to start a worker of an
+    unmounted node, so those sends run as thread workers of the *app*
+    (`App.run_worker`, same `engine-write` group); the queue itself is plain
+    state on the screen object, which outlives its mount. A write with no
+    `left_behind` is dropped when its answer lands after the screen has left,
+    and nothing queued behind it is sent.
     """
 
     _write_queue: deque[_QueuedWrite] | None = None  # lazily created; UI-thread only
@@ -166,6 +197,7 @@ class EngineWriteMixin:
         config: "Config | None" = None,
         error_text: Callable[[Exception], str] = format_error,
         on_failure: Callable[[Exception], None] | None = None,
+        left_behind: str | None = None,
     ) -> _QueuedWrite:
         """Queue one engine write and return it. `on_response` receives the engine's own body
         (before `on_success`) for the callers that need it: a `complete`
@@ -180,7 +212,8 @@ class EngineWriteMixin:
         unless a screen needs the engine's words without its hints.
         `on_failure` receives the failure itself instead of `on_error`'s words,
         for a screen that lays a refusal out by its keys (the Edit form
-        names each refused part by its number)."""
+        names each refused part by its number). `left_behind` opts the write in
+        to being finished after its screen has left (class docstring)."""
         if self._write_queue is None:
             self._write_queue = deque()
         item = _QueuedWrite(
@@ -194,6 +227,7 @@ class EngineWriteMixin:
             config,
             error_text,
             on_failure,
+            left_behind,
         )
         self._write_queue.append(item)
         self._pump_writes()
@@ -221,6 +255,11 @@ class EngineWriteMixin:
 
     @work(thread=True, group="engine-write")
     def _execute_write(self, item: _QueuedWrite) -> None:
+        self._send_write(item, self.app)
+
+    def _send_write(self, item: _QueuedWrite, app: "App") -> None:
+        """Thread side: send `item`, then hand the answer to the UI thread. `app` is
+        named by the caller: a screen that has left cannot name it."""
         # Imports stay function-local: the test fixtures patch these module
         # attributes, and only a lazy lookup sees the patch.
         from expense import config as config_module
@@ -231,7 +270,7 @@ class EngineWriteMixin:
         failure: Exception | None = None
         try:
             cfg = item.config or config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, verbose=app._verbose) as client:
                 if item.method == "POST":
                     body = client.post(item.path, json_body=item.json_body)
                 elif item.method == "PUT":
@@ -243,7 +282,48 @@ class EngineWriteMixin:
         except Exception as exc:
             error = item.error_text(exc)
             failure = exc
-        call_while_attached(self, self._write_finished, item, error, body, failure)
+        call_while_attached(
+            self,
+            self._write_finished,
+            item,
+            error,
+            body,
+            failure,
+            app=app,
+            if_left=(
+                None
+                if item.left_behind is None
+                else lambda: self._write_finished_after_leaving(app, item, error)
+            ),
+        )
+
+    def _write_finished_after_leaving(
+        self, app: "App", item: _QueuedWrite, error: str | None
+    ) -> None:
+        """UI thread, the screen gone: show how `item` ended on the app, then send
+        the next queued write (and so on). A queued write with no `left_behind`
+        is never sent, and nothing behind it."""
+        self._writes_answered += 1
+        self._write_inflight = False
+        self._write_current = None
+        if error is None:
+            toast(app, item.success)
+        else:
+            toast(app, error, title=item.left_behind, severity="error", timeout=10)
+        queue = self._write_queue
+        if not queue:
+            return
+        if queue[0].left_behind is None:
+            queue.clear()
+            return
+        self._write_inflight = True
+        self._write_current = queue.popleft()
+        app.run_worker(
+            partial(self._send_write, self._write_current, app),
+            thread=True,
+            group="engine-write",
+            exit_on_error=False,
+        )
 
     def _write_finished(
         self,
@@ -291,6 +371,7 @@ class EngineWriteMixin:
         *,
         done: str,
         after: Callable[[], None] | None = None,
+        left_behind: str | None = None,
     ) -> None:
         """`d` on a row: ask with `ConfirmModal` (only `y` deletes), then send
         `DELETE /{resource}/{id}` through `run_write` — the client's idempotency
@@ -299,7 +380,9 @@ class EngineWriteMixin:
         Deleted, the screen notifies `done` and reloads: through `_after_write`
         by default, or `after` for a list that reloads its own way. Refused, the
         "Failed" note carries the engine's words and, for the refusals that have
-        one, the line saying what to do instead (`list_refusal_text`)."""
+        one, the line saying what to do instead (`list_refusal_text`). With
+        `left_behind`, the delete is finished and shown even if the screen has
+        been left before the engine answers (`EngineWriteMixin`)."""
 
         def answered(ok: bool | None) -> None:
             if not ok:
@@ -317,6 +400,7 @@ class EngineWriteMixin:
                 success=done,
                 on_success=on_success,
                 error_text=list_refusal_text,
+                left_behind=left_behind,
             )
 
         self.app.push_screen(ConfirmModal(title, message), answered)
@@ -334,6 +418,12 @@ def delete_row_line(title: object, amount_cents: object, day: str, account_name:
     Shared by the question for a single transaction and the one for a whole
     split bank line."""
     return f"{title_or_untitled(title)} · {format_cents(amount_cents)} · {day} · {account_name}"
+
+
+def not_deleted_line(title: object, amount_cents: object) -> str:
+    """The first line of a refused delete shown after its screen has left:
+    `Not deleted · TITLE · AMOUNT`."""
+    return f"Not deleted · {title_or_untitled(title)} · {format_cents(amount_cents)}"
 
 
 def transaction_delete_message(record: dict, account_name: str) -> str:

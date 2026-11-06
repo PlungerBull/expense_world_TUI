@@ -77,6 +77,7 @@ from expense.errors import (
     row_note,
 )
 from expense.formatting import (
+    bank_line_columns,
     currency_label,
     format_hashtag_cell,
     format_short_date,
@@ -101,6 +102,7 @@ from expense.tui.screens._base import (
     bank_line_delete_question,
     call_while_attached,
     list_refusal_text,
+    not_deleted_line,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -549,6 +551,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             return
         if is_split_line(line):
             account_id = line.get("account_id") or record.get("account_id")
+            _day, line_title, _operation, line_net = bank_line_columns(line)
             self.confirm_delete(
                 "bank-lines",
                 record.get("bank_line_id"),
@@ -556,6 +559,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                 bank_line_delete_message(line, resolve_name(account_id, self._maps[0])),
                 done="Transaction deleted.",
                 after=self._reload_fresh,
+                left_behind=not_deleted_line(line_title, line_net),
             )
             return
         account = resolve_name(record.get("account_id"), self._maps[0])
@@ -566,6 +570,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             transaction_delete_message(record, account),
             done="Transaction deleted.",
             after=self._reload_fresh,
+            left_behind=not_deleted_line(record.get("title"), record.get("amount_cents")),
         )
 
     def on_cursor_list_toggled(self, event: CursorList.Toggled) -> None:

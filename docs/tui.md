@@ -88,8 +88,13 @@ lands, and painting it then queries widgets already taken down (`NoMatches`).
 checks on the UI thread, at the moment the callback would run, and drops it once the node
 has left the app. Every thread worker in `expense/tui/` hands back this way (guard:
 `test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)),
-a write's included: once its screen is gone its answer is dropped. Only the app's rate check
-hands back without a screen.
+a write's included: once its screen is gone its answer is dropped, unless the write carries
+`left_behind`, the first line of its refusal (`run_write`, `confirm_delete`): then success
+toasts its `success` words and a refusal toasts the screen's own words under that line for
+10 seconds, both on the app, and the writes still queued behind it that carry `left_behind` are sent and shown
+the same way, a refusal stopping none, and one without it ends the run (`EngineWriteMixin`). Quitting
+the app sends and shows nothing more. Only the app's rate check hands back
+without a screen.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer
