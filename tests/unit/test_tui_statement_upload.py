@@ -998,6 +998,46 @@ def test_a_change_met_by_the_apply_previews_again_before_any_write(
     run_app(scenario, size=(120, 50))
 
 
+def test_a_change_met_by_the_apply_reads_whole_at_80_columns(fake_client, monkeypatch, tmp_path):
+    """The `CONCURRENT_CHANGE` refusal on a narrow terminal: the engine's words, the app's line
+    and the hint each wrap whole, none cut, and `⏎ Preview again` stays offered."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): CARD})
+    words = (
+        "Another request changed this statement's draft while the upload was being read, "
+        "so none of its rows can be trusted. Send it again."
+    )
+    hint = "It changed while the upload ran: ⏎ checks the paper against the ledger again."
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        fake_client.errors["POST"] = _refusal(
+            "CONFLICT",
+            "file",
+            words,
+            "CONCURRENT_CHANGE",
+            status=409,
+            message="The ledger changed while the upload ran.",
+        )
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: bool(preview._failure), message="no failure shown")
+        width = preview.query_one("#import-body", Static).content_region.width
+        lines = _lines(preview, width=width)
+        at = next(i for i, line in enumerate(lines) if line.startswith("CONFLICT"))
+        shown = " ".join(lines[at:])
+        for text in (
+            "CONFLICT — The ledger changed while the upload ran.",
+            f"! file: {words}",
+            "Nothing was written.",
+            hint,
+        ):
+            assert text in shown
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Preview again"}
+
+    run_app(scenario, size=(80, 50))
+
+
 def _flagged_close(fake_client, monkeypatch, tmp_path, count):
     """A card paper whose close lists one `review_lines` id on soles and two
     `not_covered` ids on dollars (a sum of three); `count` is what the engine's

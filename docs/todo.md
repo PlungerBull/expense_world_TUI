@@ -61,11 +61,6 @@ CLAUDE.md "Specs and tasks".
   balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
   dated earlier stops a sheet row being the opening balance"; then
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
-- **The statement upload's live-test gaps.** Nothing you see changes. In
-  [test_statement_import.py](../tests/contract/test_statement_import.py) no live test opens a
-  card's month before its paper, applies a card paper with $0 dollars to a soles-and-dollars
-  account, or draws the "balances alone" `ACCOUNT_CURRENCY_NOT_ON_PAPER` apart from a dollar
-  line; `CONCURRENT_CHANGE` is proven only in unit tests, which pin 120 columns.
 - **Code names still call a statement a "batch" or a reconciliation.** Nothing you see changes.
   In reconciliations.py `_batch_list`, `_show_batches`, `_load_batches`, the mode and widget id
   `"batches"`, `ReconciliationsScreen`, `ReconciliationDetailScreen`, `NewReconciliationScreen`

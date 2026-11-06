@@ -28,7 +28,8 @@ repo is public. Pinned here:
     two against one match one and create one, one against two matches one and flags the other
     unchanged (contract: POST /v1/statements/import, "Matching");
   · an open month is filled: its days become the paper's, it keeps its name, and a line in
-    it the paper does not print is taken out, never deleted;
+    it the paper does not print is taken out, never deleted, on a card's draft over soles and
+    dollars (a soles line out, each purchase matched in its currency) as on a savings account's;
   · a replay under the same idempotency key answers the stored answer and writes once;
   · each refusal a made-up file or account provokes, on the dry run and the apply alike,
     each writing nothing, shown by a full read of the account's transactions, bank lines and
@@ -39,7 +40,8 @@ repo is public. Pinned here:
     `INVALID_REFERENCE` for an archived one, `PERSON_TAKES_NO_STATEMENT` for a person, on
     the bank download too, `CURRENCY_NOT_HELD` for a paper in a currency the account lacks,
     `ACCOUNT_CURRENCY_NOT_ON_PAPER` for a currency of the account holding something the
-    paper does not print), a row dated after today (`FUTURE_DATE` on `rows.<place>.date`,
+    paper does not print: money at the start, a line in the draft, or its balances alone),
+    a row dated after today (`FUTURE_DATE` on `rows.<place>.date`,
     "Row <place>: Must not be in the future."), and the statement's (`PERIOD_OVERLAPS`, and
     `NO_TRANSACTIONS_ASSIGNED` for a paper of `0.00` rows only).
 
@@ -47,13 +49,14 @@ repo is public. Pinned here:
 The published samples, fetched live, are tested here too: `card` then `card-no-dollars`
 closing one account of soles and dollars, the second closing its dollars with no line, and the
 drawn savings and card papers (`savings_paper`, `card_paper`) answering as the samples do. A
-drawn card paper with its dollars at zero and no dollar row closes a soles-only account in soles
-only, and is `MONEY_AT_START_NOT_COVERED` where the account's dollars hold money at the start;
-every undated line of a card paper, a mailing fee among them, is its own `fee` row and its own
-transaction dated the statement's last day.
-Not drawn here: the races (`CONCURRENT_CHANGE`), the line codes used up
-(`LINE_CODES_EXHAUSTED`) and the engine's own fault (`INTERNAL_ERROR`), which no made-up
-file provokes.
+drawn card paper with its dollars at zero and no dollar row closes a soles-only account, and a
+soles-and-dollars one holding no dollars, in soles only, and is `MONEY_AT_START_NOT_COVERED`
+where the account's dollars hold money at the start; every undated line of a card paper, a
+mailing fee among them, is its own `fee` row and its own transaction dated the statement's last
+day.
+Not drawn here: the races (`CONCURRENT_CHANGE`, shown by the unit suite at 120 and 80 columns),
+the line codes used up (`LINE_CODES_EXHAUSTED`) and the engine's own fault (`INTERNAL_ERROR`),
+which no made-up file provokes.
 
 Gating, target and the real-ledger guard: conftest.py.
 """
@@ -911,3 +914,102 @@ def test_a_card_paper_with_dollars_at_zero_is_refused_where_the_dollars_hold_mon
     )
     assert "USD" in err.fields["file"]
     assert "30000" in err.fields["file"]
+
+
+def test_an_open_card_month_is_filled_by_the_card_paper(client, scratch):
+    """A draft over a card's soles and dollars is filled as a savings account's is: its days and
+    balances become the paper's, it keeps its name, each purchase matches its line in either
+    currency, and a line the paper does not print is taken out, never deleted
+    (contract: POST /v1/statements/import, "The statement")."""
+    account, _ = _coded(scratch, "PEN", "USD")
+    draft = scratch.statement(account, "2026-03-03", "2026-03-28", "PEN", "USD")["id"]
+    name = client.get(f"/statements/{draft}")["name"]
+    soles = scratch.row(account, "2026-03-10", -5000)
+    dollars = scratch.row(account, "2026-03-12", -2000, "USD")
+    stray = scratch.row(account, "2026-03-15", -777)
+    for tx in (soles, dollars, stray):
+        scratch.assign(tx["id"], draft)
+    paper = card_paper(
+        [
+            CardRow(date(2026, 3, 10), "LIBRERIA INVENTADA LIMA PE", "CONSUMO", 5000),
+            CardRow(date(2026, 3, 12), "TIENDA INVENTADA NEW YORK US", "CONSUMO", 2000, "USD"),
+        ],
+        owed_before=(30000, 10000),
+        **MARCH,
+    )
+
+    dry = send_statement(client, account, paper, dry_run=True)
+    assert (dry["statement_id"], dry["creates"], dry["name"]) == (draft, False, name)
+    assert [(r["outcome"], r["bank_line_id"]) for r in dry["rows"]] == [
+        ("matched", soles["bank_line_id"]),
+        ("matched", dollars["bank_line_id"]),
+    ]
+    assert (dry["taken_out"], dry["counts"]["taken_out"]) == ([stray["bank_line_id"]], 1)
+    assert client.get(f"/transactions/{stray['id']}")["statement_id"] == draft
+
+    done = send_statement(client, account, paper, dry_run=False)
+    scratch.took(done)
+    assert done["taken_out"] == [stray["bank_line_id"]]
+    statement = client.get(f"/statements/{draft}")
+    assert (statement["status"], statement["name"]) == (2, name)
+    assert (statement["date_start"], statement["date_end"]) == ("2026-03-01", "2026-03-31")
+    for code, before, ending in (("PEN", -30000, -35000), ("USD", -10000, -12000)):
+        balance = balance_of(statement, code)
+        assert (balance["beginning_balance_cents"], balance["ending_balance_cents"]) == (
+            before,
+            ending,
+        )
+        assert balance["difference_cents"] == 0
+    assert client.get(f"/bank-lines/{stray['bank_line_id']}")["statement_place"] is None
+    assert client.get(f"/transactions/{stray['id']}")["statement_id"] is None
+    assert [line for line, *_ in _placed(client, draft)] == [
+        soles["bank_line_id"],
+        dollars["bank_line_id"],
+    ]
+
+
+def test_a_card_paper_with_dollars_at_zero_closes_a_soles_and_dollars_account_in_soles_only(
+    client, scratch
+):
+    """The drawn paper that shows the dollars at zero with no row, sent to an account holding
+    soles and dollars with no money in the dollars, covers soles only: the dollars get no
+    balances and no line, on the dry run as on the apply
+    (contract: POST /v1/statements/import, "Which currencies the statement covers")."""
+    account, code = _coded(scratch, "PEN", "USD")
+    paper = card_paper(**SOLES_ONLY_MARCH)
+    before = _ledger(client, account)
+
+    dry = send_statement(client, account, paper, dry_run=True)
+    assert _ledger(client, account) == before
+    assert (dry["statement_id"], dry["creates"], dry["name"]) == (None, True, f"{code}-202603")
+    assert [b["currency_code"] for b in dry["balances"]] == ["PEN"]
+    assert {r["currency_code"] for r in dry["rows"]} == {"PEN"}
+
+    done = send_statement(client, account, paper, dry_run=False)
+    scratch.took(done)
+    assert done["balances"] == dry["balances"]
+    statement = done["statement"]
+    assert statement["status"] == 2
+    assert [b["currency_code"] for b in statement["balances"]] == ["PEN"]
+    lines = client.get("/bank-lines", params={"statement_id": done["statement_id"]})["items"]
+    assert len(lines) == 5 and {line["currency_code"] for line in lines} == {"PEN"}
+
+
+def test_balances_alone_in_the_draft_make_a_currency_the_paper_lacks_refused(client, scratch):
+    """A draft holding dollar balances but no dollar line still holds something of the dollars,
+    so a soles paper for it is `ACCOUNT_CURRENCY_NOT_ON_PAPER` naming them, on the dry run too,
+    nothing written (contract: POST /v1/statements/import, "Which currencies the statement
+    covers"): the paper cannot fill balances it does not print."""
+    account, _ = _coded(scratch, "PEN", "USD")
+    scratch.statement(account, "2026-03-01", "2026-03-31", "PEN", "USD")
+    paper = savings_paper([PaperRow(date(2026, 3, 4), "COMPRA", -100)], before_cents=10000, **MARCH)
+    err = _refused_writing_nothing(
+        client,
+        account,
+        paper,
+        422,
+        "VALIDATION_ERROR",
+        "account_id",
+        "ACCOUNT_CURRENCY_NOT_ON_PAPER",
+    )
+    assert "USD" in err.fields["account_id"]
