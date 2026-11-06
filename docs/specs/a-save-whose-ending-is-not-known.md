@@ -3,7 +3,9 @@
 What [a save that answers after you leave](../decisions.md) (done on 2026-11-06) turned up: two
 cases where the app says something untrue, or nothing, about a save that may have landed.
 
-**Status: drafted on 2026-11-06; questions 1 and 2 open; for the owner to approve.** It waits on
+**Status: drafted on 2026-11-06; questions answered on 2026-11-06 (1 A, 2 B); its mockup,
+[expense-world-save-ending-unknown.html](../mockups/expense-world-save-ending-unknown.html),
+waits on the owner's approval.** It waits on
 no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
@@ -38,11 +40,13 @@ deleted.
      words alone.
    - **B.** Say it plainly: `It may have saved: open it to check.`
    **Recommended:** A: it matches the Edit forms, and it adds no new sentence.
+   **Picked:** A.
 2. **`ctrl+q` while saves still wait to be sent?**
    - **A.** As today: the app quits and they are dropped.
    - **B.** The app asks first: `2 saves are still being sent. Quit anyway?`, only `y` quits.
    - **C.** The app waits for them, then quits.
    **Recommended:** B: you learn something is still going and choose.
+   **Picked:** B.
 
 Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is built.
 

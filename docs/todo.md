@@ -39,7 +39,9 @@ rows](specs/the-keys-card-at-24-rows.md).
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
-New, two questions: [a save whose ending is not known](specs/a-save-whose-ending-is-not-known.md).
+Answered, its mockup waiting on your approval: [a save whose ending is not
+known](specs/a-save-whose-ending-is-not-known.md), drawn in
+[the mockup](mockups/expense-world-save-ending-unknown.html).
 
 New, one question: [a split's parts show an income's `+`](specs/a-splits-parts-show-an-incomes-plus.md).
 
