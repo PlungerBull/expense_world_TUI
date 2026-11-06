@@ -1018,3 +1018,122 @@ def test_a_footer_that_fits_keeps_its_usual_spacing(fake_client, monkeypatch):
         assert "r Refresh  u Revert  d Delete  f Flagged  ? Keys" in screen_lines(app)[-1]
 
     run_app(scenario)
+
+
+def test_a_read_a_newer_one_replaced_paints_nothing(fake_client, monkeypatch):
+    """A read that passed its cancel check before a newer load started still hands
+    back after it; the UI thread drops it, so only the newest lines show."""
+    from expense.tui.screens import reconciliations as module
+
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, TAMBO, UBER)
+    entered, release = threading.Event(), threading.Event()
+    first_thread: list[int] = []
+
+    def fake_fetch(cfg, statement_id, **kw):
+        if not first_thread:
+            first_thread.append(threading.get_ident())
+        if threading.get_ident() == first_thread[0]:
+            entered.set()
+            assert release.wait(5)
+            return [TAMBO]  # the older read's answer, held until released
+        return [TAMBO, UBER]
+
+    monkeypatch.setattr(module, "fetch_review_lines", fake_fetch)
+
+    class Live:  # a worker whose cancel flag the older read has already passed
+        is_cancelled = False
+
+    monkeypatch.setattr(module, "get_current_worker", lambda: Live())
+    handed_back: list[str] = []
+    real = module.call_while_attached
+
+    def counting(screen, fn, *a, **k):
+        real(screen, fn, *a, **k)
+        handed_back.append(getattr(fn, "__name__", ""))
+
+    monkeypatch.setattr(module, "call_while_attached", counting)
+
+    async def scenario(pilot, app):
+        screen = FlaggedLinesScreen("s-sig", statement="Octubre 2026")
+        await app.push_screen(screen)
+        await wait_for(pilot, entered.is_set)
+        screen._load()  # the newer load
+        await wait_for(
+            pilot,
+            lambda: (
+                screen._list is not None
+                and _listed(screen)
+                == [
+                    "l-tambo",
+                    "l-uber",
+                ]
+            ),
+        )
+        release.set()
+        await wait_for(pilot, lambda: handed_back.count("_populate") == 2)
+        await pilot.pause()
+        assert _listed(screen) == ["l-tambo", "l-uber"]
+        assert len(screen._lines) == 2
+
+    run_app(scenario)
+
+
+def test_a_count_and_an_error_a_newer_read_replaced_change_nothing(fake_client, monkeypatch):
+    """The older read's count, held past a newer load, is not painted or kept, and the
+    refusal its lines then meet is not shown."""
+    from expense.tui.screens import reconciliations as module
+
+    _patch(monkeypatch)
+    Lines(monkeypatch, fake_client, TAMBO, UBER)
+    entered, release = threading.Event(), threading.Event()
+    first_thread: list[int] = []
+
+    def fake_count(cfg, **kw):
+        if not first_thread:
+            first_thread.append(threading.get_ident())
+        if threading.get_ident() == first_thread[0]:
+            entered.set()
+            assert release.wait(5)
+            return 9  # the older read's count, held until released
+        return 2
+
+    def fake_fetch(cfg, statement_id, **kw):
+        if threading.get_ident() == first_thread[0]:
+            raise EngineError("INTERNAL_ERROR", "Older failure.", None, 500, {})
+        return [TAMBO, UBER]
+
+    monkeypatch.setattr(module.reads, "count_bank_lines", fake_count)
+    monkeypatch.setattr(module, "fetch_review_lines", fake_fetch)
+
+    class Live:  # a worker whose cancel flag the older read has already passed
+        is_cancelled = False
+
+    monkeypatch.setattr(module, "get_current_worker", lambda: Live())
+    notes: list = []
+    monkeypatch.setattr(
+        FlaggedLinesScreen, "notify", lambda self, message, **kw: notes.append(str(message))
+    )
+    handed_back: list[str] = []
+    real = module.call_while_attached
+
+    def counting(screen, fn, *a, **k):
+        real(screen, fn, *a, **k)
+        handed_back.append(getattr(a[1], "__name__", "") if fn == screen._if_newest else "")
+
+    monkeypatch.setattr(module, "call_while_attached", counting)
+
+    async def scenario(pilot, app):
+        screen = FlaggedLinesScreen("s-sig", statement="Octubre 2026")
+        await app.push_screen(screen)
+        await wait_for(pilot, entered.is_set)
+        screen._load()  # the newer load
+        await wait_for(pilot, lambda: screen._list is not None)
+        release.set()
+        await wait_for(pilot, lambda: "toast" in handed_back and "_paint_head" in handed_back[1:])
+        await pilot.pause()
+        assert screen._count == 2
+        assert _text(screen, "#fhead").startswith("Octubre 2026 has 2")
+        assert notes == []
+
+    run_app(scenario)

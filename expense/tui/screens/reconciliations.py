@@ -96,6 +96,7 @@ from expense.tui.screens._base import (
     AdaptiveRowsMixin,
     ContentSwapLockMixin,
     EngineWriteMixin,
+    NewestReadMixin,
     SectionScreen,
     bank_line_delete_message,
     bank_line_delete_question,
@@ -1628,6 +1629,7 @@ class StatementScreen(
     EngineWriteMixin,
     ContentSwapLockMixin,
     AdaptiveRowsMixin,
+    NewestReadMixin,
     Screen,
 ):
     """One statement: header + a bank-line checklist (draft) or read-only list
@@ -1663,7 +1665,6 @@ class StatementScreen(
         self._list: CheckList | None = None
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
-        self._load_generation = 0  # bumped as each read starts; only the newest paints
         self._acct_name: str | None = None  # resolved worker-side in _read_txns
         self._open_when_counted = False  # a complete waits for the review list's count
         # how many bank lines the statement's review list counts: the engine's
@@ -1765,14 +1766,7 @@ class StatementScreen(
             self._list.set_page_size(self._checklist_items())
 
     def _load_txns(self, refresh_record: bool = False) -> None:
-        self._load_generation += 1
-        self._read_txns(self._load_generation, refresh_record)
-
-    def _if_newest(self, generation: int, hand_back, *args) -> None:
-        """UI thread: a hand-back of a read a newer one has replaced is dropped, so
-        a stale record, name or count never overwrites what the newest read brings."""
-        if generation == self._load_generation:
-            hand_back(*args)
+        self._read_txns(self._start_read(), refresh_record)
 
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
     # cancels stale refreshes only, never a run_write ("engine-write") worker
@@ -1859,7 +1853,7 @@ class StatementScreen(
         it, and the read after the last tick paints with the cursor on the line
         ticked last, so ticking down a statement never lands on another row. Not
         a read a newer one has replaced either, checked here on the UI thread."""
-        if generation != self._load_generation or self._ticks_unanswered():
+        if not self._is_newest(generation) or self._ticks_unanswered():
             return
         land_on, self._land_on = self._land_on, None
         async with self._content_lock():
@@ -2353,7 +2347,9 @@ class _FlaggedList(CheckList):
     can_focus = False
 
 
-class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMixin, Screen):
+class FlaggedLinesScreen(
+    EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMixin, NewestReadMixin, Screen
+):
     """The lines a statement's close flagged for review.
 
     Opened on the statement's id, the screen reads its review list, the lines
@@ -2424,8 +2420,12 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
                 chrome += FLAGGED_WAYS_LINES
         return self.fit_rows("#flist", chrome=chrome)
 
-    @work(thread=True, exclusive=True, group="flagged-load")
     def _load(self) -> None:
+        """Start a read of the flagged lines; every load start goes through here."""
+        self._read_lines(self._start_read())
+
+    @work(thread=True, exclusive=True, group="flagged-load")
+    def _read_lines(self, generation: int) -> None:
         """The engine's count of the statement's review list, painted into the head
         the moment it arrives; then the list itself, every page of it in the
         statement's order (`fetch_review_lines`), and the accounts' names
@@ -2441,25 +2441,35 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             if worker.is_cancelled:
                 return
             if count > 0:  # a count of none paints no head: the list is gone, the screen leaves
-                call_while_attached(self, self._paint_head, count)
+                call_while_attached(self, self._if_newest, generation, self._paint_head, count)
             lines = fetch_review_lines(cfg, self._statement_id, **kw)
             names = load_account_name_map()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
-                call_while_attached(self, toast, self, format_error(exc), severity="error")
+                call_while_attached(
+                    self,
+                    self._if_newest,
+                    generation,
+                    toast,
+                    self,
+                    format_error(exc),
+                    severity="error",
+                )
             return
         if worker.is_cancelled:
             return
-        call_while_attached(self, self._populate, lines, count, names)
+        call_while_attached(self, self._populate, lines, count, names, generation)
 
     def _paint_head(self, count: int) -> None:
         """Remember the engine's count and paint the head under it."""
         self._count = count
         self.query_one("#fhead", Static).update(flagged_head(self._statement, count, PALETTE))
 
-    async def _populate(self, lines: list[dict], count: int, names: dict) -> None:
+    async def _populate(self, lines: list[dict], count: int, names: dict, generation: int) -> None:
         """Paint a read, the cursor on row 1, under the engine's count; with no
-        line left, back to the statement."""
+        line left, back to the statement. A read a newer one replaced paints nothing."""
+        if not self._is_newest(generation):
+            return
         self._lines, self._names = lines, names
         if not lines:
             self._count = count

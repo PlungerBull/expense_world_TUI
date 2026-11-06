@@ -93,6 +93,28 @@ def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> No
     app.call_from_thread(guarded)
 
 
+class NewestReadMixin:
+    """A screen whose reads can overlap: each read starts with `_start_read`, and its
+    hand-backs run on the UI thread through `_if_newest` (or check `_is_newest`
+    themselves, when they are coroutines), so a read a newer one replaced paints
+    nothing and changes no state."""
+
+    _load_generation = 0
+
+    def _start_read(self) -> int:
+        """The generation of a read that is starting; every older one is now stale."""
+        self._load_generation += 1
+        return self._load_generation
+
+    def _is_newest(self, generation: int) -> bool:
+        return generation == self._load_generation
+
+    def _if_newest(self, generation: int, hand_back: Callable, *args, **kwargs) -> None:
+        """UI thread: a hand-back of a read a newer one has replaced is dropped."""
+        if self._is_newest(generation):
+            hand_back(*args, **kwargs)
+
+
 @dataclass
 class _QueuedWrite:
     method: str

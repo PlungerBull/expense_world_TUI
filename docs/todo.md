@@ -92,10 +92,10 @@ CLAUDE.md "Specs and tasks".
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **A superseded read can paint on the flagged lines.** `FlaggedLinesScreen._load` /
-  `_populate` ([reconciliations.py](../expense/tui/screens/reconciliations.py)) checks
-  `is_cancelled` only on the worker thread, so a load a newer one replaced can still paint older
-  lines. Drop it on the UI thread as the statement's own list does (`_if_newest`), with a test.
+- **One newest-read helper everywhere.** `NewestReadMixin` ([_base.py](../expense/tui/screens/_base.py))
+  drops a replaced read's hand-backs; the statement screen's two count-error toasts
+  (reconciliations.py `_read_txns`) still show for a replaced read, and
+  [_growing.py](../expense/tui/screens/_growing.py) keeps its own `_generation`. Both use the mixin.
 
 ---
 
