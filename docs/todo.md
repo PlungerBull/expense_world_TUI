@@ -43,7 +43,9 @@ Answered, its mockup waiting on your approval: [a save whose ending is not
 known](specs/a-save-whose-ending-is-not-known.md), drawn in
 [the mockup](mockups/expense-world-save-ending-unknown.html).
 
-New, one question: [a split's parts show an income's `+`](specs/a-splits-parts-show-an-incomes-plus.md).
+Answered (A), its mockup and task waiting on your approval: [a split's parts show an income's
+`+`](specs/a-splits-parts-show-an-incomes-plus.md), drawn in
+[the mockup](mockups/expense-world-split-parts-plus.html).
 
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
