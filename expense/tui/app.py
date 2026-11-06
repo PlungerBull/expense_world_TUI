@@ -1,13 +1,16 @@
 """The Textual app shell + the launch that `expense`, run alone, makes."""
 
 import sys
+from collections.abc import Callable
 
 import typer
 from textual import work
 from textual.app import App
 
 from expense.context import get_verbose
+from expense.tui.screens._base import pending_writes
 from expense.tui.screens.home import HomeScreen
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import EXPENSE_ANSI
 from expense.tui.widgets.header import Breadcrumb
@@ -64,6 +67,54 @@ class ExpenseApp(App):
         # has accepted the settings, dismissing it lands on Home, which reads
         # afresh on resume.
         self._setup = setup
+
+    _quit_question: ConfirmModal | None = None
+    _after_quit_question: list[Callable[[], None]]
+
+    @property
+    def quit_question_open(self) -> bool:
+        return self._quit_question is not None and self._quit_question in self.screen_stack
+
+    def after_quit_question(self, leave: Callable[[], None]) -> None:
+        """Run `leave` (a screen closing itself) now, or, while the quit question is on
+        top, once it is answered: closing a screen pops the top one, which would be the
+        question. Dropped when the answer is `y`."""
+        if self.quit_question_open:
+            self._after_quit_question.append(leave)
+        else:
+            leave()
+
+    async def action_quit(self) -> None:
+        """Quit at once, or, with saves still being sent, ask first: only `y` quits. The
+        count is taken when asked; a second quit while the question is open adds none."""
+        count = pending_writes(self)
+        if count == 0:
+            self.exit()
+            return
+        if self.quit_question_open:
+            return
+        one = count == 1
+        title = (
+            "1 save is still being sent. Quit anyway?"
+            if one
+            else f"{count} saves are still being sent. Quit anyway?"
+        )
+        message = "If you quit now, no screen will tell you whether " + (
+            "it was saved." if one else "they were saved."
+        )
+        self._after_quit_question = []
+
+        def answered(ok: bool | None) -> None:
+            self._quit_question = None
+            if ok:
+                self.exit()
+                return
+            waiting, self._after_quit_question = self._after_quit_question, []
+            for leave in waiting:
+                leave()
+
+        self._quit_question = ConfirmModal(title, message)
+        self.push_screen(self._quit_question, answered)
 
     def get_default_screen(self) -> HomeScreen:
         return HomeScreen()

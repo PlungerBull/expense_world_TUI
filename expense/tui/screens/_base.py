@@ -11,8 +11,10 @@ Owns the breadcrumb header, the bounded content card, the worker-backed fetch
 """
 
 import asyncio
+import weakref
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from functools import partial
 from typing import TYPE_CHECKING, Any
@@ -245,6 +247,42 @@ class _QueuedWrite:
     left_behind: LeftBehind | None = None  # set: finished and shown if the screen has left
 
 
+def app_writers(app: "App") -> "weakref.WeakSet[EngineWriteMixin]":
+    """The screens that have sent a write through `run_write` on this app, left ones
+    included (a screen that has left is not in the app's screen stack). Weak: a screen
+    with a write in flight is held by its worker, an open one by the stack."""
+    # `setdefault` on the instance dict creates the set atomically, as `counted_save`
+    # needs from a worker thread
+    return app.__dict__.setdefault("_write_screens", weakref.WeakSet())
+
+
+@contextmanager
+def counted_save(app: "App") -> Iterator[None]:
+    """From a thread worker that writes without `run_write` (a batch, a run of PUTs, an
+    import's apply): the whole run is one save in `pending_writes` while the block runs,
+    whatever screen it was started from. The block holds the worker's hand-backs too (they
+    block the thread until they have run), so the save is counted until its ending is
+    shown. Held only for the block, so nothing is kept."""
+    token = object()
+    saves = app.__dict__.setdefault("_counted_saves", set())
+    saves.add(token)
+    try:
+        yield
+    finally:
+        saves.discard(token)
+
+
+def pending_writes(app: "App") -> int:
+    """The one count of the saves on this app that are sent and not answered, or waiting
+    to be sent, across every screen, left ones included (`EngineWriteMixin.saves_pending`),
+    and the runs that joined through `counted_save`. A save of several writes (a
+    `SaveReport`, a batch, a run of PUTs) counts once."""
+    saves: set[int] = set()
+    for screen in list(app_writers(app)):
+        saves.update(id(save) for save in screen.saves_pending())
+    return len(saves) + len(app.__dict__.get("_counted_saves", ()))
+
+
 class EngineWriteMixin:
     """Engine writes off the UI thread — one at a time, in order, per screen.
 
@@ -315,6 +353,7 @@ class EngineWriteMixin:
         to being finished after its screen has left (`LeftBehind`, class docstring)."""
         if self._write_queue is None:
             self._write_queue = deque()
+        app_writers(self.app).add(self)  # type: ignore[attr-defined]
         item = _QueuedWrite(
             method,
             path,
@@ -331,6 +370,32 @@ class EngineWriteMixin:
         self._write_queue.append(item)
         self._pump_writes()
         return item
+
+    def saves_pending(self) -> list[object]:
+        """What this screen has sent and not had answered, or has queued: one entry per
+        write, or one per `SaveReport` for the writes that are its parts. On a screen
+        that has left, only the writes carrying a `LeftBehind` count, up to the first
+        that does not: it and every write behind it are dropped."""
+        writes = self.writes_unanswered()
+        if not (self.is_attached and not self._pruning):  # type: ignore[attr-defined]
+            kept = []
+            for write in writes:
+                if write.left_behind is None:
+                    break
+                kept.append(write)
+            writes = kept
+        return [
+            w.left_behind.part.report if w.left_behind and w.left_behind.part else w for w in writes
+        ]
+
+    def dismiss(self, result: Any = None) -> Any:
+        """Close this screen; while the quit question is on top, once it is answered."""
+        close = super().dismiss  # type: ignore[misc]
+        app = self.app  # type: ignore[attr-defined]
+        if app.quit_question_open:
+            app.after_quit_question(lambda: close(result))
+            return None
+        return close(result)
 
     def _pump_writes(self) -> None:
         if self._write_inflight or not self._write_queue:

@@ -370,6 +370,11 @@ class SetupScreen(FormScreen):
         return cfg.model_copy(update={"main_currency": currency})
 
     def _finish(self) -> None:
+        """Close, say "Connected." and check the rate: all when the screen closes, which
+        is after the quit question when one is open."""
+        self.app.after_quit_question(self._close)  # type: ignore[attr-defined]
+
+    def _close(self) -> None:
         # Home is under this screen and reads afresh when it comes back.
         self.dismiss()
         self.app.notify("Connected.")

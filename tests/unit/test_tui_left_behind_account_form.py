@@ -104,9 +104,11 @@ def _left_save(
     refusals=None,
     elsewhere=False,
     quit_instead=False,
+    before_release=None,
 ):
     """Open `record`'s form over Manage ▸ Accounts, make `edits`, save, leave the form while
-    the `hold`th write is unanswered, let it answer, and return `(the app's toasts, the
+    the `hold`th write is unanswered (`before_release(pilot, app)`, when given, runs while
+    it is), let it answer, and return `(the app's toasts, the
     requests sent, the list's reads)`; `elsewhere`: another screen is the one shown."""
     monkeypatch.setattr("expense.reads.fetch_transaction", lambda cfg, tid, **kw: ROWS[tid])
     list_reads: list[int] = []
@@ -151,6 +153,8 @@ def _left_save(
             await app.push_screen(Screen())
             await wait_for(pilot, lambda: app.screen is not listing)
         reads_before = len(list_reads)
+        if before_release is not None:
+            await before_release(pilot, app)
         release.set()
         await wait_for(pilot, lambda: notes, timeout=3)
         await pilot.pause()

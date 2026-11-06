@@ -21,6 +21,8 @@ is expense/bank_import/statement.py; what is here is only what the screens
 draw.
 """
 
+from contextlib import nullcontext
+
 from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
@@ -47,7 +49,7 @@ from expense.formatting import (
     title_or_untitled,
     truncate,
 )
-from expense.tui.screens._base import call_while_attached, relabel
+from expense.tui.screens._base import call_while_attached, counted_save, relabel
 from expense.tui.screens.bank_import import (
     ASKING,
     MIN_PAGE,
@@ -344,6 +346,12 @@ class StatementPreviewScreen(PreviewScreen):
     # ---- the engine ----------------------------------------------------------
     @work(thread=True, exclusive=True, group="engine-write")
     def _ask(self, dry_run: bool) -> None:
+        """The apply is one save while it runs, its count read and hand-back included
+        (`counted_save`); the dry run writes nothing."""
+        with nullcontext() if dry_run else counted_save(self.app):
+            self._call(dry_run)
+
+    def _call(self, dry_run: bool) -> None:
         """One `POST /statements/import`, the dry run or the apply, through
         flow.py's one call; the client mints the idempotency key. The dry run
         then reads the lines its answer names by id alone (`statement_lines`);
@@ -394,9 +402,10 @@ class StatementPreviewScreen(PreviewScreen):
     ) -> None:
         self._writing = False
         self._run.imported += 1
-        self.app.switch_screen(
-            StatementResultScreen(self._run, self._owner, self._pick, answer, statement_id, flagged)
+        result = StatementResultScreen(
+            self._run, self._owner, self._pick, answer, statement_id, flagged
         )
+        self.app.after_quit_question(lambda: self.app.switch_screen(result))
         if count_error:
             toast(self.app, count_error, title="Failed", severity="error")
 

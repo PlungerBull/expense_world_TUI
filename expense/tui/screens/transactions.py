@@ -104,6 +104,7 @@ from expense.tui.screens._base import (
     bank_line_delete_message,
     bank_line_delete_question,
     call_while_attached,
+    counted_save,
     dated_transaction_line,
     list_refusal_text,
     not_deleted_line,
@@ -777,6 +778,17 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")
     def _bulk_write(
+        self,
+        writes: list[tuple[object, dict]],
+        label: str,
+        move: bool,
+        row_lines: dict[object, str],
+    ) -> None:
+        """One save while it runs, its hand-back included (`counted_save`)."""
+        with counted_save(self.app):
+            self._put_rows(writes, label, move, row_lines)
+
+    def _put_rows(
         self,
         writes: list[tuple[object, dict]],
         label: str,

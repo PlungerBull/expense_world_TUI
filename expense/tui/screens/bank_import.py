@@ -28,6 +28,7 @@ drop order (`first_screen`). A PDF goes through the statement upload
 back to the LOG bar.
 """
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -78,7 +79,12 @@ from expense.formatting import (
 )
 from expense.reads import items_of
 from expense.tui.dropped import is_statement
-from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
+from expense.tui.screens._base import (
+    call_while_attached,
+    counted_save,
+    relabel,
+    screen_fetch_kwargs,
+)
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.footer import FittingFooter
@@ -810,6 +816,12 @@ class ImportPreviewScreen(PreviewScreen):
     # ---- the engine ----------------------------------------------------------
     @work(thread=True, exclusive=True, group="engine-write")
     def _ask(self, dry_run: bool) -> None:
+        """The apply is one save while it runs, its hand-back included (`counted_save`);
+        the dry run writes nothing."""
+        with nullcontext() if dry_run else counted_save(self.app):
+            self._call(dry_run)
+
+    def _call(self, dry_run: bool) -> None:
         """One `POST /transactions/import` — the dry run, or the apply. Both go
         through flow.py's one call; the client mints the idempotency key. The
         apply's answer is read for its counts alone: the screen after importing
@@ -864,7 +876,8 @@ class ImportPreviewScreen(PreviewScreen):
     def _applied(self, counts: AnswerCounts) -> None:
         self._writing = False
         self._run.imported += 1
-        self.app.switch_screen(ImportResultScreen(self._run, self._owner, self._pick, counts))
+        result = ImportResultScreen(self._run, self._owner, self._pick, counts)
+        self.app.after_quit_question(lambda: self.app.switch_screen(result))
 
     # ---- keys ----------------------------------------------------------------
     def action_page(self, delta: int) -> None:

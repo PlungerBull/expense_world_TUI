@@ -94,8 +94,19 @@ worker in `expense/tui/` hands back this way, but the app's rate check, which ha
 screen. The ending shows on the app: success as the screen's own toast, a refusal as an error
 toast of 10 seconds titled with what was not done, the screen's words for it under the title.
 Every write queued behind it is still sent and shown the same way, a refusal stopping none
-([decisions.md](decisions.md) "A save you left still says how it ended"). Quitting the app
-sends and shows nothing more.
+([decisions.md](decisions.md) "A save you left still says how it ended"). Quitting
+(`ctrl+q`, or `q` on Home) with a write sent and not answered, or waiting to be sent, on any
+screen, a left one included, asks first through the confirm modal: `2 saves are still being
+sent. Quit anyway?` over `If you quit now, no screen will tell you whether they were saved.`
+(`1 save … it was saved.`), the count taken when asked. Only `y` quits; any other answer leaves
+the app running and each write still ends as above. A write dropped with its screen is not
+counted; a save of several writes counts once while any of them is pending: the account Edit
+form's, the LOG bar's `ctrl+s` batch, one bulk key over the ledger's rows (counted after the
+ledger is left too), an import's apply. With none counted, quitting is immediate. A screen that
+finishes while the question is open closes, or is replaced by the next import screen, once it
+is answered. The count is `pending_writes`, and a worker that writes without `run_write` joins
+it with `counted_save` ([_base.py](../expense/tui/screens/_base.py)). Setup's `esc Quit` leaves
+without asking: it has no write to lose.
 
 The title reads `Not <what did not happen> · <what it was>`, the thing named as its screen
 showed it: by kind and name (`Not archived · Account BCP`, `Person` for a person's account;
@@ -1351,9 +1362,10 @@ them — they are hand-written into the `?` card
 ([help.py](../expense/tui/screens/help.py) `CONVENTIONS`):
 
 - **`r` always refreshes**, everywhere.
-- **`y` alone confirms** — on the questions that delete, complete or revert, a currency's
-  removal (`x` on Manage ▸ Accounts) and an emptied opening balance included. Archive asks
-  nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
+- **`y` alone confirms** — on the questions that delete, complete or revert, the quit
+  question while saves are still being sent, a currency's removal (`x` on Manage ▸ Accounts)
+  and an emptied opening balance included. Archive asks nothing
+  ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names

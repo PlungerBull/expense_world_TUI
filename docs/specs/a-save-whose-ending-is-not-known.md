@@ -59,11 +59,7 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
    `Nothing was saved: open it again to fix it.` only when the engine refused with a status
    under 500; under a 5xx or no answer, the engine's words alone, as the ledger's Edit forms do
    (mockup pane 1).
-3. **Quitting asks while saves are still being sent.** `ctrl+q`, and `q` on Home, with any write
-   sent and not answered or waiting its turn, on any screen: `N saves are still being sent. Quit
-   anyway?` (`1 save is still being sent. …`), then `If you quit now, no screen will tell you
-   whether they were saved.` (`… whether it was saved.`); only `y` quits; with none, it quits
-   at once (mockup pane 3).
+Every task is done; the acceptance check and the doc sweep remain.
 
 ## Found along the way
 
@@ -77,3 +73,18 @@ Not built in this spec; drafted into a new spec when it is done.
   [create_forms.py](../../expense/tui/screens/create_forms.py) reads it again only when a part was
   answered saved (`SaveReport.landed`), so a save that may have landed leaves the list as it
   was until `r`.
+- **The quit-question tests and one docstring need tidying.**
+  [test_tui_quit_asks.py](../../tests/unit/test_tui_quit_asks.py): the LOG bar `y` test records
+  whether the bar is still in the stack but never asserts it; the `bar_empty` helper sits
+  between tests; two preview screens are imported inside test bodies; the import hand-back test
+  reads `seen_app` before assigning it. A docstring in
+  [test_tui_left_behind_account_form.py](../../tests/unit/test_tui_left_behind_account_form.py)
+  (~line 110) wraps mid-phrase. No test covers a second `ctrl+q` quitting at once once every
+  save ended while the question was up. Nothing you see changes.
+- **A screen gone before its save's thread starts would raise instead of reporting.** The LOG
+  bar, bank import and statement upload workers read `self.app` for their count before their
+  `try`; it cannot happen today, since `esc` is refused while they save. Nothing you see
+  changes.
+- **Setup's `esc Quit` leaves through `app.exit()`, not the quit question.** It is refused while
+  setup saves, so no save is lost; it is the one quit not going through the shared one.
+  Nothing you see changes.

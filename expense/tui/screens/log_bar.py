@@ -110,7 +110,12 @@ from expense.reads import (
     pick_parts,
 )
 from expense.tui.dropped import dropped_bank_files, is_statement
-from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
+from expense.tui.screens._base import (
+    call_while_attached,
+    counted_save,
+    relabel,
+    screen_fetch_kwargs,
+)
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
@@ -1004,7 +1009,11 @@ class LogBarScreen(Screen):
 
     def _leave(self) -> None:
         """Close the bar — to the screen under it, or to Home after an import,
-        which then reads afresh (first rows, cursor on the first)."""
+        which then reads afresh (first rows, cursor on the first). While the quit
+        question is open, once it is answered."""
+        self.app.after_quit_question(self._close)  # type: ignore[attr-defined]
+
+    def _close(self) -> None:
         if not self._home_after:
             self.dismiss()
             return
@@ -1112,6 +1121,11 @@ class LogBarScreen(Screen):
 
     @work(thread=True, group="engine-write")
     def _save(self, leave_after: bool) -> None:
+        """One save while it runs, its hand-backs included (`counted_save`)."""
+        with counted_save(self.app):
+            self._send_rows(leave_after)
+
+    def _send_rows(self, leave_after: bool) -> None:
         """Send every row without a tick to `POST /transactions/batch`, in chunks.
 
         Not `EngineWriteMixin.run_write`: that is one request per queued item,
