@@ -127,14 +127,14 @@ async def _open(app, pilot, screen):
 
 
 def _moved(row: dict, account: str = "acc2") -> dict:
-    """`row` after a move onto `account`: on it, and in no reconciliation."""
+    """`row` after a move onto `account`: on it, and in no statement."""
     return {**row, "account_id": account, "statement_id": None}
 
 
 def _answer_moves(fake_client, rows: list[dict], *, left: tuple[str, ...] = ()) -> None:
     """Each row of `rows` answers its `PUT` as the engine answers a move of a
     one-part line: the row after the write, listed alone in `changed_parts`,
-    flagged as leaving its reconciliation when its id is in `left`."""
+    flagged as leaving its statement when its id is in `left`."""
     for row in rows:
         moved = _moved(row)
         fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(
@@ -967,11 +967,11 @@ def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkey
     run_app(scenario, size=(120, 30))
 
 
-# ---- b: a move leaves the reconciliation ---------------------------------------
+# ---- b: a move leaves the statement ---------------------------------------
 # (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id})
 
 #: t1 is assigned and moves, t2 is assigned but already on the picked account,
-#: t3 is in no reconciliation and moves.
+#: t3 is in no statement and moves.
 MIXED = [
     {**ITEMS[0], "statement_id": "r1"},
     {**ITEMS[1], "account_id": "acc2", "statement_id": "r2"},
@@ -1000,7 +1000,7 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
                 "/transactions/t1",
                 {"account_id": "acc2", "currency_code": "PEN", "statement_id": None},
             ),
-            # already on acc2: not a move, so it keeps its reconciliation
+            # already on acc2: not a move, so it keeps its statement
             ("/transactions/t2", {"account_id": "acc2", "currency_code": "PEN"}),
             (
                 "/transactions/t3",
@@ -1008,7 +1008,7 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
             ),
         ]
         await wait_for(pilot, lambda: toasts)
-        # t3 was in no reconciliation, t2 never moved: two rows, one left
+        # t3 was in no statement, t2 never moved: two rows, one left
         assert toasts[0] == "2 rows → BCP Oro · PEN · 1 left its statement"
 
     run_app(scenario, size=(120, 30))
@@ -1706,7 +1706,7 @@ def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> 
 
 
 #: Row 1 an ordinary row, rows 2 and 3 the two parts of FARMACIA, a purchase in a
-#: draft reconciliation.
+#: draft statement.
 PURCHASE = [
     _part("t-net", "NETFLIX.COM", -4490, "bl-net", None),
     _part("p1", "FARMACIA", -6000, "bl-farm", "rec-draft"),
@@ -1725,7 +1725,7 @@ ON_PARTS = {
 def _answer_line_moves(fake_client, rows: list[dict]) -> None:
     """Each `PUT` answers as the engine answers a move onto acc2: the first on a
     bank line lists every part of that line after the move, a part that was in a
-    reconciliation flagged as leaving it; a later `PUT` on the same line finds it
+    statement flagged as leaving it; a later `PUT` on the same line finds it
     moved and lists none (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
     real_put = fake_client.put
     by_id = {row["id"]: row for row in rows}

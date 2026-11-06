@@ -460,7 +460,9 @@ def _screen_classes():
 
 def test_a_screen_whose_class_name_says_reconciliation_sets_its_crumb():
     """The `?` title falls back to the class name when a screen has no crumb, so a
-    class named for a reconciliation would print that word to the person."""
+    class named for a reconciliation would print that word to the person.
+
+    A tripwire: it passes while no class is so named."""
     bare = [
         cls.__name__
         for cls in _screen_classes()
@@ -472,9 +474,9 @@ def test_a_screen_whose_class_name_says_reconciliation_sets_its_crumb():
 
 
 def test_the_help_title_on_a_statements_own_screen_says_statements():
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from expense.tui.screens.reconciliations import StatementScreen
 
-    screen = ReconciliationDetailScreen({"id": "r1", "name": "Octubre BCP"})
+    screen = StatementScreen({"id": "r1", "name": "Octubre BCP"})
     title, _ = screen_inventory(screen)
     assert title == "Keys — Octubre BCP"
     assert "reconcil" not in title.lower()
@@ -486,7 +488,7 @@ def test_the_card_lists_space_on_a_draft_statement_and_not_on_a_read_only_one(
     """`space` is the statement list's own toggle (its screen handles `CheckList.Toggled`):
     a draft's card lists it, a completed statement's and one waiting for its PDF do not,
     nor `c`."""
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from expense.tui.screens.reconciliations import StatementScreen
     from tests.unit.test_tui_statement_screen import (
         AGOSTO,
         NOVIEMBRE,
@@ -499,7 +501,7 @@ def test_the_card_lists_space_on_a_draft_statement_and_not_on_a_read_only_one(
 
     def card(statement, code):
         async def scenario(pilot, app):
-            screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
+            screen = StatementScreen(dict(statement), statement_code=code)
             await app.push_screen(screen)
             await wait_for(pilot, lambda: screen._list is not None)
             await pilot.pause()

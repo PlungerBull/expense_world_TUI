@@ -26,7 +26,7 @@ single source of truth — and no literal colour name appears in this package,
 which `test_no_literal_color_styles_in_tui` requires.
 
 The two rule constants are a product decision: amounts and
-account balances are sign-colored everywhere; reconciliation statement
+account balances are sign-colored everywhere; statement
 checkpoints (begin/end) stay plain — they're positions, not judgments.
 """
 
@@ -92,7 +92,7 @@ PENDING_STYLE = "bold"
 # Where each rule applies: TRANSACTION_RULE — a transaction's or bank line's amount in
 # a list, the sign's colours and a `+` before a positive figure; AMOUNT_RULE — account
 # balances, dashboard totals, a statement's difference, the same colours with no `+`;
-# BALANCE_RULE — reconciliation begin/end checkpoints only.
+# BALANCE_RULE — statement begin/end checkpoints only.
 TRANSACTION_RULE: Literal["plus-sign"] = "plus-sign"
 AMOUNT_RULE: Literal["sign", "income-only", "plain"] = "sign"
 BALANCE_RULE: Literal["sign", "plain"] = "plain"

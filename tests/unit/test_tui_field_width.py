@@ -1,6 +1,6 @@
 """Backlog 4.4 — the #field label column must fit every form label.
 
-The bar-cycle forms (edit form, create forms, new reconciliation, setup) share
+The bar-cycle forms (edit form, create forms, new statement, setup) share
 app.tcss's `#field { width: N; padding: 0 1 0 0 }`. Textual's box model puts
 the padding INSIDE the width and Static hard-crops with no ellipsis, so a
 label longer than (width − right padding) silently loses its tail
@@ -42,7 +42,7 @@ def _field_rule(scope: str = "") -> tuple[int, int]:
 def _all_form_labels() -> dict[str, str]:
     """Every string that can appear in the #field label, keyed by origin."""
     labels = {f"edit_form:{key}": text for key, text in _LABELS.items()}
-    labels |= {f"reconciliations:{key}": text for key, text in _R_LABELS.items()}
+    labels |= {f"statements:{key}": text for key, text in _R_LABELS.items()}
     labels |= {f"setup:{key}": text for key, text in SETUP_LABELS.items()}
     for screen in (NewHashtagScreen, NewCategoryScreen, NewAccountScreen):
         labels |= {f"{screen.__name__}:{f.key}": f.label for f in screen.FIELDS}
@@ -65,7 +65,7 @@ def test_field_column_fits_every_label():
 def test_the_new_statement_form_fits_each_currencys_balance_labels():
     """The New statement form names each currency's lines, `BEGIN BALANCE USD`, so it
     widens the column on its own screen alone, to fit the longest."""
-    width, right_pad = _field_rule("NewReconciliationScreen")
+    width, right_pad = _field_rule("NewStatementScreen")
     labels = {
         f"{kind}:{code}": balance_label(kind, code)
         for kind in ("begin", "end")

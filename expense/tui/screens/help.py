@@ -75,8 +75,8 @@ NEEDS_SCREEN_HANDLER = {
 #: A widget or a screen may name, in a `CARD_FOLLOWS_CHECK` frozenset, the
 #: actions whose card row follows its `check_action`: listed only while it
 #: allows them, as the footer does. For a key that is off in some states (the
-#: Reconciliations panel's `⏎`: `Edit` in the "no statement" list, `Open` on the
-#: reconciliations; a statement's `f`, only while a complete's flagged lines
+#: statements panel's `⏎`: `Edit` in the "no statement" list, `Open` on the
+#: statements; a statement's `f`, only while a complete's flagged lines
 #: are left); every other row of the card lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
@@ -341,7 +341,7 @@ class HelpModal(ModalScreen):
 
 class HelpBindingMixin:
     """Adds `?` to a screen. Mixed into the three screen roots that are not
-    forms or modals — `SectionScreen`, `HomeScreen`, `ReconciliationDetailScreen`.
+    forms or modals — `SectionScreen`, `HomeScreen`, `StatementScreen`.
 
     Deliberately not bound on the App: letters bubble up from lists, so an
     app-level `?` would fire from inside a ConfirmModal (the same reason there is

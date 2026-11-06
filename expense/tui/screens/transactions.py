@@ -707,7 +707,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         back (`held`): the one it met and every one never sent after it.
 
         The receipt counts what landed. A move (`move`) counts the parts the
-        engine says it moved, and those that left their reconciliation, across
+        engine says it moved, and those that left their statement, across
         the answers that came back (`moved_parts`); a category or hashtag pick
         reaches only the part it names
         (contract: PUT /v1/transactions/{transaction_id}, "Line fields"), so it

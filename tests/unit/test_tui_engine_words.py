@@ -27,9 +27,9 @@ from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
-    NewReconciliationScreen,
-    ReconciliationDetailScreen,
-    ReconciliationsScreen,
+    NewStatementScreen,
+    StatementScreen,
+    StatementsScreen,
 )
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList, CursorOptionList
@@ -672,7 +672,7 @@ def test_statements_that_cannot_be_read_show_the_words_whole(monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_statements", refused)
 
     async def scenario(pilot, app):
-        await app.push_screen(ReconciliationsScreen())
+        await app.push_screen(StatementsScreen())
         await wait_for_list(pilot, app)
         await pilot.press("enter")
         assert whole_in(await toast_with_words(pilot, app))
@@ -680,7 +680,7 @@ def test_statements_that_cannot_be_read_show_the_words_whole(monkeypatch):
     run_app(scenario, toasts=True)
 
 
-def test_lines_in_no_batch_that_cannot_be_read_show_the_words_whole(monkeypatch):
+def test_lines_in_no_statement_that_cannot_be_read_show_the_words_whole(monkeypatch):
     """`u` on an account's panel, its lines in no statement refused: the "Failed" toast."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
@@ -707,13 +707,13 @@ def test_a_new_statement_whose_accounts_cannot_load_shows_the_words_whole(fake_c
     monkeypatch.setattr("expense.reads.fetch_accounts", refused)
 
     async def scenario(pilot, app):
-        await app.push_screen(NewReconciliationScreen())
+        await app.push_screen(NewStatementScreen())
         assert whole_in(await toast_with_words(pilot, app))
 
     run_app(scenario, toasts=True)
 
 
-def test_a_batch_screen_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
+def test_a_statement_screen_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
     """A statement's screen, its lines' read refused: its toast."""
     _patch_detail(monkeypatch)
 
@@ -723,7 +723,7 @@ def test_a_batch_screen_that_cannot_load_shows_the_words_whole(fake_client, monk
     monkeypatch.setattr("expense.reads.fetch_bank_lines", refused)
 
     async def scenario(pilot, app):
-        await app.push_screen(ReconciliationDetailScreen(dict(DRAFT)))
+        await app.push_screen(StatementScreen(dict(DRAFT)))
         assert whole_in(await toast_with_words(pilot, app))
 
     run_app(scenario, toasts=True)
@@ -735,7 +735,7 @@ def test_a_refused_tick_shows_the_words_whole(fake_client, monkeypatch):
     fake_client.errors["PUT"] = refusal(key="statement_id")
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         screen._list._cursor = 2
@@ -762,12 +762,12 @@ def test_a_refused_ending_balance_shows_the_words_whole(fake_client, monkeypatch
 
 
 def test_a_refused_delete_of_a_statement_shows_the_words_whole(fake_client, monkeypatch):
-    """`d` then `y` on a batch screen, refused: "Couldn't delete"."""
+    """`d` then `y` on a statement screen, refused: "Couldn't delete"."""
     _patch_detail(monkeypatch)
     fake_client.errors["DELETE"] = refusal("CONFLICT", 409, "statement_id")
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("d")
@@ -785,7 +785,7 @@ def test_a_complete_s_gap_line_shows_the_words_whole(fake_client, monkeypatch):
     _complete_with_warnings(fake_client, [MESSAGE])
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         line = screen.query_one("#rwarn", Static)

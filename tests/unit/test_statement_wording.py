@@ -22,7 +22,7 @@ ROOT = Path(expense.__file__).parent
 # An engine error code: capitals with at least one underscore.
 CODE = re.compile(r"\b(?=[A-Z]*_)[A-Z_]*RECONCIL[A-Z_]*\b")
 # Keys that are not words: the Home dispatch key and the engine's query key.
-KEYS = frozenset({"reconciliations", "unreconciled"})
+KEYS = frozenset({"statements", "unreconciled"})
 WORD = re.compile("reconcil", re.IGNORECASE)
 
 
@@ -77,7 +77,7 @@ def test_no_string_the_app_writes_says_reconciliation():
         ("RECONCILIATION_NOT_DRAFT", False),
         ("Press u: RECONCILIATION_NOT_DRAFT", False),
         ("unreconciled", False),
-        ("reconciliations", False),
+        ("statements", False),
         ("Complete statement?", False),
     ],
 )

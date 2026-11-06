@@ -7,7 +7,7 @@ everything loaded. The engine hands out "the rows after this one", never
 "row 41", so a list that only grows at its end is the shape that fits it.
 
 Two lists grow: the ledger ([transactions.py](transactions.py), a whole
-screen) and the "no statement" pane on Reconciliations (one panel inside a larger
+screen) and the "no statement" pane on statements (one panel inside a larger
 screen). They share this reader, not a screen mixin — the pane is no screen of
 its own. Each host keeps its own widgets and failure display; what lives here
 is what must not drift between them:

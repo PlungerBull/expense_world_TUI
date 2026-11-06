@@ -6,7 +6,7 @@ each: a statement's `CheckList` and a Manage `CursorList`.
 """
 
 from expense.tui.screens.hashtags import HashtagsScreen
-from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+from expense.tui.screens.reconciliations import StatementScreen
 from tests.unit.helpers import run_app, screen_lines, wait_for, wait_for_list, whole
 from tests.unit.test_tui_statement_screen import AGOSTO, VIS_AGOSTO, _engine
 
@@ -41,7 +41,7 @@ def _statement_footers(fake_client, monkeypatch, lines, size, *, paged=True):
     _engine(fake_client, monkeypatch, statement_lines=lines, statement=VIS_AGOSTO)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO), statement_code="VIS")
+        screen = StatementScreen(dict(VIS_AGOSTO), statement_code="VIS")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         seen = [await _drawn(pilot, app, paged=paged)]

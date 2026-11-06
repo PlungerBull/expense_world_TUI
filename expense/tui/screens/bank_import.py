@@ -744,7 +744,7 @@ class ImportPreviewScreen(PreviewScreen):
         #: The engine's days that disagree and its counts, from the dry run.
         self._mismatches: list[DayMismatch] = []
         self._counts: AnswerCounts | None = None
-        #: Why the reconciliations that stop a move could not be named.
+        #: Why the statements that stop a move could not be named.
         self._names_error: str | None = None
         self._start = 0
 
@@ -878,7 +878,7 @@ class ImportPreviewScreen(PreviewScreen):
     # ---- render --------------------------------------------------------------
     def _notes(self) -> list[Text]:
         """Everything under the counts: the days where the file and the ledger
-        disagree, and why a reconciliation that stops a move goes unnamed."""
+        disagree, and why a statement that stops a move goes unnamed."""
         if self._lines is None:
             return []
         lines = preview_days(

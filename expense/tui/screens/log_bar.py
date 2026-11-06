@@ -6,7 +6,7 @@ staged row back up, `ctrl+x` drops one, `esc` confirms a discard.
 
 **This is what `+` opens**. The bar-cycle form keeps only the *edit* door —
 `⏎` on an existing row: an existing row has an
-id, a version and possibly a reconciliation freezing four of its fields, so
+id, a version and possibly a statement freezing four of its fields, so
 correcting one is a PUT of what changed, not a line retyped from scratch.
 
 **The save** is `ctrl+s`: every staged row goes to `POST /transactions/batch`,

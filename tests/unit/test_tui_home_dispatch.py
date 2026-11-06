@@ -19,7 +19,7 @@ from tests.unit.helpers import HOME_DASHBOARD, fake_ledger, run_app, stub_home_m
 
 _CASES = [
     ("ledger", "transactions", home.TransactionsScreen),
-    ("ledger", "reconciliations", home.ReconciliationsScreen),
+    ("ledger", "statements", home.StatementsScreen),
     ("manage", "accounts", home.AccountsScreen),
     ("manage", "categories", home.CategoriesScreen),
     ("manage", "hashtags", home.HashtagsScreen),

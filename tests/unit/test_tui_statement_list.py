@@ -29,8 +29,8 @@ from textual.widgets import Static
 from expense.errors import EngineError, format_error
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
-    ReconciliationDetailScreen,
-    ReconciliationsScreen,
+    StatementScreen,
+    StatementsScreen,
     browse_accounts,
     order_cell,
     statement_headers,
@@ -225,15 +225,15 @@ def _paths(client: FakeClient) -> list[str]:
     return [path for _method, path, _params in client.calls]
 
 
-async def _open(pilot, app, account: dict) -> ReconciliationsScreen:
+async def _open(pilot, app, account: dict) -> StatementsScreen:
     """The browse, the cursor on `account`, `⏎`."""
-    screen = ReconciliationsScreen()
+    screen = StatementsScreen()
     await app.push_screen(screen)
     await wait_for_list(pilot, app)
     screen._accts_list.set_cursor(screen._accts_list.index_of(account["id"]))
     screen._acct_idx = screen._accts_list.index_of(account["id"])
     await pilot.press("enter")
-    await wait_for(pilot, lambda: screen._mode == "batches")
+    await wait_for(pilot, lambda: screen._mode == "statements")
     return screen
 
 
@@ -249,7 +249,7 @@ class Panel(NamedTuple):
 
 
 def _panel(screen) -> Panel:
-    lst = screen._batch_list
+    lst = screen._statement_list
     return Panel(
         lst._caption,
         list(lst._headers),
@@ -276,7 +276,7 @@ def test_the_browse_lists_one_row_per_bank_account_with_its_currencies_and_balan
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         seen["headers"] = list(screen._accts_list._headers)
@@ -317,7 +317,7 @@ def test_an_archived_accounts_row_is_not_listed(monkeypatch):
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         seen["listed"] = [str(r.cells[0]) for r in screen._accts_list._rows]
@@ -340,7 +340,7 @@ def test_an_account_with_a_code_lists_its_statements_from_one_read_by_account(mo
         screen = await _open(pilot, app, VISA)
         seen["panel"] = _panel(screen)
         seen["marked"] = _marked(screen)
-        seen["shown"] = render_text(screen._batch_list._build(), width=120)
+        seen["shown"] = render_text(screen._statement_list._build(), width=120)
 
     run_app(scenario, size=(140, 50))
     assert _statement_reads(client) == [{"account_id": "acc-visa"}]
@@ -431,14 +431,14 @@ def test_enter_on_a_statement_opens_the_whole_statement(monkeypatch):
     async def scenario(pilot, app):
         screen = await _open(pilot, app, VISA)
         for index in (0, 2):
-            screen._batch_list.set_cursor(index)
+            screen._statement_list.set_cursor(index)
             await pilot.press("enter")
-            await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+            await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
             record = app.screen._record
             code = app.screen._statement_code
             opened.append((app.screen._id, record["account_id"], record["balances"], code))
             await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is screen and screen._mode == "batches")
+            await wait_for(pilot, lambda: app.screen is screen and screen._mode == "statements")
 
     run_app(scenario, size=(140, 50))
     assert opened == [
@@ -455,7 +455,7 @@ def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch)
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(statement)
+        screen = StatementScreen(statement)
         await app.push_screen(screen)
         head = screen.query_one("#rhead", Static)
         seen["head"] = shown(head)
@@ -478,17 +478,17 @@ def test_coming_back_and_r_read_the_account_again_and_nothing_else(monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, VISA)
-        screen._batch_list.set_cursor(2)
+        screen._statement_list.set_cursor(2)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
         await pilot.press("escape")
         await wait_for(pilot, lambda: len(_statement_reads(client)) == 2)
-        await wait_for(pilot, lambda: screen._mode == "batches")
-        assert screen._batch_list.cursor_key == "vis-oct"
+        await wait_for(pilot, lambda: screen._mode == "statements")
+        assert screen._statement_list.cursor_key == "vis-oct"
         assert _panel(screen).cells == VISA_ROWS
         await pilot.press("r")
         await wait_for(pilot, lambda: len(_statement_reads(client)) == 3)
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
 
     run_app(scenario, size=(140, 50))
     assert _statement_reads(client) == [{"account_id": "acc-visa"}] * 3
@@ -528,7 +528,7 @@ def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypat
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, VISA)
-        lst = screen._batch_list
+        lst = screen._statement_list
 
         def layout() -> tuple:
             return (lst._edge, lst._gap, lst._lead)
@@ -538,7 +538,7 @@ def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypat
         await wait_for(pilot, lambda: screen._mode == "unfiled" and not screen._unfiled_busy)
         seen["unfiled"] = layout()
         await pilot.press("escape")
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
         seen["after"] = layout()
 
     run_app(scenario, size=(140, 50))
@@ -559,7 +559,7 @@ def test_u_then_esc_brings_the_statements_back(monkeypatch):
         await pilot.press("u")
         await wait_for(pilot, lambda: screen._mode == "unfiled" and not screen._unfiled_busy)
         await pilot.press("escape")
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
         seen["panel"] = _panel(screen)
 
     run_app(scenario, size=(140, 50))
@@ -625,18 +625,18 @@ def test_a_refused_read_leaves_the_panel_closed_with_the_engines_words(monkeypat
     client = _engine(monkeypatch, fail=err)
     notes: list = []
     monkeypatch.setattr(
-        ReconciliationsScreen,
+        StatementsScreen,
         "notify",
         lambda self, message, title="", **kw: notes.append((title, message)),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         await pilot.press("enter")
         await wait_for(pilot, lambda: notes)
-        assert screen._mode == "accts" and screen._batch_list is None
+        assert screen._mode == "accts" and screen._statement_list is None
 
     run_app(scenario, size=(140, 50))
     assert _statement_reads(client) == [{"account_id": "acc-visa"}]
@@ -716,19 +716,19 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
     client = _writing_engine(monkeypatch)
     notes: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notes.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notes.append(message)
     )
     seen: dict = {}
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, account)
-        screen._batch_list.set_cursor(row)
+        screen._statement_list.set_cursor(row)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
         detail = app.screen
         seen["opened"] = detail._id
         await wait_for(pilot, lambda: detail._list is not None)
-        listed = screen._batch_list
+        listed = screen._statement_list
         await pilot.press(key)
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
@@ -736,8 +736,8 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
         if status is not None:
             seen["head"] = shown(detail.query_one("#rhead", Static))
             await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen and screen._batch_list is not listed)
-        await wait_for(pilot, lambda: screen._batch_list is not None)
+        await wait_for(pilot, lambda: app.screen is screen and screen._statement_list is not listed)
+        await wait_for(pilot, lambda: screen._statement_list is not None)
         seen["panel"] = _panel(screen)
 
     run_app(scenario, size=(140, 50))
@@ -762,9 +762,9 @@ def test_reverting_asks_first_and_only_y_sends_it(monkeypatch, answer, writes):
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, VISA)
-        screen._batch_list.set_cursor(0)
+        screen._statement_list.set_cursor(0)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
         detail = app.screen
         await wait_for(pilot, lambda: detail._list is not None)
         await pilot.press("u")
@@ -821,12 +821,12 @@ def test_the_no_statement_list_says_loading_until_its_rows_arrive(monkeypatch):
         try:
             await pilot.press("u")
             await wait_for(pilot, lambda: screen._mode == "unfiled")
-            seen["loading"] = screen._batch_list._caption
+            seen["loading"] = screen._statement_list._caption
             assert screen._unfiled_busy
         finally:
             release.set()
         await wait_for(pilot, lambda: not screen._unfiled_busy)
-        seen["loaded"] = screen._batch_list._caption
+        seen["loaded"] = screen._statement_list._caption
 
     run_app(scenario, size=(140, 50))
     assert seen["loading"] == "In no statement · Visa BCP   ·   loading…"
@@ -852,11 +852,11 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
     )
     notes: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notes.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notes.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(record))
+        screen = StatementScreen(dict(record))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.press(key)
@@ -899,7 +899,7 @@ def _at_80(
         if open_panel:
             await _open(pilot, app, account)
         else:
-            await app.push_screen(ReconciliationsScreen())
+            await app.push_screen(StatementsScreen())
             await wait_for_list(pilot, app)
         await pilot.pause()
         seen.extend(screen_lines(app))

@@ -5,7 +5,7 @@ the currency's line."""
 from textual.widgets import Input, Label, Static
 
 from expense.errors import EngineError, format_error
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewStatementScreen
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,
@@ -26,8 +26,8 @@ def _enter(screen, text):
     screen.on_input_submitted(None)
 
 
-def _visa() -> NewReconciliationScreen:
-    return NewReconciliationScreen(
+def _visa() -> NewStatementScreen:
+    return NewStatementScreen(
         account_id="v1", account_name="Visa BCP", currencies=("PEN", "USD"), code="VIS"
     )
 
@@ -48,7 +48,7 @@ def _refused(code, message, field, reason, status=422):
 def _notices(monkeypatch) -> list:
     notices: list = []
     monkeypatch.setattr(
-        NewReconciliationScreen,
+        NewStatementScreen,
         "notify",
         lambda self, message, title="", **kw: notices.append((title, str(message))),
     )
@@ -56,7 +56,7 @@ def _notices(monkeypatch) -> list:
 
 
 def test_a_one_currency_account_has_one_pair_of_lines_and_a_two_currency_one_two():
-    one = NewReconciliationScreen(account_id="a", account_name="BCP", currencies=("PEN",))
+    one = NewStatementScreen(account_id="a", account_name="BCP", currencies=("PEN",))
     assert one._sequence() == ["name", "date_start", "date_end", "begin:PEN", "end:PEN"]
     assert _visa()._sequence() == [
         "name",
@@ -152,7 +152,7 @@ def test_both_currencies_typed_send_one_entry_each(fake_client):
 
 def test_nothing_typed_sends_an_empty_balances_for_the_engine_to_judge(fake_client):
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="a", account_name="BCP", currencies=("PEN",))
+        screen = NewStatementScreen(account_id="a", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _head(screen)
         _enter(screen, "")
@@ -284,7 +284,7 @@ def test_the_picker_lists_each_account_by_its_name_alone(fake_client, monkeypatc
     )
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._accounts)
         _enter(screen, "Octubre")
@@ -332,7 +332,7 @@ def test_every_hint_fits_one_row_at_80_columns(fake_client):
 
     async def scenario(pilot, app):
         for currencies in (("PEN",), ("PEN", "USD")):
-            screen = NewReconciliationScreen(
+            screen = NewStatementScreen(
                 account_id="a", account_name="Visa BCP", currencies=currencies
             )
             await app.push_screen(screen)

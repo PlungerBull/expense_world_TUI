@@ -1,4 +1,4 @@
-"""Reconciliations tests — list rows + new-statement form (fake client)."""
+"""Statements tests — list rows + new-statement form (fake client)."""
 
 import json
 
@@ -7,8 +7,8 @@ from textual.widgets import Input, Static
 
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.reconciliations import (
-    NewReconciliationScreen,
-    ReconciliationsScreen,
+    NewStatementScreen,
+    StatementsScreen,
 )
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
@@ -125,7 +125,7 @@ def test_new_statement_sends_its_account_and_the_picked_accounts_balances(fake_c
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")  # name
@@ -153,7 +153,7 @@ def test_new_statement_refuses_a_balance_with_a_comma_after_its_dot(fake_client,
     notes: list[str] = []
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+        screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         screen.notify = lambda message, **kw: notes.append(message)
         _enter(screen, "April 2026")  # name
@@ -185,7 +185,7 @@ def test_new_statement_sends_the_typed_days_and_refuses_other_shapes(fake_client
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+        screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _enter(screen, "August 2026")  # name
         for bad in ("2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
@@ -212,7 +212,7 @@ def test_new_statement_date_end_is_required(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+        screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _enter(screen, "August 2026")
         _enter(screen, "2026-08-01")
@@ -232,7 +232,7 @@ def test_the_date_start_line_says_it_orders_the_statement(fake_client, monkeypat
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")
@@ -254,7 +254,7 @@ def test_new_statement_date_start_is_required(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")  # name
@@ -279,7 +279,7 @@ def test_the_new_form_account_picker_shows_the_engines_order(fake_client, monkey
     )
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")  # name → the account field
@@ -300,7 +300,7 @@ def test_the_browse_lists_accounts_in_the_engines_order(monkeypatch):
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         assert [a[1] for a in screen._accounts] == ENGINE_ORDER_BANK_NAMES
@@ -357,14 +357,14 @@ def _crumb(screen) -> tuple:
 
 async def _open_panel(pilot, app, *, down: int = 0):
     """Open the browse, move the account cursor `down` rows, press `⏎`."""
-    screen = ReconciliationsScreen()
+    screen = StatementsScreen()
     await app.push_screen(screen)
     await wait_for_list(pilot, app)
     for _ in range(down):
         screen._accts_list.action_move(1)
     await wait_for(pilot, lambda: screen._acct_idx == down)
     await pilot.press("enter")
-    await wait_for(pilot, lambda: screen._mode == "batches")
+    await wait_for(pilot, lambda: screen._mode == "statements")
     return screen
 
 
@@ -372,11 +372,11 @@ def test_the_browse_opens_on_the_accounts_alone_and_reads_no_statements(monkeypa
     reads = _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         assert screen._mode == "accts"
-        assert screen._batch_list is None  # no lower panel at all
+        assert screen._statement_list is None  # no lower panel at all
         assert reads == []  # nothing is read until ⏎
         # alone, the account list takes the whole height; the panel halves it
         alone = screen.pane_rows()
@@ -399,10 +399,10 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app, down=1)
         assert reads == ["acc2"]  # that account, and only that one
-        assert [r.key for r in screen._batch_list._rows] == ["r2"]
-        assert screen._batch_list.has_focus
-        assert "Statements · Interbank Plus" in (screen._batch_list._caption or "")
-        assert "oldest → newest" in (screen._batch_list._caption or "")
+        assert [r.key for r in screen._statement_list._rows] == ["r2"]
+        assert screen._statement_list.has_focus
+        assert "Statements · Interbank Plus" in (screen._statement_list._caption or "")
+        assert "oldest → newest" in (screen._statement_list._caption or "")
         assert _crumb(screen) == ("Capture & ledger", "Statements", "Interbank Plus")
         # the open account keeps a ▸ so you can see whose panel this is
         names = [str(r.cells[0]) for r in screen._accts_list._rows]
@@ -416,8 +416,8 @@ def test_an_account_with_no_statements_says_so_in_the_panel(monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
-        assert screen._batch_list._rows == []
-        assert screen._batch_list._empty == "none yet · n to create one"
+        assert screen._statement_list._rows == []
+        assert screen._statement_list._empty == "none yet · n to create one"
 
     run_app(scenario)
 
@@ -435,7 +435,7 @@ def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
-        assert [r.key for r in screen._batch_list._rows] == ["b-march", "b-april", "b-feb"]
+        assert [r.key for r in screen._statement_list._rows] == ["b-march", "b-april", "b-feb"]
 
     run_app(scenario)
 
@@ -444,13 +444,13 @@ def test_a_failed_read_leaves_the_panel_closed(monkeypatch):
     reads = _patch_browse(monkeypatch, fail=True)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         await pilot.press("enter")
         await wait_for(pilot, lambda: reads)
         await pilot.pause()
-        assert screen._mode == "accts" and screen._batch_list is None
+        assert screen._mode == "accts" and screen._statement_list is None
         assert _crumb(screen) == ("Capture & ledger", "Statements")
 
     run_app(scenario)
@@ -461,7 +461,7 @@ def test_u_works_only_with_a_panel_open(monkeypatch):
     calls, _counts = _patch_unfiled(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         assert "u" not in _footer_keys(app)  # not offered on the plain list
@@ -469,13 +469,13 @@ def test_u_works_only_with_a_panel_open(monkeypatch):
         await pilot.pause()
         assert screen._mode == "accts" and not calls
         await pilot.press("enter")
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
         assert "u" in _footer_keys(app)
 
     run_app(scenario)
 
 
-def test_enter_reads_open_on_statements_and_edit_on_rows_in_no_batch(monkeypatch):
+def test_enter_reads_open_on_statements_and_edit_on_rows_in_no_statement(monkeypatch):
     """One panel, two things listed, two labels for `⏎`."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
@@ -491,7 +491,7 @@ def test_enter_reads_open_on_statements_and_edit_on_rows_in_no_batch(monkeypatch
         await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
         assert enter_label(app) == "Edit"
         await pilot.press("escape")
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
         assert enter_label(app) == "Open"
 
     run_app(scenario)
@@ -505,7 +505,7 @@ def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
         await pilot.press("escape")
         await wait_for(pilot, lambda: screen._mode == "accts")
         assert app.screen is screen  # the panel closed; the screen stayed
-        assert screen._batch_list is None and screen._accts_list.has_focus
+        assert screen._statement_list is None and screen._accts_list.has_focus
         assert _crumb(screen) == ("Capture & ledger", "Statements")
         assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "  BCP"
         await pilot.press("escape")
@@ -521,14 +521,14 @@ def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
-        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._batch_list, "r1", 1))
+        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._statement_list, "r1", 1))
         assert screen._acct_idx == 0
 
     run_app(scenario)
 
 
 def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatch):
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from expense.tui.screens.reconciliations import StatementScreen
 
     two = [
         _statement("b1", "acc1", "March", ("2026-03-01", "2026-03-31"), status=2),
@@ -536,20 +536,20 @@ def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatc
     ]
     reads = _patch_browse(monkeypatch, items=two)
     # the working screen's own reads are not what this test is about
-    monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", lambda self, **k: None)
+    monkeypatch.setattr(StatementScreen, "_load_txns", lambda self, **k: None)
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
-        screen._batch_list.action_move(1)
+        screen._statement_list.action_move(1)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
         assert app.screen._id == "b2"  # the statement under the cursor opened
         app.screen.dismiss()
-        await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "batches")
-        await wait_for(pilot, lambda: screen._batch_list is not None)
+        await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "statements")
+        await wait_for(pilot, lambda: screen._statement_list is not None)
         assert reads == ["acc1", "acc1"]  # the open account's statements, re-read
-        assert screen._batch_list.cursor_key == "b2"
-        assert screen._batch_list.has_focus
+        assert screen._statement_list.cursor_key == "b2"
+        assert screen._statement_list.has_focus
 
     run_app(scenario)
 
@@ -561,22 +561,22 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
     reads = _patch_browse(monkeypatch, items=rows)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         screen._accts_list.action_move(1)
         await wait_for(pilot, lambda: screen._acct_idx == 1)
         await pilot.press("n")
-        await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, NewStatementScreen))
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
         assert form._codes == ("USD",)  # and the currencies its balance lines are named by
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
-        await wait_for(pilot, lambda: screen._batch_list is not None)
+        await wait_for(pilot, lambda: screen._statement_list is not None)
         assert reads == ["acc2"]
-        assert screen._mode == "batches"
-        assert screen._batch_list.cursor_key == "new-1"
+        assert screen._mode == "statements"
+        assert screen._statement_list.cursor_key == "new-1"
         assert _crumb(screen)[-1] == "Interbank Plus"
 
     run_app(scenario)
@@ -584,7 +584,7 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
 
 def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     """The id is minted client-side in `_payload`; `_done` returns it."""
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+    screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
     screen._values.update(
         {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin:PEN": 0}
     )
@@ -597,7 +597,7 @@ def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
 
 
 def test_new_statement_from_account_drops_account_field():
-    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+    screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
     assert "account" not in screen._sequence()  # account preset from browse
     assert screen._values["account"] == "acc1"
     assert screen.crumb == ("Statements", "BCP", "New")
@@ -612,11 +612,11 @@ def test_new_statement_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
-        NewReconciliationScreen, "notify", lambda self, message, **kw: notices.append(message)
+        NewStatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await wait_for(pilot, lambda: notices)
         assert notices and "engine down" in notices[0]
@@ -630,7 +630,7 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     """This picker was the last one on a plain `.lower()`, so `bcp credito`
     found no `BCP Crédito` here while the same text matched in the LOG bar and
     every modal. One matcher — `quickadd.names.matches` — for all of them."""
-    screen = NewReconciliationScreen()
+    screen = NewStatementScreen()
     screen._accounts = [
         ("acc1", "BCP Crédito"),
         ("acc2", "Interbank Plus"),
@@ -668,9 +668,7 @@ def test_a_new_statement_whose_account_is_gone_shows_the_engine_words_alone(
     handed: list = []
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(
-            account_id="acc1", account_name="ALEJO", currencies=("PEN",)
-        )
+        screen = NewStatementScreen(account_id="acc1", account_name="ALEJO", currencies=("PEN",))
         await app.push_screen(screen, handed.append)
         _enter(screen, "October 2026")  # name
         _enter(screen, "2026-10-01")  # date_start
@@ -812,7 +810,7 @@ async def _open_unfiled(pilot, app):
     return screen
 
 
-def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
+def test_u_reads_the_accounts_lines_in_no_statement_oldest_first(monkeypatch):
     _patch_browse(monkeypatch)
     calls, counts = _patch_unfiled(monkeypatch)
 
@@ -821,9 +819,16 @@ def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
         # the account cursor never moved, and no screen was pushed
         assert screen._acct_idx == 0 and app.screen is screen
         # one row per line, in the engine's order, under the bank's columns
-        assert [r.key for r in screen._batch_list._rows] == ["bl-net", "bl-farm", "bl-uber"]
-        assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Cur", "Amount"]
-        assert screen._batch_list._caption == (
+        assert [r.key for r in screen._statement_list._rows] == ["bl-net", "bl-farm", "bl-uber"]
+        assert screen._statement_list._headers == [
+            "",
+            "Date",
+            "Title",
+            "Operation",
+            "Cur",
+            "Amount",
+        ]
+        assert screen._statement_list._caption == (
             "In no statement · BCP   ·   3 of 3 loaded · oldest first"
             "   ·\n! dated inside a statement"
         )
@@ -844,7 +849,7 @@ def test_u_reads_the_accounts_lines_in_no_batch_oldest_first(monkeypatch):
     run_app(scenario)
 
 
-def test_esc_in_no_batch_returns_to_the_panel(monkeypatch):
+def test_esc_in_no_statement_returns_to_the_panel(monkeypatch):
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
 
@@ -852,12 +857,12 @@ def test_esc_in_no_batch_returns_to_the_panel(monkeypatch):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("escape")
         await wait_for(pilot, lambda: screen._mode != "unfiled")
-        assert screen._mode == "batches"  # the panel, not the plain account list
-        assert screen._batch_list.has_focus
+        assert screen._mode == "statements"  # the panel, not the plain account list
+        assert screen._statement_list.has_focus
         assert app.screen is screen  # esc swapped the pane, it did not pop the screen
-        assert [r.key for r in screen._batch_list._rows] == ["r1"]  # acc1's batch is back
-        assert screen._batch_list._headers[0] == "Name"
-        assert screen._batch_list._more is None  # the batches are not a growing list
+        assert [r.key for r in screen._statement_list._rows] == ["r1"]  # acc1's statements is back
+        assert screen._statement_list._headers[0] == "Name"
+        assert screen._statement_list._more is None  # the statements are not a growing list
 
     run_app(scenario)
 
@@ -868,9 +873,9 @@ def test_the_caption_counts_what_is_loaded_against_the_engine_count(monkeypatch)
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
-        assert len(screen._batch_list._rows) == 10
+        assert len(screen._statement_list._rows) == 10
         # the figure is the engine's line count, not the length of the page in hand
-        assert "10 of 1716 loaded · oldest first" in (screen._batch_list._caption or "")
+        assert "10 of 1716 loaded · oldest first" in (screen._statement_list._caption or "")
 
     run_app(scenario)
 
@@ -882,16 +887,16 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 20)
         # appended, not swapped: the first ten are still there, in order
-        assert [r.key for r in screen._batch_list._rows] == [f"bl{n}" for n in range(1, 21)]
-        assert screen._batch_list.cursor_index == 10  # row 11, the first new one
+        assert [r.key for r in screen._statement_list._rows] == [f"bl{n}" for n in range(1, 21)]
+        assert screen._statement_list.cursor_index == 10  # row 11, the first new one
         assert calls[-1]["after"] == "c10" and calls[-1]["unreconciled"] is True
         assert len(counts) == 1  # no recount on pgdn
-        assert "20 of 25 loaded" in (screen._batch_list._caption or "")
+        assert "20 of 25 loaded" in (screen._statement_list._caption or "")
 
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 25)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 25)
         # the engine said that was the last: pgdn now asks for nothing
         assert screen._unfiled_grow.next_cursor is None
         sent = len(calls)
@@ -912,14 +917,14 @@ def test_appended_rows_carry_the_flag_too(monkeypatch):
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 11)
-        flags = [str(r.cells[0]) for r in screen._batch_list._rows]
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 11)
+        flags = [str(r.cells[0]) for r in screen._statement_list._rows]
         assert flags == [""] * 10 + ["!"]
 
     run_app(scenario)
 
 
-def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
+def test_esc_from_the_edit_form_keeps_the_no_statement_rows_and_cursor(monkeypatch):
     """`⏎` on a line never split opens the Edit form on the line, its one part
     signed; `esc` is not a write, so nothing is read again and the cursor stays
     on its row."""
@@ -932,9 +937,9 @@ def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 20)
         await pilot.press("down")
-        key = screen._batch_list.cursor_key
+        key = screen._statement_list.cursor_key
         reads = len(calls)
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
@@ -944,8 +949,8 @@ def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         assert len(calls) == reads
-        assert screen._batch_list.cursor_key == key == "bl12"
-        assert len(screen._batch_list._rows) == 20
+        assert screen._statement_list.cursor_key == key == "bl12"
+        assert len(screen._statement_list._rows) == 20
 
     run_app(scenario)
 
@@ -972,11 +977,11 @@ def _card_group(screen, title: str) -> list[tuple[str, str]]:
 
 
 async def _cursor_on(pilot, screen, key: str) -> None:
-    screen._batch_list.set_cursor(screen._batch_list.index_of(key))
+    screen._statement_list.set_cursor(screen._statement_list.index_of(key))
     await pilot.pause()
 
 
-def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(monkeypatch):
+def test_enter_edits_every_row_in_no_statement_in_the_footer_the_card_and_the_key(monkeypatch):
     """`⏎ Edit` is on for every row in no statement, a split transaction included:
     in the footer, on the `?` card, and the key opens the bank-line Edit form."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
@@ -1200,7 +1205,7 @@ def test_saving_sends_one_put_on_the_line_with_the_field_changed_and_its_parts(
         await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
         assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
         assert len(counts) == 2  # the count is read again with the rows
-        assert screen._batch_list.cursor_index == 0
+        assert screen._statement_list.cursor_index == 0
 
     run_app(scenario)
     assert fake_client.puts == [(f"/bank-lines/{row}", {**sent, "parts": parts})]
@@ -1328,7 +1333,7 @@ def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypat
         await wait_for(pilot, lambda: app.screen is screen)
         await pilot.pause()
         assert len(calls) == reads
-        assert screen._batch_list.cursor_key == "bl-farm"
+        assert screen._statement_list.cursor_key == "bl-farm"
 
     run_app(scenario)
     assert fake_client.puts == []
@@ -1365,9 +1370,9 @@ def test_r_starts_again_from_the_oldest_ten(monkeypatch):
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 20)
         await pilot.press("r")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 10)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 10)
         assert screen._mode == "unfiled"  # still the pane, not a screen reload
         assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
         assert len(counts) == 2
@@ -1383,8 +1388,8 @@ def test_a_count_that_cannot_be_read_fails_the_pane(monkeypatch):
         screen = await _open_panel(pilot, app)
         await pilot.press("u")
         await wait_for(pilot, lambda: not screen._unfiled_busy and screen._mode != "unfiled")
-        # no rows beside a guessed number: the batches are back
-        assert [r.key for r in screen._batch_list._rows] == ["r1"]
+        # no rows beside a guessed number: the statements are back
+        assert [r.key for r in screen._statement_list._rows] == ["r1"]
         assert not screen._unfiled
 
     run_app(scenario)
@@ -1411,7 +1416,7 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
         screen = await _open_unfiled(pilot, app)
         notes = _notes(monkeypatch, screen)
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 20)
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == "Delete this transaction?"
@@ -1427,8 +1432,8 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
         await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
         assert ("", "Transaction deleted.") in notes
         assert calls[-1]["limit"] == 10 and calls[-1]["after"] is None
-        assert screen._batch_list.cursor_index == 0
-        assert len(screen._batch_list._rows) == 10
+        assert screen._statement_list.cursor_index == 0
+        assert len(screen._statement_list._rows) == 10
 
     run_app(scenario)
     assert not [r for m, r in fake_client.requests if m == "GET"]  # nothing read before asking
@@ -1462,7 +1467,7 @@ def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, 
         await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
         await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
         assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
-        assert screen._batch_list.cursor_index == 0
+        assert screen._statement_list.cursor_index == 0
 
     run_app(scenario)
     assert fake_client.deletes == ["/bank-lines/bl-farm"]
@@ -1486,7 +1491,7 @@ def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, 
         await wait_for(pilot, lambda: app.screen is screen)
         await pilot.pause()
         assert len(calls) == reads
-        assert screen._batch_list.cursor_key == "bl-farm"
+        assert screen._statement_list.cursor_key == "bl-farm"
 
     run_app(scenario)
     assert fake_client.deletes == []
@@ -1542,8 +1547,8 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
         await pilot.pause()
         assert notes == [("Failed", list_refusal_text(err))]
         assert notes[0][1].startswith(f"{code} — {words}")
-        assert len(calls) == reads and len(screen._batch_list._rows) == 3
-        assert screen._batch_list.cursor_key == row
+        assert len(calls) == reads and len(screen._statement_list._rows) == 3
+        assert screen._statement_list.cursor_key == row
 
     run_app(scenario)
     assert fake_client.deletes == [path]
@@ -1588,8 +1593,8 @@ def test_a_delete_on_an_archived_account_shows_the_engine_words_alone(
             )
         ]
         assert notes[0][1] == refusal_text(err, None)
-        assert len(calls) == reads and len(screen._batch_list._rows) == 3
-        assert screen._batch_list.cursor_key == row
+        assert len(calls) == reads and len(screen._statement_list._rows) == 3
+        assert screen._statement_list.cursor_key == row
 
     run_app(scenario)
     assert fake_client.deletes == [path]
@@ -1673,13 +1678,13 @@ def test_y_on_a_line_never_split_sends_its_transaction_delete_with_an_idempotenc
 
 
 def test_d_does_nothing_outside_the_unfiled_pane(monkeypatch, fake_client):
-    """`d` is the pane's key, not the screen's: on the batches it must not fire
-    — one key per job, and a batch's own delete lives on the batch screen."""
+    """`d` is the pane's key, not the screen's: on the statements it must not fire
+    — one key per job, and a statement's own delete lives on the statement screen."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         await pilot.press("d")
@@ -1741,7 +1746,7 @@ def test_the_statements_browse_fits_80x24_with_no_paging_and_its_whole_footer(mo
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
         await pilot.pause()
-        assert screen._batch_list.page_status is None
+        assert screen._statement_list.page_status is None
         assert "pgdn" not in screen_lines(app)[-1]
         assert len([line for line in screen_lines(app) if "VIS-2026" in line]) == 3
         assert screen_lines(app)[-1].endswith("u No statement")
@@ -1818,8 +1823,8 @@ def test_a_statements_list_that_needs_a_page_keeps_in_order_and_every_key_whole(
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
         await pilot.pause()
-        assert screen._batch_list.row_count == 9
-        assert screen._batch_list.page_status is not None  # more than one page
+        assert screen._statement_list.row_count == 9
+        assert screen._statement_list.page_status is not None  # more than one page
         assert screen.query_one("#content").max_scroll_y == 0
         shown = [line for line in screen_lines(app) if "VIS-2026" in line]
         assert shown
@@ -1859,7 +1864,7 @@ def test_a_caption_that_wraps_is_counted_before_the_panel_exists(monkeypatch):
         assert screen._caption_lines() == 2
         assert screen.query_one("#content").max_scroll_y == 0
         shown = [line for line in screen_lines(app) if "VIS-2026" in line]
-        assert shown and len(shown) == screen._batch_list._page_size
+        assert shown and len(shown) == screen._statement_list._page_size
         assert all(line.endswith("in order") for line in shown)
         await pilot.press("r")  # a refresh measures again, to the same effect
         await pilot.pause()
@@ -1880,7 +1885,7 @@ def test_u_keeps_its_rows_whole_under_a_caption_that_wraps(monkeypatch):
         await pilot.pause()
         assert screen.query_one("#content").max_scroll_y == 0
         rows = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
-        assert rows and len(rows) == screen._batch_list._page_size
+        assert rows and len(rows) == screen._statement_list._page_size
         _footer_whole(app)
 
     run_app(scenario)
@@ -1900,10 +1905,12 @@ def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
             return render_text(lst.framed(), width=78).count("\n") - rows - caption
 
         assert drawn(screen._accts_list, 5, 0) == frame
-        assert drawn(screen._batch_list, 2, screen._caption_lines()) == frame
-        screen._batch_list.set_divider("blank")  # the lines in no statement: no status line
-        screen._batch_list.set_status_line(False)
-        assert drawn(screen._batch_list, 2, screen._caption_lines()) == screen.UNFILED_FRAME_LINES
+        assert drawn(screen._statement_list, 2, screen._caption_lines()) == frame
+        screen._statement_list.set_divider("blank")  # the lines in no statement: no status line
+        screen._statement_list.set_status_line(False)
+        assert (
+            drawn(screen._statement_list, 2, screen._caption_lines()) == screen.UNFILED_FRAME_LINES
+        )
 
     run_app(scenario)
 
@@ -1919,14 +1926,14 @@ def test_a_wide_terminal_measures_the_caption_at_the_card_width(monkeypatch):
         await pilot.pause()
         assert screen.query_one("#content").max_scroll_y == 0
         shown = [line for line in screen_lines(app) if "VIS-2026" in line]
-        assert shown and len(shown) == screen._batch_list._page_size
+        assert shown and len(shown) == screen._statement_list._page_size
         assert all(line.rstrip().endswith("in order") for line in shown)
         await pilot.press("u")
         await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
         await pilot.pause()
         assert screen.query_one("#content").max_scroll_y == 0
         rows = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
-        assert rows and len(rows) == screen._batch_list._page_size
+        assert rows and len(rows) == screen._statement_list._page_size
 
     run_app(scenario, size=(140, 24))
 
@@ -2049,14 +2056,14 @@ def test_the_rule_under_the_accounts_header_is_60_wide_under_its_first_letter(mo
     _two_currency_accounts(monkeypatch, ["Visa BCP", "IBK Visa"])
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         await wait_for(pilot, lambda: _has_header_and_rule(app), message="header never drawn")
         header, rule = _header_and_rule(app)
         assert rule == " " * header.index("Account") + "─" * 60
         await pilot.press("enter")
-        await wait_for(pilot, lambda: screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._mode == "statements")
         await wait_for(pilot, lambda: _has_header_and_rule(app), message="header never drawn")
         header, rule = _header_and_rule(app)
         assert rule == " " * header.index("Account") + "─" * 60
@@ -2068,7 +2075,7 @@ def test_a_long_account_name_is_cut_with_an_ellipsis_and_every_balance_shows_who
     _two_currency_accounts(monkeypatch, [LONG_NAME_50, "Visa BCP", "IBK Visa"])
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
+        screen = StatementsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         await wait_for(

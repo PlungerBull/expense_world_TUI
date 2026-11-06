@@ -111,7 +111,7 @@ def signed_cents(transaction: dict) -> int:
 
 
 def bank_line_columns(line: dict) -> tuple[str, object, object, object]:
-    """A bank line's own columns, the ones every reconciliation list shows:
+    """A bank line's own columns, the ones every statement list shows:
     `(day, title, operation_code, net_cents)`.
 
     The amount is the engine's signed `net_cents`, never a sum of the parts.

@@ -371,7 +371,7 @@ def test_the_sections_never_fold():
     assert [r.id for r in headers] == [None, None, None]
     assert [r.id for r in rows if r.id] == [
         "transactions",
-        "reconciliations",
+        "statements",
         "accounts",
         "categories",
         "hashtags",

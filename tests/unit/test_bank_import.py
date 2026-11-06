@@ -228,7 +228,7 @@ def test_each_row_is_read_by_its_spreadsheet_row_and_signed():
 )
 def test_each_outcome_has_its_verdict_and_reason(keys, verdict, reason):
     """The verdict comes from the engine's outcome; a move a completed
-    reconciliation stops is named, whatever else is written."""
+    statement stops is named, whatever else is written."""
     (row,) = answer_rows(import_answer([import_row(2, **keys)]))
     line = preview_line(row, {"r1": "Septiembre 2026"})
     assert (line.verdict, line.reason) == (verdict, reason)
@@ -358,7 +358,7 @@ def test_no_statement_is_read_when_no_move_is_stopped(configured):
 @respx.mock
 def test_a_failed_read_leaves_its_statement_unnamed_and_the_rest_are_read(configured, failure, why):
     """A read that fails leaves that id out, so its rows read `a
-    reconciliation`; the ids after it are still read and named, and the
+    statement`; the ids after it are still read and named, and the
     failure's reason comes back for the line under the table."""
     route = respx.get(f"{BASE}/v1/statements/st-sep")
     if isinstance(failure, Exception):

@@ -15,7 +15,7 @@ from textual.widgets import Input, Static
 from expense.errors import EngineError
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.screens.reconciliations import (
-    ReconciliationDetailScreen,
+    StatementScreen,
     balances_body,
     balances_named,
     blank_balances,
@@ -91,7 +91,7 @@ def _notes(monkeypatch) -> list:
     def note(self, message, title="", severity="information", **kw):
         notices.append((title, message, severity))
 
-    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+    monkeypatch.setattr(StatementScreen, "notify", note)
     monkeypatch.setattr("expense.tui.screens.modals.AmountPromptModal.notify", note)
     return notices
 
@@ -131,8 +131,8 @@ def _ending(currency: str, typed: str = "") -> list[str]:
     return _box("Ending balance first", "closing", currency, typed)
 
 
-async def _open(pilot, app, record) -> ReconciliationDetailScreen:
-    screen = ReconciliationDetailScreen(dict(record))
+async def _open(pilot, app, record) -> StatementScreen:
+    screen = StatementScreen(dict(record))
     await app.push_screen(screen)
     await wait_for(pilot, lambda: screen._list is not None)
     await pilot.pause()
@@ -475,7 +475,7 @@ _NOVIEMBRE_HEAD = [
 ]
 
 
-async def _refused_with_the_box_up(pilot, app) -> ReconciliationDetailScreen:
+async def _refused_with_the_box_up(pilot, app) -> StatementScreen:
     screen = await _open(pilot, app, NOVIEMBRE_IBK)
     await pilot.press("c")
     await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))

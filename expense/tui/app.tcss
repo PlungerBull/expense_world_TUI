@@ -87,7 +87,7 @@ EditFormScreen #field {
 }
 /* the New statement form names each currency's lines: BEGIN BALANCE USD (17)
    + 1 right padding — guarded by test_tui_field_width.py */
-NewReconciliationScreen #field {
+NewStatementScreen #field {
     width: 18;
 }
 /* EVERY Input, not just the bar's: Textual's own default is
@@ -265,7 +265,7 @@ PromptBox.under-head Input {
    by `WindowedList.framed()`, a `CursorList`'s above a horizontal rule and below
    the rows (a `CheckList` draws no rule); a
    caption appears only where it disambiguates (one caller: the
-   Reconciliations batch caption). The padding is the list's gutter. */
+   Statements caption). The padding is the list's gutter. */
 CursorList, CheckList {
     padding: 0 1;
 }
@@ -273,21 +273,21 @@ CursorList, CheckList {
 /* The Statements browse's lists are wider than a screen's usual card: they hold a statement's name,
    period, a Diff per currency, status and order whole on 80 columns, which the card's margins and
    the lists' own gutter would cut. */
-ReconciliationsScreen #content {
+StatementsScreen #content {
     padding: 1 0 1 2;
 }
-ReconciliationsScreen #accts,
-ReconciliationsScreen #batches {
+StatementsScreen #accts,
+StatementsScreen #statements {
     padding: 0;
 }
 
 /* A refused complete's lines stand a blank line under the head. */
-ReconciliationDetailScreen #rnote {
+StatementScreen #rnote {
     margin: 1 0 0 0;
 }
 
 /* A statement's `⚑` line stands two cells in, its second line under its first. */
-ReconciliationDetailScreen #rflag {
+StatementScreen #rflag {
     padding: 0 0 0 2;
 }
 

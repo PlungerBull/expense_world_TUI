@@ -21,7 +21,7 @@ from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     FlaggedLinesScreen,
-    ReconciliationDetailScreen,
+    StatementScreen,
 )
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
@@ -248,8 +248,8 @@ def _flags(fake_client, record: dict, own: list[str], other: list[str] | None = 
     )
 
 
-async def _complete(pilot, app, record: dict) -> ReconciliationDetailScreen:
-    screen = ReconciliationDetailScreen(dict(record))
+async def _complete(pilot, app, record: dict) -> StatementScreen:
+    screen = StatementScreen(dict(record))
     await app.push_screen(screen)
     await wait_for(pilot, lambda: screen._list is not None)
     await pilot.press("c")
@@ -776,13 +776,13 @@ def test_more_than_one_page_is_read_whole_in_the_statements_order(fake_client, m
 def _shown(monkeypatch) -> list[int]:
     """Every count the `⚑` line is given."""
     shown: list[int] = []
-    original = ReconciliationDetailScreen._show_flagged
+    original = StatementScreen._show_flagged
 
     def record(self, count):
         shown.append(count)
         original(self, count)
 
-    monkeypatch.setattr(ReconciliationDetailScreen, "_show_flagged", record)
+    monkeypatch.setattr(StatementScreen, "_show_flagged", record)
     return shown
 
 
@@ -805,7 +805,7 @@ def test_the_flag_counts_the_engines_lines_not_the_closes_sum(fake_client, monke
     shown = _shown(monkeypatch)
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(SOLES))
+        statement = StatementScreen(dict(SOLES))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: len(engine.counts) == 1)
         before = len(engine.counts)
@@ -870,7 +870,7 @@ def test_a_count_that_fails_after_a_close_toasts_and_opens_nothing(fake_client, 
     )
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(SOLES))
+        statement = StatementScreen(dict(SOLES))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: len(engine.counts) == 1)
         engine.count_refusal = EngineError("INTERNAL", "Count is down.", None, 500, {})
@@ -899,7 +899,7 @@ def test_a_reload_while_the_close_count_is_read_still_opens_the_screen_once(
     fake_client.get_responses[f"/statements/{SOLES['id']}"] = {**SOLES, "status": 2}
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(SOLES))
+        statement = StatementScreen(dict(SOLES))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: len(engine.counts) == 1)
         engine.hold = release = threading.Event()
@@ -925,7 +925,7 @@ def test_f_pressed_while_the_close_count_is_read_opens_one_flagged_screen(fake_c
     _flags(fake_client, SOLES, ["l-tambo"])
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(SOLES))
+        statement = StatementScreen(dict(SOLES))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: statement._flagged == 1)
         engine.hold = release = threading.Event()
@@ -953,7 +953,7 @@ def test_f_then_esc_before_the_close_count_lands_opens_no_second_flagged_screen(
     _flags(fake_client, SOLES, ["l-tambo"])
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(SOLES))
+        statement = StatementScreen(dict(SOLES))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: statement._flagged == 1)
         engine.hold = release = threading.Event()
@@ -983,7 +983,7 @@ def test_a_draft_that_shows_f_keeps_its_last_key_whole_at_80_columns(fake_client
     engine.count = 3
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(PLAIN))
+        statement = StatementScreen(dict(PLAIN))
         await app.push_screen(statement)
         await wait_for(pilot, lambda: statement.query_one("#rflag", Static).display)
         await pilot.pause()
@@ -1011,7 +1011,7 @@ def test_a_footer_that_fits_keeps_its_usual_spacing(fake_client, monkeypatch):
     engine.count = 3
 
     async def scenario(pilot, app):
-        statement = ReconciliationDetailScreen(dict(PLAIN) | {"status": 2})
+        statement = StatementScreen(dict(PLAIN) | {"status": 2})
         await app.push_screen(statement)
         await wait_for(pilot, lambda: statement.query_one("#rflag", Static).display)
         await pilot.pause()

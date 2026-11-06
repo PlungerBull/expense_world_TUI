@@ -408,17 +408,15 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
     assert sent.call_count == 2
 
 
-# ---- refused until its reconciliations go ------
+# ---- refused until its statements go ------
 
 
-def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
-    configured, monkeypatch
-):
+def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configured, monkeypatch):
     """`t Make person`
-    on a bank account with a reconciliation, draft or completed, is refused
+    on a bank account with a statement, draft or completed, is refused
     with the engine's words alone, and the account stays a
     bank account where it was (contract: POST /v1/accounts/{account_id}/make-person,
-    "Refusals"). Once its reconciliations are deleted the engine no longer
+    "Refusals"). Once its statements are deleted the engine no longer
     refuses, and `t` makes it a person."""
     rows = _rows()
     _stub_list(monkeypatch, rows)
@@ -450,7 +448,7 @@ def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
         seen["refused"] = list(notes)
         seen["kind"] = screen.selected_record()["is_person"]
         seen["footer"] = _footer(screen)
-        await pilot.press("t")  # its reconciliations are deleted meanwhile
+        await pilot.press("t")  # its statements are deleted meanwhile
         await wait_for(pilot, lambda: ("", "Now a person.") in notes)
         await wait_for(pilot, lambda: not screen._toggle_busy)
         await pilot.pause()

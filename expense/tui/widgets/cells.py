@@ -25,7 +25,7 @@ def code_cell(code: object) -> str | Text:
 
 
 def operation_cell(code: object) -> str | Text:
-    """A bank line's `operation_code` as every reconciliation list shows it:
+    """A bank line's `operation_code` as every statement list shows it:
     the operation code, or a dim `—` when the line has none."""
     return code_cell(code)
 
@@ -70,7 +70,7 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
 
     `None` is a dim em-dash, not `format_cents`'s literal `(null)` — the TUI's
     mark for an absent value, the same one `format_short_date` already uses.
-    Only one caller can actually hand this a null today (a reconciliation's
+    Only one caller can actually hand this a null today (a statement's
     `ending_balance_cents`, nullable in the engine); the rest —
     account balances, transaction amounts, beginning balances — are non-null by
     engine guarantee. Handling it here rather than at that one call site means

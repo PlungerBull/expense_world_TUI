@@ -33,7 +33,7 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewStatementScreen
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import ACCENT
 from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
@@ -226,7 +226,7 @@ def test_new_statement_name_goes_on(fake_client):
         assert screen._key == "date_start"
         assert fake_client.posts == []
 
-    _open(NewReconciliationScreen(account_id="acc1", account_name="BCP"), body)
+    _open(NewStatementScreen(account_id="acc1", account_name="BCP"), body)
 
 
 #: The begin balance hint's second line, the same on every begin field
@@ -250,9 +250,7 @@ def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client):
         assert shown.splitlines() == [first, OPENING_NOTE]
 
     _open(
-        NewReconciliationScreen(
-            account_id="acc1", account_name="Sueldo Soles", currencies=("PEN",)
-        ),
+        NewStatementScreen(account_id="acc1", account_name="Sueldo Soles", currencies=("PEN",)),
         body,
     )
 
@@ -296,9 +294,9 @@ SHAPES = {
         BankLineEditFormScreen(line={**LINE, "operation_code": None, "edit_limits": ARCHIVED}),
         BankLineEditFormScreen(line={**LINE, "edit_limits": COMPLETED}),
     ],
-    NewReconciliationScreen: lambda: [
-        NewReconciliationScreen(),
-        NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN", "USD")),
+    NewStatementScreen: lambda: [
+        NewStatementScreen(),
+        NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN", "USD")),
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
 }

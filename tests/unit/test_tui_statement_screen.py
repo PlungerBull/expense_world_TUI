@@ -12,7 +12,7 @@ from rich.style import Style
 from textual.widgets import Static
 
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+from expense.tui.screens.reconciliations import StatementScreen
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     NOVIEMBRE_IBK,
@@ -215,7 +215,7 @@ def _pane(text: str) -> list[str]:
 
 def _open(statement: dict, code: str | None = None):
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
+        screen = StatementScreen(dict(statement), statement_code=code)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
@@ -318,7 +318,7 @@ def test_every_row_and_the_page_status_show_at_any_height(fake_client, monkeypat
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
@@ -443,7 +443,7 @@ def test_a_tick_into_a_soles_only_draft_reads_the_statement_again(fake_client, m
     fake_client.get = get
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(soles))
+        screen = StatementScreen(dict(soles))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
@@ -486,7 +486,7 @@ def test_the_close_notes_of_a_currency_not_covered_follow_the_covered_ones(
     fake_client.write_responses["/statements/ibk-sep/complete"] = answer
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(SEPTIEMBRE))
+        screen = StatementScreen(dict(SEPTIEMBRE))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.press("c")
@@ -602,7 +602,7 @@ def test_a_long_close_note_wraps_under_its_first_word_after_the_warning_sign(
     fake_client.write_responses["/statements/ibk-sep/complete"] = answer
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(SEPTIEMBRE))
+        screen = StatementScreen(dict(SEPTIEMBRE))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.press("c")
@@ -638,7 +638,7 @@ def test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows(
     _long_account(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()
@@ -679,7 +679,7 @@ def test_the_flagged_line_keeps_the_page_line_and_gives_its_room_back(fake_clien
     fake_client.get = get
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         flag = screen.query_one("#rflag", Static)
         await wait_for(pilot, lambda: flag.display)
@@ -756,7 +756,7 @@ def test_a_complete_that_flags_lines_keeps_the_page_line_back_from_them(fake_cli
     _count_answers(fake_client, flagged)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
         await wait_for(pilot, lambda: _page_is_whole(screen, app)[0])
@@ -788,7 +788,7 @@ def test_the_flagged_line_arriving_under_a_box_keeps_the_page_line_after_esc(
     _count_answers(fake_client, flagged)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(OCTUBRE))
+        screen = StatementScreen(dict(OCTUBRE))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
         await pilot.pause()
@@ -825,7 +825,7 @@ def test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc(
     fake_client.errors["POST"] = money_at_start_refusal()
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(NOVIEMBRE_IBK))
+        screen = StatementScreen(dict(NOVIEMBRE_IBK))
         await app.push_screen(screen)
         flag = screen.query_one("#rflag", Static)
         await wait_for(pilot, lambda: flag.display and screen._list is not None)
@@ -858,7 +858,7 @@ def test_a_refit_with_the_size_unchanged_sets_nothing(fake_client, monkeypatch):
     _engine(fake_client, monkeypatch, statement_lines=_many())
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
         await pilot.pause()
@@ -911,7 +911,7 @@ def test_the_keys_show_and_act_as_the_statements_state_allows(fake_client, monke
 
     def keys(statement, code):
         async def scenario(pilot, app):
-            screen = ReconciliationDetailScreen(dict(statement), statement_code=code)
+            screen = StatementScreen(dict(statement), statement_code=code)
             await app.push_screen(screen)
             await wait_for(pilot, lambda: screen._list is not None)
             await pilot.pause()
@@ -934,7 +934,7 @@ def test_the_page_keys_reach_every_page_of_a_completed_statement(fake_client, mo
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(VIS_AGOSTO))
+        screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         await pilot.pause()

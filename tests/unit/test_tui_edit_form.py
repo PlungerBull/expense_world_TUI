@@ -545,7 +545,7 @@ def test_a_null_hashtag_id_renders_and_a_title_edit_leaves_the_set_alone(fake_cl
     assert fake_client.calls == [("PUT", PATH, {"title": "Farmacia Central", "parts": [_kept()]})]
 
 
-# ---- an account move leaves the reconciliation --------------------------------
+# ---- an account move leaves the statement --------------------------------
 # (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")
 # (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")
 
@@ -591,7 +591,7 @@ def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, chang
 
 def test_an_edit_that_keeps_the_account_sends_no_statement_id(fake_client, monkeypatch):
     """Re-picking the line's own account is no change, so a line edited on
-    another field keeps its reconciliation."""
+    another field keeps its statement."""
     _patch(monkeypatch)
     notices = _record_notices(monkeypatch)
 
@@ -1367,7 +1367,7 @@ def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkey
     ]
 
 
-def test_the_no_batch_form_names_its_operation_line_among_the_locked(fake_client, monkeypatch):
+def test_the_no_statement_form_names_its_operation_line_among_the_locked(fake_client, monkeypatch):
     """The "no statement" form shares the lines: OPERATION, read-only on an
     archived account's line, is named in the form's order, and a sentence too
     long for the line wraps under itself."""
@@ -1892,7 +1892,7 @@ def test_enter_through_every_line_then_ctrl_s_sends_nothing(fake_client, monkeyp
 
 
 @pytest.mark.parametrize("split", [False, True], ids=["one-part", "two-parts"])
-def test_enter_through_every_line_of_the_no_batch_form_sends_nothing(
+def test_enter_through_every_line_of_the_no_statement_form_sends_nothing(
     fake_client, monkeypatch, split
 ):
     """The "no statement" Edit form: one line per `⏎`, none skipped but the currency line

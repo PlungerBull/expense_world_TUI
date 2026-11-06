@@ -522,7 +522,7 @@ and names the ones it flags in its answer ("The lines a complete flagged for rev
 and which lines those are is the engine's alone.
 
 **Keys**: the footer reads `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`
-(`ReconciliationsScreen.active_bindings` sets that order), then the growing list's
+(`StatementsScreen.active_bindings` sets that order), then the growing list's
 `pgdn 10 more` and `pgup Prev` where they apply (§5); `n` and `u` are off here, and out of the
 footer. `esc` swaps back to the panel. `⏎ Edit`, on
 every row, opens the Edit form on the line and its parts (below); the `?` card words it "Edit
@@ -1366,7 +1366,7 @@ currencies and its code when it has one:
 `Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`.
 
 Both lists sit tighter than the shared table (`gap` and `edge` on `CursorList`,
-`ReconciliationsScreen` in [app.tcss](../expense/tui/app.tcss)): two spaces between columns,
+`StatementsScreen` in [app.tcss](../expense/tui/app.tcss)): two spaces between columns,
 one on the statements list of an account with a statement code (`ORDER_GAP`). On the
 statements list the Name is the one column that gives way (`_panel_layout`, `gives_way` on
 `CursorList`): a name too long for the room left is cut with `…` (`Noviembre 2026` reads
@@ -1389,7 +1389,7 @@ retreats one step — no-statement rows → the panel → the account list (`esc
 Home. On a statement's screen one keypress away, `u` means *revert*.
 
 **The New statement form** (`n` on an account, or `Statements ▸ New` alone;
-`NewReconciliationScreen`) is one form for every account: `Statements ▸ <account> ▸ New`,
+`NewStatementScreen`) is one form for every account: `Statements ▸ <account> ▸ New`,
 with the lines `name`, `date start`, `date end`, then a `begin balance <CUR>` and an
 `end balance <CUR>` line for each currency the account holds, in the engine's order. The
 account is stated, never edited, in the summary as `Visa BCP · PEN + USD · VIS` (no

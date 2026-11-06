@@ -1,4 +1,4 @@
-"""Reconciliation working-screen tests — the bank-line checklist + assign/complete.
+"""Statement working-screen tests — the bank-line checklist + assign/complete.
 
 Every list reads `GET /bank-lines`: a purchase split into parts is one row with
 its total, and a tick is one `PUT` of `statement_id` on one of its parts
@@ -19,7 +19,7 @@ from expense.errors import EngineError, format_error
 from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
-    ReconciliationDetailScreen,
+    StatementScreen,
     balance_of,
     balances_body,
     line_rows,
@@ -61,7 +61,7 @@ def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None
     }
 
 
-#: The batch's one line, ticked: a purchase never split.
+#: The statement's one line, ticked: a purchase never split.
 NETFLIX = bank_line_row(
     "l1",
     [_part("t1", -4490, line="l1", day="2026-04-14", title="NETFLIX.COM", recon="r1")],
@@ -100,7 +100,7 @@ def test_a_lines_columns_are_the_banks_own():
 
 def test_line_rows_lists_a_split_purchase_once_and_ticks_by_one_part():
     rows, checked, part_of = line_rows(ASSIGNED, [*AVAILABLE, NETFLIX])
-    assert [r[0] for r in rows] == ["l1", "l3", "l2"]  # the batch first; l1 once
+    assert [r[0] for r in rows] == ["l1", "l3", "l2"]  # the statement first; l1 once
     assert checked == ["l1"]
     assert part_of == {"l1": "t1", "l3": "t3", "l2": "t2a"}
     # a currency and a number on the paper, 1, 2, 3 with no gaps, and not apart
@@ -243,7 +243,7 @@ def _patch(monkeypatch):
     statement_reads: list = []
 
     def fake_fetch(cfg, **k):
-        if k.get("reconciliation") == "r1":
+        if k.get("statement") == "r1":
             return cursor_page(ASSIGNED)
         if k.get("account") == "acc1" and k.get("unreconciled"):
             return cursor_page(AVAILABLE)
@@ -296,7 +296,7 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
     monkeypatch.setattr("expense.reads.fetch_bank_lines", spy)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         in_range = [k for k in calls if k.get("unreconciled")]
@@ -304,9 +304,9 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
         assert in_range[0]["account"] == "acc1"
         assert in_range[0]["date_from"] == "2026-04-01"
         assert in_range[0]["date_to"] == "2026-04-30"
-        batch = [k for k in calls if k.get("reconciliation") == "r1"]
-        assert len(batch) == 1 and batch[0]["account"] == "acc1"
-        assert "date_from" not in batch[0] and "date_to" not in batch[0]
+        its_lines = [k for k in calls if k.get("statement") == "r1"]
+        assert len(its_lines) == 1 and its_lines[0]["account"] == "acc1"
+        assert "date_from" not in its_lines[0] and "date_to" not in its_lines[0]
 
     run_app(scenario)
 
@@ -317,7 +317,7 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         head = shown(screen.query_one("#rhead", Static))
@@ -328,12 +328,12 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
 
 
 def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
-    """The batch's lines first, ticked, then the account's lines in no statement;
+    """The statement's lines first, ticked, then the account's lines in no statement;
     the split purchase is one row with its total."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         cl = screen._list
@@ -352,14 +352,14 @@ def test_tick_puts_statement_id_on_one_part_then_reads_again(fake_client, monkey
     ticked = {**FARMACIA, "parts": [{**p, "statement_id": "r1"} for p in FARMACIA["parts"]]}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
-        # the engine after the PUT: FARMACIA is in the batch, listed among its lines
+        # the engine after the PUT: FARMACIA is in the statement, listed among its lines
         monkeypatch.setattr(
             "expense.reads.fetch_bank_lines",
-            lambda cfg, **k: cursor_page([NETFLIX, ticked] if k.get("reconciliation") else [UBER]),
+            lambda cfg, **k: cursor_page([NETFLIX, ticked] if k.get("statement") else [UBER]),
         )
         first._cursor = 2
         await pilot.press("space")
@@ -378,7 +378,7 @@ def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch
     statement_reads = _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -399,7 +399,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -465,14 +465,14 @@ def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
     fake_client.put = slow_put
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
         first._cursor = 0
-        first.action_toggle()  # l1 → out of the batch
+        first.action_toggle()  # l1 → out of the statement
         first._cursor = 2
-        first.action_toggle()  # l2 → into the batch
+        first.action_toggle()  # l2 → into the statement
         await wait_for(pilot, lambda: len(fake_client.puts) == 2)
         await wait_for(pilot, lambda: screen._list is not first)  # the re-read is in
 
@@ -494,7 +494,7 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
     fake_client.errors["PUT"] = _EngineError("CONFLICT", "Transaction is locked.", None, 409, {})
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
     # Each toggle reaches the screen as its own message, so the first PUT can
     # fail before the second toggle is even queued — and then there is nothing
@@ -509,7 +509,7 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
     fake_client.put = held_put
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -564,10 +564,10 @@ def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, mon
     def note(self, message, title="", **kw):
         notices.append((title, message))
 
-    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+    monkeypatch.setattr(StatementScreen, "notify", note)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -597,13 +597,13 @@ def test_a_tick_at_the_same_moment_as_another_write_says_to_press_r(fake_client,
     )
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen,
+        StatementScreen,
         "notify",
         lambda self, message, title="", **kw: notices.append((title, message)),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("space")
@@ -623,7 +623,7 @@ def test_a_tick_at_the_same_moment_as_another_write_says_to_press_r(fake_client,
 
 
 def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
-    """The batch was opened
+    """The statement was opened
     before its account was archived, and `space` is refused. `Couldn't update`
     carries the engine's words and its `statement_id` words, no line of
     the app's; the list is read again as after any refused tick, the engine's
@@ -633,13 +633,13 @@ def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client,
     fake_client.errors["PUT"] = err
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen,
+        StatementScreen,
         "notify",
         lambda self, message, title="", **kw: notices.append((title, message)),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -699,11 +699,11 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
     fake_client.put = put
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -722,7 +722,7 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
             ("/transactions/t2a", {"statement_id": "r1"}),
         ]
         assert statement_reads == ["r1"]  # the header's figures, read again once
-        assert len(line_reads) - loaded == 2  # the batch's lines and the rest, once
+        assert len(line_reads) - loaded == 2  # the statement's lines and the rest, once
         assert screen._list.cursor_key == "l1"
 
     run_app(scenario)
@@ -760,7 +760,7 @@ def test_a_tick_while_a_reload_runs_keeps_the_cursor_on_it(fake_client, monkeypa
     fake_client.put = put
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -812,10 +812,10 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
     def note(self, message, title="", **kw):
         notices.append((title, message))
 
-    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+    monkeypatch.setattr(StatementScreen, "notify", note)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         first = screen._list
@@ -873,7 +873,7 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
     fake_client.put = held
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         loaded = len(reads)
@@ -898,7 +898,7 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
             ("/transactions/t2a", {"statement_id": "r1"}),
             ("/transactions/t1", {"statement_id": "r1"}),
         ]
-        assert len(reads) - loaded == 2  # one re-read: the batch's lines and the rest
+        assert len(reads) - loaded == 2  # one re-read: the statement's lines and the rest
 
     run_app(scenario)
 
@@ -932,7 +932,7 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: calls["n"] >= 1)
         screen._load_txns()  # supersedes the slow mount-time load
@@ -986,7 +986,7 @@ def test_a_read_a_newer_one_replaced_does_not_paint_or_use_up_the_landing(fake_c
     monkeypatch.setattr(module, "call_while_attached", counting)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await wait_for(pilot, entered.is_set)
         screen._land_on = "l9"
@@ -1048,7 +1048,7 @@ def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
     monkeypatch.setattr(module, "get_current_worker", lambda: Live())
     handed_back: list[str] = []
     real = module.call_while_attached
-    real_load = ReconciliationDetailScreen._load_txns
+    real_load = StatementScreen._load_txns
 
     def counting(screen, fn, *a, **k):
         real(screen, fn, *a, **k)
@@ -1057,10 +1057,10 @@ def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
     monkeypatch.setattr(module, "call_while_attached", counting)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
-        monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", lambda self, **k: None)
+        screen = StatementScreen(dict(DRAFT))
+        monkeypatch.setattr(StatementScreen, "_load_txns", lambda self, **k: None)
         await app.push_screen(screen)  # no mount-time read: the test starts both
-        monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", real_load)
+        monkeypatch.setattr(StatementScreen, "_load_txns", real_load)
         screen._load_txns(refresh_record=True)  # read 1, held before its record lands
         await wait_for(pilot, entered[1].is_set)
         screen._record["status"] = 2  # a complete just landed
@@ -1097,7 +1097,7 @@ def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
         return cursor_page([{"id": f"l{200 + i}"} for i in range(40)])
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
-    rows = _fetch_all_lines(object(), reconciliation="r1")
+    rows = _fetch_all_lines(object(), statement="r1")
     assert calls == [(200, None), (200, "c1")]
     assert [r["id"] for r in rows] == [f"l{i}" for i in range(240)]
 
@@ -1106,7 +1106,7 @@ def test_complete_confirms_then_posts(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         screen.action_complete()  # opens confirm
@@ -1137,15 +1137,15 @@ def test_completed_is_read_only(fake_client, monkeypatch):
     _patch(monkeypatch)
     monkeypatch.setattr(
         "expense.reads.fetch_bank_lines",
-        lambda cfg, **k: cursor_page([LOCKED_NETFLIX] if k.get("reconciliation") == "r1" else []),
+        lambda cfg, **k: cursor_page([LOCKED_NETFLIX] if k.get("statement") == "r1" else []),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert screen._list._read_only
-        assert [r[0] for r in screen._list._rows] == ["l1"]  # only the batch's lines
+        assert [r[0] for r in screen._list._rows] == ["l1"]  # only the statement's lines
 
     run_app(scenario)
 
@@ -1155,7 +1155,7 @@ def test_a_completed_statement_with_no_lines_says_so_in_statement_words(fake_cli
     monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page([]))
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen({**DRAFT, "status": 2})
+        screen = StatementScreen({**DRAFT, "status": 2})
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert screen._list._empty == "(no transactions in this statement)"
@@ -1173,7 +1173,7 @@ def test_cs_question_counts_the_ticked_rows_in_written_english(
     """`c` asks before completing, and its count reads as English: `1 ticked
     row` for one, `N ticked rows` otherwise. Nothing is sent by asking."""
     _patch(monkeypatch)
-    batch = [
+    its_lines = [
         bank_line_row(
             f"b{i}",
             [
@@ -1188,12 +1188,12 @@ def test_cs_question_counts_the_ticked_rows_in_written_english(
     ]
 
     def fake_fetch(cfg, **k):
-        return cursor_page(batch if k.get("reconciliation") == "r1" else [])
+        return cursor_page(its_lines if k.get("statement") == "r1" else [])
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert len(screen._list.checked) == ticked
@@ -1224,11 +1224,11 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
     )
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("d")
@@ -1265,13 +1265,13 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
     )
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen,
+        StatementScreen,
         "notify",
         lambda self, message, title="", **kw: notices.append((title, message)),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("d")
@@ -1312,7 +1312,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press(key)
@@ -1375,7 +1375,7 @@ def test_complete_with_no_transaction_shows_the_engines_words_whole(fake_client,
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(CARD)
+        screen = StatementScreen(CARD)
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert not screen._list.checked
@@ -1450,11 +1450,11 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
     _complete_with_warnings(fake_client, [GAP])
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         line = screen.query_one("#rwarn", Static)
@@ -1479,7 +1479,7 @@ def test_a_gap_on_any_currency_draws_its_line(fake_client, monkeypatch):
     _complete_with_warnings(fake_client, [], statement={**CARD, "balances": balances})
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(CARD)
+        screen = StatementScreen(CARD)
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -1499,7 +1499,7 @@ def test_complete_without_warnings_draws_no_line(fake_client, monkeypatch):
     _complete_with_warnings(fake_client, [])
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         screen.action_complete()
@@ -1518,7 +1518,7 @@ def test_revert_clears_a_shown_gap(fake_client, monkeypatch):
     _complete_with_warnings(fake_client, [GAP])
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         line = screen.query_one("#rwarn", Static)
@@ -1540,11 +1540,11 @@ def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
     _patch(monkeypatch)
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("u")
@@ -1563,7 +1563,7 @@ def test_revert_posts(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         screen.action_revert()
@@ -1581,7 +1581,7 @@ def test_revert_key_is_u(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(completed))
+        screen = StatementScreen(dict(completed))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("u")
@@ -1633,7 +1633,7 @@ def test_r_reads_the_statement_by_its_id_and_shows_its_balances(configured, monk
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("r")
@@ -1671,13 +1671,13 @@ def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch)
     )
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen,
+        StatementScreen,
         "notify",
         lambda self, message, **kw: notices.append((message, kw.get("severity"))),
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("r")
@@ -1705,11 +1705,11 @@ def test_r_refused_otherwise_shows_the_engines_words_and_stays(fake_client, monk
     monkeypatch.setattr("expense.reads.fetch_statement", refused)
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("r")
@@ -1726,7 +1726,7 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("d")  # delete → confirm modal
@@ -1749,7 +1749,7 @@ def test_q_inert_inside_confirm_modal(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("d")  # delete → confirm modal
@@ -1775,11 +1775,11 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_bank_lines", boom)
     notices: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: notices)
         assert notices and "engine down" in notices[0]
@@ -1818,7 +1818,7 @@ def _notes(monkeypatch) -> list:
     def note(self, message, title="", severity="information", **kw):
         notices.append((title, message, severity))
 
-    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+    monkeypatch.setattr(StatementScreen, "notify", note)
     monkeypatch.setattr("expense.tui.screens.modals.AmountPromptModal.notify", note)
     return notices
 
@@ -1831,7 +1831,7 @@ def _fresh_read(monkeypatch, statement: dict) -> None:
 async def _open_box(pilot, app, record=NO_END):
     from expense.tui.screens.modals import AmountPromptModal
 
-    screen = ReconciliationDetailScreen(dict(record))
+    screen = StatementScreen(dict(record))
     await app.push_screen(screen)
     await _wait_list(screen, pilot)
     await pilot.press("c")
@@ -1974,7 +1974,7 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
     end_only = {"balances": [{"currency_code": "PEN", "ending_balance_cents": -5}]}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(blank))
+        screen = StatementScreen(dict(blank))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -2024,7 +2024,7 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
 def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answer):
-    """Say no and the reconciliation stays a draft with its balance saved;
+    """Say no and the statement stays a draft with its balance saved;
     the next `c` goes straight to the question, no box."""
     _patch(monkeypatch)
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
@@ -2064,7 +2064,7 @@ def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
 
 @pytest.mark.parametrize("typed", ["13.853.20", "13.853,20", "abc", ""])
 def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, typed):
-    """The New Reconciliation form's note for a badly typed balance;
+    """The New statement form's note for a badly typed balance;
     the box stays open with what was typed, and nothing is sent."""
     from textual.widgets import Input
 
@@ -2220,7 +2220,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_bo
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")
@@ -2242,12 +2242,12 @@ def test_complete_refused_for_a_missing_balance_shows_the_words_and_opens_the_bo
 
 
 def test_a_draft_with_its_balance_skips_the_box(fake_client, monkeypatch):
-    """A reconciliation that already has its ending balance
+    """A statement that already has its ending balance
     completes as before — `c` goes straight to the question."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         await pilot.press("c")

@@ -12,10 +12,10 @@ Rows are pure `(key, date, title, operation, amount_cents[, currency, number,
 apart])` tuples so formatting is unit-testable without an event loop.
 
 Renders at most `page_size` rows — min(20, what fits the pane), the screen
-calling `set_page_size` on resize — always window mode: the full batch stays
+calling `set_page_size` on resize — always window mode: the full statement stays
 in memory, the visible window follows the cursor, and `pgdn`/`pgup` jump a
 page. Membership is window-proof: `_checked` is a key-set over the whole
-batch, so `c Complete` counts every checked row across all pages. Page status
+statement, so `c Complete` counts every checked row across all pages. Page status
 renders as the list's last line (`rows 21-40 of 47 · page 2 of 3`).
 """
 

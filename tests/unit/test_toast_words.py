@@ -46,7 +46,7 @@ from textual.widgets import Input
 
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewStatementScreen
 from expense.tui.screens.system import ConfigScreen
 from tests.unit.helpers import run_app, toasts_shown, wait_for, whole
 from tests.unit.test_tui_edit_form import TXN
@@ -164,7 +164,7 @@ def test_an_account_no_name_matches_on_a_new_statement_shows_it_whole(fake_clien
     )
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._accounts, message="the accounts never loaded")
         await pilot.press(*"Octubre", "enter")

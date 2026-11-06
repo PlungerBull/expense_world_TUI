@@ -190,7 +190,7 @@ def test_checklist_single_page_hides_page_keys():
 
 def test_checklist_set_page_size_keeps_checks():
     """Resize re-slices the window; membership is a key-set over the whole
-    batch, so checks survive (adaptive rows)."""
+    statement, so checks survive (adaptive rows)."""
     chk = _checklist(25, checked=["l3", "l22"])
     chk.set_page_size(6)
     out = _text(chk._build())
@@ -609,7 +609,7 @@ class _Measured(AdaptiveRowsMixin):
 
 
 def test_fit_rows_clamps_to_the_screen_class_limits_not_hardcoded_ones():
-    """The reconciliation screens each re-derived this measurement with a bare
+    """The statement screens each re-derived this measurement with a bare
     `5` and a hardcoded 20, so raising `PAGE_ROWS_CAP` on a screen would have
     left them at 20 without saying so."""
     wide = _Measured(200)
@@ -635,13 +635,13 @@ def test_fit_rows_counts_two_line_rows_and_split_panes():
     """The two callers that hand-roll their own chrome: a pane sharing #content
     with a sibling, and the checklist in #rlist, one line per row.
 
-    The browse's two panes are not the same size — the batches pane keeps a
+    The browse's two panes are not the same size — the statements pane keeps a
     caption naming the account, the accounts pane does not. The checklist
     counts the two blank edge lines the table draws; leaving them out asks for
     a row that does not fit, and #rlist, which is `overflow: hidden`, clips it
     in silence.
 
-    Mirrors `ReconciliationsScreen.pane_rows` and `_checklist_items`. If those
+    Mirrors `StatementsScreen.pane_rows` and `_checklist_items`. If those
     change, this is where the new arithmetic gets re-stated.
     """
     frame, caption = AdaptiveRowsMixin.LIST_FRAME_LINES, AdaptiveRowsMixin.CAPTION_LINES
@@ -717,7 +717,7 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
     Asserted against the container rather than against a number, so it stays
     true if the frame changes shape again.
     """
-    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+    from expense.tui.screens.reconciliations import StatementScreen
 
     balance = {
         "currency_code": "PEN",
@@ -745,12 +745,12 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
     ]
     monkeypatch.setattr(
         "expense.reads.fetch_bank_lines",
-        lambda cfg, **k: cursor_page([] if k.get("reconciliation") else lines),
+        lambda cfg, **k: cursor_page([] if k.get("statement") else lines),
     )
     monkeypatch.setattr("expense.tui.screens.reconciliations.load_account_name_map", dict)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(record))
+        screen = StatementScreen(dict(record))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None, message="no checklist")
         await wait_for(
@@ -765,10 +765,10 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
         run_app(scenario, size=size)
 
 
-def test_the_batch_caption_repaints_when_the_account_changes():
+def test_the_statement_caption_repaints_when_the_account_changes():
     """A caption is content, and content does not repaint itself.
 
-    The border title did: assigning it was enough. The Reconciliations browse
+    The border title did: assigning it was enough. The statements browse
     rewrites its lower caption every time the account cursor moves, so it has
     to go through `set_caption`, which repaints. Asserted on the rendered text
     rather than on the attribute — the attribute was never the bug.

@@ -63,7 +63,7 @@ from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import HelpBindingMixin
-from expense.tui.screens.reconciliations import ReconciliationsScreen
+from expense.tui.screens.reconciliations import StatementsScreen
 from expense.tui.screens.system import AuthScreen, ConfigScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
@@ -82,7 +82,7 @@ _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "ledger",
         "LEDGER",
-        [("transactions", "Transactions"), ("reconciliations", "Statements")],
+        [("transactions", "Transactions"), ("statements", "Statements")],
     ),
     (
         "manage",
@@ -100,7 +100,7 @@ _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
 # keeps it in lockstep with the section entries, so a new row can't be left dead.
 _SCREENS: dict[str, type[Screen]] = {
     "transactions": TransactionsScreen,
-    "reconciliations": ReconciliationsScreen,
+    "statements": StatementsScreen,
     "accounts": AccountsScreen,
     "categories": CategoriesScreen,
     "hashtags": HashtagsScreen,

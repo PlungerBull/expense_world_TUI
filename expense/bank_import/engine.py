@@ -58,8 +58,8 @@ class ImportedRow:
     #: On a `matched` row, whether the line is (or would be) moved to the
     #: bank's day.
     redated: bool | None
-    #: On a `matched` row whose move a completed reconciliation stops: that
-    #: reconciliation's id.
+    #: On a `matched` row whose move a completed statement stops: that
+    #: statement's id.
     redate_blocked_by: str | None
 
 
@@ -178,10 +178,10 @@ IN_LEDGER = "Already in the ledger"
 MODIFIED = "Modified existing transaction"
 CLOSED = "Closed period"
 SKIPPED = "Skipped: amount 0"
-#: A move a completed reconciliation stops; `{}` is its name.
+#: A move a completed statement stops; `{}` is its name.
 NOT_MOVED = "Not moved: {} is completed"
-#: The name in NOT_MOVED when the reconciliations could not be read.
-UNNAMED_RECONCILIATION = "its statement"
+#: The name in NOT_MOVED when the statements could not be read.
+UNNAMED_STATEMENT = "its statement"
 
 
 @dataclass(frozen=True)
@@ -197,7 +197,7 @@ class PreviewLine:
 def row_verdict(row: ImportedRow) -> Verdict:
     """The row's verdict from its outcome. A matched row is modified when the
     apply writes the bank's operation code, title or day onto its line; a move
-    a completed reconciliation stops wins over the rest."""
+    a completed statement stops wins over the rest."""
     if row.outcome == "new":
         return Verdict.NEW
     if row.outcome == "sealed":
@@ -216,7 +216,7 @@ def preview_line(row: ImportedRow, names: dict[str, str]) -> PreviewLine:
     statement from `names` (statement id → name)."""
     verdict = row_verdict(row)
     if verdict is Verdict.NOT_MOVED:
-        name = names.get(str(row.redate_blocked_by), UNNAMED_RECONCILIATION)
+        name = names.get(str(row.redate_blocked_by), UNNAMED_STATEMENT)
         return PreviewLine(row, verdict, NOT_MOVED.format(name))
     reasons = {
         Verdict.NEW: NEW,

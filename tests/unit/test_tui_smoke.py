@@ -58,7 +58,7 @@ def test_app_launches_home_with_every_screen_listed():
         # every screen is a row before any fetch lands, never folded
         assert ids == [
             "transactions",
-            "reconciliations",
+            "statements",
             "accounts",
             "categories",
             "hashtags",
@@ -96,7 +96,7 @@ def test_home_month_populates_from_worker(monkeypatch):
         assert ids.index("account:a-usd") + 1 == ids.index("account:a-usd:USD")
         assert ids[-7:] == [
             "transactions",
-            "reconciliations",
+            "statements",
             "accounts",
             "categories",
             "hashtags",

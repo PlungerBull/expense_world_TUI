@@ -1026,7 +1026,7 @@ def test_the_statement_filter_goes_as_statement_id(configured, path, read, answe
     from expense import reads
 
     route = respx.get(f"{BASE}/v1{path}").mock(return_value=httpx.Response(200, json=answer))
-    getattr(reads, read)(config_module.ensure_loaded(), reconciliation="st-1")
+    getattr(reads, read)(config_module.ensure_loaded(), statement="st-1")
     params = dict(route.calls.last.request.url.params)
     assert params["statement_id"] == "st-1"
     assert "reconciliation_id" not in params

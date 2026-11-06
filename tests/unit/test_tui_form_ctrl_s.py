@@ -7,7 +7,7 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewStatementScreen
 from tests.unit.helpers import account_with_currencies, run_app, wait_for, whole
 
 
@@ -28,7 +28,7 @@ async def _open(pilot, app, screen):
 
 
 def _statement():
-    return NewReconciliationScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
+    return NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
 
 
 def _notes(monkeypatch, cls):
@@ -115,7 +115,7 @@ def test_ctrl_s_on_the_new_statement_form_sends_the_balance_typed_in_the_bar(fak
 
 
 def test_ctrl_s_with_a_value_enter_would_refuse_sends_nothing_and_stays(fake_client, monkeypatch):
-    notes = _notes(monkeypatch, NewReconciliationScreen)
+    notes = _notes(monkeypatch, NewStatementScreen)
 
     async def scenario(pilot, app):
         screen = _statement()
@@ -136,7 +136,7 @@ def test_ctrl_s_with_a_value_enter_would_refuse_sends_nothing_and_stays(fake_cli
 
 
 def test_ctrl_s_with_a_required_line_emptied_stops_as_enter_stops(fake_client, monkeypatch):
-    notes = _notes(monkeypatch, NewReconciliationScreen)
+    notes = _notes(monkeypatch, NewStatementScreen)
 
     async def scenario(pilot, app):
         screen = _statement()
@@ -174,10 +174,10 @@ def test_ctrl_s_on_an_untouched_pick_line_picks_nothing(fake_client, monkeypatch
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole([account_with_currencies(id="acc1", name="BCP")]),
     )
-    notes = _notes(monkeypatch, NewReconciliationScreen)
+    notes = _notes(monkeypatch, NewStatementScreen)
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen()
+        screen = NewStatementScreen()
         await _open(pilot, app, screen)
         await wait_for(pilot, lambda: screen._accounts)
         _enter(screen, "April 2026")

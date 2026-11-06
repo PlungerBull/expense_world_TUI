@@ -333,7 +333,7 @@ def bank_line_delete_question(line: dict) -> str:
 
 def bank_line_delete_message(line: dict, account_name: str) -> str:
     """The body of "Delete this transaction and its N parts?": the bank line,
-    its day, title and signed total exactly as every reconciliation list shows
+    its day, title and signed total exactly as every statement list shows
     them (`bank_line_columns`), then why a delete is final."""
     day, title, _operation, net_cents = bank_line_columns(line)
     row = delete_row_line(title, net_cents, day, account_name)
@@ -347,7 +347,7 @@ class ContentSwapLockMixin:
     write's post-refresh reload is in flight); each swap suspends between
     remove and mount, and interleaved swaps would mount duplicate content
     (DuplicateIds on SectionScreen's '#card', stacked checklists on the
-    reconciliation detail screen).
+    statement detail screen).
     """
 
     _swap_lock: asyncio.Lock | None = None
@@ -426,7 +426,7 @@ class AdaptiveRowsMixin:
     # a miscount here overflows every fitted list and clips its page status.
     LIST_FRAME_LINES = 6
     # One more line for a list that keeps a caption. Exactly one list does —
-    # the Reconciliations batch pane — but the asymmetry is named here rather
+    # the Statements pane — but the asymmetry is named here rather
     # than buried as a literal in that screen's arithmetic.
     CAPTION_LINES = 1
     # Lower bound on the page size we ASK for — not a clipping guard. It cannot

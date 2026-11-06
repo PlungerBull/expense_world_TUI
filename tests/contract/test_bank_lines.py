@@ -42,7 +42,7 @@ stand on rules only the engine can confirm. Pinned here:
     statement the title is read-only and never sent, so the parts go through,
     and a body with a changed title is `422` `LOCKED` on `title` with nothing
     written;
-  · the "no batch" Edit form: its one write carries the line fields changed beside
+  · the "no statement" Edit form: its one write carries the line fields changed beside
     every part at its amount, an emptied operation clears the code and an account
     move carries every part;
   · a line is in a statement whole: `statement_id` sent on one part puts every part in
@@ -1006,7 +1006,7 @@ def test_a_bank_line_reads_its_figures(client, scratch):
     assert_refusal(err, 422, "VALIDATION_ERROR", "bank_line_id", "INVALID_FORMAT")
 
 
-def _edit_form(cfg, line_id: str, *, no_batch: bool = False):
+def _edit_form(cfg, line_id: str, *, no_statement: bool = False):
     """The Edit form as `⏎` opens it on the line `line_id`, its reads done:
     the reference lists and `GET /bank-lines/{id}`, whose `edit_limits` say
     what is read-only. Built off screen, so nothing it says is shown: a
@@ -1015,7 +1015,7 @@ def _edit_form(cfg, line_id: str, *, no_batch: bool = False):
     from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 
     line = fetch_bank_line(cfg, line_id)
-    if no_batch:
+    if no_statement:
         form = BankLineEditFormScreen(line=line)
     else:
         form = EditFormScreen(record={**line["parts"][0], "bank_line_id": line_id})
@@ -1193,7 +1193,7 @@ def test_a_title_on_a_line_in_a_completed_statement_is_read_only_and_never_sent(
 
 def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client, target, scratch):
     """The statement screen's own path, end to end: a draft month's list is the
-    statement's lines (`reconciliation=`, `account=`, `sort=statement`: the statement's
+    statement's lines (`statement=`, `account=`, `sort=statement`: the statement's
     order) and the account's lines in no statement inside the period (`account_id`,
     `unreconciled=true`, the period's own days, `sort=date_asc`: oldest first), both read
     by `fetch_month_lines`, the screen's own function; a purchase split 60 + 40 is one
@@ -1279,8 +1279,8 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
         assert client.get(f"/transactions/{part['id']}")["statement_id"] is None
 
 
-def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
-    """The "no batch" list's own path: the account's lines in no statement,
+def test_the_no_statement_list_reads_through_its_own_reads(client, target, scratch):
+    """The "no statement" list's own path: the account's lines in no statement,
     any day (`account_id`, `unreconciled=true`, no dates), read by
     `fetch_bank_lines` page by page and counted by `count_bank_lines` with the
     same filter. Oldest first (`UNFILED_SORT`); a purchase split 60 + 40 is one row of its
@@ -1294,7 +1294,7 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)["id"]
 
-    def no_batch(limit: int) -> list[dict]:
+    def no_statement(limit: int) -> list[dict]:
         lines, after = [], None
         while True:
             body = fetch_bank_lines(
@@ -1322,10 +1322,10 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     count = count_bank_lines(target, account=account, **UNFILED_FILTER)
     assert count == 3
     for limit in (1, 2, 10):
-        lines = no_batch(limit)
+        lines = no_statement(limit)
         assert [line["id"] for line in lines] == expected, limit
         assert len(lines) == count
-    rows = unfiled_rows(no_batch(10), [])
+    rows = unfiled_rows(no_statement(10), [])
     assert [[str(c) for c in cells] for _key, cells in rows][1] == [
         "",
         "2026-06-11",
@@ -1336,8 +1336,10 @@ def test_the_no_batch_list_reads_through_its_own_reads(client, target, scratch):
     ]
 
 
-def test_the_no_batch_edit_form_writes_the_line_in_one_write_and_moves_it(client, target, scratch):
-    """The "no batch" Edit form's own path (`BankLineEditFormScreen`): built on
+def test_the_no_statement_edit_form_writes_the_line_in_one_write_and_moves_it(
+    client, target, scratch
+):
+    """The "no statement" Edit form's own path (`BankLineEditFormScreen`): built on
     the line `GET /bank-lines/{id}` reads, its save is one `PUT /bank-lines/{id}`
     carrying the line fields changed beside every part at its current amount,
     and the engine writes date, title and operation onto every part, while each
@@ -1350,7 +1352,7 @@ def test_the_no_batch_edit_form_writes_the_line_in_one_write_and_moves_it(client
     code = f"op-{uuid4().hex[:10]}"
 
     def save(line_id: str, **typed) -> dict:
-        form = _edit_form(target, line_id, no_batch=True)
+        form = _edit_form(target, line_id, no_statement=True)
         form._values.update(typed)
         request = form._submit_request()
         assert request is not None

@@ -163,7 +163,7 @@ class WindowedList(Static):
         """Change the caption and repaint.
 
         A caption is ordinary content and does not repaint on assignment, so
-        the Reconciliations browse — which rewrites
+        the statements browse — which rewrites
         its lower caption every time the account cursor moves — must come
         through here rather than assigning the attribute.
         """

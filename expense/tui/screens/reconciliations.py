@@ -22,7 +22,7 @@ account's own (contract: "What an account is", "Statement code"); an account wit
 one has no Order column. The panel's title names the account, its currencies and its
 code.
 
-New statement (NewReconciliationScreen): name › account (skipped when opened from the
+New statement (NewStatementScreen): name › account (skipped when opened from the
 browse on an account) › date start › date end › a begin and an end balance line for each
 currency of the account. The balances are typed off the paper statement, and every
 balance line is optional: which currency the statement needs is the engine's call
@@ -31,7 +31,7 @@ balance line is optional: which currency the statement needs is the engine's cal
 other shape at the field. One POST /statements with `account_id` and an entry in
 `balances` for each currency that has a balance typed.
 
-Working screen (ReconciliationDetailScreen): the whole statement. Its head
+Working screen (StatementScreen): the whole statement. Its head
 shows each currency in the statement's `balances` once, begin, end and diff
 (`balance_lines`); over a checklist of bank lines — the statement's, every
 currency of its account together in the statement's order, then the account's in
@@ -485,7 +485,7 @@ class _PanelList(CursorList):
         self.action_select()  # the screen's Selected handler opens the edit form
 
 
-class ReconciliationsScreen(SectionScreen):
+class StatementsScreen(SectionScreen):
     """Accounts first; the statements of one account on `⏎`.
 
     The screen opens on the account list alone, and nothing about statements
@@ -523,7 +523,7 @@ class ReconciliationsScreen(SectionScreen):
         self._accounts: list[BrowseAccount] = []
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
-        self._mode = "accts"  # "accts" | "batches" | "unfiled"
+        self._mode = "accts"  # "accts" | "statements" | "unfiled"
         self._unfiled: list = []  # every bank line in no statement loaded so far, oldest first
         # the cursor past the last row, the count, and `pgdn` — shared with the ledger
         self._unfiled_grow = GrowingRead(self, on_more=self._append_unfiled)
@@ -531,7 +531,7 @@ class ReconciliationsScreen(SectionScreen):
         self._by_id: dict = {}
         self._resume_key: object | None = None  # the panel row to land on after a reload
         self._accts_list: CursorList | None = None
-        self._batch_list: CursorList | None = None
+        self._statement_list: CursorList | None = None
 
     def fetch(self) -> dict:
         """The accounts, and the open account's statements
@@ -557,7 +557,7 @@ class ReconciliationsScreen(SectionScreen):
     def _open_account(self) -> BrowseAccount | None:
         return next((a for a in self._accounts if a.id == self._open_aid), None)
 
-    def _batch_caption(self) -> str:
+    def _statement_caption(self) -> str:
         """`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`, the
         account's own code last when it has one."""
         acct = self._open_account()
@@ -628,8 +628,8 @@ class ReconciliationsScreen(SectionScreen):
 
     def _space_panel(self) -> None:
         """Set the blank line `_panel_gap` says stands over the panel."""
-        if self._batch_list is not None:
-            self._batch_list.styles.margin = (self._panel_gap(), 0, 0, 0)
+        if self._statement_list is not None:
+            self._statement_list.styles.margin = (self._panel_gap(), 0, 0, 0)
 
     def panel_page_rows(self) -> int:
         """Rows per page of the panel: its share, or what the accounts really leave under
@@ -649,7 +649,7 @@ class ReconciliationsScreen(SectionScreen):
         """Lines the caption the panel is about to draw takes at the width the list really
         gets (it wraps): #content's width, capped at the card's `CARD_WIDTH`. Known before
         the list exists."""
-        caption = self._unfiled_caption() if self._mode == "unfiled" else self._batch_caption()
+        caption = self._unfiled_caption() if self._mode == "unfiled" else self._statement_caption()
         try:
             width = self.query_one("#content").content_size.width
         except NoMatches:
@@ -661,9 +661,9 @@ class ReconciliationsScreen(SectionScreen):
     def _viewport_resized(self) -> None:
         if self._accts_list is not None and self._accts_list.is_attached:
             self._accts_list.set_page_size(self.pane_rows())
-        if self._batch_list is not None and self._batch_list.is_attached:
+        if self._statement_list is not None and self._statement_list.is_attached:
             self._space_panel()
-            self._batch_list.set_page_size(self.panel_page_rows())
+            self._statement_list.set_page_size(self.panel_page_rows())
 
     def _account_rows(self) -> list:
         """The open account carries an accent `▸` in a two-cell gutter before its name, so
@@ -684,22 +684,22 @@ class ReconciliationsScreen(SectionScreen):
             for acct, cell in zip(self._accounts, balances, strict=True)
         ]
 
-    def _new_batch_list(self) -> CursorList:
+    def _new_statement_list(self) -> CursorList:
         headers, align_right = self._panel_headers()
-        batch_list = _PanelList(
+        statement_list = _PanelList(
             headers,
             self._panel_rows(),
             align_right=align_right,
             empty="none yet · n to create one",
-            caption=self._batch_caption(),
+            caption=self._statement_caption(),
             page_size=self.panel_page_rows(),
             edge=False,
             header_rule=False,
             **self._panel_layout(),
         )
-        batch_list.id = "batches"
-        batch_list.styles.margin = (self._panel_gap(), 0, 0, 0)
-        return batch_list
+        statement_list.id = "statements"
+        statement_list.styles.margin = (self._panel_gap(), 0, 0, 0)
+        return statement_list
 
     def build(self, data: dict) -> list[Widget]:
         self._accounts = data["accounts"]
@@ -727,10 +727,10 @@ class ReconciliationsScreen(SectionScreen):
             Static(Text("Statements — pick an account"), classes="section-title"),
             self._accts_list,
         ]
-        self._batch_list = None
+        self._statement_list = None
         if self._open_aid is not None:
-            self._batch_list = self._new_batch_list()
-            widgets.append(self._batch_list)
+            self._statement_list = self._new_statement_list()
+            widgets.append(self._statement_list)
         return widgets
 
     async def _show(self, data: object, started: int | None = None) -> None:
@@ -742,12 +742,12 @@ class ReconciliationsScreen(SectionScreen):
             self._set_crumb()
             return
         self._accts_list.set_cursor(self._acct_idx)
-        if self._batch_list is not None:
-            self._mode = "batches"
+        if self._statement_list is not None:
+            self._mode = "statements"
             if self._resume_key is not None:
-                self._batch_list.set_cursor(self._batch_list.index_of(self._resume_key))
+                self._statement_list.set_cursor(self._statement_list.index_of(self._resume_key))
                 self._resume_key = None
-            self._batch_list.focus()
+            self._statement_list.focus()
         else:
             self._mode = "accts"
             self._accts_list.focus()
@@ -763,9 +763,9 @@ class ReconciliationsScreen(SectionScreen):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         # False, not None: hidden from the footer as well as dead (Textual 8)
         if action == "close_panel":
-            return self._mode == "batches"
+            return self._mode == "statements"
         if action == "back":
-            return self._mode != "batches"
+            return self._mode != "statements"
         # the lines in no statement have `⏎ Edit` and `d Delete` of their own, and neither
         # `n` nor `u`
         if action == "delete_row":
@@ -787,7 +787,7 @@ class ReconciliationsScreen(SectionScreen):
         return {k: bindings[k] for k in (*first, *(k for k in bindings if k not in first))}
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
-        if self._mode == "unfiled" and event.control is self._batch_list:
+        if self._mode == "unfiled" and event.control is self._statement_list:
             return
         # Source guard: only the account list moves the account
         # cursor, and only while it is the list in use. Moving it reads nothing.
@@ -811,19 +811,19 @@ class ReconciliationsScreen(SectionScreen):
         if event.control is self._accts_list:
             if self._mode == "accts":
                 self._acct_idx = event.index
-                self._load_batches(event.key)
+                self._load_statements(event.key)
             return
         # `⏎` on a statement opens the whole statement, every currency it covers
         item = self._by_id.get(event.key)
         if item and self._open_account():
             self._resume_key = event.key
             self.app.push_screen(
-                ReconciliationDetailScreen(item, statement_code=self._open_account().code),
+                StatementScreen(item, statement_code=self._open_account().code),
                 lambda _result: self._load(),
             )
 
-    @work(thread=True, exclusive=True, group="recon-batches")
-    def _load_batches(self, account_id: str) -> None:
+    @work(thread=True, exclusive=True, group="statements")
+    def _load_statements(self, account_id: str) -> None:
         """`⏎` on an account: read its statements. A read that fails
         leaves the panel closed, with a toast."""
         from expense import config as config_module
@@ -850,23 +850,23 @@ class ReconciliationsScreen(SectionScreen):
         self._recons = recons
         self._by_id = {r.get("id"): r for r in recons}
         async with self._content_lock():
-            self._batch_list = self._new_batch_list()
-            await self.query_one("#card").mount(self._batch_list)
+            self._statement_list = self._new_statement_list()
+            await self.query_one("#card").mount(self._statement_list)
         self._accts_list.set_rows(self._account_rows())
         self._accts_list.set_page_size(self.pane_rows())
-        self._mode = "batches"
-        self._batch_list.focus()
+        self._mode = "statements"
+        self._statement_list.focus()
         self._set_crumb()
 
     async def action_close_panel(self) -> None:
         """`esc` in the panel: back to the account list alone."""
-        if self._mode != "batches":
+        if self._mode != "statements":
             return
         self._open_aid, self._recons, self._by_id = None, [], {}
-        if self._batch_list is not None:
+        if self._statement_list is not None:
             async with self._content_lock():
-                await self._batch_list.remove()
-            self._batch_list = None
+                await self._statement_list.remove()
+            self._statement_list = None
         self._mode = "accts"
         if self._accts_list is not None:
             self._accts_list.set_rows(self._account_rows())
@@ -877,38 +877,38 @@ class ReconciliationsScreen(SectionScreen):
     def action_back(self) -> None:
         if self._mode == "unfiled":
             # the pane swaps back to the statements; the screen stays put
-            self._show_batches()
+            self._show_statements()
         elif self._mode == "accts":
             self.app.pop_screen()
 
-    def _show_batches(self) -> None:
+    def _show_statements(self) -> None:
         """The panel lists the open account's statements again."""
-        self._mode = "batches"
+        self._mode = "statements"
         self._unfiled = []
         self._unfiled_grow.reset()
-        if self._batch_list is not None:
-            self._batch_list.set_growth(more=None)
+        if self._statement_list is not None:
+            self._statement_list.set_growth(more=None)
             headers, align_right = self._panel_headers()
-            self._batch_list.set_headers(
+            self._statement_list.set_headers(
                 headers,
                 align_right=align_right,
                 edge=False,
                 header_rule=False,
                 **self._panel_layout(),
             )
-            self._batch_list.set_divider("rule")
-            self._batch_list.set_status_line(True)
-            self._batch_list.set_caption(self._batch_caption())
-            self._batch_list.set_page_size(self.panel_page_rows())
-            self._batch_list.set_rows(self._panel_rows())
-            self._batch_list.focus()
+            self._statement_list.set_divider("rule")
+            self._statement_list.set_status_line(True)
+            self._statement_list.set_caption(self._statement_caption())
+            self._statement_list.set_page_size(self.panel_page_rows())
+            self._statement_list.set_rows(self._panel_rows())
+            self._statement_list.focus()
         self.refresh_bindings()
 
     def _reload_unfiled(self) -> None:
         """After `⏎` edit or `d`: the oldest `GROW_STEP` again, the cursor on
         row 1 (any write starts the list over, like any app's list). A row whose
         date or account moved is gone, which is the point of editing it."""
-        if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
+        if self._open_aid and self._mode == "unfiled" and self._statement_list is not None:
             self._unfiled_grow.reset()
             self._unfiled_busy = True
             self._load_unfiled(self._open_aid)
@@ -920,8 +920,8 @@ class ReconciliationsScreen(SectionScreen):
             if not self._unfiled_busy:
                 self._reload_unfiled()
             return
-        if self._batch_list is not None:
-            self._resume_key = self._batch_list.cursor_key
+        if self._statement_list is not None:
+            self._resume_key = self._statement_list.cursor_key
         await super().action_reload()
 
     # ---- the unfiled pane ------------------------------------------------
@@ -934,15 +934,15 @@ class ReconciliationsScreen(SectionScreen):
         Statements view, so this is a pane, not a filtered ledger.
         """
         acct = self._open_account()
-        if acct is None or self._batch_list is None or self._unfiled_busy:
+        if acct is None or self._statement_list is None or self._unfiled_busy:
             return
         self._unfiled_busy = True
         self._mode = "unfiled"
-        self._batch_list.set_headers(_UNFILED_HEADERS, **_UNFILED_LAYOUT)
-        self._batch_list.set_divider("blank")
-        self._batch_list.set_status_line(False)
-        self._batch_list.set_caption(f"In no statement · {acct.name}   ·   loading…")
-        self._batch_list.set_rows([])
+        self._statement_list.set_headers(_UNFILED_HEADERS, **_UNFILED_LAYOUT)
+        self._statement_list.set_divider("blank")
+        self._statement_list.set_status_line(False)
+        self._statement_list.set_caption(f"In no statement · {acct.name}   ·   loading…")
+        self._statement_list.set_rows([])
         self.refresh_bindings()
         self._load_unfiled(acct.id)
 
@@ -994,24 +994,24 @@ class ReconciliationsScreen(SectionScreen):
         self._unfiled_grow.grow(self._unfiled_page(self._open_aid))
 
     def _append_unfiled(self, items: list, more: bool) -> None:
-        if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
+        if self._mode != "unfiled" or self._statement_list is None:  # esc landed mid-read
             return
         self._unfiled.extend(items)
         windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
-        self._batch_list.set_caption(self._unfiled_caption())
-        self._batch_list.set_page_size(self.panel_page_rows())
-        self._batch_list.append_rows(rows, more=more)
-        self._batch_list.refresh_bindings()
+        self._statement_list.set_caption(self._unfiled_caption())
+        self._statement_list.set_page_size(self.panel_page_rows())
+        self._statement_list.append_rows(rows, more=more)
+        self._statement_list.refresh_bindings()
 
     def _unfiled_failed(self, message: str) -> None:
         self._unfiled_busy = False
-        self._show_batches()
+        self._show_statements()
         toast(self, message, title="Failed", severity="error")
 
     def _show_unfiled(self, items: list, total: int, next_cursor: str | None) -> None:
         self._unfiled_busy = False
-        if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
+        if self._mode != "unfiled" or self._statement_list is None:  # esc landed mid-read
             return
         self._unfiled = list(items)
         self._unfiled_grow.took(next_cursor, total)
@@ -1019,13 +1019,13 @@ class ReconciliationsScreen(SectionScreen):
         # read of its own
         windows = statement_windows(self._recons)
         rows = unfiled_rows(items, windows, palette=PALETTE)
-        self._batch_list.set_caption(self._unfiled_caption())
-        self._batch_list.set_page_size(self.panel_page_rows())
-        self._batch_list.set_rows(rows)
-        self._batch_list.set_growth(more=self._unfiled_grow.more)
-        self._batch_list.set_cursor(0)
-        self._batch_list.focus()
-        self._batch_list.refresh_bindings()
+        self._statement_list.set_caption(self._unfiled_caption())
+        self._statement_list.set_page_size(self.panel_page_rows())
+        self._statement_list.set_rows(rows)
+        self._statement_list.set_growth(more=self._unfiled_grow.more)
+        self._statement_list.set_cursor(0)
+        self._statement_list.focus()
+        self._statement_list.refresh_bindings()
 
     def _unfiled_caption(self) -> str:
         """`In no statement · Visa BCP · 20 of 1716 loaded · oldest first · …`"""
@@ -1039,7 +1039,7 @@ class ReconciliationsScreen(SectionScreen):
 
     def _unfiled_record(self) -> dict | None:
         """The bank line under the cursor in the "no statement" list, as listed."""
-        key = self._batch_list.cursor_key if self._batch_list is not None else None
+        key = self._statement_list.cursor_key if self._statement_list is not None else None
         return next((it for it in self._unfiled if it.get("id") == key), None)
 
     def action_delete_row(self) -> None:
@@ -1074,7 +1074,7 @@ class ReconciliationsScreen(SectionScreen):
             self._load()
 
         self.app.push_screen(
-            NewReconciliationScreen(
+            NewStatementScreen(
                 account_id=acct.id, account_name=acct.name, currencies=acct.codes, code=acct.code
             ),
             saved,
@@ -1136,7 +1136,7 @@ def account_line(name: str, codes: tuple[str, ...], code: str | None) -> str:
     return " · ".join(part for part in (name, formatting.currencies_phrase(codes), code) if part)
 
 
-class NewReconciliationScreen(FormScreen):
+class NewStatementScreen(FormScreen):
     """A new statement of an account: one `POST /statements` with `account_id`
     and an entry in `balances` for each currency of the account that has a
     balance typed (contract: POST /v1/statements). Opened from the browse on its
@@ -1419,7 +1419,7 @@ def _fetch_all_lines(cfg, **kw) -> list[dict]:
 
 def fetch_month_lines(
     cfg,
-    recon_id: str,
+    statement_id: str,
     account_id: str,
     date_start: str,
     date_end: str,
@@ -1434,7 +1434,7 @@ def fetch_month_lines(
     and, on a draft that offers them, the account's lines in no statement inside the
     period, oldest first, as a statement lists lines with no place."""
     assigned = _fetch_all_lines(
-        cfg, reconciliation=recon_id, account=account_id, sort="statement", **kw
+        cfg, statement=statement_id, account=account_id, sort="statement", **kw
     )
     available = []
     if with_available:
@@ -1616,7 +1616,7 @@ def balance_lines(balances: object, palette: Palette) -> list[Text]:
     return lines
 
 
-class ReconciliationDetailScreen(
+class StatementScreen(
     HelpBindingMixin,
     EngineWriteMixin,
     ContentSwapLockMixin,

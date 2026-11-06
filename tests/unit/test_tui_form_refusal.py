@@ -17,7 +17,7 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewStatementScreen
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,
@@ -122,8 +122,8 @@ def test_an_edit_form_shows_its_refusal_as_a_block_not_a_toast(fake_client):
     run_app(scenario, toasts=True)
 
 
-def _visa() -> NewReconciliationScreen:
-    return NewReconciliationScreen(
+def _visa() -> NewStatementScreen:
+    return NewStatementScreen(
         account_id="v1", account_name="Visa BCP", currencies=("PEN", "USD"), code="VIS"
     )
 

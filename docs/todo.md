@@ -61,12 +61,11 @@ CLAUDE.md "Specs and tasks".
   balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
   dated earlier stops a sheet row being the opening balance"; then
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
-- **Code names still call a statement a "batch" or a reconciliation.** Nothing you see changes.
-  In reconciliations.py `_batch_list`, `_show_batches`, `_load_batches`, the mode and widget id
-  `"batches"`, `ReconciliationsScreen`, `ReconciliationDetailScreen`, `NewReconciliationScreen`
-  (imported by home.py, help.py, statement_upload.py); reads.py's `reconciliation` parameter (the
-  engine's `statement_id`); home.py's `"reconciliations"` key; and comments in formatting.py,
-  dates.py, theme.py, _base.py, help.py, transactions.py, bank_import.py and log_bar.py.
+- **File names still say reconciliation.** Nothing you see changes. The Statements screens live
+  in [reconciliations.py](../expense/tui/screens/reconciliations.py), tested in
+  test_tui_reconciliations.py and test_tui_reconcile_detail.py (with the monkeypatch strings
+  that name the module); the `recon` abbreviations (`_recons`, `recon=`, the `recon-unfiled` and
+  `recon-detail-load` worker groups, `_R_LABELS`, `_RECON_FIELD`) say statement too.
 - **`_panel_layout` returns an untyped dict.** Nothing you see changes. In reconciliations.py it
   returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
   type it as `_UnfiledLayout` is.

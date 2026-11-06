@@ -16,7 +16,7 @@ from expense.errors import EngineError, format_error
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     FlaggedLinesScreen,
-    ReconciliationDetailScreen,
+    StatementScreen,
 )
 from tests.unit.helpers import (
     cursor_page,
@@ -184,7 +184,7 @@ class Engine:
 
 def _statement(record: dict, code: str | None):
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(record), statement_code=code)
+        screen = StatementScreen(dict(record), statement_code=code)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         # the statement's read, count included, has ended
@@ -310,7 +310,7 @@ def test_a_count_that_cannot_be_read_toasts_the_engines_words(fake_client, monke
     engine.count_error = EngineError("INTERNAL_ERROR", "Something broke.", None, 500, {})
     notes: list = []
     monkeypatch.setattr(
-        ReconciliationDetailScreen,
+        StatementScreen,
         "notify",
         lambda self, message, **kw: notes.append((str(message), kw.get("severity"))),
     )
@@ -445,7 +445,7 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read(fake_client, mon
         await pilot.press("u")
         await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
         await pilot.pause()
-        listed = screen._batch_list
+        listed = screen._statement_list
         return _screen_lines(app), [r.key for r in listed._rows], listed._headers, listed._caption
 
     lines, keys, headers, screen_caption = run_app(scenario, size=(80, 24))
@@ -472,7 +472,7 @@ def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
         screen = await _open(pilot, app, VISA)
         await pilot.press("u")
         await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
-        return screen._batch_list._caption
+        return screen._statement_list._caption
 
     caption = run_app(scenario, size=(80, 40))
     assert caption == NO_STATEMENT_CAPTION.replace("6 of 6", "6 of 1716")

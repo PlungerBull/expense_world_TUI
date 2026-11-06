@@ -33,7 +33,7 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
-from expense.tui.screens.reconciliations import ReconciliationsScreen
+from expense.tui.screens.reconciliations import StatementsScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.theme import ACCENT, PALETTE
 from expense.tui.widgets.cursor_list import CursorList
@@ -137,7 +137,7 @@ CINE = _tx(
     note="con Ana",
 )
 #: The same split on an archived account, its opening balance, and two lines in a
-#: completed reconciliation: one split, one of one part.
+#: completed statement: one split, one of one part.
 A1 = _tx("a1", -6000, line="bl-a", account="acc-old", category="c-com", note="verduras")
 A2 = _tx("a2", -4000, line="bl-a", account="acc-old", category="c-hog")
 OPENING = _tx(
@@ -752,7 +752,7 @@ READ_ONLY = {
 
 @pytest.mark.parametrize("key", sorted(READ_ONLY))
 def test_check_6_a_line_shows_read_only_exactly_what_its_edit_limits_names(engine, key):
-    """No reconciliation read on opening, one read of the line: every line its
+    """No statement read on opening, one read of the line: every line its
     `edit_limits` names reads `read-only`, dimmed, and no other."""
 
     async def scenario(pilot, app):
@@ -1038,7 +1038,7 @@ def _mismatch() -> EngineError:
 
 
 def test_a_refused_save_shows_under_the_parts_each_part_named_by_its_number(engine):
-    """On Tottus Jockey Plaza in a completed reconciliation: part 1
+    """On Tottus Jockey Plaza in a completed statement: part 1
     at -85.00, `^s`, refused: under the line adding up, the engine's words,
     `! part 1 (amount): …` for each part, `Nothing was saved.`; the amounts it
     names red and bold; the form stays, and a change clears it."""
@@ -1225,12 +1225,12 @@ def test_a_failed_line_read_says_why_and_the_form_takes_nothing(engine, notes):
 # ---- ⏎ in "no statement" opens the same form ---------------------------
 
 
-async def _open_no_batch(pilot, app) -> BankLineEditFormScreen:
-    browse = ReconciliationsScreen()
+async def _open_no_statement(pilot, app) -> BankLineEditFormScreen:
+    browse = StatementsScreen()
     await app.push_screen(browse)
     await wait_for_list(pilot, app)
-    await pilot.press("enter")  # Sueldo Soles' reconciliations
-    await wait_for(pilot, lambda: browse._mode == "batches")
+    await pilot.press("enter")  # Sueldo Soles' statements
+    await wait_for(pilot, lambda: browse._mode == "statements")
     await pilot.press("u")
     await wait_for(pilot, lambda: browse._mode == "unfiled" and browse._unfiled_record())
     await pilot.pause()
@@ -1242,13 +1242,13 @@ async def _open_no_batch(pilot, app) -> BankLineEditFormScreen:
     return screen
 
 
-def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(engine):
+def test_enter_in_no_statement_opens_the_form_with_its_heading_operation_and_parts(engine):
     """The heading (the line as saved), OPERATION among the
     shared fields, the parts below, the same keys; no read of the line."""
 
     async def scenario(pilot, app):
         since = len(engine.calls)
-        screen = await _open_no_batch(pilot, app)
+        screen = await _open_no_statement(pilot, app)
         head = render_text(screen.query_one("#form-head", Static).content, width=80).strip()
         reads = [p for m, p in engine.form_requests(since) if p.startswith("/bank-lines/bl-")]
         return head, _summary(screen), await _settle_footer(pilot, screen), screen.crumb, reads
@@ -1273,12 +1273,12 @@ def test_enter_in_no_batch_opens_the_form_with_its_heading_operation_and_parts(e
     assert reads == []
 
 
-def test_the_no_batch_form_saves_its_operation_and_parts_in_one_write(engine):
+def test_the_no_statement_form_saves_its_operation_and_parts_in_one_write(engine):
     """An emptied operation clears it, and `^s` keeps the amount typed in the
     bar first: one write, `operation_code: null` beside both parts."""
 
     async def scenario(pilot, app):
-        screen = await _open_no_batch(pilot, app)
+        screen = await _open_no_statement(pilot, app)
         await _go(pilot, screen, "operation")
         await _type(pilot, screen, "")  # emptied: clears the operation code
         await _go(pilot, screen, "1.amount")

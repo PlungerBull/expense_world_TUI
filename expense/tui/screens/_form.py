@@ -6,7 +6,7 @@ field ahead can change) submits via `run_write`. Subclasses supply the field
 sequence, labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (a bank line's shared
 fields, then every part's, the read-only ones the line's `edit_limits` names,
-and its own send), NewReconciliationScreen (dynamic sequence) and
+and its own send), NewStatementScreen (dynamic sequence) and
 SetupScreen (first-time setup: the engine address and key, then a profile).
 """
 

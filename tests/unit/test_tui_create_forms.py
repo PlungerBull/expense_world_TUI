@@ -576,7 +576,7 @@ def test_new_account_required_name_blocks_submit(fake_client):
 # Every create and edit form routes its refusals through one three-line method
 # on the base class; the six tests above all let the write succeed. Eight
 # screens depend on it — NewHashtag,
-# NewCategory, NewAccount, their three Edit* subclasses, NewReconciliationScreen
+# NewCategory, NewAccount, their three Edit* subclasses, NewStatementScreen
 # and EditFormScreen — so a regression there is a regression in all of them.
 
 

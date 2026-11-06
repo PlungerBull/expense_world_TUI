@@ -116,7 +116,7 @@ def test_transaction_rule_writes_a_positive_amount_with_its_plus():
 
 def test_difference_cell_balances_to_a_dim_dash():
     """Sign-colored when off, dim em dash when it
-    balances. Zero must never render as a colored 0.00 — a balanced batch
+    balances. Zero must never render as a colored 0.00 — a balanced statement
     is the goal state, not a number to check."""
     balanced = difference_cell(0, SYNTHETIC)
     assert str(balanced) == "—" and balanced.style == "dim"
@@ -133,7 +133,7 @@ def test_difference_cell_null_is_blank_not_the_balanced_dash():
     A null difference means "no ending balance entered, so nothing was
     checked". It must not share the em-dash with a zero difference, which says
     the opposite: "checked, and it adds up". The em-dash reads as "nothing to
-    see, move on", so an unfinished reconciliation would wear the all-clear
+    see, move on", so an unfinished statement would wear the all-clear
     mark — the one row on the screen that still needs work.
 
     This test exists because that collapse is invisible: both branches returned
@@ -152,7 +152,7 @@ def test_difference_cell_null_is_blank_not_the_balanced_dash():
 
 
 def test_amount_cell_null_is_a_dash_not_the_literal_null():
-    """A reconciliation's `ending_balance_cents` is nullable (contract:
+    """A statement's `ending_balance_cents` is nullable (contract:
     "Statements", "A balance not entered is `null`, never zero"), and it is the only field that
     can hand `amount_cell` a None today. `(null)` is
     `format_cents`'s deliberately-ugly marker for "something is off"; an

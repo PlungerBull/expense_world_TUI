@@ -4,7 +4,7 @@ A plain cell is words, never content markup: `BCP [like this]` keeps its
 brackets, and a `[/]` or a lone `[` neither vanishes nor breaks the list. The
 app's own styled cells (`Text`: a swatch, a coloured amount, a mark) keep their
 styling. Pinned where the owner meets it: Home's balances, Manage ▸ Accounts,
-the ledger, the bank import's preview, the reconciliation tick list and the LOG
+the ledger, the bank import's preview, the statement tick list and the LOG
 bar's staged rows.
 """
 
@@ -17,7 +17,7 @@ from textual.widgets import OptionList, Static
 import expense.tui.screens.transactions as tx_mod
 from expense.reads import AccountIndex
 from expense.tui.screens.accounts import AccountsScreen
-from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+from expense.tui.screens.reconciliations import StatementScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cells import swatch
 from expense.tui.widgets.cursor_list import CursorList, list_table
@@ -179,7 +179,7 @@ def test_the_bank_import_preview_shows_a_bracketed_title_whole(fake_client, monk
 
 @pytest.mark.parametrize("title", BRACKETED)
 def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monkeypatch, title):
-    """The reconciliation's tick list: the bank line's title as the engine
+    """The statement's tick list: the bank line's title as the engine
     holds it, the date before it and the operation and amount after it where
     they were."""
     part = {
@@ -199,7 +199,7 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
     )
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = StatementScreen(dict(DRAFT))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         lines = render_text(screen._list._build(), width=100).splitlines()
@@ -228,7 +228,7 @@ def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypat
     statement = {**DRAFT, "name": name}
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(statement)
+        screen = StatementScreen(statement)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
         return shown(screen.query_one("#rhead", Static)).splitlines()[0]
