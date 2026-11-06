@@ -302,7 +302,7 @@ def _purchase_hits(root: Path) -> list[str]:
 
 def test_the_app_never_says_purchase():
     hits = _purchase_hits(EXPENSE_DIR)
-    assert not hits, f'the app\'s word is "transaction", not "purchase": {hits}'
+    assert not hits, f"the app says transaction and never purchase, found in: {hits}"
 
 
 def test_purchase_guard_trips(tmp_path):

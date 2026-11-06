@@ -231,7 +231,7 @@ def test_the_saved_settings_are_the_ones_the_next_engine_call_uses(monkeypatch):
         _health_ok()
         respx.get(f"{ENGINE_URL}/v1/auth/me").mock(return_value=httpx.Response(200, json=ME))
         accounts = respx.get(f"{ENGINE_URL}/v1/accounts").mock(
-            return_value=httpx.Response(200, json={"data": []})
+            return_value=httpx.Response(200, json={"items": []})
         )
         run_app(scenario, setup=True)
         request = accounts.calls.last.request

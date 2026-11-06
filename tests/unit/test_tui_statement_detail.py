@@ -1102,8 +1102,10 @@ def test_a_replaced_reads_count_error_shows_no_toast(fake_client, monkeypatch, f
         assert release.wait(5)
         raise RuntimeError("engine down")
 
+    holds_the_fetch = failing == "lines"
+
     def fake_fetch(cfg, **k):
-        if is_older() and failing == "lines":
+        if is_older() and holds_the_fetch:
             hold_then_fail()
         return cursor_page(ASSIGNED)
 
