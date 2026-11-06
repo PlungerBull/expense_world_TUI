@@ -54,8 +54,8 @@ nothing changes.
 
 A write opts in by carrying its refused message's first line (a `LeftBehind` on `run_write` and
 `confirm_delete` in `expense/tui/screens/_base.py`); every write that can be left does; a save
-of several writes reports once (`SaveReport`). Every task is done; the acceptance check and the
-doc sweep follow.
+of several writes reports once (`SaveReport`). Every task is done; the tester's re-check of the
+fixture drift and the doc sweep follow.
 
 **Words to approve with the tasks:** a refused message's first line is what did not happen, then
 `·` and what it was. The mockup draws `Not saved`, `Not created`, `Not deleted`, `Not archived`

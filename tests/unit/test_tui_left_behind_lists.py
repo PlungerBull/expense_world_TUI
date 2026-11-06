@@ -52,11 +52,11 @@ DELETE = [("d", ConfirmModal), ("y", None)]
 # (screen, rows read, the row the cursor goes to, keys, verb, success words, first line,
 #  the refusal words' function)
 SITES = {
-    "archive": (
+    "archive account": (
         AccountsScreen, ACCOUNTS, "a-caja", [("a", None)], "post",
         "Archived.", "Not archived · Account Caja Chica", list_refusal_text,
     ),
-    "unarchive": (
+    "unarchive account": (
         AccountsScreen, ACCOUNTS, "a-viejo", [("a", None)], "post",
         "Unarchived.", "Not unarchived · Account Ahorro Viejo", list_refusal_text,
     ),

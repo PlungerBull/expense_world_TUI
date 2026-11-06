@@ -279,8 +279,8 @@ def test_with_the_screen_open_a_refused_tick_still_resyncs_and_says_couldnt_upda
 
 #: (the keys, the verb of the write, its success words, what did not happen, its words)
 STATUS = {
-    "revert": ("u", "post", "Statement reverted to draft.", "Not reverted", format_error),
-    "delete": ("d", "delete", "Statement deleted.", "Not deleted", list_refusal_text),
+    "revert it": ("u", "post", "Statement reverted to draft.", "Not reverted", format_error),
+    "delete it": ("d", "delete", "Statement deleted.", "Not deleted", list_refusal_text),
 }
 
 
@@ -343,7 +343,7 @@ def test_a_status_write_answered_elsewhere_reads_nothing(fake_client, monkeypatc
 
 
 @pytest.mark.parametrize(
-    ("action", "title"), [("revert", "Couldn't revert"), ("delete", "Couldn't delete")]
+    ("action", "title"), [("revert it", "Couldn't revert"), ("delete it", "Couldn't delete")]
 )
 def test_with_the_screen_open_a_refused_status_write_keeps_its_title(
     fake_client, monkeypatch, action, title

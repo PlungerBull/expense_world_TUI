@@ -42,16 +42,20 @@ from tests.unit.test_tui_edit_form import (
 LAST = "Nothing was saved: open it again to fix it."
 INCOME = {**TXN, "amount_cents": 4250}
 FORMS = {
-    "ledger": (lambda opener, reload: EditFormScreen(record=TXN, opener=opener, reload=reload)),
-    "income": (lambda opener, reload: EditFormScreen(record=INCOME, opener=opener, reload=reload)),
-    "line": (
+    "ledger form": (
+        lambda opener, reload: EditFormScreen(record=TXN, opener=opener, reload=reload)
+    ),
+    "income form": (
+        lambda opener, reload: EditFormScreen(record=INCOME, opener=opener, reload=reload)
+    ),
+    "line form": (
         lambda opener, reload: BankLineEditFormScreen(line=BANK_LINE, opener=opener, reload=reload)
     ),
 }
 FIRST_LINE = {
-    "ledger": "Not saved · Farmacia · -42.50",
-    "income": "Not saved · Farmacia · +42.50",
-    "line": "Not saved · FARMACIA · -42.50",
+    "ledger form": "Not saved · Farmacia · -42.50",
+    "income form": "Not saved · Farmacia · +42.50",
+    "line form": "Not saved · FARMACIA · -42.50",
 }
 
 REFUSED_PART = EngineError(
@@ -88,7 +92,10 @@ def _left_form(
     """Open `form` from an `Opener`, change its title, save, leave the form before the
     engine answers, let it answer, and return `(the app's toasts, the opener's reads)`.
     With `elsewhere`, another screen than the opener is the one shown when it answers."""
-    _patch(monkeypatch, BANK_LINE if form == "line" else _line(INCOME if form == "income" else TXN))
+    _patch(
+        monkeypatch,
+        BANK_LINE if form == "line form" else _line(INCOME if form == "income form" else TXN),
+    )
     if answer is not None:
         fake_client.write_responses[PATH] = answer
     late = LateAnswer(fake_client, "put", refusal)
@@ -174,9 +181,9 @@ def test_a_failure_that_is_no_answer_shows_the_forms_error_text_without_a_last_l
     fake_client, monkeypatch
 ):
     down = EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
-    notes, reads = _left_form(fake_client, monkeypatch, "ledger", refusal=down)
+    notes, reads = _left_form(fake_client, monkeypatch, "ledger form", refusal=down)
     assert [(title, message) for title, message, _ in notes] == [
-        (FIRST_LINE["ledger"], format_error(down))
+        (FIRST_LINE["ledger form"], format_error(down))
     ]
     assert reads == 0
 
