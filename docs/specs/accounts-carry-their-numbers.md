@@ -7,7 +7,7 @@ account's paper.
 
 **Status: every question answered, the mockup picked and the tasks approved on 2026-11-03; the
 tasks wait for the engine ask "An account carries its bank and its card numbers over time, and a
-PDF is checked against them"**, in [to-engine/](../to-engine/) for the owner to hand over. The engine's hand-off for it is planned into these tasks, with the reply this spec
+PDF is checked against them"**, handed over to the engine coders; it waits for their hand-off. The engine's hand-off for it is planned into these tasks, with the reply this spec
 then ends with. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 

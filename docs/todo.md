@@ -31,19 +31,11 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
-New, two questions: [the LOG bar at 80 columns](specs/the-log-bar-at-80-columns.md).
-
-New, one question, its mockup still to draw: [the `?` card at 24
-rows](specs/the-keys-card-at-24-rows.md).
+New, seven questions, two mockups still to draw: [small fixes on
+screen](specs/small-fixes-on-screen.md), every small screen fix in one spec.
 
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
-
-New, one question: [a list reads again after a save that may have
-landed](specs/a-list-reads-again-after-a-save-that-may-have-landed.md).
-
-New, one question: [the "no statement" Edit form's heading writes a deposit's
-`+`](specs/the-edit-forms-heading-writes-a-deposits-plus.md).
 
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
@@ -52,25 +44,6 @@ Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to ru
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
 
 **Recommended:** approve the rest.
-
-### What gives way on a narrow "no statement" list
-Asked 2026-11-05 · Blocks: "[UI] Below 66 columns the "no statement" list cuts the amount"
-
-On a terminal under 68 columns, the Statements screen's list of lines in no statement cuts
-the amount, then the currency. Pick in [the mockup](mockups/expense-world-no-statement-narrow.html):
-- **A.** The operation number goes; the title keeps its room.
-- **B.** The title shrinks further; every column stays.
-- **C.** The title shrinks to 16 letters, then the operation number goes.
-**Recommended:** C, because the amount and currency always show whole and every column stays
-down to 60 columns.
-
-### Which keys the "no statement" `?` card lists
-Asked 2026-11-05 · Blocks: "[UI] The "no statement" `?` card lists keys that don't apply"
-
-Pick in [the mockup](mockups/expense-world-no-statement-keys.html):
-- **A.** Only the keys that work there.
-- **B.** Every key of that list, the ones off right now dimmed.
-**Recommended:** A, because every row does what it says, and the card fits a 24-row terminal.
 
 ---
 
@@ -140,16 +113,6 @@ CLAUDE.md "Specs and tasks".
   balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
   dated earlier stops a sheet row being the opening balance"; then
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
-- **[UI] Below 66 columns the "no statement" list cuts the amount.** Waits on "What gives way on a
-  narrow "no statement" list" above.
-- **[UI] Below 62 columns the "no statement" caption wraps a lone `·`.** Its last separator moves
-  to a line of its own (`In no statement · BCP · 4 of 4 loaded · oldest first ·`).
-- **[UI] The "no statement" `?` card lists keys that don't apply.** Waits on "Which keys the "no
-  statement" `?` card lists" above. It shows `esc Back` twice, `esc
-  Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
-  every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
-  with a test; the tests pinning today's doubled rows (`CARD_THIS_SCREEN` in
-  test_tui_ledger_archived.py, "Moving around" in test_tui_statements.py) change with it.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
