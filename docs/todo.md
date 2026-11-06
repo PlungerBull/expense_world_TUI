@@ -82,10 +82,6 @@ CLAUDE.md "Specs and tasks".
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
   "Send each transaction's calendar day with it"; the lists then show that day.
-- **No guard keeps mockup tags out of code.** test_doc_hygiene.py scans docs only; a pane,
-  screen or pick tag ("pane 10", "Screen 1a", "3 A", a mockup file name) can come back into a
-  comment, docstring, test name or parametrize id in expense/ or tests/. A guard test fails on
-  one, naming its file and line.
 - **No TUI test follows first-time setup to the held settings.** `config.save` replaces the
   settings the app holds ([config.py](../expense/config.py)); only test_config.py proves it. A
   test drives Setup's save through the app, then an engine call that uses the new settings.
