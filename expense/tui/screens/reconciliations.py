@@ -140,6 +140,13 @@ class _UnfiledLayout(TypedDict):
     min_widths: dict[int, int]
 
 
+class _PanelLayout(TypedDict):
+    """The keyword arguments of `CursorList.set_headers` the statements list sets."""
+
+    gap: int
+    gives_way: set[int]
+
+
 #: How the list sits in its room: the `!` mark packed to the date, the columns two cells
 #: apart, the title at least `TITLE_WIDTH` wide and the amount `AMOUNT_WIDTH`, and the
 #: title the one that is cut, with `…`, when the row is too wide (the statement's own
@@ -572,15 +579,15 @@ class StatementsScreen(SectionScreen):
         acct = self._open_account()
         return statement_headers(acct.codes if acct else (), with_order=bool(acct and acct.code))
 
-    def _panel_layout(self) -> dict[str, object]:
+    def _panel_layout(self) -> _PanelLayout:
         """How the statements list sits in its room: columns `ORDER_GAP` apart on an account
         with a statement code (`BROWSE_GAP` otherwise), the Name column the one that gives
         way, cut with `…`, when the row is too wide."""
         acct = self._open_account()
-        return {
-            "gap": ORDER_GAP if acct and acct.code else BROWSE_GAP,
-            "gives_way": {0},
-        }
+        return _PanelLayout(
+            gap=ORDER_GAP if acct and acct.code else BROWSE_GAP,
+            gives_way={0},
+        )
 
     def _panel_rows(self) -> list:
         acct = self._open_account()

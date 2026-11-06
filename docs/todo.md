@@ -66,9 +66,6 @@ CLAUDE.md "Specs and tasks".
   test_tui_reconciliations.py and test_tui_reconcile_detail.py (with the monkeypatch strings
   that name the module); the `recon` abbreviations (`_recons`, `recon=`, the `recon-unfiled` and
   `recon-detail-load` worker groups, `_R_LABELS`, `_RECON_FIELD`) say statement too.
-- **`_panel_layout` returns an untyped dict.** Nothing you see changes. In reconciliations.py it
-  returns `dict[str, object]`, unpacked with `**` into `set_headers`, so mypy cannot check it;
-  type it as `_UnfiledLayout` is.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.**
 - **[UI] The "no statement" `?` card lists keys that don't apply.** It shows `esc Back` twice, `esc
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
@@ -78,9 +75,8 @@ CLAUDE.md "Specs and tasks".
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
-  repr) raises `ValueError`. The bound belongs to the engine: read the live contract for the
-  largest amount it takes, and if it states none, it becomes an engine ask; the client never
-  invents one.
+  repr) raises `ValueError`. The live contract states no largest amount, so it waits on the
+  engine ask "State the largest amount the engine takes, and refuse past it everywhere".
 - **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
   ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
