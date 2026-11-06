@@ -453,8 +453,8 @@ Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_ta
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
 (no category is `@Pendiente`, the pending hashtag alone is no hashtag); no note reads blank.
-The part the bar is on reads `▌ 2 …`, bold in the accent; an amount reads in its sign's colour,
-an income with its `+` as in every transaction list.
+The part the bar is on reads `▌ 2 …`, bold in the accent; amounts are written as §3 "Amounts"
+says.
 With two parts or more the line adding them up follows:
 `2 parts  ·  +800.00 of +800.00  ✓`, the tick in the success colour, or
 `2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error colour: the
@@ -1315,11 +1315,12 @@ supplies the palette".
 
 **Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
-statement's lines, the lines in no statement), and wherever one is named (the question before
-a delete, a note after you leave), writes a positive figure with its `+`
-(`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's totals and grid, a
-statement's balances and difference, and any sum of amounts (the staged total, a day's net)
-write no `+` (`12,450.00`, `-234.20`). Each rule's reach is in
+statement's lines, the lines in no statement, the Edit form's parts and their count line), and
+wherever one is named (the question before a delete, a note after you leave), writes a positive
+figure with its `+` (`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's
+totals and grid, a statement's balances and difference, the Edit form's heading, and any other
+sum of amounts (the staged total, a day's net, a count line's `… left`) write no `+`
+(`12,450.00`, `-234.20`). Each rule's reach is in
 [theme.py](../expense/tui/theme.py) beside `TRANSACTION_RULE`.
 
 **Theme the foreground, never the base surface.** The app runs in ANSI mode

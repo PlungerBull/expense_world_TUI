@@ -42,6 +42,9 @@ Answered, waiting on its engine ask (for you to hand over) and a mockup of the p
 New, one question: [a list reads again after a save that may have
 landed](specs/a-list-reads-again-after-a-save-that-may-have-landed.md).
 
+New, one question: [the "no statement" Edit form's heading writes a deposit's
+`+`](specs/the-edit-forms-heading-writes-a-deposits-plus.md).
+
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
 
@@ -77,10 +80,14 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
+- **No test draws a marked or refused part row with an income.** In the Edit form's parts table
+  both rows print the same cell as the locked row, which a test pins with `+3,200.00`, but
+  neither has a test of its own (`parts_lines` in
+  [parts_table.py](../expense/tui/widgets/parts_table.py)). Nothing you see changes.
 - **The `TRANSACTION_RULE` comment speaks of lists only.** Its comment in
   [theme.py](../expense/tui/theme.py) says the rule covers an amount "in a list"; it also covers
-  a transaction named outside one (the question before a delete, a note after you leave), as
-  [tui.md](tui.md) "Amounts" says. Nothing you see changes.
+  a transaction named outside one (the question before a delete, a note after you leave) and the
+  Edit form's parts count line, a sum, as [tui.md](tui.md) "Amounts" says. Nothing you see changes.
 - **The footer guard has gaps.** `test_no_screen_draws_textuals_own_footer`
   ([test_tui_fitting_footer.py](../tests/unit/test_tui_fitting_footer.py)) misses attribute
   access (`widgets.Footer()`), skips any file named `footer.py` rather than that one path, and

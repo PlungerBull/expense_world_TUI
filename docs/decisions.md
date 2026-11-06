@@ -1240,14 +1240,16 @@ blank line under its hint when no suggestion list shows, so the block fits 80×2
 (3) **`^s` keeps what is typed in the bar as `⏎` would, then saves**; a line nobody typed on
 keeps nothing. (4) **A long crumb is cut with `…`** and the `!` rate alert always shows after
 it. (5) **`pgup Prev` leaves a list's footer on its first page.** (6) **A positive transaction
-amount is written with its `+`** in every list and wherever a transaction is named; balances, totals and sums write no `+`
-([tui.md](tui.md) "Amounts").
+amount is written with its `+`** in every list and wherever a transaction is named, a split's
+parts and their count line included; balances, totals and other sums write no
+`+` ([tui.md](tui.md) "Amounts").
 
 **Why.** Each list gains two rows, which is what lets the Statements screens fit 80×24 as
 drawn. A toast fades before its words are read or the line is fixed. A value in the bar is what
 the user sees as typed, and leaving it out drew a refusal for a value they had given. A footer
 offers only keys that act. The sign stays explicit both ways with colour off, as "Sign is always
-literal" holds for typing; a balance or a sum is not a transaction.
+literal" holds for typing; a balance or a sum is not a transaction. The line under a split's
+parts weighs their sum against the transaction's own total, so it writes both like the parts.
 
 **Rejected.** *Keep the blank lines* — two rows fewer on every list. *Keep the toast* — it
 fades. *`^s` sends only lines entered with `⏎`* — the engine refuses the save for the missing
