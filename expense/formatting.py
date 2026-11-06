@@ -6,7 +6,7 @@ through these, so a figure reads the same wherever it appears.
 """
 
 import re
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 
 from expense.currencies import MINOR_UNIT_SCALE
 
@@ -443,13 +443,14 @@ def rows_phrase(numbers: Iterable[int]) -> str:
 
 def grouped_refusals(
     refusals: Iterable[tuple[Hashable | None, str, Iterable[int]]],
+    phrase: Callable[[Iterable[int]], str] = rows_phrase,
 ) -> list[tuple[str, str, list[str]]]:
     """One line per kind of refusal, as the LOG bar's lines under the table
     and the sheet import's refused rows both print it.
 
     `(kind, words, rows)` in, in the order met; `(first, rows, rest)` out, one
     per kind, in the order each kind was first met: `first` is the first line
-    of the words, `rows` is `rows_phrase` of every row of that kind, printed
+    of the words, `rows` is `phrase` (`rows_phrase`) of every row of that kind, printed
     after `first`, and `rest` the words' other lines, blank ones left out, each
     printed under it. A kind of None is a line of its own, never joined, which
     names its rows in its words already, so its `rows` is empty.
@@ -465,7 +466,7 @@ def grouped_refusals(
     grouped = []
     for key, (words, rows) in lines.items():
         first, *rest = words.split("\n")
-        hit = "" if key in own or not rows else rows_phrase(rows)
+        hit = "" if key in own or not rows else phrase(rows)
         grouped.append((first, hit, [line for line in rest if line.strip()]))
     return grouped
 

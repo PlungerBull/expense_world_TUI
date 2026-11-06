@@ -34,6 +34,7 @@ from expense.formatting import (
     bank_line_columns,
     bank_line_part_count,
     format_cents,
+    format_cents_with_plus,
     format_short_date,
     title_or_untitled,
 )
@@ -543,7 +544,9 @@ def delete_row_line(title: object, amount_cents: object, day: str, account_name:
 
 
 def _transaction_words(title: object, amount_cents: object) -> str:
-    return f"{title_or_untitled(title)} · {format_cents(amount_cents)}"
+    """`TITLE · AMOUNT`, the amount as every list of transactions draws it
+    (`TRANSACTION_RULE`: a `+` before income)."""
+    return f"{title_or_untitled(title)} · {format_cents_with_plus(amount_cents)}"
 
 
 def not_deleted_line(title: object, amount_cents: object) -> str:
@@ -556,6 +559,12 @@ def not_saved_line(title: object, amount_cents: object) -> str:
     """The first line of a refused save of a transaction shown after its form has
     been left: `Not saved · TITLE · AMOUNT`, the line as its list showed it."""
     return f"Not saved · {_transaction_words(title, amount_cents)}"
+
+
+def dated_transaction_line(title: object, amount_cents: object, date: object) -> str:
+    """A transaction as the ledger showed it, to name it where its list is gone:
+    `DAY · TITLE · AMOUNT`."""
+    return f"{format_short_date(date)} · {_transaction_words(title, amount_cents)}"
 
 
 def not_done_line(not_done: str, kind: str, name: object) -> str:

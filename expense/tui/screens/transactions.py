@@ -56,12 +56,13 @@ filtered ledger is back to Home, never to the unfiltered ledger).
 `@Pendiente` is a row on Home, and `⏎` on it is the filter.
 """
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterable
 from typing import NamedTuple
 
 from rich.console import RenderableType
 from rich.text import Text
 from textual import work
+from textual.app import App
 from textual.binding import Binding
 from textual.widget import Widget
 from textual.widgets import Static
@@ -84,6 +85,7 @@ from expense.formatting import (
     grouped_refusals,
     is_split_line,
     resolve_name,
+    rows_phrase,
     title_or_untitled,
 )
 from expense.reads import (
@@ -102,6 +104,7 @@ from expense.tui.screens._base import (
     bank_line_delete_message,
     bank_line_delete_question,
     call_while_attached,
+    dated_transaction_line,
     list_refusal_text,
     not_deleted_line,
     screen_fetch_kwargs,
@@ -245,16 +248,47 @@ def refused_row(exc: Exception) -> tuple[Hashable | None, str]:
     return ("text", words), words
 
 
-def refusal_notes(failed: list[RefusedRow]) -> list[str]:
+#: The rows a refusal names after the ledger has been left, at most.
+NAMED_ROWS_SHOWN = 4
+
+
+def named_rows(lines: list[str]) -> str:
+    """The rows a refusal hit, one per line: the first `NAMED_ROWS_SHOWN`, then
+    `and 1 more` / `and 3 more` for the rest."""
+    shown = lines[:NAMED_ROWS_SHOWN]
+    if len(lines) > NAMED_ROWS_SHOWN:
+        shown.append(f"and {len(lines) - NAMED_ROWS_SHOWN} more")
+    return "\n".join(shown)
+
+
+def refusal_notes(
+    failed: list[RefusedRow], row_lines: dict[object, str] | None = None
+) -> list[str]:
     """One note per kind of refusal, not one per row, in the style the LOG bar
     and the sheet import share (`formatting.grouped_refusals`): what was
     refused in the error colour, the rows it hit under it (`row 2`, or
     `rows 1, 3`), then the app's lines, dim. Content markup written by
     `as_markup`, so the engine's words show as it sent them, `[` and a
-    backslash at their end and all."""
-    refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
+    backslash at their end and all.
+
+    With `row_lines` (a row's id to its words, `dated_transaction_line`), for a
+    ledger that has been left and has no numbers to point at, the rows read
+    one per line in those words (`named_rows`) instead."""
+    if row_lines is None:
+        refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
+        phrase = rows_phrase
+    else:  # a row stands for its place in `failed`, counted from 1
+        keys = [key for key, *_ in failed]
+        refusals = [
+            (kind, words, [place] if key in row_lines else [])
+            for place, (key, _n, kind, words) in enumerate(failed, start=1)
+        ]
+
+        def phrase(places: Iterable[int]) -> str:
+            return named_rows([row_lines[keys[place - 1]] for place in sorted(set(places))])
+
     notes = []
-    for first, rows, rest in grouped_refusals(refusals):
+    for first, rows, rest in grouped_refusals(refusals, phrase):
         lines = [(first, "$error")]
         if rows:
             lines.append((rows, ""))
@@ -273,6 +307,36 @@ def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     elif left > 1:
         receipt += f" · {left} left their statement"
     return receipt
+
+
+def show_bulk_outcome(
+    host: Widget | App,
+    done: int,
+    failed: list[RefusedRow],
+    label: str,
+    left: int = 0,
+    count: int | None = None,
+    stop: Exception | None = None,
+    row_lines: dict[object, str] | None = None,
+) -> None:
+    """The toasts of a bulk edit's end, on the ledger or, once it has been left, on
+    the app (`row_lines`: `refusal_notes`). `done` writes landed; the receipt
+    says `count` rows (`done` when not given) and `left` of them left their
+    statement. A move that changed nothing (`count` 0) shows no receipt; its
+    refusals still show. Rows refused for their own reason (`failed`) read under
+    `Refused`, or `2 of 3 refused` counting the rows that landed and those; a
+    refusal that stopped the run (`stop`) reads after them, once, in the LOG
+    bar's note (`refusal.run_stopped`). Touches no widget."""
+    rows = done if count is None else count
+    if rows:
+        toast(host, bulk_receipt(rows, label, left))
+    # One toast per kind of refusal, not per row — see `refusal_notes`. Its
+    # colours are content markup, the engine's words set in it by `as_markup`.
+    head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
+    for note in refusal_notes(failed, row_lines):
+        host.notify(note, title=head, severity="error", timeout=10, markup=True)
+    if stop is not None:
+        run_stopped(host, stop)
 
 
 def bulk_writes(
@@ -703,11 +767,22 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         writes = bulk_writes(
             targets, payload, self._by_id, keep_on_currency_move=kind == "currency"
         )
-        self._bulk_write(writes, label, kind in ("account", "currency"))
+        row_lines = {
+            key: dated_transaction_line(row.get("title"), row.get("amount_cents"), row.get("date"))
+            for key in targets
+            if (row := self._by_id.get(key))
+        }
+        self._bulk_write(writes, label, kind in ("account", "currency"), row_lines)
 
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")
-    def _bulk_write(self, writes: list[tuple[object, dict]], label: str, move: bool) -> None:
+    def _bulk_write(
+        self,
+        writes: list[tuple[object, dict]],
+        label: str,
+        move: bool,
+        row_lines: dict[object, str],
+    ) -> None:
         """One PUT per row, in order, on one client; a refused row is kept by
         number and the rest go through — unlike `run_write`'s queue, which
         drops the remainder on the first error, because here every row's
@@ -722,10 +797,15 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         the answers that came back (`moved_parts`); a category or hashtag pick
         reaches only the part it names
         (contract: PUT /v1/transactions/{transaction_id}, "Line fields"), so it
-        counts the writes that landed."""
+        counts the writes that landed.
+
+        Left before the run ends, every row is still sent, and its end is shown
+        on the app (`show_bulk_outcome`), the refused rows named as the ledger
+        showed them before the write (`row_lines`), touching no widget."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
+        app = self.app
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
         answers: list[dict] = []
         failed: list[RefusedRow] = []
@@ -747,7 +827,19 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             failed.append((None, 0, None, format_error(exc)))
         count, left = moved_parts(answers) if move else (len(answers), 0)
         call_while_attached(
-            self, self._bulk_finished, len(answers), failed, label, left, held, count, stop
+            self,
+            self._bulk_finished,
+            len(answers),
+            failed,
+            label,
+            left,
+            held,
+            count,
+            stop,
+            app=app,
+            if_left=lambda: show_bulk_outcome(
+                app, len(answers), failed, label, left, count, stop, row_lines
+            ),
         )
 
     def _bulk_finished(
@@ -760,24 +852,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         count: int | None = None,
         stop: Exception | None = None,
     ) -> None:
-        """`done` writes landed; the receipt says `count` rows (`done` when
-        not given) and `left` of them left their statement. A move that
-        changed nothing (`count` 0) shows no receipt; its refusals still show.
-        Rows refused for their own reason (`failed`) read under `Refused`, or
-        `2 of 3 refused` counting the rows that landed and those; a refusal
-        that stopped the run (`stop`) reads after them, once, in the LOG bar's
-        note (`refusal.run_stopped`)."""
+        """The ledger still open: `show_bulk_outcome`, then the selection and the reload."""
         self._bulk_busy = False
-        rows = done if count is None else count
-        if rows:
-            toast(self, bulk_receipt(rows, label, left))
-        # One toast per kind of refusal, not per row — see `refusal_notes`. Its
-        # colours are content markup, the engine's words set in it by `as_markup`.
-        head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
-        for note in refusal_notes(failed):
-            self.notify(note, title=head, severity="error", timeout=10, markup=True)
-        if stop is not None:
-            run_stopped(self, stop)
+        show_bulk_outcome(self, done, failed, label, left, count, stop)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key

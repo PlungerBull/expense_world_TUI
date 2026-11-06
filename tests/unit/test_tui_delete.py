@@ -1242,6 +1242,14 @@ def test_a_refused_delete_answered_after_leaving_names_what_was_not_deleted(
     assert options["markup"] is False
 
 
+def test_a_refused_delete_after_leaving_names_income_with_its_plus(configured, monkeypatch):
+    """The amount reads as the ledger drew it: `+800.00`, not `800.00`."""
+    income = {**LEDGER[0], "title": "Sueldo", "amount_cents": 80000}
+    monkeypatch.setitem(globals(), "LEDGER", [income, *LEDGER[1:]])
+    notes = _left_ledger_delete(monkeypatch, error_response(409, "CONFLICT", "stand-in"))
+    assert notes[0][0] == "Not deleted · Sueldo · +800.00"
+
+
 def test_a_refused_split_delete_answered_after_leaving_names_the_line(
     configured, monkeypatch, line_engine
 ):

@@ -1135,6 +1135,11 @@ SETTINGS_MISSING — User settings have not been provisioned.
 Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.
 ```
 
+Left before the run ends (the second `esc`), every row is still sent and the app shows the
+same toasts (`show_bulk_outcome`), except that the rows are named as the ledger showed them,
+`DAY · TITLE · AMOUNT`, one per line, four at most, then `and 2 more`
+(`named_rows`).
+
 **The New form makes an account and its currencies in one write** (`n` on Manage ▸ Accounts).
 Its lines are `type` (`bank` or `person`, prefilled `bank`), `name`, **`currencies`**, a bank
 account's `statement code` (below) and `color`.

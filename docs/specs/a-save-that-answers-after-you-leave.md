@@ -53,12 +53,9 @@ screen still open, nothing changes.
 
 A write opts in by carrying its refused message's first line (a `LeftBehind` on `run_write` and
 `confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d`, the list actions,
-the Manage forms, the Edit forms and the account Edit form already do; a save of several writes
+the Manage forms, the Edit forms, the account Edit form and the ledger's bulk edit already do; a save of several writes
 reports once (`SaveReport`).
 
-6. **The ledger's bulk edit** (pane 3 B): the receipt and each kind of refusal after you leave,
-   the rows named by date, title and amount, four at most and `and N more`; a run-wide stop as
-   today.
 7. **A statement's ticks, new statement, revert and delete.** Ticks still waiting are sent, a
    refused one titled with its line; `Statement created.`, `Statement reverted to draft.`,
    `Statement deleted.`, or their refusals.
@@ -95,3 +92,5 @@ Not built in this spec; drafted into a new spec when it is done.
   `left_behind.part.report` unguarded; `ReportedPart.record` writes `SaveReport`'s private
   `_answers`; `_opening_saved`'s `part` has no type; no test drives the real `esc` (the tests
   pop the screen); no test covers an account save whose only write is the account.
+- The delete question's line (`Delete this transaction?` over `Sueldo · 800.00 · …`,
+  `delete_row_line`) writes an income without the `+` the ledger shows it with.

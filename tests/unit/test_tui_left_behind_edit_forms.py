@@ -40,13 +40,19 @@ from tests.unit.test_tui_edit_form import (
 )
 
 LAST = "Nothing was saved: open it again to fix it."
+INCOME = {**TXN, "amount_cents": 4250}
 FORMS = {
     "ledger": (lambda opener, reload: EditFormScreen(record=TXN, opener=opener, reload=reload)),
+    "income": (lambda opener, reload: EditFormScreen(record=INCOME, opener=opener, reload=reload)),
     "line": (
         lambda opener, reload: BankLineEditFormScreen(line=BANK_LINE, opener=opener, reload=reload)
     ),
 }
-FIRST_LINE = {"ledger": "Not saved · Farmacia · -42.50", "line": "Not saved · FARMACIA · -42.50"}
+FIRST_LINE = {
+    "ledger": "Not saved · Farmacia · -42.50",
+    "income": "Not saved · Farmacia · +42.50",
+    "line": "Not saved · FARMACIA · -42.50",
+}
 
 REFUSED_PART = EngineError(
     "VALIDATION_ERROR",
@@ -82,7 +88,7 @@ def _left_form(
     """Open `form` from an `Opener`, change its title, save, leave the form before the
     engine answers, let it answer, and return `(the app's toasts, the opener's reads)`.
     With `elsewhere`, another screen than the opener is the one shown when it answers."""
-    _patch(monkeypatch, _line(TXN) if form == "ledger" else BANK_LINE)
+    _patch(monkeypatch, BANK_LINE if form == "line" else _line(INCOME if form == "income" else TXN))
     if answer is not None:
         fake_client.write_responses[PATH] = answer
     late = LateAnswer(fake_client, "put", refusal)
