@@ -156,21 +156,22 @@ class SaveReport:
     Saved whole, the message is `saved`; else an error toast of 10 seconds, titled
     `all_refused` when every part was refused and `some_refused` when not, one line per
     part (its words, then the engine's words under a refused one), and a dim last line
-    from `closing`, given the refused parts' `name`s. Touches no widget."""
+    from `closing`, given each refused part's `name` and the failure that refused it
+    (None from it: no last line). Touches no widget."""
 
     def __init__(
         self,
         parts: int,
         some_refused: str,
         all_refused: str,
-        closing: Callable[[list[str]], str],
+        closing: Callable[[list[tuple[str, Exception | None]]], str | None],
         saved: str = "Saved.",
     ) -> None:
         self.parts = parts
         self._titles = (some_refused, all_refused)
         self._closing = closing
         self._saved = saved
-        self._answers: list[tuple[ReportedPart, str | None]] = []
+        self._answers: list[tuple[ReportedPart, str | None, Exception | None]] = []
 
     def part(self, name: str, saved: str, refused: str) -> "ReportedPart":
         """A write of this save: `name` is what a refusal leaves to do again, `saved` and
@@ -184,20 +185,28 @@ class SaveReport:
     @property
     def landed(self) -> bool:
         """At least one part was saved."""
-        return any(error is None for _, error in self._answers)
+        return any(error is None for _, error, _ in self._answers)
+
+    def record(self, part: "ReportedPart", error: str | None, failure: Exception | None) -> None:
+        """One write's answer: None when it was saved, else the engine's words and its failure."""
+        self._answers.append((part, error, failure))
 
     def show(self, app: "App") -> None:
-        refused = [part.name for part, error in self._answers if error is not None]
+        refused = [
+            (part.name, failure) for part, error, failure in self._answers if error is not None
+        ]
         if not refused:
             toast(app, self._saved)
             return
         lines: list[tuple[str, str]] = []
-        for part, error in self._answers:
+        for part, error, _ in self._answers:
             if error is None:
                 lines.append((part.saved, ""))
             else:
                 lines += [(part.refused, ""), (error, "")]
-        lines.append((self._closing(refused), "dim"))
+        closing = self._closing(refused)
+        if closing is not None:
+            lines.append((closing, "dim"))
         app.notify(
             as_markup(lines),
             title=self._titles[len(refused) == self.parts],
@@ -210,15 +219,15 @@ class SaveReport:
 @dataclass(frozen=True)
 class ReportedPart:
     """One write of a `SaveReport`; `record` is called with its answer: None when it
-    was saved, else the engine's words."""
+    was saved, else the engine's words and the failure they came from."""
 
     report: SaveReport
     name: str
     saved: str
     refused: str
 
-    def record(self, error: str | None) -> None:
-        self.report._answers.append((self, error))
+    def record(self, error: str | None, failure: Exception | None = None) -> None:
+        self.report.record(self, error, failure)
 
 
 @dataclass
@@ -404,7 +413,7 @@ class EngineWriteMixin:
         behind = item.left_behind
         assert behind is not None  # only a write that opted in is finished here
         if behind.part is not None:  # one message for the whole save, at its last answer
-            behind.part.record(error)
+            behind.part.record(error, failure)
             if behind.part.report.complete:
                 behind.part.report.show(app)
             self._send_next_after_leaving(app)

@@ -117,7 +117,7 @@ The writes that carry one, each naming its words where it is sent:
   answer (`SaveReport`): `Saved.`, or an error toast titled `Not all saved · Account <name>`
   (`Not saved · …` when every write was refused), a line per write with the engine's words
   under a refused one, then, dim, what is left to set again (`Open the account's Edit form to
-  set PEN again.`).
+  set PEN again.`), naming only the writes refused clearly, by the same rule; none, no line.
 - **A statement's writes:** New statement (`Not created · Statement <name>`, the name as
   typed), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
   shows nothing), `u` (`Not reverted · Statement <name>`), `d` (`Not deleted · Statement

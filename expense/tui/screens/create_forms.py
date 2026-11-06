@@ -35,7 +35,7 @@ from expense.tui.screens._base import (
     not_done_line,
     screen_fetch_kwargs,
 )
-from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.screens._form import FormScreen, form_bindings, open_it_again
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_text
@@ -475,9 +475,14 @@ class NewAccountScreen(BarFormScreen):
         return format_error(exc)
 
 
-def _set_again(refused: list[str]) -> str:
-    """The last line of a save's refusal message: what to set again, in the order sent."""
-    names = f"{', '.join(refused[:-1])} and {refused[-1]}" if len(refused) > 1 else refused[0]
+def _set_again(refused: list[tuple[str, Exception | None]]) -> str | None:
+    """The last line of a save's refusal message: what to set again, in the order sent.
+    Only the parts refused clearly (`open_it_again`) are named, since any other may have
+    landed; None when there are none."""
+    clear = [name for name, failure in refused if open_it_again(failure) is not None]
+    if not clear:
+        return None
+    names = f"{', '.join(clear[:-1])} and {clear[-1]}" if len(clear) > 1 else clear[0]
     return f"Open the account's Edit form to set {names} again."
 
 

@@ -96,8 +96,7 @@ CLAUDE.md "Specs and tasks".
   changes.
 - **The after-leaving code has small gaps.** `_landed_after_leaving` in
   [create_forms.py](../expense/tui/screens/create_forms.py) reads `left_behind.part.report`
-  unguarded; `ReportedPart.record` writes `SaveReport`'s private `_answers`; `_opening_saved`'s
-  `part` has no type. No test drives the real `esc` (the tests pop the screen), none covers an
+  unguarded; `_opening_saved`'s `part` has no type. No test drives the real `esc` (the tests pop the screen), none covers an
   account save whose only write is the account, and the new-statement test calls `_created` by
   hand instead of driving the late answer. The comment on the balances save's `LeftBehind` in
   [statements.py](../expense/tui/screens/statements.py) names `_write_finished_after_leaving`

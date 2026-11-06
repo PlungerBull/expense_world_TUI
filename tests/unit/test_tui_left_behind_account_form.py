@@ -14,7 +14,7 @@ import pytest
 from textual.screen import Screen
 from textual.widgets import Input
 
-from expense.errors import EngineError, format_error
+from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
@@ -51,6 +51,8 @@ ROWS = {"tx-open": OPENING_ROW, "tx-usd": USD_ROW}
 NOT_FUTURE = EngineError(
     "VALIDATION_ERROR", "Validation failed [x].", {"date": "Must not be in the future."}, 422, {}
 )
+SERVER_ERROR = EngineError("INTERNAL", "Something broke.", None, 500, {})
+NO_ANSWER = EngineConnectionError(url="http://x", original=OSError("down"))
 PUT_PEN = ("PUT", "/transactions/tx-open")
 PUT_USD = ("PUT", "/transactions/tx-usd")
 PUT_ACCOUNT = ("PUT", "/accounts/acc-visa")
@@ -231,6 +233,26 @@ def test_every_write_refused_is_titled_not_saved_and_reads_nothing_again(fake_cl
         "[dim]Open the account's Edit form to set its changes, PEN and USD again."
     )
     assert reads == 0  # nothing landed
+
+
+@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
+def test_a_part_not_refused_clearly_leaves_no_closing_line(fake_client, monkeypatch, failure):
+    """It may have landed, so the message does not send the owner to set it again."""
+    notes, _, _ = _left_save(fake_client, monkeypatch, refusals={PUT_PEN: failure})
+    [(title, message, _)] = notes
+    assert title == "Not all saved · Account Visa"
+    assert message == (
+        f"{ACCOUNT_SAVED}\nThe PEN opening balance is not:\n{_words(failure)}\n{USD_SAVED}"
+    )
+
+
+def test_only_the_clearly_refused_part_is_named(fake_client, monkeypatch):
+    notes, _, _ = _left_save(
+        fake_client, monkeypatch, refusals={PUT_PEN: SERVER_ERROR, PUT_USD: NOT_FUTURE}
+    )
+    [(_, message, _)] = notes
+    assert message.endswith("[dim]Open the account's Edit form to set USD again.")
+    assert "PEN again" not in message
 
 
 def test_a_person_is_named_as_a_person(fake_client, monkeypatch):

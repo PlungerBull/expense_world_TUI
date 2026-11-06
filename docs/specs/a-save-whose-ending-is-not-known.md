@@ -59,9 +59,6 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
    `Nothing was saved: open it again to fix it.` only when the engine refused with a status
    under 500; under a 5xx or no answer, the engine's words alone, as the ledger's Edit forms do
    (mockup pane 1).
-2. **The account Edit form names only what was clearly refused.** Its save's last line
-   (`Open the account's Edit form to set … again.`) names only the parts refused with a status
-   under 500, and is left out when none was (mockup pane 2).
 3. **Quitting asks while saves are still being sent.** `ctrl+q`, and `q` on Home, with any write
    sent and not answered or waiting its turn, on any screen: `N saves are still being sent. Quit
    anyway?` (`1 save is still being sent. …`), then `If you quit now, no screen will tell you
@@ -75,3 +72,8 @@ Not built in this spec; drafted into a new spec when it is done.
   parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py)): once on
   2026-11-06 it read the cursor on `r2` instead of `new-1`, as if it waits for a list, not the
   list read after the create; alone it passes every time. Nothing you see changes.
+- **Manage ▸ Accounts does not read again when every write of the account save ended with no
+  clear answer.** `_landed_after_leaving` in
+  [create_forms.py](../../expense/tui/screens/create_forms.py) reads it again only when a part was
+  answered saved (`SaveReport.landed`), so a save that may have landed leaves the list as it
+  was until `r`.
