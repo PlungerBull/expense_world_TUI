@@ -39,7 +39,22 @@ and the ledger do not.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Drafted on 2026-11-06; for the owner to approve.
+
+1. **The fitting footer leaves out the keys it still cannot fit** (question 1). It tightens its
+   spacing first, as now; when the tightened keys are still wider than the screen, whole keys
+   leave from the end until the rest fit. A key left out still works, and `?` still lists it.
+   Passes if: at 140×24 the ledger on page 2 is tightened, shows `s Edit` whole and leaves
+   `d Delete` out; on page 1 at 140×24 it is tightened and shows `d Delete` whole; at 80×24 a
+   footer that fits tightened, such as Manage's on page 2, loses no key; `?` on the ledger past
+   page 1 still lists `d Delete`; no footer line ends in part of a key; [tui.md](../tui.md) says
+   how a footer too wide for the screen reads.
+2. **Every screen's footer is the fitting one** (what it must do, 1). The list screens' shared
+   base and the screens that draw Textual's own footer (Home, the forms, the questions, the LOG
+   bar, `?`, the bank import, the bulk pick) take the fitting footer. Passes if: at 80×24
+   Manage on page 2 shows `d Delete` whole (done check 1); a guard test fails on any screen that
+   draws Textual's own footer; [tui.md](../tui.md) no longer names the fitting footer as the
+   Statements screens' alone.
 
 ## Found along the way
 
