@@ -21,8 +21,8 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import _LABELS
-from expense.tui.screens.reconciliations import _R_LABELS, balance_label
 from expense.tui.screens.setup import LABELS as SETUP_LABELS
+from expense.tui.screens.statements import _STATEMENT_LABELS, balance_label
 
 
 def _field_rule(scope: str = "") -> tuple[int, int]:
@@ -42,7 +42,7 @@ def _field_rule(scope: str = "") -> tuple[int, int]:
 def _all_form_labels() -> dict[str, str]:
     """Every string that can appear in the #field label, keyed by origin."""
     labels = {f"edit_form:{key}": text for key, text in _LABELS.items()}
-    labels |= {f"statements:{key}": text for key, text in _R_LABELS.items()}
+    labels |= {f"statements:{key}": text for key, text in _STATEMENT_LABELS.items()}
     labels |= {f"setup:{key}": text for key, text in SETUP_LABELS.items()}
     for screen in (NewHashtagScreen, NewCategoryScreen, NewAccountScreen):
         labels |= {f"{screen.__name__}:{f.key}": f.label for f in screen.FIELDS}

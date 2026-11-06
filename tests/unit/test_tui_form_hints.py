@@ -33,8 +33,8 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
-from expense.tui.screens.reconciliations import NewStatementScreen
 from expense.tui.screens.setup import SetupScreen
+from expense.tui.screens.statements import NewStatementScreen
 from expense.tui.theme import ACCENT
 from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
 

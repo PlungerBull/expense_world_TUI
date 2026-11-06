@@ -80,11 +80,6 @@ CLAUDE.md "Specs and tasks".
   balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
   dated earlier stops a sheet row being the opening balance"; then
   [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
-- **File names still say reconciliation.** Nothing you see changes. The Statements screens live
-  in [reconciliations.py](../expense/tui/screens/reconciliations.py), tested in
-  test_tui_reconciliations.py and test_tui_reconcile_detail.py (with the monkeypatch strings
-  that name the module); the `recon` abbreviations (`_recons`, `recon=`, the `recon-unfiled` and
-  `recon-detail-load` worker groups, `_R_LABELS`, `_RECON_FIELD`) say statement too.
 - **[UI] Below 66 columns the "no statement" list cuts the amount.** Waits on "What gives way on a
   narrow "no statement" list" above.
 - **[UI] Below 62 columns the "no statement" caption wraps a lone `·`.** Its last separator moves
@@ -94,7 +89,7 @@ CLAUDE.md "Specs and tasks".
   Close the panel` (off there), and both `pgdn Load the next 10 rows` and `pgdn Next page` once
   every row is loaded; on a 30-row terminal it clips its last line. One row per key that works,
   with a test; the tests pinning today's doubled rows (`CARD_THIS_SCREEN` in
-  test_tui_ledger_archived.py, "Moving around" in test_tui_reconciliations.py) change with it.
+  test_tui_ledger_archived.py, "Moving around" in test_tui_statements.py) change with it.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's

@@ -19,7 +19,7 @@ from expense.formatting import bank_line_columns
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     FlaggedLinesScreen,
     StatementScreen,
 )
@@ -230,9 +230,7 @@ def _by_id(fake_client) -> list[str]:
 
 def _patch(monkeypatch) -> None:
     """The accounts' names the screens show."""
-    monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: dict(NAMES)
-    )
+    monkeypatch.setattr("expense.tui.screens.statements.load_account_name_map", lambda: dict(NAMES))
 
 
 def _flags(fake_client, record: dict, own: list[str], other: list[str] | None = None) -> None:
@@ -865,7 +863,7 @@ def test_a_count_that_fails_after_a_close_toasts_and_opens_nothing(fake_client, 
     _flags(fake_client, SOLES, ["l-tambo"])
     notes: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.toast",
+        "expense.tui.screens.statements.toast",
         lambda screen, message, **kw: notes.append((message, kw.get("severity", ""))),
     )
 
@@ -1023,7 +1021,7 @@ def test_a_footer_that_fits_keeps_its_usual_spacing(fake_client, monkeypatch):
 def test_a_read_a_newer_one_replaced_paints_nothing(fake_client, monkeypatch):
     """A read that passed its cancel check before a newer load started still hands
     back after it; the UI thread drops it, so only the newest lines show."""
-    from expense.tui.screens import reconciliations as module
+    from expense.tui.screens import statements as module
 
     _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER)
@@ -1082,7 +1080,7 @@ def test_a_read_a_newer_one_replaced_paints_nothing(fake_client, monkeypatch):
 def test_a_count_and_an_error_a_newer_read_replaced_change_nothing(fake_client, monkeypatch):
     """The older read's count, held past a newer load, is not painted or kept, and the
     refusal its lines then meet is not shown."""
-    from expense.tui.screens import reconciliations as module
+    from expense.tui.screens import statements as module
 
     _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER)

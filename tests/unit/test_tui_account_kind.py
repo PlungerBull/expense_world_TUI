@@ -309,21 +309,21 @@ def test_a_second_t_while_one_is_in_flight_does_nothing(configured, monkeypatch)
 # ---- the engine's refusals --------------------------------------------------
 
 _ARCHIVED_WORDS = "The account is archived. Unarchive it first."
-_RECON_WORDS = (
+_STATEMENT_WORDS = (
     "The account has a reconciliation, which a person account cannot have. "
     "Delete its reconciliations first."
 )
-_RECON_FIELD = "Must be an account without reconciliations: a person cannot have one."
+_STATEMENT_FIELD = "Must be an account without reconciliations: a person cannot have one."
 
 REFUSALS = [
     # cursor row, route, the engine's message, field words, reason, the whole note
     (
         "a-alejo",
         "make-person",
-        _RECON_WORDS,
-        _RECON_FIELD,
+        _STATEMENT_WORDS,
+        _STATEMENT_FIELD,
         "HAS_RECONCILIATION",
-        f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}",
+        f"CONFLICT — {_STATEMENT_WORDS}\n  account_id: {_STATEMENT_FIELD}",
     ),
     (
         "a-alejo",
@@ -426,8 +426,8 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
             lambda _request: error_response(
                 409,
                 "CONFLICT",
-                _RECON_WORDS,
-                {"account_id": _RECON_FIELD},
+                _STATEMENT_WORDS,
+                {"account_id": _STATEMENT_FIELD},
                 {"account_id": "HAS_RECONCILIATION"},
             ),
             turn,
@@ -461,7 +461,7 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
         )
         run_app(scenario, size=SIZE)
     assert seen["refused"] == [
-        ("Failed", f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}")
+        ("Failed", f"CONFLICT — {_STATEMENT_WORDS}\n  account_id: {_STATEMENT_FIELD}")
     ]
     assert seen["same"]
     assert seen["kind"] is False

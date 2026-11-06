@@ -891,10 +891,10 @@ def test_a_forms_own_enter_handler_stops_the_ones_under_it():
     default, or one `⏎` commits twice and moves two lines."""
     import inspect
 
-    from expense.tui.screens import create_forms, edit_form, reconciliations, setup
+    from expense.tui.screens import create_forms, edit_form, setup, statements
     from expense.tui.screens._form import FormScreen
 
-    assert create_forms and edit_form and reconciliations and setup  # all loaded
+    assert create_forms and edit_form and statements and setup  # all loaded
 
     def every(cls):
         for sub in cls.__subclasses__():

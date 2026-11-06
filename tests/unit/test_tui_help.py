@@ -423,7 +423,7 @@ def test_every_bar_form_takes_the_form_keymap_not_textuals_focus_cycling():
     subclass, so a new form is covered without being listed here."""
     import expense.tui.screens.create_forms  # noqa: F401 — registers subclasses
     import expense.tui.screens.edit_form  # noqa: F401
-    import expense.tui.screens.reconciliations  # noqa: F401
+    import expense.tui.screens.statements  # noqa: F401
     from expense.tui.screens._form import FormScreen
 
     def walk(cls):
@@ -474,7 +474,7 @@ def test_a_screen_whose_class_name_says_reconciliation_sets_its_crumb():
 
 
 def test_the_help_title_on_a_statements_own_screen_says_statements():
-    from expense.tui.screens.reconciliations import StatementScreen
+    from expense.tui.screens.statements import StatementScreen
 
     screen = StatementScreen({"id": "r1", "name": "Octubre BCP"})
     title, _ = screen_inventory(screen)
@@ -488,7 +488,7 @@ def test_the_card_lists_space_on_a_draft_statement_and_not_on_a_read_only_one(
     """`space` is the statement list's own toggle (its screen handles `CheckList.Toggled`):
     a draft's card lists it, a completed statement's and one waiting for its PDF do not,
     nor `c`."""
-    from expense.tui.screens.reconciliations import StatementScreen
+    from expense.tui.screens.statements import StatementScreen
     from tests.unit.test_tui_statement_screen import (
         AGOSTO,
         NOVIEMBRE,

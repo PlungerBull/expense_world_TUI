@@ -26,7 +26,7 @@ from expense.tui.screens.create_forms import EditAccountScreen, NewHashtagScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     NewStatementScreen,
     StatementScreen,
     StatementsScreen,
@@ -79,17 +79,17 @@ from tests.unit.test_tui_log_bar import _refused as _refused_row
 from tests.unit.test_tui_log_bar import _type as _type_log
 from tests.unit.test_tui_opening_balance import EFECTIVO, SUELDO
 from tests.unit.test_tui_opening_balance import _type as _type_account
-from tests.unit.test_tui_reconcile_detail import (
+from tests.unit.test_tui_setup import _address_and_key, _health_ok
+from tests.unit.test_tui_setup import _text as _setup_text
+from tests.unit.test_tui_statement_detail import (
     DRAFT,
     _complete_with_warnings,
     _open_box,
     _wait_list,
 )
-from tests.unit.test_tui_reconcile_detail import _patch as _patch_detail
-from tests.unit.test_tui_reconcile_detail import _type as _type_box
-from tests.unit.test_tui_reconciliations import _open_panel, _patch_browse, _patch_unfiled
-from tests.unit.test_tui_setup import _address_and_key, _health_ok
-from tests.unit.test_tui_setup import _text as _setup_text
+from tests.unit.test_tui_statement_detail import _patch as _patch_detail
+from tests.unit.test_tui_statement_detail import _type as _type_box
+from tests.unit.test_tui_statements import _open_panel, _patch_browse, _patch_unfiled
 from tests.unit.test_tui_system import _open_bootstrap_prompt, _patch_auth
 
 #: The engine's words: a message holding `[like this]`, and one field's words

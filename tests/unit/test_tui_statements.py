@@ -6,7 +6,7 @@ import pytest
 from textual.widgets import Input, Static
 
 from expense.tui.screens._base import list_refusal_text
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     NewStatementScreen,
     StatementsScreen,
 )
@@ -528,7 +528,7 @@ def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
 
 
 def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatch):
-    from expense.tui.screens.reconciliations import StatementScreen
+    from expense.tui.screens.statements import StatementScreen
 
     two = [
         _statement("b1", "acc1", "March", ("2026-03-01", "2026-03-31"), status=2),
@@ -722,7 +722,7 @@ UNFILED = [
 
 def test_statement_windows_are_the_days_of_every_statement_of_the_account():
     """The `!` days are those of the account's statements, as the one read gave them."""
-    from expense.tui.screens.reconciliations import statement_windows
+    from expense.tui.screens.statements import statement_windows
 
     assert statement_windows(ITEMS[:1]) == [("2026-03-01", "2026-03-31", "March 2026")]
     assert statement_windows(ITEMS) == [
@@ -735,7 +735,7 @@ def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
     """Date · title · operation · currency · amount, the signed `net_cents`, a
     dim `—` for no operation code; a split purchase is one row with its title alone and
     its total; `!` on the rows dated inside a statement's days."""
-    from expense.tui.screens.reconciliations import statement_windows, unfiled_rows
+    from expense.tui.screens.statements import statement_windows, unfiled_rows
 
     windows = statement_windows(ITEMS[:1])
     rows = unfiled_rows(UNFILED, windows)
@@ -751,7 +751,7 @@ def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
 
 
 def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
-    from expense.tui.screens.reconciliations import unfiled_rows
+    from expense.tui.screens.statements import unfiled_rows
 
     rows = unfiled_rows([UNFILED[1]], [])
     assert len(rows) == 1

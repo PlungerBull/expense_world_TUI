@@ -62,7 +62,7 @@ from expense.tui.screens.bank_import import (
     padded_amount,
     plural,
 )
-from expense.tui.screens.reconciliations import FlaggedLinesScreen, flagged_note
+from expense.tui.screens.statements import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, BALANCE_RULE, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.refusal import hanging, toast
 

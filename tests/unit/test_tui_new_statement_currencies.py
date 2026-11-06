@@ -5,7 +5,7 @@ the currency's line."""
 from textual.widgets import Input, Label, Static
 
 from expense.errors import EngineError, format_error
-from expense.tui.screens.reconciliations import NewStatementScreen
+from expense.tui.screens.statements import NewStatementScreen
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,

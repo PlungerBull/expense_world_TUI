@@ -63,7 +63,7 @@ from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import HelpBindingMixin
-from expense.tui.screens.reconciliations import StatementsScreen
+from expense.tui.screens.statements import StatementsScreen
 from expense.tui.screens.system import AuthScreen, ConfigScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette

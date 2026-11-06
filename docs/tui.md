@@ -41,7 +41,7 @@ expense/tui/
     transactions.py # the ledger, whole or filtered, and its bulk keys
     bulk_pick.py    # BulkPickScreen — the pick `c`/`b`/`h`/`m` open
     accounts.py  categories.py  hashtags.py   # Manage lists
-    reconciliations.py # Statements: browse, new statement, a statement's screen, flagged lines
+    statements.py   # Statements: browse, new statement, a statement's screen, flagged lines
     system.py       # Config / Auth screens
     setup.py        # SetupScreen — first-time setup
     edit_form.py    # the Edit form, ledger and "no statement" (BankLineEditFormScreen)
@@ -516,7 +516,7 @@ transaction once (contract: GET /v1/bank-lines/count); a count that cannot be re
 the pane. `r`, an edit and a delete all start again from the oldest ten, cursor on row 1. The
 **`!` flag is a hint, not a ruling** — it marks a row whose date falls inside the days of a
 statement this screen already holds for the open account, draft or completed
-(`statement_windows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)), so
+(`statement_windows` in [statements.py](../expense/tui/screens/statements.py)), so
 it costs no request. It stops nothing: a close goes through with such lines in no statement
 and names the ones it flags in its answer ("The lines a complete flagged for review" below),
 and which lines those are is the engine's alone.
@@ -1335,7 +1335,7 @@ statements. The list is the bank accounts of one `GET /accounts`, people left ou
 each under its own name: `Account · Currencies · Balances`, the currencies as `PEN + USD` and
 a balance in each, `-234.20 PEN   -30.98 USD`, never added together, every account's first
 figure ending in one column (`browse_accounts` and `balances_cells` in
-[reconciliations.py](../expense/tui/screens/reconciliations.py)). An archived account is not
+[statements.py](../expense/tui/screens/statements.py)). An archived account is not
 in that read, so its statements are not offered until it is unarchived. The statement code is
 the account's own, from the same answer
 (contract: "What an account is", "Statement code"). Moving the cursor reads nothing.
@@ -1426,7 +1426,7 @@ screen says `This statement no longer exists.` and goes back, and any other refu
 the engine's words and stays.
 
 Under the head is one list of **bank lines** (`CheckList`), read by `fetch_month_lines` in
-[reconciliations.py](../expense/tui/screens/reconciliations.py), every page of each read, by
+[statements.py](../expense/tui/screens/statements.py), every page of each read, by
 account and never by one currency:
 `account_id=` with `statement_id=` and `sort=statement`, so the statement's lines come in the
 paper's order, both currencies together, then those holding no place oldest first
@@ -1535,7 +1535,7 @@ A complete goes through while lines dated in the statement are in no statement; 
 no rule of which lines those are and treats none as a refusal. When the statement's review list
 counts a line after the complete ("On the statement" below), the app pushes a full screen,
 `Statements ▸ <statement> ▸ Flagged`
-(`FlaggedLinesScreen` in [reconciliations.py](../expense/tui/screens/reconciliations.py)). It
+(`FlaggedLinesScreen` in [statements.py](../expense/tui/screens/statements.py)). It
 opens on the statement's id, not the lines' ids, and reads the statement's review list, the
 lines its close flagged and still unresolved, whole,
 `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement` page by page, and how
@@ -1819,7 +1819,7 @@ directly under it, then one blank line and the content. A statement's screen put
 right under the rule.
 
 **The Statements screens fit 80×24.** The browse's panel pages to fit, below the floor
-(`panel_page_rows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)):
+(`panel_page_rows` in [statements.py](../expense/tui/screens/statements.py)):
 four accounts and three statements fit on one page, and with five accounts the panel pages
 instead of scrolling `#content`, whose scrollbar would cut the Order column; a caption a long
 account name wraps is counted. The "no statement" list draws no page status

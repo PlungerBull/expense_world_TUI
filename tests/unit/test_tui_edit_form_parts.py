@@ -33,7 +33,7 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
-from expense.tui.screens.reconciliations import StatementsScreen
+from expense.tui.screens.statements import StatementsScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.theme import ACCENT, PALETTE
 from expense.tui.widgets.cursor_list import CursorList

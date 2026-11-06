@@ -14,7 +14,7 @@ from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     FlaggedLinesScreen,
     StatementScreen,
 )
@@ -175,7 +175,7 @@ class Engine:
         stub_home_month(monkeypatch)
         monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
         monkeypatch.setattr(
-            "expense.tui.screens.reconciliations.load_account_name_map", lambda: dict(NAMES)
+            "expense.tui.screens.statements.load_account_name_map", lambda: dict(NAMES)
         )
 
     def review_reads(self) -> list[dict]:
@@ -191,7 +191,9 @@ def _statement(record: dict, code: str | None):
         await wait_for(
             pilot,
             lambda: (
-                not any(w.group == "recon-detail-load" and not w.is_finished for w in app.workers)
+                not any(
+                    w.group == "statement-detail-load" and not w.is_finished for w in app.workers
+                )
             ),
         )
         await pilot.pause()

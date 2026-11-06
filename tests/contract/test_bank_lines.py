@@ -755,7 +755,7 @@ def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, targ
     is that list's lines in that currency, in its order
     (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it")
     (contract: POST /v1/statements/{statement_id}/complete, "`review_lines`")."""
-    from expense.tui.screens.reconciliations import fetch_review_lines
+    from expense.tui.screens.statements import fetch_review_lines
 
     def screen_reads(statement: str) -> tuple[list[str], int]:
         count = count_bank_lines(target, review_of=statement)
@@ -1208,7 +1208,7 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     (contract: GET /v1/bank-lines)
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
     from expense.formatting import format_short_date
-    from expense.tui.screens.reconciliations import UNFILED_SORT, fetch_month_lines, line_rows
+    from expense.tui.screens.statements import UNFILED_SORT, fetch_month_lines, line_rows
 
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)
@@ -1289,7 +1289,7 @@ def test_the_no_statement_list_reads_through_its_own_reads(client, target, scrat
     in neither the list nor the count; the count is 3 and pages of 1, 2 and 10 lines
     each list those same 3
     (contract: GET /v1/bank-lines) (contract: GET /v1/bank-lines/count)."""
-    from expense.tui.screens.reconciliations import UNFILED_FILTER, UNFILED_SORT, unfiled_rows
+    from expense.tui.screens.statements import UNFILED_FILTER, UNFILED_SORT, unfiled_rows
 
     account = scratch.account()
     statement = scratch.statement(account, *APRIL)["id"]

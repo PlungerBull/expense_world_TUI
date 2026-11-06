@@ -28,7 +28,7 @@ from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     StatementScreen,
     StatementsScreen,
     browse_accounts,
@@ -521,7 +521,7 @@ def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypat
     """`u` lays the panel out as the lines in no statement (no side edge, columns two
     apart, the `!` mark packed to the date); `esc` gives the statements list their own back:
     no side edge, and on an account with a statement code the Order column's gap of one."""
-    from expense.tui.screens.reconciliations import BROWSE_GAP, ORDER_GAP
+    from expense.tui.screens.statements import BROWSE_GAP, ORDER_GAP
 
     _engine(monkeypatch)
     seen: dict = {}
@@ -847,7 +847,7 @@ def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key)
         "d": statement_delete_answer(statement),
     }
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {VISA["id"]: VISA["name"]},
     )
     notes: list = []

@@ -1147,7 +1147,7 @@ the day the engine is fixed.
 
 **Decision.** A live test of what a screen lists calls the read the screen itself calls, with the
 same filters and order, through one function both call (`fetch_month_lines` in
-[reconciliations.py](../expense/tui/screens/reconciliations.py) for a statement's lines).
+[statements.py](../expense/tui/screens/statements.py) for a statement's lines).
 
 **Why.** A test that rebuilds the screen's arguments keeps passing after the screen changes what
 it sends, and then proves the old screen: a list the screen reads oldest first stays tested

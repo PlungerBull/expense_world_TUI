@@ -17,7 +17,7 @@ from textual.widgets import OptionList, Static
 import expense.tui.screens.transactions as tx_mod
 from expense.reads import AccountIndex
 from expense.tui.screens.accounts import AccountsScreen
-from expense.tui.screens.reconciliations import StatementScreen
+from expense.tui.screens.statements import StatementScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cells import swatch
 from expense.tui.widgets.cursor_list import CursorList, list_table
@@ -52,7 +52,7 @@ from tests.unit.test_tui_bank_import import (
 from tests.unit.test_tui_log_bar import _open as _open_log_bar
 from tests.unit.test_tui_log_bar import _patch as _patch_log_bar
 from tests.unit.test_tui_log_bar import _type
-from tests.unit.test_tui_reconcile_detail import DRAFT
+from tests.unit.test_tui_statement_detail import DRAFT
 from tests.unit.test_tui_transactions import ITEMS as LEDGER_ITEMS
 
 NAME = "BCP [like this]"
@@ -195,7 +195,7 @@ def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monk
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fetch)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
 
     async def scenario(pilot, app):
@@ -223,7 +223,7 @@ def test_the_statements_head_shows_a_bracketed_name_whole(fake_client, monkeypat
     status."""
     monkeypatch.setattr("expense.reads.fetch_bank_lines", lambda cfg, **k: cursor_page([]))
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     statement = {**DRAFT, "name": name}
 

@@ -6,7 +6,7 @@ each: a statement's `CheckList` and a Manage `CursorList`.
 """
 
 from expense.tui.screens.hashtags import HashtagsScreen
-from expense.tui.screens.reconciliations import StatementScreen
+from expense.tui.screens.statements import StatementScreen
 from tests.unit.helpers import run_app, screen_lines, wait_for, wait_for_list, whole
 from tests.unit.test_tui_statement_screen import AGOSTO, VIS_AGOSTO, _engine
 

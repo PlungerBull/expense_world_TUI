@@ -717,7 +717,7 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
     Asserted against the container rather than against a number, so it stays
     true if the frame changes shape again.
     """
-    from expense.tui.screens.reconciliations import StatementScreen
+    from expense.tui.screens.statements import StatementScreen
 
     balance = {
         "currency_code": "PEN",
@@ -747,7 +747,7 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
         "expense.reads.fetch_bank_lines",
         lambda cfg, **k: cursor_page([] if k.get("statement") else lines),
     )
-    monkeypatch.setattr("expense.tui.screens.reconciliations.load_account_name_map", dict)
+    monkeypatch.setattr("expense.tui.screens.statements.load_account_name_map", dict)
 
     async def scenario(pilot, app):
         screen = StatementScreen(dict(record))

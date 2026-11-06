@@ -271,7 +271,7 @@ def test_startup_fetch_is_silent_before_first_time_setup(configured):
 def test_a_crumb_on_a_pushed_screen_is_repainted():
     """A section screen pushed over home: `app.query` does not reach a pushed screen,
     so the rate landing while one is open must walk the screen stack."""
-    from expense.tui.screens.reconciliations import StatementsScreen
+    from expense.tui.screens.statements import StatementsScreen
     from tests.unit.helpers import screen_lines
 
     async def scenario(pilot, app):

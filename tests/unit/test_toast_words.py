@@ -46,7 +46,7 @@ from textual.widgets import Input
 
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
-from expense.tui.screens.reconciliations import NewStatementScreen
+from expense.tui.screens.statements import NewStatementScreen
 from expense.tui.screens.system import ConfigScreen
 from tests.unit.helpers import run_app, toasts_shown, wait_for, whole
 from tests.unit.test_tui_edit_form import TXN

@@ -17,7 +17,7 @@ from expense.tui.screens.create_forms import (
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from expense.tui.screens.reconciliations import NewStatementScreen
+from expense.tui.screens.statements import NewStatementScreen
 from tests.unit.helpers import (
     account_with_currencies,
     held_currency,

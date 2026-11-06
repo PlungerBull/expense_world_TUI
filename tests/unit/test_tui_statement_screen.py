@@ -12,7 +12,7 @@ from rich.style import Style
 from textual.widgets import Static
 
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import StatementScreen
+from expense.tui.screens.statements import StatementScreen
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     NOVIEMBRE_IBK,
@@ -193,9 +193,7 @@ def _engine(fake_client, monkeypatch, *, statement_lines, other_lines=(), statem
     fake_client.get = get
     stub_home_month(monkeypatch)
     monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
-    monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: dict(NAMES)
-    )
+    monkeypatch.setattr("expense.tui.screens.statements.load_account_name_map", lambda: dict(NAMES))
     return queries
 
 
@@ -560,7 +558,7 @@ LONG_ACCOUNT = "Cuenta Sueldo Interbank Soles Principal Hogar"
 
 def _long_account(monkeypatch):
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {**NAMES, "acc-visa": LONG_ACCOUNT},
     )
 
@@ -746,7 +744,7 @@ def _page_is_whole(screen, app) -> tuple[bool, str | None]:
 def test_a_complete_that_flags_lines_keeps_the_page_line_back_from_them(fake_client, monkeypatch):
     """The count lands and opens the flagged lines' screen over the statement; back from
     it the list has the room the `⚑` line left."""
-    from expense.tui.screens.reconciliations import FlaggedLinesScreen
+    from expense.tui.screens.statements import FlaggedLinesScreen
 
     review = [_line(90 + n, "2026-08-01", f"REV {n}", -100, "PEN", None) for n in range(3)]
     _engine(

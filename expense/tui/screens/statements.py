@@ -527,7 +527,7 @@ class StatementsScreen(SectionScreen):
 
     def __init__(self) -> None:
         super().__init__()
-        self._recons: list = []  # the open account's statements, engine order
+        self._statements: list = []  # the open account's statements, engine order
         self._accounts: list[BrowseAccount] = []
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
@@ -551,11 +551,11 @@ class StatementsScreen(SectionScreen):
         kw = screen_fetch_kwargs(self.app)
         accts = items_of(reads.fetch_accounts(cfg, **kw))
         accounts = browse_accounts(accts)
-        recons = None
+        statements = None
         if self._open_aid is not None:
-            recons = _read_statements(cfg, self._open_aid, kw)
+            statements = _read_statements(cfg, self._open_aid, kw)
         return {
-            "recons": recons,
+            "statements": statements,
             "accounts": accounts,
         }
 
@@ -593,7 +593,7 @@ class StatementsScreen(SectionScreen):
     def _panel_rows(self) -> list:
         acct = self._open_account()
         return statement_rows(
-            self._recons,
+            self._statements,
             acct.codes if acct else (),
             palette=PALETTE,
             with_order=bool(acct and acct.code),
@@ -711,11 +711,11 @@ class StatementsScreen(SectionScreen):
 
     def build(self, data: dict) -> list[Widget]:
         self._accounts = data["accounts"]
-        if data["recons"] is None or self._open_account() is None:
-            self._open_aid, self._recons = None, []
+        if data["statements"] is None or self._open_account() is None:
+            self._open_aid, self._statements = None, []
         else:
-            self._recons = data["recons"]
-        self._by_id = {r.get("id"): r for r in self._recons}
+            self._statements = data["statements"]
+        self._by_id = {r.get("id"): r for r in self._statements}
         self._acct_idx = min(self._acct_idx, max(0, len(self._accounts) - 1))
         self._accts_list = _AccountList(
             _ACCOUNT_HEADERS,
@@ -851,12 +851,12 @@ class StatementsScreen(SectionScreen):
             return
         call_while_attached(self, self._open_panel, account_id, statements)
 
-    async def _open_panel(self, account_id: str, recons: list) -> None:
+    async def _open_panel(self, account_id: str, statements: list) -> None:
         if self._mode != "accts" or self._accts_list is None:
             return
         self._open_aid = account_id
-        self._recons = recons
-        self._by_id = {r.get("id"): r for r in recons}
+        self._statements = statements
+        self._by_id = {r.get("id"): r for r in statements}
         async with self._content_lock():
             self._statement_list = self._new_statement_list()
             await self.query_one("#card").mount(self._statement_list)
@@ -870,7 +870,7 @@ class StatementsScreen(SectionScreen):
         """`esc` in the panel: back to the account list alone."""
         if self._mode != "statements":
             return
-        self._open_aid, self._recons, self._by_id = None, [], {}
+        self._open_aid, self._statements, self._by_id = None, [], {}
         if self._statement_list is not None:
             async with self._content_lock():
                 await self._statement_list.remove()
@@ -972,7 +972,7 @@ class StatementsScreen(SectionScreen):
 
         return page
 
-    @work(thread=True, exclusive=True, group="recon-unfiled")
+    @work(thread=True, exclusive=True, group="statements-unfiled")
     def _load_unfiled(self, account_id: str) -> None:
         """The first rows and the count, together: the pane
         shows nothing until both are in, and a count that cannot be read fails
@@ -1005,7 +1005,7 @@ class StatementsScreen(SectionScreen):
         if self._mode != "unfiled" or self._statement_list is None:  # esc landed mid-read
             return
         self._unfiled.extend(items)
-        windows = statement_windows(self._recons)
+        windows = statement_windows(self._statements)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._statement_list.set_caption(self._unfiled_caption())
         self._statement_list.set_page_size(self.panel_page_rows())
@@ -1025,7 +1025,7 @@ class StatementsScreen(SectionScreen):
         self._unfiled_grow.took(next_cursor, total)
         # the panel already holds the account's statements: the `!` costs no
         # read of its own
-        windows = statement_windows(self._recons)
+        windows = statement_windows(self._statements)
         rows = unfiled_rows(items, windows, palette=PALETTE)
         self._statement_list.set_caption(self._unfiled_caption())
         self._statement_list.set_page_size(self.panel_page_rows())
@@ -1092,7 +1092,7 @@ class StatementsScreen(SectionScreen):
 # --------------------------------------------------------------------------- #
 # New statement form
 # --------------------------------------------------------------------------- #
-_R_LABELS = {
+_STATEMENT_LABELS = {
     "name": "NAME",
     "account": "ACCOUNT",
     "date_start": "DATE START",
@@ -1196,7 +1196,7 @@ class NewStatementScreen(FormScreen):
 
     def _label(self, key: str) -> str:
         line = _balance_line(key)
-        return balance_label(*line) if line else _R_LABELS[key]
+        return balance_label(*line) if line else _STATEMENT_LABELS[key]
 
     def _summary_label(self, key: str) -> str:
         line = _balance_line(key)
@@ -1300,10 +1300,10 @@ class NewStatementScreen(FormScreen):
             # (contract: "Date inputs"), caught here at the field rather
             # than as a 422 on save; the typed text is what gets sent.
             if not text:
-                toast(self, f"{_R_LABELS[key].capitalize()} is required.", severity="error")
+                toast(self, f"{_STATEMENT_LABELS[key].capitalize()} is required.", severity="error")
                 return
             if not is_calendar_day(text):
-                toast(self, f"{_R_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
+                toast(self, f"{_STATEMENT_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
                 return
             self._values[key] = self._display[key] = text
             self._advance()
@@ -1770,7 +1770,7 @@ class StatementScreen(
 
     # own load group (mirrors SectionScreen._load's "section-load"): a refresh
     # cancels stale refreshes only, never a run_write ("engine-write") worker
-    @work(thread=True, exclusive=True, group="recon-detail-load")
+    @work(thread=True, exclusive=True, group="statement-detail-load")
     def _read_txns(self, generation: int, refresh_record: bool) -> None:
         from expense import config as config_module
 

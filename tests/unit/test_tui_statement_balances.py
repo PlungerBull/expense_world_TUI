@@ -14,7 +14,7 @@ from textual.widgets import Input, Static
 
 from expense.errors import EngineError
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     StatementScreen,
     balances_body,
     balances_named,
@@ -78,7 +78,7 @@ def _engine(fake_client, monkeypatch, fresh: dict | None = None) -> None:
     stub_home_month(monkeypatch)
     monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {"acc-ibk": "IBK Visa"},
     )
     if fresh is not None:
@@ -773,7 +773,7 @@ def _crowded(fake_client, monkeypatch, name: str, size: tuple[int, int]):
     _engine(fake_client, monkeypatch)
     monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 3)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc-ibk": name}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc-ibk": name}
     )
     record = _ibk(
         _balance("PEN", -82000, -34860),
@@ -889,7 +889,7 @@ def test_a_resize_while_a_box_is_open_places_it_again_under_the_head(fake_client
     with it, and back up when the terminal is wide again."""
     _engine(fake_client, monkeypatch)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {"acc-ibk": "BCP Cuenta Sueldo Soles"},
     )
 
@@ -984,7 +984,7 @@ def test_at_60_columns_each_box_wraps_its_words_and_cuts_none(
 ):
     _engine(fake_client, monkeypatch)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {"acc-ibk": LONG_ACCOUNT},
     )
     _wrapped_whole(_box_at(record, 60, first, last, keys), words.replace("IBK Visa", LONG_ACCOUNT))
@@ -994,7 +994,7 @@ def test_a_long_account_name_wraps_in_the_box_under_its_line(fake_client, monkey
     _engine(fake_client, monkeypatch)
     name = LONG_ACCOUNT
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc-ibk": name}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc-ibk": name}
     )
     wide = _box_at(OCTUBRE, 80, "Starting", "[esc]")
     narrow = _box_at(OCTUBRE, 60, "Starting", "[esc]")

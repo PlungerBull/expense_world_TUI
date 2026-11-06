@@ -1687,7 +1687,7 @@ def test_a_hashtag_refusal_on_h_shows_as_sent(fake_client, monkeypatch, code, st
 # `version`: the `PUT` takes none (contract: PUT /v1/transactions/{transaction_id}).
 
 
-def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> dict:
+def _part(tx_id: str, title: str, amount: int, line: str, statement: str | None) -> dict:
     return {
         "id": tx_id,
         "title": title,
@@ -1701,7 +1701,7 @@ def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> 
         "line_code": line_code_of(line),
         "statement_line": None,
         "statement_place": None,
-        "statement_id": recon,
+        "statement_id": statement,
     }
 
 

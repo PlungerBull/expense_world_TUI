@@ -18,7 +18,7 @@ from textual.widgets import Static
 from expense.errors import EngineError, format_error
 from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import (
+from expense.tui.screens.statements import (
     StatementScreen,
     balance_of,
     balances_body,
@@ -51,10 +51,10 @@ from tests.unit.helpers import (
 pytestmark = pytest.mark.usefixtures("no_flagged_lines")
 
 
-def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None) -> dict:
+def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, statement=None) -> dict:
     return {
         **import_part(tx_id, cents, account_id="acc1", line=line, day=day, title=title),
-        "statement_id": recon,
+        "statement_id": statement,
         "category_id": "c1",
         "hashtag_ids": ["h1"],
         "description": "a note the list never shows",
@@ -64,7 +64,7 @@ def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None
 #: The statement's one line, ticked: a purchase never split.
 NETFLIX = bank_line_row(
     "l1",
-    [_part("t1", -4490, line="l1", day="2026-04-14", title="NETFLIX.COM", recon="r1")],
+    [_part("t1", -4490, line="l1", day="2026-04-14", title="NETFLIX.COM", statement="r1")],
     net_cents=-4490,
     operation_code="48213907",
     account_id="acc1",
@@ -196,7 +196,7 @@ def test_checklist_colors_come_from_palette():
 
 
 def test_status_span_maps_completed_and_draft():
-    from expense.tui.screens.reconciliations import _status_span
+    from expense.tui.screens.statements import _status_span
     from expense.tui.theme import Palette
 
     palette = Palette("#0f0", "#f00", "#ff0")
@@ -256,7 +256,7 @@ def _patch(monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
     monkeypatch.setattr("expense.reads.fetch_statement", fake_statement)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     return statement_reads
 
@@ -395,7 +395,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     """A tick is one logical write: one `PUT`, one `X-Idempotency-Key`, through
     the shared write path and the real HTTP client."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
 
     async def scenario(pilot, app):
@@ -917,7 +917,7 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
     calls = {"n": 0}
     fresh_line = bank_line_row(
         "l9",
-        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", recon="r1")],
+        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", statement="r1")],
         net_cents=-100,
         account_id="acc1",
     )
@@ -948,13 +948,13 @@ def test_a_read_a_newer_one_replaced_does_not_paint_or_use_up_the_landing(fake_c
     """A read that passed its cancel check before a newer load started still
     hands back after it; the UI thread drops it, so the newest read paints with the
     cursor on the line ticked last."""
-    from expense.tui.screens import reconciliations as module
+    from expense.tui.screens import statements as module
 
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
     fresh_line = bank_line_row(
         "l9",
-        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", recon="r1")],
+        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", statement="r1")],
         net_cents=-100,
         account_id="acc1",
     )
@@ -1009,7 +1009,7 @@ def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
     """The older read hands back after the newer one started and before it paints: its
     record, count and rows are dropped, `_land_on` stays for the newer read, and the
     status a complete just set is kept."""
-    from expense.tui.screens import reconciliations as module
+    from expense.tui.screens import statements as module
 
     _patch(monkeypatch)
     entered = {1: threading.Event(), 2: threading.Event()}
@@ -1086,7 +1086,7 @@ def test_a_stale_read_handing_back_before_the_newer_paints_changes_nothing(
 def test_a_replaced_reads_count_error_shows_no_toast(fake_client, monkeypatch, failing):
     """The older read fails after a newer one started: its error toast is dropped
     with the rest of its hand-backs, so only the newest read can speak."""
-    from expense.tui.screens import reconciliations as module
+    from expense.tui.screens import statements as module
 
     _patch(monkeypatch)
     entered, release = threading.Event(), threading.Event()
@@ -1157,7 +1157,7 @@ def test_a_replaced_reads_count_error_shows_no_toast(fake_client, monkeypatch, f
 def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
     """The detail fetch never exceeds the engine's 200-row limit cap
     and follows `next_cursor` until it is null — never an offset."""
-    from expense.tui.screens.reconciliations import _fetch_all_lines
+    from expense.tui.screens.statements import _fetch_all_lines
 
     calls: list[tuple[int, str | None]] = []
 
@@ -1250,7 +1250,12 @@ def test_cs_question_counts_the_ticked_rows_in_written_english(
             f"b{i}",
             [
                 _part(
-                    f"tb{i}", -100 * (i + 1), line=f"b{i}", day="2026-04-14", title="X", recon="r1"
+                    f"tb{i}",
+                    -100 * (i + 1),
+                    line=f"b{i}",
+                    day="2026-04-14",
+                    title="X",
+                    statement="r1",
                 )
             ],
             net_cents=-100 * (i + 1),
@@ -1700,7 +1705,7 @@ def test_r_reads_the_statement_by_its_id_and_shows_its_balances(configured, monk
     checklist; the head shows every currency's entry in `balances`, and the status
     read. No write, no dismiss."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     seen: dict = {}
 
@@ -1739,7 +1744,7 @@ def test_r_on_a_deleted_statement_says_so_and_goes_back(configured, monkeypatch)
     screen learns it (contract: GET /v1/statements/{statement_id}); it says so and
     goes back."""
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     notices: list = []
     monkeypatch.setattr(
@@ -2028,7 +2033,7 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
     from expense.tui.screens.modals import AmountPromptModal
 
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP"}
+        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
     blank = _statement(beginning_balance_cents=None, ending_balance_cents=None)
     refused = error_response(

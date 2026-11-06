@@ -28,7 +28,6 @@ from expense.tui.screens.bank_import import (
 )
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen, bank_files_hint
-from expense.tui.screens.reconciliations import FlaggedLinesScreen
 from expense.tui.screens.statement_upload import (
     Columns,
     StatementAccountScreen,
@@ -36,6 +35,7 @@ from expense.tui.screens.statement_upload import (
     StatementResultScreen,
     row_line,
 )
+from expense.tui.screens.statements import FlaggedLinesScreen
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
@@ -163,7 +163,7 @@ def _patch(
     monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 0)
     monkeypatch.setattr("expense.reads.fetch_bank_lines_by_ids", by_ids)
     monkeypatch.setattr(
-        "expense.tui.screens.reconciliations.load_account_name_map",
+        "expense.tui.screens.statements.load_account_name_map",
         lambda: {"sig-pen": "BCP Premier", "sig-usd": "BCP Premier Plus"},
     )
     return reads_by_ids
