@@ -99,7 +99,7 @@ without a screen.
 The first line reads `Not <what did not happen> · <what it was>`: `Not archived · Account
 BCP`, `Not added · PEN on BCP`, `Not provisioned`. A thing is named as its screen shows it,
 by its kind (`Account`, `Person` for a person's account, `Category`, `Hashtag #name`); a
-transaction is `<title> · <amount>` (`not_deleted_line`, `not_done_line` in
+transaction is `<title> · <amount>` (`not_done_transaction_line`, `not_done_line` in
 [_base.py](../expense/tui/screens/_base.py)). Each write names its own words where it is
 sent.
 The New and Edit forms of Manage ▸ Hashtags and Categories, and New account (`Not created ·
@@ -121,6 +121,13 @@ answer says `Saved.` or an error toast titled `Not all saved · Account <name>` 
 refused one, then, dim, `Open the account's Edit form to set PEN again.` naming what was refused
 (`SaveReport` in [_base.py](../expense/tui/screens/_base.py)). The list reads again once, if any
 write landed.
+A statement's own writes save this way too: New statement (`Not created · Statement <name>`,
+the name as typed; success `Statement created.`), a tick (`Not ticked · <title> · <amount>`,
+`Not unticked · …`; a tick that lands shows nothing),
+`u` (`Not reverted · Statement <name>`) and `d` (`Not deleted · Statement <name>`). Ticks
+still queued are all sent. The Statements screen that opened them (`opener`, `reload`),
+when it is the one shown, reads again: a new statement opens that account's panel on it,
+ticks read the panel once after the last, revert and delete after they went through.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

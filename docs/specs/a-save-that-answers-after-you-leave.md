@@ -48,17 +48,14 @@ before the engine answers, the screen closes. When the engine answers, the app d
 
 ## Tasks
 
-Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "Left" means the screen that sent the write has closed before the engine answered; on a
-screen still open, nothing changes.
+Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "Left" means the
+screen that sent the write has closed before the engine answered; on a screen still open,
+nothing changes.
 
 A write opts in by carrying its refused message's first line (a `LeftBehind` on `run_write` and
-`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d`, the list actions,
-the Manage forms, the Edit forms, the account Edit form and the ledger's bulk edit already do; a save of several writes
-reports once (`SaveReport`).
+`confirm_delete` in `expense/tui/screens/_base.py`); every write but a statement's complete and
+its balances already does; a save of several writes reports once (`SaveReport`).
 
-7. **A statement's ticks, new statement, revert and delete.** Ticks still waiting are sent, a
-   refused one titled with its line; `Statement created.`, `Statement reverted to draft.`,
-   `Statement deleted.`, or their refusals.
 8. **A statement's complete and its balances** (panes 5 B and 6 B): `Statement completed ·
    SIG-202610` with its `⚠` notes and the `⚑` line, opening no screen; `Balances saved ·
    SIG-202611` and `The statement is not completed: open it and press c.`
@@ -91,6 +88,7 @@ Not built in this spec; drafted into a new spec when it is done.
 - Small code finds in the after-leaving code: `_landed_after_leaving` in create_forms.py reads
   `left_behind.part.report` unguarded; `ReportedPart.record` writes `SaveReport`'s private
   `_answers`; `_opening_saved`'s `part` has no type; no test drives the real `esc` (the tests
-  pop the screen); no test covers an account save whose only write is the account.
+  pop the screen); no test covers an account save whose only write is the account; the test of
+  a new statement created after leaving calls `_created` by hand instead of driving the late answer.
 - The delete question's line (`Delete this transaction?` over `Sueldo · 800.00 · …`,
   `delete_row_line`) writes an income without the `+` the ledger shows it with.

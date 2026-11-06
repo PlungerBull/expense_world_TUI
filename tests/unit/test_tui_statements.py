@@ -531,6 +531,20 @@ def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
     run_app(scenario)
 
 
+def test_a_statement_opens_with_the_screen_that_reads_again_after_it(monkeypatch):
+    from expense.tui.screens.statements import StatementScreen
+
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
+        assert (app.screen._opener, app.screen._reload) == (screen, screen._load)
+
+    run_app(scenario)
+
+
 def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatch):
     from expense.tui.screens.statements import StatementScreen
 
@@ -575,6 +589,8 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
         assert form._codes == ("USD",)  # and the currencies its balance lines are named by
+        # a save answered after the form was left opens this account's panel on the new one
+        assert form._opener is screen and form._created is not None
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
         await wait_for(pilot, lambda: screen._statement_list is not None)
@@ -582,6 +598,34 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         assert screen._mode == "statements"
         assert screen._statement_list.cursor_key == "new-1"
         assert _crumb(screen)[-1] == "Interbank Plus"
+
+    run_app(scenario)
+
+
+def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch):
+    """The account cursor goes with the panel it opens, though it moved while the form was
+    open."""
+    rows = [dict(r) for r in ITEMS]
+    reads = _patch_browse(monkeypatch, items=rows)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        screen._accts_list.action_move(1)
+        await wait_for(pilot, lambda: screen._acct_idx == 1)
+        await pilot.press("n")
+        await wait_for(pilot, lambda: isinstance(app.screen, NewStatementScreen))
+        form = app.screen
+        await app.pop_screen()  # left before the engine answered
+        await wait_for(pilot, lambda: app.screen is screen)
+        screen._accts_list.action_move(-1)
+        await wait_for(pilot, lambda: screen._acct_idx == 0)
+        rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
+        form._created("new-1")
+        await wait_for(pilot, lambda: screen._statement_list is not None)
+        assert (screen._acct_idx, reads[-1]) == (1, "acc2")
+        assert screen._statement_list.cursor_key == "new-1"
 
     run_app(scenario)
 

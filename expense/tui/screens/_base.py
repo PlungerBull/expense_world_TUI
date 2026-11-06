@@ -140,12 +140,13 @@ class LeftBehind:
     (`EngineWriteMixin`): `first_line` is a refusal's first line, what did not
     happen; `note` ends that refusal with one more line, dim: a string, or a function
     of the failure (None: no line); `success_from` makes the success words of the
-    engine's answer, where they depend on it; `part` makes the write one of several
+    engine's answer, where they depend on it (None from it: a success that shows nothing);
+    `part` makes the write one of several
     that a `SaveReport` reports as one message, in place of its own. Touches no widget."""
 
     first_line: str
     note: "str | Callable[[Exception | None], str | None] | None" = None
-    success_from: Callable[[dict], str] | None = None
+    success_from: Callable[[dict], str | None] | None = None
     part: "ReportedPart | None" = None  # set: the write is one part of a `SaveReport`
 
 
@@ -413,12 +414,11 @@ class EngineWriteMixin:
         if callable(note):
             note = note(failure)
         if error is None:
-            toast(
-                app,
-                behind.success_from(body or {})
-                if behind.success_from is not None
-                else item.success,
+            words = (
+                behind.success_from(body or {}) if behind.success_from is not None else item.success
             )
+            if words is not None:
+                toast(app, words)
         elif note is None:
             toast(app, error, title=behind.first_line, severity="error", timeout=10)
         else:
@@ -549,16 +549,22 @@ def _transaction_words(title: object, amount_cents: object) -> str:
     return f"{title_or_untitled(title)} · {format_cents_with_plus(amount_cents)}"
 
 
+def not_done_transaction_line(not_done: str, title: object, amount_cents: object) -> str:
+    """The first line of a refused write on a transaction shown after its screen has
+    left: `Not ticked · TITLE · AMOUNT`, the transaction as its list showed it."""
+    return f"{not_done} · {_transaction_words(title, amount_cents)}"
+
+
 def not_deleted_line(title: object, amount_cents: object) -> str:
     """The first line of a refused delete shown after its screen has left:
     `Not deleted · TITLE · AMOUNT`."""
-    return f"Not deleted · {_transaction_words(title, amount_cents)}"
+    return not_done_transaction_line("Not deleted", title, amount_cents)
 
 
 def not_saved_line(title: object, amount_cents: object) -> str:
     """The first line of a refused save of a transaction shown after its form has
     been left: `Not saved · TITLE · AMOUNT`, the line as its list showed it."""
-    return f"Not saved · {_transaction_words(title, amount_cents)}"
+    return not_done_transaction_line("Not saved", title, amount_cents)
 
 
 def dated_transaction_line(title: object, amount_cents: object, date: object) -> str:

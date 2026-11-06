@@ -104,6 +104,8 @@ from expense.tui.screens._base import (
     call_while_attached,
     list_refusal_text,
     not_deleted_line,
+    not_done_line,
+    not_done_transaction_line,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -830,7 +832,12 @@ class StatementsScreen(SectionScreen):
         if item and self._open_account():
             self._resume_key = event.key
             self.app.push_screen(
-                StatementScreen(item, statement_code=self._open_account().code),
+                StatementScreen(
+                    item,
+                    statement_code=self._open_account().code,
+                    opener=self,
+                    reload=self._load,
+                ),
                 lambda _result: self._load(),
             )
 
@@ -1078,16 +1085,26 @@ class StatementsScreen(SectionScreen):
             self.notify("No account selected.", severity="error")
             return
 
-        def saved(new_id: str | None) -> None:
-            if new_id is None:  # left without saving: nothing changed
-                return
+        def open_on(new_id: str) -> None:
+            self._acct_idx = next(
+                (i for i, a in enumerate(self._accounts) if a.id == acct.id), self._acct_idx
+            )
             self._open_aid = acct.id
             self._resume_key = new_id
             self._load()
 
+        def saved(new_id: str | None) -> None:
+            if new_id is not None:  # None: left without saving, nothing changed
+                open_on(new_id)
+
         self.app.push_screen(
             NewStatementScreen(
-                account_id=acct.id, account_name=acct.name, currencies=acct.codes, code=acct.code
+                account_id=acct.id,
+                account_name=acct.name,
+                currencies=acct.codes,
+                code=acct.code,
+                opener=self,
+                created=open_on,
             ),
             saved,
         )
@@ -1166,8 +1183,14 @@ class NewStatementScreen(FormScreen):
         *,
         currencies: tuple[str, ...] = (),
         code: str | None = None,
+        opener: Screen | None = None,
+        created: Callable[[str], None] | None = None,
     ) -> None:
+        """`opener` is the screen that opened the form and `created` what it does with
+        the new statement's id when the save answers after the form has been left and
+        `opener` is the screen shown."""
         super().__init__()
+        self._opener, self._created = opener, created
         self._values: dict = {}
         self._display: dict = {}
         self._accounts: list = []  # (id, name) of each account the picker offers
@@ -1411,8 +1434,27 @@ class NewStatementScreen(FormScreen):
     def _done(self) -> None:
         """Dismiss with the new id — minted here, in `_payload` — so the browse
         can land its cursor on the statement just made."""
-        self.notify("Statement created.")
+        toast(self, self._saved_words())
         self.dismiss(self._new_id)
+
+    def _saved_words(self) -> str:
+        return "Statement created."
+
+    def _left_behind(self) -> str | None:
+        return not_done_line("Not created", "Statement", self._values.get("name"))
+
+    def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
+        """A statement that was made once the form was gone: the app says how it ended
+        (`EngineWriteMixin`), and the screen that opened the form, if it is the one
+        shown, opens that account's panel on it."""
+        super()._write_finished_after_leaving(app, item, error, *answer)
+        if (
+            error is None
+            and self._created is not None
+            and self._new_id is not None
+            and app.screen is self._opener
+        ):
+            self._created(self._new_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -1657,10 +1699,21 @@ class StatementScreen(
     #: The `?` card lists `f` only while `check_action` allows it (help.py).
     CARD_FOLLOWS_CHECK = frozenset({"flagged", "complete", "revert"})
 
-    def __init__(self, record: dict, *, statement_code: str | None = None) -> None:
+    def __init__(
+        self,
+        record: dict,
+        *,
+        statement_code: str | None = None,
+        opener: Screen | None = None,
+        reload: Callable[[], None] | None = None,
+    ) -> None:
         """`statement_code` is the statement code of the record's account
-        (`BrowseAccount.code`), `None` when it has none."""
+        (`BrowseAccount.code`), `None` when it has none. `opener` is the screen that
+        opened this one and `reload` how it reads again after a write that answers once
+        this screen has been left, when `opener` is the screen shown."""
         super().__init__()
+        self._opener, self._reload = opener, reload
+        self._line_words: dict = {}  # line id → (title, amount) as the list shows it
         self._record = record
         self._statement_code = statement_code
         self._id = record.get("id")
@@ -1885,6 +1938,7 @@ class StatementScreen(
                 else "(no transactions for this account in range)"
             )
             self._part_of = part_of
+            self._line_words = {row[0]: (row[2], row[4]) for row in rows}
             self._list = CheckList(
                 rows,
                 checked,
@@ -1917,7 +1971,28 @@ class StatementScreen(
             on_success=self._assigned,
             on_error=self._assign_failed,
             error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
+            left_behind=LeftBehind(
+                not_done_transaction_line(
+                    "Not ticked" if event.checked else "Not unticked",
+                    *self._line_words.get(event.key, (None, None)),
+                ),
+                success_from=lambda _body: None,  # a tick that lands shows nothing
+            ),
         )
+
+    def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
+        """A write that answered once this screen was gone: the app says how it ended
+        (`EngineWriteMixin`), and the screen that opened this one, if it is the one
+        shown, reads again: after the last tick, however it ended, or after a revert or
+        a delete that went through."""
+        super()._write_finished_after_leaving(app, item, error, *answer)
+        if self._reload is None or app.screen is not self._opener:
+            return
+        if self._is_tick(item):
+            if not self._ticks_unanswered():
+                self._reload()
+        elif error is None:
+            self._reload()
 
     def on_key(self, _event) -> None:
         """The next key takes a refused complete's lines away."""
@@ -2075,7 +2150,11 @@ class StatementScreen(
             "Revert to draft?",
             "Unlocks the assigned transactions and this statement's balances.",
             lambda: self._status_action(
-                "POST", f"/statements/{self._id}/revert", 1, "reverted to draft"
+                "POST",
+                f"/statements/{self._id}/revert",
+                1,
+                "reverted to draft",
+                left_behind=LeftBehind(self._not_done("Not reverted")),
             ),
         )
 
@@ -2094,8 +2173,14 @@ class StatementScreen(
                 None,
                 "deleted",
                 error_text=list_refusal_text,
+                left_behind=LeftBehind(self._not_done("Not deleted")),
             ),
         )
+
+    def _not_done(self, not_done: str) -> str:
+        """The first line of a refusal of a write on this statement shown after the
+        screen has left: `Not reverted · Statement NAME`."""
+        return not_done_line(not_done, "Statement", self._record.get("name"))
 
     def _confirm(
         self, title: str, message: str, action, *, under: Callable[[], int] | None = None
@@ -2128,6 +2213,7 @@ class StatementScreen(
         self.run_write(
             method,
             path,
+            success=_status_words(verb),
             on_success=lambda: self._action_done(new_status, verb),
             on_failure=failed,
             **kw,
@@ -2266,7 +2352,7 @@ class StatementScreen(
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False
-        toast(self, f"Statement {verb}.")
+        toast(self, _status_words(verb))
         if verb == "deleted":
             self.dismiss()
             return
@@ -2276,6 +2362,12 @@ class StatementScreen(
         # the flagged lines' screen opens off the engine's count, whichever read brings it
         self._open_when_counted = verb == "completed"
         self._load_txns()
+
+
+def _status_words(verb: str) -> str:
+    """`Statement reverted to draft.`: the words of a status write that went through,
+    on the screen and, after it has left, on the app."""
+    return f"Statement {verb}."
 
 
 # --------------------------------------------------------------------------- #
