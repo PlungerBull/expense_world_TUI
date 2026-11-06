@@ -2,15 +2,16 @@
 
 New and Edit for hashtags and categories, and New account. Saved with the engine still
 answering, the form is left (esc); the answer then ends as a toast on the app (the form's
-own success words, or its refusal under a first line naming what was not done, ending
-`Nothing was saved: open it again to fix it.`), and the list the form belongs to, when it is
-the screen shown, reads again from its first page. The queue itself is in test_tui_writes.py.
+own success words, or its refusal under a first line naming what was not done, ending,
+only under a status below 500, `Nothing was saved: open it again to fix it.`), and the list the
+form belongs to, when it is the screen shown, reads again from its first page. The queue
+itself is in test_tui_writes.py.
 """
 
 import pytest
 from textual.widgets import Input
 
-from expense.errors import EngineError, format_error
+from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -143,6 +144,25 @@ def test_a_form_refused_after_leaving_names_what_was_not_done_and_ends_with_the_
     assert options["severity"] == "error"
     assert options["timeout"] == 10
     assert options["markup"] is True
+    assert new_reads == 0
+
+
+SERVER_ERROR = EngineError("INTERNAL_ERROR", "Went wrong [on our side].", None, 500, {})
+NO_ANSWER = EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
+
+
+@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
+@pytest.mark.parametrize("site", ["new hashtag", "edit hashtag"])
+def test_a_form_whose_ending_is_not_known_ends_with_the_engines_words_only(
+    fake_client, monkeypatch, site, failure
+):
+    notes, new_reads, _ = _left_form(fake_client, monkeypatch, site, failure)
+    [(title, message, options)] = notes
+    assert title == SITES[site][8]
+    assert "open it again" not in message
+    assert message == format_error(failure)  # as sent, no markup
+    assert options["markup"] is False
+    assert options["severity"] == "error"
     assert new_reads == 0
 
 

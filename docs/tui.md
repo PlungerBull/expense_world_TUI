@@ -107,11 +107,12 @@ The writes that carry one, each naming its words where it is sent:
   "no statement" list and the flagged lines, and `b` on Auth & profile.**
 - **The New and Edit forms of Manage ▸ Hashtags and Categories, and New account:** `Not
   created · Category Ropa`, `Not saved · Hashtag #viaje` (the name its list showed before the
-  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`
+  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`, except under a 5xx or
+  when the engine did not answer (`open_it_again`).
 - **A line's Edit forms** (`EditFormScreen`, `BankLineEditFormScreen`): `Not saved · <title> ·
   <amount>`; success says `Saved.` or `Saved. It left its statement.`, as the form would
   (`saved_words`); a refusal shows the words the form shows under its parts, ending with the
-  same dim line, except under a 5xx or when the engine did not answer.
+  same dim line (the same rule).
 - **The account Edit form** says its whole save, several writes, in one message at the last
   answer (`SaveReport`): `Saved.`, or an error toast titled `Not all saved · Account <name>`
   (`Not saved · …` when every write was refused), a line per write with the engine's words

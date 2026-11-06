@@ -20,7 +20,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Input, Label, Static
 
-from expense.errors import format_error
+from expense.errors import EngineError, format_error
 from expense.tui.screens._base import EngineWriteMixin, LeftBehind
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
@@ -30,6 +30,15 @@ from expense.tui.widgets.refusal import toast
 TITLE_REQUIRED = "Title is required."
 #: The last line of a refused save that answers after its form was left.
 OPEN_IT_AGAIN = "Nothing was saved: open it again to fix it."
+
+
+def open_it_again(failure: Exception | None) -> str | None:
+    """The last line of a refused save shown after its form was left: `OPEN_IT_AGAIN`
+    for a refusal under 500, None under a 5xx or a failure that is no answer, since
+    the save may have landed."""
+    if isinstance(failure, EngineError) and failure.status < 500:
+        return OPEN_IT_AGAIN
+    return None
 
 
 def form_bindings(
@@ -450,7 +459,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             on_response=self._answered,
             error_text=self._refusal_text,
             success=self._saved_words(),
-            left_behind=None if first_line is None else LeftBehind(first_line, OPEN_IT_AGAIN),
+            left_behind=None if first_line is None else LeftBehind(first_line, open_it_again),
         )
 
     def _land_on_refused_line(self) -> None:

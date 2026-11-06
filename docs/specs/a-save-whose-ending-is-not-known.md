@@ -3,9 +3,9 @@
 What [a save that answers after you leave](../decisions.md) (done on 2026-11-06) turned up: two
 cases where the app says something untrue, or nothing, about a save that may have landed.
 
-**Status: drafted on 2026-11-06; questions answered on 2026-11-06 (1 A, 2 B); its mockup,
+**Status: drafted on 2026-11-06; questions answered and its mockup,
 [expense-world-save-ending-unknown.html](../mockups/expense-world-save-ending-unknown.html),
-waits on the owner's approval.** It waits on
+approved on 2026-11-06; the current spec.** It waits on
 no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
@@ -54,8 +54,24 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+1. **The bar forms' "open it again" line only under a clear refusal.** A Manage New or Edit form
+   (categories, hashtags) or New account, left while it saves, ends its refusal with
+   `Nothing was saved: open it again to fix it.` only when the engine refused with a status
+   under 500; under a 5xx or no answer, the engine's words alone, as the ledger's Edit forms do
+   (mockup pane 1).
+2. **The account Edit form names only what was clearly refused.** Its save's last line
+   (`Open the account's Edit form to set … again.`) names only the parts refused with a status
+   under 500, and is left out when none was (mockup pane 2).
+3. **Quitting asks while saves are still being sent.** `ctrl+q`, and `q` on Home, with any write
+   sent and not answered or waiting its turn, on any screen: `N saves are still being sent. Quit
+   anyway?` (`1 save is still being sent. …`), then `If you quit now, no screen will tell you
+   whether they were saved.` (`… whether it was saved.`); only `y` quits; with none, it quits
+   at once (mockup pane 3).
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+- **`test_a_statement_created_after_leaving_opens_its_accounts_panel` is flaky under the
+  parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py)): once on
+  2026-11-06 it read the cursor on `r2` instead of `new-1`, as if it waits for a list, not the
+  list read after the create; alone it passes every time. Nothing you see changes.

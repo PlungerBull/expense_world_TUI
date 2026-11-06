@@ -117,7 +117,7 @@ from expense import reads
 from expense.bank_line_write import kept_part, line_body, new_part
 from expense.currencies import only_currency
 from expense.dates import is_readable_date, to_canonical_aware
-from expense.errors import EngineError, format_error
+from expense.errors import format_error
 from expense.formatting import (
     bank_line_columns,
     codes_and,
@@ -134,7 +134,7 @@ from expense.tui.screens._base import (
     not_saved_line,
     screen_fetch_kwargs,
 )
-from expense.tui.screens._form import OPEN_IT_AGAIN, FormScreen, form_bindings
+from expense.tui.screens._form import FormScreen, form_bindings, open_it_again
 from expense.tui.screens.log_bar import LOADING_HINT
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_text
@@ -311,14 +311,6 @@ def _changes_nothing(entry: dict, held: dict | None) -> bool:
     if held is None or set(entry) - {"id", "amount_cents"}:
         return False
     return entry.get("amount_cents") == signed_cents(held)
-
-
-def _open_it_again(failure: Exception | None) -> str | None:
-    """The last line of a refused save shown after the form was left: where the form
-    says `Nothing was saved.` (not under a 5xx, nor for a failure that is no answer)."""
-    if isinstance(failure, EngineError) and failure.status < 500:
-        return OPEN_IT_AGAIN
-    return None
 
 
 class EditFormScreen(FormScreen):
@@ -983,7 +975,7 @@ class EditFormScreen(FormScreen):
             on_failure=self._refused,
             on_response=self._answered,
             error_text=refusal_text,
-            left_behind=LeftBehind(not_saved_line(*self._shown), _open_it_again, saved_words),
+            left_behind=LeftBehind(not_saved_line(*self._shown), open_it_again, saved_words),
         )
 
     def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
