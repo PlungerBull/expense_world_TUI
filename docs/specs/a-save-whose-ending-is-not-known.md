@@ -54,20 +54,21 @@ Each picked message is drawn as a mockup in [mockups/](../mockups/) before it is
 
 ## Tasks
 
-1. **The bar forms' "open it again" line only under a clear refusal.** A Manage New or Edit form
-   (categories, hashtags) or New account, left while it saves, ends its refusal with
-   `Nothing was saved: open it again to fix it.` only when the engine refused with a status
-   under 500; under a 5xx or no answer, the engine's words alone, as the ledger's Edit forms do
-   (mockup pane 1).
-Every task is done; the acceptance check and the doc sweep remain.
+4. **The fixture-drift check reads two quit-test keys as engine fields.** `exited` and `notes`
+   in [test_tui_quit_asks.py](../../tests/unit/test_tui_quit_asks.py) (~lines 697, 702) are
+   flagged by `scripts/check_fixture_drift.py`; the test names them so the check passes.
+5. **`test_a_statement_created_after_leaving_opens_its_accounts_panel` is flaky under the
+   parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py) ~line 628):
+   2 of 3 full runs on 2026-11-06 read the cursor on `r2` instead of `new-1`; alone it passes.
+   It waits for what the create's read brings, so it passes every time.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
-- **`test_a_statement_created_after_leaving_opens_its_accounts_panel` is flaky under the
-  parallel run** ([test_tui_statements.py](../../tests/unit/test_tui_statements.py)): once on
-  2026-11-06 it read the cursor on `r2` instead of `new-1`, as if it waits for a list, not the
-  list read after the create; alone it passes every time. Nothing you see changes.
+
+- **New statement's refusal after leaving is untested under a 5xx or no answer.** It is a bar
+  form, so it follows the same rule, but no test drives it, and tui.md's "A statement's
+  writes" bullet does not say it ends with the dim line. Nothing you see changes.
 - **Manage ▸ Accounts does not read again when every write of the account save ended with no
   clear answer.** `_landed_after_leaving` in
   [create_forms.py](../../expense/tui/screens/create_forms.py) reads it again only when a part was
