@@ -521,9 +521,8 @@ scrolls and no scrollbar cuts a column; the lines in no statement, a growing lis
 ([tui.md](tui.md) "The Statements screens fit 80×24"). (4) **On an account with a statement code
 the statements list's columns sit one space apart, and on every account the name is the column
 that gives way**, cut with `…`: the order and the figures are what the list is read for. An
-account with no code keeps two spaces. (5) **A footer that cannot fit its keys tightens its
-spacing before it cuts one** (`FittingFooter`). (6) **`c`'s boxes open under the head**, with
-the balances they ask about in sight.
+account with no code keeps two spaces. (5) **`c`'s boxes open under the head**, with the
+balances they ask about in sight.
 
 **Rejected.** *Cutting the order word* (`not in …`): it is the column the list is read for.
 *Cutting every name to fit*: ordinary names would lose their month. *A centred box over the
@@ -1309,3 +1308,21 @@ read is newest.
 **Rejected.** *Passing the settings into every screen* — about 25 call sites and every test that
 patches the settings, for the same result. *Relying on Textual's exclusive workers alone* —
 cancelling does not stop a hand-back already queued.
+
+## A footer too wide for the screen tightens, then leaves keys out whole (2026-11-06)
+
+**Context.** Past a list's first page the footer gains `pgup Prev` ("Every screen's frame"), and
+some footers then outgrow the terminal: Manage's at 80 columns, the ledger's at 140.
+
+**Decision.** Every screen's footer is `FittingFooter`
+([footer.py](../expense/tui/widgets/footer.py)): when its keys would not fit, the spacing between
+them tightens; keys that still do not fit leave the footer from its end, whole. A left-out key
+still works, and the `?` card lists it on a screen that has one ([tui.md](tui.md) "5. Pagination
+and terminal size").
+
+**Why.** A key drawn cut (`d Del`, `m Currenc`) reads as a different word. Tightening keeps
+every key at 80 columns, but the ledger past its first page needs 144 columns even tightened,
+so tightening alone still cuts its last key below that.
+
+**Rejected.** *Tightening alone* — the ledger's `d Delete` is still cut below 144 columns.
+*Leaving keys out without tightening first* — it drops keys the tighter spacing keeps whole.

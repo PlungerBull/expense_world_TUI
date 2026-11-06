@@ -29,10 +29,12 @@ Asked <date> · Blocks: <task or spec>
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
-To approve, every question answered: [the official import](specs/before-the-official-import.md)
-and [footers that fit the screen](specs/footers-fit-the-screen.md).
+To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
 New, two questions: [the LOG bar at 80 columns](specs/the-log-bar-at-80-columns.md).
+
+New, one question, its mockup still to draw: [the `?` card at 24
+rows](specs/the-keys-card-at-24-rows.md).
 
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
@@ -72,6 +74,12 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
+- **The footer guard has gaps.** `test_no_screen_draws_textuals_own_footer`
+  ([test_tui_fitting_footer.py](../tests/unit/test_tui_fitting_footer.py)) misses attribute
+  access (`widgets.Footer()`), skips any file named `footer.py` rather than that one path, and
+  its module docstring speaks of list screens only; `FittingFooter`'s docstring
+  ([footer.py](../expense/tui/widgets/footer.py)) says `?` lists a left-out key without "on a
+  screen that has one". Nothing you see changes.
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **Two comments in [log_bar.py](../expense/tui/screens/log_bar.py) describe the peek's old

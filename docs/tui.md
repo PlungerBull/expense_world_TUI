@@ -28,7 +28,7 @@ expense/tui/
     windowed.py     # CURSOR_STYLE + WindowedList, the window/cursor/page arithmetic
     cursor_list.py  # CursorList, list_table(), list_cell(), CursorOptionList (home menu)
     checklist.py    # CheckList — a statement's bank lines, one per row
-    footer.py       # FittingFooter — every screen's footer: tighter spacing, then fewer keys, when the keys outgrow the width
+    footer.py       # FittingFooter — every screen's footer (§5)
     picker.py       # suggestion_list() + matching() — the name list under a bar
     refusal.py      # hanging(), under_itself(), toast(), as_markup(), run_stopped()
     parts_table.py  # the Edit form's parts table, read-only lines, refused-save lines
@@ -911,9 +911,9 @@ Accounts, Categories and Hashtags (a built-in row aside, above), on the ledger (
 filtered from Home), in the statement's "no statement" list and on a statement's flagged lines,
 always the last of the screen's own footer keys but on the flagged lines, whose footer
 ends `d Delete  ↑↓ Move`; a footer too wide for the screen leaves it out (§5). Cursor row
-only, never a selection: on the ledger it is off while rows are selected, while a bulk write runs and on an archived account's row (§4 "The ledger's
-selection keys"). On an empty list it does nothing. On Accounts `a Archive` stays as it is:
-archive puts an account away and can be undone, delete is for something made by mistake.
+only, never a selection; when the ledger turns it off: §4 "The ledger's selection keys". On an
+empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
+away and can be undone, delete is for something made by mistake.
 Removing one currency of an account is `x`, which asks first the same way ("`x` removes a
 currency from an account" above).
 
@@ -1839,9 +1839,8 @@ set apart count toward the page, so its page status always shows.
 
 **A footer too wide for the screen** tightens its spacing first (one space between keys), and
 when the keys are still too wide, whole keys leave it from the end, so none is ever drawn cut.
-A key left out of the footer still works, and `?` lists it. Every screen's footer is the
-`FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)): no key is cut at 80 columns,
-not `u No statement` beside the Statements panel's paging keys, nor `? Keys` beside a draft's `f`.
+A key left out still works, and the `?` card lists it on a screen that has one. Every screen's
+footer is the `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)).
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed
