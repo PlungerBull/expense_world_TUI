@@ -1344,6 +1344,25 @@ def test_an_archived_accounts_line_says_why_with_the_engines_sentence(fake_clien
     ]
 
 
+def test_a_splits_income_part_reads_with_its_plus_and_the_columns_line_up(fake_client, monkeypatch):
+    """An income part is written `+1,000.00`, an expense part `-200.00`, the amount
+    column wide enough for the `+` under its header, and the count line adds
+    them up with the same rule."""
+    income = dict(TXN, id="tx2", amount_cents=100000)
+    expense = dict(TXN, id="tx3", amount_cents=-20000)
+    line = _line(income, expense)
+    _patch(monkeypatch, line)
+    rows = _drawn(TXN, line)
+    table = rows[rows.index(next(r for r in rows if r.lstrip().startswith("amount"))) :]
+    assert table[:3] == [
+        "        amount    category       hashtags        note",
+        "  1  +1,000.00    Mascotas       #dog            receta",
+        "  2    -200.00    Mascotas       #dog            receta",
+    ]
+    assert table[3] == ""
+    assert table[4] == "2 parts  ·  +800.00 of +800.00  ✓"
+
+
 def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkeypatch):
     """Three locked lines, three sentences: the account's under the shared
     fields, each part column's beside its `read-only`, a long one wrapping
@@ -1358,8 +1377,8 @@ def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkey
         "account, currency: Must not move an opening balance to another account or",
         "                   currency.",
         "",
-        "       amount    category       hashtags        note",
-        "  1  3,200.00    @Opening       —",
+        "        amount    category       hashtags        note",
+        "  1  +3,200.00    @Opening       —",
         "category  read-only · Must not move an opening balance out of the",
         "                    opening-balance category.",
         "hashtags  read-only · Must be empty: an opening balance carries no",

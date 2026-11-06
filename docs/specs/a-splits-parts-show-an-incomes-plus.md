@@ -4,10 +4,10 @@ What [the delete question shows an income's `+`](../decisions.md) (done on 2026-
 up: the Edit form's parts table writes a part's amount without the `+` every list shows an
 income with.
 
-**Status: drafted on 2026-11-06; question answered (A) on 2026-11-06; its mockup,
+**Status: drafted on 2026-11-06; question answered (A), its mockup,
 [expense-world-split-parts-plus.html](../mockups/expense-world-split-parts-plus.html), and its
-tasks for the owner to approve.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is
-deleted.
+tasks approved on 2026-11-06; the current spec.** It waits on no other spec. When done, the why
+moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -43,21 +43,15 @@ other list tells an income from an expense with colour off.
 
 ## Tasks
 
-### 1. The parts table and its count line write an income with its `+`
-
-The table's amounts and the count line's two amounts are written with the rule every list uses
-(`TRANSACTION_RULE` in [theme.py](../../expense/tui/theme.py)), so an income reads `+1000.00` and
-an expense `-200.00`; the amount column widens to fit the `+`. The `… left` figure stays as it is.
-
-Passes if:
-- a unit test opens the Edit form of a split with an income part and an expense part and finds
-  `+1000.00` and `-200.00` in their rows, the header and rows still lined up, and
-  `2 parts  ·  +800.00 of +800.00  ✓` under them;
-- the tests that pin the table's text today are updated, not deleted;
-- [docs/tui.md](../tui.md)'s parts-table section says incomes read with their `+`, if it names
-  how amounts are written;
-- `pytest tests/unit` passes.
+All done.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The Edit form's heading writes a deposit without its `+`.** The heading gives the line's
+  total with the account rule (`AMOUNT_RULE`, [edit_form.py](../../expense/tui/screens/edit_form.py)),
+  so a deposit's heading reads `800.00` while its count line reads `+800.00`. Something the owner sees.
+- **No test draws a marked or refused part row with an income.** Both rows print the same cell as
+  the locked row, which a test pins with `+3,200.00`, but neither has a test of its own
+  ([parts_table.py](../../expense/tui/widgets/parts_table.py) `parts_lines`).

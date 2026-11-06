@@ -453,9 +453,10 @@ Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_ta
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
 (no category is `@Pendiente`, the pending hashtag alone is no hashtag); no note reads blank.
-The part the bar is on reads `▌ 2 …`, bold in the accent; an amount reads in its sign's colour.
+The part the bar is on reads `▌ 2 …`, bold in the accent; an amount reads in its sign's colour,
+an income with its `+` as in every transaction list.
 With two parts or more the line adding them up follows:
-`2 parts  ·  -100.00 of -100.00  ✓`, the tick in the success colour, or
+`2 parts  ·  +800.00 of +800.00  ✓`, the tick in the success colour, or
 `2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error colour: the
 parts' amounts summed against the engine's total. It never stops a save.
 **The bar walks every line**: the shared fields, then each part's `PART 1 AMOUNT`,

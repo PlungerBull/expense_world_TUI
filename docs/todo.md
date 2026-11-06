@@ -42,10 +42,6 @@ Answered, waiting on its engine ask (for you to hand over) and a mockup of the p
 New, one question: [a list reads again after a save that may have
 landed](specs/a-list-reads-again-after-a-save-that-may-have-landed.md).
 
-Answered (A), its mockup and task waiting on your approval: [a split's parts show an income's
-`+`](specs/a-splits-parts-show-an-incomes-plus.md), drawn in
-[the mockup](mockups/expense-world-split-parts-plus.html).
-
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
 

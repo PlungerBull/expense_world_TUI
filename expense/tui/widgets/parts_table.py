@@ -18,9 +18,9 @@ from rich.console import RenderableType
 from rich.text import Text
 
 from expense.errors import EngineError, app_lines, format_error, key_field, key_index
-from expense.formatting import format_cents, resolve_name, signed_cents
+from expense.formatting import format_cents, format_cents_with_plus, resolve_name, signed_cents
 from expense.reads import QuickAddRefs, hashtags_to_send
-from expense.tui.theme import ACCENT, AMOUNT_RULE, Palette
+from expense.tui.theme import ACCENT, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_text
 from expense.tui.widgets.refusal import hanging, under_itself
 
@@ -115,7 +115,7 @@ def part_cells(part: Part, refs: QuickAddRefs) -> tuple[str, str, str, str]:
     """A part's four cells as words: amount, category, hashtags, note. A part
     with no amount, category or real hashtag reads `—` there; no note reads
     blank."""
-    amount = format_cents(part.amount_cents) if part.amount_cents is not None else EMPTY
+    amount = format_cents_with_plus(part.amount_cents) if part.amount_cents is not None else EMPTY
     return (
         amount,
         _category_cell(part, refs) or EMPTY,
@@ -171,7 +171,7 @@ def parts_lines(
         elif marked:
             amount = Text(row_cells[0], style=base)
         else:
-            amount = amount_text(part.amount_cents, palette, AMOUNT_RULE)
+            amount = amount_text(part.amount_cents, palette, TRANSACTION_RULE)
         line.append(" " * (widths[0] - len(amount.plain)), style=base)
         line.append_text(amount)
         for i, field in ((1, "category"), (2, "hashtags")):
@@ -237,16 +237,16 @@ def reason_lines(named: Sequence[tuple[str, str | None]]) -> list[RenderableType
 
 
 def count_line(parts: list[Part], total: int | None, *, palette: Palette | None = None) -> Text:
-    """`2 parts  ·  -100.00 of -100.00  ✓`, or `…  ·  -10.00 left` in the error
+    """`2 parts  ·  +800.00 of +800.00  ✓`, or `…  ·  -10.00 left` in the error
     colour while the parts do not reach the total. The parts' amounts summed
     against the engine's total; a part with no amount adds nothing."""
     placed = sum(p.amount_cents for p in parts if p.amount_cents is not None)
     line = Text(f"{len(parts)} {'part' if len(parts) == 1 else 'parts'}  ·  ")
-    line.append_text(amount_text(placed, palette, AMOUNT_RULE))
+    line.append_text(amount_text(placed, palette, TRANSACTION_RULE))
     if total is None:
         return line
     line.append(" of ")
-    line.append_text(amount_text(total, palette, AMOUNT_RULE))
+    line.append_text(amount_text(total, palette, TRANSACTION_RULE))
     left = total - placed
     if left:
         line.append("  ·  ")

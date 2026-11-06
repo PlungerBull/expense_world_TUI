@@ -719,8 +719,8 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
         "currency  PEN  read-only",
         "account, currency: Must not move an opening balance to another account or currency.",
         "",
-        "       amount    category       hashtags        note",
-        "  1  3,200.00    @Opening       —",
+        "        amount    category       hashtags        note",
+        "  1  +3,200.00    @Opening       —",
         "category  read-only · Must not move an opening balance out of the "
         "opening-balance category.",
         "hashtags  read-only · Must be empty: an opening balance carries no hashtag.",
