@@ -33,7 +33,8 @@ expense/tui/
     refusal.py      # hanging(), under_itself(), toast(), as_markup(), run_stopped()
     parts_table.py  # the Edit form's parts table, read-only lines, refused-save lines
   screens/
-    _base.py        # SectionScreen, EngineWriteMixin, ResourceListScreen, keymap mixins
+    _base.py        # SectionScreen, EngineWriteMixin, ResourceListScreen, NewestReadMixin,
+                    # call_while_attached, keymap mixins
     _form.py        # FormScreen + form_bindings — every bar form's scaffolding
     _growing.py     # GrowingRead — a list that grows by cursor
     help.py         # HelpModal — the `?` card (§4)
@@ -86,8 +87,15 @@ lands, and painting it then queries widgets already taken down (`NoMatches`).
 `call_while_attached(node, callback, …)` in [_base.py](../expense/tui/screens/_base.py)
 checks on the UI thread, at the moment the callback would run, and drops it once the node
 has left the app. Every thread worker in `expense/tui/` hands back this way (guard:
-`test_no_worker_hands_back_raw`), a write's included: once its screen is gone its answer is
-dropped. Only the app's rate check hands back without a screen.
+`test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)),
+a write's included: once its screen is gone its answer is dropped. Only the app's rate check
+hands back without a screen.
+
+**A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
+statement's screen, the flagged lines, the two growing lists), only the newest read's answer
+paints, counts or toasts; an older one is dropped on the UI thread (`NewestReadMixin` in
+[_base.py](../expense/tui/screens/_base.py); why: [decisions.md](decisions.md) "The app holds
+its settings from launch, and only the newest read hands back").
 
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
 needs resolved names, resolve them in `fetch()` and hand `build()` precomputed cells —
@@ -1325,9 +1333,8 @@ screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `
 goes through on the `?` card, so the Manage lists neither react to it nor advertise it.
 
 **`pgdn` means "more of this list", in three ways.** In the two growing lists, the ledger
-and the "no statement" pane, it appends the next 10 rows by cursor and puts the cursor on the
-first new one, and `pgup` just goes up a screenful (§5; [decisions.md](decisions.md) "Long
-lists grow, they do not page"). In every other list it is the next page of rows already
+and the "no statement" pane, it appends the next 10 rows (§5; [decisions.md](decisions.md)
+"Long lists grow, they do not page"). In every other list it is the next page of rows already
 loaded (§5). On Home it walks the month window one month older, `pgup` one newer (§2).
 
 **The Statements browse** opens on the **account list alone**, full height, and reads no
@@ -1857,9 +1864,9 @@ Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions":
 - **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`),
   not at `expense.reads` — when the test's point is name display. Use the short-id fallback
   when it isn't.
-- **`fake_client` (conftest) patches the lazy-import seams only** —
-  `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on
-  `client.calls` / `.posts` / `.puts` ordering.
+- **`fake_client` patches the lazy-import seams only** (its docstring in
+  [conftest.py](../tests/unit/conftest.py) names them). Assert on `client.calls` / `.posts` /
+  `.puts` ordering.
 - **A `FakeClient` write answers in the engine's shape where helpers.py knows it** — the
   test's own `write_responses[path]`, then the endpoint's entry in `helpers.FAKE_ANSWERS`,
   otherwise `{}` (the `FakeClient` docstring in [helpers.py](../tests/unit/helpers.py)). Each

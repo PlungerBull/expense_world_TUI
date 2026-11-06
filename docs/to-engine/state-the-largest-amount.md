@@ -7,10 +7,9 @@ Raised 2026-11-05.
 The contract states no bound on an amount. `amount_cents` and every other money field is a
 signed whole number of cents of any size, and `OUT_OF_RANGE` ("a number too small or too large")
 names no limit for money. A client therefore cannot tell a typed amount that is too big from a
-real one. For example, `1e5000` is a finite number, and read as cents it has over 4,300 digits.
-The terminal client accepts it, and its screens then crash printing it, because the language
-refuses to print an integer that long. The same amount can come in a spreadsheet or a bank
-file, which the client sends to the engine whole.
+real one. For example, `1e5000` is a finite number, and in cents it has over 5,000 digits.
+The terminal client accepts it, and its screens then crash printing it. The same amount can
+come in a spreadsheet or a bank file, which the client sends to the engine whole.
 
 Any limit a client picks for itself is a copy of a money rule that belongs to the engine, and
 four clients would pick four different limits. The bound has to be the engine's, stated once in

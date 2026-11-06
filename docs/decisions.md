@@ -1277,3 +1277,23 @@ before its own screen was laid out again and lost the page line on a slower term
 
 **Rejected.** *A dim `—` for a difference not checked yet* — it reads as "adds up". *Timing the
 refit with chained `call_after_refresh`* — it raced the layout beneath a box at 20 fps and below.
+
+## The app holds its settings from launch, and only the newest read hands back (2026-11-05)
+
+**Decision.** (1) **The app reads its settings once, at launch, and holds them**
+([config.py](../expense/config.py)); every engine call takes the held copy, and setup's save
+replaces it. (2) **A read whose answer a newer read replaced is dropped on the UI thread**:
+each read carries the count it started under, and every hand-back of an older one (paint,
+record, count or toast) is skipped (`NewestReadMixin` in
+[_base.py](../expense/tui/screens/_base.py)).
+
+**Why.** (1) A file read on every call meant the settings could not come from a pipe, so an
+agent could not point the app at the practice engine without its key reaching a file. Holding
+settings is not a cache: they are the app's own, not the engine's data. (2) A worker's own
+`is_cancelled` check runs on its thread, so a read could pass it just before a newer read
+started and still paint, or spend the cursor's landing line; only the UI thread sees which
+read is newest.
+
+**Rejected.** *Passing the settings into every screen* — about 25 call sites and every test that
+patches the settings, for the same result. *Relying on Textual's exclusive workers alone* —
+cancelling does not stop a hand-back already queued.
