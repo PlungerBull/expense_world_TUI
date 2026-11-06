@@ -899,18 +899,27 @@ def pending_label(refs: "QuickAddRefs") -> str:
     return refs.pending[1] if refs.pending else PENDING_FALLBACK_NAME
 
 
-def pick_label(refs: "QuickAddRefs", account_id: object, currency_code: object) -> str:
-    """The "<account> · <code>" of a pick the quick-add pool holds; for a pick it
-    lacks (an archived account a row still names) the account's name and the code
-    given, or the name alone when no code is given, and `''` when no account is
-    named."""
+def pick_parts(
+    refs: "QuickAddRefs", account_id: object, currency_code: object
+) -> tuple[str, str | None]:
+    """The account's name and the currency code of a pick the quick-add pool holds;
+    for a pick it lacks (an archived account a row still names) the account's name
+    and the code given, the name alone (code `None`) when no code is given, and
+    `('', None)` when no account is named."""
     if not isinstance(account_id, str):
-        return ""
+        return "", None
     for pick in refs.picks:
         if pick.account_id == account_id and pick.currency_code == currency_code:
-            return pick.label
+            return pick.name, pick.currency_code
     name = refs.account_names.get(account_id, "")
-    return currency_label(name, str(currency_code)) if name and currency_code else name
+    return (name, str(currency_code)) if name and currency_code else (name, None)
+
+
+def pick_label(refs: "QuickAddRefs", account_id: object, currency_code: object) -> str:
+    """The "<account> · <code>" of a pick, or the account's name alone; the two
+    parts are `pick_parts`."""
+    name, code = pick_parts(refs, account_id, currency_code)
+    return currency_label(name, code) if code else name
 
 
 def _id_name_map(rows: list) -> dict[str, str]:

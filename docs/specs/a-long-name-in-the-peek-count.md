@@ -39,7 +39,7 @@ the count, often the currency, is lost.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+All done.
 
 ## Found along the way
 

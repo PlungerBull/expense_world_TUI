@@ -1686,7 +1686,9 @@ ledger fills the room under the staged list once the line has its currency, the 
 or the account's only one — `AccountPeek`, five columns (date, title, amount, category, tags;
 no account column, every row names the same one), titled with the pick's label. Its count line
 names that same label: `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
-`nothing in … yet`, `48 in … · no room to show them`.
+`nothing in … yet`, `48 in … · no room to show them`. When the count line would not fit the
+panel's width, the account name alone gives way with `…`; the count, the currency and the
+line's ending stay whole.
 
 * **Elastic.** The panel draws exactly the rows the staged list leaves, again on every
   resize. The empty-state invitation stands down while it is up.

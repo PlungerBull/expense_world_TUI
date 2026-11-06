@@ -1770,6 +1770,25 @@ def test_peek_status_names_the_label_the_title_shows():
     assert peek_status(0, 48, label) == f"48 in {label} · no room to show them"
 
 
+def test_peek_status_shortens_only_the_name_to_fit_the_width():
+    name = "Interbank Cuenta Sueldo Mancomunada Familia Quispe"
+    for args, ending in (
+        ((7, 1716), " · PEN · newest first"),
+        ((0, 0), " · PEN yet"),
+        ((0, 1716), " · PEN · no room to show them"),
+    ):
+        line = peek_status(*args, name, "PEN", 60)
+        assert len(line) == 60 and "…" in line and line.endswith(ending)
+    assert peek_status(7, 1716, name, "PEN", 72) == (
+        "7 of 1716 in Interbank Cuenta Sueldo Mancomunada F… · PEN · newest first"
+    )
+    # a name that fits, an unknown width and a hopeless one never break the line
+    assert peek_status(7, 1716, "BCP", "PEN", 72) == "7 of 1716 in BCP · PEN · newest first"
+    assert peek_status(7, 1716, name, "PEN", 0).count("…") == 0
+    assert peek_status(7, 1716, name, "PEN", 5).startswith("7 of 1716 in I")
+    assert peek_status(3, 3, name, None, 40).endswith("… · newest first")
+
+
 async def _peeked(pilot, screen):
     """Until the panel's fetch has landed (it is debounced, then threaded) and
     the panel has measured its room and drawn rows, so its status line and
@@ -1806,6 +1825,57 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         assert panel.panel_title == "BCP Signature · PEN"
         assert f"of 214 in {panel.panel_title}" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
+
+    run_app(scenario, size=(110, 30))
+
+
+def test_a_long_account_name_gives_way_in_the_count_line(fake_client, monkeypatch):
+    long_name = "Interbank " + "Cuenta Sueldo Mancomunada Familia Quispe"
+    assert len(long_name) == 50
+    accounts = [
+        account_with_currencies(id="acc9", name=long_name, currencies=[held_currency("PEN")])
+    ]
+    fetch = _patch(monkeypatch, _PeekFetch(total=1716))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, f"tottus -38.60 ${long_name} @KORAKUEN")
+        await _peeked(pilot, screen)
+        panel = _peek(screen)
+        width = panel.content_size.width
+        status = panel.panel_status
+        assert fetch.accounts == ["acc9"]
+        assert len(status) <= width and "\n" not in status
+        assert "…" in status and status.endswith(" · PEN · newest first")
+        assert status.startswith(f"{min(len(panel._rows), panel.capacity)} of 1716 in Interbank")
+        assert panel.panel_title == f"{long_name} · PEN"
+        # nothing is cut: the panel's last drawn line is the status, whole
+        drawn = _text(panel.content, width).rstrip().splitlines()
+        assert drawn[-1].strip() == status
+        # wider again: the same line re-fits and the name comes back whole
+        await pilot.resize_terminal(140, 24)
+        await wait_for(pilot, lambda: long_name in panel.panel_status, message="never re-fitted")
+        assert len(panel.panel_status) <= panel.content_size.width
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_nameless_account_reads_the_same_in_the_title_and_the_count_line(
+    fake_client, monkeypatch
+):
+    accounts = [account_with_currencies(id="acc9", name="", currencies=[held_currency("PEN")])]
+    fetch = _patch(monkeypatch, _PeekFetch(body=cursor_page([], next_cursor=None), total=0))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus -38.60 $(unnamed) @KORAKUEN")
+        await wait_for(pilot, lambda: bool(fetch.accounts), message="never fetched")
+        panel = _peek(screen)
+        await wait_for(pilot, lambda: bool(panel.panel_status), message="no status")
+        assert panel.panel_title == "(unnamed) · PEN"
+        assert panel.panel_status == "nothing in (unnamed) · PEN yet"
 
     run_app(scenario, size=(110, 30))
 

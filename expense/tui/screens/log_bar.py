@@ -86,6 +86,7 @@ from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_tran
 from expense.dates import now_local_iso, to_canonical_aware, today_local
 from expense.errors import EngineConnectionError, format_error, row_note
 from expense.formatting import (
+    currency_label,
     format_cents,
     format_hashtag_cell,
     format_short_date,
@@ -93,6 +94,7 @@ from expense.formatting import (
     resolve_name,
     title_or_untitled,
     truncate,
+    visible_len,
 )
 from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
 from expense.quickadd.payload import transaction_payload
@@ -105,6 +107,7 @@ from expense.reads import (
     load_quickadd_refs,
     pending_label,
     pick_label,
+    pick_parts,
 )
 from expense.tui.dropped import dropped_bank_files, is_statement
 from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
@@ -616,21 +619,33 @@ def peek_rows(
     return rows
 
 
-def peek_status(shown: int, total: int, label: str) -> str:
-    """The panel's border subtitle — how much of the pick's ledger you are seeing.
+def peek_status(shown: int, total: int, name: str, code: str | None = None, width: int = 0) -> str:
+    """The panel's count line — how much of the pick's ledger you are seeing.
 
-    `label` is the pick's label, the one the panel's title line shows. `shown`
-    is what the panel had room for, so on a screen with a long staged list it
-    can be nothing at all: the panel says so rather than pretending the account
-    is empty.
+    `name` and `code` are the pick's two parts, which together read as the label
+    the panel's title line shows. `shown` is what the panel had room for, so on
+    a screen with a long staged list it can be nothing at all: the panel says so
+    rather than pretending the account is empty. Given a `width` (0 means
+    unknown), only the name gives way with `…` when the line would not fit, so
+    the count, the currency and the line's ending stay whole.
     """
     if not total:
-        return f"nothing in {label} yet"
-    if not shown:
-        return f"{total} in {label} · no room to show them"
-    if shown >= total:
-        return f"{total} in {label} · newest first"
-    return f"{shown} of {total} in {label} · newest first"
+        before, after = "nothing in ", " yet"
+    elif not shown:
+        before, after = f"{total} in ", " · no room to show them"
+    elif shown >= total:
+        before, after = f"{total} in ", " · newest first"
+    else:
+        before, after = f"{shown} of {total} in ", " · newest first"
+
+    def line(account: str) -> str:
+        return before + (currency_label(account, code) if code else account) + after
+
+    whole = line(name)
+    if width and visible_len(whole) > width:
+        name = truncate(name, max(1, width - (visible_len(whole) - visible_len(name))))
+        return line(name)
+    return whole
 
 
 class AccountPeek(Static):
@@ -653,11 +668,25 @@ class AccountPeek(Static):
         self._total = 0
         self._note = ""
         self._account = ""
+        self._name = ""
+        self._code: str | None = None
         self._status = ""
         self._content: RenderableType = Text("")
 
-    def show(self, account: str, rows: list[tuple], total: int, *, note: str = "") -> None:
+    def show(
+        self,
+        account: str,
+        rows: list[tuple],
+        total: int,
+        *,
+        name: str = "",
+        code: str | None = None,
+        note: str = "",
+    ) -> None:
+        """`account` is the pick's label (the title line); `name` and `code` are its
+        two parts, for the count line to shorten the name alone."""
         self._account = account
+        self._name, self._code = name, code
         self._rows, self._total, self._note = rows, total, note
         self._rebuild()
 
@@ -703,7 +732,9 @@ class AccountPeek(Static):
             self._status = ""
             return Group(self._heading(), Text("  " + self._note, style="dim"))
         shown = min(len(self._rows), self.capacity)
-        self._status = peek_status(shown, self._total, self._account)
+        self._status = peek_status(
+            shown, self._total, self._name, self._code, self.content_size.width
+        )
         # `expand=False`, like the staged table above it: the columns pack to
         # their content instead of spreading to the panel edge, so a row reads
         # the same in both tables.
@@ -1368,14 +1399,17 @@ class LogBarScreen(Screen):
             peek.display = False
             return
         peek.display = True
-        name = pick_label(refs, *target)
+        label = pick_label(refs, *target)
+        account, code = pick_parts(refs, *target)
         note = self._peek_note.get(target)
         cached = self._peek_cache.get(target)
         if cached is not None:
             items, total = cached
-            peek.show(name, peek_rows(items, refs, palette=PALETTE), total)
+            peek.show(
+                label, peek_rows(items, refs, palette=PALETTE), total, name=account, code=code
+            )
             return
-        peek.show(name, [], 0, note=note or PEEK_LOADING)
+        peek.show(label, [], 0, note=note or PEEK_LOADING, name=account, code=code)
         if note is None:
             self._request_peek(target)
 
