@@ -39,9 +39,8 @@ rows](specs/the-keys-card-at-24-rows.md).
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
-Answered, its mockup waiting on your approval: [a save whose ending is not
-known](specs/a-save-whose-ending-is-not-known.md), drawn in
-[the mockup](mockups/expense-world-save-ending-unknown.html).
+New, one question: [a list reads again after a save that may have
+landed](specs/a-list-reads-again-after-a-save-that-may-have-landed.md).
 
 Answered (A), its mockup and task waiting on your approval: [a split's parts show an income's
 `+`](specs/a-splits-parts-show-an-incomes-plus.md), drawn in
@@ -103,6 +102,29 @@ CLAUDE.md "Specs and tasks".
   hand instead of driving the late answer. The comment on the balances save's `LeftBehind` in
   [statements.py](../expense/tui/screens/statements.py) names `_write_finished_after_leaving`
   where the words come from `_say_after_leaving`. Nothing you see changes.
+- **New statement's refusal after leaving is untested under a 5xx or no answer.** It is a bar
+  form and follows `open_it_again` ([_form.py](../expense/tui/screens/_form.py)), but no test
+  drives it. Nothing you see changes.
+- **The quit-question tests need tidying.**
+  [test_tui_quit_asks.py](../tests/unit/test_tui_quit_asks.py): the LOG bar `y` test records
+  whether the bar is still in the stack but never asserts it; the `bar_empty` helper sits
+  between tests; two preview screens are imported inside test bodies; the import hand-back test
+  reads `seen_app` before assigning it; no test covers a second `ctrl+q` quitting at once once
+  every save ended while the question was up. A docstring in
+  [test_tui_left_behind_account_form.py](../tests/unit/test_tui_left_behind_account_form.py)
+  (~line 110) wraps mid-phrase. Nothing you see changes.
+- **A screen gone before its save's thread starts would raise instead of reporting.** The LOG
+  bar, bank import and statement upload workers read `self.app` for `counted_save`
+  ([_base.py](../expense/tui/screens/_base.py)) before their `try`; it cannot happen today,
+  since `esc` is refused while they save. Nothing you see changes.
+- **Setup's `esc Quit` leaves through `app.exit()`, not the shared quit.** It is refused while
+  setup saves, so no save is lost; it is the one quit not going through `action_quit`
+  ([app.py](../expense/tui/app.py)). Nothing you see changes.
+- **`test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row` waits weakly**
+  ([test_tui_statements.py](../tests/unit/test_tui_statements.py) ~line 567): it waits for
+  `_statement_list is not None`, which the old list already passes, so it can pass without
+  proving the cursor after the read, or fail at random under the parallel run. It should wait
+  for the read's cursor on `b2`. Nothing you see changes.
 - **No LOG bar test checks the peek's title and count on a two-currency pick** (`$visa %usd`).
   Nothing you see changes.
 - **Two comments in [log_bar.py](../expense/tui/screens/log_bar.py) describe the peek's old

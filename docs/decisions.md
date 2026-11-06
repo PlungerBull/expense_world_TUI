@@ -1045,22 +1045,16 @@ currencies in one balance* — a total across currencies has no meaning.
 ## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31)
 
 **Decision.**
-- **An account shows once.** Manage ▸ Accounts has one row per account with a column per
-  currency. Home has the account's row and a line per currency. Every account picker lists the
-  account alone. `d` names the account and each currency with its balance
-  (`Prueba · bank · PEN 0.00 · USD 0.00`), since a delete removes them all.
-- **The currency is picked as its own field,** like any other field:
-  - the LOG bar's `%` token;
-  - the Edit form's CURRENCY line;
-  - the ledger's `Cur` column and its filter (Home's `⏎` on a currency line);
-  - the ledger's `m`, which moves selected rows to another currency.
-- **One currency shows, several are picked.**
-  - **Typing or editing:** an account holding one currency asks for none and its currency is
-    just shown, dim on the Edit form. An account holding several makes the person pick: a LOG
-    bar line with none picked is not staged, and an account change on the Edit form empties the
-    currency and stops `ctrl+s` until one is picked.
-  - **Moving rows with `b`:** to an account holding one currency, every row takes it, the amount
-    as it is (no conversion). To an account holding several, each row keeps its own.
+- **An account shows once:** one row per account on Manage ▸ Accounts, with a column per
+  currency; its row and a line per currency on Home; the account alone in every picker. `d`
+  names the account and each currency with its balance, since a delete removes them all.
+- **The currency is a field of its own,** picked and listed like any other: the LOG bar's `%`
+  and its staged `Cur` column, the Edit form's CURRENCY line, the ledger's `Cur` column, its
+  filter and `m`. What each screen says: [tui.md](tui.md).
+- **One currency shows, several are picked.** An account holding one currency asks for none;
+  one holding several makes the person pick before a save. Rows moved with `b` to a
+  one-currency account take its currency, the amount as it is; to one holding several, each
+  keeps its own.
 - **A currency move keeps a draft statement; an account move takes the row out.** A currency
   move sends the statement's own id, and an account move sends `statement_id: null`, as the
   engine leaves the assignment to the client
@@ -1069,19 +1063,12 @@ currencies in one balance* — a total across currencies has no meaning.
   `currencies.FILLS_AN_ONLY_CURRENCY` and guarded by a test, until the engine ask "An account's
   only currency is taken when a write names none" lands. `currencies.only_currency` is the
   display rule and stays.
-- **The LOG bar's staged list has a `Cur` column of its own,** as the ledger has: the currency is
-  its own field on every list.
-- **The currency's words follow the patterns already in use** on every screen, and a hint names
-  the currency only when the currency is the whole story ([tui.md](tui.md) owns the words); the
-  engine keys each refusal on each field sent
-  (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 
 **Why.** In the engine an account holds its currencies and a transaction names both, so the
 screens show the account the owner thinks of, once, and the currency where it is chosen. Asking
 for a currency an account cannot have is a question with one answer. Moving rows to a
 one-currency account cannot keep their currency, so they take its, and the owner's rule is that
-an amount moves as it is. A row moved within its account still belongs to the same statement;
-one moved to another account does not.
+an amount moves as it is.
 
 **Rejected.**
 - *One row per account and currency everywhere* ("<account> · <code>"): it splits the account the
@@ -1314,10 +1301,8 @@ cancelling does not stop a hand-back already queued.
 some footers then outgrow the terminal: Manage's at 80 columns, the ledger's at 140.
 
 **Decision.** Every screen's footer is `FittingFooter`
-([footer.py](../expense/tui/widgets/footer.py)): when its keys would not fit, the spacing between
-them tightens; keys that still do not fit leave the footer from its end, whole. A left-out key
-still works, and the `?` card lists it on a screen that has one ([tui.md](tui.md) "5. Pagination
-and terminal size").
+([footer.py](../expense/tui/widgets/footer.py)): it tightens first, then leaves keys out whole
+([tui.md](tui.md) "5. Pagination and terminal size").
 
 **Why.** A key drawn cut (`d Del`, `m Currenc`) reads as a different word. Tightening keeps
 every key at 80 columns, but the ledger past its first page needs 144 columns even tightened,
@@ -1339,3 +1324,24 @@ nothing holds the queued writes for a retry.
 
 **Rejected.** *One short `Saved.` / `Not saved` for every save* — it hides which refusal and why.
 *Holding `esc` until the save answers* — it keeps you on a form you left.
+
+## A save whose ending is not known never says it was not saved (2026-11-06)
+
+**Decision.** After a server error or no answer, a save left behind shows the engine's words
+alone, and the account Edit form names only what was clearly refused (a status under 500,
+`open_it_again` in [_form.py](../expense/tui/screens/_form.py)).
+
+**Why.** Such a save may have landed; "nothing was saved" would be untrue.
+
+**Rejected.** *`It may have saved: open it to check.`* — a new sentence where the ledger's Edit
+forms already say nothing more.
+
+## Quitting asks while saves are still being sent (2026-11-06)
+
+**Decision.** While any save is unanswered or waiting, on any screen, quitting asks first and
+only `y` quits; a save of several writes counts once ([tui.md](tui.md) §1).
+
+**Why.** Quitting drops what is still being sent, and you would not learn whether it landed.
+
+**Rejected.** *Quit at once* — the saves vanish silently. *Wait for them* — an engine that does
+not answer holds the app open.

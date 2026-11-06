@@ -94,19 +94,7 @@ worker in `expense/tui/` hands back this way, but the app's rate check, which ha
 screen. The ending shows on the app: success as the screen's own toast, a refusal as an error
 toast of 10 seconds titled with what was not done, the screen's words for it under the title.
 Every write queued behind it is still sent and shown the same way, a refusal stopping none
-([decisions.md](decisions.md) "A save you left still says how it ended"). Quitting
-(`ctrl+q`, or `q` on Home) with a write sent and not answered, or waiting to be sent, on any
-screen, a left one included, asks first through the confirm modal: `2 saves are still being
-sent. Quit anyway?` over `If you quit now, no screen will tell you whether they were saved.`
-(`1 save … it was saved.`), the count taken when asked. Only `y` quits; any other answer leaves
-the app running and each write still ends as above. A write dropped with its screen is not
-counted; a save of several writes counts once while any of them is pending: the account Edit
-form's, the LOG bar's `ctrl+s` batch, one bulk key over the ledger's rows (counted after the
-ledger is left too), an import's apply. With none counted, quitting is immediate. A screen that
-finishes while the question is open closes, or is replaced by the next import screen, once it
-is answered. The count is `pending_writes`, and a worker that writes without `run_write` joins
-it with `counted_save` ([_base.py](../expense/tui/screens/_base.py)). Setup's `esc Quit` leaves
-without asking: it has no write to lose.
+([decisions.md](decisions.md) "A save you left still says how it ended").
 
 The title reads `Not <what did not happen> · <what it was>`, the thing named as its screen
 showed it: by kind and name (`Not archived · Account BCP`, `Person` for a person's account;
@@ -118,8 +106,8 @@ The writes that carry one, each naming its words where it is sent:
   "no statement" list and the flagged lines, and `b` on Auth & profile.**
 - **The New and Edit forms of Manage ▸ Hashtags and Categories, and New account:** `Not
   created · Category Ropa`, `Not saved · Hashtag #viaje` (the name its list showed before the
-  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`, except under a 5xx or
-  when the engine did not answer (`open_it_again`).
+  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`, except under a
+  5xx or when the engine did not answer (`open_it_again`).
 - **A line's Edit forms** (`EditFormScreen`, `BankLineEditFormScreen`): `Not saved · <title> ·
   <amount>`; success says `Saved.` or `Saved. It left its statement.`, as the form would
   (`saved_words`); a refusal shows the words the form shows under its parts, ending with the
@@ -130,7 +118,7 @@ The writes that carry one, each naming its words where it is sent:
   under a refused one, then, dim, what is left to set again (`Open the account's Edit form to
   set PEN again.`), naming only the writes refused clearly, by the same rule; none, no line.
 - **A statement's writes:** New statement (`Not created · Statement <name>`, the name as
-  typed), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
+  typed; a refusal ends with the same dim line, by the same rule), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
   shows nothing), `u` (`Not reverted · Statement <name>`), `d` (`Not deleted · Statement
   <name>`) and `c`, which opens no screen by itself. A complete that went through is
   `Statement completed · <name>` with the engine's notes (`gap_notes`, the lines the head
@@ -148,6 +136,17 @@ again: a Manage form's list from its first page, cursor on row 1 (the account Ed
 if any of its writes landed); the screen that opened a line's Edit form, as after any save; the
 Statements screen, a new statement opening that account's panel on it, and after the last tick
 too, however it ended.
+
+**Quitting asks while saves are still being sent.** `ctrl+q`, or `q` on Home, with a save on
+any screen, a left one included, sent and not answered or waiting to be sent, asks first
+through the confirm modal: `2 saves are still being sent. Quit anyway?` over `If you quit
+now, no screen will tell you whether they were saved.` (`1 save … it was saved.`). Only `y`
+quits; any other answer leaves the app running and each save still ends as above. With none,
+quitting is immediate. What counts, a save of several writes (the account Edit form's, the
+LOG bar's `ctrl+s` batch, a ledger bulk key, an import's apply) once, is `pending_writes` and
+`counted_save` in [_base.py](../expense/tui/screens/_base.py); a screen that finishes under
+the question closes once it is answered (`after_quit_question` in
+[app.py](../expense/tui/app.py)).
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer
@@ -223,8 +222,8 @@ A failure goes red where the hint was, with the cursor on the answer to fix:
 **Nothing is written to the settings file until setup is done** — the engine has answered
 `/auth/me` with 200, or the profile was created. Then the file is saved through
 `config.save` (chmod 600) with the home currency the engine named, Setup closes onto Home
-with `Connected.`, and the launch-time rate check runs. `esc Quit` leaves the app with
-nothing saved; while the engine is being asked no key does anything (the bar is disabled).
+with `Connected.`, and the launch-time rate check runs. `esc Quit` leaves the app at once,
+with nothing saved and no quit question; while the engine is being asked no key does anything (the bar is disabled).
 A refused profile shows the engine's words without the shared text's hints, which point at
 System screens Setup cannot reach. The next launch with a usable file opens on Home;
 changing the address or key later is System ▸ Config.
@@ -1838,9 +1837,10 @@ as `Input.Submitted`, not as a binding at all.
 **Standing constraint:** any future rename action on Manage screens ships as `e`,
 never `r`.
 
-**App-wide keys are `^q` and `?`.** `?` opens `HelpModal`, a two-column card whose
-content is **derived** from BINDINGS by walking the screen's and the focused widget's
-MRO and keeping only classes declared under `expense.tui`. `Binding.tooltip`
+**App-wide keys are `^q` and `?`.** `^q` quits, asking first while saves are still being
+sent (§1 "Quitting asks while saves are still being sent"). `?` opens `HelpModal`, a
+two-column card whose content is **derived** from BINDINGS by walking the screen's and the
+focused widget's MRO and keeping only classes declared under `expense.tui`. `Binding.tooltip`
 carries the card's fuller wording (`Archive / unarchive`) while `description` stays the
 terse footer label (`Archive`). `?` is bound per screen root via `HelpBindingMixin`,
 **never on the App** — letters bubble up from lists, the same reason there is no app-level
