@@ -27,7 +27,12 @@ from expense.dates import is_calendar_day, to_canonical_aware
 from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
-from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
+from expense.tui.screens._base import (
+    ResourceListScreen,
+    call_while_attached,
+    not_done_line,
+    screen_fetch_kwargs,
+)
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE
@@ -101,6 +106,7 @@ class Field:
 class BarFormScreen(FormScreen):
     FIELDS: list = []
     NOUN = "item"
+    NOT_DONE = "Not created"  # the first line of a refusal shown after the form was left
 
     # ---- FormScreen hooks (Field-driven) ----------------------------------
     def _sequence(self) -> list[str]:
@@ -287,9 +293,33 @@ class BarFormScreen(FormScreen):
     def _payload(self) -> dict:
         raise NotImplementedError
 
+    def _saved_words(self) -> str:
+        return f"{self.NOUN.title()} created."
+
     def _done(self) -> None:
-        toast(self, f"{self.NOUN.title()} created.")
+        toast(self, self._saved_words())
         self.dismiss()
+
+    def _shown_name(self) -> str:
+        """The name `_left_behind` finds the thing by: as typed on New, as its list
+        showed it before the edit on Edit."""
+        return self._values["name"]
+
+    def _kind(self) -> str:
+        return self.NOUN.title()
+
+    def _left_behind(self) -> str | None:
+        return not_done_line(self.NOT_DONE, self._kind(), self._shown_name())
+
+    def _write_finished_after_leaving(self, app, item, error) -> None:
+        """A save that landed once the form was gone: the app says how it ended
+        (`EngineWriteMixin`), and if the screen now showing is this form's list,
+        it reads again from its first page."""
+        super()._write_finished_after_leaving(app, item, error)
+        shown = app.screen
+        if error is None and isinstance(shown, ResourceListScreen):
+            if shown.RESOURCE == self.RESOURCE:
+                shown.start_over()
 
 
 class NewHashtagScreen(BarFormScreen):
@@ -300,6 +330,9 @@ class NewHashtagScreen(BarFormScreen):
 
     def _payload(self) -> dict:
         return {"id": str(uuid.uuid4()), "name": self._values["name"].lstrip("#")}
+
+    def _shown_name(self) -> str:
+        return "#" + self._values["name"].lstrip("#")
 
 
 class NewCategoryScreen(BarFormScreen):
@@ -391,8 +424,14 @@ class NewAccountScreen(BarFormScreen):
     def _submit_request(self) -> tuple[str, str, dict, str]:
         return ("POST", f"/{self.RESOURCE}", self._payload(), "Creating…")
 
+    def _saved_words(self) -> str:
+        return "Person created." if self._is_person else "Account created."
+
+    def _kind(self) -> str:
+        return "Person" if self._is_person else "Account"
+
     def _done(self) -> None:
-        self.notify("Person created." if self._is_person else "Account created.")
+        toast(self, self._saved_words())
         self.dismiss()
 
     def _payload(self) -> dict:
@@ -453,10 +492,12 @@ def _field_with_hint(f: Field, hint: str) -> Field:
 
 class EditHashtagScreen(NewHashtagScreen):
     BINDINGS = form_bindings("Save")
+    NOT_DONE = "Not saved"
 
     def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]
+        self._was = record.get("name") or ""  # as the list shows it
         self._values = {"name": (record.get("name") or "").lstrip("#")}
         self.crumb = ("Manage", "Hashtags", record.get("name") or "—", "Edit")
 
@@ -466,8 +507,14 @@ class EditHashtagScreen(NewHashtagScreen):
     def _payload(self) -> dict:
         return {"name": self._values["name"].lstrip("#")}
 
+    def _shown_name(self) -> str:
+        return "#" + self._was.lstrip("#") if self._was else ""
+
+    def _saved_words(self) -> str:
+        return "Saved."
+
     def _done(self) -> None:
-        self.notify("Saved.")
+        toast(self, self._saved_words())
         self.dismiss(True)  # wrote: the list starts over (ResourceListScreen._edited)
 
 
@@ -480,6 +527,7 @@ class EditCategoryScreen(NewCategoryScreen):
     shows stays as it is."""
 
     BINDINGS = form_bindings("Save")
+    NOT_DONE = "Not saved"
     FIELDS = [
         NewCategoryScreen.FIELDS[0],
         Field("color", "COLOR", "color", choices=_PALETTE, required=True, hint="pick a swatch"),
@@ -488,7 +536,8 @@ class EditCategoryScreen(NewCategoryScreen):
     def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]
-        self._values = {"name": record.get("name") or ""}
+        self._was = record.get("name") or ""  # as the list shows it
+        self._values = {"name": self._was}
         if record.get("color"):
             self._values["color"] = record["color"]
         self.crumb = ("Manage", "Categories", record.get("name") or "—", "Edit")
@@ -500,8 +549,14 @@ class EditCategoryScreen(NewCategoryScreen):
     def _payload(self) -> dict:
         return _edit_payload(self._values, self._original_color)
 
+    def _shown_name(self) -> str:
+        return self._was
+
+    def _saved_words(self) -> str:
+        return "Saved."
+
     def _done(self) -> None:
-        self.notify("Saved.")
+        toast(self, self._saved_words())
         self.dismiss(True)  # wrote: the list starts over (ResourceListScreen._edited)
 
 
@@ -589,6 +644,7 @@ class EditAccountScreen(NewAccountScreen):
     """
 
     BINDINGS = form_bindings("Save")
+    NOT_DONE = "Not saved"
     # New's lines, CURRENCIES read-only, STATEMENT CODE's hint saying that
     # emptying it clears the code
     FIELDS = [
@@ -906,6 +962,9 @@ class EditAccountScreen(NewAccountScreen):
                 on_error=self._half_failed if account is not None else self._failed,
                 error_text=lambda exc, code=code: self._refusal_text(exc, code),
             )
+
+    def _saved_words(self) -> str:
+        return "Saved."
 
     def _opening_saved(self, code: str, body: dict | None, sent: dict, *, last: bool):
         """The success callback of `code`'s write: the form now knows the row

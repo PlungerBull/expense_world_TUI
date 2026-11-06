@@ -28,6 +28,8 @@ from expense.tui.widgets.refusal import toast
 
 #: What `⏎` on an empty title says, on every form that edits one.
 TITLE_REQUIRED = "Title is required."
+#: The last line of a refused save that answers after its form was left.
+NOTHING_SAVED = "Nothing was saved: open it again to fix it."
 
 
 def form_bindings(
@@ -203,6 +205,16 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def _done(self) -> None:
         """Success callback (UI thread) — toast + dismiss."""
         raise NotImplementedError
+
+    def _saved_words(self) -> str:
+        """The message of a save that landed: shown by `_done`, and by the app when
+        the save answers after the form has been left."""
+        return "Done."
+
+    def _left_behind(self) -> str | None:
+        """The first line of this save's refusal if it answers after the form has
+        been left (`run_write`'s `left_behind`); None, the default, drops the answer."""
+        return None
 
     def _refusal_text(self, exc: Exception) -> str:
         """The words a refused save reads in (`run_write`'s `error_text`); a form
@@ -428,6 +440,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         method, path, payload, busy = request
         self._submitting = True
         self.query_one("#hint", Static).update(Text(busy, style="dim"))
+        first_line = self._left_behind()
         self.run_write(
             method,
             path,
@@ -436,6 +449,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             on_error=self._failed,
             on_response=self._answered,
             error_text=self._refusal_text,
+            success=self._saved_words(),
+            left_behind=first_line,
+            left_behind_note=None if first_line is None else NOTHING_SAVED,
         )
 
     def _land_on_refused_line(self) -> None:

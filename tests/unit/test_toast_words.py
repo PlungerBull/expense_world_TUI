@@ -9,9 +9,10 @@ therefore one of two things:
   two (`"Saved." if done else "Not saved."`), written in the app and read by
   whoever writes it; or
 * a call that **says how its message reads**, passing `markup=` itself:
-  `toast` in expense/tui/widgets/refusal.py passes `markup=False`, and the one
-  toast whose colours are content markup on purpose (the ledger's bulk edit
-  note, its words escaped inside it) passes `markup=True`.
+  `toast` in expense/tui/widgets/refusal.py passes `markup=False`, and the
+  toasts whose colours are content markup on purpose (the ledger's bulk edit
+  note, and a refused write's last line shown after its screen has left, the
+  words escaped inside it by `as_markup`) pass `markup=True`.
 
 Anything else — a variable, `format_error(...)`, an f-string, a constant
 from elsewhere — fails here and goes through `toast`. So does `notify`

@@ -51,13 +51,9 @@ Approved on 2026-11-06. Each task's "passes if…" is written when it starts. "L
 screen still open, nothing changes.
 
 A write opts in by carrying its refused message's first line (`left_behind` on `run_write` and
-`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d` and the list actions
-already do.
+`confirm_delete` in `expense/tui/screens/_base.py`); the ledger's `d`, the list actions
+and the Manage forms already do.
 
-3. **The Manage forms.** New and Edit for hashtags and categories, New account: `Hashtag
-   created.`, `Category created.`, `Account created.`, `Person created.`, `Saved.`; a refusal ends
-   `Nothing was saved: open it again to fix it.` The list you went back to reads again from row
-   1 when the save changed it.
 4. **The Edit forms.** The ledger's and the "no statement" list's: `Saved.` or `Saved. It left
    its statement.`, the list reading again; a refusal keeps its `! part 2 (amount): …` lines.
 5. **The account Edit form** (pane 4 B): the account's changes, then each opening balance, all

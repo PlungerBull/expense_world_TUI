@@ -102,6 +102,11 @@ by its kind (`Account`, `Person` for a person's account, `Category`, `Hashtag #n
 transaction is `<title> · <amount>` (`not_deleted_line`, `not_done_line` in
 [_base.py](../expense/tui/screens/_base.py)). Each write names its own words where it is
 sent.
+The New and Edit forms of Manage ▸ Hashtags and Categories, and New account (`Not created ·
+Category Ropa`; `Not saved · Hashtag #viaje`, the name its list showed before the edit) save
+this way: its refusal ends, dim, `Nothing was saved: open it again to fix it.` (`left_behind_note`
+on `run_write`). A save that lands then, while the screen shown is that form's list, reads it
+again from its first page, cursor on row 1.
 
 **A read a newer one replaced paints nothing.** Where one screen's reads can overlap (a
 statement's screen, the flagged lines, the two growing lists), only the newest read's answer

@@ -42,7 +42,7 @@ from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
-from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.refusal import as_markup, toast
 
 if TYPE_CHECKING:
     from expense.config import Config
@@ -146,6 +146,7 @@ class _QueuedWrite:
     error_text: Callable[[Exception], str] = format_error
     on_failure: Callable[[Exception], None] | None = None
     left_behind: str | None = None  # the first line of the refusal shown if the screen has left
+    left_behind_note: str | None = None  # a last line, dim, under that refusal's words
 
 
 class EngineWriteMixin:
@@ -198,6 +199,7 @@ class EngineWriteMixin:
         error_text: Callable[[Exception], str] = format_error,
         on_failure: Callable[[Exception], None] | None = None,
         left_behind: str | None = None,
+        left_behind_note: str | None = None,
     ) -> _QueuedWrite:
         """Queue one engine write and return it. `on_response` receives the engine's own body
         (before `on_success`) for the callers that need it: a `complete`
@@ -213,7 +215,8 @@ class EngineWriteMixin:
         `on_failure` receives the failure itself instead of `on_error`'s words,
         for a screen that lays a refusal out by its keys (the Edit form
         names each refused part by its number). `left_behind` opts the write in
-        to being finished after its screen has left (class docstring)."""
+        to being finished after its screen has left (class docstring);
+        `left_behind_note` ends that refusal with one more line, dim."""
         if self._write_queue is None:
             self._write_queue = deque()
         item = _QueuedWrite(
@@ -228,6 +231,7 @@ class EngineWriteMixin:
             error_text,
             on_failure,
             left_behind,
+            left_behind_note,
         )
         self._write_queue.append(item)
         self._pump_writes()
@@ -308,8 +312,17 @@ class EngineWriteMixin:
         self._write_current = None
         if error is None:
             toast(app, item.success)
-        else:
+        elif item.left_behind_note is None:
             toast(app, error, title=item.left_behind, severity="error", timeout=10)
+        else:
+            # the engine's words and the app's last line, the words set inside the markup
+            app.notify(
+                as_markup([(error, ""), (item.left_behind_note, "dim")]),
+                title=item.left_behind or "",
+                severity="error",
+                timeout=10,
+                markup=True,
+            )
         queue = self._write_queue
         if not queue:
             return
@@ -887,8 +900,9 @@ class ResourceListScreen(SectionScreen):
         engine, so the list starts over like after a delete: first page, cursor
         on row 1. Any other close keeps the edited row selected."""
         if saved is True:
-            self._restore_key = None
-        self._load()
+            self.start_over()
+        else:
+            self._load()
 
     def action_delete(self) -> None:
         item = self.selected_record()
@@ -909,5 +923,10 @@ class ResourceListScreen(SectionScreen):
         """A delete starts the list over, first page and cursor on row 1: no row
         is re-selected by the reload. Cleared here, not on `d`, so a cancelled
         question leaves an archive toggle's re-selection in place."""
+        self.start_over()
+
+    def start_over(self) -> None:
+        """Read the list again from its first page, the cursor on row 1: after a
+        delete, and after a form's save that answered once the form was gone."""
         self._restore_key = None
         self._load()
