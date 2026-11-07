@@ -128,7 +128,46 @@ None.
 
 ## Tasks
 
-Drafted when the owner names this the current spec. Item 5 needs no task: test_errors.py's
-refusal-row comments already say what their rows prove.
+Item 5 needs no task: test_errors.py's refusal-row comments already say what their rows prove.
+Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_writing_nothing`
+in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
+own "refused, and this read the same before and after" step) goes with item 7 in task 5.
+
+1. **The drift check reads the update's and a bank line's answers (item 1, first half).**
+   `put_answer` and `bank_line_row` in tests/unit/helpers.py carry `@answer_of`; a marked
+   answer's keys the contract does not hold for its own endpoint are named against that
+   endpoint, not only against the union of every schema. A unit test proves a made-up extra key
+   on a marked answer is named.
+2. **The drift check's own rules (items 1 second half, and 4).** `answer_of` refuses a second
+   builder for one endpoint; an endpoint the contract answers in more than one shape
+   (`GET /v1/reports/monthly`) is named as such, not as "no JSON answer"; the script's docstring
+   points to runtime.md "Fixture drift" in place of its REQUIRED FIELDS and KNOWN LIMITATION
+   blocks, and its example of an unseen answer names a `coverage_gap` only. Unit tests prove the
+   second-builder refusal and the many-shapes line.
+3. **The drift check reads a key passed to a builder by name (item 11).** A key a test passes
+   to an answer builder in helpers.py as a keyword (`statement_partner_id=…`) is read and named
+   when the contract lacks it; a unit test proves a made-up field passed by name is named.
+4. **Three unit-test fixes (items 2, 6, 10).** `stub_home_month` stops replacing the settings,
+   or its name and docstring say it does; the Edit form's shared hashtag-refusal test proves no
+   line of the app's shows when a reason has none, and for every reason that "Nothing was
+   saved." shows and one write was sent; test_tui_create_forms.py's docstring drops "(the sheet
+   import's, say)".
+5. **One shared "refused, nothing changed" step in the live suite (items 3's rest, and 7).**
+   One step in tests/contract/conftest.py takes a read and a call, and gives the refusal with
+   the read the same before and after; test_bank_line_write.py's hand-written refused-then-read
+   and `_refused_unwritten` in test_bank_line_edit_limits.py use it, as do the other files'
+   own versions of that step where it fits.
+6. **The bank import's heads pinned with a bracketed name (item 8).**
+   test_tui_bracketed_names.py proves the bank import's account list and its
+   `Preview · <account>` head show `[like this]` whole.
+7. **Two CI-flaky tests wait until what they check is so (item 9, first pair).**
+   `test_the_log_bars_batch_counts_as_one_save` and
+   `test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows[24]` wait for the state
+   they check, and still fail when it never comes.
+8. **Two CI-flaky tests wait for the screen to finish drawing (item 9, second pair).**
+   `test_config_screen_shows_only_the_engine_connection` and
+   `test_state8_a_partial_failure_ticks_what_landed` wait for what they read; the builder checks
+   whether `wait_for_loaded` or `run_app` should do that waiting for every test and reports what
+   it found, changing them only if that change is small and keeps the suite green.
 
 ## Found along the way
