@@ -682,3 +682,21 @@ def test_no_message_in_the_app_tells_the_owner_to_type_a_command():
         if _TELLS_TO_TYPE.search(text)
     ]
     assert not offenders, "\n".join(offenders)
+
+
+def test_esc_goes_through_the_shared_quit(monkeypatch):
+    asked: list[bool] = []
+
+    async def scenario(pilot, app):
+        real = app.action_quit
+
+        async def action_quit():
+            asked.append(True)
+            await real()
+
+        monkeypatch.setattr(app, "action_quit", action_quit)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app.is_running)
+
+    run_app(scenario, setup=True)
+    assert asked == [True]

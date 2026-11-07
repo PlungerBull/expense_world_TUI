@@ -28,6 +28,7 @@ from rich.text import Text
 from textual import work
 from textual.binding import Binding
 from textual.screen import Screen
+from textual.types import NoActiveAppError
 
 from expense import reads
 from expense.bank_import import flow
@@ -348,7 +349,11 @@ class StatementPreviewScreen(PreviewScreen):
     def _ask(self, dry_run: bool) -> None:
         """The apply is one save while it runs, its count read and hand-back included
         (`counted_save`); the dry run writes nothing."""
-        with nullcontext() if dry_run else counted_save(self.app):
+        try:
+            save = nullcontext() if dry_run else counted_save(self.app)
+        except NoActiveAppError:  # a screen that has left cannot name its app: nothing to report to
+            return
+        with save:
             self._call(dry_run)
 
     def _call(self, dry_run: bool) -> None:

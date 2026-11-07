@@ -112,8 +112,8 @@ def _left_save(
 ):
     """Open `record`'s form over Manage ▸ Accounts, make `edits`, save, leave the form while
     the `hold`th write is unanswered (`before_release(pilot, app)`, when given, runs while
-    it is), let it answer, and return `(the app's toasts, the
-    requests sent, the list's reads)`; `elsewhere`: another screen is the one shown."""
+    it is), let it answer, and return `(the app's toasts, the requests sent, the list's
+    reads)`; `elsewhere`: another screen is the one shown."""
     monkeypatch.setattr("expense.reads.fetch_transaction", lambda cfg, tid, **kw: ROWS[tid])
     list_reads: list[int] = []
 

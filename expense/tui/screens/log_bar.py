@@ -79,6 +79,7 @@ from textual.app import ComposeResult
 from textual.binding import ActiveBinding, Binding
 from textual.containers import Horizontal
 from textual.screen import Screen
+from textual.types import NoActiveAppError
 from textual.widgets import Input, Label, Static
 
 from expense import reads
@@ -1143,7 +1144,11 @@ class LogBarScreen(Screen):
     @work(thread=True, group="engine-write")
     def _save(self, leave_after: bool) -> None:
         """One save while it runs, its hand-backs included (`counted_save`)."""
-        with counted_save(self.app):
+        try:
+            save = counted_save(self.app)
+        except NoActiveAppError:  # a screen that has left cannot name its app: nothing to report to
+            return
+        with save:
             self._send_rows(leave_after)
 
     def _send_rows(self, leave_after: bool) -> None:

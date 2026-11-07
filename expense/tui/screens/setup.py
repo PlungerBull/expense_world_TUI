@@ -174,9 +174,9 @@ class SetupScreen(FormScreen):
         self._error = None
         super().action_field(delta)
 
-    def action_cancel(self) -> None:
+    async def action_cancel(self) -> None:
         if not self._submitting:
-            self.app.exit()
+            await self.app.action_quit()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if self._submitting:

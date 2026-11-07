@@ -10,15 +10,17 @@ import threading
 import httpx
 import pytest
 import respx
+from textual.types import NoActiveAppError
 
 from expense.tui.screens._base import LeftBehind, pending_writes
 from expense.tui.screens.accounts import AccountsScreen
-from expense.tui.screens.bank_import import ImportResultScreen
+from expense.tui.screens.bank_import import ImportPreviewScreen, ImportResultScreen
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.home import HomeScreen
+from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.statement_upload import StatementResultScreen
+from expense.tui.screens.statement_upload import StatementPreviewScreen, StatementResultScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -114,6 +116,10 @@ def _scenario(fake_client, monkeypatch, *, writes, leave, then, expect_toasts=Tr
 
 def _ending(i: int) -> dict:
     return dict(success=f"Done {i}.", left_behind=LeftBehind(f"Not {i}"))
+
+
+def bar_empty(screen) -> bool:
+    return screen.query_one("#bar").value == ""
 
 
 def _asked(app) -> tuple[str, str]:
@@ -361,10 +367,6 @@ def test_the_log_bars_batch_counts_as_one_save(fake_client, monkeypatch):
     assert seen == [1, ONE, 0]
 
 
-def bar_empty(screen) -> bool:
-    return screen.query_one("#bar").value == ""
-
-
 def test_a_ledger_bulk_run_counts_as_one_save_after_the_ledger_is_left(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
     _answer_moves(fake_client, ITEMS)
@@ -556,11 +558,9 @@ def test_a_bulk_run_is_counted_when_its_ending_is_handed_back(fake_client, monke
 def test_an_import_apply_is_counted_when_its_result_is_handed_back(
     fake_client, monkeypatch, tmp_path
 ):
-    from expense.tui.screens.bank_import import ImportPreviewScreen
-
     seen: list[int] = []
-    _recording(monkeypatch, ImportPreviewScreen, "_applied", lambda: seen_app[0], seen)
     seen_app: list = []
+    _recording(monkeypatch, ImportPreviewScreen, "_applied", lambda: seen_app[0], seen)
 
     async def check(pilot, app, release):
         seen_app.append(app)
@@ -574,8 +574,6 @@ def test_an_import_apply_is_counted_when_its_result_is_handed_back(
 def test_a_statement_apply_is_counted_through_its_count_read_and_hand_back(
     fake_client, monkeypatch, tmp_path
 ):
-    from expense.tui.screens.statement_upload import StatementPreviewScreen
-
     path = _pdf(tmp_path)
     _patch_upload(monkeypatch)
     _upload_engine(fake_client, {path.read_bytes(): {"rows": [], "balances": []}})
@@ -646,7 +644,20 @@ def test_y_quits_when_the_log_bar_finished_under_the_question(fake_client, monke
         seen.append((app._exit, bar in app.screen_stack))
 
     _log_bar_save_first(fake_client, monkeypatch, after)
-    assert seen[0][0] is True
+    assert seen == [(True, True)]  # the bar did not close first: the app left with it open
+
+
+def test_a_second_ctrl_q_quits_at_once_when_every_save_ended_under_the_question(
+    fake_client, monkeypatch
+):
+    seen = []
+
+    async def after(pilot, app, bar, shown):
+        await pilot.press("ctrl+q")  # the question is up, nothing is pending now
+        seen.append(app._exit)
+
+    _log_bar_save_first(fake_client, monkeypatch, after)
+    assert seen == [True]
 
 
 def _setup_created_under_the_question(monkeypatch, answer):
@@ -705,3 +716,30 @@ def test_setup_closes_and_says_connected_after_n(monkeypatch):
 def test_y_quits_when_setup_finished_under_the_question(monkeypatch):
     out = _setup_created_under_the_question(monkeypatch, "y")
     assert out == {"toasts said": [], "app exited": True}
+
+
+# ---- a screen gone before its save's thread starts ----------------------------------------
+@pytest.mark.parametrize(
+    ("screen_class", "worker"),
+    [
+        (LogBarScreen, "_save"),
+        (ImportPreviewScreen, "_ask"),
+        (StatementPreviewScreen, "_ask"),
+    ],
+)
+def test_a_screen_gone_before_its_save_thread_starts_ends_quietly(
+    screen_class, worker, monkeypatch
+):
+    screen = object.__new__(screen_class)
+
+    def no_app(self):
+        raise NoActiveAppError()  # a screen that has left cannot name its app
+
+    monkeypatch.setattr(screen_class, "app", property(no_app))
+    ran: list[str] = []
+    for body in ("_send_rows", "_call"):  # the save itself must not start
+        monkeypatch.setattr(
+            screen_class, body, lambda *a, **k: ran.append("started"), raising=False
+        )
+    getattr(screen_class, worker).__wrapped__(screen, False)  # does not raise
+    assert ran == []
