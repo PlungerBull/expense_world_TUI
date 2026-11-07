@@ -128,16 +128,7 @@ None.
 
 ## Tasks
 
-Item 5 needs no task: test_errors.py's refusal-row comments already say what their rows prove.
-Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_writing_nothing`
-in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
-own "refused, and this read the same before and after" step) goes with item 7 in task 5.
-
-8. **Two CI-flaky tests wait for the screen to finish drawing (item 9, second pair).**
-   `test_config_screen_shows_only_the_engine_connection` and
-   `test_state8_a_partial_failure_ticks_what_landed` wait for what they read; the builder checks
-   whether `wait_for_loaded` or `run_app` should do that waiting for every test and reports what
-   it found, changing them only if that change is small and keeps the suite green.
+Every task is done; the acceptance check and the doc sweep remain.
 
 ## Found along the way
 
@@ -156,3 +147,9 @@ own "refused, and this read the same before and after" step) goes with item 7 in
   test_reserved_name_held.py, test_bank_lines.py, test_resources_lifecycle.py,
   test_statement_currencies.py, test_statement_order.py and test_statements_lifecycle.py; some
   share one before read across a loop or use `before` in later asserts, and keep it by hand.
+- Two more unit tests fail now and then in CI, each a worker's hand-back querying a widget
+  that has gone: `test_a_statement_created_after_leaving_opens_its_accounts_panel`
+  (test_tui_statements.py; `NoMatches '#crumb' on StatementsScreen`, runs 42281849326,
+  42283565489, 42284942729, 42291172306, 42303070384 and 42310670430 on 2026-11-06) and
+  `test_an_emptied_field_never_sends_null_where_the_engine_refuses_it[bank_line-operation]`
+  (test_tui_edit_form.py; `NoMatches '#brand' on HomeScreen`, run 41510519928 on 2026-11-02).
