@@ -267,23 +267,19 @@ and category stay whole ([tui.md](tui.md) "The LOG bar's account is one row per 
 **Rejected.** *A least title width of about 10 letters, the account then the category cut
 next*: it cuts the names that say where each line will be written.
 
-## The LOG bar peek's count line shortens the account name, never the count or currency (2026-11-06)
+## The LOG bar peek's title and count line shorten the account name, never the count or currency (2026-11-07)
 
-**Context.** At 80 columns the peek is 72 letters wide; with an account name over about 40
-letters its count line would need a second line, and the peek keeps room for one.
+**Decision.** On the peek's title and count line only the account name gives way, with `…`, so the count, the
+currency and the line's ending stay whole ([tui.md](tui.md) "The account peek").
 
-**Decision.** Only the account name gives way, with `…`, so the count, the currency and the
-line's ending stay whole; the title line just above names the account
-([tui.md](tui.md) "The account peek").
-
-**Rejected.** *The count line wraps and the peek shows one row fewer*: a row given up for words
-the title already shows.
+**Rejected.** *Either line wraps and the peek shows one row fewer*: a row given up for a name
+that long, which is rare.
 
 ## The legend, the two picker gaps, and day+month dates (2026-08-29)
 
 **Decision.** (1) **The grammar legend is a permanent row** (`$account · %currency · @category · #tag · ±amount · //note · when`; `⏎ Stage` sits in the footer) that never changes; everything that does change lives on the `#hint` row above it. (2) **A bare `$`/`@`/`#` opens the full list** — it stands unresolved carrying every candidate. (3) **Matching is accent-blind** via one `fold()` ([quickadd/names.py](../expense/quickadd/names.py)). (4) **Day + month means this year**: `28Aug`, `28/ago`, `1set`, `15DEC` — separator optional, month any prefix of three letters or more in English or Spanish (no three-letter prefix reaches two months); an explicit year wins.
 
-**Rejected.** *A bare numeric `28/08`* — `1/2` in a title would silently become a date; the month must be letters. *A four-row key block* — costs the peek four rows. *A live checklist legend* — declined for a row that is the same every time you look.
+**Rejected.** *A bare numeric `28/08`* — `1/2` in a title would silently become a date; the month must be letters. *A four-row key block* — costs the peek four rows. *A live checklist legend* — declined for a row that is the same every time you look. *`↵ stages the line` beside the legend* — it wraps at 80 columns, a peek row lost.
 
 ## A sparse line is a ledger row under `@Pendiente` (2026-09-12)
 
@@ -323,7 +319,7 @@ the bar is where the right file gets dropped next.
 
 ## Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key (2026-09-12)
 
-**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories (see "Home draws four months"), then accounts and people, **each account's row with a line per currency under it, each balance in its own currency, never summed**, then LEDGER, MANAGE and SYSTEM as always-open section headers with every screen a row. A failed read is one dim row with the reason. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=` — crumbed `Ledger ▸ NAME`. (3) **Bulk is select + one key**: `space` selects, `a` selects every loaded row, `c` / `b` / `h` open the bulk pick for the selection (or the cursor row) — a full screen listing the rows it changes above its bar, since a surface that carries rows is a screen and a pop-up only asks — and write **one `PUT /transactions/{id}` per row on its own worker**, then reload. A refused row is named by number and does not stop the others — which is why this is not `run_write`'s drop-on-error queue. The one refusal that ends a run is missing settings ("Missing settings stop a multi-write run"). (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
+**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories, then accounts and people, **each balance in its own currency, never summed**, then LEDGER, MANAGE and SYSTEM as always-open headers ([tui.md](tui.md)). (2) **`⏎` on a row opens Transactions filtered by it**, the engine's own `?category_id=` / `?account_id=`. (3) **Bulk is select + one key**, its pick a full screen since a surface that carries rows is a screen and a pop-up only asks; it writes **one `PUT /transactions/{id}` per row on its own worker**, and a refused row is named and does not stop the others, which is why this is not `run_write`'s drop-on-error queue ("Missing settings stop a multi-write run"). (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
 
 **Rejected.** *A categorising mode with history suggestions* — a second way to edit a category and a guess the engine would have to learn. *Spreading a category to every row with the same title* — same title, different payees; the selection is the spread. *Native balances with a converted figure beside them* — the balance you act on is the native one. *Bulk through `run_write`'s FIFO* — one refusal would drop every row behind it. *Folding the section rows* — the owner wants every screen visible. *`esc` stepping back to the unfiltered ledger* — two keys for "back".
 
@@ -1045,12 +1041,10 @@ currencies in one balance* — a total across currencies has no meaning.
 ## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31)
 
 **Decision.**
-- **An account shows once:** one row per account on Manage ▸ Accounts, with a column per
-  currency; its row and a line per currency on Home; the account alone in every picker. `d`
-  names the account and each currency with its balance, since a delete removes them all.
-- **The currency is a field of its own,** picked and listed like any other: the LOG bar's `%`
-  and its staged `Cur` column, the Edit form's CURRENCY line, the ledger's `Cur` column, its
-  filter and `m`. What each screen says: [tui.md](tui.md).
+- **An account shows once,** on every screen and in every picker; `d` names the account and
+  each currency with its balance, since a delete removes them all.
+- **The currency is a field of its own,** picked and listed like any other
+  ([tui.md](tui.md)).
 - **One currency shows, several are picked.** An account holding one currency asks for none;
   one holding several makes the person pick before a save. Rows moved with `b` to a
   one-currency account take its currency, the amount as it is; to one holding several, each
@@ -1059,14 +1053,12 @@ currencies in one balance* — a total across currencies has no meaning.
   move sends the statement's own id, and an account move sends `statement_id: null`, as the
   engine leaves the assignment to the client
   (contract: "Statements", "Assigning transactions").
-- **The app fills an account's only currency itself** in three places, listed once in
-  `currencies.FILLS_AN_ONLY_CURRENCY` and guarded by a test, until the engine ask "An account's
-  only currency is taken when a write names none" lands. `currencies.only_currency` is the
-  display rule and stays.
+- **The app fills an account's only currency itself** (`currencies.FILLS_AN_ONLY_CURRENCY`)
+  until the engine ask "An account's only currency is taken when a write names none" lands.
 
 **Why.** In the engine an account holds its currencies and a transaction names both, so the
-screens show the account the owner thinks of, once, and the currency where it is chosen. Asking
-for a currency an account cannot have is a question with one answer. Moving rows to a
+screens show the account once and the currency where it is chosen; asking for a currency an
+account cannot have is a question with one answer. Moving rows to a
 one-currency account cannot keep their currency, so they take its, and the owner's rule is that
 an amount moves as it is.
 
@@ -1075,10 +1067,9 @@ an amount moves as it is.
   owner thinks of into pieces.
 - *The currency typed after the amount* (`-45.50 USD`): a field of its own is picked like every
   other field, and the legend names it.
-- *A second pick for `b` asking every row's currency:* to a two-currency account each row's own
-  currency is already held, and `m` is the currency's own key.
-- *Converting the amount on a currency move:* the app holds no rates, and the owner moves an
-  amount as it is.
+- *A second pick for `b` asking every row's currency:* each row's own currency is already
+  held there, and `m` is the currency's key.
+- *Converting the amount on a currency move:* the app holds no rates.
 - *`d` naming one currency with a line saying the others go too:* it hides the balances the
   delete removes.
 
@@ -1240,8 +1231,8 @@ blank line under its hint when no suggestion list shows, so the block fits 80×2
 (3) **`^s` keeps what is typed in the bar as `⏎` would, then saves**; a line nobody typed on
 keeps nothing. (4) **A long crumb is cut with `…`** and the `!` rate alert always shows after
 it. (5) **`pgup Prev` leaves a list's footer on its first page.** (6) **A positive transaction
-amount is written with its `+`** in every list and wherever a transaction is named, a split's
-parts and their count line included; balances, totals and other sums write no
+amount is written with its `+`** in every list and wherever a transaction is named, an Edit form's
+heading and a split's parts and their count line included; balances, totals and other sums write no
 `+` ([tui.md](tui.md) "Amounts").
 
 **Why.** Each list gains two rows, which is what lets the Statements screens fit 80×24 as
@@ -1313,6 +1304,19 @@ so tightening alone still cuts its last key below that.
 **Rejected.** *Tightening alone* — the ledger's `d Delete` is still cut below 144 columns.
 *Leaving keys out without tightening first* — it drops keys the tighter spacing keeps whole.
 
+## The `?` card shows whole and lists only keys that work (2026-11-07)
+
+**Decision.** A card taller than its room spreads out on a wide terminal, else scrolls; one
+that fits keeps its layout. It lists each key once, and a key a screen names in
+`CARD_FOLLOWS_CHECK` only while it works ([tui.md](tui.md) §4).
+
+**Why.** A footer too narrow leaves keys out for `?` to list, so a cut card left a key shown
+nowhere. A card that fits keeps the look the user knows; a row that does nothing lies.
+
+**Rejected.** *Scrolling at every size* — a wide terminal has room to show it whole. *Spreading
+whenever the terminal is wide* — a card that fits would change shape. *Off keys listed, dimmed*
+— rows that do nothing.
+
 ## A save you left still says how it ended (2026-11-06)
 
 **Decision.** A write that can be left carries a `LeftBehind`
@@ -1327,16 +1331,18 @@ nothing holds the queued writes for a retry.
 **Rejected.** *One short `Saved.` / `Not saved` for every save* — it hides which refusal and why.
 *Holding `esc` until the save answers* — it keeps you on a form you left.
 
-## A save whose ending is not known never says it was not saved (2026-11-06)
+## A save whose ending is not known never says it was not saved, and its list reads again (2026-11-07)
 
 **Decision.** After a server error or no answer, a save left behind shows the engine's words
 alone, and the account Edit form names only what was clearly refused (a status under 500,
-`open_it_again` in [_form.py](../expense/tui/screens/_form.py)).
+`open_it_again` in [_form.py](../expense/tui/screens/_form.py)). Its Manage list, when it
+shows, reads again as after a save that landed.
 
-**Why.** Such a save may have landed; "nothing was saved" would be untrue.
+**Why.** Such a save may have landed; "nothing was saved" would be untrue, and the list shows
+whether it did without `r`.
 
 **Rejected.** *`It may have saved: open it to check.`* — a new sentence where the ledger's Edit
-forms already say nothing more.
+forms already say nothing more. *The list waits for `r`* — it may hide a change that landed.
 
 ## Quitting asks while saves are still being sent (2026-11-06)
 

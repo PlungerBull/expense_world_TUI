@@ -135,9 +135,9 @@ When such a write ends while the screen shown is the one it changed, that screen
 again: a Manage form's list from its first page, cursor on row 1, after a save that landed or
 whose ending is not known (a 5xx, no answer: `may_have_landed`), never after a clear refusal
 (the account Edit form's once, at its last answer, if any of its writes landed or ended
-unknown); the screen that opened a line's Edit form, as after any save; the
-Statements screen, a new statement opening that account's panel on it, and after the last tick
-too, however it ended.
+unknown); the screen that opened a line's Edit form, as after any save; the Statements
+screen, a new statement opening that account's panel on it, and after the last tick too,
+however it ended.
 
 **Quitting asks while saves are still being sent.** `ctrl+q`, or `q` on Home, with a save on
 any screen, a left one included, sent and not answered or waiting to be sent, asks first
@@ -591,9 +591,10 @@ and which lines those are is the engine's alone.
 
 **Keys**: the footer reads `esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys`
 (`StatementsScreen.active_bindings` sets that order), then the growing list's
-`pgdn 10 more` and `pgup Prev` where they apply (§5); `n` and `u` are off here, and out of the
-footer. `esc` swaps back to the panel. `⏎ Edit`, on
-every row, opens the Edit form on the line and its parts (below); the `?` card words it "Edit
+`pgdn 10 more` and `pgup Prev` where they apply (§5); `n`, `u` and `esc Close the panel` are
+off here. The `?` card leaves them out too, and lists `pgdn` and `pgup` only while they work
+(§4 "App-wide keys are `^q` and `?`"). `esc` swaps back to the panel. `⏎ Edit`, on every row,
+opens the Edit form on the line and its parts (below); the `?` card words it "Edit
 the transaction and its parts", as the ledger's `s`. `d` deletes the line under the cursor
 after a question ("`d` is the TUI's one destructive key" below), with the line the list
 already holds, so nothing is read before asking: a split transaction (`part_count` above 1)
@@ -857,7 +858,7 @@ stay; the engine still judges each write they send. The ledger learns which acco
 archived from the same `GET /accounts` that gives it the names, one read per load
 (`reads.load_account_index`), so an account unarchived on Manage ▸ Accounts gets its `d` back
 at the ledger's next read. The `?` card still lists `d`, as it does while rows are selected:
-it lists a screen's own keys as the screen declares them.
+the ledger names no key in `CARD_FOLLOWS_CHECK` (§4 "App-wide keys are `^q` and `?`").
 
 **On an archived account's line the Edit form changes the categorisation alone.**
 Such a line keeps its parts and their amounts, and every line field sent is refused but a title
@@ -1318,10 +1319,10 @@ supplies the palette".
 **Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
 statement's lines, the lines in no statement and their Edit form's heading, the Edit form's
-parts and their count line), and wherever one is named (the question before a delete, a note after you leave), writes a positive
-figure with its `+` (`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's
-totals and grid, a statement's balances and difference, and any other
-sum of amounts (the staged total, a day's net, a count line's `… left`) write no `+`
+parts and their count line), and wherever one is named (the question before a delete, a note
+after you leave), writes a positive figure with its `+` (`+800.00` beside `-36.40`); zero stays
+`0.00`. Account balances, Home's totals and grid, a statement's balances and difference, and any
+other sum of amounts (the staged total, a day's net, a count line's `… left`) write no `+`
 (`12,450.00`, `-234.20`). Each rule's reach is in
 [theme.py](../expense/tui/theme.py) beside `TRANSACTION_RULE`.
 
@@ -1371,15 +1372,7 @@ them — they are hand-written into the `?` card
   ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
-  advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names
-  the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
-  `check_action` allows it, as the footer does: the Statements panel's `⏎ Open` and
-  `⏎ Edit`, which is on in the "no statement" list alone, on every row, and a statement's
-  `space`, `c`, `u` and `f`, each on only where the statement offers it ("A statement's
-  screen" below). The "no statement" list's card thus lists no `n`, `u` or `esc Close the
-  panel`, and `pgdn`, `Next page` and `pgup` only while they work. A key a screen's own
-  binding already takes is listed once (`esc Back` inherited from the section screen is not
-  repeated beside the screen's own `esc`).
+  advertise `⏎ Open` falsely.
 
   A currency pick is the exception, and the card says so (`⏎ never changes data, except on a
   currency pick`): Manage ▸ Accounts' `Add a currency · <account>`, opened by `c`, adds the
@@ -1461,7 +1454,7 @@ between that page line and the panel's caption, taken from the room the two list
 picked first; `n` creates a statement for the open account, or with no panel for the account
 under the cursor, and once saved the panel opens on the new one; `u` swaps the panel to the
 account's rows in no statement (§2); `d` deletes a row **in that list only** (off, and out of the
-footer, on the statements list: a statement's own delete is on its screen); `esc`
+footer and the `?` card, on the statements list: a statement's own delete is on its screen); `esc`
 retreats one step — no-statement rows → the panel → the account list (`esc Close the panel`) →
 Home. On a statement's screen one keypress away, `u` means *revert*.
 
@@ -1749,15 +1742,15 @@ again`, the picker staying open under it.
 columns and wider: `$account · %currency · @category · #tag · ±amount · //note · when`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,
 the resolved date in words, how many names a token matches, loading/writing) is the
-`#hint` row above it. What `↵` does is in the footer, `esc Cancel  ⏎ Stage  ^s Save` (the
-footer for dropped files is above).
+`#hint` row above it. What `↵` does is in the footer, `esc Cancel  ⏎ Stage  ^s Save`.
 
 **The account peek.** Once the typed line names an account and its currency (typed, or the
 account's only one), that pick's posted ledger fills the room under the staged list —
 `AccountPeek`, five columns (date, title, amount, category, tags; no account column), titled
-with the pick's label on one line. The title and the count line both shorten only the account name
-with `…` when too long for the panel (the currency stays whole): `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
-`nothing in … yet`, `48 in … · no room to show them`.
+with the pick's label on one line. The title and the count line both shorten only the account
+name with `…` when too long for the panel, the currency whole:
+`3 of 48 in VISA Infinite Sapphire · USD · newest first`, `nothing in … yet`,
+`48 in … · no room to show them`.
 
 * **Elastic.** The panel draws exactly the rows the staged list leaves, again on every
   resize. The empty-state invitation stands down while it is up.
@@ -1850,11 +1843,16 @@ sent (§1 "Quitting asks while saves are still being sent"). `?` opens `HelpModa
 two-column card whose content is **derived** from BINDINGS by walking the screen's and the
 focused widget's MRO and keeping only classes declared under `expense.tui`. `Binding.tooltip`
 carries the card's fuller wording (`Archive / unarchive`) while `description` stays the
-terse footer label (`Archive`). A card taller than the screen between its head and the footer spreads out on a terminal wide
-enough, only then (a card that fits is never widened): the groups three across, no key row
-wrapped, inset from the terminal's sides. One still too tall scrolls on
-`↓` / `↑` between its two rules, a dim `▲ N lines above` / `▼ N more lines` row showing what is
-hidden ([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,
+terse footer label (`Archive`). The card lists only bindings in play (`listed_bindings`): not
+one whose key a subclass declares again, which Textual's merge replaces (`esc Back` inherited
+from `SectionScreen`, on a screen with its own `esc`), and not one its class names in
+`CARD_FOLLOWS_CHECK` while `check_action` refuses it, as the footer does — the keys that are
+off in some states on the Statements screen and its panel, and a statement's `space`, `c`, `u`
+and `f` ("A statement's screen" above). A card taller than the room between the head and the
+footer spreads out on a terminal wide enough, and only then: the groups three across, no key
+row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
+its two rules, a dim `▲ N lines above` / `▼ N more lines` row saying what is hidden
+([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,
 **never on the App** — letters bubble up from lists, the same reason there is no app-level
 `q` (it is scoped to Home). **Forms have no help key**: a focused `Input` swallows printable
 keys, so `?` would type a question mark. The Textual command palette is off

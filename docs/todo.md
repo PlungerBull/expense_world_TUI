@@ -31,14 +31,16 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
+New, one question, its mockup drawn: [the `?` card's leftovers](specs/help-card-leftovers.md),
+what the small fixes on screen found.
+
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
 
-Approved: [small fixes on screen](specs/small-fixes-on-screen.md), running; [the test-suite
-leftovers](specs/test-suite-leftovers.md), ready to run;
+Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;
 [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
 
 **Recommended:** approve the rest.
