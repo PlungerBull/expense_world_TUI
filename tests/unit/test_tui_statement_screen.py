@@ -639,12 +639,23 @@ def test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows(
         screen = StatementScreen(dict(VIS_AGOSTO))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
-        await pilot.pause()
-        await pilot.pause()
         lst = screen._list
-        fits = lst.outer_size.height <= screen.query_one("#rlist").content_size.height
+
+        def fits() -> bool:
+            return lst.outer_size.height <= screen.query_one("#rlist").content_size.height
+
+        # settled: the head is drawn and the list is sized again beneath it
+        await wait_for(
+            pilot,
+            lambda: (
+                screen.query_one("#rhead").outer_size.height == 5
+                and lst._page_size == screen._checklist_items()
+                and fits()
+            ),
+            message="the checklist never fitted #rlist beneath the drawn head",
+        )
         return (
-            fits,
+            fits(),
             lst.page_status,
             screen.query_one("#rhead").outer_size.height,
             _screen_lines(app),

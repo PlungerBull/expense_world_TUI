@@ -349,7 +349,12 @@ def test_the_log_bars_batch_counts_as_one_save(fake_client, monkeypatch):
         seen.append(_asked(app))
         await pilot.press("n")
         late.release.set()
-        await wait_for(pilot, lambda: not screen._saving)
+        # the count drops when the save's worker ends, just after `_saving` clears
+        await wait_for(
+            pilot,
+            lambda: not screen._saving and pending_writes(app) == 0,
+            message="the LOG bar's batch never left the pending-save count",
+        )
         seen.append(pending_writes(app))
 
     run_app(scenario)

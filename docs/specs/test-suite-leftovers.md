@@ -133,10 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-7. **Two CI-flaky tests wait until what they check is so (item 9, first pair).**
-   `test_the_log_bars_batch_counts_as_one_save` and
-   `test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows[24]` wait for the state
-   they check, and still fail when it never comes.
 8. **Two CI-flaky tests wait for the screen to finish drawing (item 9, second pair).**
    `test_config_screen_shows_only_the_engine_connection` and
    `test_state8_a_partial_failure_ticks_what_landed` wait for what they read; the builder checks
