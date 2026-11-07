@@ -4,8 +4,8 @@ Seven small things you see in the app, found while other specs ran, gathered int
 they are answered in one round and built in one run. Each was its own spec or Backlog item
 until 2026-11-06.
 
-**Status: drafted on 2026-11-06; seven questions open, each drawn where it shows on screen; for
-the owner to answer and approve.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and
+**Status: every question answered and the mockups picked on 2026-11-07; the tasks are drafted
+for the owner to approve.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
 ---
@@ -42,7 +42,7 @@ this file is deleted.
 
 ## What it must do
 
-Each point above, as its question below picks.
+Each point above, as "Decided" below picks; point 5 is parked.
 
 ## How the owner knows it is done
 
@@ -50,62 +50,53 @@ Each point above, as its question below picks.
    peek's title shows as picked and its count line is not cut off.
 2. At 140×24 and at 80×24, the ledger's `?` card shows `s Edit` and `d Delete`, as picked.
 3. The "no statement" `?` card lists the keys as picked, and fits a 24-row terminal.
-4. The "no statement" list at 60 columns shows its amount and currency as picked, and its
-   caption leaves no lone `·` on a line.
+4. (Point 5 is parked; nothing to check.)
 5. A Manage form left while it saves, answered by a server error, while its list shows: the
    list does as picked.
 6. The Edit form opened on a deposit from the "no statement" list writes its heading as picked.
 7. The unit suite passes.
 
-## Questions for the owner
+## Decided
 
-1. **The LOG bar's legend at 80 columns?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
-   - **A.** Leave it on two lines; nothing is cut.
-   - **B1.** One line: `⏎ Stage` moves to the footer beside `esc` and `^s`.
-   - **B2.** One line: `↵ stages the line` is left off when it does not fit beside the legend.
-   - **B3.** One line: single spaces between the legend's tokens, so both fit.
-   **Recommended:** B1. The legend is meant to be one line, the peek gets its row back, and a
-   key sits in the footer as on every other screen.
-2. **A peek title too long for the panel?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
-   - **A.** The account name gives way with `…`, as on the count line; the currency stays.
-   - **B.** The title takes a second line, and the peek shows one ledger row fewer.
-   **Recommended:** A. It matches the count line under it, and a name that long is rare.
-3. **A `?` card taller than the screen?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
-   - **A.** The card scrolls, at every size; a dim last line says how much is below.
-   - **B.** On a wide terminal the card spreads out, its groups side by side, so it shows whole;
-     where it still does not fit (80×24), it scrolls as in A.
-   **Recommended:** B. At 140 columns every key shows at once; only a small terminal scrolls.
-4. **Which keys the "no statement" `?` card lists?** Pick in
-   [the mockup](../mockups/expense-world-no-statement-keys.html):
-   - **A.** Only the keys that work there.
-   - **B.** Every key of that list, the ones off right now dimmed.
-   **Recommended:** A. Every row does what it says, and the card fits a 24-row terminal.
-5. **What gives way on a narrow "no statement" list?** Pick in
-   [the mockup](../mockups/expense-world-no-statement-narrow.html):
-   - **A.** The operation number goes; the title keeps its room.
-   - **B.** The title shrinks further; every column stays.
-   - **C.** The title shrinks to 16 letters, then the operation number goes.
-   - **D.** Park it: terminals under 68 columns are rare, and the app is built for 80.
-   **Recommended:** D. It saves a mockup round and a task for a width you do not use; if not
-   D, then C, which keeps the amount and currency whole down to 60 columns. The caption's wrap
-   is drawn on the same mockup.
-6. **A Manage list after a save that failed with a server error or no answer?**
-   - **A.** The list reads again from its first page, as after a save that landed.
-   - **B.** As today: the list stays as it was until `r`.
-   **Recommended:** A. You see at once whether the change landed, without having to know to
-   press `r`. Nothing new is drawn.
-7. **Does the "no statement" Edit form's heading write a deposit with its `+`?** Pick in
-   [the mockup](../mockups/expense-world-small-fixes.html):
-   - **A.** Yes, `Liquidación  ·  +800.00 PEN`, as the parts under it and every list write it.
-   - **B.** No, `800.00`: the heading stays as it is.
-   **Recommended:** A. A transaction's positive amount is written with its `+` wherever it is
-   named.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | The LOG bar's legend at 80 columns, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B1: the legend is the grammar alone, on one line at every width; `⏎ Stage` shows in the footer, `esc Cancel  ⏎ Stage  ^s Save` (2026-11-07). |
+| 2 | A peek title too long for the panel, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | A: the account name gives way with `…`, as on the count line; the currency stays (2026-11-07). |
+| 3 | A `?` card taller than the screen, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B: on a wide terminal the card spreads out, its groups side by side, so it shows whole; where it still does not fit (80×24) it scrolls, a dim line saying how much is above or below (2026-11-07). |
+| 4 | Which keys the "no statement" `?` card lists, in [expense-world-no-statement-keys.html](../mockups/expense-world-no-statement-keys.html)? | A: only the keys that work there (2026-11-07). |
+| 5 | What gives way on a narrow "no statement" list? | D: parked, since the app is built for 80 columns ([todo.md](../todo.md) "Parked") (2026-11-07). |
+| 6 | A Manage list after a save that failed with a server error or no answer? | A: the list reads again from its first page, as after a save that landed (2026-11-07). |
+| 7 | Does the "no statement" Edit form's heading write a deposit with its `+`, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | A: `Liquidación  ·  +800.00 PEN` (2026-11-07). |
 
 ---
 
 ## Tasks
 
-Drafted once the questions are answered and the mockups picked.
+Drafted on 2026-11-07, for the owner to approve. Each task lands with its tests and the lines of
+[tui.md](../tui.md) that describe what it changes.
+
+1. **The LOG bar's legend fits one line.** The legend under the bar is the grammar alone, with
+   no `↵ stages the line`; the footer reads `esc Cancel  ⏎ Stage  ^s Save`, at every width, and
+   `⏎` still stages the line (Decided 1, the mockup's B1).
+2. **A long account name gives way in the peek's title.** The title is one line at any width:
+   the name is cut with `…` so the currency stays whole, as the count line under it already does
+   (Decided 2, the mockup's A).
+3. **The `?` card scrolls when it is taller than the screen.** On every screen, a card that does
+   not fit shows what fits, a dim last line `▼ N more lines · ↓ scrolls`, and `↓` `↑` scroll it;
+   scrolled down, a dim first line `▲ N lines above · ↑ scrolls` (Decided 3, the mockup's A
+   panes, which B keeps for a narrow terminal).
+4. **On a wide terminal the `?` card spreads out.** Where the terminal has room, the card grows
+   wider and sets its groups side by side, three across, each key's words on one line, so the
+   ledger's card shows whole at 140×24 (Decided 3, the mockup's B at 140×24).
+5. **The "no statement" `?` card lists only the keys that work there.** `esc Back` once, `d`,
+   `r`, `⏎`, `↓`, and `pgdn Load the next 10 rows` only while rows are left to load; no
+   `esc Close the panel`, `n`, `u`, `pgup` or `Next page`; it fits a 24-row terminal (Decided 4,
+   the keys mockup's A).
+6. **A Manage list reads again after a save whose ending is not known.** A category, hashtag or
+   account form left while it saves, answered by a server error or no answer, while its list
+   shows: the list reads again from its first page, as after a save that landed (Decided 6).
+7. **The "no statement" Edit form's heading writes a deposit's `+`.** `Liquidación  ·  +800.00
+   PEN`, as the parts table under it writes it (Decided 7, the mockup's A).
 
 ## Found along the way
 

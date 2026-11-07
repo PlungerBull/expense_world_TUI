@@ -31,7 +31,7 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
-To answer, seven questions, each drawn where it shows on screen: [small fixes on
+Answered, its seven tasks drafted for you to approve: [small fixes on
 screen](specs/small-fixes-on-screen.md), every small screen fix in one spec.
 
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
@@ -147,6 +147,9 @@ No commitment. Declined ideas stay listed so they are not proposed again.
   also records the ⌘E conflict). Convenience, not access: `+` opens the LOG bar inside the app.
 - **The quick-add "recents" row** (numbered last-N templates). **Declined 2026-08-25**; listed
   only so it is not re-proposed.
+- **The "no statement" list under 68 columns.** The Statements screen's list of lines in no
+  statement cuts its amount, then its currency, under 68 columns, and under 62 its caption wraps a
+  lone `·` onto a line of its own. Parked 2026-11-07: the app is built for 80 columns.
 - **TUI live niceties.** Auto-refresh / watch mode, search-as-you-type, richer dashboards.
   Mouse stays **off** — see [tui.md](tui.md) §4.
 - **An MCP server for agents.** The way for an agent to read or write the ledger on the owner's
