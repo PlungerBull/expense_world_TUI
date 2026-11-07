@@ -195,6 +195,24 @@ def test_a_field_passed_by_name_to_a_fields_builder_is_named_but_a_knob_is_not(d
     assert "dial" not in out and "other_knob" not in out
 
 
+@respx.mock
+def test_a_test_files_own_fields_builder_counts_for_that_file_only(drift, capsys):
+    """A `**fields` builder defined in one test file is read for that file; a call of the
+    same name in a file that does not define it is not."""
+    _serve(SAVED)
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    (drift.UNIT_TESTS / "helpers.py").write_text("")
+    (drift.UNIT_TESTS / "test_own.py").write_text(
+        "def _kept(*, dial=0, **fields):\n    return fields\n\n\nA = _kept(dial=1, gone_field=2)\n"
+    )
+    (drift.UNIT_TESTS / "test_lacks.py").write_text("B = _kept(other_gone=3)\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert "gone_field" in out and "test_own.py:5" in out
+    assert "dial" not in out and "other_gone" not in out
+
+
 NEWEST = "fedcba9876543210"
 OLDER = "1111222233334444"
 LOG = [
@@ -588,3 +606,50 @@ def test_the_complete_answer_keeps_its_fields_whatever_the_record():
     assert set(statement_complete_answer()["balances"][0]) <= set(balance)
     assert (answer["id"], balance["warnings"], balance["coverage_gap"]) == ("s9", ["a gap"], gap)
     assert statement_complete_answer()["balances"][0]["coverage_gap"] is None
+
+
+def _ref(name):
+    return {"$ref": f"#/components/schemas/{name}"}
+
+
+def _union_doc(*members):
+    doc = _answer_contract()
+    other = dict(properties=dict(last={}), required=["last"])
+    doc["components"]["schemas"]["Other"] = other
+    doc["components"]["schemas"]["Inner"] = dict(anyOf=[_ref("Gap"), _ref("Other")])
+    doc["paths"]["/v1/things/{thing_id}/union"] = dict(
+        get=dict(
+            responses={
+                "200": dict(content={"application/json": dict(schema=dict(anyOf=list(members)))})
+            }
+        )
+    )
+    return doc
+
+
+UNION = "GET /v1/things/{thing_id}/union"
+
+
+@pytest.mark.parametrize(
+    "members",
+    [
+        [_ref("Item"), dict(anyOf=[_ref("Gap"), _ref("Other")])],
+        [dict(anyOf=[_ref("Gap"), _ref("Other")])],
+        [_ref("Item"), _ref("Inner")],
+        [dict(oneOf=[_ref("Inner")])],
+    ],
+)
+def test_a_nested_union_of_object_shapes_is_an_answer_in_many_shapes(members):
+    drift = load_drift_script()
+    doc = _union_doc(*members)
+
+    assert drift.answer_schema(doc, UNION) is None
+    assert drift.answered_in_many_shapes(doc, UNION)
+
+
+def test_a_nested_union_that_collapses_to_one_object_is_checked_against_it():
+    drift = load_drift_script()
+    doc = _union_doc(dict(anyOf=[_ref("Item"), dict(type="null")]), dict(anyOf=[dict(type="null")]))
+
+    assert drift.answer_schema(doc, UNION) == doc["components"]["schemas"]["Item"]
+    assert not drift.answered_in_many_shapes(doc, UNION)

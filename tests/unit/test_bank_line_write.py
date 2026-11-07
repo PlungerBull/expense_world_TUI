@@ -25,13 +25,13 @@ HELD = import_part(
 HELD_PENDING = import_part("p2", -4000, line="bl-9", category_id="c-pend", hashtag_ids=("h-pend",))
 
 
-def _kept(held=HELD, **changes) -> dict:
+def _kept(held=HELD, **fields) -> dict:
     values = {
         "amount_cents": -6000,
         "category_id": "c-com",
         "description": "verduras",
         "hashtag_ids": ("h-casa",),
-        **changes,
+        **fields,
     }
     return kept_part(held, pending_hashtag_id="h-pend", **values)
 

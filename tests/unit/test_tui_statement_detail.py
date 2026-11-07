@@ -204,17 +204,17 @@ def test_status_span_maps_completed_and_draft():
     assert _status_span("draft", palette) == ("draft", palette.warning)
 
 
-def _statement(**balance) -> dict:
+def _statement(**fields) -> dict:
     """Statement r1 as `GET /statements/{id}` reads it: April 2026, a draft of
     acc1, its soles balances a begin of 9,580.00, an end of 9,460.00 and a
-    difference of -35.00, `balance` spread over them."""
+    difference of -35.00, `fields` spread over them."""
     soles = {
         "currency_code": "PEN",
         "beginning_balance_cents": 958000,
         "ending_balance_cents": 946000,
         "difference_cents": -3500,
     }
-    return statement_record({"id": "r1", "balances": [{**soles, **balance}]})
+    return statement_record({"id": "r1", "balances": [{**soles, **fields}]})
 
 
 #: The statement as the engine holds it, and as the browse opens it.

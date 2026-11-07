@@ -381,9 +381,17 @@ def keyword_builders(helpers: Path) -> dict[str, set[str]]:
     not a named parameter is an answer key; a named one (`left=`, `parts=`) is a knob."""
     if not helpers.exists():
         return {}
+    return _fields_builders(ast.parse(helpers.read_text()))
+
+
+def _fields_builders(tree: ast.Module, kwarg: str | None = None) -> dict[str, set[str]]:
+    """The module-level functions of `tree` that take `**fields` (any `**` name when
+    `kwarg` is None), each with its named parameters."""
     named: dict[str, set[str]] = {}
-    for node in ast.parse(helpers.read_text()).body:
+    for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.args.kwarg:
+            if kwarg and node.args.kwarg.arg != kwarg:
+                continue
             args = node.args
             named[node.name] = {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
     return named
@@ -408,9 +416,10 @@ def _keyword_sites(tree: ast.AST, builders: dict[str, set[str]]) -> list[tuple[s
 
 def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
     """Map every unknown fixture key to the file:line sites that use it, whether written
-    as a quoted `"key":` or passed by name to a `**fields` builder (`keyword_builders`)."""
+    as a quoted `"key":` or passed by name to a `**fields` builder (`keyword_builders`),
+    one defined in helpers.py or, named `**fields`, in the file itself."""
     sites: dict[str, list[str]] = defaultdict(list)
-    builders = keyword_builders(UNIT_TESTS / "helpers.py")
+    shared = keyword_builders(UNIT_TESTS / "helpers.py")
     for path in sorted(UNIT_TESTS.glob("*.py")):
         if path.name in NOT_FIXTURES:
             continue
@@ -427,6 +436,7 @@ def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
             tree = ast.parse(source)
         except SyntaxError:
             continue
+        builders = {**shared, **_fields_builders(tree, "fields")}
         for key, lineno in _keyword_sites(tree, builders):
             if key not in known and len(key) >= 3:
                 sites[key].append(f"{path.name}:{lineno}")
@@ -459,17 +469,39 @@ def _members(schema: dict) -> list | None:
     return members if isinstance(members, list) else None
 
 
-def _object_schema(doc: dict, schema: object) -> dict | None:
-    """The one object schema `schema` allows, through `$ref` and `anyOf`/`oneOf`, a map
-    schema (`additionalProperties` naming a schema) included; None when it allows none,
-    or more than one, so the check never guesses between them."""
+def _alternatives(doc: dict, schema: object, seen: frozenset[str] = frozenset()) -> list[dict]:
+    """The resolved schemas `schema` is one of: itself when it is no union, else its
+    members' alternatives, a union nested in a union (through `$ref` too) flattened."""
+    ref = schema.get("$ref") if isinstance(schema, dict) else None
+    if isinstance(ref, str):
+        if ref in seen:  # a union that contains itself
+            return []
+        seen = seen | {ref}
     schema = _resolve(doc, schema)
     members = _members(schema)
-    if members is not None:
-        objects = [found for m in members if (found := _object_schema(doc, m)) is not None]
-        return objects[0] if len(objects) == 1 else None
+    if members is None:
+        return [schema]
+    return [alt for m in members for alt in _alternatives(doc, m, seen)]
+
+
+def _is_object(schema: dict) -> bool:
+    """Whether a resolved, non-union schema names an object: properties, required keys or
+    a map schema (`additionalProperties` naming a schema)."""
     named = "properties" in schema or "required" in schema
-    return schema if named or isinstance(schema.get("additionalProperties"), dict) else None
+    return named or isinstance(schema.get("additionalProperties"), dict)
+
+
+def _objects(doc: dict, schema: object) -> list[dict]:
+    """The object schemas `schema` is one of, nested unions flattened."""
+    return [alt for alt in _alternatives(doc, schema) if _is_object(alt)]
+
+
+def _object_schema(doc: dict, schema: object) -> dict | None:
+    """The one object schema `schema` allows, through `$ref` and `anyOf`/`oneOf`
+    (nested unions flattened), a map schema included; None when it allows none, or more
+    than one, so the check never guesses between them."""
+    objects = _objects(doc, schema)
+    return objects[0] if len(objects) == 1 else None
 
 
 def _list_items(doc: dict, schema: object) -> object | None:
@@ -507,9 +539,7 @@ def answer_schema(doc: dict, endpoint: str) -> dict | None:
 
 def answered_in_many_shapes(doc: dict, endpoint: str) -> bool:
     """Whether `endpoint`'s 2xx JSON answer is a union of more than one object shape."""
-    schema = _resolve(doc, _answer_json(doc, endpoint))
-    objects = [m for m in _members(schema) or [] if _object_schema(doc, m) is not None]
-    return len(objects) > 1
+    return len(_objects(doc, _answer_json(doc, endpoint))) > 1
 
 
 def _checked(

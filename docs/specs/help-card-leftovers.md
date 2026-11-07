@@ -156,7 +156,6 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-1. **The drift check's two gaps** ("The drift check").
 2. **The flaky and weak unit tests** ("Flaky and weak unit tests"): each waits for what it
    checks, or its hand-back touches nothing once its screen has gone.
 3. **The after-leaving gaps** ("After leaving a screen"): the guard, the type, the comment, and
@@ -175,3 +174,11 @@ first.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The drift check reads a nested union of lists the old way.** `_list_items` in
+  [check_fixture_drift.py](../../scripts/check_fixture_drift.py) reads `anyOf [A[], anyOf [B[],
+  C[]]]` as A's items alone. No marked answer has such a shape today.
+- **No unit test pins a union that contains itself.** `_alternatives` in
+  [check_fixture_drift.py](../../scripts/check_fixture_drift.py) drops a `$ref` already seen on
+  its path, so such a union ends; nothing in
+  [test_fixture_drift_script.py](../../tests/unit/test_fixture_drift_script.py) proves it.
