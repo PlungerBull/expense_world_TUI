@@ -133,9 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-3. **The drift check reads a key passed to a builder by name (item 11).** A key a test passes
-   to an answer builder in helpers.py as a keyword (`statement_partner_id=…`) is read and named
-   when the contract lacks it; a unit test proves a made-up field passed by name is named.
 4. **Three unit-test fixes (items 2, 6, 10).** `stub_home_month` stops replacing the settings,
    or its name and docstring say it does; the Edit form's shared hashtag-refusal test proves no
    line of the app's shows when a reason has none, and for every reason that "Nothing was
@@ -166,3 +163,6 @@ own "refused, and this read the same before and after" step) goes with item 7 in
   answer, where both should say the answer comes in more than one shape (`_object_schema`
   and `answered_in_many_shapes` in scripts/check_fixture_drift.py). No marked endpoint has
   such an answer today.
+- The drift check reads a field passed by name only to a `**fields` builder in
+  tests/unit/helpers.py; the `**fields` builders local to one test file (`_kept`, `_statement`,
+  …) are not read, and nothing says so.

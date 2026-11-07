@@ -173,6 +173,28 @@ def test_hook_payload_file_is_not_scanned(drift, capsys):
     assert "tool_name" in capsys.readouterr().out
 
 
+@respx.mock
+def test_a_field_passed_by_name_to_a_fields_builder_is_named_but_a_knob_is_not(drift, capsys):
+    """A keyword a `**fields` builder spreads into its answer is a key; a named parameter
+    of the builder (`dial=`) is a knob, and a builder with no `**fields` is not read."""
+    _serve(SAVED)
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    (drift.UNIT_TESTS / "helpers.py").write_text(
+        "def row(base=None, *, dial=0, **fields):\n"
+        "    return {**(base or {}), **fields}\n\n\n"
+        "def plain(*, other_knob=0):\n"
+        "    return {}\n"
+    )
+    (drift.UNIT_TESTS / "test_kw.py").write_text(
+        "A = row(dial=1, name='x')\nB = row(\n    retired_field=2,\n)\nC = plain(other_knob=1)\n"
+    )
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert "retired_field" in out and "test_kw.py:3" in out
+    assert "dial" not in out and "other_knob" not in out
+
+
 NEWEST = "fedcba9876543210"
 OLDER = "1111222233334444"
 LOG = [

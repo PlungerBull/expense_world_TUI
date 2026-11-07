@@ -25,9 +25,9 @@ contract's change log:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
-REQUIRED FIELDS and what the check cannot see: docs/runtime.md "Fixture drift". Exit
-code is 0 when the version matches, nothing retired is found and no marked answer
-misses a required field or holds a key its endpoint lacks, 1 otherwise, so it also
+What a marked answer is checked for and what the check cannot see: docs/runtime.md
+"Fixture drift". Exit code is 0 when the version matches, nothing retired is found and no
+marked answer misses a required field or holds a key its endpoint lacks, 1 otherwise, so it also
 works as a gate. It cannot tell a retired engine field from a key a test invented for
 its own bookkeeping, so it prints the unknowns and leaves the judgement to a human —
 see KNOWN_LOCAL for the ones already triaged.
@@ -374,9 +374,43 @@ def _prose_spans(source: str) -> tuple[set[int], dict[int, int]]:
     return lines, comment_at
 
 
+def keyword_builders(helpers: Path) -> dict[str, set[str]]:
+    """The builders in helpers.py that take `**fields`, each with its named parameters.
+
+    Such a builder spreads the keywords a test adds into its answer, so a keyword that is
+    not a named parameter is an answer key; a named one (`left=`, `parts=`) is a knob."""
+    if not helpers.exists():
+        return {}
+    named: dict[str, set[str]] = {}
+    for node in ast.parse(helpers.read_text()).body:
+        if isinstance(node, ast.FunctionDef) and node.args.kwarg:
+            args = node.args
+            named[node.name] = {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    return named
+
+
+def _keyword_sites(tree: ast.AST, builders: dict[str, set[str]]) -> list[tuple[str, int]]:
+    """Each (key, line) a call passes by name to one of `builders` outside its parameters."""
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+        if name in builders:
+            found += [
+                (kw.arg, kw.value.lineno)
+                for kw in node.keywords
+                if kw.arg and kw.arg not in builders[name]
+            ]
+    return found
+
+
 def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
-    """Map every unknown fixture key to the file:line sites that use it."""
+    """Map every unknown fixture key to the file:line sites that use it, whether written
+    as a quoted `"key":` or passed by name to a `**fields` builder (`keyword_builders`)."""
     sites: dict[str, list[str]] = defaultdict(list)
+    builders = keyword_builders(UNIT_TESTS / "helpers.py")
     for path in sorted(UNIT_TESTS.glob("*.py")):
         if path.name in NOT_FIXTURES:
             continue
@@ -389,6 +423,13 @@ def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
             for key in KEY_RE.findall(code):
                 if key not in known:
                     sites[key].append(f"{path.name}:{lineno}")
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        for key, lineno in _keyword_sites(tree, builders):
+            if key not in known and len(key) >= 3:
+                sites[key].append(f"{path.name}:{lineno}")
     return sites
 
 
