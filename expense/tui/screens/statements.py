@@ -2181,7 +2181,7 @@ class StatementScreen(
             error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
             left_behind=LeftBehind(
                 self._not_done("Not saved"),
-                success_from=lambda _body: None,  # said by `_write_finished_after_leaving`
+                success_from=lambda _body: None,  # said by `_say_after_leaving`
             ),
         )
 

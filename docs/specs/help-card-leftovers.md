@@ -156,8 +156,6 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-3. **The after-leaving gaps** ("After leaving a screen"): the guard, the type, the comment, and
-   the missing tests.
 4. **Quitting** ("Quitting"): the quit-question tests tidied, the workers' `self.app` read inside
    their `try`, and setup's `esc` through the shared quit.
 5. **The LOG bar's peek** ("The LOG bar's peek"): the two-currency test and the two comments.

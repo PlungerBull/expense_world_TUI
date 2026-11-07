@@ -29,6 +29,7 @@ from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.tui.screens._base import (
     LeftBehind,
+    ReportedPart,
     ResourceListScreen,
     SaveReport,
     call_while_attached,
@@ -1004,7 +1005,9 @@ class EditAccountScreen(NewAccountScreen):
                 left_behind=LeftBehind(part.refused, part=part),
             )
 
-    def _opening_saved(self, code: str, body: dict | None, sent: dict, part, *, last: bool):
+    def _opening_saved(
+        self, code: str, body: dict | None, sent: dict, part: ReportedPart, *, last: bool
+    ):
         """The success callback of `code`'s write: the form now knows the row
         as saved, so a later refusal's next save sends only what is unsaved."""
 
@@ -1028,8 +1031,12 @@ class EditAccountScreen(NewAccountScreen):
 
     def _landed_after_leaving(self, item, error, failure) -> bool:
         """The list reads again once, at the save's last answer, if any part landed or
-        ended unknown; parts all refused clearly leave it be."""
-        report = item.left_behind.part.report
+        ended unknown; parts all refused clearly leave it be. A write with no part is one
+        report of its own: it lands, or ends unknown, as any single save does."""
+        behind = item.left_behind
+        if behind is None or behind.part is None:
+            return error is None or may_have_landed(failure)
+        report = behind.part.report
         return report.complete and (
             report.landed or any(may_have_landed(f) for f in report.failures)
         )

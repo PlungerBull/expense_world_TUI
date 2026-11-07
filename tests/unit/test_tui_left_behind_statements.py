@@ -13,7 +13,7 @@ import threading
 import pytest
 from textual.screen import Screen
 
-from expense.errors import EngineError, format_error
+from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.statements import NewStatementScreen, StatementScreen
 from tests.unit.helpers import LateAnswer, app_notes, cursor_page, run_app, wait_for
@@ -25,6 +25,8 @@ pytestmark = pytest.mark.usefixtures("no_flagged_lines")
 REFUSAL = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
 NAME = DRAFT["name"]
 LAST = "Nothing was saved: open it again to fix it."
+SERVER_ERROR = EngineError("INTERNAL_ERROR", "Went wrong [on our side].", None, 500, {})
+NO_ANSWER = EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
 
 
 class Opener(Screen):
@@ -104,6 +106,21 @@ def test_a_refused_new_statement_names_what_was_not_created(fake_client, monkeyp
     assert _plain(message) == f"{format_error(REFUSAL)}\n{LAST}"
     assert "[not markup]" in _plain(message)
     assert (options["severity"], options["timeout"], options["markup"]) == ("error", 10, True)
+    assert created == []
+
+
+@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
+def test_a_new_statement_whose_ending_is_not_known_ends_with_the_engines_words_only(
+    fake_client, monkeypatch, failure
+):
+    """As on every bar form (`open_it_again`): it may have been created, so no last line
+    sends the owner back to the form."""
+    notes, created, _ = _left_new(fake_client, monkeypatch, failure)
+    [(title, message, options)] = notes
+    assert title == "Not created · Statement Abril 2026"
+    assert message == format_error(failure)
+    assert LAST not in message
+    assert (options["severity"], options["timeout"], options["markup"]) == ("error", 10, False)
     assert created == []
 
 

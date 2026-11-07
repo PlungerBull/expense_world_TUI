@@ -9,12 +9,14 @@ Accounts, when it is the screen shown, then reads again. The queue is in test_tu
 """
 
 import threading
+from types import SimpleNamespace
 
 import pytest
 from textual.screen import Screen
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.tui.screens._base import LeftBehind
 from expense.tui.screens._form import open_it_again
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
@@ -105,6 +107,7 @@ def _left_save(
     refusals=None,
     elsewhere=False,
     quit_instead=False,
+    real_esc=False,
     before_release=None,
 ):
     """Open `record`'s form over Manage ▸ Accounts, make `edits`, save, leave the form while
@@ -127,8 +130,13 @@ def _left_save(
         listing = AccountsScreen()
         await app.push_screen(listing)
         await wait_for_list(pilot, app)
-        form = EditAccountScreen(record)
-        await app.push_screen(form)
+        if real_esc:  # opened by the list's own `e`, so its `_edited` is the callback
+            await pilot.press("e")
+            form = app.screen
+            assert isinstance(form, EditAccountScreen)
+        else:
+            form = EditAccountScreen(record)
+            await app.push_screen(form)
         await wait_for(pilot, lambda: bool(form.query("#bar")) and not form._openings_loading)
         for key, text in edits:
             _on(form, key)
@@ -147,12 +155,18 @@ def _left_save(
             await pilot.pause()
             result.extend([notes, list(fake_client.requests), len(list_reads)])
             return
-        await app.pop_screen()  # left: popped, so its dismiss callback never runs
+        reads_at_leaving = len(list_reads)
+        if real_esc:  # the form's own `esc`: its dismiss callback runs, as for a user
+            assert form._wrote is True  # the account landed: esc closes the form as saved
+            await pilot.press("escape")
+        else:
+            await app.pop_screen()  # left: popped, so its dismiss callback never runs
         await wait_for(pilot, lambda: app.screen is listing)
         await wait_for_list(pilot, app)
         if elsewhere:
             await app.push_screen(Screen())
             await wait_for(pilot, lambda: app.screen is not listing)
+        await pilot.pause()
         reads_before = len(list_reads)
         if before_release is not None:
             await before_release(pilot, app)
@@ -164,7 +178,8 @@ def _left_save(
             await wait_for(pilot, lambda: len(list_reads) > reads_before, timeout=3)
             await wait_for_list(pilot, app)
             assert listing.query_one(CursorList).cursor_key == record["id"]  # row 1
-        result.extend([notes, list(fake_client.requests), len(list_reads) - reads_before])
+        reads_base = reads_at_leaving if real_esc else reads_before
+        result.extend([notes, list(fake_client.requests), len(list_reads) - reads_base])
 
     run_app(scenario, size=(120, 40))
     return tuple(result)
@@ -365,3 +380,48 @@ def test_one_part_unknown_and_the_rest_refused_clearly_reads_the_list_again(
         refusals={PUT_ACCOUNT: NOT_FUTURE, PUT_PEN: SERVER_ERROR, PUT_USD: NOT_FUTURE},
     )
     assert reads == 1
+
+
+def test_a_save_of_the_account_alone_says_saved_and_reads_the_list_again(fake_client, monkeypatch):
+    notes, sent, reads = _left_save(fake_client, monkeypatch, edits=(("name", "Visa 2"),))
+    assert sent == [PUT_ACCOUNT]
+    assert [(t, m) for t, m, _ in notes] == [("", "Saved.")]
+    assert reads == 1
+
+
+def test_a_refused_save_of_the_account_alone_names_it_and_reads_nothing(fake_client, monkeypatch):
+    notes, sent, reads = _left_save(
+        fake_client, monkeypatch, edits=(("name", "Visa 2"),), refusals={PUT_ACCOUNT: NOT_FUTURE}
+    )
+    assert sent == [PUT_ACCOUNT]
+    [(title, message, options)] = notes
+    assert title == "Not saved · Account Visa"
+    assert message == (
+        f"The account's changes are not saved:\n{_words(NOT_FUTURE)}\n"
+        "[dim]Open the account's Edit form to set its changes again."
+    )
+    assert options["severity"] == "error"
+    assert reads == 0
+
+
+@pytest.mark.parametrize(
+    ("error", "failure", "reads"),
+    [(None, None, True), ("x", NOT_FUTURE, False), ("x", SERVER_ERROR, True)],
+    ids=["landed", "refused", "unknown"],
+)
+def test_a_write_with_no_part_reaches_the_landing_check_without_raising(error, failure, reads):
+    form = EditAccountScreen(VISA)
+    item = SimpleNamespace(left_behind=LeftBehind("Not saved"))
+    assert form._landed_after_leaving(item, error, failure) is reads
+
+
+def test_the_real_esc_after_the_account_landed_reads_the_list_at_esc_and_again_at_the_end(
+    fake_client, monkeypatch
+):
+    """The account's PUT answered with the form open; `esc` with the PEN opening balance's
+    write still unanswered runs the list's own reload (one read), and the late answer's
+    `start_over` is a second."""
+    notes, sent, reads = _left_save(fake_client, monkeypatch, hold=2, real_esc=True)
+    assert sent == ALL_THREE
+    assert [(t, m) for t, m, _ in notes] == [("", "Saved.")]
+    assert reads == 2

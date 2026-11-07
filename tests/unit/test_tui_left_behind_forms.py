@@ -203,3 +203,42 @@ def test_a_form_saved_after_leaving_for_another_screen_reads_nothing_more(fake_c
         assert len(reads) == before
 
     run_app(scenario, size=(120, 40))
+
+
+def test_the_real_esc_leaves_a_saving_form_and_its_late_answer_still_shows(
+    fake_client, monkeypatch
+):
+    """`esc` pressed on the form (not the screen popped) while its save is unanswered."""
+    reads: list[int] = []
+
+    def fetch_rows(*a, **k):
+        reads.append(1)
+        return whole(list(HASHTAGS))
+
+    monkeypatch.setattr("expense.reads.fetch_hashtags", fetch_rows)
+    late = LateAnswer(fake_client, "post", None)
+
+    async def scenario(pilot, app):
+        notes = app_notes(monkeypatch, app)
+        listing_screen = HashtagsScreen()
+        await app.push_screen(listing_screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("n")
+        form = app.screen
+        await wait_for(pilot, lambda: bool(form.query("#bar")))
+        form.query_one("#bar", Input).value = "nuevo"
+        form._recompute("nuevo")
+        form.on_input_submitted(None)
+        await wait_for(pilot, late.started.is_set)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is listing_screen)
+        await wait_for_list(pilot, app)
+        before = len(reads)
+        late.release.set()
+        await wait_for(pilot, lambda: notes, timeout=3)
+        await wait_for(pilot, lambda: len(reads) > before, timeout=3)
+        await wait_for_list(pilot, app)
+        assert [(title, message) for title, message, _ in notes] == [("", "Hashtag created.")]
+        assert listing_screen.query_one(CursorList).cursor_key == HASHTAGS[0]["id"]
+
+    run_app(scenario, size=(120, 40))

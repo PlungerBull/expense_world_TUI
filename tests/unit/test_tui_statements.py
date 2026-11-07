@@ -618,11 +618,12 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
     run_app(scenario)
 
 
-def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch):
+def test_a_statement_created_after_leaving_opens_its_accounts_panel(fake_client, monkeypatch):
     """The account cursor goes with the panel it opens, though it moved while the form was
-    open."""
+    open; the answer is the real write's, late."""
     rows = [dict(r) for r in ITEMS]
     reads = _patch_browse(monkeypatch, items=rows)
+    late = LateAnswer(fake_client, "post")
 
     async def scenario(pilot, app):
         screen = StatementsScreen()
@@ -633,12 +634,18 @@ def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch)
         await pilot.press("n")
         await wait_for(pilot, lambda: isinstance(app.screen, NewStatementScreen))
         form = app.screen
+        for typed in ("May 2026", "2026-05-01", "2026-05-31", "", ""):  # name, dates, USD lines
+            form.query_one("#bar", Input).value = typed
+            form._recompute(typed)
+            form.on_input_submitted(None)
+        await wait_for(pilot, late.started.is_set)
         await app.pop_screen()  # left before the engine answered
         await wait_for(pilot, lambda: app.screen is screen)
         screen._accts_list.action_move(-1)
         await wait_for(pilot, lambda: screen._acct_idx == 0)
-        rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
-        form._created("new-1")
+        new_id = form._new_id
+        rows.append(_statement(new_id, "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
+        late.release.set()
         # `_show` ends (crumb and all) in `_mode`: a test that ends before it
         # tears the screen down under its last lines
         await wait_for(
@@ -646,12 +653,12 @@ def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch)
             lambda: (
                 screen._mode == "statements"
                 and screen._statement_list is not None
-                and screen._statement_list.cursor_key == "new-1"
+                and screen._statement_list.cursor_key == new_id
             ),
             message="the new statement's panel never finished opening",
         )
         assert (screen._acct_idx, reads[-1]) == (1, "acc2")
-        assert screen._statement_list.cursor_key == "new-1"
+        assert screen._statement_list.cursor_key == new_id
 
     run_app(scenario)
 
