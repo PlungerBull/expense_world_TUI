@@ -74,9 +74,6 @@ Each point above, as "Decided" below picks; point 5 is parked.
 Approved on 2026-11-07. Each task lands with its tests and the lines of
 [tui.md](../tui.md) that describe what it changes.
 
-1. **The LOG bar's legend fits one line.** The legend under the bar is the grammar alone, with
-   no `↵ stages the line`; the footer reads `esc Cancel  ⏎ Stage  ^s Save`, at every width, and
-   `⏎` still stages the line (Decided 1, the mockup's B1).
 2. **A long account name gives way in the peek's title.** The title is one line at any width:
    the name is cut with `…` so the currency stays whole, as the count line under it already does
    (Decided 2, the mockup's A).

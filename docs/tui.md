@@ -1740,11 +1740,12 @@ currency is the line's sole problem; a line refused for anything else as well (n
 that matches nothing, a date ahead) gets the plain hint `not staged — fix the line and press ↵
 again`, the picker staying open under it.
 
-**The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
-does: `$account · %currency · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
+**The legend row.** One fixed row under the bar carrying the whole grammar, on one line at 80
+columns and wider: `$account · %currency · @category · #tag · ±amount · //note · when`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,
 the resolved date in words, how many names a token matches, loading/writing) is the
-`#hint` row above it.
+`#hint` row above it. What `↵` does is in the footer, `esc Cancel  ⏎ Stage  ^s Save` (the
+footer for dropped files is above).
 
 **The account peek.** Once the typed line names an account and its currency (typed, or the
 account's only one), that pick's posted ledger fills the room under the staged list —

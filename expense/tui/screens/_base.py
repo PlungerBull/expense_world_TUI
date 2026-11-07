@@ -55,14 +55,16 @@ def screen_fetch_kwargs(app) -> dict:
     return dict(verbose=app._verbose)
 
 
-def relabel(screen: Screen, key: str, description: str) -> None:
+def relabel(screen: Screen, key: str, description: str, action: str | None = None) -> None:
     """Give one of the screen's own bindings a footer word decided at run time
     (`Cancel both`, `Import 9 rows`, the LOG bar's `Upload`). The screen's
-    binding map is its own copy, so this touches no other screen."""
+    binding map is its own copy, so this touches no other screen. With `action`, only
+    the binding of that action on the key is relabelled."""
     bindings = screen._bindings.key_to_bindings.get(key)
     if bindings:
         screen._bindings.key_to_bindings[key] = [
-            replace(b, description=description) for b in bindings
+            replace(b, description=description) if action in (None, b.action) else b
+            for b in bindings
         ]
         screen.refresh_bindings()
 

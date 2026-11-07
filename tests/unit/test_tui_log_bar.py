@@ -22,7 +22,7 @@ from expense.quickadd.parse import parse
 from expense.quickadd.route import route
 from expense.reads import QuickAddRefs, currency_picks
 from expense.tui.screens.log_bar import (
-    LEGEND_LINE,
+    LEGEND,
     AccountPeek,
     LogBarScreen,
     Staged,
@@ -49,6 +49,7 @@ from tests.unit.helpers import (
     refusal_text,
     render_text,
     run_app,
+    screen_lines,
     wait_for,
     whole,
 )
@@ -391,7 +392,7 @@ def test_state1_opens_on_an_empty_bar_with_the_invitation(fake_client, monkeypat
         # the grammar moved to the legend row; the hint row is for what the
         # parser reads in the line, and an empty bar says nothing
         assert screen._hint() == ""
-        assert "↵ stages the line" in _legend(screen)
+        assert "stages the line" not in _legend(screen)
         assert "Nothing staged" in _text(screen._staged_renderable())
 
     run_app(scenario)
@@ -2088,11 +2089,40 @@ def test_a_save_refetches_the_account_it_just_wrote_to(fake_client, monkeypatch)
 
 
 # ---- the legend row ---------------------------------------------------------
-# The whole grammar in one row, with the ↵ hint on the same line.
+# The whole grammar in one row.
 def test_the_legend_names_every_token_of_the_grammar():
     for token in ("$account", "@category", "#tag", "±amount", "//note", "when"):
-        assert token in LEGEND_LINE
-    assert "↵ stages the line" in LEGEND_LINE  # the ↵ hint rides the same row
+        assert token in LEGEND
+
+
+def test_the_legend_is_one_row_and_the_footer_carries_stage(fake_client, monkeypatch):
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        await _open(app, pilot)
+        await pilot.pause()
+        lines = screen_lines(app)
+        at = next(i for i, line in enumerate(lines) if "$account" in line)
+        assert lines[at].strip() == LEGEND
+        assert "stages" not in lines[at + 1]  # the next row is not a wrapped tail
+        assert not any("stages the line" in line for line in lines)
+        footer = next(line for line in lines if "Cancel" in line)
+        assert " ".join(footer.split()) == "esc Cancel ⏎ Stage ^s Save"
+
+    run_app(scenario)
+    run_app(scenario, size=(140, 30))
+
+
+def test_enter_still_stages_with_the_footer_entry(fake_client, monkeypatch):
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await pilot.press("enter")
+        assert [e.line for e in screen._staged] == [LEDGER_LINE]
+
+    run_app(scenario)
 
 
 def test_the_legend_never_changes_whatever_the_line_says(fake_client, monkeypatch):
@@ -2234,7 +2264,11 @@ def test_editing_back_to_a_line_returns_to_quick_add_at_once(fake_client, monkey
         _type(screen, str(path)[:-1])  # one character off: no such file
         assert screen._files is None
         assert screen.query_one("#legend", Static).display
-        assert _shown_bindings(screen) == {"escape": "Cancel", "ctrl+s": "Save"}
+        assert _shown_bindings(screen) == {
+            "escape": "Cancel",
+            "enter": "Stage",
+            "ctrl+s": "Save",
+        }
         _type(screen, "")
         assert screen._files is None and screen._hint() == ""
         _type(screen, LEDGER_LINE)

@@ -76,7 +76,7 @@ from rich.table import Table
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import ActiveBinding, Binding
 from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Input, Label, Static
@@ -164,14 +164,10 @@ PEEK_LOADING = "loading…"
 SAVED_GLYPH = "✓"
 EXAMPLE = "e.g.  tottus -38.60 $signature @korakuen #caja hoy"
 
-STAGE_HINT = "↵ stages the line"
-
-#: The legend — the whole grammar in one fixed row under the bar, with what
-#: `↵` does on the same line. It never changes:
-#: it describes the grammar, not the moment, and the moment is the `#hint` row
-#: above it. Constant width, so nothing below it ever moves.
+#: The legend — the whole grammar in one fixed row under the bar. It never
+#: changes: it describes the grammar, not the moment, and the moment is the
+#: `#hint` row above it. Constant width, so nothing below it ever moves.
 LEGEND = "$account · %currency · @category · #tag · ±amount · //note · when"
-LEGEND_LINE = f"{LEGEND}     {STAGE_HINT}"
 STAGED_HINT = "↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty"
 SAVING_HINT = "writing…"
 PICKER_HINT = "↑↓ moves, ↵ writes the full name into the line"
@@ -789,6 +785,11 @@ class LogBarScreen(Screen):
 
     BINDINGS = [
         ("escape", "back", "Cancel"),
+        # Live whenever the bar holds no dropped files (an empty bar included).
+        # `priority` is what lets the footer list it (a focused Input hides
+        # non-priority `enter` bindings); the action only asks the Input to
+        # submit, so `↵` does what it always did.
+        Binding("enter", "stage", "Stage", priority=True),
         # `priority` is load-bearing: Textual's own `Input` binds ctrl+x to
         # `cut`, and with `select_on_focus` a focused bar can hold a selection —
         # so without it this key would cut the line instead of dropping the row.
@@ -845,7 +846,7 @@ class LogBarScreen(Screen):
             Label("LOG", id="field"), Input(id="bar", highlighter=self._hl), id="inputbar"
         )
         yield Static("", id="hint")
-        yield Static(Text(LEGEND_LINE, style="dim"), id="legend")
+        yield Static(Text(LEGEND, style="dim"), id="legend")
         yield Static("", id="suggest")
         yield Static("", id="staged")
         yield AccountPeek()
@@ -889,7 +890,7 @@ class LogBarScreen(Screen):
         if files is not None:
             # One statement PDF is uploaded; anything else is imported.
             one_pdf = len(files) == 1 and is_statement(files[0])
-            relabel(self, "enter", "Upload" if one_pdf else "Import")
+            relabel(self, "enter", "Upload" if one_pdf else "Import", "import_files")
         if (files is None) != (self._files is None):
             self.refresh_bindings()  # the footer swaps `ctrl+s Save` for `⏎ Import`
         self._files = files
@@ -942,13 +943,27 @@ class LogBarScreen(Screen):
         self._reparse(text)
 
     # ---- keys --------------------------------------------------------------
+    @property
+    def active_bindings(self) -> dict[str, ActiveBinding]:
+        """The footer reads this: `enter` stands after `escape`, not first. The
+        Input's own `enter` is first in the chain, and a replaced key keeps its place."""
+        keys = super().active_bindings
+        first = {k: keys[k] for k in ("escape", "enter") if k in keys}
+        return {**first, **{k: v for k, v in keys.items() if k not in first}}
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        """Dropped files swap the footer: `⏎ Import` in, `ctrl+s Save` out."""
+        """Dropped files swap the footer: `⏎ Import` in, `⏎ Stage` and `ctrl+s Save` out."""
+        if action == "stage":
+            return self._files is None
         if action == "import_files":
             return self._files is not None and self._file_problem is None
         if action == "save":
             return self._files is None
         return True
+
+    async def action_stage(self) -> None:
+        """`⏎` as the footer's entry: the Input's own submit, never a second path."""
+        await self.query_one("#bar", Input).action_submit()
 
     def action_import_files(self) -> None:
         """`⏎` on dropped files — never a stage, never an engine call here."""
