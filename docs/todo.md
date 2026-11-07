@@ -31,11 +31,6 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
-New, one question, its mockup drawn, and its tasks to approve: [the `?` card's leftovers, and
-the Backlog's clean-up](specs/help-card-leftovers.md), what the small fixes on screen found plus
-every Backlog item that waits on nothing; its clean-up tasks can run before the question is
-answered.
-
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 

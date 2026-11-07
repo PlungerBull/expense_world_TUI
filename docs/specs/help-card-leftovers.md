@@ -5,9 +5,8 @@ Two small things you see on the `?` card, found while the small fixes on screen 
 item of [todo.md](../todo.md)'s Backlog that waits on nothing: tests, comments and small code
 gaps that change nothing you see.
 
-**Status: drafted on 2026-11-07; one question open; tasks drafted for the owner to approve.** It
-waits on no other spec; the clean-up tasks run first and do not wait on the question. When done,
-the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: approved on 2026-11-07, its question answered; the loop is running.** It waits on no
+other spec. When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -148,12 +147,14 @@ you see changes.
    - **B.** As today: the screen behind shows through, one cell each side.
    **Recommended:** A. The card reads as one block, and nothing half-drawn shows beside it.
 
+   **Picked: A** (2026-11-07).
+
 ---
 
 ## Tasks
 
-Drafted 2026-11-07, for the owner to approve. Each task's "passes if…" is written when it starts.
-The clean-up runs first; task 8 waits on question 1.
+Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
+first.
 
 1. **The drift check's two gaps** ("The drift check").
 2. **The flaky and weak unit tests** ("Flaky and weak unit tests"): each waits for what it
@@ -168,7 +169,7 @@ The clean-up runs first; task 8 waits on question 1.
    `TRANSACTION_RULE` comment, and the footer guard's gaps.
 7. **The live tests use `refused_keeping`** ("The live tests") wherever the refused write's read
    is not shared across a loop or used later.
-8. **The `?` card** (points 1 and 2): the gutters as picked, and the Statements account list's
+8. **The `?` card** (points 1 and 2): the gutters blank (question 1, A), and the Statements account list's
    card listing the page keys only while they work.
 
 ## Found along the way
