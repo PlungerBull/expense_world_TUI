@@ -31,11 +31,8 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
-Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:
+Answered, waiting on its engine ask (handed over 2026-11-07) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
-
-New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
-write, whole or not at all" ([to-engine/](to-engine/)).
 
 Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
 engine.

@@ -7,8 +7,8 @@ not the lines the close would flag; those show only once the month is closed, on
 screen's `⚑` line and `f`.
 
 **Status: question 1 answered A on 2026-11-05. It waits on the engine ask "A statement PDF's
-dry run names the lines the close will flag", in [to-engine/](../to-engine/) for the owner to
-hand over, and on a mockup of the preview for the owner to pick.** It waits on no other spec. When done, the
+dry run names the lines the close will flag", handed over to the engine coders on 2026-11-07,
+and on a mockup of the preview for the owner to pick.** It waits on no other spec. When done, the
 why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
