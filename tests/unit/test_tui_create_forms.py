@@ -419,9 +419,9 @@ def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_cli
     ids=["category", "account"],
 )
 def test_a_colour_no_swatch_shows_is_kept_and_never_sent(fake_client, make):
-    """A colour from outside the palette (the sheet import's, say) highlights no
-    swatch and `enter` keeps it, even where COLOR is required; the summary shows
-    it, and the save leaves it out of the body."""
+    """A colour from outside the palette (the engine's own, on a row created with
+    none) highlights no swatch and `enter` keeps it, even where COLOR is required; the
+    summary shows it, and the save leaves it out of the body."""
     screen = make()
 
     async def scenario(pilot, app):

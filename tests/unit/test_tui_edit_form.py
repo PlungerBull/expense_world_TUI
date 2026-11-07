@@ -19,7 +19,7 @@ import pytest
 from rich.text import Text
 from textual.widgets import Input, Static
 
-from expense.errors import EngineConnectionError, EngineError
+from expense.errors import NEXT_STEPS, EngineConnectionError, EngineError
 from expense.tui.screens._form import TITLE_REQUIRED
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
@@ -1573,8 +1573,9 @@ def test_an_emptied_set_sends_an_empty_list(fake_client, monkeypatch):
 def test_a_hashtag_refusal_shows_under_the_parts_as_sent(
     fake_client, monkeypatch, code, status, reason, line
 ):
-    """The engine's words whole, then its line if the reason has one; the form
-    stays."""
+    """The engine's words whole, `Nothing was saved.`, then the app's line if the
+    reason has one and none of the others' lines if it has not; one write was
+    sent and the form stays."""
     err = hashtag_refusal(code, status, reason)
     fake_client.errors["PUT"] = err
     _patch(monkeypatch, _line(ON_PENDING), hashtags=WITH_PENDING)
@@ -1589,7 +1590,20 @@ def test_a_hashtag_refusal_shows_under_the_parts_as_sent(
     summary, on_top = _open(ON_PENDING, steps)
     assert f"{code} — Engine words for {reason}." in summary
     assert "! hashtag_ids: stand-in field words" in summary
-    assert (line in summary) if line else True
+    assert "Nothing was saved." in summary
+    if line:
+        assert line in summary
+    else:
+        app_lines = [
+            words
+            for code_, _, reason_, _ in HASHTAG_REFUSALS
+            if (step := NEXT_STEPS.get((code_, reason_)))
+            for words in (step.line, step.on_list, *step.by_key.values())
+            if words
+        ]
+        assert app_lines  # the set is not empty, so the check below can fail
+        assert not [shown for shown in app_lines if shown in summary]
+    assert [call[0] for call in fake_client.calls].count("PUT") == 1
     assert on_top
 
 

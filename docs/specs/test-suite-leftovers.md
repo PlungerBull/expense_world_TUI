@@ -133,11 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-4. **Three unit-test fixes (items 2, 6, 10).** `stub_home_month` stops replacing the settings,
-   or its name and docstring say it does; the Edit form's shared hashtag-refusal test proves no
-   line of the app's shows when a reason has none, and for every reason that "Nothing was
-   saved." shows and one write was sent; test_tui_create_forms.py's docstring drops "(the sheet
-   import's, say)".
 5. **One shared "refused, nothing changed" step in the live suite (items 3's rest, and 7).**
    One step in tests/contract/conftest.py takes a read and a call, and gives the refusal with
    the read the same before and after; test_bank_line_write.py's hand-written refused-then-read
@@ -166,3 +161,5 @@ own "refused, and this read the same before and after" step) goes with item 7 in
 - The drift check reads a field passed by name only to a `**fields` builder in
   tests/unit/helpers.py; the `**fields` builders local to one test file (`_kept`, `_statement`,
   …) are not read, and nothing says so.
+- tests/unit/test_no_read_only_fields.py writes the engine address and token itself (lines
+  174, 187, 231) where `ENGINE_URL` and `ENGINE_TOKEN` in helpers.py hold them.

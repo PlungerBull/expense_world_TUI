@@ -22,9 +22,11 @@ import pytest
 import typer
 from rich.console import Console
 
+from expense.config import Config
 from expense.errors import EngineError
 
 ENGINE_URL = "https://api.example.com"
+ENGINE_TOKEN = "ewe_pat_test"
 
 
 # ---------------------------------------------------------------------------
@@ -1624,8 +1626,9 @@ HOME_TAG_NAMES = dict([("h-sal", "SALIDAS"), ("h-otr", "OTROS"), ("h-pend", "Pen
 
 
 def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, calls=None):
-    """Answer Home's worker from the fixtures above. `calls`, when given, records
-    each range read's `(from_ym, to_ym)`."""
+    """Answer Home's worker from the fixtures above, and replace the settings
+    (`expense.config.ensure_loaded`) with a Config pointing at `ENGINE_URL`. `calls`,
+    when given, records each range read's `(from_ym, to_ym)`."""
 
     def fake_range(cfg, *, from_ym, to_ym, **kw):
         if calls is not None:
@@ -1641,7 +1644,8 @@ def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, cal
         "expense.tui.screens.home.load_hashtag_name_map",
         lambda: HOME_TAG_NAMES if names is None else names,
     )
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    cfg = Config(engine_url=ENGINE_URL, token=ENGINE_TOKEN)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: cfg)
 
 
 def app_notes(monkeypatch, app) -> list[tuple[str, str, dict]]:

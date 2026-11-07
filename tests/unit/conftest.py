@@ -146,7 +146,7 @@ def configured(tmp_path, monkeypatch):
     config_module.save(
         config_module.Config(
             engine_url=helpers.ENGINE_URL,
-            token="ewe_pat_test",
+            token=helpers.ENGINE_TOKEN,
         )
     )
     yield
