@@ -4,8 +4,8 @@ A plain cell is words, never content markup: `BCP [like this]` keeps its
 brackets, and a `[/]` or a lone `[` neither vanishes nor breaks the list. The
 app's own styled cells (`Text`: a swatch, a coloured amount, a mark) keep their
 styling. Pinned where the owner meets it: Home's balances, Manage ▸ Accounts,
-the ledger, the bank import's preview, the statement tick list and the LOG
-bar's staged rows.
+the ledger, the bank import's preview, its account list and `Preview · <account>`
+head, the statement tick list and the LOG bar's staged rows.
 """
 
 import re
@@ -173,6 +173,27 @@ def test_the_bank_import_preview_shows_a_bracketed_title_whole(fake_client, monk
         preview = await _previewed(pilot, app)
         lines = _lines_shown(preview)
         assert re.split(r"\s{2,}", lines[2]) == ["2", "2026-09-12", NAME, "+6,519.00", "✓", "New"]
+
+    run_app(scenario, size=(120, 40))
+
+
+@pytest.mark.parametrize("name", BRACKETED)
+def test_the_bank_import_shows_a_bracketed_account_whole(fake_client, monkeypatch, tmp_path, name):
+    """The import's account list and its `Preview · <account>` head: the account's
+    name as the engine holds it, beside its currency and `nothing written yet`."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch, [account_with_currencies(id="bcp", name=name)])
+    rows = [import_row(2, 651900, day="2026-09-12", title="PAGO", account_id="bcp")]
+    _engine(fake_client, {path.read_bytes(): rows})
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        account = await _preview(pilot, app)
+        assert [re.split(r"\s{2,}", line) for line in _lines_shown(account)[-1:]] == [[name, "PEN"]]
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        assert _lines_shown(preview)[0] == f"Preview · {name} · nothing written yet"
 
     run_app(scenario, size=(120, 40))
 
