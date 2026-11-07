@@ -156,7 +156,6 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-5. **The LOG bar's peek** ("The LOG bar's peek"): the two-currency test and the two comments.
 6. **Shared copies, comments and guards** ("Shared copies, comments and guards"): one shared copy
    of `(unnamed)`, the test reading `ENGINE_URL` and `ENGINE_TOKEN`, the parts-row tests, the
    `TRANSACTION_RULE` comment, and the footer guard's gaps.

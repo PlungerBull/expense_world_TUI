@@ -1875,6 +1875,28 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
     run_app(scenario, size=(110, 30))
 
 
+def test_the_peek_title_and_count_name_the_picked_currency_of_a_two_currency_account(
+    fake_client, monkeypatch
+):
+    fetch = _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "-12.50 $visa %usd")
+        await _peeked(pilot, screen)
+        panel = _peek(screen)
+        assert (fetch.currencies, fetch.counted_currencies) == (["USD"], ["USD"])
+        assert panel.panel_title == "VISA Infinite Sapphire · USD"
+        assert panel.panel_status == "2 of 214 in VISA Infinite Sapphire · USD · newest first"
+        drawn = [ln.strip() for ln in screen_lines(app)]
+        assert "VISA Infinite Sapphire · USD" in drawn
+        assert "2 of 214 in VISA Infinite Sapphire · USD · newest first" in drawn
+        assert not any("· PEN" in ln for ln in drawn)
+
+    run_app(scenario, size=(110, 30))
+
+
 def test_a_long_account_name_gives_way_in_the_count_line(fake_client, monkeypatch):
     long_name = "Interbank " + "Cuenta Sueldo Mancomunada Familia Quispe"
     assert len(long_name) == 50

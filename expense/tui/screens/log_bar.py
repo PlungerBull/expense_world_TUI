@@ -701,15 +701,14 @@ class AccountPeek(Static):
     def on_resize(self) -> None:
         self._rebuild()
 
-    #: Lines the panel spends on chrome rather than ledger rows: the account
-    #: name, the rule under it, the table's column header, and the row count.
-    #: The rule stands in for a border's top edge.
+    #: Lines the panel spends on chrome rather than ledger rows: the title line,
+    #: the rule under it, the table's column header, and the count line. The
+    #: panel has no border; `#peek` in app.tcss only pads and sets margins.
     CHROME_LINES = 4
 
     @property
     def panel_title(self) -> str:
-        """The account this panel is showing — a content line, not the
-        border title — cut to the panel's width."""
+        """The account this panel is showing, cut to the panel's width."""
         return fit_label(self._name, self._code, self.content_size.width)
 
     @property
@@ -721,8 +720,8 @@ class AccountPeek(Static):
     def capacity(self) -> int:
         """Ledger rows this panel can draw right now.
 
-        The panel is `1fr`, and `content_size` already excludes any border,
-        so this is the content height less the four lines of chrome.
+        The panel is `1fr`, so this is its content height less the four lines
+        of chrome.
         """
         return max(0, self.content_size.height - self.CHROME_LINES)
 
@@ -756,8 +755,8 @@ class AccountPeek(Static):
         return Group(self._heading(), table, Text(self._status, style="dim"))
 
     def _heading(self) -> RenderableType:
-        """The account name over a rule — what the border's top edge carried,
-        its name cut to the panel's width like the count line's.
+        """The title line (the account and the picked currency, its name cut to the
+        panel's width like the count line's) over a dim rule.
 
         `Rule` takes an explicit style: Rich's default resolves to a literal
         green, which the source-grepping theme guard cannot see.
