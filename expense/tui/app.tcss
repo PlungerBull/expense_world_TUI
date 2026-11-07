@@ -192,6 +192,21 @@ ModalScreen:ansi {
     background: ansi_default;
     padding: 1 2;
 }
+/* The `?` card: a card taller than the screen above the footer is one window of lines
+   (`help.py` `scroll_window`) between its two rules, height set in code. */
+HelpModal #modal {
+    max-height: 100%;
+}
+HelpModal #modal.scrolling {
+    padding: 0 2;
+    margin: 2 0 0 0;  /* the screen's head (line and rule) stays showing above the card */
+}
+HelpModal #modal.scrolling > .fit, HelpModal #help-scroll {
+    display: none;
+}
+HelpModal #modal.scrolling > #help-scroll {
+    display: block;
+}
 /* confirm/prompt carry short messages — a narrower box reads better */
 ConfirmModal #modal, PromptBox #modal {
     width: 52;

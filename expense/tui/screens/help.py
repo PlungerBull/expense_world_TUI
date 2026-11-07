@@ -17,12 +17,14 @@ declare has no description for this card to show.
 
 from dataclasses import dataclass, field
 
+from rich.console import Console, ConsoleOptions
 from rich.console import Group as RichGroup
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
+from textual.events import Resize
 from textual.keys import format_key, key_to_character
 from textual.screen import ModalScreen
 from textual.widgets import Static
@@ -313,28 +315,125 @@ def render_card(groups: list[HelpGroup], accent: str) -> Table:
     return outer
 
 
+#: Rows the card's chrome takes while it fits: the two rules, the padding above and
+#: below, the title with its blank line, and the closing hint.
+FIT_CHROME = 7
+
+#: A card taller than the room it has scrolls between its two rules; the rows inside
+#: them are all window (the title is its first lines). The rules take these rows.
+SCROLL_CHROME = 2
+
+#: Rows the screen's head takes (its line and rule), left showing above a scrolling card.
+HEAD_ROWS = 2
+
+
+def card_lines(renderable, width: int) -> list[Text]:
+    """A Rich renderable as one `Text` per line, styles kept, so a window of the
+    lines can be drawn with the card's own look."""
+    console = Console(width=width)
+    options: ConsoleOptions = console.options.update(width=width)
+    lines = []
+    for segments in console.render_lines(renderable, options, pad=False):
+        line = Text()
+        for segment in segments:
+            line.append(segment.text, segment.style)
+        lines.append(line)
+    return lines
+
+
+def scroll_window(lines: list[Text], offset: int, height: int) -> tuple[list[Text], int]:
+    """`height` rows showing `lines` from `offset`: the lines that fit, with a dim
+    `▲ N lines above · ↑ scrolls` first row while any are above and a dim
+    `▼ N more lines · ↓ scrolls` last row while any are below; N counts the card
+    lines hidden. Returns the rows and the offset kept inside the card (the last
+    offset is the one that shows the end)."""
+    total = len(lines)
+    offset = max(0, min(offset, total - height + 1 if total > height else 0))
+    up = offset > 0
+    room = height - up
+    down = offset + room < total
+    shown = lines[offset : offset + room - down]
+    rows: list[Text] = []
+    if up:
+        rows.append(Text(f" ▲ {_count(offset, 'line', 'lines')} above · ↑ scrolls", style="dim"))
+    rows.extend(shown)
+    if down:
+        hidden = total - offset - len(shown)
+        rows.append(
+            Text(f" ▼ {_count(hidden, 'more line', 'more lines')} · ↓ scrolls", style="dim")
+        )
+    return rows, offset
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
 class HelpModal(ModalScreen):
     """The `?` card. Dismissed by `?` as well as `esc` — the key that opens it
-    is the key that closes it, so it works as a peek."""
+    is the key that closes it, so it works as a peek. A card taller than the screen
+    above the footer scrolls on `↓` / `↑` (`scroll_window`)."""
 
     BINDINGS = [
         ("escape", "close", "Close"),
         ("question_mark", "close", "Close"),
+        Binding("down", "scroll(1)", "Scroll down", show=False),
+        Binding("up", "scroll(-1)", "Scroll up", show=False),
     ]
 
     def __init__(self, title: str, groups: list[HelpGroup]) -> None:
         super().__init__()
         self._title = title
-        self._groups = groups
+        self._card = render_card(groups, ACCENT)
+        self._lines = [
+            Text(""),
+            Text(title, style=f"bold {ACCENT}"),
+            Text(""),
+            *card_lines(self._card, LEFT_WIDTH + RIGHT_WIDTH),
+        ]
+        self._offset = 0
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static(Text(self._title), classes="modal-title"),
-            Static(render_card(self._groups, ACCENT)),
-            Static(Text("[?] or [esc] close", style="dim")),
+            Static(Text(self._title), classes="modal-title fit"),
+            Static(self._card, classes="fit"),
+            Static(Text("[?] or [esc] close", style="dim"), classes="fit"),
+            Static("", id="help-scroll"),
             id="modal",
         )
         yield FittingFooter()
+
+    def on_mount(self) -> None:
+        self._layout()
+
+    def on_resize(self, event: Resize) -> None:
+        self._layout()
+
+    @property
+    def _room(self) -> int:
+        """Rows between the screen's head and the footer."""
+        return self.size.height - 1 - HEAD_ROWS
+
+    def _layout(self) -> None:
+        """A card that fits is drawn as its three parts; one that does not, as one
+        window of lines the height of the room."""
+        modal = self.query_one("#modal")
+        scrolls = len(self._lines) - 3 + FIT_CHROME > self._room
+        modal.set_class(scrolls, "scrolling")
+        modal.styles.height = self._room if scrolls else "auto"
+        self._draw()
+
+    def _draw(self) -> None:
+        modal = self.query_one("#modal")
+        if not modal.has_class("scrolling"):
+            self._offset = 0
+            return
+        rows, self._offset = scroll_window(self._lines, self._offset, self._room - SCROLL_CHROME)
+        self.query_one("#help-scroll", Static).update(Text("\n").join(rows))
+
+    def action_scroll(self, step: int) -> None:
+        self._offset += step
+        self._draw()  # kept inside the card by `scroll_window`
 
     def action_close(self) -> None:
         self.dismiss(None)

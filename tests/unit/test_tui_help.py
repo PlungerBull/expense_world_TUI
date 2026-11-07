@@ -12,7 +12,9 @@ tests that matter here are the ones that fail when the derivation drifts:
 import importlib
 import inspect
 import pkgutil
+import re
 
+from rich.text import Text
 from textual.binding import Binding
 
 import expense.tui as tui_pkg
@@ -27,11 +29,19 @@ from expense.tui.screens.help import (
     key_rows,
     render_card,
     screen_inventory,
+    scroll_window,
 )
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait_for_loaded
+from tests.unit.helpers import (
+    fake_ledger,
+    render_text,
+    run_app,
+    screen_lines,
+    wait_for,
+    wait_for_loaded,
+)
 
 
 def _stub_engine(monkeypatch, items=()):
@@ -514,3 +524,136 @@ def test_the_card_lists_space_on_a_draft_statement_and_not_on_a_read_only_one(
     for statement, code in ((VIS_AGOSTO, "VIS"), (NOVIEMBRE, "VIS")):
         keys = card(statement, code)
         assert "space" not in keys and "c" not in keys
+
+
+# ---------------------------------------------------------------------------
+# a card taller than the screen scrolls
+# ---------------------------------------------------------------------------
+
+
+def _marks(lines):
+    """`(lines above, lines below)` the scroll markers on the screen state, None for a
+    marker that is not drawn."""
+    text = "\n".join(lines)
+    up = re.search(r"▲ (\d+) lines? above · ↑ scrolls", text)
+    down = re.search(r"▼ (\d+) more lines? · ↓ scrolls", text)
+    return (int(up[1]) if up else None, int(down[1]) if down else None)
+
+
+def _ledger_card(monkeypatch, size, body):
+    """Open the ledger's `?` card at `size` and run `body(pilot, app)` on it."""
+    _stub_engine(monkeypatch)
+
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
+        await pilot.pause()
+        await body(pilot, app)
+
+    run_app(scenario, size=size)
+
+
+def test_scroll_window_counts_what_is_hidden_exactly():
+    lines = [Text(f"l{i}") for i in range(30)]
+    rows, offset = scroll_window(lines, 0, 10)
+    assert [r.plain for r in rows][-1] == " ▼ 21 more lines · ↓ scrolls"
+    assert len(rows) == 10 and offset == 0
+    rows, _ = scroll_window(lines, 5, 10)
+    assert rows[0].plain == " ▲ 5 lines above · ↑ scrolls"
+    assert rows[-1].plain == " ▼ 17 more lines · ↓ scrolls"
+    assert len(rows) == 10
+    rows, offset = scroll_window(lines, 99, 10)
+    assert offset == 21 and rows[0].plain == " ▲ 21 lines above · ↑ scrolls"
+    assert rows[-1].plain == "l29" and len(rows) == 10
+    rows, _ = scroll_window(lines, 1, 10)
+    assert rows[0].plain == " ▲ 1 line above · ↑ scrolls"
+    fits, _ = scroll_window(lines[:10], 0, 10)
+    assert [r.plain for r in fits] == [f"l{i}" for i in range(10)]
+
+
+def test_a_card_that_fits_has_no_scroll_markers(monkeypatch):
+    async def body(pilot, app):
+        lines = screen_lines(app)
+        assert _marks(lines) == (None, None)
+        assert any("[?] or [esc] close" in line for line in lines)
+        await pilot.press("down")
+        assert _marks(screen_lines(app)) == (None, None)
+
+    _ledger_card(monkeypatch, (140, 60), body)
+
+
+def test_the_ledger_card_scrolls_to_edit_and_delete_at_both_sizes(monkeypatch):
+    for size in ((140, 24), (80, 24)):
+
+        async def body(pilot, app):
+            card = app.screen
+            lines = screen_lines(app)
+            above, below = _marks(lines)
+            assert above is None and below
+            assert not any("Always true" in line for line in lines)
+            assert any("Keys — Transactions" in line for line in lines)
+            await pilot.press("down")
+            assert _marks(screen_lines(app)) == (1, below)
+            for _ in range(60):
+                await pilot.press("down")
+            lines = screen_lines(app)
+            above, below = _marks(lines)
+            assert above and below is None
+            assert any(re.search(r"\bs +Edit", line) for line in lines)
+            assert any(re.search(r"\bd +Delete", line) for line in lines)
+            await pilot.press("up")
+            above, below = _marks(screen_lines(app))
+            assert above and below == 2
+            # the keys went to the card, not to the screen under it
+            assert app.screen is card
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
+
+        _ledger_card(monkeypatch, size, body)
+
+
+def test_the_scrolled_card_keeps_its_frame_and_counts_add_up(monkeypatch):
+    async def body(pilot, app):
+        card = app.screen
+        total = len(card._lines)
+        for _ in range(25):
+            lines = screen_lines(app)
+            above, below = _marks(lines)
+            window = card._room - 2 - (above is not None) - (below is not None)
+            assert (above or 0) + window + (below or 0) == total
+            assert (above or 0) == card._offset
+            assert lines[-1].strip().startswith("esc")
+            assert lines[0].startswith("  ◈ EXPENSE WORLD")
+            # the head's rule and the card's two
+            assert sum("─" * 60 in line for line in lines) == 3
+            await pilot.press("down")
+
+    _ledger_card(monkeypatch, (80, 24), body)
+
+
+def test_the_card_follows_a_resize(monkeypatch):
+    async def body(pilot, app):
+        assert _marks(screen_lines(app))[1]
+        await pilot.resize_terminal(140, 60)
+        await pilot.pause()
+        assert _marks(screen_lines(app)) == (None, None)
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause()
+        assert _marks(screen_lines(app))[1]
+
+    _ledger_card(monkeypatch, (80, 24), body)
+
+
+def test_a_fit_card_scrolled_then_shrunk_opens_at_the_top(monkeypatch):
+    async def body(pilot, app):
+        for _ in range(10):
+            await pilot.press("down")
+        assert app.screen._offset == 0
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause()
+        assert _marks(screen_lines(app))[0] is None
+        assert any("Keys — Transactions" in line for line in screen_lines(app))
+
+    _ledger_card(monkeypatch, (140, 60), body)

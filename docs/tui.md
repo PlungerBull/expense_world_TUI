@@ -1845,7 +1845,9 @@ sent (§1 "Quitting asks while saves are still being sent"). `?` opens `HelpModa
 two-column card whose content is **derived** from BINDINGS by walking the screen's and the
 focused widget's MRO and keeping only classes declared under `expense.tui`. `Binding.tooltip`
 carries the card's fuller wording (`Archive / unarchive`) while `description` stays the
-terse footer label (`Archive`). `?` is bound per screen root via `HelpBindingMixin`,
+terse footer label (`Archive`). A card taller than the screen between its head and the footer scrolls on
+`↓` / `↑` between its two rules, a dim `▲ N lines above` / `▼ N more lines` row showing what is
+hidden ([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,
 **never on the App** — letters bubble up from lists, the same reason there is no app-level
 `q` (it is scoped to Home). **Forms have no help key**: a focused `Input` swallows printable
 keys, so `?` would type a question mark. The Textual command palette is off

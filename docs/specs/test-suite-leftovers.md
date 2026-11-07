@@ -79,8 +79,20 @@ of the test engine: the guard blocks a hand start and allows only the engine's o
    ([bank_import.py](../../expense/tui/screens/bank_import.py)) show `[like this]` whole in the
    app (the tester's check of 2026-10-27), but no test in
    [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) pins them.
-9. **Two unit tests stop failing at random in CI.** Each fails now and then on one Python version
-   and passes on the others, because it reads the screen before the screen has finished drawing:
+9. **Four unit tests stop failing at random in CI.** Each fails now and then on one Python version
+   and passes on the others, and always passes on the owner's Mac, because it checks once, at a
+   fixed moment, something the app finishes a moment later on GitHub's slower machines.
+   `test_the_log_bars_batch_counts_as_one_save`
+   ([test_tui_quit_asks.py](../../tests/unit/test_tui_quit_asks.py)) waits for the LOG bar's
+   `_saving` to clear and then reads `pending_writes` once, but the save leaves that count only
+   when its worker ends, just after (`assert [1, …, 1] == [1, …, 0]`; nearly every run from
+   42310670430 on 2026-11-06 to 42380381276 on 2026-11-07, on all three Python versions), and
+   `test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows[24]`
+   ([test_tui_statement_screen.py](../../tests/unit/test_tui_statement_screen.py)) checks the
+   list fits `#rlist` after two fixed pauses, before the list is measured again under the drawn
+   head (`assert fits`; runs 42314220786 on 2026-11-06, 42380267554 on 2026-11-07). Each waits
+   until what it checks is so, and still fails when it never becomes so. The other two read the
+   screen before it has finished drawing:
    `test_config_screen_shows_only_the_engine_connection`
    ([test_tui_system.py](../../tests/unit/test_tui_system.py)) finds the `#card` text empty
    (`assert 'engine url' in ''`; CI runs 38196778409 on 2026-10-12, 38691759623 and 38810299743
