@@ -31,7 +31,7 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
-New, seven questions, two mockups still to draw: [small fixes on
+To answer, seven questions, each drawn where it shows on screen: [small fixes on
 screen](specs/small-fixes-on-screen.md), every small screen fix in one spec.
 
 Answered, waiting on its engine ask (for you to hand over) and a mockup of the preview:

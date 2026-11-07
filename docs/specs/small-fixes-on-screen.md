@@ -4,9 +4,8 @@ Seven small things you see in the app, found while other specs ran, gathered int
 they are answered in one round and built in one run. Each was its own spec or Backlog item
 until 2026-11-06.
 
-**Status: drafted on 2026-11-06; seven questions open; for the owner to answer and approve.**
-It waits on no other spec. The questions still without a mockup are drawn on one mockup page
-before the tasks are drafted. When done, the why moves to [decisions.md](../decisions.md) and
+**Status: drafted on 2026-11-06; seven questions open, each drawn where it shows on screen; for
+the owner to answer and approve.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
 ---
@@ -60,16 +59,22 @@ Each point above, as its question below picks.
 
 ## Questions for the owner
 
-1. **The LOG bar's legend at 80 columns?**
+1. **The LOG bar's legend at 80 columns?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
    - **A.** Leave it on two lines; nothing is cut.
-   - **B.** Make it fit one line; the ways to do it are drawn for you to pick from.
-   **Recommended:** B. The legend is meant to be one line, and the peek gets its row back.
-2. **A peek title too long for the panel?**
+   - **B1.** One line: `⏎ Stage` moves to the footer beside `esc` and `^s`.
+   - **B2.** One line: `↵ stages the line` is left off when it does not fit beside the legend.
+   - **B3.** One line: single spaces between the legend's tokens, so both fit.
+   **Recommended:** B1. The legend is meant to be one line, the peek gets its row back, and a
+   key sits in the footer as on every other screen.
+2. **A peek title too long for the panel?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
    - **A.** The account name gives way with `…`, as on the count line; the currency stays.
    - **B.** The title takes a second line, and the peek shows one ledger row fewer.
    **Recommended:** A. It matches the count line under it, and a name that long is rare.
-3. **A `?` card taller than the screen?** The ways to show it whole (the card scrolls, or it
-   lays its keys out to fit) are drawn for you to pick from.
+3. **A `?` card taller than the screen?** Pick in [the mockup](../mockups/expense-world-small-fixes.html):
+   - **A.** The card scrolls, at every size; a dim last line says how much is below.
+   - **B.** On a wide terminal the card spreads out, its groups side by side, so it shows whole;
+     where it still does not fit (80×24), it scrolls as in A.
+   **Recommended:** B. At 140 columns every key shows at once; only a small terminal scrolls.
 4. **Which keys the "no statement" `?` card lists?** Pick in
    [the mockup](../mockups/expense-world-no-statement-keys.html):
    - **A.** Only the keys that work there.
@@ -89,7 +94,8 @@ Each point above, as its question below picks.
    - **B.** As today: the list stays as it was until `r`.
    **Recommended:** A. You see at once whether the change landed, without having to know to
    press `r`. Nothing new is drawn.
-7. **Does the "no statement" Edit form's heading write a deposit with its `+`?**
+7. **Does the "no statement" Edit form's heading write a deposit with its `+`?** Pick in
+   [the mockup](../mockups/expense-world-small-fixes.html):
    - **A.** Yes, `Liquidación  ·  +800.00 PEN`, as the parts under it and every list write it.
    - **B.** No, `800.00`: the heading stays as it is.
    **Recommended:** A. A transaction's positive amount is written with its `+` wherever it is
