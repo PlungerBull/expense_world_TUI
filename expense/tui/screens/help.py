@@ -17,6 +17,7 @@ declare has no description for this card to show.
 
 from dataclasses import dataclass, field
 
+from rich.cells import cell_len
 from rich.console import Console, ConsoleOptions
 from rich.console import Group as RichGroup
 from rich.table import Table
@@ -87,6 +88,17 @@ CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 #: interior columns.
 LEFT_WIDTH = 34
 RIGHT_WIDTH = 32
+
+#: Blank cells between the columns of the wide card.
+SPREAD_GAP = 4
+
+#: The wide card sits this many cells in from each side of the terminal, and its
+#: conventions column is never narrower than `CONVENTIONS_MIN` cells.
+SPREAD_INSET = 4
+CONVENTIONS_MIN = 36
+
+#: The cells the card's frame takes beside its content (`padding: 1 2`).
+FRAME_WIDTH = 4
 
 
 @dataclass(frozen=True)
@@ -274,7 +286,7 @@ def _render_group(group: HelpGroup, width: int, accent: str, pad_to: int) -> Ric
         # Sized to the widest key string rather than a constant: `. / pgdn` is
         # three cells wider than `esc`, and a fixed column either clipped the
         # page keys or wasted a third of the narrow column on the screen block.
-        key_width = max((len(row.keys) for row in group.rows), default=0) + 4
+        key_width = _key_width(group)
         table.add_column("keys", no_wrap=True, width=key_width)
         table.add_column("what", width=width - key_width)
         for row in group.rows:
@@ -287,6 +299,81 @@ def _render_group(group: HelpGroup, width: int, accent: str, pad_to: int) -> Ric
     for _ in range(pad_to - len(group.rows)):
         table.add_row(*([Text("")] * len(table.columns)))
     return RichGroup(Text(f" {group.title}", style=f"bold {accent}"), table, Text(""))
+
+
+def _key_width(group: HelpGroup) -> int:
+    """The keys column of a block: the widest key string plus its indent and gap."""
+    return max((cell_len(row.keys) for row in group.rows), default=0) + 4
+
+
+def group_width(group: HelpGroup) -> int:
+    """The width a block needs with no key row wrapped. The conventions block is
+    inline and wraps under its own words, so it needs only its title."""
+    title = cell_len(group.title) + 1
+    if group.inline:
+        return title
+    what = max(
+        (
+            cell_len(row.description) + (3 + cell_len(row.note) if row.note else 0)
+            for row in group.rows
+        ),
+        default=0,
+    )
+    return max(title, _key_width(group) + what)
+
+
+def _spread_columns(groups: list[HelpGroup]) -> list[list[HelpGroup]]:
+    """The wide card's columns: this screen's keys, the focused widget's, then the
+    app-wide keys with the conventions beneath."""
+    by_title = {g.title: g for g in groups}
+    columns = [
+        [by_title[t] for t in titles if t in by_title]
+        for titles in (("This screen",), ("Moving around",), ("Everywhere", "Always true"))
+    ]
+    return [column for column in columns if column]
+
+
+def _spread_widths(columns: list[list[HelpGroup]]) -> tuple[int, int]:
+    """`(width of every column but the last, least width of the last)`."""
+    first = max((group_width(g) for column in columns[:-1] for g in column), default=0) + SPREAD_GAP
+    last = max(group_width(g) for g in columns[-1])
+    if any(g.inline for g in columns[-1]):
+        last = max(last, CONVENTIONS_MIN)
+    return first, last
+
+
+def spread_needs(groups: list[HelpGroup]) -> int:
+    """The terminal width the wide card needs: every key row whole, the conventions
+    at least `CONVENTIONS_MIN` wide, and the card's frame and inset."""
+    columns = _spread_columns(groups)
+    first, last = _spread_widths(columns)
+    return first * (len(columns) - 1) + last + FRAME_WIDTH + 2 * SPREAD_INSET
+
+
+def render_spread(groups: list[HelpGroup], accent: str, content: int) -> Table:
+    """The wide card, `content` cells wide: the columns side by side, the last one
+    taking what the others leave."""
+    columns = _spread_columns(groups)
+    first, _ = _spread_widths(columns)
+    widths = [first] * (len(columns) - 1)
+    widths.append(content - sum(widths))
+    outer = Table(box=None, show_header=False, pad_edge=False, padding=(0, 0))
+    for i, width in enumerate(widths):
+        outer.add_column(f"column {i}", width=width)
+    outer.add_row(
+        *[
+            RichGroup(
+                *[
+                    _render_group(
+                        g, width - (SPREAD_GAP if i < len(widths) - 1 else 0), accent, len(g.rows)
+                    )
+                    for g in column
+                ]
+            )
+            for i, (column, width) in enumerate(zip(columns, widths, strict=True))
+        ]
+    )
+    return outer
 
 
 def render_card(groups: list[HelpGroup], accent: str) -> Table:
@@ -372,7 +459,9 @@ def _count(n: int, one: str, many: str) -> str:
 class HelpModal(ModalScreen):
     """The `?` card. Dismissed by `?` as well as `esc` — the key that opens it
     is the key that closes it, so it works as a peek. A card taller than the screen
-    above the footer scrolls on `↓` / `↑` (`scroll_window`)."""
+    above the footer spreads out into the wide card (`render_spread`) when the
+    terminal is wide enough, and scrolls on `↓` / `↑` (`scroll_window`) when it
+    still does not fit."""
 
     BINDINGS = [
         ("escape", "close", "Close"),
@@ -384,19 +473,23 @@ class HelpModal(ModalScreen):
     def __init__(self, title: str, groups: list[HelpGroup]) -> None:
         super().__init__()
         self._title = title
+        self._groups = groups
+        self._needs = spread_needs(groups)
+        self._shape = "narrow"
         self._card = render_card(groups, ACCENT)
-        self._lines = [
-            Text(""),
-            Text(title, style=f"bold {ACCENT}"),
-            Text(""),
-            *card_lines(self._card, LEFT_WIDTH + RIGHT_WIDTH),
-        ]
+        self._lines = self._card_lines(self._card, LEFT_WIDTH + RIGHT_WIDTH)
+        self._narrow_height = self._height
         self._offset = 0
+
+    def _card_lines(self, card, width: int) -> list[Text]:
+        """The card drawn whole as lines, its blank line and title first."""
+        head = [Text(""), Text(self._title, style=f"bold {ACCENT}"), Text("")]
+        return [*head, *card_lines(card, width)]
 
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static(Text(self._title), classes="modal-title fit"),
-            Static(self._card, classes="fit"),
+            Static(self._card, classes="fit", id="help-card"),
             Static(Text("[?] or [esc] close", style="dim"), classes="fit"),
             Static("", id="help-scroll"),
             id="modal",
@@ -414,12 +507,38 @@ class HelpModal(ModalScreen):
         """Rows between the screen's head and the footer."""
         return self.size.height - 1 - HEAD_ROWS
 
+    @property
+    def _height(self) -> int:
+        """Rows the card takes drawn whole."""
+        return len(self._lines) - 3 + FIT_CHROME
+
     def _layout(self) -> None:
-        """A card that fits is drawn as its three parts; one that does not, as one
-        window of lines the height of the room."""
+        """The card as it is while it fits; else, on a terminal wide enough, the wide
+        card; a card still taller than the room is one window of lines the height of
+        the room. A card nearly as tall as the room is moved down so the head's rule
+        and the card's own never meet."""
         modal = self.query_one("#modal")
-        scrolls = len(self._lines) - 3 + FIT_CHROME > self._room
+        width = self.size.width
+        shape = "narrow"
+        if self._narrow_height > self._room and self._needs <= width:
+            shape = "wide"
+        if shape == "wide":
+            content = width - FRAME_WIDTH - 2 * SPREAD_INSET
+            self._card = render_spread(self._groups, ACCENT, content)
+            self._lines = self._card_lines(self._card, content)
+            modal.styles.width = width - 2 * SPREAD_INSET
+        elif self._shape == "wide":
+            self._card = render_card(self._groups, ACCENT)
+            self._lines = self._card_lines(self._card, LEFT_WIDTH + RIGHT_WIDTH)
+            modal.styles.width = None
+        if shape != self._shape:
+            self._offset = 0
+            self._shape = shape
+        self.query_one("#help-card", Static).update(self._card)
+        scrolls = self._height > self._room
+        modal.set_class(shape == "wide", "spread")
         modal.set_class(scrolls, "scrolling")
+        modal.set_class(not scrolls and self._height > self._room - 2, "below-head")
         modal.styles.height = self._room if scrolls else "auto"
         self._draw()
 

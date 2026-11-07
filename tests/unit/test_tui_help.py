@@ -585,7 +585,7 @@ def test_a_card_that_fits_has_no_scroll_markers(monkeypatch):
 
 
 def test_the_ledger_card_scrolls_to_edit_and_delete_at_both_sizes(monkeypatch):
-    for size in ((140, 24), (80, 24)):
+    for size in ((100, 24), (80, 24)):
 
         async def body(pilot, app):
             card = app.screen
@@ -657,3 +657,127 @@ def test_a_fit_card_scrolled_then_shrunk_opens_at_the_top(monkeypatch):
         assert any("Keys — Transactions" in line for line in screen_lines(app))
 
     _ledger_card(monkeypatch, (140, 60), body)
+
+
+def test_a_card_that_does_not_fit_spreads_out_on_a_wide_terminal(monkeypatch):
+    async def body(pilot, app):
+        lines = screen_lines(app)
+        assert _marks(lines) == (None, None)
+        assert lines[0].startswith("  ◈ EXPENSE WORLD")
+        text = "\n".join(lines)
+        assert "Keys — Transactions" in text and "[?] or [esc] close" in text
+        for title in ("This screen", "Moving around", "Everywhere", "Always true"):
+            assert title in text
+        for key in ("+", "a", "c", "b", "h", "m", "s", "d", "r", "esc"):
+            assert any(re.search(rf"(^|\s){re.escape(key)} +[A-Z]", line) for line in lines), key
+        # every key row's words whole on one drawn line, even at the tightest width
+        for group in app.screen._groups:
+            if group.inline:
+                continue
+            for row in group.rows:
+                words = row.description + (f"   {row.note}" if row.note else "")
+                assert any(words in line for line in lines), words
+        # three groups across
+        head = next(line for line in lines if "This screen" in line)
+        assert "Moving around" in head and "Everywhere" in head
+        # inset like the picked drawing: the head's rule edge to edge on row 1, the
+        # card's own rules apart from it, 4 cells in from each side
+        assert set(lines[1]) == {"─"} and len(lines[1]) == 140
+        assert lines[2] == "" or set(lines[2].strip()) == {"─"}
+        rules = [i for i, line in enumerate(lines) if set(line.strip()) == {"─"} and i > 1]
+        assert len(rules) == 2 and rules[0] == 2
+        for i in rules:
+            assert lines[i] == " " * 4 + "─" * 132
+        # the conventions wrap under their own words, key rows never
+        at = next(i for i, line in enumerate(lines) if "never changes data" in line)
+        assert "currency pick" not in lines[at] and "currency pick" in lines[at + 1]
+
+    _ledger_card(monkeypatch, (140, 24), body)
+
+
+def test_a_card_that_fits_stays_narrow_at_any_width(monkeypatch):
+    async def body(pilot, app):
+        card = app.screen
+        assert card._shape == "narrow"
+        assert card.query_one("#modal").size.width == 68
+        assert _marks(screen_lines(app)) == (None, None)
+
+    _ledger_card(monkeypatch, (200, 60), body)
+
+
+def test_no_room_to_spread_scrolls_the_narrow_card(monkeypatch):
+    async def body(pilot, app):
+        card = app.screen
+        assert card._shape == "narrow" and card.query_one("#modal").size.width == 68
+        assert _marks(screen_lines(app))[1]
+
+    _ledger_card(monkeypatch, (80, 24), body)
+
+
+def test_a_spread_card_too_tall_for_its_room_scrolls_with_exact_counts(monkeypatch):
+    async def body(pilot, app):
+        card = app.screen
+        assert card._shape == "wide"
+        total = len(card._lines)
+        for _ in range(total):
+            lines = screen_lines(app)
+            above, below = _marks(lines)
+            window = card._room - 2 - (above is not None) - (below is not None)
+            assert (above or 0) + window + (below or 0) == total
+            assert lines[0].startswith("  ◈ EXPENSE WORLD")
+            await pilot.press("down")
+        assert below is None and above
+
+    _ledger_card(monkeypatch, (140, 14), body)
+
+
+def test_resizing_moves_between_fit_spread_and_scroll(monkeypatch):
+    async def body(pilot, app):
+        card = app.screen
+        assert card._shape == "wide" and _marks(screen_lines(app)) == (None, None)
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause()
+        assert card._shape == "narrow" and _marks(screen_lines(app))[1]
+        for _ in range(5):
+            await pilot.press("down")
+        assert card._offset == 5
+        await pilot.resize_terminal(140, 24)
+        await pilot.pause()
+        assert card._shape == "wide" and card._offset == 0
+        assert _marks(screen_lines(app)) == (None, None)
+        await pilot.resize_terminal(140, 60)
+        await pilot.pause()
+        assert card._shape == "narrow" and card.query_one("#modal").size.width == 68
+        assert _marks(screen_lines(app)) == (None, None)
+
+    _ledger_card(monkeypatch, (140, 24), body)
+
+
+def test_a_narrow_card_nearly_as_tall_as_its_room_keeps_clear_of_the_head(monkeypatch):
+    async def body(pilot, app):
+        lines = screen_lines(app)
+        rules = [i for i, line in enumerate(lines) if "─" * 60 in line]
+        assert app.screen._shape == "narrow" and _marks(lines) == (None, None)
+        assert rules[:2] == [1, 2]
+
+    for height in (36, 37):
+        _ledger_card(monkeypatch, (100, height), body)
+
+
+def test_the_card_spreads_at_the_width_it_needs_and_scrolls_narrow_below_it(monkeypatch):
+    shapes = {}
+
+    async def body(pilot, app):
+        card = app.screen
+        shapes[card._needs] = card._shape
+        await pilot.resize_terminal(card._needs - 1, 24)
+        await pilot.pause()
+        shapes["below"] = card._shape
+        assert _marks(screen_lines(app))[1]
+        await pilot.resize_terminal(card._needs, 24)
+        await pilot.pause()
+        shapes["at"] = card._shape
+        assert _marks(screen_lines(app)) == (None, None)
+
+    _ledger_card(monkeypatch, (140, 24), body)
+    assert shapes["below"] == "narrow" and shapes["at"] == "wide"

@@ -74,10 +74,6 @@ Each point above, as "Decided" below picks; point 5 is parked.
 Approved on 2026-11-07. Each task lands with its tests and the lines of
 [tui.md](../tui.md) that describe what it changes.
 
-4. **On a wide terminal the `?` card spreads out when it would not fit.** A card too tall for the
-   screen, on a terminal with room, grows wider and sets its groups side by side, three across,
-   each key's words on one line, so the ledger's card shows whole at 140×24; a card that fits as
-   it is stays as it is (Decided 3, the mockup's B at 140×24).
 5. **The "no statement" `?` card lists only the keys that work there.** `esc Back` once, `d`,
    `r`, `⏎`, `↓`, and `pgdn Load the next 10 rows` only while rows are left to load; no
    `esc Close the panel`, `n`, `u`, `pgup` or `Next page`; it fits a 24-row terminal (Decided 4,
@@ -91,3 +87,8 @@ Approved on 2026-11-07. Each task lands with its tests and the lines of
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The `?` card's side gutters show the screen behind it.** With the card open over the ledger,
+  the ledger's own rule peeks out as a one-cell `─` on each side of the card's frame (80×24: cols 3
+  and 76, row 4; the wide card the same at cols 3 and 136); the mockups draw those gutters blank.
+  Something you see.
