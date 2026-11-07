@@ -40,8 +40,8 @@ Answered, waiting on its engine ask (for you to hand over) and a mockup of the p
 New engine ask, for you to hand over: "Save an account's changes and its opening balances in one
 write, whole or not at all" ([to-engine/](to-engine/)).
 
-Approved: [the test-suite leftovers](specs/test-suite-leftovers.md), ready to run;
-[accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the engine.
+Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
+engine.
 
 **Recommended:** approve the rest.
 
@@ -53,6 +53,31 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
+- **The drift check misreads a nested union.** For an answer `anyOf [X, anyOf [Y, Z]]` it
+  checks against X alone, and for `anyOf [anyOf [Y, Z]]` it says the contract holds no JSON
+  answer, where both should say the answer comes in more than one shape (`_object_schema` and
+  `answered_in_many_shapes` in [check_fixture_drift.py](../scripts/check_fixture_drift.py)). No
+  marked answer has such a shape today. Nothing you see changes.
+- **The drift check skips a test file's own `**fields` builders.** It reads a field passed by
+  name only to a `**fields` builder in [helpers.py](../tests/unit/helpers.py); the ones local to
+  one test file (`_kept`, `_statement`, …) are not read. Nothing you see changes.
+- **One unit test writes the engine address and token itself.**
+  [test_no_read_only_fields.py](../tests/unit/test_no_read_only_fields.py) (lines 174, 187, 231)
+  where `ENGINE_URL` and `ENGINE_TOKEN` in helpers.py hold them. Nothing you see changes.
+- **Live tests read a refused write back by hand.** test_statement_import.py,
+  test_bank_import.py, test_reserved_name_held.py, test_bank_lines.py,
+  test_resources_lifecycle.py, test_statement_currencies.py, test_statement_order.py and
+  test_statements_lifecycle.py in [tests/contract/](../tests/contract/) write "refused, then the
+  same read" inline instead of using `refused_keeping` in conftest.py; some share one before read
+  across a loop or use `before` in later asserts, which stays by hand. Nothing you see changes.
+- **Two more unit tests fail now and then in CI**, each a worker's hand-back querying a widget
+  that has gone: `test_a_statement_created_after_leaving_opens_its_accounts_panel`
+  ([test_tui_statements.py](../tests/unit/test_tui_statements.py); `NoMatches '#crumb' on
+  StatementsScreen`, runs 42281849326, 42283565489, 42284942729, 42291172306, 42303070384 and
+  42310670430 on 2026-11-06) and
+  `test_an_emptied_field_never_sends_null_where_the_engine_refuses_it[bank_line-operation]`
+  ([test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py); `NoMatches '#brand' on
+  HomeScreen`, run 41510519928 on 2026-11-02). Nothing you see changes.
 - **No test draws a marked or refused part row with an income.** In the Edit form's parts table
   both rows print the same cell as the locked row, which a test pins with `+3,200.00`, but
   neither has a test of its own (`parts_lines` in

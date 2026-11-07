@@ -1930,9 +1930,8 @@ Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions":
 
 - **A pilot test waits on a condition, never on the clock.** Use `wait_for(pilot,
   predicate)` / `wait_for_list` / `wait_for_loaded` in
-  [tests/unit/helpers.py](../tests/unit/helpers.py). A `SectionScreen` has settled when
-  its `section-load` worker has finished (`section_settled`), not when `#card` is in the
-  DOM. Wait for the thing the test is about: a save is over when its request was sent *and*
+  [tests/unit/helpers.py](../tests/unit/helpers.py); `section_settled` says when a
+  `SectionScreen` has settled. Wait for the thing the test is about: a save is over when its request was sent *and*
   `_saving` is false again, since `_saving` is already false before the key reaches the
   screen. A **bare** `pilot.pause()` is the pump-drain for asserting a *non-event* (an inert
   key, a confirm that must not fire), where no predicate can be written. Timed

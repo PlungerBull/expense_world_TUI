@@ -58,7 +58,7 @@ Decisions whose why lives elsewhere:
 
 **Context.** The owner uses only the TUI. A typed command calling the same Python reads, formatters and write plumbing as a screen is a second face on the same feature, built and approved a second time for a surface nobody reads. Web and iOS call the engine's HTTPS API, never this repo.
 
-**Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. A new engine capability gets its TUI screen and its contract test, and nothing typed. The repo is `PlungerBull/expense_world_TUI` on GitHub and `expense_world_TUI` as the local folder; the command is `expense`.
+**Decision.** Every feature is built once, in the TUI. What is typed is in [commands.md](commands.md). Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. A new engine capability gets its TUI screen and its contract test, and nothing typed.
 
 **Engine features with no screen.** Activity history; exchange-rate history; editing a statement's name and dates after it is created, and its balances beyond the blank ones `c` asks for; updating the profile and the settings; the single-month report (Home shows the four-month grid); posting a batch of transactions in one call. They are the engine's own to keep working, and the contract suite exercises them. Adding a screen for one is new work of its own, when the owner asks for it.
 
@@ -180,7 +180,7 @@ Decisions whose why lives elsewhere:
 
 ## Contract tests verify against a disposable database, and refuse the real ledger (2026-08-16)
 
-**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [runtime.md](runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
+**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [runtime.md](runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides). Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
 
 **Rejected.** *A warning banner instead of refusing* — useless when nobody is watching, which is when it matters. *A separate user in the real database* — the junk still accumulates in production. *The drift check inside `pytest tests/unit`* — the unit suite blocks sockets on purpose.
 
@@ -297,15 +297,12 @@ that long, which is rare.
 
 **Decision.** (1) **A dropped or pasted path is recognised as text** by one pure function
 ([dropped.py](../expense/tui/dropped.py)): the terminal types the path, so no mouse tracking or
-emulator hook is involved. Terminal.app's backslash escapes and VS Code's quotes are both read.
+emulator hook is involved ([dropped.py](../expense/tui/dropped.py) names each terminal's form).
 **A line counts as files only if every word is an existing `.xlsx` path**; otherwise it stays
-quick-add, so a half-recognised line never imports some files and stages the rest. VS Code's
-terminal inserts one file per drop, so several files at once work in Terminal.app only.
-(2) **Every file's bytes are read before any screen opens**; only a file the app cannot read
-from disk keeps the LOG bar where it is, noted `can't read the file · …`, and nothing is sent.
+quick-add, so a half-recognised line never imports some files and stages the rest.
+(2) **Every file's bytes are read before any screen opens**, so an unreadable file sends nothing.
 Whether a file is a bank download is the engine's call: it refuses one that is not, on `file`. (3) **Three full screens**
-(account list, preview, result) replace one another above the bar, built on the shared steps of
-[flow.py](../expense/bank_import/flow.py) and the reasons of [engine.py](../expense/bank_import/engine.py). (4) **The account is asked every time** (see "Bank downloads
+(account list, preview, result) replace one another above the bar. (4) **The account is asked every time** (see "Bank downloads
 are matched against the ledger" (1)). (5) **`esc` cancels this file and every later one**,
 because `esc` means cancel everywhere in the app; a file already imported stays imported. (6) **The days that disagree are the
 ledger after the import**, as the engine computes them (contract: POST /v1/transactions/import),
@@ -319,13 +316,13 @@ the bar is where the right file gets dropped next.
 
 ## Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key (2026-09-12)
 
-**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories, then accounts and people, **each balance in its own currency, never summed**, then LEDGER, MANAGE and SYSTEM as always-open headers ([tui.md](tui.md)). (2) **`⏎` on a row opens Transactions filtered by it**, the engine's own `?category_id=` / `?account_id=`. (3) **Bulk is select + one key**, its pick a full screen since a surface that carries rows is a screen and a pop-up only asks; it writes **one `PUT /transactions/{id}` per row on its own worker**, and a refused row is named and does not stop the others, which is why this is not `run_write`'s drop-on-error queue ("Missing settings stop a multi-write run"). (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
+**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories, then accounts and people, **each balance in its own currency, never summed**, then LEDGER, MANAGE and SYSTEM as always-open headers ([tui.md](tui.md)). (2) **`⏎` on a row opens Transactions filtered by it**, the engine's own `?category_id=` / `?account_id=`. (3) **Bulk is select + one key**, its pick a full screen since a surface that carries rows is a screen and a pop-up only asks; it writes **one `PUT /transactions/{id}` per row on its own worker**, and a refused row is named and does not stop the others. (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
 
 **Rejected.** *A categorising mode with history suggestions* — a second way to edit a category and a guess the engine would have to learn. *Spreading a category to every row with the same title* — same title, different payees; the selection is the spread. *Native balances with a converted figure beside them* — the balance you act on is the native one. *Bulk through `run_write`'s FIFO* — one refusal would drop every row behind it. *Folding the section rows* — the owner wants every screen visible. *`esc` stepping back to the unfiltered ledger* — two keys for "back".
 
 ## Home draws four months — three filters, empty categories hidden (2026-09-13)
 
-**Decision.** (1) **Home draws categories × four months** (home currency), with unfoldable hashtag rows and inflow/outflow/net, from `build_range_grid` ([formatting.py](../expense/formatting.py)); `pgdn`/`pgup` walk the window a month at a time, never past this month. Balances are today's, and the header says so. (2) **`⏎` is three filters**: a category row → that category; a hashtag row → that category *and* that hashtag; an account or person row → that account. (3) **A category with nothing in the window is hidden.** (4) **A combo of several hashtags is drawn but not filterable** — `?hashtag_id=` takes one id, so a looser filter would show rows the cell does not count. A row still waiting for a hashtag sits on the pending hashtag, whose row filters like any other, and `@Pendiente` unfolds like any category.
+**Decision.** (1) **Home draws categories × four months** (home currency), with unfoldable hashtag rows and inflow/outflow/net; `pgdn`/`pgup` walk the window a month at a time, never past this month. Balances are today's, and the header says so. (2) **`⏎` is three filters**: a category row → that category; a hashtag row → that category *and* that hashtag; an account or person row → that account. (3) **A category with nothing in the window is hidden.** (4) **A combo of several hashtags is drawn but not filterable** — `?hashtag_id=` takes one id, so a looser filter would show rows the cell does not count. A row still waiting for a hashtag sits on the pending hashtag, whose row filters like any other, and `@Pendiente` unfolds like any category.
 
 **Rejected.** *This month beside last month* — drops the long view. *A cell cursor scoping `⏎` to one month* — a second cursor axis. *Keeping zero-activity categories* — the Categories screen and the pickers list every one. *A separate Overview screen or tab* — the same numbers twice. *Twelve months* — ~160 columns. *Balances as of the window's month* — no endpoint, rarely acted on. *Filtering a multi-tag combo by its first hashtag* — a superset presented as the cell's rows.
 
@@ -907,8 +904,10 @@ balance before the PDF there is nothing to compare them against.
 ## The suites copy the engine's answers and leave the practice user as they found it (2026-10-25)
 
 **Decision.** (1) **The unit suite's fake engine answers a write in the engine's shape**,
-through answer builders marked with the endpoint they stand for, which the drift script checks
-([runtime.md](runtime.md) "Fixture drift"). (2) **Every request body a unit test sends is
+through answer builders marked with the endpoint they stand for, one builder per endpoint, which
+the drift script checks both ways against that endpoint's own answer: no required field left out,
+no field it lacks, a field a test passes by name included ([runtime.md](runtime.md) "Fixture
+drift"). (2) **Every request body a unit test sends is
 checked for the fields the engine sets itself**, which it refuses in every body. (3) **Every live
 contract test fails when it leaves an account, category or hashtag it made** ([runtime.md](runtime.md)
 "Leftovers"). (4) **Engine-side probes use a practice user of their own**, never the one this
@@ -916,7 +915,8 @@ client's suite and hand checks use. (5) **The create form's begin balance hint s
 holding the opening balance begins at 0.00.**
 
 **Why.** A fake that answers `{}` hides every field a screen might read, and a fixture missing a
-required field passes until the real engine answers. A test that leaves records takes statement
+required field passes until the real engine answers, and a field checked against every schema at
+once passes when another answer has it. A test that leaves records takes statement
 codes other tests need and fills the browse the owner checks by hand; failing the test that
 leaves them finds the leak where it starts. The engine adds an assigned opening balance into the
 statement's sum, so typing the paper's starting figure too counts it twice.
@@ -1353,3 +1353,14 @@ only `y` quits; a save of several writes counts once ([tui.md](tui.md) §1).
 
 **Rejected.** *Quit at once* — the saves vanish silently. *Wait for them* — an engine that does
 not answer holds the app open.
+
+## A unit test waits for what it checks, never for a fixed moment (2026-11-07)
+
+**Decision.** A test waits through `wait_for` ([helpers.py](../tests/unit/helpers.py)) for what
+the app finishes a moment later, in that screen's own test helpers, and fails if it never comes.
+
+**Why.** A fixed pause passes on the owner's Mac and fails now and then on GitHub's slower
+runners.
+
+**Rejected.** *Longer pauses* — slower and still a guess. *One general wait in `run_app`* — looser
+than what each test reads.
