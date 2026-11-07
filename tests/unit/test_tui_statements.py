@@ -562,9 +562,20 @@ def test_coming_back_from_a_statement_keeps_the_panel_on_the_same_row(monkeypatc
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, StatementScreen))
         assert app.screen._id == "b2"  # the statement under the cursor opened
+        old = screen._statement_list
         app.screen.dismiss()
-        await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "statements")
-        await wait_for(pilot, lambda: screen._statement_list is not None)
+        # the read's own list (not the old one) has the cursor back on the statement that was open
+        await wait_for(
+            pilot,
+            lambda: (
+                len(reads) == 2
+                and screen._mode == "statements"
+                and screen._statement_list is not old
+                and screen._statement_list is not None
+                and screen._statement_list.cursor_key == "b2"
+            ),
+            message="the panel never came back with its cursor on b2",
+        )
         assert reads == ["acc1", "acc1"]  # the open account's statements, re-read
         assert screen._statement_list.cursor_key == "b2"
         assert screen._statement_list.has_focus
@@ -628,11 +639,16 @@ def test_a_statement_created_after_leaving_opens_its_accounts_panel(monkeypatch)
         await wait_for(pilot, lambda: screen._acct_idx == 0)
         rows.append(_statement("new-1", "acc2", "May 2026", ("2026-05-01", "2026-05-31")))
         form._created("new-1")
+        # `_show` ends (crumb and all) in `_mode`: a test that ends before it
+        # tears the screen down under its last lines
         await wait_for(
             pilot,
             lambda: (
-                screen._statement_list is not None and screen._statement_list.cursor_key == "new-1"
+                screen._mode == "statements"
+                and screen._statement_list is not None
+                and screen._statement_list.cursor_key == "new-1"
             ),
+            message="the new statement's panel never finished opening",
         )
         assert (screen._acct_idx, reads[-1]) == (1, "acc2")
         assert screen._statement_list.cursor_key == "new-1"

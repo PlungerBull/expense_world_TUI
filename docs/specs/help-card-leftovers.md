@@ -156,8 +156,6 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-2. **The flaky and weak unit tests** ("Flaky and weak unit tests"): each waits for what it
-   checks, or its hand-back touches nothing once its screen has gone.
 3. **The after-leaving gaps** ("After leaving a screen"): the guard, the type, the comment, and
    the missing tests.
 4. **Quitting** ("Quitting"): the quit-question tests tidied, the workers' `self.app` read inside
@@ -182,3 +180,10 @@ Not built in this spec; drafted into a new spec when it is done.
   [check_fixture_drift.py](../../scripts/check_fixture_drift.py) drops a `$ref` already seen on
   its path, so such a union ends; nothing in
   [test_fixture_drift_script.py](../../tests/unit/test_fixture_drift_script.py) proves it.
+- **A screen's hand-back can touch its widgets after an `await`, once the screen has gone.**
+  `call_while_attached` ([_base.py](../../expense/tui/screens/_base.py)) checks the screen is
+  still there only before a coroutine hand-back starts; `StatementsScreen._show` and
+  `_open_panel` ([statements.py](../../expense/tui/screens/statements.py)), and any `_show` with
+  work after `await super()._show()`, query widgets after an await. `esc` or a quit during that
+  mount raises `NoMatches` in the worker and the app crashes. The fix is one shared re-check
+  after the await, with its own test.
