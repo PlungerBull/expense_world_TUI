@@ -25,36 +25,12 @@ contract's change log:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
-REQUIRED FIELDS. A fixture builder in tests/unit/helpers.py marked with
-`answer_of(METHOD, PATH)` declares the endpoint whose answer it stands for, and lands
-in `ANSWER_BUILDERS`. Every run calls each one with no arguments and reports each
-field the contract marks `required` on that endpoint's 2xx JSON answer that the
-bare answer leaves out, and each key it holds that the schema does not declare
-(an object with `additionalProperties` is open), inside nested objects, list items
-and map values too wherever the answer holds one and the contract names a single
-object schema for it. An endpoint the contract no longer holds, or holds without a
-JSON answer, is reported as well.
-The marker asserts on every call that a test's answer keeps every key of the bare
-one, so what the script checked is what each test gets.
-
-Exit code is 0 when the version matches, nothing retired is found and no marked
-answer misses a required field or holds a key its endpoint lacks, 1 otherwise, so it
-also works as a gate. It cannot tell a retired engine field from a key a test
-invented for its own bookkeeping, so it prints the unknowns and leaves the judgement
-to a human — see KNOWN_LOCAL for the ones already triaged.
-
-KNOWN LIMITATION — the unknown-key scan unions every schema rather than checking
-each fixture against the one endpoint it mocks, so a field that is real *somewhere*
-passes everywhere: a field real on a transaction but absent from another response
-passes. Only the builders marked with `answer_of` are tied to an endpoint, and for
-them the required fields and the keys their own endpoint lacks are checked; a fixture no marked
-builder makes (a dict written in a test, `FakeClient`'s `{}` for a write with no
-default answer) is checked for neither; `FakeClient`'s default answers, its
-`FAKE_ANSWERS`, are built by marked builders. A nested object or list is checked
-only where the bare answer holds one, so a value a test passes in place of a `None`
-(a `twin`, a `coverage_gap`) is not.
-So a clean run means "no field is dead everywhere, and every marked answer carries
-what its endpoint requires and holds no key it lacks", not "every fixture matches its endpoint".
+REQUIRED FIELDS and what the check cannot see: docs/runtime.md "Fixture drift". Exit
+code is 0 when the version matches, nothing retired is found and no marked answer
+misses a required field or holds a key its endpoint lacks, 1 otherwise, so it also
+works as a gate. It cannot tell a retired engine field from a key a test invented for
+its own bookkeeping, so it prints the unknowns and leaves the judgement to a human —
+see KNOWN_LOCAL for the ones already triaged.
 """
 
 from __future__ import annotations
@@ -443,8 +419,9 @@ def _members(schema: dict) -> list | None:
 
 
 def _object_schema(doc: dict, schema: object) -> dict | None:
-    """The one object schema `schema` allows, through `$ref` and `anyOf`/`oneOf`; None
-    when it allows none, or more than one, so the check never guesses between them."""
+    """The one object schema `schema` allows, through `$ref` and `anyOf`/`oneOf`, a map
+    schema (`additionalProperties` naming a schema) included; None when it allows none,
+    or more than one, so the check never guesses between them."""
     schema = _resolve(doc, schema)
     members = _members(schema)
     if members is not None:
@@ -464,9 +441,9 @@ def _list_items(doc: dict, schema: object) -> object | None:
     return schema.get("items") if schema.get("type") == "array" else None
 
 
-def answer_schema(doc: dict, endpoint: str) -> dict | None:
-    """The object schema of `endpoint`'s 2xx JSON answer, `endpoint` being `METHOD
-    /v1/path`; None when the contract holds no such operation or answer."""
+def _answer_json(doc: dict, endpoint: str) -> object | None:
+    """The schema of `endpoint`'s 2xx JSON answer, `endpoint` being `METHOD /v1/path`;
+    None when the contract holds no such operation or answer."""
     method, _, path = endpoint.partition(" ")
     item = doc.get("paths", {}).get(path)
     op = item.get(method.lower()) if isinstance(item, dict) else None
@@ -476,11 +453,27 @@ def answer_schema(doc: dict, endpoint: str) -> dict | None:
         if str(code).startswith("2") and isinstance(response, dict):
             content = (response.get("content") or {}).get("application/json") or {}
             if "schema" in content:
-                return _object_schema(doc, content["schema"])
+                return content["schema"]
     return None
 
 
-def _checked(doc: dict, schema: dict, value: object, where: str = "") -> tuple[list, list]:
+def answer_schema(doc: dict, endpoint: str) -> dict | None:
+    """The object schema of `endpoint`'s 2xx JSON answer, `endpoint` being `METHOD
+    /v1/path`; None when the contract holds no such operation or answer, or the answer
+    is not one object schema."""
+    return _object_schema(doc, _answer_json(doc, endpoint))
+
+
+def answered_in_many_shapes(doc: dict, endpoint: str) -> bool:
+    """Whether `endpoint`'s 2xx JSON answer is a union of more than one object shape."""
+    schema = _resolve(doc, _answer_json(doc, endpoint))
+    objects = [m for m in _members(schema) or [] if _object_schema(doc, m) is not None]
+    return len(objects) > 1
+
+
+def _checked(
+    doc: dict, schema: dict, value: object, where: str = ""
+) -> tuple[list[str], list[str]]:
     """What `value` leaves out of `schema` and what it holds beyond it, each a list of
     dotted paths (`coverage_gap.unfiled_count`, `items[0].id`), nested objects, list
     items and the values of a map (`additionalProperties` naming a schema) included
@@ -503,15 +496,15 @@ def _checked(doc: dict, schema: dict, value: object, where: str = "") -> tuple[l
     return missing, extra
 
 
-def _descend(doc: dict, sub: object, held: object, where: str) -> tuple[list, list]:
+def _descend(doc: dict, sub: object, held: object, where: str) -> tuple[list[str], list[str]]:
     """`_checked` for a value held under the schema `sub`: an object, or a list of them."""
     if isinstance(held, dict):
         nested = _object_schema(doc, sub)
         return _checked(doc, nested, held, where) if nested is not None else ([], [])
     if isinstance(held, list):
         items = _list_items(doc, sub)
-        missing: list = []
-        extra: list = []
+        missing: list[str] = []
+        extra: list[str] = []
         for i, entry in enumerate(held if items is not None else ()):
             found = _descend(doc, items, entry, f"{where}[{i}]")
             missing += found[0]
@@ -535,13 +528,18 @@ def extra_keys(doc: dict, schema: dict, value: object) -> list[str]:
 def required_problems(doc: dict, builders: dict[str, Callable[[], object]]) -> list[str]:
     """One printable line per required field a marked answer leaves out, one per key
     it holds that its own endpoint does not declare, and one per marked endpoint the
-    contract does not answer with a JSON object."""
+    contract does not answer with one JSON object schema, saying whether it answers in
+    more than one shape or holds no JSON answer."""
     problems: list[str] = []
     for endpoint, builder in sorted(builders.items()):
         name = getattr(builder, "__name__", repr(builder))
         schema = answer_schema(doc, endpoint)
         if schema is None:
-            problems.append(f"  {endpoint}: the contract holds no JSON answer for it ({name})")
+            if answered_in_many_shapes(doc, endpoint):
+                said = "the contract answers it in more than one shape"
+            else:
+                said = "the contract holds no JSON answer for it"
+            problems.append(f"  {endpoint}: {said} ({name})")
             continue
         answer = builder()
         for field in missing_required(doc, schema, answer):

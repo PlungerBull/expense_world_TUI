@@ -479,6 +479,24 @@ def test_an_endpoint_the_contract_does_not_answer_is_reported(drift, monkeypatch
     assert f"  {endpoint}: the contract holds no JSON answer for it" in capsys.readouterr().out
 
 
+@respx.mock
+def test_an_answer_in_more_than_one_shape_is_named_apart_from_no_answer(drift, monkeypatch, capsys):
+    doc = _answer_contract()
+    either = [{"$ref": "#/components/schemas/Gap"}, {"$ref": "#/components/schemas/Item"}]
+    union = dict(content={"application/json": dict(schema=dict(anyOf=either))})
+    doc["paths"]["/v1/things/{thing_id}/union"] = dict(get=dict(responses={"200": union}))
+    respx.get(f"{PRACTICE}/openapi.json").mock(return_value=httpx.Response(200, json=doc))
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    many = "GET /v1/things/{thing_id}/union"
+    none = "GET /v1/things/{thing_id}/close"
+    monkeypatch.setattr(drift, "answer_builders", lambda: {many: lambda: {}, none: lambda: {}})
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert f"  {many}: the contract answers it in more than one shape (<lambda>)" in out
+    assert f"  {none}: the contract holds no JSON answer for it (<lambda>)" in out
+
+
 def test_a_value_the_contract_allows_two_object_shapes_for_is_not_guessed():
     drift = load_drift_script()
     doc = _answer_contract()
@@ -516,6 +534,24 @@ def test_a_marked_builder_refuses_an_answer_with_fewer_keys_than_its_bare_one(mo
     assert close_answer(dict(name="y", gap=None, more=1)) == dict(name="y", gap=None, more=1)
     with pytest.raises(AssertionError, match=r"close_answer dropped \['gap'\]"):
         close_answer(dict(name="y"))
+
+
+def test_a_second_builder_for_one_endpoint_is_refused_and_not_registered(monkeypatch):
+    from tests.unit import helpers
+
+    monkeypatch.setattr(helpers, "ANSWER_BUILDERS", {})
+
+    @helpers.answer_of("POST", "/v1/things/{thing_id}/close")
+    def first():
+        return dict(name="x")
+
+    with pytest.raises(ValueError, match="close already has first; second"):
+
+        @helpers.answer_of("POST", "/v1/things/{thing_id}/close")
+        def second():
+            return dict(name="y")
+
+    assert helpers.ANSWER_BUILDERS == {CLOSE: first}
 
 
 def test_the_complete_answer_keeps_its_fields_whatever_the_record():

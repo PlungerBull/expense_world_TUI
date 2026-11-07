@@ -242,7 +242,8 @@ def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callabl
     The drift script checks the bare answer, `builder()`, so every call has to keep
     each of its keys: what a test passes is spread over it, never in place of it.
     The marked builder asserts that on every call, so a test cannot get an answer
-    with fewer fields than the one the script checked."""
+    with fewer fields than the one the script checked. An endpoint has one builder:
+    marking a second raises `ValueError`."""
 
     def mark(builder: Callable[..., dict]) -> Callable[..., dict]:
         @functools.wraps(builder)
@@ -252,7 +253,13 @@ def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callabl
             assert not dropped, f"{builder.__name__} dropped {dropped} from its bare answer"
             return answer
 
-        ANSWER_BUILDERS[f"{method} {path}"] = build
+        endpoint = f"{method} {path}"
+        if endpoint in ANSWER_BUILDERS:
+            raise ValueError(
+                f"{endpoint} already has {ANSWER_BUILDERS[endpoint].__name__}; "
+                f"{builder.__name__} cannot also stand for its answer"
+            )
+        ANSWER_BUILDERS[endpoint] = build
         return build
 
     return mark

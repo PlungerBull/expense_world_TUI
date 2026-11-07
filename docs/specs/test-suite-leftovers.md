@@ -133,12 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-2. **The drift check's own rules (items 1 second half, and 4).** `answer_of` refuses a second
-   builder for one endpoint; an endpoint the contract answers in more than one shape
-   (`GET /v1/reports/monthly`) is named as such, not as "no JSON answer"; the script's docstring
-   points to runtime.md "Fixture drift" in place of its REQUIRED FIELDS and KNOWN LIMITATION
-   blocks, and its example of an unseen answer names a `coverage_gap` only. Unit tests prove the
-   second-builder refusal and the many-shapes line.
 3. **The drift check reads a key passed to a builder by name (item 11).** A key a test passes
    to an answer builder in helpers.py as a keyword (`statement_partner_id=…`) is read and named
    when the contract lacks it; a unit test proves a made-up field passed by name is named.
@@ -166,3 +160,9 @@ own "refused, and this read the same before and after" step) goes with item 7 in
    it found, changing them only if that change is small and keeps the suite green.
 
 ## Found along the way
+
+- The drift check reads a nested union wrongly: for an answer `anyOf [X, anyOf [Y, Z]]` it
+  checks against X alone, and for `anyOf [anyOf [Y, Z]]` it says the contract holds no JSON
+  answer, where both should say the answer comes in more than one shape (`_object_schema`
+  and `answered_in_many_shapes` in scripts/check_fixture_drift.py). No marked endpoint has
+  such an answer today.
