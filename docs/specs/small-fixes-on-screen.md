@@ -34,6 +34,46 @@ this file is deleted.
    category, a hashtag, an account) while it saves, and go back to its list. When the save
    lands, the list reads again. When the engine fails with a server error or does not answer,
    the save may still have landed, but the list stays as it was until `r`.
+7. **The "no statement" Edit form's heading and a deposit's `+`.** That form's heading writes
+   the line's total as `Liquidación  ·  800.00 PEN`, while the parts table under it and every
+   list write the same deposit as `+800.00` ([decisions.md](../decisions.md) "Every screen's
+   frame: no blank lines at the crumb, refusals under the form, `+` on incomes").
+
+## What it must do
+
+Each point above, as "Decided" below picks; point 5 is parked.
+
+## How the owner knows it is done
+
+1. At 80×24, the LOG bar's legend shows as picked; with a 70-letter account name picked, the
+   peek's title shows as picked and its count line is not cut off.
+2. At 140×24 and at 80×24, the ledger's `?` card shows `s Edit` and `d Delete`, as picked.
+3. The "no statement" `?` card lists the keys as picked, and fits a 24-row terminal.
+4. (Point 5 is parked; nothing to check.)
+5. A Manage form left while it saves, answered by a server error, while its list shows: the
+   list does as picked.
+6. The Edit form opened on a deposit from the "no statement" list writes its heading as picked.
+7. The unit suite passes.
+
+## Decided
+
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | The LOG bar's legend at 80 columns, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B1: the legend is the grammar alone, on one line at every width; `⏎ Stage` shows in the footer, `esc Cancel  ⏎ Stage  ^s Save` (2026-11-07). |
+| 2 | A peek title too long for the panel, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | A: the account name gives way with `…`, as on the count line; the currency stays (2026-11-07). |
+| 3 | A `?` card taller than the screen, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B: on a wide terminal the card spreads out, its groups side by side, so it shows whole; where it still does not fit (80×24) it scrolls, a dim line saying how much is above or below. It spreads only when it would not fit otherwise: a card that fits as it is stays as it is (2026-11-07). |
+| 4 | Which keys the "no statement" `?` card lists, in [expense-world-no-statement-keys.html](../mockups/expense-world-no-statement-keys.html)? | A: only the keys that work there (2026-11-07). |
+| 5 | What gives way on a narrow "no statement" list? | D: parked, since the app is built for 80 columns ([todo.md](../todo.md) "Parked") (2026-11-07). |
+| 6 | A Manage list after a save that failed with a server error or no answer? | A: the list reads again from its first page, as after a save that landed (2026-11-07). |
+| 7 | Does the "no statement" Edit form's heading write a deposit with its `+`, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | A: `Liquidación  ·  +800.00 PEN` (2026-11-07). |
+
+---
+
+## Tasks
+
+Approved on 2026-11-07. Each task lands with its tests and the lines of
+[tui.md](../tui.md) that describe what it changes.
+
 
 ## Found along the way
 
