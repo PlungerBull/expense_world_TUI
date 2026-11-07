@@ -4,8 +4,7 @@ Seven small things you see in the app, found while other specs ran, gathered int
 they are answered in one round and built in one run. Each was its own spec or Backlog item
 until 2026-11-06.
 
-**Status: every question answered and the mockups picked on 2026-11-07; the tasks are drafted
-for the owner to approve.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and
+**Status: every question answered, the mockups picked and the tasks approved on 2026-11-07.** It waits on no other spec. When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
 ---
@@ -62,7 +61,7 @@ Each point above, as "Decided" below picks; point 5 is parked.
 |---|---|---|
 | 1 | The LOG bar's legend at 80 columns, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B1: the legend is the grammar alone, on one line at every width; `⏎ Stage` shows in the footer, `esc Cancel  ⏎ Stage  ^s Save` (2026-11-07). |
 | 2 | A peek title too long for the panel, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | A: the account name gives way with `…`, as on the count line; the currency stays (2026-11-07). |
-| 3 | A `?` card taller than the screen, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B: on a wide terminal the card spreads out, its groups side by side, so it shows whole; where it still does not fit (80×24) it scrolls, a dim line saying how much is above or below (2026-11-07). |
+| 3 | A `?` card taller than the screen, in [expense-world-small-fixes.html](../mockups/expense-world-small-fixes.html)? | B: on a wide terminal the card spreads out, its groups side by side, so it shows whole; where it still does not fit (80×24) it scrolls, a dim line saying how much is above or below. It spreads only when it would not fit otherwise: a card that fits as it is stays as it is (2026-11-07). |
 | 4 | Which keys the "no statement" `?` card lists, in [expense-world-no-statement-keys.html](../mockups/expense-world-no-statement-keys.html)? | A: only the keys that work there (2026-11-07). |
 | 5 | What gives way on a narrow "no statement" list? | D: parked, since the app is built for 80 columns ([todo.md](../todo.md) "Parked") (2026-11-07). |
 | 6 | A Manage list after a save that failed with a server error or no answer? | A: the list reads again from its first page, as after a save that landed (2026-11-07). |
@@ -72,7 +71,7 @@ Each point above, as "Decided" below picks; point 5 is parked.
 
 ## Tasks
 
-Drafted on 2026-11-07, for the owner to approve. Each task lands with its tests and the lines of
+Approved on 2026-11-07. Each task lands with its tests and the lines of
 [tui.md](../tui.md) that describe what it changes.
 
 1. **The LOG bar's legend fits one line.** The legend under the bar is the grammar alone, with
@@ -85,9 +84,10 @@ Drafted on 2026-11-07, for the owner to approve. Each task lands with its tests 
    not fit shows what fits, a dim last line `▼ N more lines · ↓ scrolls`, and `↓` `↑` scroll it;
    scrolled down, a dim first line `▲ N lines above · ↑ scrolls` (Decided 3, the mockup's A
    panes, which B keeps for a narrow terminal).
-4. **On a wide terminal the `?` card spreads out.** Where the terminal has room, the card grows
-   wider and sets its groups side by side, three across, each key's words on one line, so the
-   ledger's card shows whole at 140×24 (Decided 3, the mockup's B at 140×24).
+4. **On a wide terminal the `?` card spreads out when it would not fit.** A card too tall for the
+   screen, on a terminal with room, grows wider and sets its groups side by side, three across,
+   each key's words on one line, so the ledger's card shows whole at 140×24; a card that fits as
+   it is stays as it is (Decided 3, the mockup's B at 140×24).
 5. **The "no statement" `?` card lists only the keys that work there.** `esc Back` once, `d`,
    `r`, `⏎`, `↓`, and `pgdn Load the next 10 rows` only while rows are left to load; no
    `esc Close the panel`, `n`, `u`, `pgup` or `Next page`; it fits a 24-row terminal (Decided 4,
