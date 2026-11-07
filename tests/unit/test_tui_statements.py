@@ -1059,9 +1059,6 @@ def test_enter_edits_every_row_in_no_statement_in_the_footer_the_card_and_the_ke
             assert _card_group(screen, "Moving around") == [
                 ("⏎", "Edit the transaction and its parts"),
                 ("↓", "Down"),
-                ("pgdn", "Load the next 10 rows under these"),
-                ("pgdn", "Next page"),
-                ("pgup", "Previous page"),
             ], key
         await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("enter")
@@ -2209,3 +2206,123 @@ def test_a_blank_line_stands_between_the_accounts_page_line_and_the_statements_c
         assert screen.query_one("#content").max_scroll_y == 0
 
     run_app(scenario, size=(80, 24))
+
+
+def test_the_card_of_the_no_statement_list_lists_only_the_keys_that_work_there(monkeypatch):
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 6)])
+
+    async def scenario(pilot, app):
+        await _open_unfiled(pilot, app)
+        screen = app.screen
+        from expense.tui.screens.help import screen_inventory
+
+        _, groups = screen_inventory(screen)
+        assert [g.title for g in groups] == [
+            "This screen",
+            "Moving around",
+            "Always true",
+            "Everywhere",
+        ]
+        down = next(r for r in groups[1].rows if r.keys == "↓")
+        assert down.note == "(↑ up)"
+        assert _card_group(screen, "This screen") == [
+            ("d", "Delete"),
+            ("r", "Refresh"),
+            ("esc", "Back"),
+        ]
+        assert _card_group(screen, "Moving around") == [
+            ("⏎", "Edit the transaction and its parts"),
+            ("↓", "Down"),
+        ]
+        await pilot.press("question_mark")
+        await pilot.pause()
+        lines = screen_lines(app)
+        assert not any("▼" in line or "▲" in line for line in lines)
+        assert any("[?] or [esc] close" in line for line in lines)
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_card_lists_pgdn_only_while_more_rows_are_left_to_load(monkeypatch):
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        assert _card_group(screen, "Moving around") == [
+            ("⏎", "Edit the transaction and its parts"),
+            ("↓", "Down"),
+            ("pgdn", "Load the next 10 rows under these"),
+        ]
+        await pilot.press("question_mark")
+        await pilot.pause()
+        assert not any("▼" in line for line in screen_lines(app))
+        await pilot.press("escape")
+        for _ in range(2):
+            await pilot.press("pagedown")
+        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 25)
+        assert ("pgdn", "Load the next 10 rows under these") not in _card_group(
+            screen, "Moving around"
+        )
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_card_of_the_account_list_has_no_d_and_u_only_once_a_panel_has_been_opened(
+    monkeypatch,
+):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert _card_group(screen, "This screen") == [
+            ("n", "New"),
+            ("r", "Refresh"),
+            ("esc", "Back"),
+        ]
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: screen._mode == "statements")
+        assert ("u", "This account's rows that are in no statement") in _card_group(
+            screen, "This screen"
+        )
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_card_of_the_statements_panel_closes_the_panel_and_pages_only_with_several_pages(
+    monkeypatch,
+):
+    _five_accounts(monkeypatch, _numbered_statements(3))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(FIVE_ACCOUNTS[:4]))
+
+    async def one_page(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert _card_group(screen, "This screen") == [
+            ("esc", "Close the panel"),
+            ("n", "New"),
+            ("u", "This account's rows that are in no statement"),
+            ("r", "Refresh"),
+        ]
+        assert _card_group(screen, "Moving around") == [("⏎", "Open"), ("↓", "Down")]
+
+    run_app(one_page, size=(80, 24))
+
+    _five_accounts(monkeypatch, _numbered_statements(9))
+
+    async def several_pages(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert ("esc", "Back") not in _card_group(screen, "This screen")
+        assert ("d", "Delete") not in _card_group(screen, "This screen")
+        assert _card_group(screen, "Moving around") == [
+            ("⏎", "Open"),
+            ("↓", "Down"),
+            ("pgdn", "Next page"),
+        ]
+        await pilot.press("pagedown")
+        await pilot.pause()
+        assert ("pgup", "Previous page") in _card_group(screen, "Moving around")
+
+    run_app(several_pages, size=(80, 24))

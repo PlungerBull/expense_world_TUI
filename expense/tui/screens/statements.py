@@ -482,7 +482,7 @@ class _PanelList(CursorList):
         Binding("enter", "select", "Open"),
     ]
     #: The `?` card lists these only while `check_action` allows them (help.py).
-    CARD_FOLLOWS_CHECK = frozenset({"edit_row", "select"})
+    CARD_FOLLOWS_CHECK = frozenset({"edit_row", "select", "more", "page"})
 
     def _listing_unfiled(self) -> bool:
         try:
@@ -531,6 +531,8 @@ class StatementsScreen(SectionScreen):
         ),
         Binding("d", "delete_row", "Delete"),  # the lines in no statement only
     ]
+    #: The `?` card lists these only while `check_action` allows them (help.py).
+    CARD_FOLLOWS_CHECK = frozenset({"close_panel", "back", "new", "unfiled", "delete_row"})
 
     def __init__(self) -> None:
         super().__init__()

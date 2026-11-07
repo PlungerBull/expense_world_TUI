@@ -74,10 +74,6 @@ Each point above, as "Decided" below picks; point 5 is parked.
 Approved on 2026-11-07. Each task lands with its tests and the lines of
 [tui.md](../tui.md) that describe what it changes.
 
-5. **The "no statement" `?` card lists only the keys that work there.** `esc Back` once, `d`,
-   `r`, `⏎`, `↓`, and `pgdn Load the next 10 rows` only while rows are left to load; no
-   `esc Close the panel`, `n`, `u`, `pgup` or `Next page`; it fits a 24-row terminal (Decided 4,
-   the keys mockup's A).
 6. **A Manage list reads again after a save whose ending is not known.** A category, hashtag or
    account form left while it saves, answered by a server error or no answer, while its list
    shows: the list reads again from its first page, as after a save that landed (Decided 6).
@@ -91,4 +87,8 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The `?` card's side gutters show the screen behind it.** With the card open over the ledger,
   the ledger's own rule peeks out as a one-cell `─` on each side of the card's frame (80×24: cols 3
   and 76, row 4; the wide card the same at cols 3 and 136); the mockups draw those gutters blank.
+  Something you see.
+- **The Statements account list's `?` card lists page keys that do nothing.** With the panel
+  closed, the focused account list's card lists `pgdn Load the next 10 rows under these`,
+  `pgdn Next page` and `pgup Previous page`; none works there and the footer shows none of them.
   Something you see.

@@ -22,6 +22,7 @@ from rich.console import Console, ConsoleOptions
 from rich.console import Group as RichGroup
 from rich.table import Table
 from rich.text import Text
+from textual.actions import parse as parse_action
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -81,7 +82,9 @@ NEEDS_SCREEN_HANDLER = {
 #: allows them, as the footer does. For a key that is off in some states (the
 #: statements panel's `⏎`: `Edit` in the "no statement" list, `Open` on the
 #: statements; a statement's `f`, only while a complete's flagged lines
-#: are left); every other row of the card lists what the classes declare.
+#: are left; the "no statement" list has no `u`, `n` or `esc Close the panel`, and its
+#: `pgdn`, `Next page` and `pgup` show only while they work); every other row of the card
+#: lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
@@ -142,7 +145,7 @@ def _display(key: str) -> str:
     return format_key(key).replace("ctrl+", "^")
 
 
-def declared_bindings(klass: type) -> list[Binding]:
+def _declared(klass: type) -> list[tuple[type, Binding]]:
     """Every Binding declared by `klass` or a base of it **in this package**.
 
     Walks the MRO rather than reading `_bindings`, because the merged runtime
@@ -154,7 +157,7 @@ def declared_bindings(klass: type) -> list[Binding]:
     what `_grouped_rows` re-joins into one row.
     """
     seen: set[tuple[str, str]] = set()
-    found: list[Binding] = []
+    found: list[tuple[type, Binding]] = []
     for base in klass.__mro__:
         if not base.__module__.startswith(PACKAGE):
             continue
@@ -164,8 +167,13 @@ def declared_bindings(klass: type) -> list[Binding]:
                 if ident in seen:
                     continue
                 seen.add(ident)
-                found.append(binding)
+                found.append((base, binding))
     return found
+
+
+def declared_bindings(klass: type) -> list[Binding]:
+    """The bindings of `_declared`, without the class that declared each."""
+    return [binding for _, binding in _declared(klass)]
 
 
 def _tail_rank(action: str) -> int:
@@ -219,6 +227,28 @@ def key_rows(bindings: list[Binding], drop: frozenset[str] = frozenset()) -> lis
     return rows
 
 
+def listed_bindings(owner) -> list[Binding]:
+    """The bindings of `owner` (a screen or the focused widget) the card lists: those
+    that are in play, in the order the classes declare them. Left out are a binding
+    its `CARD_FOLLOWS_CHECK` names and its `check_action` refuses, and one whose key
+    a more derived class declares: Textual's merge lets a subclass's bindings on a key
+    replace every inherited one on it, so `esc Back` inherited from `SectionScreen`
+    is never reached on a screen with its own `esc`, whatever that one's
+    `check_action` says. A binding is judged by its action, parameters included
+    (`page(1)`)."""
+    named = getattr(owner, CARD_FOLLOWS_CHECK, ())
+    declarer: dict[str, type] = {}  # key -> the most derived class that declares it
+    listed: list[Binding] = []
+    for base, binding in _declared(type(owner)):
+        if declarer.setdefault(binding.key, base) is not base:
+            continue
+        _, name, parameters = parse_action(binding.action)
+        if name in named and owner.check_action(name, parameters) is False:
+            continue
+        listed.append(binding)
+    return listed
+
+
 def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
     """`(title, groups)` for the screen the user is looking at.
 
@@ -232,12 +262,12 @@ def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
     name = crumb[-1] if crumb else type(screen).__name__.removesuffix("Screen")
     title = f"Keys — {name}"
 
-    off = frozenset(
-        action
-        for action in getattr(screen, CARD_FOLLOWS_CHECK, ())
-        if screen.check_action(action, ()) is False
-    )
-    groups = [HelpGroup("This screen", tuple(key_rows(declared_bindings(type(screen)), drop=off)))]
+    groups = [
+        HelpGroup(
+            "This screen",
+            tuple(key_rows(listed_bindings(screen))),
+        )
+    ]
 
     focused = getattr(screen, "focused", None)
     if focused is not None and focused is not screen:
@@ -245,12 +275,8 @@ def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
             action
             for action, handlers in NEEDS_SCREEN_HANDLER.items()
             if not any(hasattr(screen, handler) for handler in handlers)
-        ) | frozenset(
-            action
-            for action in getattr(focused, CARD_FOLLOWS_CHECK, ())
-            if focused.check_action(action, ()) is False
         )
-        widget_rows = key_rows(declared_bindings(type(focused)), drop=inert)
+        widget_rows = key_rows(listed_bindings(focused), drop=inert)
         if widget_rows:
             groups.append(HelpGroup("Moving around", tuple(widget_rows)))
 

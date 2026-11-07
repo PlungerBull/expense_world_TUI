@@ -142,7 +142,6 @@ CARD_THIS_SCREEN = [
     ("d", "Delete"),
     ("r", "Refresh"),
     ("esc", "Clear the selection, else go back"),
-    ("esc", "Back"),
 ]
 
 

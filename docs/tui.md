@@ -1374,7 +1374,10 @@ them — they are hand-written into the `?` card
   `check_action` allows it, as the footer does: the Statements panel's `⏎ Open` and
   `⏎ Edit`, which is on in the "no statement" list alone, on every row, and a statement's
   `space`, `c`, `u` and `f`, each on only where the statement offers it ("A statement's
-  screen" below).
+  screen" below). The "no statement" list's card thus lists no `n`, `u` or `esc Close the
+  panel`, and `pgdn`, `Next page` and `pgup` only while they work. A key a screen's own
+  binding already takes is listed once (`esc Back` inherited from the section screen is not
+  repeated beside the screen's own `esc`).
 
   A currency pick is the exception, and the card says so (`⏎ never changes data, except on a
   currency pick`): Manage ▸ Accounts' `Add a currency · <account>`, opened by `c`, adds the
