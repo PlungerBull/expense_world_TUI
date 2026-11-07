@@ -29,30 +29,32 @@ REQUIRED FIELDS. A fixture builder in tests/unit/helpers.py marked with
 `answer_of(METHOD, PATH)` declares the endpoint whose answer it stands for, and lands
 in `ANSWER_BUILDERS`. Every run calls each one with no arguments and reports each
 field the contract marks `required` on that endpoint's 2xx JSON answer that the
-bare answer leaves out, inside nested objects and list items too wherever the
-answer holds one and the contract names a single object schema for it. An endpoint
-the contract no longer holds, or holds without a JSON answer, is reported as well.
+bare answer leaves out, and each key it holds that the schema does not declare
+(an object with `additionalProperties` is open), inside nested objects, list items
+and map values too wherever the answer holds one and the contract names a single
+object schema for it. An endpoint the contract no longer holds, or holds without a
+JSON answer, is reported as well.
 The marker asserts on every call that a test's answer keeps every key of the bare
 one, so what the script checked is what each test gets.
 
 Exit code is 0 when the version matches, nothing retired is found and no marked
-answer misses a required field, 1 otherwise, so it also works as a gate. It cannot
-tell a retired engine field from a key a test invented for its own bookkeeping, so
-it prints the unknowns and leaves the judgement to a human — see KNOWN_LOCAL for the
-ones already triaged.
+answer misses a required field or holds a key its endpoint lacks, 1 otherwise, so it
+also works as a gate. It cannot tell a retired engine field from a key a test
+invented for its own bookkeeping, so it prints the unknowns and leaves the judgement
+to a human — see KNOWN_LOCAL for the ones already triaged.
 
 KNOWN LIMITATION — the unknown-key scan unions every schema rather than checking
 each fixture against the one endpoint it mocks, so a field that is real *somewhere*
 passes everywhere: a field real on a transaction but absent from another response
 passes. Only the builders marked with `answer_of` are tied to an endpoint, and for
-them only the required fields are checked, not unknown keys; a fixture no marked
+them the required fields and the keys their own endpoint lacks are checked; a fixture no marked
 builder makes (a dict written in a test, `FakeClient`'s `{}` for a write with no
 default answer) is checked for neither; `FakeClient`'s default answers, its
 `FAKE_ANSWERS`, are built by marked builders. A nested object or list is checked
 only where the bare answer holds one, so a value a test passes in place of a `None`
 (a `twin`, a `coverage_gap`) is not.
 So a clean run means "no field is dead everywhere, and every marked answer carries
-what its endpoint requires", not "every fixture matches its endpoint".
+what its endpoint requires and holds no key it lacks", not "every fixture matches its endpoint".
 """
 
 from __future__ import annotations
@@ -448,7 +450,8 @@ def _object_schema(doc: dict, schema: object) -> dict | None:
     if members is not None:
         objects = [found for m in members if (found := _object_schema(doc, m)) is not None]
         return objects[0] if len(objects) == 1 else None
-    return schema if "properties" in schema or "required" in schema else None
+    named = "properties" in schema or "required" in schema
+    return schema if named or isinstance(schema.get("additionalProperties"), dict) else None
 
 
 def _list_items(doc: dict, schema: object) -> object | None:
@@ -477,31 +480,62 @@ def answer_schema(doc: dict, endpoint: str) -> dict | None:
     return None
 
 
-def missing_required(doc: dict, schema: dict, value: object, where: str = "") -> list[str]:
-    """Each field `schema` requires that `value` leaves out, as a dotted path
-    (`coverage_gap.unfiled_count`, `items[0].id`), nested objects and list items
-    included wherever `value` holds one and the contract names one object schema."""
+def _checked(doc: dict, schema: dict, value: object, where: str = "") -> tuple[list, list]:
+    """What `value` leaves out of `schema` and what it holds beyond it, each a list of
+    dotted paths (`coverage_gap.unfiled_count`, `items[0].id`), nested objects, list
+    items and the values of a map (`additionalProperties` naming a schema) included
+    wherever `value` holds one and the contract names one object schema for it."""
     if not isinstance(value, dict):
-        return []
+        return [], []
     prefix = f"{where}." if where else ""
+    declared = schema.get("properties") or {}
+    more = schema.get("additionalProperties")
     missing = [f"{prefix}{name}" for name in schema.get("required") or [] if name not in value]
-    for name, sub in (schema.get("properties") or {}).items():
-        held = value.get(name)
-        if isinstance(held, dict):
-            nested = _object_schema(doc, sub)
-            if nested is not None:
-                missing += missing_required(doc, nested, held, f"{prefix}{name}")
-        elif isinstance(held, list):
-            nested = _object_schema(doc, _list_items(doc, sub))
-            if nested is not None:
-                for i, entry in enumerate(held):
-                    missing += missing_required(doc, nested, entry, f"{prefix}{name}[{i}]")
-    return missing
+    # `additionalProperties` true or any schema leaves the object open
+    open_ = more is True or isinstance(more, dict)
+    extra = [] if open_ or not declared else [f"{prefix}{k}" for k in value if k not in declared]
+    for name, held in value.items():
+        sub = declared.get(name, more if isinstance(more, dict) else None)
+        if sub is not None:
+            found = _descend(doc, sub, held, f"{prefix}{name}")
+            missing += found[0]
+            extra += found[1]
+    return missing, extra
+
+
+def _descend(doc: dict, sub: object, held: object, where: str) -> tuple[list, list]:
+    """`_checked` for a value held under the schema `sub`: an object, or a list of them."""
+    if isinstance(held, dict):
+        nested = _object_schema(doc, sub)
+        return _checked(doc, nested, held, where) if nested is not None else ([], [])
+    if isinstance(held, list):
+        items = _list_items(doc, sub)
+        missing: list = []
+        extra: list = []
+        for i, entry in enumerate(held if items is not None else ()):
+            found = _descend(doc, items, entry, f"{where}[{i}]")
+            missing += found[0]
+            extra += found[1]
+        return missing, extra
+    return [], []
+
+
+def missing_required(doc: dict, schema: dict, value: object) -> list[str]:
+    """Each field `schema` requires that `value` leaves out, as a dotted path."""
+    return _checked(doc, schema, value)[0]
+
+
+def extra_keys(doc: dict, schema: dict, value: object) -> list[str]:
+    """Each key `value` holds that `schema` does not declare, as a dotted path. An
+    object whose schema declares no properties, or sets `additionalProperties` (true,
+    `{}` or a schema), is open and has no extra key."""
+    return _checked(doc, schema, value)[1]
 
 
 def required_problems(doc: dict, builders: dict[str, Callable[[], object]]) -> list[str]:
-    """One printable line per required field a marked answer leaves out, and one per
-    marked endpoint the contract does not answer with a JSON object."""
+    """One printable line per required field a marked answer leaves out, one per key
+    it holds that its own endpoint does not declare, and one per marked endpoint the
+    contract does not answer with a JSON object."""
     problems: list[str] = []
     for endpoint, builder in sorted(builders.items()):
         name = getattr(builder, "__name__", repr(builder))
@@ -509,8 +543,11 @@ def required_problems(doc: dict, builders: dict[str, Callable[[], object]]) -> l
         if schema is None:
             problems.append(f"  {endpoint}: the contract holds no JSON answer for it ({name})")
             continue
-        for field in missing_required(doc, schema, builder()):
+        answer = builder()
+        for field in missing_required(doc, schema, answer):
             problems.append(f"  {endpoint}: {field} ({name})")
+        for key in extra_keys(doc, schema, answer):
+            problems.append(f"  {endpoint}: {key} is not in its answer ({name})")
     return problems
 
 
@@ -576,13 +613,13 @@ def main(argv: list[str] | None = None) -> int:
 
     required = required_problems(doc, answer_builders())
     if not required:
-        print("no marked answer leaves out a field its endpoint requires.")
+        print("every marked answer matches its endpoint: nothing required left out, nothing extra.")
     else:
-        print("\nfields the contract requires on an answer, that its fixture leaves out:")
+        print("\nwhere a marked answer differs from its endpoint's answer in the contract:")
         print("\n".join(required))
         print(
-            "\nAdd each to the builder named in brackets (tests/unit/helpers.py), "
-            "or point its answer_of at the endpoint it stands for."
+            "\nFix each in the builder named in brackets (tests/unit/helpers.py: add the "
+            "field, or drop the key), or point its answer_of at the endpoint it stands for."
         )
 
     return 1 if problem or sites or required else 0

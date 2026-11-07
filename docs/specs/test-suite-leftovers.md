@@ -133,11 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-1. **The drift check reads the update's and a bank line's answers (item 1, first half).**
-   `put_answer` and `bank_line_row` in tests/unit/helpers.py carry `@answer_of`; a marked
-   answer's keys the contract does not hold for its own endpoint are named against that
-   endpoint, not only against the union of every schema. A unit test proves a made-up extra key
-   on a marked answer is named.
 2. **The drift check's own rules (items 1 second half, and 4).** `answer_of` refuses a second
    builder for one endpoint; an endpoint the contract answers in more than one shape
    (`GET /v1/reports/monthly`) is named as such, not as "no JSON answer"; the script's docstring

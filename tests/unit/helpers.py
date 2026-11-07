@@ -228,6 +228,36 @@ def whole(items: list) -> dict:
     return {"items": items}
 
 
+#: Every fixture builder that stands for an engine endpoint's answer, keyed by that
+#: endpoint as the contract names it, `METHOD /v1/path`. scripts/check_fixture_drift.py
+#: calls each with no arguments and reports any field the contract requires on that
+#: answer that the bare answer leaves out, and any key the bare answer holds that the
+#: endpoint's schema lacks. Mark a builder with `answer_of`.
+ANSWER_BUILDERS: dict[str, Callable[..., dict]] = {}
+
+
+def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callable[..., dict]]:
+    """Mark a builder as standing for the answer of `method path`, in `ANSWER_BUILDERS`.
+
+    The drift script checks the bare answer, `builder()`, so every call has to keep
+    each of its keys: what a test passes is spread over it, never in place of it.
+    The marked builder asserts that on every call, so a test cannot get an answer
+    with fewer fields than the one the script checked."""
+
+    def mark(builder: Callable[..., dict]) -> Callable[..., dict]:
+        @functools.wraps(builder)
+        def build(*args: Any, **kwargs: Any) -> dict:
+            answer = builder(*args, **kwargs)
+            dropped = sorted(set(builder()) - set(answer))
+            assert not dropped, f"{builder.__name__} dropped {dropped} from its bare answer"
+            return answer
+
+        ANSWER_BUILDERS[f"{method} {path}"] = build
+        return build
+
+    return mark
+
+
 def line_code_of(line: str) -> str:
     """The `line_code` a fixture's bank line `line` reads: `#` and six digits, the same
     on every part of one line and, in practice, different between lines
@@ -341,11 +371,12 @@ def edit_limits(
     }
 
 
+@answer_of("GET", "/v1/bank-lines/{bank_line_id}")
 def bank_line_row(
-    line: str,
-    parts: list[dict],
+    line: str = "bl-1",
+    parts: list[dict] | None = None,
     *,
-    net_cents: int,
+    net_cents: int = -1000,
     operation_code: str | None = None,
     account_id: str = "sig-pen",
     currency_code: str = "PEN",
@@ -356,7 +387,18 @@ def bank_line_row(
     `statement_line` and `statement_place` as its parts read them, the engine's
     signed `net_cents` and `part_count`, `is_opening_balance` (`true` only on an
     account's opening balance), and the `edit_limits` of a line nothing closes
-    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Bare, it is
+    one part of `net_cents`."""
+    if parts is None:
+        parts = [
+            import_part(
+                f"{line}-part",
+                net_cents,
+                line=line,
+                account_id=account_id,
+                currency_code=currency_code,
+            )
+        ]
     return {
         "id": line,
         "line_code": line_code_of(line),
@@ -373,47 +415,25 @@ def bank_line_row(
     }
 
 
-def put_answer(named: dict, changed: list[dict], *, left: tuple[str, ...] = ()) -> dict:
+@answer_of("PUT", "/v1/transactions/{transaction_id}")
+def put_answer(
+    named: dict | None = None, changed: list[dict] | None = None, *, left: tuple[str, ...] = ()
+) -> dict:
     """A `PUT /transactions/{id}` answer: the part named, after the write, plus
     `changed_parts`, one entry per part in `changed` (each the part after the write,
     in the line's list order), `left_statement` true for the ids in `left`
     (contract: PUT /v1/transactions/{transaction_id}, "Response"). `changed` is `[]`
-    for a body that changed no line field."""
+    for a body that changed no line field. `named` is spread over a whole part, so a
+    short one still answers every field; bare, it names one part and changes it."""
+    named = {**import_part("tx-1", -1000), **(named or {})}
+    if changed is None:
+        changed = [named]
     return {
         **named,
         "changed_parts": [
             {"transaction": part, "left_statement": part["id"] in left} for part in changed
         ],
     }
-
-
-#: Every fixture builder that stands for an engine endpoint's answer, keyed by that
-#: endpoint as the contract names it, `METHOD /v1/path`. scripts/check_fixture_drift.py
-#: calls each with no arguments and reports any field the contract requires on that
-#: answer that the bare answer leaves out. Mark a builder with `answer_of`.
-ANSWER_BUILDERS: dict[str, Callable[..., dict]] = {}
-
-
-def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callable[..., dict]]:
-    """Mark a builder as standing for the answer of `method path`, in `ANSWER_BUILDERS`.
-
-    The drift script checks the bare answer, `builder()`, so every call has to keep
-    each of its keys: what a test passes is spread over it, never in place of it.
-    The marked builder asserts that on every call, so a test cannot get an answer
-    with fewer fields than the one the script checked."""
-
-    def mark(builder: Callable[..., dict]) -> Callable[..., dict]:
-        @functools.wraps(builder)
-        def build(*args: Any, **kwargs: Any) -> dict:
-            answer = builder(*args, **kwargs)
-            dropped = sorted(set(builder()) - set(answer))
-            assert not dropped, f"{builder.__name__} dropped {dropped} from its bare answer"
-            return answer
-
-        ANSWER_BUILDERS[f"{method} {path}"] = build
-        return build
-
-    return mark
 
 
 #: The keys of an import answer's row that say what the engine did with it, each `None`

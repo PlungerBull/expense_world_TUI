@@ -355,13 +355,16 @@ def _answer_contract(version=SAVED):
             name={},
             gap=dict(anyOf=[{"$ref": "#/components/schemas/Gap"}, dict(type="null")]),
             items=dict(type="array", items={"$ref": "#/components/schemas/Item"}),
+            locks=dict(type="object", additionalProperties={"$ref": "#/components/schemas/Item"}),
+            free=dict(type="object", additionalProperties={}),
         ),
         required=["name", "gap", "items"],
     )
     json_answer = dict(schema={"$ref": "#/components/schemas/Thing"})
     close = dict(responses={"200": dict(content={"application/json": json_answer})})
     doc = _contract(version)
-    doc["components"]["schemas"].update(Thing=thing, Gap=gap, Item=item)
+    account = dict(properties=dict(currency={}, more={}))
+    doc["components"]["schemas"].update(Thing=thing, Gap=gap, Item=item, Account=account)
     doc["paths"] = {CLOSE.split(" ")[1]: dict(post=close)}
     return doc
 
@@ -388,7 +391,7 @@ def test_an_answer_with_every_required_field_passes(drift, monkeypatch, capsys):
     _mark_close(drift, monkeypatch, dict(name="x", gap=None, items=[]))
 
     assert drift.main(["--engine-url", PRACTICE]) == 0
-    assert "no marked answer leaves out a field its endpoint requires." in capsys.readouterr().out
+    assert "every marked answer matches its endpoint" in capsys.readouterr().out
 
 
 @respx.mock
@@ -399,7 +402,7 @@ def test_an_answer_missing_a_required_field_fails_and_names_it(drift, monkeypatc
 
     assert drift.main(["--engine-url", PRACTICE]) == 1
     out = capsys.readouterr().out
-    assert "fields the contract requires on an answer, that its fixture leaves out:" in out
+    assert "where a marked answer differs from its endpoint's answer in the contract:" in out
     assert f"  {CLOSE}: gap (close_answer)" in out
     assert "no fixture claims a field the engine does not serve." in out  # the other half
 
@@ -416,6 +419,51 @@ def test_a_nested_object_or_list_item_is_checked_against_its_own_schema(drift, m
         f"  {CLOSE}: gap.count (close_answer)",
         f"  {CLOSE}: items[1].id (close_answer)",
     ]
+
+
+@respx.mock
+def test_a_key_its_own_endpoint_lacks_is_named_with_its_path_and_builder(
+    drift, monkeypatch, capsys
+):
+    """Each planted key is declared on another schema of the contract (`currency`,
+    `more` on Account, `id` on Item, `first` on Gap), so only a check against the
+    endpoint's own schema names it. A map's values are checked as its schema says."""
+    _serve_answers()
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    answer = dict(
+        name="x",
+        currency="PEN",
+        gap=dict(first="d", count=1, id=2),
+        items=[dict(id=1, first=0)],
+        locks=dict(a=dict(id=1, more=1)),
+        free=dict(anything=1),
+    )
+    _mark_close(drift, monkeypatch, answer)
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith(f"  {CLOSE}")]
+    assert lines == [
+        f"  {CLOSE}: currency is not in its answer (close_answer)",
+        f"  {CLOSE}: gap.id is not in its answer (close_answer)",
+        f"  {CLOSE}: items[0].first is not in its answer (close_answer)",
+        f"  {CLOSE}: locks.a.more is not in its answer (close_answer)",
+    ]
+
+
+def test_a_map_values_required_fields_are_checked(drift):
+    doc = _answer_contract()
+    schema = drift.answer_schema(doc, CLOSE)
+
+    value = dict(name="x", gap=None, items=[], locks=dict(a={}))
+    assert drift.missing_required(doc, schema, value) == ["locks.a.id"]
+
+
+def test_an_object_the_contract_leaves_open_has_no_extra_key(drift):
+    doc = _answer_contract()
+    doc["components"]["schemas"]["Thing"]["additionalProperties"] = True
+    schema = drift.answer_schema(doc, CLOSE)
+
+    assert drift.extra_keys(doc, schema, dict(name="x", gap=None, items=[], anything=1)) == []
 
 
 @respx.mock
