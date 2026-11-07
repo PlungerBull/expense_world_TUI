@@ -35,7 +35,7 @@ from expense.tui.screens._base import (
     not_done_line,
     screen_fetch_kwargs,
 )
-from expense.tui.screens._form import FormScreen, form_bindings, open_it_again
+from expense.tui.screens._form import FormScreen, form_bindings, may_have_landed, open_it_again
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_text
@@ -313,17 +313,20 @@ class BarFormScreen(FormScreen):
     def _left_behind(self) -> str | None:
         return not_done_line(self.NOT_DONE, self._kind(), self._shown_name())
 
-    def _landed_after_leaving(self, item, error) -> bool:
-        """Whether the answer just shown is the one after which the list reads again."""
-        return error is None
+    def _landed_after_leaving(self, item, error, failure) -> bool:
+        """Whether the answer just shown is the one after which the list reads again: the
+        save landed, or its ending is not known (`may_have_landed`)."""
+        return error is None or may_have_landed(failure)
 
-    def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
-        """A save that landed once the form was gone: the app says how it ended
-        (`EngineWriteMixin`), and if the screen now showing is this form's list,
-        it reads again from its first page."""
-        super()._write_finished_after_leaving(app, item, error, *answer)
+    def _write_finished_after_leaving(self, app, item, error, body=None, failure=None) -> None:
+        """A save that ended once the form was gone: the app says how it ended
+        (`EngineWriteMixin`), and if it landed or its ending is not known and the
+        screen now showing is this form's list, it reads again from its first page."""
+        super()._write_finished_after_leaving(app, item, error, body, failure)
         shown = app.screen
-        if self._landed_after_leaving(item, error) and isinstance(shown, ResourceListScreen):
+        if self._landed_after_leaving(item, error, failure) and isinstance(
+            shown, ResourceListScreen
+        ):
             if shown.RESOURCE == self.RESOURCE:
                 shown.start_over()
 
@@ -1023,10 +1026,13 @@ class EditAccountScreen(NewAccountScreen):
     def _shown_name(self) -> str:
         return self._was
 
-    def _landed_after_leaving(self, item, error) -> bool:
-        """The list reads again once, at the save's last answer, if any part landed."""
+    def _landed_after_leaving(self, item, error, failure) -> bool:
+        """The list reads again once, at the save's last answer, if any part landed or
+        ended unknown; parts all refused clearly leave it be."""
         report = item.left_behind.part.report
-        return report.complete and report.landed
+        return report.complete and (
+            report.landed or any(may_have_landed(f) for f in report.failures)
+        )
 
     def _saved_words(self) -> str:
         return "Saved."

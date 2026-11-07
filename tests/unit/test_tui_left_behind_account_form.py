@@ -15,6 +15,7 @@ from textual.screen import Screen
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.tui.screens._form import open_it_again
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
@@ -158,7 +159,8 @@ def _left_save(
         release.set()
         await wait_for(pilot, lambda: notes, timeout=3)
         await pilot.pause()
-        if not elsewhere and set(fake_client.requests) - set(refusals or {}):  # something landed
+        unrefused = {k for k, e in (refusals or {}).items() if open_it_again(e) is None}
+        if not elsewhere and set(fake_client.requests) - set(refusals or {}) | unrefused:
             await wait_for(pilot, lambda: len(list_reads) > reads_before, timeout=3)
             await wait_for_list(pilot, app)
             assert listing.query_one(CursorList).cursor_key == record["id"]  # row 1
@@ -340,3 +342,26 @@ def test_one_message_however_far_the_save_had_got(fake_client, monkeypatch, hold
     notes, sent, _ = _left_save(fake_client, monkeypatch, hold=hold)
     assert sent == ALL_THREE
     assert len(notes) == 1
+
+
+@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
+def test_every_part_ended_unknown_still_reads_the_list_again(fake_client, monkeypatch, failure):
+    """Nothing is known to have landed, but any part may have: the list reads again."""
+    _, sent, reads = _left_save(
+        fake_client,
+        monkeypatch,
+        refusals={PUT_ACCOUNT: failure, PUT_PEN: failure, PUT_USD: failure},
+    )
+    assert sent == ALL_THREE
+    assert reads == 1
+
+
+def test_one_part_unknown_and_the_rest_refused_clearly_reads_the_list_again(
+    fake_client, monkeypatch
+):
+    _, _, reads = _left_save(
+        fake_client,
+        monkeypatch,
+        refusals={PUT_ACCOUNT: NOT_FUTURE, PUT_PEN: SERVER_ERROR, PUT_USD: NOT_FUTURE},
+    )
+    assert reads == 1

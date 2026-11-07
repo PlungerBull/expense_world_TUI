@@ -131,9 +131,11 @@ The writes that carry one, each naming its words where it is sent:
 - **The ledger's bulk edit:** "The ledger's bulk edit reads its refused rows the same way"
   (§2).
 
-When such a write lands while the screen shown is the one it changed, that screen reads
-again: a Manage form's list from its first page, cursor on row 1 (the account Edit form's once,
-if any of its writes landed); the screen that opened a line's Edit form, as after any save; the
+When such a write ends while the screen shown is the one it changed, that screen reads
+again: a Manage form's list from its first page, cursor on row 1, after a save that landed or
+whose ending is not known (a 5xx, no answer: `may_have_landed`), never after a clear refusal
+(the account Edit form's once, at its last answer, if any of its writes landed or ended
+unknown); the screen that opened a line's Edit form, as after any save; the
 Statements screen, a new statement opening that account's panel on it, and after the last tick
 too, however it ended.
 

@@ -41,6 +41,12 @@ def open_it_again(failure: Exception | None) -> str | None:
     return None
 
 
+def may_have_landed(failure: Exception | None) -> bool:
+    """Whether a failed save may still have been applied: a 5xx or no answer at all,
+    the same cases `open_it_again` leaves without a last line."""
+    return failure is not None and open_it_again(failure) is None
+
+
 def form_bindings(
     submit_desc: str, *, cancel_desc: str = "Cancel"
 ) -> list[Binding | tuple[str, str, str]]:

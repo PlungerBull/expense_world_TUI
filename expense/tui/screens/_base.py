@@ -191,6 +191,11 @@ class SaveReport:
         """At least one part was saved."""
         return any(error is None for _, error, _ in self._answers)
 
+    @property
+    def failures(self) -> list[Exception | None]:
+        """The failure of each part that did not save."""
+        return [failure for _, error, failure in self._answers if error is not None]
+
     def record(self, part: "ReportedPart", error: str | None, failure: Exception | None) -> None:
         """One write's answer: None when it was saved, else the engine's words and its failure."""
         self._answers.append((part, error, failure))

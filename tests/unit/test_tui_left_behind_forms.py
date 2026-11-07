@@ -12,6 +12,7 @@ import pytest
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.tui.screens._form import may_have_landed
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -109,11 +110,11 @@ def _left_form(fake_client, monkeypatch, site: str, refusal: Exception | None) -
         late.release.set()
         await wait_for(pilot, lambda: notes, timeout=3)
         await pilot.pause()
-        if refusal is None:
+        if refusal is None or may_have_landed(refusal):
             await wait_for(pilot, lambda: len(reads) > reads_before, timeout=3)
             await wait_for_list(pilot, app)
         else:
-            assert len(reads) == reads_before  # a refusal changed nothing: nothing is read
+            assert len(reads) == reads_before  # a clear refusal changed nothing: nothing is read
         result.extend([notes, len(reads) - reads_before, listing_screen.query_one(CursorList)])
         result[2] = result[2].cursor_key
 
@@ -152,18 +153,19 @@ NO_ANSWER = EngineConnectionError(url="https://x.invalid", original=Exception("r
 
 
 @pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
-@pytest.mark.parametrize("site", ["new hashtag", "edit hashtag"])
-def test_a_form_whose_ending_is_not_known_ends_with_the_engines_words_only(
+@pytest.mark.parametrize("site", sorted(SITES))
+def test_a_form_whose_ending_is_not_known_ends_with_the_engines_words_only_and_the_list_starts_over(
     fake_client, monkeypatch, site, failure
 ):
-    notes, new_reads, _ = _left_form(fake_client, monkeypatch, site, failure)
+    notes, new_reads, cursor_key = _left_form(fake_client, monkeypatch, site, failure)
     [(title, message, options)] = notes
     assert title == SITES[site][8]
     assert "open it again" not in message
     assert message == format_error(failure)  # as sent, no markup
     assert options["markup"] is False
     assert options["severity"] == "error"
-    assert new_reads == 0
+    assert new_reads == 1  # it may have landed: the list reads again, as after a save
+    assert cursor_key == SITES[site][1][0]["id"]  # row 1
 
 
 def test_a_form_saved_after_leaving_for_another_screen_reads_nothing_more(fake_client, monkeypatch):
