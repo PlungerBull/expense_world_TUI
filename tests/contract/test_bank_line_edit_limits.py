@@ -70,7 +70,7 @@ from tests.contract.conftest import (
     assert_refusals,
     free_statement_codes,
     read_signed,
-    refused,
+    refused_line_write,
 )
 from tests.unit.helpers import LOCK_MESSAGES
 
@@ -110,21 +110,10 @@ def _line(client, line_id: str) -> dict:
 
 
 def _refused_unwritten(client, line_id: str, body: dict, reasons: dict) -> EngineError:
-    """`body` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and
-    nothing is written: one read of the line (`GET /bank-lines/{id}`) gives back what it gave
-    before, its parts included as that read shapes them, each as `GET /transactions/{id}`
-    returns it, not by a second read; and no part `body` named under a new id exists
-    (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")
-    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Returns the refusal."""
-    before = _line(client, line_id)
-    held = {p["id"] for p in before["parts"]}
-    err = refused(lambda: client.put(f"/bank-lines/{line_id}", json_body=body))
+    """`body` sent to the line is refused (`refused_line_write`, which checks nothing was
+    written) as `422` `VALIDATION_ERROR` with exactly `reasons`. Returns the refusal."""
+    err = refused_line_write(client, line_id, body)
     assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-    assert _line(client, line_id) == before
-    for part in body.get("parts", []):
-        if part["id"] not in held:
-            gone = refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
-            assert gone.status == 404, part
     return err
 
 

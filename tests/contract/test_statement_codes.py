@@ -36,7 +36,7 @@ from tests.contract.conftest import (
     account_body,
     assert_refusal,
     free_statement_codes,
-    refused,
+    refused_keeping,
     refused_writing_nothing,
     savings_paper,
     send_statement,
@@ -194,10 +194,7 @@ def _statements(client, account_id: str) -> list[dict]:
 def _refused_keeping_statements(client, account_id: str, call) -> EngineError:
     """The refusal of `call`, with every statement of the account read the same before
     and after it."""
-    before = _statements(client, account_id)
-    err = refused(call)
-    assert _statements(client, account_id) == before
-    return err
+    return refused_keeping(lambda: _statements(client, account_id), call)
 
 
 def _post_statement(client, scratch, account_id: str, start: str, end: str):

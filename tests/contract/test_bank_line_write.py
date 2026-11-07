@@ -62,6 +62,8 @@ from tests.contract.conftest import (
     balance_of,
     read_signed,
     refused,
+    refused_keeping,
+    refused_line_write,
 )
 
 APRIL = ("2026-04-01", "2026-04-30")
@@ -218,18 +220,10 @@ def test_inside_a_completed_statement_the_total_is_kept(client, scratch):
     assert client.get(f"/transactions/{added}")["statement_id"] == statement
     assert _line(client, line)["net_cents"] == -10000
 
-    before = _line(client, line)
-    err = refused(
-        lambda: _write(
-            client,
-            line,
-            {
-                "parts": [
-                    {"id": one, "amount_cents": -8000},
-                    {"id": added, "amount_cents": -3000},
-                ]
-            },
-        )
+    err = refused_line_write(
+        client,
+        line,
+        {"parts": [{"id": one, "amount_cents": -8000}, {"id": added, "amount_cents": -3000}]},
     )
     assert_refusals(
         err,
@@ -244,18 +238,16 @@ def test_inside_a_completed_statement_the_total_is_kept(client, scratch):
     assert "-10000" in err.fields["parts"] and "-11000" in err.fields["parts"]
 
     extra = _new_id(scratch)
-    err = refused(
-        lambda: _write(
-            client,
-            line,
-            {
-                "parts": [
-                    {"id": one, "amount_cents": -5000},
-                    {"id": added, "amount_cents": -5000},
-                    {"id": extra, "amount_cents": -1000},
-                ]
-            },
-        )
+    err = refused_line_write(
+        client,
+        line,
+        {
+            "parts": [
+                {"id": one, "amount_cents": -5000},
+                {"id": added, "amount_cents": -5000},
+                {"id": extra, "amount_cents": -1000},
+            ]
+        },
     )
     assert_refusals(
         err,
@@ -269,8 +261,6 @@ def test_inside_a_completed_statement_the_total_is_kept(client, scratch):
             "parts.2.id": "SEALED_PERIOD",
         },
     )
-    assert _line(client, line) == before
-    assert refused(lambda: client.get(f"/transactions/{extra}")).status == 404
 
 
 def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
@@ -292,7 +282,6 @@ def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
     code = f"OP-{uuid4().hex[:10]}"
     filled = _write(client, line, {"operation_code": code})
     assert filled["operation_code"] == code
-    before = _line(client, line)
 
     sent_alone = [
         ({"title": title}, "title"),
@@ -308,14 +297,14 @@ def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
         ({"statement_id": None}, "statement_id"),
     ]
     for body, key in sent_alone:
-        err = refused(lambda body=body: _write(client, line, body))
+        err = refused_line_write(client, line, body)
         assert_refusal(err, 422, "VALIDATION_ERROR", key, "LOCKED")
 
     for body in (
         {"account_id": other, "currency_code": "USD"},
         {"account_id": account, "currency_code": "PEN"},
     ):
-        err = refused(lambda body=body: _write(client, line, body))
+        err = refused_line_write(client, line, body)
         assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(body, "LOCKED"))
 
     together = {
@@ -326,14 +315,14 @@ def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
         "operation_code": f"{code}-b",
         "statement_id": None,
     }
-    err = refused(lambda: _write(client, line, together))
+    err = refused_line_write(client, line, together)
     assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(together, "LOCKED"))
 
     beside = {
         "title": "renamed",
         "parts": [{"id": one, "amount_cents": -8000}, {"id": two, "amount_cents": -3000}],
     }
-    err = refused(lambda: _write(client, line, beside))
+    err = refused_line_write(client, line, beside)
     assert_refusals(
         err,
         422,
@@ -345,7 +334,6 @@ def test_a_line_in_a_completed_statement_keeps_its_line_fields(client, scratch):
             "parts.1.amount_cents": "SPLIT_TOTAL_MISMATCH",
         },
     )
-    assert _line(client, line) == before
 
 
 def _placed(client, line_id: str) -> tuple[str, str]:
@@ -421,14 +409,15 @@ def test_a_move_onto_an_account_lacking_the_currency_is_refused(client, scratch,
         (loose, loose_part, {"account_id": soles, "currency_code": "USD"}, "currency_code"),
     ]
     for line, part, body, key in cases:
-        held_line, held_balances = _line(client, line), balances()
         path = route_path(line, part)
-        err = refused(lambda path=path, body=body: client.put(path, json_body=body))
+        err = refused_keeping(
+            lambda line=line: (_line(client, line), balances()),
+            lambda path=path, body=body: client.put(path, json_body=body),
+            body,
+        )
         assert_refusal(err, 422, "VALIDATION_ERROR", key, "CURRENCY_NOT_HELD")
         if key == "account_id":
             assert err.fields[key] == "The account holds no USD."
-        assert _line(client, line) == held_line, body
-        assert balances() == held_balances, body
 
 
 def test_a_move_of_an_assigned_line_settles_its_statement(client, scratch):
@@ -447,16 +436,14 @@ def test_a_move_of_an_assigned_line_settles_its_statement(client, scratch):
     one, two = scratch.transactions[-2:]
     scratch.assign(one, statement)
 
-    held = _line(client, line)
     for body in (
         {"currency_code": "USD"},
         {"account_id": other},
         {"account_id": other, "currency_code": "USD"},
     ):
-        err = refused(lambda body=body: _write(client, line, body))
+        err = refused_line_write(client, line, body)
         reasons = dict.fromkeys(body, "ASSIGNED_TO_RECONCILIATION")
         assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-        assert _line(client, line) == held, body
 
     kept = _write(client, line, {"currency_code": "USD", "statement_id": statement})
     assert (kept["account_id"], kept["currency_code"]) == (visa, "USD")

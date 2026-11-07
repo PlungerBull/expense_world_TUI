@@ -48,6 +48,8 @@ from tests.contract.conftest import (
     live_ids,
     read_signed,
     refused,
+    refused_keeping,
+    refused_line_write,
     statement_codes,
     transaction_count,
 )
@@ -137,11 +139,12 @@ def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch
 def _unwritten_refusal(client, path: str, body: dict, keys: set[str], name: str) -> None:
     """`body` sent to `path` is `422` `SEALED_PERIOD` on exactly `keys`, each field naming
     the statement `name`, and the resource reads as before."""
-    before = client.get(path, params={"debit_as_negative": "true"})
-    err = refused(lambda: client.put(path, json_body=body))
+    err = refused_keeping(
+        lambda: client.get(path, params={"debit_as_negative": "true"}),
+        lambda: client.put(path, json_body=body),
+    )
     assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(keys, "SEALED_PERIOD"))
     assert all(name in err.fields[key] for key in keys), err.fields
-    assert client.get(path, params={"debit_as_negative": "true"}) == before
 
 
 def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
@@ -171,11 +174,9 @@ def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
         _unwritten_refusal(client, f"/transactions/{tx_id}", body, keys, name)
 
     line = client.get(f"/transactions/{stray['id']}")["bank_line_id"]
-    held = client.get(f"/bank-lines/{line}")
     body = {"account_id": account, "currency_code": "PEN"}
-    err = refused(lambda: client.put(f"/bank-lines/{line}", json_body=body))
+    err = refused_line_write(client, line, body)
     assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(body, "SEALED_PERIOD"))
-    assert client.get(f"/bank-lines/{line}") == held
     assert read_signed(client, stray["id"])["account_id"] == other
 
 

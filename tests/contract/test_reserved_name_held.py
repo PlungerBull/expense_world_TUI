@@ -59,7 +59,7 @@ from tests.contract.conftest import (
     Scratch,
     assert_refusal,
     free_statement_codes,
-    refused,
+    refused_keeping,
     savings_paper,
     send_download,
     send_statement,
@@ -108,13 +108,11 @@ def _refused_writing_nothing(
     `keys`, and the account and the user's categories and hashtags read as before. A write
     needing both `@Pendiente` and the pending hashtag is refused on the first it needs, and
     the contract fixes no order between them, so such a call passes both keys."""
-    before = _snapshot(client, account_id)
-    err = refused(call)
+    err = refused_keeping(lambda: _snapshot(client, account_id), call)
     assert isinstance(err.reasons, dict) and len(err.reasons) == 1, err.reasons
     key = next(iter(err.reasons))
     assert key in keys, err.reasons
     assert_refusal(err, 409, "CONFLICT", key, "RESERVED_NAME_HELD")
-    assert _snapshot(client, account_id) == before
 
 
 def _row(made: Scratch, account_id: str, **fields) -> dict:

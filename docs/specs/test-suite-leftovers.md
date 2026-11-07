@@ -133,11 +133,6 @@ Item 3 is nearly done: the live suite keeps one copy of `refused` and `refused_w
 in its conftest.py, and `_safe_delete` lives in one file only; what is left of it (each file's
 own "refused, and this read the same before and after" step) goes with item 7 in task 5.
 
-5. **One shared "refused, nothing changed" step in the live suite (items 3's rest, and 7).**
-   One step in tests/contract/conftest.py takes a read and a call, and gives the refusal with
-   the read the same before and after; test_bank_line_write.py's hand-written refused-then-read
-   and `_refused_unwritten` in test_bank_line_edit_limits.py use it, as do the other files'
-   own versions of that step where it fits.
 6. **The bank import's heads pinned with a bracketed name (item 8).**
    test_tui_bracketed_names.py proves the bank import's account list and its
    `Preview · <account>` head show `[like this]` whole.
@@ -163,3 +158,8 @@ own "refused, and this read the same before and after" step) goes with item 7 in
   …) are not read, and nothing says so.
 - tests/unit/test_no_read_only_fields.py writes the engine address and token itself (lines
   174, 187, 231) where `ENGINE_URL` and `ENGINE_TOKEN` in helpers.py hold them.
+- Live tests still write "refused, then the same read" inline in their bodies instead of using
+  conftest.py's shared step: test_statement_import.py, test_bank_import.py,
+  test_reserved_name_held.py, test_bank_lines.py, test_resources_lifecycle.py,
+  test_statement_currencies.py, test_statement_order.py and test_statements_lifecycle.py; some
+  share one before read across a loop or use `before` in later asserts, and keep it by hand.

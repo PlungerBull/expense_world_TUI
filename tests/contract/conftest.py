@@ -13,10 +13,11 @@ import base64
 import io
 import os
 import random
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -338,13 +339,37 @@ def all_accounts(client: ExpenseClient) -> list[dict]:
     return client.get("/accounts", params=params)["items"]
 
 
+def refused_keeping(
+    read: Callable[[], Any], call: Callable[[], Any], what: Any = ""
+) -> EngineError:
+    """The engine's refusal of `call`, with `read()` giving the same before and after it;
+    `what` (the body sent, say) names the case in the failure message."""
+    before = read()
+    err = refused(call)
+    assert read() == before, what
+    return err
+
+
 def refused_writing_nothing(client: ExpenseClient, call) -> EngineError:
     """The engine's refusal of `call`, with every account the caller has (`all_accounts`:
     version, `updated_at`, kind, archive state, every currency's balance and opening
     balance) read the same before and after it."""
-    before = all_accounts(client)
-    err = refused(call)
-    assert all_accounts(client) == before
+    return refused_keeping(partial(all_accounts, client), call)
+
+
+def refused_line_write(client: ExpenseClient, line_id: str, body: dict) -> EngineError:
+    """The engine's refusal of `body` sent to the line (`PUT /bank-lines/{id}`), with one
+    read of the line (`GET /bank-lines/{id}`, its parts included as that read shapes them)
+    the same before and after, and no part `body` names under a new id existing
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    read = partial(client.get, f"/bank-lines/{line_id}")
+    held = {p["id"] for p in read()["parts"]}
+    err = refused_keeping(read, lambda: client.put(f"/bank-lines/{line_id}", json_body=body), body)
+    for part in body.get("parts", []):
+        if part["id"] not in held:
+            gone = refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
+            assert gone.status == 404, part
     return err
 
 

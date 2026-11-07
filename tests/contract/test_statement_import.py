@@ -82,6 +82,7 @@ from tests.contract.conftest import (
     pdf_file,
     read_signed,
     refused,
+    refused_keeping,
     savings_paper,
     send_download,
     send_statement,
@@ -122,11 +123,11 @@ def _upload(client, account_id: str, paper: bytes, *, dry_run: bool):
 
 def _refused_writing_nothing(client, account_id: str, paper: bytes, status, code, key, reason):
     """The paper is refused alike on the dry run and the apply, writing nothing."""
-    before = _ledger(client, account_id)
     for dry_run in (True, False):
-        err = refused(_upload(client, account_id, paper, dry_run=dry_run))
+        err = refused_keeping(
+            lambda: _ledger(client, account_id), _upload(client, account_id, paper, dry_run=dry_run)
+        )
         assert_refusal(err, status, code, key, reason)
-        assert _ledger(client, account_id) == before
     return err
 
 

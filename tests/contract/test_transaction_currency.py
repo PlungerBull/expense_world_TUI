@@ -94,6 +94,7 @@ from tests.contract.conftest import (
     assert_refusal,
     assert_refusals,
     refused,
+    refused_keeping,
     transaction_count,
 )
 
@@ -129,10 +130,7 @@ def _state(client, *account_ids: str) -> tuple:
 
 def _refused_writing_nothing(client, account_ids: list[str], call):
     """The engine's refusal of `call`, with `_state` the same before and after it."""
-    before = _state(client, *account_ids)
-    err = refused(call)
-    assert _state(client, *account_ids) == before
-    return err
+    return refused_keeping(lambda: _state(client, *account_ids), call)
 
 
 def _ids(client, **params) -> list[str]:
