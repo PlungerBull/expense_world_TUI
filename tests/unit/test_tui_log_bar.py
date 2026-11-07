@@ -26,6 +26,7 @@ from expense.tui.screens.log_bar import (
     AccountPeek,
     LogBarScreen,
     Staged,
+    fit_label,
     format_date_cell,
     peek_rows,
     peek_status,
@@ -1788,6 +1789,50 @@ def test_peek_status_shortens_only_the_name_to_fit_the_width():
     assert peek_status(7, 1716, name, "PEN", 0).count("…") == 0
     assert peek_status(7, 1716, name, "PEN", 5).startswith("7 of 1716 in I")
     assert peek_status(3, 3, name, None, 40).endswith("… · newest first")
+
+
+LONG_ACCOUNT = "Cuenta Corriente Empresarial Korakuen Ingeniería y Construcción SAC Arequipa"
+
+
+def test_a_long_account_name_gives_way_in_the_title_too(fake_client, monkeypatch):
+    assert len(LONG_ACCOUNT) == 76
+    accounts = [
+        account_with_currencies(id="acc9", name=LONG_ACCOUNT, currencies=[held_currency("PEN")])
+    ]
+    _patch(monkeypatch, _PeekFetch(total=214))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, f"tottus -38.60 ${LONG_ACCOUNT} @KORAKUEN")
+        await _peeked(pilot, screen)
+        panel = _peek(screen)
+        title = panel.panel_title
+        assert "…" in title and title.endswith("… · PEN")
+        assert title.endswith(" · PEN") and len(title) <= panel.content_size.width
+        lines = [ln.rstrip() for ln in screen_lines(app)]
+        # one row: the title, then the rule; the count line is on screen below the rows
+        at = next(i for i, ln in enumerate(lines) if ln.strip() == title)
+        assert set(lines[at + 1].strip()) <= {"─", "━", "-"}
+        assert any(" of 214 in " in ln and ln.endswith(" · PEN · newest first") for ln in lines)
+        # the same cut as the count line, and wider again the name comes back whole
+        await pilot.resize_terminal(140, 24)
+        await wait_for(
+            pilot, lambda: panel.panel_title == f"{LONG_ACCOUNT} · PEN", message="no refit"
+        )
+        await pilot.pause()
+        assert f"{LONG_ACCOUNT} · PEN" in [ln.strip() for ln in screen_lines(app)]
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_a_short_name_and_a_two_currency_pick_keep_their_title():
+    assert fit_label("BCP", "PEN", 80) == "BCP · PEN"
+    assert fit_label("visa", "USD", 80) == "visa · USD"
+    assert fit_label("BCP", None, 80) == "BCP"
+    cut = fit_label(LONG_ACCOUNT, "PEN", 80)
+    assert len(cut) == 80 and cut.endswith("… · PEN")
+    assert fit_label(LONG_ACCOUNT, "PEN", 0) == f"{LONG_ACCOUNT} · PEN"
 
 
 async def _peeked(pilot, screen):

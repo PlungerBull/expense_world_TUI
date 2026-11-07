@@ -1750,8 +1750,8 @@ footer for dropped files is above).
 **The account peek.** Once the typed line names an account and its currency (typed, or the
 account's only one), that pick's posted ledger fills the room under the staged list —
 `AccountPeek`, five columns (date, title, amount, category, tags; no account column), titled
-with the pick's label. Its count line names the label too, shortening only the account name
-with `…` when too long for the panel: `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
+with the pick's label on one line. The title and the count line both shorten only the account name
+with `…` when too long for the panel (the currency stays whole): `3 of 48 in VISA Infinite Sapphire · USD · newest first`,
 `nothing in … yet`, `48 in … · no room to show them`.
 
 * **Elastic.** The panel draws exactly the rows the staged list leaves, again on every

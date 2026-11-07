@@ -74,9 +74,6 @@ Each point above, as "Decided" below picks; point 5 is parked.
 Approved on 2026-11-07. Each task lands with its tests and the lines of
 [tui.md](../tui.md) that describe what it changes.
 
-2. **A long account name gives way in the peek's title.** The title is one line at any width:
-   the name is cut with `…` so the currency stays whole, as the count line under it already does
-   (Decided 2, the mockup's A).
 3. **The `?` card scrolls when it is taller than the screen.** On every screen, a card that does
    not fit shows what fits, a dim last line `▼ N more lines · ↓ scrolls`, and `↓` `↑` scroll it;
    scrolled down, a dim first line `▲ N lines above · ↑ scrolls` (Decided 3, the mockup's A

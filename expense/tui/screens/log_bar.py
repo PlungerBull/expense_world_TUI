@@ -106,7 +106,6 @@ from expense.reads import (
     items_of,
     load_quickadd_refs,
     pending_label,
-    pick_label,
     pick_parts,
 )
 from expense.tui.dropped import dropped_bank_files, is_statement
@@ -640,6 +639,15 @@ def peek_status(shown: int, total: int, name: str, code: str | None = None, widt
     else:
         before, after = f"{shown} of {total} in ", " · newest first"
 
+    return fit_label(name, code, width, before, after)
+
+
+def fit_label(name: str, code: str | None, width: int, before: str = "", after: str = "") -> str:
+    """`before` + the pick's label + `after` on one line of at most `width` columns
+    (0 means unknown). Only the name gives way with `…`; the currency and the
+    words around the label stay whole. The panel's title and its count line both
+    cut the name here."""
+
     def line(account: str) -> str:
         return before + (currency_label(account, code) if code else account) + after
 
@@ -669,7 +677,6 @@ class AccountPeek(Static):
         self._rows: list[tuple] = []
         self._total = 0
         self._note = ""
-        self._account = ""
         self._name = ""
         self._code: str | None = None
         self._status = ""
@@ -677,7 +684,6 @@ class AccountPeek(Static):
 
     def show(
         self,
-        account: str,
         rows: list[tuple],
         total: int,
         *,
@@ -685,9 +691,8 @@ class AccountPeek(Static):
         code: str | None = None,
         note: str = "",
     ) -> None:
-        """`account` is the pick's label (the title line); `name` and `code` are its
-        two parts, for the count line to shorten the name alone."""
-        self._account = account
+        """`name` and `code` are the pick's two parts; the title and the count line
+        shorten the name alone."""
         self._name, self._code = name, code
         self._rows, self._total, self._note = rows, total, note
         self._rebuild()
@@ -703,8 +708,8 @@ class AccountPeek(Static):
     @property
     def panel_title(self) -> str:
         """The account this panel is showing — a content line, not the
-        border title."""
-        return self._account
+        border title — cut to the panel's width."""
+        return fit_label(self._name, self._code, self.content_size.width)
 
     @property
     def panel_status(self) -> str:
@@ -750,12 +755,13 @@ class AccountPeek(Static):
         return Group(self._heading(), table, Text(self._status, style="dim"))
 
     def _heading(self) -> RenderableType:
-        """The account name over a rule — what the border's top edge carried.
+        """The account name over a rule — what the border's top edge carried,
+        its name cut to the panel's width like the count line's.
 
         `Rule` takes an explicit style: Rich's default resolves to a literal
         green, which the source-grepping theme guard cannot see.
         """
-        return Group(Text(self._account, style="dim"), Rule(style="dim"))
+        return Group(Text(self.panel_title, style="dim"), Rule(style="dim"))
 
 
 # ---------------------------------------------------------------------------
@@ -1429,17 +1435,14 @@ class LogBarScreen(Screen):
             peek.display = False
             return
         peek.display = True
-        label = pick_label(refs, *target)
         account, code = pick_parts(refs, *target)
         note = self._peek_note.get(target)
         cached = self._peek_cache.get(target)
         if cached is not None:
             items, total = cached
-            peek.show(
-                label, peek_rows(items, refs, palette=PALETTE), total, name=account, code=code
-            )
+            peek.show(peek_rows(items, refs, palette=PALETTE), total, name=account, code=code)
             return
-        peek.show(label, [], 0, note=note or PEEK_LOADING, name=account, code=code)
+        peek.show([], 0, note=note or PEEK_LOADING, name=account, code=code)
         if note is None:
             self._request_peek(target)
 
