@@ -1273,6 +1273,40 @@ def test_enter_in_no_statement_opens_the_form_with_its_heading_operation_and_par
     assert reads == []
 
 
+def test_the_no_statement_heading_writes_a_deposit_with_its_plus(engine, monkeypatch):
+    """A deposit served first in "no statement" heads its form with the `+`
+    in the income colour, as the lists write it; zero stays `0.00`."""
+    deposit = _tx("pd", 80000, line="bl-dep", title="Liquidación", category="c-com")
+    monkeypatch.setitem(LINES, "bl-dep", [deposit])
+    monkeypatch.setitem(LIMITS, "bl-dep", edit_limits())
+    line = bank_line("bl-dep")
+    engine.get_responses["/bank-lines/bl-dep"] = line
+    plain_get = engine.get
+
+    def get(path, *, auth=True, params=None):
+        if path == "/bank-lines":
+            engine._record("GET", path, params or {})
+            return cursor_page([line])
+        return plain_get(path, auth=auth, params=params)
+
+    monkeypatch.setattr(engine, "get", get)
+
+    async def scenario(pilot, app):
+        screen = await _open_no_statement(pilot, app)
+        content = screen.query_one("#form-head", Static).content
+        screen._line = {**screen._line, "net_cents": 0}
+        return render_text(content, width=80).strip(), content, screen._heading().plain
+
+    head, content, zero = run_app(scenario, size=SIZE)
+    assert head == "Liquidación  ·  +800.00 PEN"
+    plus = head.index("+")
+    assert any(
+        span.start <= plus < span.end and PALETTE.success in str(span.style)
+        for span in content.spans
+    )
+    assert zero == "Liquidación  ·  0.00 PEN"
+
+
 def test_the_no_statement_form_saves_its_operation_and_parts_in_one_write(engine):
     """An emptied operation clears it, and `^s` keeps the amount typed in the
     bar first: one write, `operation_code: null` beside both parts."""

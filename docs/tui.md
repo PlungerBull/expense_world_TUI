@@ -1317,10 +1317,10 @@ supplies the palette".
 
 **Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
-statement's lines, the lines in no statement, the Edit form's parts and their count line), and
-wherever one is named (the question before a delete, a note after you leave), writes a positive
+statement's lines, the lines in no statement and their Edit form's heading, the Edit form's
+parts and their count line), and wherever one is named (the question before a delete, a note after you leave), writes a positive
 figure with its `+` (`+800.00` beside `-36.40`); zero stays `0.00`. Account balances, Home's
-totals and grid, a statement's balances and difference, the Edit form's heading, and any other
+totals and grid, a statement's balances and difference, and any other
 sum of amounts (the staged total, a day's net, a count line's `… left`) write no `+`
 (`12,450.00`, `-234.20`). Each rule's reach is in
 [theme.py](../expense/tui/theme.py) beside `TRANSACTION_RULE`.

@@ -136,7 +136,7 @@ from expense.tui.screens._base import (
 )
 from expense.tui.screens._form import FormScreen, form_bindings, open_it_again
 from expense.tui.screens.log_bar import LOADING_HINT
-from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
+from expense.tui.theme import ACCENT, PALETTE, TRANSACTION_RULE
 from expense.tui.widgets.cells import amount_text
 from expense.tui.widgets.parts_table import (
     ENGINE_FIELDS,
@@ -1040,7 +1040,7 @@ class BankLineEditFormScreen(EditFormScreen):
         _day, title, _operation, net_cents = bank_line_columns(line)
         head = Text(title_or_untitled(title), style="bold")
         head.append("  ·  ", style="dim")
-        head.append_text(amount_text(net_cents, PALETTE, AMOUNT_RULE))
+        head.append_text(amount_text(net_cents, PALETTE, TRANSACTION_RULE))
         if line.get("currency_code"):
             head.append(f" {line['currency_code']}", style="dim")
         return head
