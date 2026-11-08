@@ -7,6 +7,7 @@ from textual.widgets import Input, Static
 
 from expense.errors import EngineError
 from expense.tui.screens._base import list_refusal_text
+from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.statements import (
     NewStatementScreen,
     StatementsScreen,
@@ -2394,5 +2395,36 @@ def test_the_no_statement_list_card_leaves_the_gutters_beside_it_blank(monkeypat
         await pilot.press("question_mark")
         await pilot.pause()
         assert_card_gutters_blank(screen_lines(app), 80)
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_card_of_the_account_list_lists_no_list_key_with_no_bank_account_and_all_with_one(
+    monkeypatch,
+):
+    _patch_browse(monkeypatch)
+    bank_accounts: list = []
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(bank_accounts))
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        _, groups = screen_inventory(screen)
+        assert [g.title for g in groups] == ["This screen", "Always true", "Everywhere"]
+        assert _card_group(screen, "This screen") == [
+            ("n", "New"),
+            ("r", "Refresh"),
+            ("esc", "Back"),
+        ]
+        bank_accounts.append(
+            account_with_currencies(id="acc1", name="BCP", currencies=[held_currency("PEN", 100)])
+        )
+        await pilot.press("r")
+        await wait_for(pilot, lambda: bool(screen.query_one(CursorList)._rows))
+        assert _card_group(screen, "Moving around") == [
+            ("⏎", "Its statements"),
+            ("↓", "Down"),
+        ]
 
     run_app(scenario, size=(80, 24))

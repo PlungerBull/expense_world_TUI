@@ -44,12 +44,7 @@ any moment leaves it, with no error; nothing else you see changes.
 
 Approved 2026-11-07. Each task's "passes if…" is written when it starts.
 
-2. **The empty lists' cards** (points 1 and 2): the ledger's page keys and the account list's
-   `⏎` and `↓` listed only while they work. Picked from
-   [expense-world-empty-list-cards.html](../mockups/expense-world-empty-list-cards.html): the
-   proposed card for both lists, and on an empty ledger `⏎`, `space`, `↓`, `a`, `c`, `b`, `h`,
-   `m`, `s` and `d` leave the card too, so it lists only `+`, `r` and `esc` (the mockup's last
-   ledger pane).
+All tasks are done; the acceptance check and the doc sweep remain.
 
 ## Found along the way
 
@@ -60,5 +55,10 @@ Not built in this spec; sorted when it is done.
 - No test proves the leave guards in the base list screen's draw and error steps, the guards
   after taking the content lock, or the statement lines' guard after their list mounts; each
   could be forced to always pass and every test would stay green.
+- On an empty Accounts, Categories or Hashtags list the `?` card still lists `↓`, the page keys,
+  and `e`, `c`, `x`, `a`, `t` and `d`, none of which has a row to act on.
+- The ledger's list names `CARD_NEEDS_A_ROW` on its instance where `_AccountList` names it on
+  its class; `listed_bindings` reads the owner's private `_rows`; the `_stub_engine` docstring in
+  test_tui_help.py says every card drops its list keys on an empty list.
 - On an empty ledger the card's `esc` row reads "Clear the selection, else go back", with no
   selection possible.

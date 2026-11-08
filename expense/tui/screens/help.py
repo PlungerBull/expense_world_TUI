@@ -87,6 +87,10 @@ NEEDS_SCREEN_HANDLER = {
 #: lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
+#: A widget or a screen may name, in a `CARD_NEEDS_A_ROW` frozenset, the actions its card
+#: lists only while its `_rows` holds a row; the footer is not asked.
+CARD_NEEDS_A_ROW = "CARD_NEEDS_A_ROW"
+
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
 #: interior columns.
 LEFT_WIDTH = 34
@@ -230,13 +234,15 @@ def key_rows(bindings: list[Binding], drop: frozenset[str] = frozenset()) -> lis
 def listed_bindings(owner) -> list[Binding]:
     """The bindings of `owner` (a screen or the focused widget) the card lists: those
     that are in play, in the order the classes declare them. Left out are a binding
-    its `CARD_FOLLOWS_CHECK` names and its `check_action` refuses, and one whose key
+    its `CARD_FOLLOWS_CHECK` names and its `check_action` refuses, one its
+    `CARD_NEEDS_A_ROW` names while `_rows` is empty, and one whose key
     a more derived class declares: Textual's merge lets a subclass's bindings on a key
     replace every inherited one on it, so `esc Back` inherited from `SectionScreen`
     is never reached on a screen with its own `esc`, whatever that one's
     `check_action` says. A binding is judged by its action, parameters included
     (`page(1)`)."""
     named = getattr(owner, CARD_FOLLOWS_CHECK, ())
+    needs_row = getattr(owner, CARD_NEEDS_A_ROW, ())
     declarer: dict[str, type] = {}  # key -> the most derived class that declares it
     listed: list[Binding] = []
     for base, binding in _declared(type(owner)):
@@ -244,6 +250,8 @@ def listed_bindings(owner) -> list[Binding]:
             continue
         _, name, parameters = parse_action(binding.action)
         if name in named and owner.check_action(name, parameters) is False:
+            continue
+        if name in needs_row and not owner._rows:
             continue
         listed.append(binding)
     return listed

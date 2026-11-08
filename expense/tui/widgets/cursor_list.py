@@ -206,6 +206,10 @@ def list_table(
     return t
 
 
+#: Every action a `CursorList` binds, for a list whose `?` card lists none while it is empty.
+LIST_KEYS = frozenset({"move", "select", "toggle", "more", "page"})
+
+
 class CursorList(WindowedList):
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a

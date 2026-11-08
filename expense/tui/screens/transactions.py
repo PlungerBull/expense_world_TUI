@@ -116,7 +116,7 @@ from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
 from expense.tui.theme import ACCENT, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell
-from expense.tui.widgets.cursor_list import CursorList, list_table
+from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList, list_table
 from expense.tui.widgets.refusal import as_markup, run_stopped, toast
 
 _HEADERS = ["Title", "Description", "Amount", "Cur", "Date", "Account", "Cat", "Hashtags"]
@@ -377,6 +377,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         DELETE_KEY,
     ]
     crumb = ("Capture & ledger", "Transactions")
+    #: The `?` card lists these only once there is a row (help.py).
+    CARD_NEEDS_A_ROW = frozenset({"select_all", "pick", "split", "delete"})
     # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the list
     # window fill its height: the ledger is the screen you sit in, so it takes
     # the window you gave it instead of holding a 110x20 card in the corner of
@@ -474,6 +476,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             page_size=self.measure_list_rows(),
         )
         listing.set_growth(more=self._grow.more)
+        listing.CARD_NEEDS_A_ROW = LIST_KEYS  # the card lists no list key while empty
         return [listing, Static(Text(self._legend()), classes="legend", id="legend")]
 
     def _legend(self) -> str:

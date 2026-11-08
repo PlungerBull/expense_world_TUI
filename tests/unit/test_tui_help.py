@@ -35,6 +35,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_ORDER_HOLDING_ACCOUNTS,
     assert_card_gutters_blank,
     fake_ledger,
     render_text,
@@ -44,11 +45,30 @@ from tests.unit.helpers import (
     wait_for_loaded,
 )
 
+LEDGER_ROW = {
+    "id": "t-1",
+    "title": "Pago tarjeta",
+    "description": None,
+    "amount_cents": -20000,
+    "date": "2024-03-28T00:00:00Z",
+    "account_id": "sig-pen",
+    "currency_code": "PEN",
+    "category_id": None,
+    "hashtag_ids": [],
+    "bank_line_id": "bl-1",
+    "line_code": "L1",
+    "statement_line": None,
+    "statement_place": None,
+    "statement_id": None,
+}
 
-def _stub_engine(monkeypatch, items=()):
+
+def _stub_engine(monkeypatch, items=ENGINE_ORDER_HOLDING_ACCOUNTS, rows=(LEDGER_ROW,)):
+    """A ledger and an account list with a row each, unless the test passes none: a card
+    lists no list key while its list is empty."""
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda cfg, **k: {"items": list(items)})
-    fake_ledger(monkeypatch, [])
+    fake_ledger(monkeypatch, list(rows))
     monkeypatch.setattr(
         "expense.tui.screens.transactions.load_account_index", lambda: AccountIndex({})
     )
@@ -793,3 +813,90 @@ def test_the_ledger_card_leaves_the_gutters_beside_it_blank_at_80_and_140(monkey
 
     _ledger_card(monkeypatch, (80, 24), narrow)
     _ledger_card(monkeypatch, (140, 24), wide)
+
+
+def _keys_of(groups, title) -> list[str]:
+    return [row.keys for row in _rows(groups, title)] if title in _titles(groups) else []
+
+
+def _ledger_inventory(monkeypatch, size, check, **engine):
+    """The ledger's card groups, read off the screen as `?` reads them, and drawn at `size`."""
+    _stub_engine(monkeypatch, **engine)
+
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_loaded(pilot, app)
+        _, groups = screen_inventory(app.screen)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
+        await pilot.pause()
+        check(groups, " ".join(screen_lines(app)))
+
+    run_app(scenario, size=size)
+
+
+def test_an_empty_ledger_lists_only_plus_r_and_esc_at_80_and_140(monkeypatch):
+    def check(groups, drawn):
+        assert _titles(groups) == ["This screen", "Always true", "Everywhere"]
+        assert _keys_of(groups, "This screen") == ["+", "r", "esc"]
+        assert "pgdn" not in drawn and "Moving around" not in drawn
+
+    for size in ((80, 24), (140, 24)):
+        _ledger_inventory(monkeypatch, size, check, rows=())
+
+
+def test_an_empty_ledger_keeps_its_footer_and_its_keys(monkeypatch):
+    _stub_engine(monkeypatch, rows=())
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await app.push_screen(screen)
+        await wait_for_loaded(pilot, app)
+        shown = {b.binding.key: b.enabled for b in screen.active_bindings.values()}
+        assert "enter" in shown and "space" in shown
+        listing = screen.query_one(CursorList)
+        assert listing.check_action("select", ()) is True
+        assert listing.check_action("toggle", ()) is True
+        assert screen.check_action("select_all", ()) is False
+
+    run_app(scenario, size=(100, 32))
+
+
+def test_a_ledger_with_a_row_lists_its_keys_again(monkeypatch):
+    def check(groups, drawn):
+        assert _keys_of(groups, "This screen") == [
+            "+",
+            "a",
+            "c",
+            "b",
+            "h",
+            "m",
+            "s",
+            "d",
+            "r",
+            "esc",
+        ]
+        assert [(r.keys, r.description) for r in _rows(groups, "Moving around")] == [
+            ("↓", "Down"),
+            ("⏎", "Open"),
+            ("space", "Select / unselect the cursor row"),
+            ("pgdn", "Load the next 10 rows under these"),
+            ("pgdn", "Next page"),
+            ("pgup", "Previous page"),
+        ]
+
+    _ledger_inventory(monkeypatch, (140, 24), check)
+
+
+def test_an_empty_and_a_filled_manage_list_keep_their_card(monkeypatch):
+    for items in ((), ENGINE_ORDER_HOLDING_ACCOUNTS):
+        _stub_engine(monkeypatch, items=items)
+        seen: list = []
+
+        async def scenario(pilot, app, seen=seen):
+            await app.push_screen(AccountsScreen())
+            await wait_for_loaded(pilot, app)
+            seen.append(_keys_of(screen_inventory(app.screen)[1], "Moving around"))
+
+        run_app(scenario, size=(100, 32))
+        assert seen[0] == ["↓", "pgdn", "pgup"]

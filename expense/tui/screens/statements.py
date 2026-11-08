@@ -119,7 +119,7 @@ from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import AMOUNT_WIDTH, TITLE_WIDTH, CheckList
-from expense.tui.widgets.cursor_list import CursorList, list_cell
+from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList, list_cell
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching
@@ -466,8 +466,10 @@ class _AccountList(CursorList):
     the account's panel, so the footer names that instead of `Open`."""
 
     BINDINGS = [Binding("enter", "select", "Its statements")]
-    #: The `?` card lists the page keys only while `check_action` allows them (help.py).
+    #: The `?` card lists the page keys only while `check_action` allows them, and no list
+    #: key while there is no account (help.py).
     CARD_FOLLOWS_CHECK = frozenset({"more", "page"})
+    CARD_NEEDS_A_ROW = LIST_KEYS
 
 
 class _PanelList(CursorList):

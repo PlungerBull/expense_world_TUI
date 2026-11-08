@@ -860,7 +860,7 @@ stay; the engine still judges each write they send. The ledger learns which acco
 archived from the same `GET /accounts` that gives it the names, one read per load
 (`reads.load_account_index`), so an account unarchived on Manage ▸ Accounts gets its `d` back
 at the ledger's next read. The `?` card still lists `d`, as it does while rows are selected:
-the ledger names no key in `CARD_FOLLOWS_CHECK` (§4 "App-wide keys are `^q` and `?`").
+the ledger's `CARD_NEEDS_A_ROW` keys leave the card only while it has no row (§4 "App-wide keys are `^q` and `?`").
 
 **On an archived account's line the Edit form changes the categorisation alone.**
 Such a line keeps its parts and their amounts, and every line field sent is refused but a title
@@ -1852,7 +1852,9 @@ from `SectionScreen`, on a screen with its own `esc`), and not one its class nam
 `CARD_FOLLOWS_CHECK` while `check_action` refuses it, as the footer does — the keys that are
 off in some states on the Statements screen and its panel, and a statement's `space`, `c`, `u`
 and `f` ("A statement's screen" above), and the Statements account list's `pgdn` and `pgup`
-while they page nothing. The card covers what is behind it from its top rule to its bottom one
+while they page nothing. The empty ledger's card and the Statements account list's with no
+account list none of their list keys (`CARD_NEEDS_A_ROW`), so the ledger's lists only `+`, `r`
+and `esc`; the keys return with the first row. The card covers what is behind it from its top rule to its bottom one
 across the full width, so the gutters beside its frame are blank. A card taller than the room
 between the head and the footer spreads out on a terminal wide enough, and only then: the
 groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
