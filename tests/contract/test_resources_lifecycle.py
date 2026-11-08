@@ -44,6 +44,7 @@ import pytest
 
 from expense.errors import EngineError
 from tests.contract.conftest import (
+    DEFAULT_COLOR,
     account_body,
     assert_refusal,
     assert_refusals,
@@ -80,16 +81,16 @@ def _assert_gone(client, resource: str, row_id: str) -> None:
 
 def test_accounts_lifecycle(client, scratch):
     body = account_body("USD")
-    new_id, name = body["id"], body["name"]
+    new_id = body["id"]
     scratch.accounts.append(new_id)
     created = client.post("/accounts", json_body=body)
     assert created["id"] == new_id
-    assert created["name"] == name
+    assert created["name"] == f"{body['bank_code']}-{body['last4']}"
     assert client.get(f"/accounts/{new_id}")["id"] == new_id
     assert [entry["currency_code"] for entry in created["currencies"]] == ["USD"]
 
-    updated = client.put(f"/accounts/{new_id}", json_body={"name": f"{name}-renamed"})
-    assert updated["name"] == f"{name}-renamed"
+    updated = client.put(f"/accounts/{new_id}", json_body={"color": "#00aa00"})
+    assert updated["color"] == "#00aa00"
     assert [entry["currency_code"] for entry in updated["currencies"]] == ["USD"]
 
     assert any(a["id"] == new_id for a in _list_all(client, "accounts"))
@@ -357,10 +358,6 @@ def test_moving_a_row_onto_an_archived_account_stays_invalid_reference(client, s
         lambda: client.put(f"/transactions/{tx_id}", json_body={"account_id": archived_id}),
     )
     assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
-
-
-#: The colour a create gives when `color` is left out (contract: "Colour format").
-DEFAULT_COLOR = "#3b82f6"
 
 
 @pytest.mark.parametrize("resource", ["accounts", "categories"])

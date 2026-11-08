@@ -32,10 +32,12 @@ import pytest
 
 from expense.errors import EngineError
 from tests.contract.conftest import (
+    DRAWN_LAST4,
     PaperRow,
     account_body,
     assert_refusal,
     free_statement_codes,
+    kind_change,
     refused_keeping,
     refused_writing_nothing,
     savings_paper,
@@ -175,12 +177,12 @@ def test_a_person_carries_a_code_like_any_account(client, scratch):
     line = client.get(f"/bank-lines/{row['bank_line_id']}")
     assert (line["statement_line"], line["statement_place"]) == (None, None)
 
-    made = client.post(f"/accounts/{bank}/make-person")
+    made = kind_change(client, bank, "make-person")
     assert (made["is_person"], made["statement_code"]) == (True, second)
     assert _code_of(client, bank) == second
-    back = client.post(f"/accounts/{bank}/make-account")
+    back = kind_change(client, bank, "make-account")
     assert (back["is_person"], back["statement_code"]) == (False, second)
-    assert client.post(f"/accounts/{person}/make-account")["statement_code"] == first
+    assert kind_change(client, person, "make-account")["statement_code"] == first
     assert _set_code(client, person, third) == third
 
 
@@ -220,7 +222,7 @@ def test_one_statement_per_account_per_month(client, scratch, coded):
     (contract: "Statements", "The days")
     (contract: POST /v1/statements, "Order")."""
     first, second = free_statement_codes(client, 2)
-    account = scratch.account(code=first) if coded else scratch.account()
+    account = scratch.account(code=first, last4=DRAWN_LAST4) if coded else scratch.account()
     march = scratch.statement(account, "2026-03-01", "2026-03-20")
     named = march["name"]
     row = scratch.row(account, "2026-04-05")

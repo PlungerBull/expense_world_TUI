@@ -56,6 +56,7 @@ from expense.errors import EngineError
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
 from tests.contract.conftest import (
+    ENGINE_FILLS_ONLY_CURRENCY,
     account_balance,
     assert_refusal,
     assert_refusals,
@@ -378,6 +379,7 @@ def test_a_line_moves_by_currency_by_account_or_both(client, scratch, route):
 
 
 @pytest.mark.parametrize("route", ["bank-lines", "transactions"])
+@ENGINE_FILLS_ONLY_CURRENCY
 def test_a_move_onto_an_account_lacking_the_currency_is_refused(client, scratch, route):
     """`account_id` alone onto an account that holds none of the line's currency is
     `422` `CURRENCY_NOT_HELD` on `account_id`, the message naming the currency; with

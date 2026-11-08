@@ -90,6 +90,7 @@ from uuid import uuid4
 import pytest
 
 from tests.contract.conftest import (
+    ENGINE_FILLS_ONLY_CURRENCY,
     all_accounts,
     assert_refusal,
     assert_refusals,
@@ -324,6 +325,7 @@ def test_a_batch_with_one_bad_item_is_refused_whole_and_names_every_bad_item(cli
     )
 
 
+@ENGINE_FILLS_ONLY_CURRENCY
 def test_a_missing_currency_in_a_batch_answers_before_a_currency_the_account_lacks(client, scratch):
     """An item with no `currency_code` beside an item in dollars on a soles-only account:
     only the first is named, as the request's shape is the first step

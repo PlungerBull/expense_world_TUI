@@ -55,6 +55,7 @@ from expense.http import ExpenseClient
 from expense.import_.engine import request_body
 from tests.contract.conftest import (
     CURRENT_HEADER,
+    DRAWN_LAST4,
     PaperRow,
     Scratch,
     assert_refusal,
@@ -260,7 +261,7 @@ def test_a_sheet_creating_an_opening_balance_is_refused(reserved_client, made):
 
 def test_a_statement_pdf_creating_a_row_is_refused(reserved_client, made):
     code = free_statement_codes(reserved_client, 1)[0]
-    account = made.account("PEN", code=code)
+    account = made.account("PEN", code=code, last4=DRAWN_LAST4)
     paper = savings_paper(
         [PaperRow(date(2026, 5, 4), "CONTRACT RESERVED", AMOUNT)],
         start=date(2026, 5, 1),

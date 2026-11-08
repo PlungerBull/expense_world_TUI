@@ -8,7 +8,7 @@ which order they list, and which entries a write logs for them
 
 What it pins:
 
-1. An account is read with exactly the thirteen keys of the contract, on the list and on its
+1. An account is read with exactly the fifteen keys of the contract, on the list and on its
    own, for a bank account, a person and an archived account; each entry of `currencies` is
    exactly `{currency_code, current_balance_cents, opening_balance_transaction_id}`, so it
    carries no home-currency value and no total across currencies exists (the exact key sets
@@ -43,13 +43,14 @@ What it leaves out:
   · A refused write's entries: every refusal there writes nothing, which the refusal tests of
     test_account_currencies.py and test_account_create.py prove by reading the accounts.
 
-Every account is fresh per run (named by its UUID) and removed by the `scratch` fixture.
+Every account is fresh per run (a person named by its UUID, a bank account numbered from the
+suite's range) and removed by the `scratch` fixture.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
 from uuid import uuid4
 
-from tests.contract.conftest import all_accounts
+from tests.contract.conftest import DEFAULT_COLOR, all_accounts, bank_code, next_last4
 
 ACCOUNT_KEYS = {
     "id",
@@ -57,6 +58,8 @@ ACCOUNT_KEYS = {
     "name",
     "color",
     "is_person",
+    "bank_code",
+    "numbers",
     "statement_code",
     "is_archived",
     "sort_order",
@@ -123,7 +126,7 @@ def _assert_whole(account: dict) -> None:
 def test_an_account_is_read_with_exactly_the_contracts_keys_on_the_list_and_alone(client, scratch):
     """A bank account, a person and an archived account, each holding soles and dollars with
     an opening balance in the soles: the list and the read answer the same account with
-    exactly the thirteen keys, and each currency exactly its three (contract: "Bank
+    exactly the fifteen keys, and each currency exactly its three (contract: "Bank
     Accounts", "Account response")."""
     bank = scratch.account("PEN", "USD")
     person = scratch.account("PEN", "USD", person=True)
@@ -179,14 +182,15 @@ def test_every_bank_account_comes_before_every_person(client, scratch):
     the two sharing one, by creation time, oldest first, then the people by `sort_order` (the
     first made having the higher one), so neither names, creation time nor one `sort_order`
     across both kinds gives the order; of the two banks sharing a `sort_order`, the one made
-    first has the later name and the higher id, so neither name nor id breaks the tie
+    first has the later name (built from its number) and the higher id, so neither name nor id
+    breaks the tie
     (contract: GET /v1/accounts, "Ordering")."""
     first_person = scratch.account(name=_named("a1"), person=True, sort_order=1)
     second_person = scratch.account(name=_named("a2"), person=True, sort_order=0)
-    late = scratch.account(name=_named("z1"), sort_order=9)
+    late = scratch.account(last4="9170", sort_order=9)
     low_id, high_id = sorted([str(uuid4()), str(uuid4())])
-    early = scratch.account(name=_named("z3"), sort_order=3, id=high_id)
-    tied = scratch.account(name=_named("z2"), sort_order=3, id=low_id)
+    early = scratch.account(last4="9190", sort_order=3, id=high_id)
+    tied = scratch.account(last4="9180", sort_order=3, id=low_id)
     banks = [early, tied, late]
     people = [second_person, first_person]
     made = banks + people
@@ -260,7 +264,7 @@ def test_a_create_logs_one_account_entry_and_one_entry_per_currency(client, scra
     `account` `CREATED` with the account's snapshot, and one `currency` `CREATED` for each
     currency, each snapshot the currency's at balance `0` naming the account (contract: GET
     /v1/activity, "Accounts and their currencies") (contract: POST /v1/accounts, "Response")."""
-    account_id = scratch.account("USD", "PEN", name=_named("log"))
+    account_id = scratch.account("USD", "PEN")
     made = client.get(f"/accounts/{account_id}")
 
     entries = Entries(client, account_id).new()
@@ -283,23 +287,22 @@ def test_a_create_logs_one_account_entry_and_one_entry_per_currency(client, scra
 def test_an_edit_an_archive_and_a_kind_change_each_log_the_account_alone(client, scratch):
     """On an account holding soles and dollars, an edit, a `make-person` and an archive each
     write exactly one `account` `UPDATED` entry and no `currency` entry; the snapshots show
-    the name, then `is_person` (and `sort_order`), then `is_archived` before and after
+    the colour, then `is_person` (and `sort_order`), then `is_archived` before and after
     (contract: PUT /v1/accounts/{account_id}) (contract: POST
     /v1/accounts/{account_id}/make-person) (contract: POST /v1/accounts/{account_id}/archive)."""
-    account_id = scratch.account("PEN", "USD", name=_named("edit"))
+    account_id = scratch.account("PEN", "USD")
     log = Entries(client, account_id)
     assert len(log.new()) == 3
 
-    renamed = _named("renamed")
-    client.put(f"/accounts/{account_id}", json_body={"name": renamed})
+    client.put(f"/accounts/{account_id}", json_body={"color": "#00aa00"})
     (edit,) = log.new()
     assert (edit["resource_type"], edit["action"]) == ("account", UPDATED)
     before = _snapshot(edit, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
     after = _snapshot(edit, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
-    assert after["name"] == renamed != before["name"]
+    assert (before["color"], after["color"]) == (DEFAULT_COLOR, "#00aa00")
     assert after["version"] == before["version"] + 1
 
-    made = client.post(f"/accounts/{account_id}/make-person")
+    made = client.post(f"/accounts/{account_id}/make-person", json_body={"name": _named("person")})
     (kind,) = log.new()
     assert (kind["resource_type"], kind["action"]) == ("account", UPDATED)
     before = _snapshot(kind, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
@@ -327,7 +330,7 @@ def test_an_unarchive_and_a_turn_back_into_a_bank_account_each_log_the_account_a
     entry, `is_person` going from true to false and `sort_order` ending at the one the write
     answers (contract: POST /v1/accounts/{account_id}/unarchive) (contract: POST
     /v1/accounts/{account_id}/make-account)."""
-    archived = scratch.account("PEN", "USD", name=_named("unarch"))
+    archived = scratch.account("PEN", "USD")
     log = Entries(client, archived)
     assert len(log.new()) == 3
     scratch.archive(archived)
@@ -346,7 +349,10 @@ def test_an_unarchive_and_a_turn_back_into_a_bank_account_each_log_the_account_a
     log = Entries(client, person)
     assert len(log.new()) == 3
 
-    made = client.post(f"/accounts/{person}/make-account")
+    made = client.post(
+        f"/accounts/{person}/make-account",
+        json_body={"bank_code": bank_code(), "last4": next_last4()},
+    )
     (kind,) = log.new()
     assert (kind["resource_type"], kind["action"]) == ("account", UPDATED)
     before = _snapshot(kind, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
@@ -363,7 +369,7 @@ def test_a_delete_logs_one_deleted_account_entry_and_one_per_currency(client, sc
     each currency with that currency's, each `deleted_at` unset before and set after (contract:
     DELETE /v1/accounts/{account_id}, "Activity log") (contract: GET /v1/activity, "Accounts
     and their currencies")."""
-    account_id = scratch.account("PEN", "USD", name=_named("del"))
+    account_id = scratch.account("PEN", "USD")
     log = Entries(client, account_id)
     assert len(log.new()) == 3
 
@@ -399,7 +405,7 @@ def test_an_added_and_a_removed_currency_each_log_one_currency_entry(client, scr
     code at balance `0`, and no `account` entry (contract: POST
     /v1/accounts/{account_id}/currencies, "Response") (contract: DELETE
     /v1/accounts/{account_id}/currencies/{currency_code}, "Response")."""
-    account_id = scratch.account("PEN", name=_named("cur"))
+    account_id = scratch.account("PEN")
     log = Entries(client, account_id)
     assert len(log.new()) == 2
 

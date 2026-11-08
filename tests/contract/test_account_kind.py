@@ -1,8 +1,8 @@
 """Contract: an account becomes a person and back, and is archived whole, against a real engine.
 
-`POST /accounts/{id}/make-person` turns a bank account into a person and
-`POST /accounts/{id}/make-account` turns it back, each taking no body and acting on the
-account, every currency of it with it
+`POST /accounts/{id}/make-person` turns a bank account into a person (its body the person's
+`name`) and `POST /accounts/{id}/make-account` turns it back (its body a `bank_code` and a
+`last4`), each acting on the account, every currency of it with it
 (contract: POST /v1/accounts/{account_id}/make-person)
 (contract: POST /v1/accounts/{account_id}/make-account).
 Manage ▸ Accounts sends both, so only the engine can say what they keep, where the account
@@ -10,7 +10,7 @@ moves and what they refuse.
 
 What it pins, in the order the app meets it:
 
-1. Either way the account keeps its id, name, colour, statement code and currencies, each
+1. Either way the account keeps its id, colour, statement code and currencies, each
    currency its balance and its opening balance (the same transaction, so each currency's
    `opening_balance_transaction_id` is the same before and after), `version` goes up by one,
    and it moves group: listed only with `?include_people=true` and in `/dashboard`'s `people`
@@ -30,7 +30,8 @@ What it pins, in the order the app meets it:
 6. A `make-person` sent again under the same `X-Idempotency-Key` is replayed: the same answer,
    and the account flipped once (contract: "Base Conventions", "Idempotency").
 
-Every account is fresh per run (named by its UUID) and removed by the `scratch` fixture.
+Every account is fresh per run (a person named by its UUID, a bank account numbered from the
+suite's range) and removed by the `scratch` fixture.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
@@ -44,6 +45,7 @@ from tests.contract.conftest import (
     all_accounts,
     assert_refusal,
     free_statement_codes,
+    kind_change,
     live_ids,
     refused,
     refused_writing_nothing,
@@ -52,6 +54,8 @@ from tests.contract.conftest import (
 
 _ROUTES = ("make-person", "make-account")
 _KEPT = ("id", "name", "color", "statement_code", "is_archived", "currencies")
+#: What a kind change keeps: its name is the one it is given (the person's, or the one built).
+_KEPT_BY_KIND = tuple(key for key in _KEPT if key != "name")
 
 
 def _ids(rows) -> set[str]:
@@ -68,7 +72,7 @@ def _conflict(err, reason: str) -> None:
 
 
 def _assert_kept(after: dict, before: dict) -> None:
-    for key in _KEPT:
+    for key in _KEPT_BY_KIND:
         assert after[key] == before[key], key
     assert after["version"] == before["version"] + 1
 
@@ -93,8 +97,9 @@ def _assert_is_real(client, account_id: str, currencies: list[str]) -> None:
 
 def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     """The account holding soles and dollars, an opening balance in soles and a row in
-    dollars, turns into a person and back: the keys in `_KEPT` (id, name, colour, statement code,
-    archive state and every currency with its balance) are the same, `version` is up by one
+    dollars, turns into a person and back: the keys in `_KEPT_BY_KIND` (id, colour, statement code,
+    archive state and every currency with its balance) are the same, the name is the one the
+    change gives (the person's sent name, then the built one), `version` is up by one
     each time, `sort_order` joins the new group's end and `updated_at` moves with the write;
     the opening balance's transaction is the same one each time
     (contract: POST /v1/accounts/{account_id}/make-person)."""
@@ -114,8 +119,9 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
 
     # To a person: everything kept, version up by one, moved to the people's group.
     people_orders = [a["sort_order"] for a in all_accounts(client) if a["is_person"]]
-    person = client.post(f"/accounts/{first}/make-person")
+    person = _post(client, first, "make-person")
     assert person["is_person"] is True
+    assert person["name"].startswith("contract-kind-")
     _assert_kept(person, seeded)
     assert client.get(f"/accounts/{first}") == person
     assert live_ids(client, first) == before_ids
@@ -123,13 +129,14 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     assert all(person["sort_order"] > order for order in people_orders)
 
     # The next account to become a person lands right after it.
-    second_person = client.post(f"/accounts/{second}/make-person")
+    second_person = _post(client, second, "make-person")
     assert second_person["sort_order"] == person["sort_order"] + 1
 
     # And back: the mirror, at the end of the bank accounts.
     real_orders = [a["sort_order"] for a in all_accounts(client) if not a["is_person"]]
-    real = client.post(f"/accounts/{first}/make-account")
+    real = _post(client, first, "make-account")
     assert real["is_person"] is False
+    assert real["name"] == f"{real['bank_code']}-{real['numbers'][0]['last4']}"
     _assert_kept(real, person)
     assert real["currencies"] == seeded["currencies"]
     assert client.get(f"/accounts/{first}") == real
@@ -137,7 +144,7 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     _assert_is_real(client, first, ["PEN", "USD"])
     assert all(real["sort_order"] > order for order in real_orders)
 
-    second_real = client.post(f"/accounts/{second}/make-account")
+    second_real = _post(client, second, "make-account")
     assert second_real["sort_order"] == real["sort_order"] + 1
 
 
@@ -149,12 +156,12 @@ def test_a_person_made_by_post_accounts_converts_too(client, scratch):
     assert made["is_person"] is True
     assert [c["currency_code"] for c in made["currencies"]] == ["PEN", "USD"]
 
-    real = client.post(f"/accounts/{person_id}/make-account")
+    real = _post(client, person_id, "make-account")
     assert real["is_person"] is False
     _assert_kept(real, made)
     _assert_is_real(client, person_id, ["PEN", "USD"])
 
-    again = client.post(f"/accounts/{person_id}/make-person")
+    again = _post(client, person_id, "make-person")
     assert again["is_person"] is True
     _assert_kept(again, real)
     _assert_is_person(client, person_id, ["PEN", "USD"])
@@ -170,7 +177,7 @@ def test_an_account_already_of_that_kind_is_kind_unchanged(client, scratch):
 
 
 def _post(client, account_id: str, route: str):
-    return client.post(f"/accounts/{account_id}/{route}")
+    return kind_change(client, account_id, route)
 
 
 def test_an_account_with_a_statement_cannot_become_a_person(client, scratch):
@@ -320,7 +327,7 @@ def test_a_person_takes_no_statement(client, scratch):
     POST /v1/accounts/{account_id}/make-account, "Refusals")."""
     made = scratch.account("PEN", "USD", person=True)
     converted = scratch.account("PEN")
-    client.post(f"/accounts/{converted}/make-person")
+    _post(client, converted, "make-person")
     archived = scratch.account("PEN", person=True)
     scratch.archive(archived)
     cases = [
@@ -340,7 +347,7 @@ def test_a_person_takes_no_statement(client, scratch):
         assert missing.status == 404
 
     # Turned back into a bank account, the converted one takes the statement refused above.
-    client.post(f"/accounts/{converted}/make-account")
+    _post(client, converted, "make-account")
     refused_body = next(b for b in bodies if b["account_id"] == converted)
     scratch.statements.append(refused_body["id"])
     created = client.post("/statements", json_body=refused_body)
@@ -364,8 +371,9 @@ def test_make_person_sent_again_under_its_key_is_replayed(client, scratch, monke
 
     key = uuid4()
     monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
-    first = client.post(f"/accounts/{account_id}/make-person")
-    again = client.post(f"/accounts/{account_id}/make-person")
+    body = {"name": f"contract-kind-{uuid4().hex[:8]}"}
+    first = client.post(f"/accounts/{account_id}/make-person", json_body=body)
+    again = client.post(f"/accounts/{account_id}/make-person", json_body=body)
     monkeypatch.undo()
 
     assert again == first

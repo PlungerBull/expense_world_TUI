@@ -154,10 +154,10 @@ def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
 
 def test_activity_walks_a_window_then_steps_to_the_older_one(client, scratch):
     """`GET /activity` pages inside a window, and the older window ends at the
-    echoed `previous_date_to`. A create and a rename guarantee two entries in
+    echoed `previous_date_to`. A create and an edit guarantee two entries in
     the current window; a page of 1 walks them to a null cursor."""
     account_id = scratch.account()
-    client.put(f"/accounts/{account_id}", json_body={"name": f"contract-act-{account_id[:8]}"})
+    client.put(f"/accounts/{account_id}", json_body={"color": "#00aa00"})
     seen: list[str] = []
     after = None
     window = None
@@ -210,7 +210,7 @@ def test_activity_walks_back_by_previous_date_to_and_reads_no_row_twice(client, 
     windows are walked, or fewer if `previous_date_to` comes back `null`.
     """
     account_id = scratch.account()
-    client.put(f"/accounts/{account_id}", json_body={"name": f"contract-walk-{account_id[:8]}"})
+    client.put(f"/accounts/{account_id}", json_body={"color": "#00aa00"})
     _, current = _activity_window(client, {"resource_id": account_id})
     # newest first (contract: GET /v1/activity), so the create is the last entry
     entries = client.get("/activity", params={"resource_id": account_id})["items"]

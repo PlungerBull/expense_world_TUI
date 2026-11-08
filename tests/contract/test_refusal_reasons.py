@@ -90,7 +90,7 @@ def test_a_taken_name_is_name_exists(client, scratch):
     err = refused(
         lambda: client.post(
             "/accounts",
-            json_body={**account_body(), "name": f" {account_name.upper()} "},
+            json_body=account_body(person=True, name=f" {account_name.upper()} "),
         )
     )
     assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
@@ -111,11 +111,7 @@ def test_a_taken_id_is_id_exists(client, scratch):
     tx_id = scratch.recent_row(account_id, -100, moment=moment, alone=True)["id"]
 
     # 4 — the same id with a different body, under a fresh idempotency key.
-    err = refused(
-        lambda: client.post(
-            "/accounts", json_body={**account_body(), "id": account_id, "name": f"rr-{account_id}"}
-        )
-    )
+    err = refused(lambda: client.post("/accounts", json_body={**account_body(), "id": account_id}))
     assert_refusal(err, 409, "CONFLICT", "id", "ID_EXISTS")
 
     # 4 — in a batch, keyed by the item that carried it: a fresh item, then the id of the

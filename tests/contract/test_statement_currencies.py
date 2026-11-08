@@ -25,6 +25,7 @@ conftest.py.
 """
 
 from tests.contract.conftest import (
+    LOOSE_LINES_ON_SEALED_DAYS,
     assert_refusal,
     assert_refusals,
     balance_of,
@@ -86,6 +87,7 @@ def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, s
         assert NOTES <= set(balance)
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covered(client, scratch):
     """A PEN and USD account with no dollar line and no money in dollars at the start sends
     only its PEN entry, and the statement holds PEN alone. The close reviews every currency

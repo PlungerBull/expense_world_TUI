@@ -46,6 +46,7 @@ from uuid import uuid4
 from tests.contract.conftest import (
     CARD_HEADER,
     CURRENT_HEADER,
+    DRAWN_LAST4,
     PaperRow,
     all_accounts,
     assert_refusal,
@@ -274,7 +275,7 @@ def test_the_download_keeps_a_lines_statement_line_and_gives_a_new_line_none(cli
     (contract: POST /v1/transactions/import, "The bank's title wins"), so the apply
     writes the line and leaves its statement line, place and code as they were."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account(code=code)
+    account = scratch.account(code=code, last4=DRAWN_LAST4)
     operation = f"OP{uuid4().hex[:10]}"
     held = scratch.row(account, "2026-03-05", -2590, operation_code=operation)
     line = held["bank_line_id"]

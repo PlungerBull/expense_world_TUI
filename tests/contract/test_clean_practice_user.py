@@ -2,8 +2,9 @@
 
 A test that leaves records behind fails its own teardown (`leaves_nothing` in
 conftest.py); the script is how such leftovers are then removed from the practice user.
-This test leaves some on purpose, built with `Scratch` but never cleaned up by it, renamed
-under a name prefix of its own, and has the script remove them by that prefix:
+This test leaves some on purpose, built with `Scratch` but never cleaned up by it, the category
+and hashtag renamed under a name prefix of its own and the account marked by its own number (a
+bank account's name is the engine's), and has the script remove them by those:
 
   · an account of two currencies (PEN and USD) with no statement code, an opening balance
     and a line in each currency, a completed statement holding a line in each currency and
@@ -12,9 +13,10 @@ under a name prefix of its own, and has the script remove them by that prefix:
     (contract: POST /v1/statements/{statement_id}/revert);
   · a category and a hashtag;
 
-after which the script finds nothing under the prefix, both statements read `404`, and
-no account, category or hashtag of the prefix is listed. Matching by name and the
-records it leaves alone are pinned in tests/unit/test_clean_practice_user.py.
+after which the script finds nothing under the prefix and the number, both statements read
+`404`, and no account, category or hashtag of them is listed. The default match never names
+the practice account `BCP-0000`. Matching by name and number and the records it leaves alone
+are pinned in tests/unit/test_clean_practice_user.py.
 """
 
 from uuid import uuid4
@@ -22,18 +24,21 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import CLEANER, Scratch
+from tests.contract.conftest import CLEANER, PRACTICE_ACCOUNT_ID, Scratch
 
 
 def test_the_script_removes_what_a_test_left(client):
     prefix = f"contract-clean-{uuid4().hex[:8]}-"
     scratch = Scratch(client)
+    last4 = None  # until the account exists, a number matches nothing
     try:
         category = scratch.category()
         hashtag = scratch.hashtag()
         account = scratch.account("PEN", "USD")
-        for path in (f"/categories/{category}", f"/hashtags/{hashtag}", f"/accounts/{account}"):
+        for path in (f"/categories/{category}", f"/hashtags/{hashtag}"):
             client.put(path, json_body={"name": f"{prefix}{path.split('/')[1]}"})
+        held = client.get(f"/accounts/{account}")
+        last4, label = held["numbers"][0]["last4"], f"account {held['name']!r}"
         for currency in ("PEN", "USD"):
             scratch.opening_balance(account, "2026-01-01", currency)
 
@@ -48,7 +53,7 @@ def test_the_script_removes_what_a_test_left(client):
         assert client.post(f"/statements/{closed}/complete")["status"] == 2
         client.post(f"/accounts/{account}/archive")
 
-        found = CLEANER.plan(client, (prefix,))
+        found = CLEANER.plan(client, (prefix,), last4)
         assert [a["id"] for a in found.accounts] == [account]
         assert {s["id"] for s in found.statements} == {closed, draft}
         assert found.transactions[account] == len(scratch.transactions)
@@ -57,7 +62,7 @@ def test_the_script_removes_what_a_test_left(client):
 
         assert CLEANER.apply(client, found) == []
 
-        after = CLEANER.plan(client, (prefix,))
+        after = CLEANER.plan(client, (prefix,), last4)
         assert (after.accounts, after.statements, after.categories, after.hashtags) == (
             [],
             [],
@@ -68,6 +73,9 @@ def test_the_script_removes_what_a_test_left(client):
             with pytest.raises(EngineError) as excinfo:
                 client.get(f"/statements/{statement}")
             assert excinfo.value.status == 404
-        assert not [label for label in CLEANER.holdings(client).values() if prefix in label]
+        left = CLEANER.holdings(client).values()
+        assert label not in left and not [kept for kept in left if prefix in kept]
+        everything = CLEANER.plan(client, CLEANER.TEST_NAME_PREFIXES)
+        assert PRACTICE_ACCOUNT_ID not in [a["id"] for a in everything.accounts]
     finally:
-        CLEANER.apply(client, CLEANER.plan(client, (prefix,)))
+        CLEANER.apply(client, CLEANER.plan(client, (prefix,), last4))

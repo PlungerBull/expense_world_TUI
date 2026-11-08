@@ -7,8 +7,6 @@ cleanup. The leftover check makes an account outside `scratch`, reads the cleane
 `holdings` around it and deletes it. Gating and target: conftest.py.
 """
 
-from uuid import uuid4
-
 from tests.contract.conftest import CLEANER, account_body, free_statement_codes, left_behind
 
 
@@ -34,8 +32,8 @@ def test_two_currency_person_leaves_nothing(client, scratch):
 
 
 def test_a_left_account_is_reported_by_name(client):
-    name = f"contract-stmt-{uuid4().hex[:8]}"
-    body = {**account_body("PEN", "USD"), "name": name}
+    body = account_body("PEN", "USD")
+    name = f"{body['bank_code']}-{body['last4']}"
     before = CLEANER.holdings(client)
     try:
         client.post("/accounts", json_body=body)

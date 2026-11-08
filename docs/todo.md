@@ -19,11 +19,11 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
-   tasks 1–2 done, task 3 and its acceptance check left. Its acceptance check waits on task 1 of
-   [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), which puts the
+   tasks 1–2 done, task 3 and its acceptance check left. Its acceptance check can run now that
+   [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), has put the
    live suite on built names.
 2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08. Task 1 runs first in the queue, before the empty lists' acceptance check.
+   approved 2026-11-08; task 1 done.
 3. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
    approved 2026-11-08. Its cash part waits on the engine ask "Every user holds one cash account,
    named `Efectivo`, with no bank and no number".

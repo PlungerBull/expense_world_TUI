@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Remove what tests left on the practice user, matched by the names tests give.
+"""Remove what tests left on the practice user, matched by the names and numbers tests give.
 
 The live contract tests name what they build `contract-…` or `freshman-…`
 (`TEST_NAME_PREFIXES`) and undo it at teardown, best-effort; a test whose teardown leaves
-a record fails (`leaves_nothing` in tests/contract/conftest.py). Records such a test left,
+a record fails (`leaves_nothing` in tests/contract/conftest.py). A bank account's name is the
+engine's (`BCP-9234`), so the suite marks its bank accounts by their number instead: every one
+is numbered with last 4 digits starting `9` (`TEST_LAST4_PREFIX`). Records such a test left,
 or a probe run by hand against the practice engine, stay on the practice user: accounts
-holding statement codes, statements filling an account's list. This script finds them by
-name and removes them through the engine's own API, in the order its deletes need:
+holding statement codes, statements filling an account's list. This script finds them and
+removes them through the engine's own API, in the order its deletes need:
 
   1. every matched archived account is unarchived (an archived account refuses every
      statement write and every transaction delete);
@@ -20,8 +22,11 @@ name and removes them through the engine's own API, in the order its deletes nee
      and every matched account, whole with all its currencies in one delete
      (contract: DELETE /v1/accounts/{account_id}), is deleted.
 
-A record is matched only by its own name starting with a prefix, and a system category or
-hashtag, which the engine creates for itself and never deletes, never. A matched account's
+A category, hashtag or person is matched only by its own name starting with a prefix; a bank
+account only by one of its numbers starting with `TEST_LAST4_PREFIX`, never by its name. A
+system category or hashtag, which the engine creates for itself and never deletes, is never
+matched, and neither is the practice account `BCP-0000` the seed holds (`PRACTICE_ACCOUNT`),
+whatever it is asked to match. A matched account's
 statements and transactions go with it; nothing else is touched. A hashtag still on a
 live transaction is left, since deleting it would rewrite that transaction
 (contract: DELETE /v1/hashtags/{hashtag_id}). A category or an account the engine refuses
@@ -33,8 +38,8 @@ only from `EXPENSE_PAT`, never from a config file; `--apply` after it removes:
 
     EXPENSE_PAT=<key> python scripts/clean_practice_user.py --engine-url http://127.0.0.1:8002
 
-`--prefix P` (repeatable) matches names starting with `P` in place of the test prefixes,
-for records a hand-run probe named its own way. How to get a key: docs/runtime.md
+`--prefix P` (repeatable) matches names starting with `P` in place of the test prefixes and
+numbers, for records a hand-run probe named its own way. How to get a key: docs/runtime.md
 "Working against the live engine".
 """
 
@@ -52,6 +57,11 @@ from expense.reads import held_currencies
 #: The name prefixes the live contract tests give what they build. A record a test leaves
 #: fails that test whatever its name (`leaves_nothing` in tests/contract/conftest.py).
 TEST_NAME_PREFIXES = ("contract-", "freshman-")
+#: How the last 4 digits of every bank account the live contract tests make start: a bank
+#: account's name is built by the engine, so this number is what marks it as the suite's.
+TEST_LAST4_PREFIX = "9"
+#: The seed's practice account, which no run ever removes.
+PRACTICE_ACCOUNT = "BCP-0000"
 
 _PRACTICE_HOSTS = frozenset({"127.0.0.1", "localhost"})
 _PRACTICE_PORT = 8002
@@ -72,6 +82,18 @@ def practice_url(url: str) -> bool:
 
 def matches(name: str | None, prefixes: tuple[str, ...]) -> bool:
     return bool(name) and any(name.startswith(prefix) for prefix in prefixes)
+
+
+def owns(account: dict, prefixes: tuple[str, ...], last4_prefix: str | None) -> bool:
+    """True for an account a run matches: a person by its name (`prefixes`), a bank account by
+    a number starting `last4_prefix` (none given: by no number); the practice account never."""
+    if account["name"] == PRACTICE_ACCOUNT:
+        return False
+    if account["is_person"]:
+        return matches(account["name"], prefixes)
+    return last4_prefix is not None and any(
+        number["last4"].startswith(last4_prefix) for number in account["numbers"]
+    )
 
 
 def user_rows(client: ExpenseClient, path: str) -> list[dict]:
@@ -104,11 +126,16 @@ class Plan:
     hashtags: list[dict] = field(default_factory=list)
 
 
-def plan(client: ExpenseClient, prefixes: tuple[str, ...]) -> Plan:
-    """Reads the practice user and gathers what `prefixes` match; writes nothing."""
+def plan(
+    client: ExpenseClient,
+    prefixes: tuple[str, ...],
+    last4_prefix: str | None = TEST_LAST4_PREFIX,
+) -> Plan:
+    """Reads the practice user and gathers what `prefixes` and `last4_prefix` match
+    (`owns`); writes nothing."""
     found = Plan()
     listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
-    found.accounts = [a for a in listed["items"] if matches(a["name"], prefixes)]
+    found.accounts = [a for a in listed["items"] if owns(a, prefixes, last4_prefix)]
     for account in found.accounts:
         found.statements += client.get(_STATEMENTS, params={"account_id": account["id"]})["items"]
         count = client.get("/transactions/count", params={"account_id": account["id"]})["count"]
@@ -236,15 +263,18 @@ def main(argv: list[str] | None = None) -> int:
         print("EXPENSE_PAT is not set: pass the practice user's key inline", file=sys.stderr)
         return 2
     prefixes = tuple(args.prefix) if args.prefix else TEST_NAME_PREFIXES
+    last4_prefix = None if args.prefix else TEST_LAST4_PREFIX
     with ExpenseClient(Config(engine_url=args.engine_url, token=token)) as client:
-        found = plan(client, prefixes)
+        found = plan(client, prefixes, last4_prefix)
         print(f"matching names starting with {', '.join(map(repr, prefixes))}")
+        if last4_prefix:
+            print(f"and bank accounts numbered {last4_prefix}xxx")
         print("\n".join(describe(found)))
         if not args.apply:
             print("read only; --apply removes the above")
             return 0
         left = apply(client, found)
-        after = plan(client, prefixes)
+        after = plan(client, prefixes, last4_prefix)
     for reason in left:
         print(f"left {reason}")
     remaining = len(after.accounts) + len(after.categories) + len(after.hashtags)

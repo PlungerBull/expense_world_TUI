@@ -4,9 +4,9 @@ Three things the `?` card's leftovers (done on 2026-11-07) found and did not fix
 that list keys doing nothing on an empty list, and a crash when you leave a screen in the
 moment it draws its list.
 
-**Status: approved on 2026-11-07, tasks and task 2's mockup too. Task 3 can run; the acceptance
-check waits on task 1 of [the catch-up to `1002f105c6bacdf1`](catch-up-to-1002f105c6bacdf1.md),
-which puts the live suite on the engine's built account names.** When done, the why moves to
+**Status: approved on 2026-11-07, tasks and task 2's mockup too. Task 3 and the acceptance check
+can run: task 1 of [the catch-up to `1002f105c6bacdf1`](catch-up-to-1002f105c6bacdf1.md),
+put the live suite on the engine's built account names.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---

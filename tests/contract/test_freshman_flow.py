@@ -74,8 +74,7 @@ def test_freshman_flow(isolated_env):
         scratch = Scratch(client)
         suffix = uuid4().hex[:8]
         try:
-            body = {**account_body("USD"), "name": f"freshman-{suffix}"}
-            account = client.post("/accounts", json_body=body)
+            account = client.post("/accounts", json_body=account_body("USD"))
             account_id = account["id"]
 
             new_id = str(uuid4())

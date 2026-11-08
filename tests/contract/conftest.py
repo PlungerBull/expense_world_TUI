@@ -11,13 +11,14 @@ and run this suite: docs/runtime.md "Working against the live engine".
 
 import base64
 import io
+import itertools
 import os
 import random
 from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from functools import partial
+from functools import cache, partial
 from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -47,6 +48,15 @@ LIVE = os.environ.get("PYTEST_LIVE") == "1"
 
 #: scripts/clean_practice_user.py: what a test may leave behind, and how it is removed.
 CLEANER = load_script("clean_practice_user.py")
+
+#: The colour a create gives when `color` is left out (contract: "Colour format").
+DEFAULT_COLOR = "#3b82f6"
+
+#: The practice account the seed holds, `BCP-0000`, by the id the seed printed
+#: (`EXPENSE_PRACTICE_ACCOUNT_ID`, docs/runtime.md "Working against the live engine"). The only
+#: account the engine's statement samples upload to, since they print numbers ending `0000`; a
+#: test that uses it undoes every change it makes there (`practice_account`).
+PRACTICE_ACCOUNT_ID = os.environ.get("EXPENSE_PRACTICE_ACCOUNT_ID")
 
 
 def minute_before(now: datetime, zone: ZoneInfo) -> datetime:
@@ -467,6 +477,48 @@ def sheet_file(rows: list[list]) -> bytes:
     return base64.b64decode(workbook([SHEET_HEADER, *rows]))
 
 
+#: The last 4 digits every bank account the suite makes is numbered by, drawn without repeating
+#: from 9200 to 9999 (a name is unique among the live accounts, so two accounts never share
+#: one). Every number starts with `CLEANER.TEST_LAST4_PREFIX`, which is how the cleaner tells
+#: what the suite made; the seed's `0000` and `DRAWN_LAST4` are outside the draw.
+_NUMBERS = itertools.cycle(random.sample(range(9200, 10000), 800))
+
+#: A test the engine's later versions fail: a close or an upload refused while a bank line in no
+#: statement sits on a day it would seal. The next catch-up rewrites it and drops the mark.
+LOOSE_LINES_ON_SEALED_DAYS = pytest.mark.xfail(
+    strict=True,
+    reason="LOOSE_LINES_ON_SEALED_DAYS: engine versions cd6574eee1dd5ec0 and 5a465cd6cf5f21fe",
+)
+
+#: A test the engine's currency fill fails: a missing `currency_code` is the account's only
+#: currency, not a refusal. Task 4 of docs/specs/catch-up-to-1002f105c6bacdf1.md rewrites it.
+ENGINE_FILLS_ONLY_CURRENCY = pytest.mark.xfail(
+    strict=True,
+    reason="the engine fills an only currency: task 4 of "
+    "docs/specs/catch-up-to-1002f105c6bacdf1.md",
+)
+
+#: A test of the sheet import's create step, which makes a bank account from the sheet's typed
+#: name, as the engine no longer lets a bank account be named (`NAME_BUILT`). The official
+#: import's rewrite on built names (docs/specs/before-the-official-import.md) drops the mark.
+SHEET_IMPORT_TYPES_A_NAME = pytest.mark.xfail(
+    strict=True,
+    reason="the sheet import creates a bank account from a typed name, NAME_BUILT: "
+    "docs/specs/before-the-official-import.md",
+)
+
+#: The number a made-up statement paper prints unless a test gives another; a test that uploads
+#: one makes its account with it (`last4=DRAWN_LAST4`).
+DRAWN_LAST4 = "9100"
+
+
+def next_last4() -> str:
+    """The last 4 digits of a new bank account of the suite's: the next of the draw, so none
+    repeats within a run. An account an earlier run left behind may still hold it (the
+    cleaner removes such leftovers)."""
+    return str(next(_NUMBERS))
+
+
 # ---- made-up statement PDFs ----
 #
 # The contract states what a BCP paper holds and where (contract: POST /v1/statements/import,
@@ -610,6 +662,7 @@ def savings_paper(
     currency: str = "PEN",
     closing_cents: int | None = None,
     rows_per_page: int = 40,
+    last4: str = DRAWN_LAST4,
 ) -> bytes:
     """A made-up BCP savings account statement (`Estado de Cuenta de Ahorros`) in
     `currency`, over `start` to `end`, holding what the contract says such a paper holds
@@ -618,10 +671,10 @@ def savings_paper(
     order, and its closing balance (`SALDO`). Its totals out and in and its closing balance
     are the rows' own, so it reads; `closing_cents` prints another closing balance, which
     the rows do not add up to. Laid out as the comments above say, `rows_per_page` to a
-    page: every page carries the title, the currency, the period, its `n DE m`, the header
-    and the totals' labels (`TOTAL MOVIMIENTO`, `SALDO`), whose amounts print on the last
-    page only. Never one of the owner's real statements: this repo is public; every name and
-    number in it is made up by the test."""
+    page: every page carries the title, the account code ending in `last4`, the currency, the
+    period, its `n DE m`, the header and the totals' labels (`TOTAL MOVIMIENTO`, `SALDO`), whose
+    amounts print on the last page only. Never one of the owner's real statements: this repo is
+    public; every name and number in it is made up by the test."""
     assert all(len(row.description) <= _TEXT_WIDTH for row in rows), "a description too long"
     out = sum(-row.amount_cents for row in rows if row.amount_cents < 0)
     into = sum(row.amount_cents for row in rows if row.amount_cents > 0)
@@ -635,6 +688,8 @@ def savings_paper(
         lines = [
             _cells((80, f"{number} DE {len(chunks)}")),
             f"Estado de Cuenta de Ahorros {word}",
+            "CODIGO DE CUENTA",
+            f"191-1234567{last4[0]}-{last4[1]}-{last4[2:]}",
             "MONEDA",
             printed,
             period,
@@ -726,6 +781,7 @@ def card_paper(
     owed_before: tuple[int, int] = (0, 0),
     charges: list[CardCharge] | None = None,
     fees: list[CardCharge] | None = None,
+    last4: str = DRAWN_LAST4,
 ) -> bytes:
     """A made-up BCP Visa statement (`Estado de Cuenta Tarjeta Visa`) of one page over the
     cycle `start` to `end`, holding what the contract says such a paper holds (contract:
@@ -735,8 +791,9 @@ def card_paper(
     `charges` before `SUB TOTAL` (interest) and the `fees` after it, and `MONTO TOTAL
     FACTURADO`. Its `SUB TOTAL` and total billed are the lines' own, so it reads. A currency
     nothing is owed in and no line is in prints `0.00` in every figure, so the paper shows it at
-    zero with no row. Never one of the owner's real statements: this repo is public; every
-    name and number in it is made up by the test."""
+    zero with no row. Its header prints the card number ending in `last4`. Never one of the
+    owner's real statements: this repo is public; every name and number in it is made up by the
+    test."""
     charges, fees = charges or [], fees or []
     assert all(len(row.description) <= 55 for row in rows), "a description too long"
     assert all(len(row.type) <= 10 for row in rows), "a type too long"
@@ -766,6 +823,8 @@ def card_paper(
     lines = [
         _cells((100, "Pag 1 de 1")),
         "Estado de Cuenta Tarjeta Visa",
+        "Número de tarjeta",
+        f"4280-76XX-XXXX-{last4}",
         _cells((60, "Del"), (70, "Al")),
         _cells((60, f"{start:%d/%m/%y} {end:%d/%m/%y}")),
         *_CARD_HEADERS,
@@ -802,20 +861,39 @@ def send_statement(client: ExpenseClient, account_id: str, paper: bytes, *, dry_
     )
 
 
+@cache
+def bank_code() -> str:
+    """The bank a new bank account is made with: the first one `GET /banks` lists
+    (contract: GET /v1/banks)."""
+    with ExpenseClient(_target()) as c:
+        return c.get("/banks")["items"][0]["code"]
+
+
+def kind_change(client: ExpenseClient, account_id: str, route: str) -> dict:
+    """`route` (`make-person` or `make-account`) sent for the account with the body it takes: a
+    new `contract-…` name for a person, a bank and a new number for a bank account
+    (contract: POST /v1/accounts/{account_id}/make-person)
+    (contract: POST /v1/accounts/{account_id}/make-account)."""
+    if route == "make-person":
+        body = {"name": f"contract-kind-{uuid4().hex[:8]}"}
+    else:
+        body = {"bank_code": bank_code(), "last4": next_last4()}
+    return client.post(f"/accounts/{account_id}/{route}", json_body=body)
+
+
 def account_body(*codes: str, code: str | None = None, person: bool = False, **fields) -> dict:
     """A `POST /accounts` body under a fresh id holding one entry per currency code in
-    `codes` (PEN when none), with `statement_code` when given, a person when `person`;
-    `fields` replace or add keys (contract: POST /v1/accounts, "Required")."""
+    `codes` (PEN when none), with `statement_code` when given. A bank account carries `bank_code`
+    and a new `last4` (`next_last4`), its name the engine's; a person, when `person`, carries a
+    `contract-…` name. `fields` replace or add keys (contract: POST /v1/accounts, "Required")."""
     new_id = str(uuid4())
-    body: dict = {
-        "id": new_id,
-        "name": f"contract-stmt-{new_id[:8]}",
-        "currencies": [{"currency_code": c} for c in (codes or ("PEN",))],
-    }
+    body: dict = {"id": new_id, "currencies": [{"currency_code": c} for c in (codes or ("PEN",))]}
+    if person:
+        body |= {"name": f"contract-stmt-{new_id[:8]}", "is_person": True}
+    else:
+        body |= {"bank_code": bank_code(), "last4": next_last4()}
     if code is not None:
         body["statement_code"] = code
-    if person:
-        body["is_person"] = True
     return {**body, **fields}
 
 
@@ -1144,3 +1222,39 @@ def scratch(client):
     made = Scratch(client)
     yield made
     made.cleanup()
+
+
+NO_PRACTICE_ACCOUNT = (
+    "EXPENSE_PRACTICE_ACCOUNT_ID is not set: pass the practice account's id, the one the reseed "
+    "prints, inline on the contract suite's command line beside EXPENSE_PAT "
+    '(docs/runtime.md "Working against the live engine")'
+)
+
+
+def _held_on(client: ExpenseClient, account_id: str) -> tuple[set[str], int]:
+    """The ids of the account's statements and the count of its live transactions."""
+    statements = client.get("/statements", params={"account_id": account_id})["items"]
+    return {s["id"] for s in statements}, transaction_count(client, account_id)
+
+
+@pytest.fixture
+def practice_account(client, scratch):
+    """The seed's practice account `BCP-0000` (`PRACTICE_ACCOUNT_ID`) given a statement code of a
+    test's own, as `(id, statement_code)`: the one account a statement sample uploads to, since
+    the sample prints a number ending `0000` and a name is unique among the live accounts, so no
+    other account can hold it. Without the id the test fails, never skips. At teardown the
+    scratch is cleaned first (what the test took on there goes), the account's statement code
+    goes back to what it was, and an account holding a statement or a transaction it did not
+    hold at setup fails the test."""
+    if not PRACTICE_ACCOUNT_ID:
+        pytest.fail(NO_PRACTICE_ACCOUNT, pytrace=False)
+    path = f"/accounts/{PRACTICE_ACCOUNT_ID}"
+    original = client.get(path)["statement_code"]
+    code = free_statement_codes(client, 1)[0]
+    client.put(path, json_body={"statement_code": code})
+    held = _held_on(client, PRACTICE_ACCOUNT_ID)
+    yield PRACTICE_ACCOUNT_ID, code
+    scratch.cleanup()
+    client.put(path, json_body={"statement_code": original})
+    if _held_on(client, PRACTICE_ACCOUNT_ID) != held:
+        pytest.fail("the test left a statement or a transaction on the practice account")

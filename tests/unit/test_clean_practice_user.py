@@ -1,5 +1,9 @@
 """scripts/clean_practice_user.py: what it matches, the order it removes in, what it leaves.
 
+A bank account's name is the engine's (`BCP-9234`), so a bank account is the suite's by its
+number starting `9`, never by its name; a person, a category and a hashtag by a `contract-` or
+`freshman-` name; the practice account `BCP-0000` never.
+
 The engine is a small stateful fake, respx-mocked at the practice engine's address: a
 delete takes its record off the lists, so the script's read after `--apply` sees what is
 left. A request anywhere else is unmocked and fails the test. Records are built with
@@ -20,6 +24,20 @@ from tests.unit.helpers import account_with_currencies, held_currency
 
 PRACTICE = "http://127.0.0.1:8002"
 TARGET = ["--engine-url", PRACTICE]
+
+
+def _bank(ident, last4, **fields):
+    """A bank account named as the engine builds it from its number; `last4` None: no number."""
+    numbers = [dict(last4=last4, start_date=None, end_date=None)] if last4 else []
+    name = f"BCP-{last4}" if last4 else "BCP"
+    held = dict(id=ident, name=name, bank_code="BCP", numbers=numbers)
+    return account_with_currencies(**{**held, **fields})
+
+
+def _person(ident, name, **fields):
+    return account_with_currencies(
+        id=ident, name=name, is_person=True, bank_code=None, numbers=[], **fields
+    )
 
 
 def _statement(ident, account, status=1):
@@ -134,14 +152,18 @@ def test_no_key_is_refused_before_any_request(script, monkeypatch, capsys):
 
 
 @respx.mock
-def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(script, capsys):
+def test_a_read_only_run_lists_what_the_test_numbers_and_names_match_and_writes_nothing(
+    script, capsys
+):
     engine = FakeEngine(
         accounts=[
-            account_with_currencies(id="a1", name="contract-stmt-1"),
-            account_with_currencies(
-                id="a2",
-                name="BCP Signature",
-            ),
+            _bank("a1", "9234"),
+            _bank("a2", "0123"),
+            _bank("a3", "0000"),
+            _bank("a4", None),
+            _person("p1", "contract-p-1"),
+            _person("p2", "ALEJO"),
+            _person("p3", "BCP-9999"),
         ],
         statements=[_statement("r1", "a1"), _statement("r2", "a2")],
         categories=[dict(id="c1", name="contract-c-1"), dict(id="c2", name="@Pendiente")],
@@ -152,24 +174,54 @@ def test_a_read_only_run_lists_what_the_test_names_match_and_writes_nothing(scri
     assert script.main(TARGET) == 0
 
     out = capsys.readouterr().out
-    assert "'contract-stmt-1'" in out and "'stmt r1' (draft)" in out
+    assert "'BCP-9234'" in out and "'stmt r1' (draft)" in out and "'contract-p-1'" in out
     assert "'contract-c-1'" in out and "'freshman-h'" in out
-    for untouched in ("BCP Signature", "stmt r2", "@Pendiente", "'Pendiente'"):
+    for untouched in (
+        "BCP-0123",
+        "BCP-0000",
+        "'BCP'",
+        "ALEJO",
+        "BCP-9999",
+        "stmt r2",
+        "@Pendiente",
+        "'Pendiente'",
+    ):
         assert untouched not in out
     assert engine.calls == []
+
+
+@respx.mock
+def test_a_bank_account_is_never_matched_by_its_name(script, capsys):
+    engine = FakeEngine(accounts=[_bank("a1", "0123", name="contract-x")])
+    _serve(engine)
+
+    assert script.main([*TARGET, "--apply"]) == 0
+
+    assert engine.calls == []
+    assert "contract-x" not in capsys.readouterr().out
+
+
+@respx.mock
+def test_the_practice_account_is_never_removed_whatever_it_is_asked_to_match(script):
+    engine = FakeEngine(accounts=[_bank("a1", "0000")])
+    _serve(engine)
+
+    assert script.main([*TARGET, "--prefix", "BCP", "--apply"]) == 0
+
+    assert engine.calls == [] and list(engine.accounts) == ["a1"]
 
 
 @respx.mock
 def test_the_listing_names_each_account_with_its_currencies_and_code(script, capsys):
     engine = FakeEngine(
         accounts=[
-            account_with_currencies(
-                id="a1",
-                name="contract-card",
+            _bank(
+                "a1",
+                "9301",
                 statement_code="CRD",
                 currencies=[held_currency("PEN"), held_currency("USD")],
             ),
-            account_with_currencies(id="a2", name="contract-plain"),
+            _bank("a2", "9302"),
         ],
     )
     _serve(engine)
@@ -177,8 +229,8 @@ def test_the_listing_names_each_account_with_its_currencies_and_code(script, cap
     assert script.main(TARGET) == 0
 
     out = capsys.readouterr().out
-    assert "'contract-card' (PEN, USD; CRD), 0 tx" in out
-    assert "'contract-plain' (PEN; no code), 0 tx" in out
+    assert "'BCP-9301' (PEN, USD; CRD), 0 tx" in out
+    assert "'BCP-9302' (PEN; no code), 0 tx" in out
     assert engine.calls == []
 
 
@@ -186,12 +238,8 @@ def test_the_listing_names_each_account_with_its_currencies_and_code(script, cap
 def test_apply_removes_in_the_order_the_deletes_need(script):
     engine = FakeEngine(
         accounts=[
-            account_with_currencies(id="a1", name="contract-card-pen", is_archived=True),
-            account_with_currencies(
-                id="a2",
-                name="contract-card-two",
-                currencies=[held_currency("PEN"), held_currency("USD")],
-            ),
+            _bank("a1", "9401", is_archived=True),
+            _bank("a2", "9402", currencies=[held_currency("PEN"), held_currency("USD")]),
         ],
         statements=[_statement("r1", "a1", status=2), _statement("r2", "a2")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
@@ -219,7 +267,7 @@ def test_apply_removes_in_the_order_the_deletes_need(script):
 @respx.mock
 def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
     engine = FakeEngine(
-        accounts=[account_with_currencies(id="a1", name="BCP")],
+        accounts=[_bank("a1", "0123")],
         txs=[dict(id="t1", account_id="a1", hashtag_ids=["h1"])],
         hashtags=[dict(id="h1", name="contract-h-1")],
     )
@@ -234,7 +282,7 @@ def test_a_hashtag_still_on_a_live_transaction_is_left(script, capsys):
 @respx.mock
 def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
     engine = FakeEngine(
-        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
+        accounts=[_bank("a1", "9501")],
         refuse=["DELETE /accounts/a1"],
     )
     _serve(engine)
@@ -242,7 +290,7 @@ def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
     assert script.main([*TARGET, "--apply"]) == 1
 
     out = capsys.readouterr().out
-    assert "left delete account 'contract-acct-1': 409 CONFLICT" in out
+    assert "left delete account 'BCP-9501': 409 CONFLICT" in out
     assert "1 matched record(s) remain" in out
 
 
@@ -250,8 +298,9 @@ def test_a_refused_delete_is_left_and_fails_the_run(script, capsys):
 def test_a_prefix_replaces_the_test_names(script, capsys):
     engine = FakeEngine(
         accounts=[
-            account_with_currencies(id="a1", name="probe-1"),
-            account_with_currencies(id="a2", name="contract-x"),
+            _person("a1", "probe-1"),
+            _person("a2", "contract-x"),
+            _bank("a3", "9601"),
         ]
     )
     _serve(engine)
@@ -259,14 +308,14 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
     assert script.main([*TARGET, "--prefix", "probe-", "--apply"]) == 0
 
     assert engine.calls == ["DELETE /accounts/a1"]
-    assert list(engine.accounts) == ["a2"]
+    assert list(engine.accounts) == ["a2", "a3"]
 
 
 @respx.mock
 def test_a_system_row_appearing_between_two_snapshots_is_no_leftover(script):
     """The engine creates `@Pendiente`, `@Opening` and the pending hashtag on first need
     and never deletes them, so a test that brings one about leaves nothing behind."""
-    engine = FakeEngine(accounts=[account_with_currencies(id="a1", name="BCP")])
+    engine = FakeEngine(accounts=[_bank("a1", None)])
     _serve(engine)
     with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
         before = script.holdings(client)
@@ -299,7 +348,7 @@ def test_a_system_row_is_never_matched_or_deleted(script, capsys):
 @respx.mock
 def test_a_refused_transaction_delete_is_listed_once(script, capsys):
     engine = FakeEngine(
-        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
+        accounts=[_bank("a1", "9501")],
         txs=[
             dict(id="t1", account_id="a1", hashtag_ids=[]),
             dict(id="t2", account_id="a1", hashtag_ids=[]),
@@ -317,7 +366,7 @@ def test_a_refused_transaction_delete_is_listed_once(script, capsys):
 @respx.mock
 def test_a_page_holding_only_refused_deletes_does_not_hide_the_rows_behind_it(script, capsys):
     engine = FakeEngine(
-        accounts=[account_with_currencies(id="a1", name="contract-acct-1")],
+        accounts=[_bank("a1", "9501")],
         txs=[dict(id=f"t{n}", account_id="a1", hashtag_ids=[]) for n in range(1, 6)],
         refuse=["DELETE /transactions/t1", "DELETE /transactions/t2"],
         page=2,

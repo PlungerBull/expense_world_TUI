@@ -43,6 +43,8 @@ from functools import partial
 from uuid import uuid4
 
 from tests.contract.conftest import (
+    DRAWN_LAST4,
+    LOOSE_LINES_ON_SEALED_DAYS,
     CardRow,
     PaperRow,
     assert_refusal,
@@ -116,7 +118,7 @@ def _march_on_a_savings_account(client, scratch):
     account, its code, the statement's id, the paper, the ids of the lines in paper order
     (`None` for the empty slot) and the statement's lines' ids."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account(code=code)
+    account = scratch.account(code=code, last4=DRAWN_LAST4)
     single = scratch.line(account, "2026-03-05", -1000)
     grouped = scratch.line(account, "2026-03-10", -600, -400)
     income = scratch.line(account, "2026-03-15", 2500)
@@ -185,6 +187,7 @@ def test_the_upload_sets_the_order_and_the_read_gives_it_back(client, scratch):
         assert _numbered(client, line) == (None, place)
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_line_assigned_after_the_upload_is_unplaced_until_the_paper_is_uploaded_again(
     client, scratch
 ):
@@ -247,7 +250,7 @@ def _card_march(client, scratch):
     """A coded account of soles and dollars whose March the made-up card paper `CARD_ROWS`
     closes; returns the account, its code, the statement's id and the lines in paper order."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account("PEN", "USD", code=code)
+    account = scratch.account("PEN", "USD", code=code, last4=DRAWN_LAST4)
     done = send_statement(client, account, card_paper(CARD_ROWS, **MARCH), dry_run=False)
     scratch.took(done)
     rows = done["rows"]
@@ -448,7 +451,7 @@ def test_a_draft_statement_with_assigned_lines_has_no_places(client, scratch):
     (contract: GET /v1/statements/{statement_id}/statement-order)
     (contract: POST /v1/statements/{statement_id}/complete, "Validation")."""
     (code,) = free_statement_codes(client, 1)
-    account = scratch.account(code=code)
+    account = scratch.account(code=code, last4=DRAWN_LAST4)
     later = scratch.row(account, "2026-03-20", -100)
     sooner = scratch.row(account, "2026-03-05", -200)
     balances = [

@@ -9,7 +9,7 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import assert_refusal, refused
+from tests.contract.conftest import ENGINE_FILLS_ONLY_CURRENCY, assert_refusal, refused
 
 
 def _recent(scratch) -> str:
@@ -58,6 +58,7 @@ def test_transactions_lifecycle(client, scratch):
         assert excinfo.value.status == 404
 
 
+@ENGINE_FILLS_ONLY_CURRENCY
 def test_a_create_names_a_currency_the_account_holds(client, scratch):
     """A create without `currency_code` is `REQUIRED` and one in a currency the account
     does not hold is `CURRENCY_NOT_HELD`, each on `currency_code`; nothing is written
@@ -121,6 +122,7 @@ def test_batch_create(client, scratch):
     assert echoed == {item["id"]: (account_id, item["currency_code"]) for item in items}
 
 
+@ENGINE_FILLS_ONLY_CURRENCY
 def test_a_batch_item_without_a_currency_is_refused(client, scratch):
     """A batch item missing `currency_code` is refused on the item's own key, and the
     batch writes nothing (contract: POST /v1/transactions/batch)."""

@@ -73,15 +73,17 @@ def test_is_person_that_is_not_a_boolean_is_refused(client, scratch, value):
     assert_refusal(err, 422, "VALIDATION_ERROR", "is_person", "INVALID_FORMAT")
 
 
-def test_the_name_is_shared_between_people_and_bank_accounts(client, scratch):
-    """One name list for both kinds, compared without regard to case, in both directions."""
+def test_a_persons_name_is_shared_with_people_and_bank_accounts(client, scratch):
+    """One name list for both kinds, compared without regard to case: a person's name, new or
+    by rename, is refused when a person or a bank account holds it. The other direction, a bank
+    account whose built name a person holds, is test_account_create.py's."""
     person_id = scratch.account("PEN", person=True)
     account_id = scratch.account("PEN")
     person_name = client.get(f"/accounts/{person_id}")["name"]
     account_name = client.get(f"/accounts/{account_id}")["name"]
 
-    for name, person in ((person_name.swapcase(), False), (account_name.swapcase(), True)):
-        body = account_body("PEN", person=person, name=name)
+    for name in (person_name.swapcase(), account_name.swapcase()):
+        body = account_body("PEN", person=True, name=name)
         scratch.accounts.append(body["id"])
         err = refused_writing_nothing(client, lambda b=body: client.post("/accounts", json_body=b))
         assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")

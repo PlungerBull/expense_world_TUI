@@ -41,6 +41,7 @@ all is still removed. Gating, target and the real-ledger guard: conftest.py.
 import pytest
 
 from tests.contract.conftest import (
+    LOOSE_LINES_ON_SEALED_DAYS,
     all_accounts,
     assert_refusal,
     assert_refusals,
@@ -78,6 +79,7 @@ def sealed_march(client, scratch):
     return account, march, outside, loose
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_create_and_batch(client, scratch, sealed_march):
     account, march, _, _ = sealed_march
     when = scratch.at("2026-03-15")
@@ -90,6 +92,7 @@ def test_the_wall_on_create_and_batch(client, scratch, sealed_march):
     assert march["name"] in err.fields["transactions.0.date"]
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_holds_in_the_accounts_other_currency(client, scratch, sealed_march):
     """The days are the account's: a dollar row, in a currency the statement holds no
     balances for, is refused on a sealed day too."""
@@ -99,6 +102,7 @@ def test_the_wall_holds_in_the_accounts_other_currency(client, scratch, sealed_m
     assert march["name"] in err.fields["date"]
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_march):
     """23:59 local on the last sealed day (March 30) is inside; 00:00 of the next
     day, the statement's own last day, is not."""
@@ -108,6 +112,7 @@ def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_
     scratch.row_at(account, scratch.at("2026-03-31", 0, 0))
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch, sealed_march):
     """March is completed and April is not: March 31 takes a row. April completed:
     March 31 is refused, named under March's own statement, up to 23:59 local,
@@ -147,6 +152,7 @@ def _unwritten_refusal(client, path: str, body: dict, keys: set[str], name: str)
     assert all(name in err.fields[key] for key in keys), err.fields
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
     """Moving the date in names `date`; moving the account, the currency or both in names
     each of `account_id` and `currency_code` sent (Home's bulk `b` reports those keys);
@@ -180,6 +186,7 @@ def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
     assert read_signed(client, stray["id"])["account_id"] == other
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_an_opening_balance(client, scratch, sealed_march):
     account, march, _, _ = sealed_march
     err = refused(lambda: scratch.opening_balance(account, "2026-03-20"))
@@ -187,6 +194,7 @@ def test_the_wall_on_an_opening_balance(client, scratch, sealed_march):
     assert march["name"] in err.fields["date"]
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_revert_opens_the_wall(client, scratch, sealed_march):
     account, march, _, _ = sealed_march
     client.post(f"/statements/{march['id']}/revert")
@@ -298,6 +306,7 @@ def test_a_draft_seals_nothing(client, scratch):
     scratch.row(account, "2026-03-15")
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_row_filed_nowhere_does_not_stop_complete_and_its_day_seals(client, scratch):
     """A line in no statement is not a refusal of complete
     (contract: POST /v1/statements/{statement_id}/complete): the statement

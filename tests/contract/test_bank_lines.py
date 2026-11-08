@@ -108,6 +108,7 @@ from expense.reads import count_bank_lines, fetch_bank_line, fetch_bank_lines
 from tests.contract.conftest import (
     CARD_HEADER,
     CURRENT_HEADER,
+    LOOSE_LINES_ON_SEALED_DAYS,
     assert_refusal,
     balance_of,
     live_ids,
@@ -673,6 +674,7 @@ def _review(client, statement: str) -> list[str]:
     return _lines(client, unassigned_in_period_of=statement, sort="statement")
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_review_list_reads_every_currency_of_the_account_before_and_after_the_close(
     client, scratch
 ):
@@ -747,6 +749,7 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
     assert _lines_counted(client, unassigned_in_period_of=march) == 2
 
 
+@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, target, scratch):
     """The flagged lines' screen counts the review list with `count_bank_lines(review_of=)`
     and lists every page of it with `fetch_review_lines`, the

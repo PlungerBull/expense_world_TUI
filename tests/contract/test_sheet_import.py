@@ -47,6 +47,7 @@ from expense.import_.engine import (
 )
 from tests.contract.conftest import (
     CLEANER,
+    SHEET_IMPORT_TYPES_A_NAME,
     account_balance,
     assert_refusal,
     assert_refusals,
@@ -136,6 +137,7 @@ def _refused_on_every_step(target, data: bytes, scratch) -> list[SheetImport]:
     return out
 
 
+@SHEET_IMPORT_TYPES_A_NAME
 def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scratch):
     n = Names()
     data = sheet_file(_good(n))
@@ -466,6 +468,7 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
     assert live_ids(client, person) == written
 
 
+@SHEET_IMPORT_TYPES_A_NAME
 def test_a_renamed_account_lands_under_its_rename(client, target, scratch):
     n = Names()
     fresh, onto = f"{n.account}-fresh", f"{n.account}-onto"

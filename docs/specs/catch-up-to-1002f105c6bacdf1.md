@@ -79,11 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-1. **The live suite runs on built names.** The contract suite's accounts are made with a bank and
-   a number, never a name; the practice cleaner still removes only what the suite made; the
-   tests that renamed a bank account, sent `make-person` / `make-account` with no body, or
-   uploaded a sample to an account not numbered `…0000` follow the new rules; runtime.md and the
-   practice-engine script name `EXPENSE_PRACTICE_ACCOUNT_ID` and `BCP-0000`.
 2. **The test answers match the engine's.** The unit test builders the drift check flags carry
    `bank_code`, `numbers`, `day`, the upload's notes and `not_covered`, and the sheet import's
    `ambiguous`; the drift check reports no field difference.
@@ -109,7 +104,7 @@ building.
    `REQUIRED` on a two-currency account; an account-only move into another currency; a currency
    removal's keys; `day` and a day filter across a time-zone change; the bound one cent past and
    `1e5000`, typed and in each file; the dry run's notes and `not_covered`; `card-soles-only`
-   closing a soles-only month; a zero-amount `SALDO INICIAL` dated before the opening balance (the
+   left untested and named in the reply (no practice account can take it); a zero-amount `SALDO INICIAL` dated before the opening balance (the
    Backlog's item closes).
 
 ## Reply to the engine
@@ -128,3 +123,15 @@ every reseed keeps". The account form's one write is reported in part 2.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **No live test can close a soles-only month from a sample.** A sample uploads only to an
+  account numbered `…0000`, names are unique, and the practice account `BCP-0000` holds soles and
+  dollars, so `card-soles-only` has no account to go to; task 8 says so, and the reply names it as
+  a contract problem.
+- **The engine moved again,** to `eb3082ec9723ec4f`, past the four later versions; it goes to the
+  next catch-up with them.
+- **The shape-first test's docstring** in `tests/contract/test_account_create.py` names "a
+  person's empty name" though every body there is a bank account.
+- **For decisions.md at the sweep:** the suite marks its bank accounts by a number starting `9`
+  (the cleaner's rule), since the engine builds the name; sample uploads go to the seed's
+  `BCP-0000` by its id, since a second `…0000` account cannot exist.
