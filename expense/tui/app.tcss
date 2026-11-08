@@ -192,6 +192,19 @@ ModalScreen:ansi {
     background: ansi_default;
     padding: 1 2;
 }
+/* The card sits on `#help-ground`, the terminal's own background (`ansi_default`, no colour of
+   its own) across the full width, so the gutters beside the card's frame are blank and
+   nothing of the screen under it shows there. */
+HelpModal #help-ground {
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    align-horizontal: center;
+    background: ansi_default;
+}
+HelpModal #help-ground.clear-of-head {
+    margin: 2 0 0 0;  /* the screen's head (line and rule) stays showing above the card */
+}
 /* The `?` card: a card taller than the screen above the footer spreads out when the
    terminal is wide enough; one that still does not fit is one window of lines
    (`help.py` `scroll_window`) between its two rules, height set in code. */
@@ -201,12 +214,8 @@ HelpModal #modal {
 HelpModal #modal.spread {
     max-width: 100%;  /* the wide card's width is set in code, inset from the terminal's sides */
 }
-HelpModal #modal.below-head {
-    margin: 2 0 0 0;  /* a card nearly as tall as the room keeps clear of the head's rule */
-}
 HelpModal #modal.scrolling {
     padding: 0 2;
-    margin: 2 0 0 0;  /* the screen's head (line and rule) stays showing above the card */
 }
 HelpModal #modal.scrolling > .fit, HelpModal #help-scroll {
     display: none;

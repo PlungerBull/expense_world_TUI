@@ -1848,8 +1848,10 @@ one whose key a subclass declares again, which Textual's merge replaces (`esc Ba
 from `SectionScreen`, on a screen with its own `esc`), and not one its class names in
 `CARD_FOLLOWS_CHECK` while `check_action` refuses it, as the footer does — the keys that are
 off in some states on the Statements screen and its panel, and a statement's `space`, `c`, `u`
-and `f` ("A statement's screen" above). A card taller than the room between the head and the
-footer spreads out on a terminal wide enough, and only then: the groups three across, no key
+and `f` ("A statement's screen" above); the account list lists `pgdn` and `pgup` only while
+they page it. The card covers what is behind it from its top rule to its bottom one across the
+full width, so the gutters beside its frame are blank. A card taller than the room between the
+head and the footer spreads out on a terminal wide enough, and only then: the groups three across, no key
 row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
 its two rules, a dim `▲ N lines above` / `▼ N more lines` row saying what is hidden
 ([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,

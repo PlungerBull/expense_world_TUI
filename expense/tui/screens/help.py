@@ -514,11 +514,14 @@ class HelpModal(ModalScreen):
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static(Text(self._title), classes="modal-title fit"),
-            Static(self._card, classes="fit", id="help-card"),
-            Static(Text("[?] or [esc] close", style="dim"), classes="fit"),
-            Static("", id="help-scroll"),
-            id="modal",
+            Vertical(
+                Static(Text(self._title), classes="modal-title fit"),
+                Static(self._card, classes="fit", id="help-card"),
+                Static(Text("[?] or [esc] close", style="dim"), classes="fit"),
+                Static("", id="help-scroll"),
+                id="modal",
+            ),
+            id="help-ground",
         )
         yield FittingFooter()
 
@@ -544,6 +547,7 @@ class HelpModal(ModalScreen):
         the room. A card nearly as tall as the room is moved down so the head's rule
         and the card's own never meet."""
         modal = self.query_one("#modal")
+        ground = self.query_one("#help-ground")
         width = self.size.width
         shape = "narrow"
         if self._narrow_height > self._room and self._needs <= width:
@@ -564,7 +568,8 @@ class HelpModal(ModalScreen):
         scrolls = self._height > self._room
         modal.set_class(shape == "wide", "spread")
         modal.set_class(scrolls, "scrolling")
-        modal.set_class(not scrolls and self._height > self._room - 2, "below-head")
+        below_head = not scrolls and self._height > self._room - 2
+        ground.set_class(scrolls or below_head, "clear-of-head")
         modal.styles.height = self._room if scrolls else "auto"
         self._draw()
 

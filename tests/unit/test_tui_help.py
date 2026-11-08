@@ -35,6 +35,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    assert_card_gutters_blank,
     fake_ledger,
     render_text,
     run_app,
@@ -781,3 +782,14 @@ def test_the_card_spreads_at_the_width_it_needs_and_scrolls_narrow_below_it(monk
 
     _ledger_card(monkeypatch, (140, 24), body)
     assert shapes["below"] == "narrow" and shapes["at"] == "wide"
+
+
+def test_the_ledger_card_leaves_the_gutters_beside_it_blank_at_80_and_140(monkeypatch):
+    async def narrow(pilot, app):
+        assert_card_gutters_blank(screen_lines(app), 80)
+
+    async def wide(pilot, app):
+        assert_card_gutters_blank(screen_lines(app), 140)
+
+    _ledger_card(monkeypatch, (80, 24), narrow)
+    _ledger_card(monkeypatch, (140, 24), wide)

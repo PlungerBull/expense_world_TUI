@@ -156,8 +156,7 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-8. **The `?` card** (points 1 and 2): the gutters blank (question 1, A), and the Statements account list's
-   card listing the page keys only while they work.
+All done; the acceptance check and the doc sweep follow.
 
 ## Found along the way
 

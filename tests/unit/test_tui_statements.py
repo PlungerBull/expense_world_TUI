@@ -25,6 +25,7 @@ from tests.unit.helpers import (
     app_notes,
     archived_refusal,
     archived_words,
+    assert_card_gutters_blank,
     bank_line_row,
     cursor_page,
     held_currency,
@@ -2349,3 +2350,49 @@ def test_the_card_of_the_statements_panel_closes_the_panel_and_pages_only_with_s
         assert ("pgup", "Previous page") in _card_group(screen, "Moving around")
 
     run_app(several_pages, size=(80, 24))
+
+
+def test_the_card_of_the_account_list_lists_no_page_key_while_one_page_holds_the_accounts(
+    monkeypatch,
+):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert screen._mode == "accts"
+        assert _card_group(screen, "Moving around") == [("⏎", "Its statements"), ("↓", "Down")]
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_card_of_the_account_list_lists_the_page_keys_once_they_work(monkeypatch):
+    _two_currency_accounts(monkeypatch, [f"Account {n}" for n in range(1, 25)])
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert screen._mode == "accts"
+        keys = _card_group(screen, "Moving around")
+        assert ("pgdn", "Next page") in keys and ("pgup", "Previous page") not in keys
+        assert not any(desc.startswith("Load the next") for _, desc in keys)
+        await pilot.press("pagedown")
+        await pilot.pause()
+        assert ("pgup", "Previous page") in _card_group(screen, "Moving around")
+
+    run_app(scenario, size=(80, 24))
+
+
+def test_the_no_statement_list_card_leaves_the_gutters_beside_it_blank(monkeypatch):
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 6)])
+
+    async def scenario(pilot, app):
+        await _open_unfiled(pilot, app)
+        await pilot.press("question_mark")
+        await pilot.pause()
+        assert_card_gutters_blank(screen_lines(app), 80)
+
+    run_app(scenario, size=(80, 24))

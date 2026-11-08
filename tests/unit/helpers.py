@@ -1708,3 +1708,13 @@ def load_drift_script():
     from tests.scripts_loader import load_script
 
     return load_script(DRIFT_SCRIPT.name)
+
+
+def assert_card_gutters_blank(lines: list[str], width: int, gutter: int = 4) -> None:
+    """Every cell between a `?` card's frame and the screen's edge, from the card's top
+    rule to its bottom one: `gutter` cells at each side."""
+    lines = [line.ljust(width) for line in lines]
+    rules = [i for i, line in enumerate(lines) if set(line.strip()) == {"─"} and i > 1]
+    assert len(rules) == 2
+    for line in lines[rules[0] : rules[1] + 1]:
+        assert line[:gutter].strip() == "" and line[width - gutter :].strip() == "", line

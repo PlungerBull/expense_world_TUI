@@ -465,6 +465,8 @@ class _AccountList(CursorList):
     the account's panel, so the footer names that instead of `Open`."""
 
     BINDINGS = [Binding("enter", "select", "Its statements")]
+    #: The `?` card lists the page keys only while `check_action` allows them (help.py).
+    CARD_FOLLOWS_CHECK = frozenset({"more", "page"})
 
 
 class _PanelList(CursorList):
