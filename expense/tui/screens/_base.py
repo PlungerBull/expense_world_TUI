@@ -37,6 +37,7 @@ from expense.formatting import (
     bank_line_part_count,
     format_cents_with_plus,
     format_short_date,
+    name_or_unnamed,
     title_or_untitled,
 )
 from expense.reads import DEFAULT_PAGE_ROWS
@@ -658,7 +659,7 @@ def not_done_line(not_done: str, kind: str, name: object) -> str:
     """The first line of a refused write shown after its screen has left, for a
     write on a named thing: `Not archived · Account BCP`. `name` is as the list
     shows it; a blank one reads `(unnamed)`."""
-    return f"{not_done} · {kind} {name or '(unnamed)'}"
+    return f"{not_done} · {kind} {name_or_unnamed(name)}"
 
 
 def transaction_delete_message(record: dict, account_name: str) -> str:

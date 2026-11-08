@@ -9,7 +9,7 @@ class FittingFooter(Footer):
     """The footer, drawn in Textual's compact style (less whitespace between its keys)
     when its keys, spaced as usual, are wider than the screen. Keys still too wide then
     leave the footer from its end, whole, so none is ever drawn cut. A key left out still
-    works, and the `?` card lists it. Spaced as usual when it fits.
+    works, and the `?` card lists it on a screen that has one. Spaced as usual when it fits.
 
     A key costs its glyph and a space on each side, then its words and a space, spaced
     as usual; compact, its glyph, a space, its words and a space before the next key

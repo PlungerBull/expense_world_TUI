@@ -52,7 +52,7 @@ from textual.widgets.option_list import Option
 
 from expense import formatting, reads
 from expense.errors import format_error
-from expense.formatting import currency_label, settled_label, split_settled
+from expense.formatting import currency_label, name_or_unnamed, settled_label, split_settled
 from expense.reads import load_hashtag_name_map
 from expense.tui.screens._base import (
     LogTransactionMixin,
@@ -205,7 +205,7 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
         rows.append(HomeRow(None, "  (no activity in this window)", dim=True))
     for row in grid["rows"]:
         cat_id = row["id"]
-        name = row["name"] or "(unnamed)"
+        name = name_or_unnamed(row["name"])
         combos = row["breakdown"]
         foldable = bool(combos)
         caret = ("▼ " if cat_id in state.expanded else "▶ ") if foldable else "  "
@@ -251,7 +251,7 @@ def _account_rows(
     currency's own `current_balance_cents`, never summed with another. Every
     row's `name` is the account's; the ledger's crumb says it, and on a currency
     line `<name> · <code>`, which the dispatch builds."""
-    name = account.get("name") or "(unnamed)"
+    name = name_or_unnamed(account.get("name"))
     head = f"{ACCOUNT_PREFIX}{account['id']}"
     rows = [HomeRow(head, indent + name, name=name, dim=dim)]
     for _, _, held in reads.held_currencies([account]):

@@ -33,7 +33,7 @@ from textual.binding import Binding
 from expense import reads
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import format_error
-from expense.formatting import format_cents
+from expense.formatting import format_cents, name_or_unnamed
 from expense.tui.screens._base import (
     DELETE_KEY,
     LeftBehind,
@@ -73,7 +73,7 @@ def account_line(account: dict, *, only: str | None = None) -> str:
         for _, _, h in reads.held_currencies([account])
         if only is None or h["currency_code"] == only
     ]
-    return " · ".join([account.get("name") or "(unnamed)", kind, *held])
+    return " · ".join([name_or_unnamed(account.get("name")), kind, *held])
 
 
 def _who(not_done: str, account: dict) -> str:
@@ -99,7 +99,7 @@ def currencies_to_add(account: dict) -> list[str]:
 def removal_question(account: dict, code: str) -> tuple[str, str]:
     """`(title, body)` of the question before `code` leaves the account: the
     account with that currency's balance, then what the account keeps."""
-    name = account.get("name") or "(unnamed)"
+    name = name_or_unnamed(account.get("name"))
     kept = [held for held in currencies_held(account) if held != code]
     after = f"{name} keeps {' and '.join(kept)}." if kept else "It is the account's only currency."
     return f"Remove {code} from {name}?", f"{account_line(account, only=code)}\n{after}"
@@ -122,7 +122,7 @@ def account_rows(items: list[dict], palette: Palette | None = None) -> list:
             continue
         archived = bool(account.get("is_archived"))
         cells = [
-            account.get("name") or "(unnamed)",
+            name_or_unnamed(account.get("name")),
             "person" if account.get("is_person") else "bank",
             code_cell(account.get("statement_code")),
             swatch(account.get("color")),
@@ -199,7 +199,7 @@ class AccountsScreen(ResourceListScreen):
         item = self.selected_record()
         if not item or self._toggle_busy:
             return
-        name = item.get("name") or "(unnamed)"
+        name = name_or_unnamed(item.get("name"))
         choices = currencies_to_add(item)
         if not choices:
             toast(self, f"{name} already holds every currency.")
@@ -230,7 +230,7 @@ class AccountsScreen(ResourceListScreen):
         item = self.selected_record()
         if not item or self._toggle_busy:
             return
-        name = item.get("name") or "(unnamed)"
+        name = name_or_unnamed(item.get("name"))
         choices = currencies_held(item)
         if not choices:
             toast(self, f"{name} holds no currency.")

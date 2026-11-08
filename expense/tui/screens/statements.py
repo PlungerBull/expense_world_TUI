@@ -83,6 +83,7 @@ from expense.formatting import (
     bank_line_columns,
     format_cents,
     is_split_line,
+    name_or_unnamed,
     resolve_name,
     signed_cents,
     title_or_untitled,
@@ -345,7 +346,7 @@ def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
     return [
         BrowseAccount(
             a["id"],
-            a.get("name") or "(unnamed)",
+            name_or_unnamed(a.get("name")),
             tuple(held.get(a["id"], [])),
             a.get("statement_code") or None,
         )
@@ -439,7 +440,7 @@ def statement_rows(
     for item in items:
         status = item.get("status")
         cells = [
-            item.get("name") or "(unnamed)",
+            name_or_unnamed(item.get("name")),
             _period(item),
             *(
                 difference_cell(balance_of(item, code).get("difference_cents"), palette)
@@ -2003,7 +2004,7 @@ class StatementScreen(
         """The words of a complete or a balances save that went through after this screen
         left, which `LeftBehind` has no way to say: the close's notes and the review
         list's count, or that the statement is still open. No widget of this screen."""
-        name = self._record.get("name") or "(unnamed)"
+        name = name_or_unnamed(self._record.get("name"))
         if item.path == f"/statements/{self._id}/complete":
             app.run_worker(
                 partial(self._count_then_say, app, self._id, name, gap_notes(body)),

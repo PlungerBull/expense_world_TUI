@@ -99,3 +99,41 @@ def test_the_shared_homes_are_typer_free():
 def test_the_shared_homes_exist():
     missing = [str(path.relative_to(PACKAGE.parent)) for path in SHARED_HOMES if not path.exists()]
     assert not missing, f"SHARED_HOMES names files that are gone: {missing}"
+
+
+def test_unnamed_is_written_only_in_formatting():
+    """`(unnamed)` is `formatting.name_or_unnamed`'s word; no other module spells it."""
+    offenders = [
+        str(path.relative_to(PACKAGE))
+        for path in sorted(PACKAGE.rglob("*.py"))
+        if path != PACKAGE / "formatting.py" and unnamed_literals(path.read_text())
+    ]
+    assert not offenders, f"`(unnamed)` written outside formatting.py: {offenders}"
+
+
+def unnamed_literals(source: str) -> list[int]:
+    """The lines of `source` holding a string with `(unnamed)` in it (docstrings and comments
+    may name the word)."""
+    tree = ast.parse(source)
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+    }
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and "(unnamed)" in node.value
+        and id(node) not in docstrings
+    ]
+
+
+def test_the_unnamed_guard_trips_on_a_planted_literal():
+    assert unnamed_literals('x = item.get("name") or "(unnamed)"\n') == [1]
+    assert unnamed_literals('def f():\n    """Reads `(unnamed)`."""\n') == []
+    assert unnamed_literals("x = name_or_unnamed(n)\n") == []

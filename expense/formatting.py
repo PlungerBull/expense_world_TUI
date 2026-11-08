@@ -149,6 +149,15 @@ def title_or_untitled(title: object) -> str:
     return str(title) if title else UNTITLED
 
 
+UNNAMED = "(unnamed)"
+
+
+def name_or_unnamed(name: object) -> str:
+    """An account's, category's or hashtag's name as a list cell, a pick or a question names it:
+    `(unnamed)` when it has none."""
+    return str(name) if name else UNNAMED
+
+
 UNRATED_SUFFIX = "unrated"
 
 
@@ -394,7 +403,7 @@ def build_range_grid(months: list[dict]) -> dict:
             if row is None:
                 row = {
                     "id": cat_id,
-                    "name": cat.get("name") or "(unnamed)",
+                    "name": name_or_unnamed(cat.get("name")),
                     "cells": {},
                     "breakdown": [],
                 }

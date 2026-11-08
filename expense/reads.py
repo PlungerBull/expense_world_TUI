@@ -18,7 +18,7 @@ from typing import Any, NamedTuple
 from expense import config as config_module
 from expense.config import Config
 from expense.errors import EngineError
-from expense.formatting import currency_label, whole_number
+from expense.formatting import currency_label, name_or_unnamed, whole_number
 from expense.http import ExpenseClient
 
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
@@ -640,7 +640,7 @@ def load_account_index() -> AccountIndex:
     """
     rows = _load_rows("/accounts", {"include_archived": "true", "include_people": "true"})
     # a nameless account reads "(unnamed)", as the pickers' `currency_picks` label it
-    names = {r["id"]: r.get("name") or "(unnamed)" for r in rows if isinstance(r.get("id"), str)}
+    names = {r["id"]: name_or_unnamed(r.get("name")) for r in rows if isinstance(r.get("id"), str)}
     return AccountIndex(names, archived_ids(rows))
 
 
@@ -727,7 +727,7 @@ def pickable_categories(categories: list[dict]) -> list[tuple[str, str]]:
         if c.get("system_key") == PENDING_SYSTEM_KEY:
             out.append((c["id"], c.get("name") or PENDING_FALLBACK_NAME))
         elif not c.get("is_system"):
-            out.append((c["id"], c.get("name") or "(unnamed)"))
+            out.append((c["id"], name_or_unnamed(c.get("name"))))
     return out
 
 
@@ -808,7 +808,7 @@ def held_currencies(
             continue
         if not include_archived and account.get("is_archived"):
             continue
-        name = account.get("name") or "(unnamed)"
+        name = name_or_unnamed(account.get("name"))
         out.extend(
             (account, name, held)
             for held in account.get("currencies") or []
@@ -954,11 +954,11 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     tags = items_of(fetch_hashtags(cfg, **kw))
     return QuickAddRefs(
         categories=[
-            (c["id"], c.get("name") or "(unnamed)")
+            (c["id"], name_or_unnamed(c.get("name")))
             for c in cats
             if c.get("id") and not c.get("is_system")
         ],
-        hashtags=[(t["id"], t.get("name") or "(unnamed)") for t in tags if t.get("id")],
+        hashtags=[(t["id"], name_or_unnamed(t.get("name"))) for t in tags if t.get("id")],
         account_names=_id_name_map(accts),
         category_names=_id_name_map(cats),
         hashtag_names=_id_name_map(tags),

@@ -156,9 +156,6 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-6. **Shared copies, comments and guards** ("Shared copies, comments and guards"): one shared copy
-   of `(unnamed)`, the test reading `ENGINE_URL` and `ENGINE_TOKEN`, the parts-row tests, the
-   `TRANSACTION_RULE` comment, and the footer guard's gaps.
 7. **The live tests use `refused_keeping`** ("The live tests") wherever the refused write's read
    is not shared across a loop or used later.
 8. **The `?` card** (points 1 and 2): the gutters blank (question 1, A), and the Statements account list's

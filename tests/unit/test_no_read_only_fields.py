@@ -17,6 +17,7 @@ import respx
 from expense.config import Config
 from expense.http import ExpenseClient
 from tests.unit.helpers import (
+    ENGINE_TOKEN,
     ENGINE_URL,
     READ_ONLY_FIELD_LEAKS,
     READ_ONLY_FIELDS,
@@ -171,7 +172,7 @@ def test_the_real_client_refuses_it_before_it_reaches_respx(field):
     route = respx.post(f"{ENGINE_URL}/v1/transactions/import").mock(
         return_value=httpx.Response(200, json={})
     )
-    cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
+    cfg = Config(engine_url=ENGINE_URL, token=ENGINE_TOKEN)
     body = {"dry_run": True, "rows": [{"title": "x", field: VALUES[field]}]}
     with tripped(field), ExpenseClient(cfg) as client:
         client.post("/transactions/import", json_body=body)
@@ -184,7 +185,7 @@ def test_the_real_client_sends_a_clean_body():
     route = respx.put(f"{ENGINE_URL}/v1/transactions/t1").mock(
         return_value=httpx.Response(200, json=put_answer(titled, [titled]))
     )
-    cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
+    cfg = Config(engine_url=ENGINE_URL, token=ENGINE_TOKEN)
     with ExpenseClient(cfg) as client:
         client.put("/transactions/t1", json_body={"title": "x", "operation_code": "12"})
     assert route.called
@@ -199,6 +200,7 @@ import respx
 
 from expense.config import Config
 from expense.http import ExpenseClient
+from tests.unit.helpers import ENGINE_TOKEN, ENGINE_URL
 
 
 def _swallowed(write):
@@ -225,10 +227,10 @@ def test_fake_client_place_leak(fake_client):
 
 @respx.mock
 def test_respx_leak():
-    respx.post("https://api.example.com/v1/transactions/batch").mock(
+    respx.post(f"{ENGINE_URL}/v1/transactions/batch").mock(
         return_value=httpx.Response(200, json={})
     )
-    cfg = Config(engine_url="https://api.example.com", token="ewe_pat_test")
+    cfg = Config(engine_url=ENGINE_URL, token=ENGINE_TOKEN)
     body = {"transactions": [{"title": "x", "statement_line": "SIG-202603-029"}]}
     with ExpenseClient(cfg) as client:
         _swallowed(lambda: client.post("/transactions/batch", json_body=body))

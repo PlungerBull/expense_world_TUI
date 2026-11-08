@@ -1,5 +1,6 @@
 """A list screen's footer tightens its spacing, then leaves whole keys out from its end,
-so no key is drawn cut; a key left out still works and the `?` card lists it."""
+so no key is drawn cut; a key left out still works and the `?` card lists it. Every screen
+draws that footer, never Textual's own."""
 
 import ast
 from pathlib import Path
@@ -158,12 +159,15 @@ def test_manage_on_page_2_at_80_is_tightened_and_loses_no_key(monkeypatch):
 
 
 def own_footer_uses(source: str) -> list[int]:
-    """The lines of `source` that name Textual's own `Footer` (an import or a use)."""
+    """The lines of `source` that name Textual's own `Footer`: an import, a bare use, or an
+    attribute access such as `widgets.Footer()` or `textual.widgets.Footer`."""
     lines = []
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.ImportFrom) and node.module == "textual.widgets":
             lines += [node.lineno for a in node.names if a.name == "Footer"]
         elif isinstance(node, ast.Name) and node.id == "Footer":
+            lines.append(node.lineno)
+        elif isinstance(node, ast.Attribute) and node.attr == "Footer":
             lines.append(node.lineno)
     return sorted(set(lines))
 
@@ -174,13 +178,30 @@ def test_the_guard_trips_on_a_planted_own_footer():
     assert own_footer_uses("yield FittingFooter()\n") == []
 
 
+def test_the_guard_trips_on_an_attribute_footer():
+    assert own_footer_uses("from textual import widgets\nyield widgets.Footer()\n") == [2]
+    assert own_footer_uses("import textual.widgets\nx = textual.widgets.Footer\n") == [2]
+
+
+def test_the_guard_skips_only_the_fitting_footer_module():
+    tui_dir = Path(tui_pkg.__file__).parent
+    assert tui_dir / "widgets" / "footer.py" in set(tui_dir.rglob("*.py"))
+    assert _is_exempt(tui_dir, tui_dir / "widgets" / "footer.py")
+    assert not _is_exempt(tui_dir, tui_dir / "screens" / "footer.py")
+
+
+def _is_exempt(tui_dir: Path, path: Path) -> bool:
+    """The one module that may name Textual's `Footer`: the `FittingFooter` itself."""
+    return path == tui_dir / "widgets" / "footer.py"
+
+
 def test_no_screen_draws_textuals_own_footer():
     """Guard: every screen's footer is the `FittingFooter`, so none is cut at 80 columns."""
     tui_dir = Path(tui_pkg.__file__).parent
     offenders = [
         f"{path.relative_to(tui_dir)}:{line}"
         for path in sorted(tui_dir.rglob("*.py"))
-        if path.name != "footer.py"
+        if not _is_exempt(tui_dir, path)
         for line in own_footer_uses(path.read_text())
     ]
     assert not offenders, f"Textual's own Footer instead of FittingFooter: {offenders}"

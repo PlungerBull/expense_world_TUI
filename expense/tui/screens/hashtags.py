@@ -14,6 +14,7 @@ transaction carrying it, and where a transaction left with no hashtag goes.
 """
 
 from expense import reads
+from expense.formatting import name_or_unnamed
 from expense.reads import is_system_row, pending_hashtag_of
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, not_done_line
 
@@ -24,7 +25,7 @@ LEGEND = "System hashtags cannot be renamed or deleted."
 
 
 def _tag(name: object) -> str:
-    return "#" + (str(name) if name else "(unnamed)").lstrip("#")
+    return "#" + name_or_unnamed(name).lstrip("#")
 
 
 def hashtag_rows(items: list[dict]) -> list:

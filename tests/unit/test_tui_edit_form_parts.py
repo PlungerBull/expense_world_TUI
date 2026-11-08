@@ -26,6 +26,7 @@ from textual.widgets import Footer, Input, Static
 from textual.widgets._footer import FooterKey
 
 from expense.errors import NEXT_STEPS, EngineConnectionError, EngineError
+from expense.reads import QuickAddRefs
 from expense.tui.screens.edit_form import (
     EVERY_PART_NOTE,
     NOTE_GOES_ON,
@@ -43,6 +44,7 @@ from expense.tui.widgets.parts_table import (
     key_words,
     part_empty,
     part_from_engine,
+    parts_lines,
 )
 from expense.tui.widgets.refusal import hanging
 from tests.unit.helpers import (
@@ -691,6 +693,29 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
             },
         )
     ]
+
+
+def _income_row(**kwargs):
+    """The one income part's table row, as `parts_lines` draws it."""
+    refs = QuickAddRefs([], [], [], {}, {}, {})
+    lines = parts_lines([Part(amount_cents=320000)], refs, palette=PALETTE, **kwargs)
+    return lines[1]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "style"),
+    [
+        ({"editing": 0}, f"bold {ACCENT}"),
+        ({"flagged": frozenset({0})}, f"bold {PALETTE.error}"),
+    ],
+    ids=["marked", "refused"],
+)
+def test_a_marked_or_refused_income_part_reads_its_plus_sign_as_a_locked_one_does(kwargs, style):
+    """The amount cell prints `+3,200.00` on the marked and on the refused row, as on the locked
+    row (check 5), each in its own style."""
+    row = _income_row(**kwargs)
+    assert "+3,200.00" in row.plain
+    assert _styles_of(row, "+3,200.00") == {style}
 
 
 def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):

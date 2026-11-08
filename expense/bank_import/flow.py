@@ -14,7 +14,7 @@ from pathlib import Path
 from expense import reads
 from expense.bank_import.engine import ImportedRow, blocking_statements, request_body
 from expense.errors import EngineConnectionError, EngineError, format_error
-from expense.formatting import currencies_phrase
+from expense.formatting import currencies_phrase, name_or_unnamed
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def account_picks(accounts: list[dict]) -> list[AccountPick]:
     currencies it holds, its `currencies` (contract: "Bank Accounts", "`currencies`")."""
     return [
         AccountPick(
-            str(a.get("name") or "(unnamed)"),
+            name_or_unnamed(a.get("name")),
             str(a["id"]),
             tuple(str(c.get("currency_code") or "?") for c in a.get("currencies") or []),
             a.get("statement_code") or None,

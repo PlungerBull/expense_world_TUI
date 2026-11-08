@@ -11,6 +11,7 @@ legend says so (`errors.SYSTEM_HINT`, also the line under the engine's
 
 from expense import reads
 from expense.errors import SYSTEM_HINT
+from expense.formatting import name_or_unnamed
 from expense.reads import is_system_row
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, not_done_line
 from expense.tui.widgets.cells import swatch
@@ -24,7 +25,7 @@ def category_rows(items: list[dict]) -> list:
     for it in items:
         cells = [
             swatch(it.get("color")),
-            it.get("name") or "(unnamed)",
+            name_or_unnamed(it.get("name")),
             "system 🔒" if is_system_row(it) else "—",
         ]
         rows.append((it.get("id"), cells, ""))
@@ -55,7 +56,7 @@ class CategoriesScreen(ResourceListScreen):
     def delete_question(self, item: dict) -> tuple[str, str, str]:
         return (
             "Delete this category?",
-            f"{item.get('name') or '(unnamed)'}\n"
+            f"{name_or_unnamed(item.get('name'))}\n"
             "It is for a category made by mistake: no screen can bring it back.",
             "Category deleted.",
         )
