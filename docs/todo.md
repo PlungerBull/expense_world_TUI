@@ -24,6 +24,9 @@ loop skips it until it can run.
    live suite on built names.
 2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
    approved 2026-11-08. Task 1 runs first in the queue, before the empty lists' acceptance check.
+3. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
+   approved 2026-11-08. Its cash part waits on the engine ask "Every user holds one cash account,
+   named `Efectivo`, with no bank and no number".
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
 The engine already serves `a7dd5e3ed5da676f`; its four later versions (a statement upload or
@@ -46,18 +49,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### Removing a card number added by mistake
-Asked 2026-11-08 · Blocks: [accounts carry their numbers](specs/accounts-carry-their-numbers.md) and its approval
-
-Question 10 in its "Decided" table, pane 2 of [the mockup](mockups/expense-world-account-numbers.html):
-removing is only for undoing a number typed by mistake; a lost card is a replacement, and the
-old number stays in its history. The engine refuses a removal that would change the number of a
-month already closed.
-- **A.** Emptying `last 4` and saving asks first; only `y` removes it.
-- **B.** No removal in the app; a wrong number is only fixed by typing over it.
-**Recommended:** A, because a replacement added by mistake would otherwise stay in the history
-for good.
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
