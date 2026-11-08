@@ -1,6 +1,6 @@
-"""A list screen's footer tightens its spacing, then leaves whole keys out from its end,
-so no key is drawn cut; a key left out still works and the `?` card lists it. Every screen
-draws that footer, never Textual's own."""
+"""Every screen's footer tightens its spacing, then leaves whole keys out from its end,
+so no key is drawn cut; a key left out still works, and the `?` card lists it on a screen
+that has one. No screen draws Textual's own footer."""
 
 import ast
 from pathlib import Path

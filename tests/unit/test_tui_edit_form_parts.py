@@ -705,8 +705,8 @@ def _income_row(**kwargs):
 @pytest.mark.parametrize(
     ("kwargs", "style"),
     [
-        ({"editing": 0}, f"bold {ACCENT}"),
-        ({"flagged": frozenset({0})}, f"bold {PALETTE.error}"),
+        (dict(editing=0), f"bold {ACCENT}"),
+        (dict(flagged=frozenset({0})), f"bold {PALETTE.error}"),
     ],
     ids=["marked", "refused"],
 )

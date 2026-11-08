@@ -156,11 +156,7 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-9. **The drift check passes again** (from the acceptance check, 2026-11-07): the parts-row
-   income test's arguments `{"editing": 0}` and `{"flagged": …}`
-   ([test_tui_edit_form_parts.py](../../tests/unit/test_tui_edit_form_parts.py) ~708) read as
-   fixture keys; and the footer guard's module docstring still opens with "A list screen's
-   footer".
+All done; the doc sweep follows.
 
 ## Found along the way
 
