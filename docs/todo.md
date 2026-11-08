@@ -12,6 +12,19 @@ handed over.
 
 ---
 
+## Queue
+
+Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A spec joins
+when the owner approves it and leaves when it retires; one that is blocked says on what, and the
+loop skips it until it can run.
+
+1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
+   tasks 1–2 done, task 3 and its acceptance check left. Blocked: the engine's hand-off for its
+   contract `f82426fb0a099676` to `ce7749236717b163` (the version is recorded when it is planned).
+2. [Accounts carry their numbers](specs/accounts-carry-their-numbers.md). Blocked: the engine.
+
+---
+
 ## Waiting on you
 
 Everything that needs the owner: questions, and things only the owner can do. The orchestrator
@@ -33,14 +46,6 @@ To approve, every question answered: [the official import](specs/before-the-offi
 
 Answered, waiting on its engine ask (handed over 2026-11-07) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
-
-Approved, waiting on the engine's hand-off for its contract `f82426fb0a099676` to
-`ce7749236717b163` (the version is recorded when it is planned): [empty lists' `?` cards, and
-leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md), tasks 1–2 done,
-task 3 and its acceptance check left.
-
-Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
-engine.
 
 **Recommended:** approve the rest.
 

@@ -1151,6 +1151,22 @@ need one by one, and the specs that need the owner get lost among them.
 **Rejected.** *Every find a spec* — the list never shrinks. *One cleanup spec for the small
 leftovers* — the owner still approves work they cannot see, and it keeps growing.
 
+## One approval per spec, a queue of approved specs, small specs merged (2026-11-08)
+
+**Decision.** The owner approves a spec, its answers and its tasks in one reply; approved specs
+wait in [todo.md](todo.md)'s Queue and the loop runs them in order without stopping between
+them; a spec of fewer than about 4 tasks merges into another ([CLAUDE.md](../CLAUDE.md)
+"Specs and tasks", "Task size", "Per task" step 6).
+
+**Why.** The owner felt the loop was slow. The session logs from 2026-10-28 to 2026-11-08 put
+38% of this repo's loop time on waiting for the owner, more than the builders' 30%; the
+reviewer, tester and librarian together took about 15%. Most waits sat between specs, or between
+a spec's questions, its approval and its tasks' approval, and 41 specs in 11 days paid each
+spec's fixed cost again and again.
+
+**Rejected.** *Dropping the librarian* — about 4 minutes and 3% of the time, and it fixes a doc
+in most runs. *Skipping the reviewer on small tasks* — refused 2026-10-16.
+
 ## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02)
 
 **Decision.** Staged rows wider than the LOG bar cut the title and tags, never another cell

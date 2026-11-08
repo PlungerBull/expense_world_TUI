@@ -94,9 +94,9 @@ The owner is not a coder. Agents make every technical decision. The owner decide
 | **Tester** | Once per spec, after its last task; a check no test proves is reported as such | Runs things, edits nothing; may start the test engine ("Stay inside this repo") |
 | **Librarian** | Once per spec, last. Here it also **cuts** restatements, provenance and history, and reports words lost or gained per doc | Docs, except todo.md, decisions.md and docs/specs/ |
 
-**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one when starting the loop. The orchestrator drafts its tasks into the spec's "Tasks" section, the owner approves them, and the loop then runs on its own, on that spec only and exactly its tasks. Work found along the way is neither built nor raised mid-run: it goes in the spec's **Found along the way** section and is sorted at the end. Everything above "Tasks" is the owner's. Instead of a spec, the owner may name Backlog items from todo.md; the loop runs each as a task, with one acceptance check and doc sweep at the end.
+**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/). **One approval per spec:** the orchestrator brings everything a spec needs from the owner in one message: its open questions (2–3 options, a recommendation), a mockup for each screen question, already drawn and opened, and its tasks drafted on the recommended answers. One reply answers the questions and approves the spec and its tasks together; an answer other than the recommendation gets the affected tasks redrafted, with no second approval. **Approved specs wait in todo.md's "Queue"**, in order. The loop runs the queue top to bottom on its own, exactly each spec's tasks, and starts the next spec as soon as one is done; a spec waiting on the engine or the owner is skipped until it can run. Work found along the way is neither built nor raised mid-run: it goes in the spec's **Found along the way** section and is sorted at the end. Everything above "Tasks" is the owner's. Instead of a spec, the owner may name Backlog items from todo.md; the loop runs each as a task, with one acceptance check and doc sweep at the end.
 
-**Task size.** One step a builder finishes in about 15 minutes (one screen, command or client call, with its tests and doc lines), each step leaving `pytest tests/unit` green. A spec of more than about 8 tasks is split in two.
+**Task size.** One step a builder finishes in about 15 minutes (one screen, command or client call, with its tests and doc lines), each step leaving `pytest tests/unit` green. A spec of more than about 8 tasks is split in two. **Small work is merged, not given its own spec:** a spec of fewer than about 4 tasks joins a drafted or queued spec in the same area, or several small ones merge, up to that limit. Every spec pays the same fixed cost (the owner's approval, the acceptance check, the doc sweep), so fewer, fuller specs finish sooner.
 
 **The brief points, it doesn't paste.** It names the spec part, the files, the doc sections and the reviewer checks that matter most; never "read the whole spec" or "read the whole doc".
 
@@ -106,20 +106,20 @@ The owner is not a coder. Agents make every technical decision. The owner decide
 3. After **4 failed rounds**, park the task, add a question for the owner, move on.
 4. **Done** = reviewer approved + committed and pushed + deleted from its task list in that same commit.
 5. **One task at a time** — the single branch means parallel builders would collide.
-6. When every remaining task waits on the owner, **stop** and summarize what finished and which questions wait.
+6. **Stop** only when the queue is empty or every remaining task in it waits on the owner or the engine. The summary covers every spec finished since the last stop and holds, in that one message, every question waiting and every drafted spec ready for its one approval.
 
 **Per spec,** once all its tasks are done:
 1. The tester runs the acceptance check against the practice engine (`:8002`): the drift script, the live contract suite ([docs/runtime.md](docs/runtime.md) "Working against the live engine"), each check in the spec's "How the owner knows it is done", and the app when a screen changed. Each failure becomes a new task; the loop runs it and the tester checks again.
 2. The librarian sweeps every doc. The orchestrator gives decisions.md the same pass: the spec's new rationale goes in, whatever it made untrue comes out.
 3. A catch-up spec ends with the orchestrator's reply in [docs/to-engine/](docs/to-engine/), from its "Reply to the engine" section and the tester's results.
-4. "Found along the way" is sorted: what the owner would see, or a money or business rule, becomes a drafted spec; the rest goes to todo.md's Backlog.
+4. "Found along the way" is sorted: what the owner would see, or a money or business rule, joins a drafted spec in the same area or becomes one, saved for the next stop's summary; the rest goes to todo.md's Backlog.
 5. **Done** = acceptance check passed + sweep done + any reply written + finds sorted; the spec retires as [docs/specs/README.md](docs/specs/README.md) says.
 
 **Engine hand-offs become catch-up specs:** the files in [docs/from-engine/](docs/from-engine/) are planned into one spec (or several independent ones) that takes what the live contract does not hold and ends with a reply; the hand-off files are then deleted ([docs/from-engine/README.md](docs/from-engine/README.md)).
 
 **A moved contract version goes to the owner.** When the version check reports a move, start no new task; file a "Waiting on you" question in todo.md with the check's printout and the version this client last caught up to, so the owner can ask for one hand-off file covering the gap. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer; until then the loop stays stopped ([docs/runtime.md](docs/runtime.md) "Contract version").
 
-A task that needs a screen does not stall the loop: draw the mockup, park the task, ask the owner to pick, move on.
+Mockups are drawn when a spec is drafted, so their picks travel in its one approval. A task that still needs a screen mid-run does not stall the loop: draw the mockup, park the task, move on, and ask in the next stop's summary.
 
 **What always goes to the owner — never guessed:** anything users see ("Mock every screen before building it"); money or business rules a spec does not cover (usually an engine ask); anything touching real data ("Careful running live"); anything outside this repo. Questions live in todo.md "Waiting on you": plain language, 2–3 options, a recommendation.
 
