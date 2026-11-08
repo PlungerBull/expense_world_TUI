@@ -36,7 +36,14 @@ from expense.tui.screens.edit_form import (
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.screens.statements import NewStatementScreen
 from expense.tui.theme import ACCENT
-from tests.unit.helpers import account_with_currencies, edit_limits, render_text, run_app, wait_for
+from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
+    account_with_currencies,
+    edit_limits,
+    render_text,
+    run_app,
+    wait_for,
+)
 
 NAME_GOES_ON = "free text · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
@@ -158,7 +165,7 @@ def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
 
-    _open(NewAccountScreen(), body)
+    _open(NewAccountScreen(ENGINE_CURRENCIES), body)
 
 
 def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
@@ -176,7 +183,7 @@ def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
 
-    _open(EditAccountScreen(ACCOUNT), body)
+    _open(EditAccountScreen(ACCOUNT, ENGINE_CURRENCIES), body)
 
 
 @pytest.mark.parametrize(
@@ -275,10 +282,10 @@ SHAPES = {
     EditHashtagScreen: lambda: [EditHashtagScreen({"id": "h1", "name": "dog"})],
     NewCategoryScreen: lambda: [NewCategoryScreen()],
     EditCategoryScreen: lambda: [EditCategoryScreen(dict(CATEGORY))],
-    NewAccountScreen: lambda: [NewAccountScreen()],
+    NewAccountScreen: lambda: [NewAccountScreen(ENGINE_CURRENCIES)],
     EditAccountScreen: lambda: [
-        EditAccountScreen(ACCOUNT),
-        EditAccountScreen(PERSON),
+        EditAccountScreen(ACCOUNT, ENGINE_CURRENCIES),
+        EditAccountScreen(PERSON, ENGINE_CURRENCIES),
     ],
     EditFormScreen: lambda: [
         _on(EditFormScreen(record=dict(TXN)), LINE),

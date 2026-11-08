@@ -13,7 +13,7 @@ import json
 import re
 import threading
 import zlib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -1273,6 +1273,19 @@ def _refusing_read_only_fields(method: str, send: Callable) -> Callable:
 # ---------------------------------------------------------------------------
 # TUI fakes and waits
 # ---------------------------------------------------------------------------
+
+
+#: The codes the engine lists today, for a test that opens an account form directly.
+ENGINE_CURRENCIES = ["PEN", "USD"]
+
+
+@answer_of("GET", "/v1/currencies")
+def currencies_answer(codes: Sequence[str] = ("PEN", "USD"), /) -> dict:
+    """`GET /currencies` as the engine reads it now: one `{currency_code}` per code, in the
+    order given (the engine's is `currency_code` ascending)
+    (contract: GET /v1/currencies).
+    The unit conftest answers it with PEN and USD for every screen."""
+    return whole([{"currency_code": code} for code in codes])
 
 
 class FakeClient:

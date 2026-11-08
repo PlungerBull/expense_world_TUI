@@ -38,7 +38,13 @@ CATEGORIES = [
     {"id": "c-2", "name": "COMIDA", "is_system": False, "color": "#4a90d9"},
 ]
 ACCOUNTS = [
-    {"id": "a-1", "name": "Caja", "is_person": False, "is_archived": False, "currencies": []},
+    {
+        "id": "a-1",
+        "name": "Caja",
+        "is_person": False,
+        "is_archived": False,
+        "currencies": [{"currency_code": "PEN"}],
+    },
 ]
 
 # site: (list screen, rows, fetch, key opening the form, the row the cursor goes to,

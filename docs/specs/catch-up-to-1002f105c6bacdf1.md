@@ -79,9 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-3. **The currencies come from `GET /currencies`.** Manage ▸ Accounts' columns, `c`'s list and the
-   New form's picker read it; the app's own list and every branch for an account holding no
-   currency go.
 4. **The engine fills an only currency.** A new transaction on a one-currency account leaves
    `currency_code` out, never `null`; a move by account alone sends `account_id` alone and reads
    the currency from the answer, with question 2's wording; the three fills the app keeps today
@@ -133,6 +130,10 @@ Not built in this spec; sorted when it is done.
   (tests/unit/test_fake_engine_answers.py) calls `monkeypatch.undo()`, which also lifts the
   autouse guards for the rest of that test; `_CLOSE_NOTES`' lists in tests/unit/helpers.py are one
   object shared by every upload answer, where each call used to make fresh ones.
+- **`n` on Manage ▸ Accounts stays on while the list shows "Could not load."** It opens a New
+  form whose `currencies` line has nothing to pick, since the currencies come with the list's read;
+  typing `PEN` says `No currencies match "PEN".` instead of the engine's words. Whether `n` turns
+  off until the list loads is the owner's call.
 - **For decisions.md at the sweep:** the suite marks its bank accounts by a number starting `9`
   (the cleaner's rule), since the engine builds the name; sample uploads go to the seed's
   `BCP-0000` by its id, since a second `…0000` account cannot exist.

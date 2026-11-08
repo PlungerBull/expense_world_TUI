@@ -897,8 +897,10 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
 banks and people together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). The currency columns are the currencies the client
-knows, `PEN` then `USD` (`SUPPORTED_CURRENCIES` in [currencies.py](../expense/currencies.py)): each
+in the engine's order everywhere" above). The currency columns are the currencies the engine lists,
+in its order (`GET /currencies`, read in the list's worker with the accounts by
+`fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies);
+today `PEN` then `USD`. The list screen hands the same codes to the New and Edit forms. Each
 holds the account's balance in that currency, right-aligned and never summed with another, or a
 dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
 when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
@@ -931,8 +933,8 @@ read-only: `t` is how an account's type changes.
 after `e Edit`, on every row, a person's and an archived account's too, and is off on an empty
 list. `c` opens the pick `Add a currency · <account>`, naming the account (`PickModal` in
 [modals.py](../expense/tui/screens/modals.py)): the account on one line as the delete question
-names it (`Caja Chica · bank · PEN 350.00`), the supported currencies it does not hold in
-`SUPPORTED_CURRENCIES` order (`currencies_to_add` in
+names it (`Caja Chica · bank · PEN 350.00`), the engine's currencies it does not hold, in the
+engine's order (`currencies_to_add` in
 [accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
 `[enter] add    [esc] cancel`; the footer is `esc Cancel`. `↑↓` move the highlight, `esc`
 leaves the list as it was, and `⏎` sends `POST /accounts/{id}/currencies` with
@@ -958,8 +960,7 @@ currency, `It is the account's only currency.`. Only `y` sends
 `DELETE /accounts/{id}/currencies/{code}`, with no body, through `run_write`
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}); `⏎`, `n`, `esc` and
 any other key send nothing. The note says `Currency removed: USD.` and the list reads again
-with the cursor on the same account, the removed currency's column a dim `—`. On an account
-holding no currency `x` opens nothing, sends nothing and notes `Prueba holds no currency.`.
+with the cursor on the same account, the removed currency's column a dim `—`.
 A refusal leaves the list as it was, its note the engine's words ("When the engine says no"
 below), the two `404 NOT_FOUND` answers, `account not found.` and `currency <code> not found.`,
 included (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
@@ -984,7 +985,7 @@ On Accounts the delete acts on the whole account (contract: "What an account is"
 the body's first line is the account, its kind, then each currency it holds with that
 currency's balance: a two-currency account reads
 `Visa Inventada · bank · PEN -2,340.50 · USD -185.20`, a one-currency account
-`Efectivo · bank · PEN 350.00`, one holding none `Prueba · bank`. `y` sends one
+`Efectivo · bank · PEN 350.00`. `y` sends one
 `DELETE /accounts/{id}`.
 
 Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
@@ -1177,7 +1178,7 @@ account's `statement code` (below) and `color`.
 
 - **`currencies` takes one currency or more,** picked as a part's HASHTAGS line on the Edit
   form picks hashtags: the list under the bar holds the currencies not yet picked, in the
-  app's order (`SUPPORTED_CURRENCIES`), the first highlighted; a code typed and `⏎` add the
+  engine's order (the list the Accounts screen read), the first highlighted; a code typed and `⏎` add the
   highlighted one, the bar empties and the line stays for another; `⏎` with nothing typed
   goes on. A code nothing matches says `No currencies match “…”.` and stays. Once every
   currency is picked the list is empty. The hint reads `type a code · ↑↓ highlight · enter
@@ -1228,8 +1229,7 @@ lines per currency after `color`, in the engine's order of the account's currenc
 **`PEN opening`**, the amount, and **`PEN as of`**, its day, then **`USD opening`** and
 **`USD as of`**; the bar reads `PEN OPENING`. There is no title line; the engine names the
 row. A person's form has the pairs, as a bank account's does, and its opening balances are
-written the same way (contract: POST /v1/accounts/{account_id}/opening-balance). An account
-holding no currency has no pair.
+written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
 
 - **The amount is signed and taken as typed**, in its line's currency; the app never adds or
   flips a sign. No hint sits under an `opening` line; on the bar's right a word follows what

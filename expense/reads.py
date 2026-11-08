@@ -124,6 +124,19 @@ def fetch_accounts(
     )
 
 
+def fetch_currency_codes(cfg, *, verbose: bool = False) -> list[str]:
+    """GET /v1/currencies → the codes the engine accepts, in the engine's order
+    (`currency_code` ascending) (contract: GET /v1/currencies). The one list every
+    screen's currency columns and pickers take; the same for every user. An entry
+    without a string code is skipped."""
+    body = fetch_body(cfg, path="/currencies", params=None, verbose=verbose)
+    return [
+        entry["currency_code"]
+        for entry in items_of(body)
+        if isinstance(entry, dict) and isinstance(entry.get("currency_code"), str)
+    ]
+
+
 def fetch_categories(
     cfg,
     *,
@@ -827,9 +840,8 @@ def currency_picks(
     (a removed currency is not listed), and the engine lists accounts in their order
     and each account's currencies PEN before USD, so the picks keep the order given
     and are never re-sorted (contract: "Bank Accounts", "`currencies`")
-    (contract: "Bank Accounts", "Per-currency order"). An account holding none gives
-    no pick. Skips id-less rows, person accounts unless `include_people`, and
-    archived accounts unless `include_archived`.
+    (contract: "Bank Accounts", "Per-currency order"). Skips id-less rows, person
+    accounts unless `include_people`, and archived accounts unless `include_archived`.
     """
     return [
         CurrencyPick(

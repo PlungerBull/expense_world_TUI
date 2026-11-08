@@ -690,12 +690,8 @@ def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
             ),
             "Efectivo · bank · PEN 350.00",
         ),
-        (
-            account_with_currencies(id="p1", name="Prueba", currencies=[]),
-            "Prueba · bank",
-        ),
     ],
-    ids=["visa", "two", "one", "none"],
+    ids=["visa", "two", "one"],
 )
 def test_the_delete_question_names_the_whole_account_and_each_currency(
     configured, monkeypatch, account, line

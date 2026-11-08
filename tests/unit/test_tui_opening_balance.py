@@ -25,6 +25,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import PALETTE
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
     LOCK_MESSAGES,
     LOCKED_WORDS,
     account_with_currencies,
@@ -131,7 +132,7 @@ def _form(record, body):
     `body(pilot, app, screen)`."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(record)
+        screen = EditAccountScreen(record, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await wait_for(pilot, lambda: not screen._openings_loading)
@@ -636,22 +637,6 @@ def test_a_posted_opening_balance_is_changed_by_its_id_on_the_next_save(
     )
 
 
-def test_an_account_with_no_currency_has_no_pair(fake_client):
-    """An account holding no currency has no opening lines, and its save is
-    the account alone."""
-    bare = account_with_currencies(id="acc-bare", name="Bare", currencies=[])
-
-    async def body(pilot, app, screen):
-        assert screen._sequence() == ["type", "name", "currencies", "statement_code", "color"]
-        assert "currencies — read-only" in _summary(screen)
-        screen._values["name"] = "Barer"
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen.is_attached)
-
-    _form(bare, body)
-    assert fake_client.requests == [("PUT", "/accounts/acc-bare")]
-
-
 def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
@@ -730,7 +715,7 @@ def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(SUELDO)
+        screen = EditAccountScreen(SUELDO, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
@@ -757,7 +742,7 @@ def test_the_loading_note_names_the_currency_still_loading(fake_client, notes, m
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(VISA_USD_OPENED)
+        screen = EditAccountScreen(VISA_USD_OPENED, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
@@ -1085,7 +1070,7 @@ def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fa
     result: list = []
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(plain)
+        screen = EditAccountScreen(plain, ENGINE_CURRENCIES)
         await app.push_screen(screen, result.append)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await wait_for(pilot, lambda: not screen._openings_loading)
@@ -1143,7 +1128,7 @@ def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
     result: list = []
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(EFECTIVO)
+        screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES)
         await app.push_screen(screen, result.append)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type(screen, "color", "green")

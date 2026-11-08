@@ -2,7 +2,8 @@
 
 Built on SectionScreen + the shared CursorList. One row per account, in the
 engine's order, keyed by the account's id: Name, Type, Code, Color, a column per
-currency the client knows (`SUPPORTED_CURRENCIES`, in its order) and Status. Each
+currency the engine lists (`GET /currencies`, in its order; read with the accounts
+in the screen's worker) and Status. Each
 currency column holds the account's balance in that currency, never summed with
 another, or a dim `—` when the account does not hold it. Includes people and
 archived accounts (archived rows dimmed whole); the Code column shows the account's
@@ -18,7 +19,7 @@ takes, and is off on an archived row; `d` deletes the cursor row's account after
 question (`a` puts an account away, `d` is for one made by mistake). Each acts on
 the whole account, every currency at once, through one call with the account's id.
 After `a` or `t` the list reloads with the cursor on the same account, so a second
-press undoes it. `c` (`c Currency`) lists the supported currencies the cursor row's
+press undoes it. `c` (`c Currency`) lists the engine's currencies the cursor row's
 account does not hold (`PickModal`) and `⏎` adds the picked one at once with
 `POST /accounts/{id}/currencies`; on an account holding every one it writes nothing
 and says so. `x` (`x Remove currency`) lists the currencies the account holds, and
@@ -31,7 +32,6 @@ from rich.text import Text
 from textual.binding import Binding
 
 from expense import reads
-from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import format_error
 from expense.formatting import format_cents, name_or_unnamed
 from expense.tui.screens._base import (
@@ -46,19 +46,25 @@ from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
 from expense.tui.widgets.refusal import toast
 
-#: Name, Type, Code, Color, a balance column per supported currency, then Status.
-_HEADERS = ["Name", "Type", "Code", "Color", *SUPPORTED_CURRENCIES, "Status"]
+_FIXED_HEADS = ["Name", "Type", "Code", "Color"]
 
 
-def _balance_cells(account: dict, palette: Palette | None) -> list[str | Text]:
-    """One cell per supported currency, in `SUPPORTED_CURRENCIES` order: the
-    account's balance in it, or a dim `—` when the account does not hold it."""
+def account_headers(currencies: list[str]) -> list[str]:
+    """Name, Type, Code, Color, a balance column per engine currency, then Status."""
+    return [*_FIXED_HEADS, *currencies, "Status"]
+
+
+def _balance_cells(
+    account: dict, currencies: list[str], palette: Palette | None
+) -> list[str | Text]:
+    """One cell per engine currency, in the engine's order: the account's balance
+    in it, or a dim `—` when the account does not hold it."""
     held = {h["currency_code"]: h for _, _, h in reads.held_currencies([account])}
     return [
         amount_cell(held[code].get("current_balance_cents"), palette, AMOUNT_RULE)
         if code in held
         else code_cell(None)
-        for code in SUPPORTED_CURRENCIES
+        for code in currencies
     ]
 
 
@@ -89,11 +95,11 @@ def currencies_held(account: dict) -> list[str]:
     return [h["currency_code"] for _, _, h in reads.held_currencies([account])]
 
 
-def currencies_to_add(account: dict) -> list[str]:
-    """The supported currencies the account does not hold, in
-    `SUPPORTED_CURRENCIES` order: what `c` offers. Unit-testable."""
+def currencies_to_add(account: dict, currencies: list[str]) -> list[str]:
+    """The engine's currencies the account does not hold, in the engine's order:
+    what `c` offers. Unit-testable."""
     held = {h["currency_code"] for _, _, h in reads.held_currencies([account])}
-    return [code for code in SUPPORTED_CURRENCIES if code not in held]
+    return [code for code in currencies if code not in held]
 
 
 def removal_question(account: dict, code: str) -> tuple[str, str]:
@@ -112,10 +118,10 @@ def currency_refusal_text(exc: Exception) -> str:
     return format_error(exc, on_list=True, one_currency=True)
 
 
-def account_rows(items: list[dict], palette: Palette | None = None) -> list:
+def account_rows(items: list[dict], currencies: list[str], palette: Palette | None = None) -> list:
     """Pure (key, cells, base_style) rows for a CursorList, one per account in the
-    order given, the key the account's id; id-less records are skipped. An archived
-    account's row is dimmed whole. Unit-testable."""
+    order given, a balance cell per engine currency, the key the account's id; id-less
+    records are skipped. An archived account's row is dimmed whole. Unit-testable."""
     rows = []
     for account in items:
         if not account.get("id"):
@@ -126,7 +132,7 @@ def account_rows(items: list[dict], palette: Palette | None = None) -> list:
             "person" if account.get("is_person") else "bank",
             code_cell(account.get("statement_code")),
             swatch(account.get("color")),
-            *_balance_cells(account, palette),
+            *_balance_cells(account, currencies, palette),
             "archived" if archived else "active",
         ]
         rows.append((account["id"], cells, "dim" if archived else ""))
@@ -137,10 +143,9 @@ class AccountsScreen(ResourceListScreen):
     crumb = ("Manage", "Accounts")
     CARD_WIDTH = 86
     TITLE = "Accounts — banks & people"
-    HEADERS = _HEADERS
+    HEADERS = account_headers([])  # set from the engine's currencies on each build
     EMPTY = "(no accounts)"
     LEGEND = "balances are native currency"
-    ALIGN_RIGHT = {_HEADERS.index(code) for code in SUPPORTED_CURRENCIES}
     RESOURCE = "accounts"
     # Accounts are the only archivable resource, so the `a` toggle lives here,
     # not on the shared scaffold. `t` is two bindings of one key, one per
@@ -156,8 +161,22 @@ class AccountsScreen(ResourceListScreen):
         DELETE_KEY,
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._currencies: list[str] = []  # the engine's codes, read with the accounts
+
     def fetch_items(self, cfg, **kw):
-        return reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
+        """The accounts, and with them the engine's currencies (worker thread); a
+        refused or failed read of either shows the engine's words."""
+        accounts = reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
+        self._currencies = reads.fetch_currency_codes(cfg, **kw)
+        return accounts
+
+    def build(self, items: list):
+        """The columns follow the engine's currencies, one per code."""
+        self.HEADERS = account_headers(self._currencies)
+        self.ALIGN_RIGHT = set(range(len(_FIXED_HEADS), len(_FIXED_HEADS) + len(self._currencies)))
+        return super().build(items)
 
     def delete_question(self, item: dict) -> tuple[str, str, str]:
         """The whole account (`account_line`), then what a delete is for."""
@@ -195,12 +214,12 @@ class AccountsScreen(ResourceListScreen):
     def action_add_currency(self) -> None:
         """`c`: pick a currency the account does not hold, and `⏎` adds it at
         once with no question, as `a` writes. On an account holding every
-        supported currency nothing is offered and nothing is sent."""
+        currency the engine lists nothing is offered and nothing is sent."""
         item = self.selected_record()
         if not item or self._toggle_busy:
             return
         name = name_or_unnamed(item.get("name"))
-        choices = currencies_to_add(item)
+        choices = currencies_to_add(item, self._currencies)
         if not choices:
             toast(self, f"{name} already holds every currency.")
             return
@@ -232,9 +251,6 @@ class AccountsScreen(ResourceListScreen):
             return
         name = name_or_unnamed(item.get("name"))
         choices = currencies_held(item)
-        if not choices:
-            toast(self, f"{name} holds no currency.")
-            return
         ident = item["id"]
 
         def answered(code: str, ok: bool | None) -> None:
@@ -333,14 +349,14 @@ class AccountsScreen(ResourceListScreen):
         toast(self, message, title="Failed", severity="error")
 
     def rows(self, items: list) -> list:
-        return account_rows(items, palette=PALETTE)
+        return account_rows(items, self._currencies, palette=PALETTE)
 
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        return EditAccountScreen(item)
+        return EditAccountScreen(item, self._currencies)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen
 
-        return NewAccountScreen()
+        return NewAccountScreen(self._currencies)

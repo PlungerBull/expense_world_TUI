@@ -19,6 +19,7 @@ from expense.tui.screens.create_forms import (
 )
 from expense.tui.screens.statements import NewStatementScreen
 from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
     account_with_currencies,
     held_currency,
     no_failed_toast,
@@ -110,7 +111,7 @@ def test_an_edit_form_shows_its_refusal_as_a_block_not_a_toast(fake_client):
     person = account_with_currencies(id="abc", name="Eliana", is_person=True)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(person)
+        screen = EditAccountScreen(person, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await pilot.press("ctrl+s")
         await _refused(pilot, screen)
@@ -182,7 +183,7 @@ def test_the_half_saved_account_shows_which_half_went_through_in_the_block(fake_
     )
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(efectivo)
+        screen = EditAccountScreen(efectivo, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")) and not screen._openings_loading)
         for key, text in (

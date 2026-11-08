@@ -168,6 +168,20 @@ def fake_client(monkeypatch):
     return client
 
 
+@pytest.fixture(autouse=True)
+def _engine_currencies(monkeypatch):
+    """Every screen that lists the engine's currencies (`reads.fetch_currency_codes`)
+    (contract: GET /v1/currencies) gets PEN and USD: this is the one default answer,
+    so a test that patches the accounts read alone needs no second one (`FakeClient`
+    has none for `/currencies`). A test of the columns or pickers following the list,
+    or of its refusal, patches `expense.reads.fetch_currency_codes` itself. The read
+    itself is tested in test_currencies.py through respx: it imports
+    `fetch_currency_codes` by name before this patch replaces the module attribute."""
+    monkeypatch.setattr(
+        "expense.reads.fetch_currency_codes", lambda cfg, **kw: list(helpers.ENGINE_CURRENCIES)
+    )
+
+
 @pytest.fixture
 def no_flagged_lines(monkeypatch):
     """A statement's screen counts its review list each time it reads the statement

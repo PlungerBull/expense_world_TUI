@@ -39,6 +39,7 @@ from expense.tui.screens.edit_form import (
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
     LOCK_MESSAGES,
@@ -338,11 +339,11 @@ FORM_FOOTER = [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field"), ("^n", "Add 
 @pytest.mark.parametrize(
     ("make", "footer"),
     [
-        (lambda: NewAccountScreen(), "Create"),
+        (lambda: NewAccountScreen(ENGINE_CURRENCIES), "Create"),
         (lambda: NewCategoryScreen(), "Create"),
         (lambda: NewHashtagScreen(), "Create"),
         (lambda: EditFormScreen(record=TXN), FORM_FOOTER),
-        (lambda: EditAccountScreen(ACCOUNTS[0]), "Save"),
+        (lambda: EditAccountScreen(ACCOUNTS[0], ENGINE_CURRENCIES), "Save"),
         (lambda: EditCategoryScreen({"id": "cat1", "name": "Food"}), "Save"),
         (lambda: EditHashtagScreen({"id": "tag1", "name": "#trip"}), "Save"),
     ],

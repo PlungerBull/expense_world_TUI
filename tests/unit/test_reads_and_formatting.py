@@ -436,10 +436,9 @@ def test_currency_picks_can_leave_out_people_and_archived_accounts():
     assert {p.account_id for p in live} == {"acc-zeta", "acc-alfa", "per-ana"}
 
 
-def test_currency_picks_skips_id_less_rows_and_an_account_holding_no_currency():
+def test_currency_picks_skips_id_less_rows():
     rows = [
         {"name": "no id", "currencies": [held_currency("PEN")]},
-        account_with_currencies(id="empty", name="Empty", currencies=[]),
         account_with_currencies(id="a1", name=None, currencies=[held_currency("USD")]),
     ]
     assert [(p.account_id, p.label) for p in currency_picks(rows)] == [("a1", "(unnamed) · USD")]
@@ -570,15 +569,13 @@ def test_split_settled_folds_a_person_only_when_every_currency_is_zero():
 
 
 def test_split_settled_treats_an_unknown_balance_as_outstanding():
-    """Missing or non-numeric is *unknown*, not zero — it stays visible; so does a
-    person holding no currency."""
+    """Missing or non-numeric is *unknown*, not zero — it stays visible."""
     people = [
         {"name": "NoKey", "currencies": [{"currency_code": "PEN"}]},
         _person("Null", None),
         _person("Text", "0"),
         _person("Bool", False),  # not an int balance
         _person("HalfKnown", 0, None),
-        {"name": "None", "currencies": []},
     ]
     outstanding, settled = split_settled(people)
     assert [p["name"] for p in outstanding] == [
@@ -587,7 +584,6 @@ def test_split_settled_treats_an_unknown_balance_as_outstanding():
         "Text",
         "Bool",
         "HalfKnown",
-        "None",
     ]
     assert settled == []
 

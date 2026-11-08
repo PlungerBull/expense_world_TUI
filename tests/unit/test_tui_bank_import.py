@@ -59,7 +59,7 @@ ACCOUNTS = [
     ),
     account_with_currencies(id="bcp", name="BCP"),
     account_with_currencies(id="old", name="Retired", is_archived=True),
-    account_with_currencies(id="ana", name="Ana", is_person=True, currencies=[]),
+    account_with_currencies(id="ana", name="Ana", is_person=True),
 ]
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature"
 

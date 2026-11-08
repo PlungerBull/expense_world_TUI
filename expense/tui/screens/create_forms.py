@@ -22,7 +22,6 @@ from textual import work
 from textual.widgets import Input, Static
 
 from expense import reads
-from expense.currencies import SUPPORTED_CURRENCIES
 from expense.dates import is_calendar_day, to_canonical_aware
 from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
@@ -53,7 +52,6 @@ _PALETTE = [
     ("#d9744a", "orange"),
     ("#8a8f98", "grey"),
 ]
-_CURRENCIES = [(c, c) for c in SUPPORTED_CURRENCIES]
 #: The account's CURRENCIES on New: the hashtag line's picking, a code in place
 #: of a tag.
 CURRENCIES_HINT = "type a code · ↑↓ highlight · enter adds & stays · empty enter = done"
@@ -407,7 +405,6 @@ class NewAccountScreen(BarFormScreen):
             "currencies",
             "CURRENCIES",
             "picks",
-            choices=_CURRENCIES,
             required=True,
             hint=CURRENCIES_HINT,
         ),
@@ -415,8 +412,16 @@ class NewAccountScreen(BarFormScreen):
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, currencies: list[str]) -> None:
+        """`currencies`: the engine's codes (`GET /currencies`), read by the list this
+        form opens from, in the engine's order: what CURRENCIES offers."""
         super().__init__()
+        self.FIELDS = [
+            _field_with_choices(f, [(code, code) for code in currencies])
+            if f.key == "currencies"
+            else f
+            for f in self.FIELDS
+        ]
         self._values["type"] = "bank"
         self._refusal_says_next = False  # the last refusal carried its own next step
 
@@ -509,6 +514,11 @@ def _edit_payload(values: dict, original_color: str | None) -> dict:
 def _field_with_hint(f: Field, hint: str) -> Field:
     """`f` with another hint, its other parts the same."""
     return Field(f.key, f.label, f.kind, choices=f.choices, required=f.required, hint=hint)
+
+
+def _field_with_choices(f: Field, choices: list) -> Field:
+    """`f` with other choices, its other parts the same."""
+    return Field(f.key, f.label, f.kind, choices=choices, required=f.required, hint=f.hint)
 
 
 class EditHashtagScreen(NewHashtagScreen):
@@ -628,9 +638,8 @@ class EditAccountScreen(NewAccountScreen):
     amount, taken as typed) and `PEN as of` (its day), then `USD opening` and
     `USD as of`. Under an `opening` line there is no hint; on its right a word
     follows what is typed: `debt` below zero, `credit` above it, nothing at
-    zero or while empty, the same on a bank account and a person. An account
-    holding no currency has no pair. A person's opening balance is written as a
-    bank account's is, with the currency's code
+    zero or while empty, the same on a bank account and a person. A person's opening
+    balance is written as a bank account's is, with the currency's code
     (contract: POST /v1/accounts/{account_id}/opening-balance, "Required").
 
     A bank account's STATEMENT CODE opens holding its code. The account's own
@@ -669,7 +678,7 @@ class EditAccountScreen(NewAccountScreen):
     # New's lines, CURRENCIES read-only, STATEMENT CODE's hint saying that
     # emptying it clears the code
     FIELDS = [
-        Field("currencies", "CURRENCIES", "picks", choices=_CURRENCIES)
+        Field("currencies", "CURRENCIES", "picks")
         if f.key == "currencies"
         else _field_with_hint(f, STATEMENT_CODE_EDIT_HINT)
         if f.key == "statement_code"
@@ -677,8 +686,8 @@ class EditAccountScreen(NewAccountScreen):
         for f in NewAccountScreen.FIELDS
     ]
 
-    def __init__(self, record: dict) -> None:
-        super().__init__()
+    def __init__(self, record: dict, currencies: list[str]) -> None:
+        super().__init__(currencies)
         self._id = record["id"]
         self._name = record.get("name") or "—"
         self._was = record.get("name") or ""  # as the list shows it
@@ -713,7 +722,7 @@ class EditAccountScreen(NewAccountScreen):
             self._openings[h["currency_code"]] = _OpeningBalance(
                 opening_id, loading=opening_id is not None
             )
-        self.FIELDS = [*EditAccountScreen.FIELDS]
+        self.FIELDS = [*self.FIELDS]
         for code in self._codes:
             self.FIELDS += [
                 Field(_pair_key("opening", code), f"{code} OPENING"),

@@ -23,6 +23,7 @@ from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
     account_with_currencies,
     app_notes,
     held_currency,
@@ -135,7 +136,7 @@ def _left_save(
             form = app.screen
             assert isinstance(form, EditAccountScreen)
         else:
-            form = EditAccountScreen(record)
+            form = EditAccountScreen(record, ENGINE_CURRENCIES)
             await app.push_screen(form)
         await wait_for(pilot, lambda: bool(form.query("#bar")) and not form._openings_loading)
         for key, text in edits:
@@ -410,7 +411,7 @@ def test_a_refused_save_of_the_account_alone_names_it_and_reads_nothing(fake_cli
     ids=["landed", "refused", "unknown"],
 )
 def test_a_write_with_no_part_reaches_the_landing_check_without_raising(error, failure, reads):
-    form = EditAccountScreen(VISA)
+    form = EditAccountScreen(VISA, ENGINE_CURRENCIES)
     item = SimpleNamespace(left_behind=LeftBehind("Not saved"))
     assert form._landed_after_leaving(item, error, failure) is reads
 

@@ -143,7 +143,7 @@ def test_archived_accounts_people_and_id_less_rows_are_left_out():
     picks = account_picks(
         [
             account_with_currencies(id="old", name="Retired", is_archived=True),
-            account_with_currencies(id="ana", name="Ana", is_person=True, currencies=[]),
+            account_with_currencies(id="ana", name="Ana", is_person=True),
             account_with_currencies(id="visa", name="Visa"),
             {"name": "no id"},
         ]

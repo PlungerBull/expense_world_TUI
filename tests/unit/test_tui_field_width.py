@@ -13,7 +13,6 @@ import re
 from pathlib import Path
 
 import expense.tui as tui_pkg
-from expense.currencies import SUPPORTED_CURRENCIES
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
     NewAccountScreen,
@@ -23,6 +22,7 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import _LABELS
 from expense.tui.screens.setup import LABELS as SETUP_LABELS
 from expense.tui.screens.statements import _STATEMENT_LABELS, balance_label
+from tests.unit.helpers import ENGINE_CURRENCIES
 
 
 def _field_rule(scope: str = "") -> tuple[int, int]:
@@ -47,8 +47,11 @@ def _all_form_labels() -> dict[str, str]:
     for screen in (NewHashtagScreen, NewCategoryScreen, NewAccountScreen):
         labels |= {f"{screen.__name__}:{f.key}": f.label for f in screen.FIELDS}
     # the account Edit form names each currency's opening lines (`USD OPENING`)
-    every = {"id": "a", "currencies": [{"currency_code": c} for c in SUPPORTED_CURRENCIES]}
-    labels |= {f"EditAccountScreen:{f.key}": f.label for f in EditAccountScreen(every).FIELDS}
+    every = {"id": "a", "currencies": [{"currency_code": c} for c in ENGINE_CURRENCIES]}
+    labels |= {
+        f"EditAccountScreen:{f.key}": f.label
+        for f in EditAccountScreen(every, ENGINE_CURRENCIES).FIELDS
+    }
     return labels
 
 
@@ -69,7 +72,7 @@ def test_the_new_statement_form_fits_each_currencys_balance_labels():
     labels = {
         f"{kind}:{code}": balance_label(kind, code)
         for kind in ("begin", "end")
-        for code in SUPPORTED_CURRENCIES
+        for code in ENGINE_CURRENCIES
     }
     clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
     assert not clipped

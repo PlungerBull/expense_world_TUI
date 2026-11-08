@@ -118,7 +118,6 @@ def test_the_currencies_held_are_the_account_s_in_the_engine_order():
     rows = {r["id"]: r for r in _rows()}
     assert currencies_held(rows["a-visa"]) == ["PEN", "USD"]
     assert currencies_held(rows["a-prueba"]) == ["PEN"]
-    assert currencies_held(account_with_currencies(currencies=[])) == []
 
 
 @pytest.mark.parametrize(
@@ -190,27 +189,6 @@ def test_x_sits_after_c_in_the_footer(configured, monkeypatch):
         "t Make person",
         "d Delete",
     ]
-
-
-def test_x_on_an_account_holding_no_currency_says_so_and_writes_nothing(configured, monkeypatch):
-    rows = [account_with_currencies(id="a-nada", name="Prueba", currencies=[])]
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(rows))
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen, notes = await _open(pilot, app, monkeypatch, "a-nada")
-        await pilot.press("x")
-        await wait_for(pilot, lambda: notes)
-        await pilot.pause()
-        seen["notes"] = list(notes)
-        seen["screen"] = app.screen is screen
-
-    with respx.mock(assert_all_called=False) as engine:
-        sent = engine.delete(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
-        run_app(scenario, size=SIZE)
-    assert not sent.called
-    assert seen["notes"] == [("", "Prueba holds no currency.")]
-    assert seen["screen"]
 
 
 def test_x_is_off_on_an_empty_list(configured, monkeypatch):

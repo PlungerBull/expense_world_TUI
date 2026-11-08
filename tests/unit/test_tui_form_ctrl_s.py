@@ -8,7 +8,7 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.statements import NewStatementScreen
-from tests.unit.helpers import account_with_currencies, run_app, wait_for, whole
+from tests.unit.helpers import ENGINE_CURRENCIES, account_with_currencies, run_app, wait_for, whole
 
 
 def _type(screen, text):
@@ -67,7 +67,9 @@ def test_ctrl_s_keeps_a_create_form_s_typed_line(fake_client):
 
 def test_ctrl_s_keeps_an_edit_form_s_typed_name(fake_client):
     async def scenario(pilot, app):
-        screen = EditAccountScreen(account_with_currencies(id="abc", name="Sueldo"))
+        screen = EditAccountScreen(
+            account_with_currencies(id="abc", name="Sueldo"), ENGINE_CURRENCIES
+        )
         await _open(pilot, app, screen)
         assert screen._key == "name"
         _type(screen, "Salario")
@@ -155,7 +157,9 @@ def test_ctrl_s_with_a_required_line_emptied_stops_as_enter_stops(fake_client, m
 
 def test_ctrl_s_on_a_read_only_line_keeps_nothing_and_saves_as_before(fake_client):
     async def scenario(pilot, app):
-        screen = EditAccountScreen(account_with_currencies(id="abc", name="Sueldo"))
+        screen = EditAccountScreen(
+            account_with_currencies(id="abc", name="Sueldo"), ENGINE_CURRENCIES
+        )
         await _open(pilot, app, screen)
         screen._locked.add("name")
         screen.query_one("#bar", Input).value = "Salario"  # set past the bar's own lock

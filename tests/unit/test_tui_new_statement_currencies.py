@@ -270,14 +270,14 @@ def test_a_currency_joining_or_leaving_mid_write_says_save_again(fake_client, mo
 
 
 def test_the_picker_lists_each_account_by_its_name_alone(fake_client, monkeypatch):
-    """No code after a name, none of `?` on an account that holds no currency; the
+    """No code after a name, no `?`; the
     pick gives the form its currencies' lines and the account line."""
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
                 account_with_currencies(id="a1", name="Visa BCP", statement_code="VIS"),
-                account_with_currencies(id="a2", name="Empty", currencies=[]),
+                account_with_currencies(id="a2", name="Soles", currencies=[held_currency("PEN")]),
                 account_with_currencies(id="a3", name="Dollars", currencies=[held_currency("USD")]),
             ]
         ),
@@ -291,7 +291,7 @@ def test_the_picker_lists_each_account_by_its_name_alone(fake_client, monkeypatc
         assert screen._key == "account"
         assert [len(s) for s in screen._suggestions] == [2, 2, 2]
         shown = render_text(screen._suggest_renderable(), width=80)
-        assert [line.strip() for line in shown.splitlines()] == ["Visa BCP", "Empty", "Dollars"]
+        assert [line.strip() for line in shown.splitlines()] == ["Visa BCP", "Soles", "Dollars"]
         assert "?" not in shown
         _enter(screen, "Dollars")
         assert screen._sequence()[-2:] == ["begin:USD", "end:USD"]

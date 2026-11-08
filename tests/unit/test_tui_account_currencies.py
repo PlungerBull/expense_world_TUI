@@ -1,8 +1,8 @@
 """`c` on Manage ▸ Accounts adds a currency to the account under the cursor.
 
 `c Currency`
-opens the pick `Add a currency · <account>`, the account on one line, the supported currencies
-it does not hold in `SUPPORTED_CURRENCIES` order and `[enter] add    [esc] cancel`.
+opens the pick `Add a currency · <account>`, the account on one line, the engine's currencies
+it does not hold in the engine's order and `[enter] add    [esc] cancel`.
 `⏎` sends one `POST /accounts/{id}/currencies` naming the picked currency, with no
 question, and the list reads again with the cursor on the same account
 (contract: POST /v1/accounts/{account_id}/currencies). A refusal, the currency
@@ -24,6 +24,7 @@ from expense.tui.screens.accounts import AccountsScreen, currencies_to_add
 from expense.tui.screens.modals import ConfirmModal, PickModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_CURRENCIES,
     ENGINE_URL,
     account_with_currencies,
     error_response,
@@ -95,12 +96,13 @@ def _pick_text(app) -> list[str]:
 # ---- what `c` offers ----------------------------------------------------------
 
 
-def test_the_currencies_to_add_are_the_supported_ones_not_held_in_order():
+def test_the_currencies_to_add_are_the_engines_not_held_in_its_order():
     rows = {r["id"]: r for r in _rows()}
-    assert currencies_to_add(rows["a-caja"]) == ["USD"]
-    assert currencies_to_add(rows["a-dolares"]) == ["PEN"]
-    assert currencies_to_add(rows["a-visa"]) == []
-    assert currencies_to_add(account_with_currencies(currencies=[])) == ["PEN", "USD"]
+    assert currencies_to_add(rows["a-caja"], ENGINE_CURRENCIES) == ["USD"]
+    assert currencies_to_add(rows["a-dolares"], ENGINE_CURRENCIES) == ["PEN"]
+    assert currencies_to_add(rows["a-visa"], ENGINE_CURRENCIES) == []
+    # a third currency the engine lists is offered, in the engine's place
+    assert currencies_to_add(rows["a-caja"], ["EUR", "PEN", "USD"]) == ["EUR", "USD"]
 
 
 @pytest.mark.parametrize(
@@ -469,9 +471,13 @@ def test_a_stale_build_racing_a_fresh_one_does_not_read_its_stamp(configured, mo
 
 
 def test_the_highlight_moves_and_enter_takes_the_highlighted_one(configured, monkeypatch):
-    """An account holding none is offered both, PEN first; `↓` then `⏎` adds USD."""
-    rows = [account_with_currencies(id="a-nada", name="Prueba", currencies=[])]
+    """An account holding EUR, with EUR, PEN and USD listed, is offered PEN first and
+    USD second: `↓` then `⏎` adds USD."""
+    rows = [account_with_currencies(id="a-nada", name="Prueba", currencies=[held_currency("EUR")])]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(rows))
+    monkeypatch.setattr(
+        "expense.reads.fetch_currency_codes", lambda cfg, **kw: ["EUR", "PEN", "USD"]
+    )
 
     async def scenario(pilot, app):
         await _open(pilot, app, monkeypatch, "a-nada")
