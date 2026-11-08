@@ -85,9 +85,11 @@ FIFO queue in EngineWriteMixin, error drops the queue").
 stopped, so a read still in flight when its screen is popped or the app quits still
 lands, and painting it then queries widgets already taken down (`NoMatches`).
 `call_while_attached` in [_base.py](../expense/tui/screens/_base.py) runs the hand-back on
-the UI thread only while its node is still in the app, and drops it otherwise. Every thread
-worker in `expense/tui/` hands back this way, but the app's rate check, which has no screen
-(guard: `test_no_worker_hands_back_raw` in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
+the UI thread only while its node is still in the app, and drops it otherwise; a coroutine
+hand-back asks `still_attached` again after every await. Every thread worker in
+`expense/tui/` hands back this way, but the app's rate check, which has no screen
+(guard: `test_no_worker_hands_back_raw` in
+[test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
 
 **A write answered after its screen has left still says how it ended** when it carries a
 `LeftBehind` ([_base.py](../expense/tui/screens/_base.py)); one without is dropped with its

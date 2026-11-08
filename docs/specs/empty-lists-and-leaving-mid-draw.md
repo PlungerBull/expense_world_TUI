@@ -4,8 +4,7 @@ Three things the `?` card's leftovers (done on 2026-11-07) found and did not fix
 that list keys doing nothing on an empty list, and a crash when you leave a screen in the
 moment it draws its list.
 
-**Status: drafted on 2026-11-07 for the owner to rewrite or approve; no question open; tasks
-drafted for the owner to approve.** It waits on no other spec. When done, the why moves to
+**Status: approved on 2026-11-07, tasks and task 2's mockup too; no question open.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -43,15 +42,23 @@ any moment leaves it, with no error; nothing else you see changes.
 
 ## Tasks
 
-Drafted 2026-11-07, for the owner to approve. Each task's "passes if…" is written when it starts.
+Approved 2026-11-07. Each task's "passes if…" is written when it starts.
 
-1. **Leaving mid-draw** (point 3): a screen's list hand-back checks the screen is still there
-   after it waits for the list to draw, in one shared place
-   ([_base.py](../../expense/tui/screens/_base.py) `call_while_attached`), for the Statements
-   screen's `_show` and `_open_panel` and any `_show` with work after its wait.
 2. **The empty lists' cards** (points 1 and 2): the ledger's page keys and the account list's
-   `⏎` and `↓` listed only while they work.
+   `⏎` and `↓` listed only while they work. Picked from
+   [expense-world-empty-list-cards.html](../mockups/expense-world-empty-list-cards.html): the
+   proposed card for both lists, and on an empty ledger `⏎`, `space`, `↓`, `a`, `c`, `b`, `h`,
+   `m`, `s` and `d` leave the card too, so it lists only `+`, `r` and `esc` (the mockup's last
+   ledger pane).
 
 ## Found along the way
 
-Not built in this spec; drafted into a new spec when it is done.
+Not built in this spec; sorted when it is done.
+
+- On an empty ledger the footer still shows `⏎ Open` and `space Select`, and on the empty
+  Statements account list `⏎ Its statements`; none works there.
+- No test proves the leave guards in the base list screen's draw and error steps, the guards
+  after taking the content lock, or the statement lines' guard after their list mounts; each
+  could be forced to always pass and every test would stay green.
+- On an empty ledger the card's `esc` row reads "Clear the selection, else go back", with no
+  selection possible.

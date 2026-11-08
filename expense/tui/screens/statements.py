@@ -109,6 +109,7 @@ from expense.tui.screens._base import (
     not_done_line,
     not_done_transaction_line,
     screen_fetch_kwargs,
+    still_attached,
     transaction_delete_message,
 )
 from expense.tui.screens._form import FormScreen
@@ -755,6 +756,8 @@ class StatementsScreen(SectionScreen):
 
     async def _show(self, data: object, started: int | None = None) -> None:
         await super()._show(data, started)
+        if not still_attached(self):
+            return
         self._unfiled = []
         self._unfiled_grow.reset()
         if self._accts_list is None or not self._accounts:
@@ -875,8 +878,12 @@ class StatementsScreen(SectionScreen):
         self._statements = statements
         self._by_id = {r.get("id"): r for r in statements}
         async with self._content_lock():
+            if not still_attached(self):
+                return
             self._statement_list = self._new_statement_list()
             await self.query_one("#card").mount(self._statement_list)
+        if not still_attached(self):
+            return
         self._accts_list.set_rows(self._account_rows())
         self._accts_list.set_page_size(self.pane_rows())
         self._mode = "statements"
@@ -1936,8 +1943,12 @@ class StatementScreen(
             return
         land_on, self._land_on = self._land_on, None
         async with self._content_lock():
+            if not still_attached(self):
+                return
             container = self.query_one("#rlist", Container)
             await container.remove_children()
+            if not still_attached(self):
+                return
             empty = (
                 "(no transactions in this statement)"
                 if self._completed or self._waits_for_pdf
@@ -1956,6 +1967,8 @@ class StatementScreen(
                 land_on=land_on,
             )
             await container.mount(self._list)
+            if not still_attached(self):
+                return
             self._list.focus()  # the page keys reach a completed statement's list too
 
     # ---- assign / unassign ----------------------------------------------
@@ -2664,8 +2677,12 @@ class FlaggedLinesScreen(
         rows = flagged_rows(lines)
         page_size = self._page_rows()
         async with self._content_lock():
+            if not still_attached(self):
+                return
             container = self.query_one("#flist", Container)
             await container.remove_children()
+            if not still_attached(self):
+                return
             self._list = _FlaggedList(rows, read_only=True, palette=PALETTE, page_size=page_size)
             widgets: list[Widget] = [self._list]
             if self._statement_code:

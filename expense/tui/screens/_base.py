@@ -70,6 +70,18 @@ def relabel(screen: Screen, key: str, description: str, action: str | None = Non
         screen.refresh_bindings()
 
 
+def still_attached(node: Widget) -> bool:
+    """On the UI thread: `node` is still in a running app. `is_attached` is False once
+    the app is exiting or the node is unlinked, and `_pruning` is set on a node and all
+    its children the moment their removal starts — the same pair Textual's own `Widget`
+    checks before touching a node it may be removing. A hand-back that is a coroutine
+    asks this again after every `await` (the lock, a removal, a mount) that work on the
+    node's widgets follows, since the screen can be popped or the app can quit while it
+    waits, and returns when it is False: the work after the wait is dropped, an error
+    raised while the node is still here is not."""
+    return node.is_attached and not node._pruning
+
+
 def call_while_attached(
     node: Widget,
     callback: Callable,
@@ -91,11 +103,8 @@ def call_while_attached(
     a node's workers only on its Unmount, which comes *after* its children are
     pruned, so neither `is_cancelled` nor a check made in the worker thread
     closes the gap: the callback would query widgets that are already gone
-    (`NoMatches`). The check runs on the UI thread, at the moment the callback
-    would: `is_attached` is False once the app is exiting or the node is
-    unlinked, and `_pruning` is set on a node and all its children the moment
-    their removal starts — the same pair Textual's own `Widget` checks before
-    touching a node it may be removing.
+    (`NoMatches`). The check (`still_attached`) runs on the UI thread, at the moment
+    the callback would; a coroutine callback asks it again after each of its own waits.
     """
 
     if app is None:
@@ -105,7 +114,7 @@ def call_while_attached(
             return  # a node that has left the app cannot name it: nothing to hand to
 
     def guarded():
-        if node.is_attached and not node._pruning:
+        if still_attached(node):
             return callback(*args, **kwargs)
         # `is_attached` is also False once the app is quitting (Textual's private
         # `_exit`, the one flag it checks itself): then nothing is shown or sent.
@@ -895,7 +904,11 @@ class SectionScreen(
     async def _show(self, data: object, started: int | None = None) -> None:
         content = self.query_one("#content", VerticalScroll)
         async with self._content_lock():
+            if not still_attached(self):
+                return
             await content.remove_children()
+            if not still_attached(self):
+                return
             self._read_started = started  # inside the lock: `build` reads its own read's stamp
             card = Vertical(*self.build(data), id="card")
             if self.CARD_WIDTH is not None:
@@ -905,7 +918,11 @@ class SectionScreen(
     async def _error(self, message: str) -> None:
         content = self.query_one("#content", VerticalScroll)
         async with self._content_lock():
+            if not still_attached(self):
+                return
             await content.remove_children()
+            if not still_attached(self):
+                return
             banner = Group(Text("Could not load.", style="bold"), Text(message))
             await content.mount(Static(banner, classes="error"))
 
