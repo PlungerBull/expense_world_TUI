@@ -18,18 +18,14 @@ Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A
 when the owner approves it and leaves when it retires; one that is blocked says on what, and the
 loop skips it until it can run.
 
-1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
-   every task done; its acceptance check left. Its acceptance check can run now that
-   [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), has put the
-   live suite on built names.
-2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
+1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
    approved 2026-11-08; task 1 done.
-3. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
+2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
    approved 2026-11-08. Its cash part waits on the engine ask "Every user holds one cash account,
    named `Efectivo`, with no bank and no number".
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
-The engine already serves `a7dd5e3ed5da676f`; its four later versions (a statement upload or
+The engine already serves `eb3082ec9723ec4f`; its five later versions (a statement upload or
 close refused while a line in no statement sits on a day it would seal, and sealed-day edits
 judged only on changed fields) go to the next catch-up, so the version check reporting them
 stops nothing.
@@ -61,6 +57,13 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
+- **No test proves the leave guards** in the base list screen's draw and error steps, the guards
+  after taking the content lock, or the statement lines' guard after their list mounts; each could
+  be forced to always pass and every test would stay green. Nothing you see changes.
+- **The `?` card's row rule reads a little unevenly in code.** The ledger's list names
+  `CARD_NEEDS_A_ROW` on its instance where `_AccountList` names it on its class; `listed_bindings`
+  reads the owner's private `_rows`; the `_stub_engine` docstring in test_tui_help.py says every
+  card drops its list keys on an empty list. Nothing you see changes.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.

@@ -1846,15 +1846,14 @@ sent (§1 "Quitting asks while saves are still being sent"). `?` opens `HelpModa
 two-column card whose content is **derived** from BINDINGS by walking the screen's and the
 focused widget's MRO and keeping only classes declared under `expense.tui`. `Binding.tooltip`
 carries the card's fuller wording (`Archive / unarchive`) while `description` stays the
-terse footer label (`Archive`). The card lists only bindings in play (`listed_bindings`): not
-one whose key a subclass declares again, which Textual's merge replaces (`esc Back` inherited
-from `SectionScreen`, on a screen with its own `esc`), and not one its class names in
-`CARD_FOLLOWS_CHECK` while `check_action` refuses it, as the footer does — the keys that are
-off in some states on the Statements screen and its panel, and a statement's `space`, `c`, `u`
-and `f` ("A statement's screen" above), and the Statements account list's `pgdn` and `pgup`
-while they page nothing. The empty ledger's card and the Statements account list's with no
-account list none of their list keys (`CARD_NEEDS_A_ROW`), so the ledger's lists only `+`, `r`
-and `esc`; the keys return with the first row. The card covers what is behind it from its top rule to its bottom one
+terse footer label (`Archive`). The card lists only bindings in play
+([help.py](../expense/tui/screens/help.py) `listed_bindings` says which it leaves out): a key in
+`CARD_FOLLOWS_CHECK` follows the footer — the keys that are off in some states on the
+Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A statement's
+screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
+and one in `CARD_NEEDS_A_ROW` waits for a row: the empty ledger and the Statements account list
+with no account list none of their list keys, so the empty ledger's card holds only `+`, `r`
+and `esc`. The card covers what is behind it from its top rule to its bottom one
 across the full width, so the gutters beside its frame are blank. A card taller than the room
 between the head and the footer spreads out on a terminal wide enough, and only then: the
 groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between

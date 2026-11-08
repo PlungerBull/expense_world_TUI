@@ -926,13 +926,17 @@ request body is checked for the fields the engine sets itself
 ([tests/unit/conftest.py](../tests/unit/conftest.py)). (3) A live test fails when it leaves an
 account, category or hashtag it made ([runtime.md](runtime.md) "Leftovers"). (4) Engine-side probes
 use a practice user of their own, never this client's. (5) The begin balance hint says a statement
-holding the opening balance begins at 0.00 ([tui.md](tui.md) §4 "The New statement form").
+holding the opening balance begins at 0.00 ([tui.md](tui.md) §4 "The New statement form"). (6) The live suite's bank accounts carry a
+number starting `9`, the cleaner's mark for them ([scripts/clean_practice_user.py](../scripts/clean_practice_user.py)),
+and a sample PDF goes to the seed's `BCP-0000` by its id ([runtime.md](runtime.md) "Leftovers").
 
 **Why.** A fake answering `{}` hides fields a screen reads, a fixture missing a required field
 passes until the real engine answers, and a field checked against every schema passes on another
 answer's. Leftovers take statement codes other tests need and clutter hand checks; failing the
 leaking test finds the leak at its source. The engine adds an assigned opening balance into the sum,
-so typing it again counts it twice.
+so typing it again counts it twice. The engine builds a bank account's name, so a name prefix can no
+longer mark the suite's accounts, and names are unique, so a second `…0000` account, the number every
+sample prints, cannot exist beside the seed's.
 
 **Rejected.** *Checking each fixture against the endpoint it mocks* — fixtures are not mapped to
 endpoints. *Reading every local catch-all* — a widget's `**kwargs` would read as engine fields.
@@ -1260,11 +1264,12 @@ keys out without tightening* — it drops keys tighter spacing keeps whole.
 
 **Decision.** A card taller than its room spreads out on a wide terminal, else scrolls; one that
 fits keeps its layout and covers what is behind it to its frame. It lists each key once, and a key
-in `CARD_FOLLOWS_CHECK` only while it works ([tui.md](tui.md) §4).
+in `CARD_FOLLOWS_CHECK` only while it works, and one in `CARD_NEEDS_A_ROW` only while its list
+holds a row ([tui.md](tui.md) §4).
 
 **Why.** A narrow footer leaves keys for `?` to list, so a cut card left a key shown nowhere. A card
-that fits keeps its familiar look; a row that does nothing lies; a screen peeking beside it looks
-half-drawn.
+that fits keeps its familiar look; a row that does nothing lies, on an empty list too; a screen
+peeking beside it looks half-drawn.
 
 **Rejected.** *Scrolling at every size* — a wide terminal can show it whole. *Spreading whenever the
 terminal is wide* — a card that fits would change shape. *Off keys listed, dimmed* — rows that do
