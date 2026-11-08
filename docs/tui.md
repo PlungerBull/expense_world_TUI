@@ -277,19 +277,20 @@ in §4 "The ledger's selection keys"), and `c` / `b` / `h` / `m` open the bulk p
 or for the cursor row when nothing is selected — to set the category, move to an account,
 **replace** the hashtag set, or move to another currency (`m Currency`, after `h Hashtags` in
 the footer). The write is one `PUT /transactions/{id}` per row, in order, on one client.
-`b` to an account holding one currency sends `account_id` and that `currency_code`, the
-amount as it is, no conversion (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY`
-lists with the engine ask that retires them); to an account holding several it sends
-`account_id` alone, so each row keeps its own currency, and the engine refuses a row whose
-currency the account lacks (`CURRENCY_NOT_HELD`, on `account_id`: `The account holds no USD.`),
-named by number in its words while the other rows go
+`b` sends `account_id` alone, whatever the account holds: a row whose currency the account
+lacks moves to the account's currency when it holds just one, the amount as it is, no conversion;
+a row whose currency it holds keeps it; and the engine refuses a row when the account holds
+several, none the row's (`CURRENCY_NOT_HELD`, on `account_id`: `The account holds no USD: it
+holds EUR, PEN.`), named by number in its words while the other rows go
 (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction").
 `m` sends `currency_code` alone (`bulk_writes`; "`m` moves rows to another currency" below).
 What either does to a row's statement is "A move takes a row out of its statement" below.
 Then the list reads fresh from the newest 10 with the cursor on row 1: on a filtered list the
 changed rows **leave at once**, and the toast is the receipt: `3 rows → KORAKUEN`
-(`3 rows → Caja Chica · PEN` for `b` to an account holding one currency, which names it;
-`3 rows → Visa Inventada` for one holding several; `3 rows → USD` for `m`). A refused row is
+(`3 rows → Caja Chica` for `b`; `3 rows → USD` for `m`). After `b` the receipt counts, from
+the answers, the rows whose currency changed, a second line for each currency they were in:
+`2 were USD, now PEN, not converted.` (`1 was USD, now PEN, not converted.` for one); rows
+whose currency did not change are not counted, and with none changed there is no second line. A refused row is
 named by number and does not stop the others, in a note read as the LOG bar reads one
 ("Refused rows read one line per kind of error" below). The one refusal that does stop them
 is `SETTINGS_MISSING` ([runtime.md](runtime.md) "Bulk writes"): the rows after it are never
@@ -367,7 +368,7 @@ counts what the engine says moved: each `PUT` answers with `changed_parts`, ever
 line field the write changed and whether it left its statement (`left_statement`)
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` and `m` count the
 distinct parts across the answers that landed and those flagged as leaving —
-`3 rows → Caja Chica · PEN · 2 left their statement` (`· 1 left its statement` for one) — with
+`3 rows → Caja Chica · 2 left their statement` (`· 1 left its statement` for one) — with
 nothing read to count them (`moved_parts`). A row already on the picked account and currency
 lists no part, so it is not counted, and a move that changes nothing shows no receipt; a
 refused row is still named. The Edit form reads its save's answer the same way
@@ -439,20 +440,20 @@ the currencies that account holds, its hint `pick a currency <account> holds · 
 enter select`. Each opens on the line's own `account_id` and `currency_code`. A save sends
 only the key that moved: `account_id` alone for another account in the same currency,
 `currency_code` alone for the same account's other currency, both for another account's other
-currency, neither for what the line already has
+currency among several, neither for what the line already has
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); what that does to the line's statement
 is "A move takes a row out of its statement" above. Where `edit_limits` names `currency_code`
 (it names it exactly when it names `account_id`) the line reads `read-only` with the engine's
 sentence, as the account does. **One currency shows, several are picked:** on an account
 holding one currency the line is shown dim with why, `currency  PEN  · Caja Chica holds only
-PEN`, and the bar skips it. A change of account to one holding one currency takes that
-currency, the line adding `· was USD` when it differs from the line's own, and sends both
-keys; to one holding several it empties the currency (`currency  — pick one`) and `⏎` on
+PEN`, and the bar skips it. A change of account to one holding one currency shows that
+currency, the line reading `currency  PEN  · was USD · not converted` when it differs from the
+line's own, and sends `account_id` alone: the engine moves the line to the currency
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); to one holding several it empties the currency (`currency  — pick one`) and `⏎` on
 ACCOUNT steps the bar to CURRENCY, whose list opens on the first, nothing chosen until `⏎` on
 one. `ctrl+s` with none picked sends nothing, stops the bar on CURRENCY and says
 `! currency: pick one — Visa Inventada holds PEN and USD.` and `Nothing was saved.` under the
-parts. The app fills in an account's only currency itself (`_take_only_currency`, one of the
-three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists with the engine ask that retires them).
+parts.
 Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
 `amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
 being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
@@ -1045,25 +1046,27 @@ show alone.
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
 |---|---|---|
 | `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
-| `HAS_TRANSACTIONS` on `account_id`, removing a currency | `x` on Manage ▸ Accounts, on a currency holding a transaction | none: the engine's words alone, since archiving puts away every currency, not the one |
+| `HAS_TRANSACTIONS` on `currency_code` | `x` on Manage ▸ Accounts, on a currency holding a transaction (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals") | none: the engine's words alone |
 | `LAST_CURRENCY` on `currency_code` | `x` on Manage ▸ Accounts, on the account's only currency (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals") | none: the engine's words alone; deleting the account is `d`, a choice of its own |
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account that has ever been in a statement, a deleted one included (contract: POST /v1/accounts/{account_id}/make-person, "Refusals") | none: the engine's words alone |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
-| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals"); `x`, on a currency of such an account | none: the engine's words alone |
+| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
+| `IN_LIVE_STATEMENT` on `currency_code` | `x` on Manage ▸ Accounts, on a currency a live statement holds | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `b` or `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
+| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
+| `REQUIRED` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save of a line with no `%` on an account holding several, which routing stops before sending (contract: POST /v1/transactions, "Fields") | none: the engine's words list the codes held, and the staged row stays |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
 | `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF of such a month, on its dry run or its apply (contract: "Statements", "One statement per account per month") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
-| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone onto a currency it does not hold, and `b` on ledger rows moving a row onto an account holding several currencies, none of them the row's (contract: "Error reasons"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
+| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone, and `b` on ledger rows, onto an account holding several currencies, none of them the line's (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no statement" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `a`, `t` and `d` on an account, `d` on a category, a hashtag or a statement; `c` and `x` on an account's currencies; a tick, or the balances saved at `c`, on a statement (contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write") | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, a new statement, or `h` on ledger rows | `It changed at the same moment: save again.` |
@@ -1089,8 +1092,7 @@ engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEP
 [errors.py](../expense/errors.py), read by the shared error text `format_error`; where a key
 or the screen picks between two rows of one reason, the function that picks says how:
 `list_refusal_text` in [_base.py](../expense/tui/screens/_base.py) (a write sent from a
-list), `currency_refusal_text` in [accounts.py](../expense/tui/screens/accounts.py) (one
-currency of an account), `changed_while_running` in
+list), `changed_while_running` in
 [bank_import.py](../expense/tui/screens/bank_import.py) and `changed_meanwhile` in
 [statement_upload.py](../expense/tui/screens/statement_upload.py) (the import door's two
 `CONCURRENT_CHANGE` lines, shown in place of `format_error`'s).
@@ -1711,7 +1713,8 @@ takes `?` as a character.
 order, the currencies each holds as the engine gives them. `$name` matches the account's name,
 an exact name still winning outright, so a card holding soles and dollars is one match and the
 picker lists accounts by name alone. The currency is the `%` token below. The save sends
-`account_id` and `currency_code` on every batch item (contract: POST /v1/transactions/batch).
+`account_id` on every batch item, and `currency_code` on the items whose line typed a `%`
+(contract: POST /v1/transactions/batch).
 The staged table's columns are `date  title  amount  cur  account  category  tags`: `cur` is
 the row's `currency_code`, as the Transactions ledger's `Cur` column draws it, and the account
 cell names the account alone. The title and tags give way 3:2 when the rows are wider than the
@@ -1726,9 +1729,9 @@ anywhere in the line. The parse reads it against the currencies of the account t
 a whole or partial code picks one by the same matching as every name, and a bare `%` names
 none yet and lists them all. A well-formed code the account does not hold is upper-cased and
 sent, and the engine refuses it
-(contract: POST /v1/transactions, "`account_id` and `currency_code`"). A line with no `%` takes the account's currency when it
-holds exactly one (one of the three fills `currencies.FILLS_AN_ONLY_CURRENCY` lists with the
-engine ask that retires them). When the account holds several, routing refuses the line and
+(contract: POST /v1/transactions, "`account_id` and `currency_code`"). A line with no `%` sends no `currency_code` (never a `null`) and the
+engine fills an account's only currency (contract: POST /v1/transactions, "`account_id` and `currency_code`"); the staged
+row still shows it. When the account holds several, routing refuses the line and
 never stages it on a guessed currency: under the bar
 `! not staged — Visa Inventada holds PEN and USD: pick one` (`route.py`), the hint reads `not
 staged — pick a currency and press ↵ again`, and the account's currencies stand under it as a

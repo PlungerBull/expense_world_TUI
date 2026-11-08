@@ -751,9 +751,10 @@ VISA = account_with_currencies(
 )
 
 
-def test_every_batch_item_names_its_account_and_its_currency(fake_client, monkeypatch):
-    """Each item carries `account_id` and `currency_code` from the pick, and no
-    `holder_id` (contract: POST /v1/transactions/batch)."""
+def test_every_batch_item_names_its_account_and_leaves_the_currency_out(fake_client, monkeypatch):
+    """Each item carries `account_id` from the pick and, the lines typing no `%` and their
+    accounts holding one currency, no `currency_code` at all (never a null): the engine
+    fills it. No `holder_id` either (contract: POST /v1/transactions/batch)."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -762,11 +763,8 @@ def test_every_batch_item_names_its_account_and_its_currency(fake_client, monkey
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: len(fake_client.posts) == 1)
         items = fake_client.posts[0][1]["transactions"]
-        assert [(i["account_id"], i["currency_code"]) for i in items] == [
-            ("acc1", "PEN"),
-            ("acc2", "USD"),
-        ]
-        assert all("holder_id" not in i for i in items)
+        assert [i["account_id"] for i in items] == ["acc1", "acc2"]
+        assert all("currency_code" not in i and "holder_id" not in i for i in items)
 
     run_app(scenario)
 
@@ -860,7 +858,7 @@ def test_a_one_currency_account_stages_with_its_currency_and_nothing_typed(
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _stage_lines(screen, "Pan -4.50 $BCP")
-        assert [(e.parsed.account_id, e.parsed.currency_code) for e in screen._staged] == [
+        assert [(e.parsed.account_id, e.parsed.shown_currency) for e in screen._staged] == [
             ("acc3", "PEN")
         ]
 
@@ -980,7 +978,7 @@ def test_a_one_currency_account_resolves_on_its_name_and_exact_wins(fake_client,
         screen = await _open(app, pilot)
         _type(screen, "-6.60 $BCP")
         assert screen._picker is None
-        assert (screen._parsed.account_id, screen._parsed.currency_code) == ("acc3", "PEN")
+        assert (screen._parsed.account_id, screen._parsed.shown_currency) == ("acc3", "PEN")
 
     run_app(scenario)
 
@@ -1652,6 +1650,26 @@ def test_refused_rows_read_one_line_per_kind(fake_client, monkeypatch):
             f"  date: {_SEALED} row 3\n"
             "  ctrl+s retries just the rows without a ✓.\n"
         )
+
+    run_app(scenario)
+
+
+def test_a_required_currency_shows_in_the_engines_words_on_its_row(fake_client, monkeypatch):
+    """Should the engine meet a line with no currency on an account holding several, its
+    `REQUIRED` on `transactions.<i>.currency_code` reads in its words on that row, the
+    other going on (contract: POST /v1/transactions/batch)."""
+    _patch(monkeypatch)
+    words = "Must be one of the account's currencies: PEN, USD."
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(fake_client, [_refused(0, "currency_code", words, "REQUIRED"), {}])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        out = _text(save_errors(screen._staged), width=200)
+        assert f"currency_code: {words} row 1" in out
 
     run_app(scenario)
 

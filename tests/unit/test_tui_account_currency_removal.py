@@ -4,8 +4,8 @@
 currencies it holds and `[enter] pick    [esc] cancel`. `⏎` asks
 `Remove USD from Visa Inventada?` and only `y` sends one
 `DELETE /accounts/{id}/currencies/{code}`; the list then reads again with the
-cursor on the same account. `LAST_CURRENCY`, `HAS_TRANSACTIONS` (without the
-account delete's archive line), `IN_LIVE_STATEMENT` and
+cursor on the same account. `LAST_CURRENCY`, `HAS_TRANSACTIONS` and `IN_LIVE_STATEMENT` (both on
+`currency_code`, so without the account delete's archive line) and
 `ACCOUNT_ARCHIVED` read in the engine's words alone, nothing written
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 The write goes through the real HTTP client against a respx-mocked engine, so the
@@ -397,9 +397,10 @@ def test_the_guard_holds_until_the_engine_answers(configured, monkeypatch):
 # the contract's own words for each refusal
 # (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")
 _LAST = "Must not be the account's last currency: delete the account instead."
-_HELD = "Must not be used by any active transaction."
+_HELD = "Must not be used by any active transaction in USD."
 _LIVE = (
-    "Must be an account no live statement holds, draft or completed: delete the statement first."
+    "Must be a currency no live statement holds in PEN, draft or completed: "
+    "delete the statement first."
 )
 _ARCHIVED = "The account is archived. Unarchive it first."
 
@@ -417,7 +418,7 @@ REFUSALS = [
         ),
         f"CONFLICT — {_LAST}\n  currency_code: {_LAST}",
     ),
-    # the account delete's archive line stays off
+    # keyed on the currency, so the account delete's archive line never meets it
     (
         "a-visa",
         "USD",
@@ -426,10 +427,10 @@ REFUSALS = [
             409,
             "CONFLICT",
             _HELD,
-            {"account_id": _HELD},
-            {"account_id": "HAS_TRANSACTIONS"},
+            {"currency_code": _HELD},
+            {"currency_code": "HAS_TRANSACTIONS"},
         ),
-        f"CONFLICT — {_HELD}\n  account_id: {_HELD}",
+        f"CONFLICT — {_HELD}\n  currency_code: {_HELD}",
     ),
     (
         "a-visa",
@@ -439,10 +440,10 @@ REFUSALS = [
             409,
             "CONFLICT",
             _LIVE,
-            {"account_id": _LIVE},
-            {"account_id": "IN_LIVE_STATEMENT"},
+            {"currency_code": _LIVE},
+            {"currency_code": "IN_LIVE_STATEMENT"},
         ),
-        f"CONFLICT — {_LIVE}\n  account_id: {_LIVE}",
+        f"CONFLICT — {_LIVE}\n  currency_code: {_LIVE}",
     ),
     # an archived account: offered, and the engine refuses it
     (

@@ -1035,21 +1035,23 @@ currencies means nothing.
 
 **Decision.** (1) An account shows once on every screen and picker; `d` names it and each currency's
 balance, since the delete removes them all. (2) The currency is a field of its own, picked like any
-other. (3) One currency asks for none, several are picked before a save; `b` to a one-currency
-account gives rows its currency at the same amount, to one holding several each keeps its own. (4) A
-currency move keeps a draft statement and an account move takes the row out, as the engine leaves
-the assignment to the client (contract: "Statements", "Assigning transactions"). (5) The app fills
-an only currency itself (`currencies.FILLS_AN_ONLY_CURRENCY`) until the engine ask
-"An account's only currency is taken when a write names none" lands. Details: [tui.md](tui.md) §2.
+other. (3) One currency asks for none, several are picked before a save; the app then sends no currency and
+a move sends the account alone, and the engine settles it, a row moved onto a one-currency account
+taking that currency at the same amount, said as `· was USD · not converted` on the Edit form and
+counted in `b`'s note. (4) A currency move keeps a draft statement and an account move takes the row
+out, as the engine leaves the assignment to the client (contract: "Statements", "Assigning
+transactions"). Details: [tui.md](tui.md) §2.
 
 **Why.** An account holds its currencies and a transaction names both, so the account shows once and
-the currency where it is chosen; a question with one possible answer is not asked. An amount moves
-as it is.
+the currency where it is chosen; a question with one possible answer is not asked, and the engine,
+not each client, picks the only answer. An amount moves as it is, and the owner is told so where the
+move is made, without a question that would follow every such move.
 
 **Rejected.** *One row per account and currency* — it splits the account the owner thinks of. *The
 currency typed after the amount* (`-45.50 USD`) — a field is picked like every other, and the legend
 names it. *`b` asking every row's currency* — each row holds its own, and `m` is the currency key.
-*Converting on a currency move* — the app holds no rates. *`d` naming one currency plus
+*Converting on a currency move* — the app holds no rates. *Asking before a move that changes
+currency* — one more key on every such move, for what the line already says. *`d` naming one currency plus
 "the others go too"* — it hides the balances the delete removes.
 
 ## The PDF upload and the two imports send the account (2026-10-30)

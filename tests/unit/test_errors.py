@@ -703,7 +703,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
             assert code in REFUSAL_CODES
         assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
         assert isinstance(step, NextStep)
-        for field_key in (*step.by_key, *step.no_line_on, *step.no_line_on_one_currency):
+        for field_key in (*step.by_key, *step.no_line_on):
             assert re.fullmatch(r"[a-z_]+", field_key)
     assert {reason for _code, reason in NEXT_STEPS} == {
         "HAS_TRANSACTIONS",
@@ -726,25 +726,34 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     }
 
 
-def test_has_transactions_on_one_currency_reads_in_the_engine_words_alone():
-    """Removing a currency shows the engine's words alone: removing a currency
-    that holds a transaction is refused with the account delete's reason on the
-    same key (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
-    and archiving would put away every currency, so the archive line stays off
-    a write acting on one currency and stays on the account's delete."""
+def test_has_transactions_on_a_currency_reads_in_the_engine_words_alone():
+    """Removing a currency that holds a transaction is refused on `currency_code`
+    (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
+    so the archive line, keyed on the account delete's `account_id`, never meets it."""
     from expense.errors import next_step
 
-    err = _refusal("CONFLICT", "account_id", "HAS_TRANSACTIONS")
-    archive = "To retire it instead, archive it: press a."
-    assert next_step(err, on_list=True) == archive
-    assert next_step(err, on_list=True, one_currency=True) is None
-    assert format_error(err, on_list=True, one_currency=True) == (
-        "CONFLICT — stand-in\n  account_id: stand-in field words"
+    err = _refusal("CONFLICT", "currency_code", "HAS_TRANSACTIONS")
+    assert next_step(err, on_list=True) is None
+    assert format_error(err, on_list=True) == (
+        "CONFLICT — stand-in\n  currency_code: stand-in field words"
     )
-    # the category's line has nothing to do with a currency and is untouched
+    # the account delete's line stays on `account_id`; the category's is untouched
+    account = _refusal("CONFLICT", "account_id", "HAS_TRANSACTIONS")
+    assert next_step(account, on_list=True) == "To retire it instead, archive it: press a."
     category = _refusal("CONFLICT", "category_id", "HAS_TRANSACTIONS")
-    assert next_step(category, one_currency=True) == (
-        "Move its transactions to another category first."
+    assert next_step(category) == "Move its transactions to another category first."
+
+
+def test_in_live_statement_on_a_currency_reads_in_the_engine_words_alone():
+    """A removal refused because a live statement holds the currency is keyed on
+    `currency_code` too (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code},
+    "Refusals"): the engine's words, no line of the app's."""
+    from expense.errors import next_step
+
+    err = _refusal("CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
+    assert next_step(err, on_list=True) is None
+    assert format_error(err, on_list=True) == (
+        "CONFLICT — stand-in\n  currency_code: stand-in field words"
     )
 
 

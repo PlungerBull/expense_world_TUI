@@ -986,7 +986,6 @@ def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
             "/bank-lines/bl-1",
             {
                 "account_id": "acc2",
-                "currency_code": "USD",
                 "statement_id": None,
                 "parts": [{"id": "t1", "amount_cents": -2800}],
             },

@@ -56,7 +56,6 @@ from expense.errors import EngineError
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
 from tests.contract.conftest import (
-    ENGINE_FILLS_ONLY_CURRENCY,
     account_balance,
     assert_refusal,
     assert_refusals,
@@ -379,18 +378,17 @@ def test_a_line_moves_by_currency_by_account_or_both(client, scratch, route):
 
 
 @pytest.mark.parametrize("route", ["bank-lines", "transactions"])
-@ENGINE_FILLS_ONLY_CURRENCY
-def test_a_move_onto_an_account_lacking_the_currency_is_refused(client, scratch, route):
-    """`account_id` alone onto an account that holds none of the line's currency is
-    `422` `CURRENCY_NOT_HELD` on `account_id`, the message naming the currency; with
-    `currency_code` sent, alone or beside `account_id`, it is on `currency_code` alone.
-    Nothing is written: the line and both accounts' balances read as before
-    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")
-    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+def test_a_move_by_account_alone_onto_an_only_currency_converts_nothing(client, scratch, route):
+    """`account_id` alone onto an account that lacks the line's currency but holds exactly one
+    moves the line to that currency, the amount as it was, the answer naming the account and
+    the new currency; both accounts' balances move by that amount. With `currency_code` sent,
+    alone or beside `account_id`, a currency the account lacks is `422` `CURRENCY_NOT_HELD` on
+    `currency_code` and nothing is written (contract: PUT /v1/transactions/{transaction_id},
+    "Moving a transaction") (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
     visa = scratch.account("PEN", "USD")
     soles = scratch.account()
     dollars = scratch.line(visa, "2026-03-14", -6000, -4000, currency="USD")
-    dollar_part = scratch.transactions[-2]
+    dollar_parts = scratch.transactions[-2:]
     loose = scratch.line(soles, "2026-03-14", -2000)
     loose_part = scratch.transactions[-1]
 
@@ -405,21 +403,34 @@ def test_a_move_onto_an_account_lacking_the_currency_is_refused(client, scratch,
         ]
 
     cases = [
-        (dollars, dollar_part, {"account_id": soles}, "account_id"),
-        (dollars, dollar_part, {"account_id": soles, "currency_code": "USD"}, "currency_code"),
-        (loose, loose_part, {"currency_code": "USD"}, "currency_code"),
-        (loose, loose_part, {"account_id": soles, "currency_code": "USD"}, "currency_code"),
+        (dollars, dollar_parts[0], {"account_id": soles, "currency_code": "USD"}),
+        (loose, loose_part, {"currency_code": "USD"}),
+        (loose, loose_part, {"account_id": soles, "currency_code": "USD"}),
     ]
-    for line, part, body, key in cases:
-        path = route_path(line, part)
+    for line, part, body in cases:
         err = refused_keeping(
             lambda line=line: (_line(client, line), balances()),
-            lambda path=path, body=body: client.put(path, json_body=body),
+            lambda line=line, part=part, body=body: client.put(
+                route_path(line, part), json_body=body
+            ),
             body,
         )
-        assert_refusal(err, 422, "VALIDATION_ERROR", key, "CURRENCY_NOT_HELD")
-        if key == "account_id":
-            assert err.fields[key] == "The account holds no USD."
+        assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
+
+    before = balances()
+    amounts = sorted(p["amount_cents"] for p in _line(client, dollars)["parts"])
+    sent = {"account_id": soles}
+    if route == "bank-lines":
+        client.put(f"/bank-lines/{dollars}", json_body=sent)
+    else:
+        for part in dollar_parts:
+            client.put(f"/transactions/{part}", json_body=sent)
+    moved = _line(client, dollars)
+    assert (moved["account_id"], moved["currency_code"]) == (soles, "PEN")
+    assert sorted(p["amount_cents"] for p in moved["parts"]) == amounts
+    assert {p["currency_code"] for p in moved["parts"]} == {"PEN"}
+    # the dollars left the Visa and the same amounts, unconverted, entered the soles account
+    assert balances() == [before[0], before[1] + 10000, before[2] - 10000]
 
 
 def test_a_move_of_an_assigned_line_settles_its_statement(client, scratch):

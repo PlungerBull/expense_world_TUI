@@ -32,7 +32,6 @@ from rich.text import Text
 from textual.binding import Binding
 
 from expense import reads
-from expense.errors import format_error
 from expense.formatting import format_cents, name_or_unnamed
 from expense.tui.screens._base import (
     DELETE_KEY,
@@ -109,13 +108,6 @@ def removal_question(account: dict, code: str) -> tuple[str, str]:
     kept = [held for held in currencies_held(account) if held != code]
     after = f"{name} keeps {' and '.join(kept)}." if kept else "It is the account's only currency."
     return f"Remove {code} from {name}?", f"{account_line(account, only=code)}\n{after}"
-
-
-def currency_refusal_text(exc: Exception) -> str:
-    """The `error_text` of a write acting on one currency of an account (`c`
-    and `x`): a list's, with no line about the whole account under a refusal
-    (`errors.NextStep.no_line_on_one_currency`)."""
-    return format_error(exc, on_list=True, one_currency=True)
 
 
 def account_rows(items: list[dict], currencies: list[str], palette: Palette | None = None) -> list:
@@ -305,7 +297,7 @@ class AccountsScreen(ResourceListScreen):
             success=note,
             on_success=written,
             on_error=self._toggle_failed,
-            error_text=currency_refusal_text,
+            error_text=list_refusal_text,
             left_behind=LeftBehind(left_behind),
         )
 

@@ -185,21 +185,18 @@ def test_legend_says_filter_count_and_selection():
     assert legend_text(None, 0, None, 0) == "no filter"
 
 
-def test_bulk_writes_send_both_keys_and_unassign_only_a_row_whose_account_or_currency_moves():
-    """The pick's `account_id` and `currency_code` go to every row; `statement_id: None`
-    only to a row on another account or in another currency, so a row already on
-    the pick keeps its statement (contract: PUT /v1/transactions/{transaction_id},
-    "Statement assignment")."""
-    pick = {"account_id": "acc2", "currency_code": "USD"}
+def test_bulk_writes_send_the_account_alone_and_unassign_only_a_row_whose_account_moves():
+    """The pick's `account_id` goes to every row; `statement_id: None` only to a row on
+    another account, so a row already on the pick keeps its statement
+    (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
+    pick = {"account_id": "acc2"}
     by_id = {
         "on-the-pick": {"account_id": "acc2", "currency_code": "USD", "statement_id": "r1"},
         "other-account": {"account_id": "acc1", "currency_code": "USD", "statement_id": "r1"},
-        "other-currency": {"account_id": "acc2", "currency_code": "PEN", "statement_id": "r1"},
     }
     assert bulk_writes(list(by_id), pick, by_id) == [
         ("on-the-pick", pick),
         ("other-account", {**pick, "statement_id": None}),
-        ("other-currency", {**pick, "statement_id": None}),
     ]
 
 
@@ -354,7 +351,7 @@ def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monke
         assert fake_client.puts == [
             (
                 "/transactions/t2",
-                {"account_id": "acc2", "currency_code": "PEN", "statement_id": None},
+                {"account_id": "acc2", "statement_id": None},
             )
         ]
 
@@ -531,7 +528,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         refused = next(m for t, m in toasts if t == "Refused")
         # no field named: whole, its code first, as the LOG bar reads a refusal naming no row
         assert _plain(refused) == f"CONFLICT — {_UNKEYED}\nrow 2"
-        assert ("", "2 rows → BCP Oro · PEN") in toasts
+        assert ("", "2 rows → BCP Oro") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
 
@@ -618,60 +615,9 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
         assert [_plain(m) for t, m in toasts if t == "Refused"] == [
-            f"account_id: {ARCHIVED_FIELD_WORDS} · currency_code: {ARCHIVED_FIELD_WORDS}"
-            f" · statement_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
+            f"account_id: {ARCHIVED_FIELD_WORDS} · statement_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
         ]
-        assert ("", "2 rows → BCP Oro · PEN") in toasts
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert screen._selected == {"t2"}
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_a_row_on_an_account_that_holds_no_such_currency_is_refused_in_the_engine_words_alone(
-    fake_client, monkeypatch
-):
-    """`b` over a selection where one row's move is `CURRENCY_NOT_HELD`; the move sends both
-    keys, so the engine keys the refusal on `currency_code` alone
-    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"):
-    the "Refused" note names the row and gives the engine's words,
-    the other rows still move, and the refused row stays selected."""
-    _stub_ledger(monkeypatch)
-    toasts: list[tuple[str, str]] = []
-    real_put = fake_client.put
-    words = "Must be a currency the account holds."
-
-    def put(path, json_body=None):
-        if path.endswith("/t2"):
-            assert {"account_id", "currency_code"} <= set(json_body)
-            fields = {"currency_code": words}
-            reasons = {"currency_code": "CURRENCY_NOT_HELD"}
-            body = error_body("VALIDATION_ERROR", "The account holds no PEN.", fields, reasons)
-            raise EngineError(
-                "VALIDATION_ERROR", "The account holds no PEN.", fields, 422, body, reasons=reasons
-            )
-        return real_put(path, json_body=json_body)
-
-    fake_client.put = put
-    _answer_moves(fake_client, [ITEMS[0], ITEMS[2]])
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
-        await _open(app, pilot, screen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
-        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
-        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
-            f"currency_code: {words}\nrow 2"
-        ]
-        assert ("", "2 rows → BCP Oro · PEN") in toasts
+        assert ("", "2 rows → BCP Oro") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
 
@@ -903,7 +849,7 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
 
         assert puts == ["/transactions/t1", "/transactions/t2"]
         assert screen._selected == {"t2", "t3"}
-        assert toasts == [("", "1 row → BCP Oro · PEN", "information", False), STOP_TOAST]
+        assert toasts == [("", "1 row → BCP Oro", "information", False), STOP_TOAST]
         assert not any("refused" in title.lower() for title, *_ in toasts)
 
     run_app(scenario, size=(120, 30))
@@ -920,7 +866,7 @@ FIVE = [
 
 
 def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkeypatch):
-    """Five rows onto BCP Oro · PEN: row 1 moves, rows 2 and 3 are refused for
+    """Five rows onto BCP Oro: row 1 moves, rows 2 and 3 are refused for
     reasons of their own, missing settings stop the run at row 4, and row 5 is
     never sent. The receipt counts row 1; each own refusal reads in its note
     under `2 of 3 refused`, counting the rows that landed and those refused,
@@ -957,7 +903,7 @@ def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkey
 
         assert puts == [f"/transactions/t{i}" for i in range(1, 5)]
         assert toasts == [
-            ("", "1 row → BCP Oro · PEN", "information", False),
+            ("", "1 row → BCP Oro", "information", False),
             ("2 of 3 refused", f"CONFLICT — {_UNKEYED}\nrow 2", "error", True),
             ("2 of 3 refused", f"account_id: {_LOCKED_FIELD}\nrow 3", "error", True),
             STOP_TOAST,
@@ -998,18 +944,18 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
         assert fake_client.puts == [
             (
                 "/transactions/t1",
-                {"account_id": "acc2", "currency_code": "PEN", "statement_id": None},
+                {"account_id": "acc2", "statement_id": None},
             ),
             # already on acc2: not a move, so it keeps its statement
-            ("/transactions/t2", {"account_id": "acc2", "currency_code": "PEN"}),
+            ("/transactions/t2", {"account_id": "acc2"}),
             (
                 "/transactions/t3",
-                {"account_id": "acc2", "currency_code": "PEN", "statement_id": None},
+                {"account_id": "acc2", "statement_id": None},
             ),
         ]
         await wait_for(pilot, lambda: toasts)
         # t3 was in no statement, t2 never moved: two rows, one left
-        assert toasts[0] == "2 rows → BCP Oro · PEN · 1 left its statement"
+        assert toasts[0] == "2 rows → BCP Oro · 1 left its statement"
 
     run_app(scenario, size=(120, 30))
 
@@ -1028,9 +974,7 @@ def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("s", "i", "g", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [
-            ("/transactions/t1", {"account_id": "acc1", "currency_code": "PEN"})
-        ]
+        assert fake_client.puts == [("/transactions/t1", {"account_id": "acc1"})]
         await wait_for(pilot, lambda: not screen._bulk_busy)
         await pilot.pause()
         assert toasts == []
@@ -1108,7 +1052,7 @@ def test_b_on_a_completed_statement_is_still_refused_with_the_lock(fake_client, 
         refused = next(m for t, m in toasts if t == "Refused")
         assert _plain(refused) == f"account_id: {_LOCKED_FIELD}\nrow 1"
         # t1 refused, t2 already on acc2: only t3 moved, and it was in none
-        assert ("", "1 row → BCP Oro · PEN") in toasts
+        assert ("", "1 row → BCP Oro") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t1"}
 
@@ -1495,7 +1439,7 @@ def test_a_backslash_ending_the_words_shows_and_the_colours_hold(words):
 
 def test_b_with_two_of_three_rows_refused_reads_one_note_per_kind(fake_client, monkeypatch):
     """Rows 1, 2
-    and 3 selected, `b` onto BCP Oro · PEN, rows 1 and 3 in a completed
+    and 3 selected, `b` onto BCP Oro, rows 1 and 3 in a completed
     statement. The receipt counts the row that moved; the refusal is one
     note under "2 of 3 refused": the field and the engine's words for it, in the
     error colour, then the rows, unstyled; the engine's first sentence left
@@ -1524,7 +1468,7 @@ def test_b_with_two_of_three_rows_refused_reads_one_note_per_kind(fake_client, m
         await wait_for(pilot, lambda: not screen._bulk_busy)
 
         receipt, refused = list(app._notifications)
-        assert (receipt.title, receipt.message) == ("", "1 row → BCP Oro · PEN")
+        assert (receipt.title, receipt.message) == ("", "1 row → BCP Oro")
         assert (refused.title, refused.severity) == ("2 of 3 refused", "error")
         assert refused.markup
         assert _plain(refused.message) == f"account_id: {_LOCKED_FIELD}\nrows 1, 3"
@@ -1718,7 +1662,7 @@ PURCHASE = [
 ON_PARTS = {
     "c": (["kor"], {"category_id": "kor"}),
     "h": (["pend", "com", ""], {"hashtag_ids": ["h1"]}),
-    "b": (["oro"], {"account_id": "acc2", "currency_code": "PEN", "statement_id": None}),
+    "b": (["oro"], {"account_id": "acc2", "statement_id": None}),
 }
 
 
@@ -1835,7 +1779,7 @@ def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, 
     assert seen["fresh"][0]["after"] is None and seen["fresh"][0]["limit"] == 10
     assert seen["cursor"] == (0, "t-net")
     if key == "b":
-        assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
+        assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
 
 
 # ---- b: the receipt counts what the engine says moved ------------------------
@@ -1862,7 +1806,7 @@ def test_b_on_one_part_of_a_statement_line_counts_both_parts_and_both_leavings(
     their statement, so the receipt says 2 rows and 2 left."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", select, cursor="p2")
     assert fake_client.puts == [("/transactions/p2", ON_PARTS["b"][1])]
-    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
+    assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
     _asked_nothing_but_the_puts(seen)
 
 
@@ -1871,7 +1815,7 @@ def test_b_on_both_parts_counts_each_part_once(fake_client, monkeypatch):
     parts, the second listing none. The receipt says 2 rows, not 3 or 4."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", ["p1", "p2"], cursor="p1")
     assert [path for path, _body in fake_client.puts] == ["/transactions/p1", "/transactions/p2"]
-    assert seen["toasts"][0] == "2 rows → BCP Oro · PEN · 2 left their statement"
+    assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
     _asked_nothing_but_the_puts(seen)
 
 
@@ -1880,7 +1824,7 @@ def test_b_on_a_one_part_line_in_no_statement_says_nothing_of_leaving(fake_clien
     flagged, so the receipt says 1 row and nothing about leaving one."""
     seen = _bulk_on_parts(fake_client, monkeypatch, "b", [], cursor="t-net")
     assert fake_client.puts == [("/transactions/t-net", ON_PARTS["b"][1])]
-    assert seen["toasts"][0] == "1 row → BCP Oro · PEN"
+    assert seen["toasts"][0] == "1 row → BCP Oro"
     _asked_nothing_but_the_puts(seen)
 
 
@@ -1921,7 +1865,7 @@ def test_b_counts_only_the_answers_that_landed(fake_client, monkeypatch):
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert ("", "2 rows → BCP Oro · PEN · 2 left their statement") in toasts
+        assert ("", "2 rows → BCP Oro · 2 left their statement") in toasts
         assert _plain(next(m for t, m in toasts if t == "Refused")) == (
             "CONFLICT — Operation code already exists.\nrow 2"
         )
@@ -1961,17 +1905,10 @@ def test_no_account_pick_lists_an_account_and_a_currency_row(fake_client, monkey
     run_app(scenario, size=(120, 30))
 
 
-def test_b_to_an_account_holding_one_currency_sends_account_and_that_currency(
-    fake_client, monkeypatch
-):
-    """Rows of BCP Oro, in soles and in dollars, moved to BCP Signature, which holds PEN
-    alone: every `PUT` sends `account_id` and `currency_code: "PEN"`, the amount untouched (no
-    conversion), `statement_id: null` for the move; the receipt names the account and the
-    currency it took."""
-    rows = [
-        {**ITEMS[0], "account_id": "acc2"},
-        {**ITEMS[1], "account_id": "acc2", "currency_code": "USD"},
-    ]
+def _move_to_signature(fake_client, monkeypatch, rows: list[dict]) -> list[str]:
+    """`b` onto BCP Signature (soles only) over `rows` selected, each answered as the
+    engine does a move there: the row on that account, in soles, the amount as it was.
+    Returns the toasts, filled as the move ends."""
     _stub_ledger(monkeypatch, rows)
     monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: _two_currency_refs())
     for row in rows:
@@ -1983,17 +1920,44 @@ def test_b_to_an_account_holding_one_currency_sends_account_and_that_currency(
         screen = TransactionsScreen(filter=FILTER)
         monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
         await _open(app, pilot, screen)
-        await pilot.press("space", "down", "space", "b")
+        await pilot.press("a", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("s", "i", "g", "enter")
-        await wait_for(pilot, lambda: len(fake_client.puts) == 2)
-        body = {"account_id": "acc1", "currency_code": "PEN", "statement_id": None}
-        assert fake_client.puts == [("/transactions/t1", body), ("/transactions/t2", body)]
-        assert all("amount_cents" not in sent for _path, sent in fake_client.puts)
+        await wait_for(pilot, lambda: len(fake_client.puts) == len(rows))
         await wait_for(pilot, lambda: toasts)
-        assert toasts[0] == "2 rows → BCP Signature · PEN"
 
     run_app(scenario, size=(120, 30))
+    return toasts
+
+
+def test_b_to_an_account_holding_one_currency_sends_the_account_alone_and_counts_the_changed(
+    fake_client, monkeypatch
+):
+    """Rows of BCP Oro, two in dollars and one in soles, moved to BCP Signature, which holds
+    PEN alone: every `PUT` sends `account_id` alone (the engine moves a dollar row to soles,
+    the amount as it is), `statement_id: null` for the move; the receipt names the account,
+    then counts the rows whose answer holds another currency than the row had."""
+    rows = [
+        {**ITEMS[0], "account_id": "acc2"},
+        {**ITEMS[1], "account_id": "acc2", "currency_code": "USD"},
+        {**ITEMS[2], "account_id": "acc2", "currency_code": "USD"},
+    ]
+    toasts = _move_to_signature(fake_client, monkeypatch, rows)
+    body = {"account_id": "acc1", "statement_id": None}
+    assert fake_client.puts == [(f"/transactions/{row['id']}", body) for row in rows]
+    assert toasts[0] == "3 rows → BCP Signature\n2 were USD, now PEN, not converted."
+
+
+def test_b_note_reads_one_row_in_the_singular(fake_client, monkeypatch):
+    rows = [{**ITEMS[0], "account_id": "acc2", "currency_code": "USD"}]
+    toasts = _move_to_signature(fake_client, monkeypatch, rows)
+    assert toasts[0] == "1 row → BCP Signature\n1 was USD, now PEN, not converted."
+
+
+def test_b_note_is_the_receipt_alone_when_no_row_changed_currency(fake_client, monkeypatch):
+    rows = [{**ITEMS[0], "account_id": "acc2"}]
+    toasts = _move_to_signature(fake_client, monkeypatch, rows)
+    assert toasts[0] == "1 row → BCP Signature"
 
 
 def test_b_to_an_account_holding_two_currencies_sends_the_account_alone(fake_client, monkeypatch):

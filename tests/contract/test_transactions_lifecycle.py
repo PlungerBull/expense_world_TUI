@@ -9,7 +9,7 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import ENGINE_FILLS_ONLY_CURRENCY, assert_refusal, refused
+from tests.contract.conftest import assert_refusal, refused
 
 
 def _recent(scratch) -> str:
@@ -58,25 +58,37 @@ def test_transactions_lifecycle(client, scratch):
         assert excinfo.value.status == 404
 
 
-@ENGINE_FILLS_ONLY_CURRENCY
-def test_a_create_names_a_currency_the_account_holds(client, scratch):
-    """A create without `currency_code` is `REQUIRED` and one in a currency the account
-    does not hold is `CURRENCY_NOT_HELD`, each on `currency_code`; nothing is written
+def test_a_create_leaves_out_an_only_currency_and_names_one_of_several(client, scratch):
+    """Left out on a soles-only account, `currency_code` is the account's only currency and
+    the answer names it; left out on an account holding two it is `422` `REQUIRED` with the
+    codes held, an explicit `null` is `INVALID_FORMAT`, and a currency the account does not
+    hold is `CURRENCY_NOT_HELD`, each on `currency_code`; a refusal writes nothing
     (contract: POST /v1/transactions, "Fields")."""
-    account_id = scratch.account("PEN")
+    soles = scratch.account("PEN")
+    pair = scratch.account("PEN", "USD")
     category_id = scratch.category()
 
-    # `_item` and not `refused_row`: the body must lack `currency_code`, which every helper sets.
-    missing = scratch._item(account_id, _recent(scratch), -500, "PEN", category_id=category_id)
+    # `body` and then `del`: the helpers always set `currency_code`, and these must lack it.
+    left_out = scratch.body(soles, category_id=category_id)
+    del left_out["currency_code"]
+    made = client.post("/transactions", json_body=left_out)
+    assert (made["account_id"], made["currency_code"]) == (soles, "PEN")
+    assert client.get(f"/transactions/{left_out['id']}")["currency_code"] == "PEN"
+
+    missing = scratch.body(pair, category_id=category_id)
     del missing["currency_code"]
-    scratch.transactions.append(missing["id"])
     err = refused(lambda: client.post("/transactions", json_body=missing))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
+    assert err.fields["currency_code"] == "Must be one of the account's currencies: PEN, USD."
 
-    err = scratch.refused_row(account_id, _recent(scratch), "USD", category_id=category_id)
+    err = scratch.refused_row(pair, _recent(scratch), None, category_id=category_id)
+    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "INVALID_FORMAT")
+
+    err = scratch.refused_row(soles, _recent(scratch), "USD", category_id=category_id)
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
     assert err.fields["currency_code"] == "Must be a currency the account holds."
-    assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
+    assert client.get("/transactions/count", params={"account_id": soles}) == {"count": 1}
+    assert client.get("/transactions/count", params={"account_id": pair}) == {"count": 0}
 
 
 def test_an_empty_description_empties_the_note_and_null_is_refused(client, scratch):
@@ -122,17 +134,26 @@ def test_batch_create(client, scratch):
     assert echoed == {item["id"]: (account_id, item["currency_code"]) for item in items}
 
 
-@ENGINE_FILLS_ONLY_CURRENCY
-def test_a_batch_item_without_a_currency_is_refused(client, scratch):
-    """A batch item missing `currency_code` is refused on the item's own key, and the
-    batch writes nothing (contract: POST /v1/transactions/batch)."""
-    account_id = scratch.account()
+def test_a_batch_item_without_a_currency_takes_an_only_currency_or_is_refused(client, scratch):
+    """Items left without `currency_code` on a soles-only account are created in soles, the
+    answer naming it; one on an account holding two is `422` `REQUIRED` on the item's own
+    key and the batch writes nothing (contract: POST /v1/transactions/batch)."""
+    soles = scratch.account("PEN")
+    pair = scratch.account("PEN", "USD")
     category_id = scratch.category()
-    # `_item`: the item must lack `currency_code`, which every helper sets.
-    item = scratch._item(account_id, _recent(scratch), -500, "PEN", category_id=category_id)
-    del item["currency_code"]
-    scratch.transactions.append(item["id"])
 
-    err = refused(lambda: client.post("/transactions/batch", json_body={"transactions": [item]}))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.0.currency_code", "REQUIRED")
-    assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
+    # `body` and then `del`: the helpers always set `currency_code`, and these must lack it.
+    items = [scratch.body(soles, category_id=category_id) for _ in range(2)]
+    for item in items:
+        del item["currency_code"]
+    created = client.post("/transactions/batch", json_body={"transactions": items})["created"]
+    assert [(row["account_id"], row["currency_code"]) for row in created] == [(soles, "PEN")] * 2
+
+    good = scratch.body(pair, category_id=category_id)
+    bad = scratch.body(pair, category_id=category_id)
+    del bad["currency_code"]
+    err = refused(
+        lambda: client.post("/transactions/batch", json_body={"transactions": [good, bad]})
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.1.currency_code", "REQUIRED")
+    assert client.get("/transactions/count", params={"account_id": pair}) == {"count": 0}

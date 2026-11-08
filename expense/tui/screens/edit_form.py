@@ -61,13 +61,17 @@ on a retry), its body built by
   only the key that changed is sent: the account alone for the same currency on
   another account, the currency alone for another currency of the same account,
   both for another account's other currency, neither for what the line already
-  has. A move of the account also sends `statement_id: null`, so it takes the line
+  has. An account holding one currency is not asked: the account goes alone and the
+  engine moves the line to that currency, the amount as it is
+  (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"). A move of the
+  account also sends `statement_id: null`, so it takes the line
   out of its statement; a move of the currency alone sends the statement the line is
   in, so it stays there (`unassign_on_move`)
   (contract: "Statements", "Assigning transactions"). CURRENCY is dim, with why, and the
   bar skips it while the account holds one currency; a change of account to one
-  holding one currency takes it (`_take_only_currency`), to one holding several
-  empties it, and `ctrl+s` with none picked stops on the line, sending nothing;
+  holding one currency shows it (`· was USD · not converted` when it is another than
+  the line's) and sends the account alone, to one holding several empties it, and
+  `ctrl+s` with none picked stops on the line, sending nothing;
 - `parts`, the line's complete set: each part read from the line under its own
   id, with its current signed amount always and its category, note and
   hashtags only when changed (`kept_part`), a part added under a fresh id
@@ -489,12 +493,10 @@ class EditFormScreen(FormScreen):
         currency, why it is skipped, and what the line held before a change of account."""
         if key != "currency" or key in self._line_reasons:
             return super()._locked_word(key)
-        name = self._display.get("account", "")
-        word = f"· {name} holds only {self._only_currency()}"
         was = self._original.get("currency")
         if was and was != self._values.get("currency"):
-            word += f" · was {was}"
-        return word
+            return f"· was {was} · not converted"
+        return f"· {self._display.get('account', '')} holds only {self._only_currency()}"
 
     def _reason_lines(self) -> list[RenderableType]:
         """Under the shared fields, each sentence once, naming the read-only
@@ -736,20 +738,16 @@ class EditFormScreen(FormScreen):
 
     def _account_changed(self) -> None:
         """The line's account is another: its currency follows the account. One held
-        is taken (`_take_only_currency`); several empty it, and the bar goes on to
-        CURRENCY to pick one. The summary and the lock follow."""
+        is shown, never sent (`_line_fields`: the engine moves the line to it); several
+        empty it, and the bar goes on to CURRENCY to pick one. The summary and the lock
+        follow."""
         codes = self._held_codes()
         if (only := only_currency(codes)) is not None:
-            self._take_only_currency(only)
+            self._set_value("currency", only)
         elif codes:
             self._set_value("currency", None)
             self._display["currency"] = NONE_PICKED
         self._relock()
-
-    def _take_only_currency(self, code: str) -> None:
-        # The app fills in an account's only currency itself, and sends it with the
-        # account (listed in `currencies.FILLS_AN_ONLY_CURRENCY`).
-        self._set_value("currency", code)
 
     def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:
         if field == "amount":
@@ -893,6 +891,8 @@ class EditFormScreen(FormScreen):
         for key in self._line_keys():
             if key in self._line_reasons or self._values.get(key) == self._original.get(key):
                 continue
+            if key == "currency" and self._only_currency():
+                continue  # the engine fills an account's only currency
             new = self._values.get(key)
             if key == "date":
                 # never empty: an empty date bar commits today

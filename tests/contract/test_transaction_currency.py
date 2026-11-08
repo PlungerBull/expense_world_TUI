@@ -2,15 +2,17 @@
 it, against a real engine.
 
 `POST /transactions` and each item of `POST /transactions/batch` carry `account_id` and
-`currency_code`; the app's quick-add and Edit form send both, and its lists send `account_id`
-and `currency_code`, so only the engine can say what it answers and in which order it refuses
+`currency_code`, which the app's quick-add leaves out unless a `%` currency is typed, and its
+lists send `account_id` and `currency_code`, so only the engine can say what it answers and in
+which order it refuses
 (contract: POST /v1/transactions, "Fields").
 
 What it pins:
 
 1. A create is `201` and echoes `account_id` and `currency_code`, in the answer, the read of
    the row and the list, for each currency of one account.
-2. `currency_code` missing is `422` `REQUIRED`, an item's on `transactions.<i>.currency_code`;
+2. `currency_code` missing is `422` `REQUIRED` on an account holding several, an item's on
+   `transactions.<i>.currency_code` (on a one-currency account it is that currency);
    a code the engine does not support (`EUR`, a lower-case `usd`) is `UNSUPPORTED_VALUE`, and
    a supported one the account does not hold (`USD` on a soles-only account, or on one whose
    dollars were removed) is `CURRENCY_NOT_HELD` with the engine's words
@@ -90,7 +92,6 @@ from uuid import uuid4
 import pytest
 
 from tests.contract.conftest import (
-    ENGINE_FILLS_ONLY_CURRENCY,
     all_accounts,
     assert_refusal,
     assert_refusals,
@@ -325,17 +326,28 @@ def test_a_batch_with_one_bad_item_is_refused_whole_and_names_every_bad_item(cli
     )
 
 
-@ENGINE_FILLS_ONLY_CURRENCY
-def test_a_missing_currency_in_a_batch_answers_before_a_currency_the_account_lacks(client, scratch):
-    """An item with no `currency_code` beside an item in dollars on a soles-only account:
-    only the first is named, as the request's shape is the first step
-    (contract: POST /v1/transactions/batch, "Refusals come in four steps")."""
-    account_id = scratch.account("PEN")
-    missing = scratch.body(account_id)
+def test_a_missing_currency_in_a_batch_is_judged_with_a_currency_the_account_lacks(client, scratch):
+    """An item with no `currency_code` on an account holding two beside an item in dollars on a
+    soles-only account: both are named, each on its own key, as the ledger's rules judge the
+    account and its currency together (contract: POST /v1/transactions/batch, "Refusals come in
+    four steps")."""
+    pair = scratch.account("PEN", "USD")
+    soles = scratch.account("PEN")
+    missing = scratch.body(pair)
     del missing["currency_code"]
-    unheld = scratch.body(account_id, currency="USD")
-    err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [missing, unheld]))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.0.currency_code", "REQUIRED")
+    unheld = scratch.body(soles, currency="USD")
+    err = _refused_writing_nothing(
+        client, [pair, soles], partial(_batch, client, [missing, unheld])
+    )
+    assert_refusals(
+        err,
+        422,
+        "VALIDATION_ERROR",
+        {
+            "transactions.0.currency_code": "REQUIRED",
+            "transactions.1.currency_code": "CURRENCY_NOT_HELD",
+        },
+    )
 
 
 def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_currency_is_a_line(

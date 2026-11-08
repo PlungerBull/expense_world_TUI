@@ -417,7 +417,7 @@ def staged_rows(
                 date,
                 _title_cell(parsed),
                 amount,
-                parsed.currency_code or "",
+                parsed.shown_currency or "",
                 _account_cell(parsed, refs, palette),
                 _category_cell(parsed, refs, palette),
                 _tags_cell(parsed, refs, palette),
@@ -523,7 +523,7 @@ def staged_summary(
     if pending:
         totals: dict[str, int] = {}
         for entry in pending:
-            code = entry.parsed.currency_code or ""
+            code = entry.parsed.shown_currency or ""
             totals[code] = totals.get(code, 0) + (entry.parsed.amount_cents or 0)
         line = Text(f"  {len(pending)} staged", style="dim")
         for code, cents in totals.items():
@@ -1412,7 +1412,7 @@ class LogBarScreen(Screen):
             return (str(parsed.account_id), picker.candidates[index][0])
         if parsed.account_id:
             # the currency picked, or none yet: the peek shows a currency's rows
-            return (str(parsed.account_id), parsed.currency_code) if parsed.currency_code else None
+            return (str(parsed.account_id), shown) if (shown := parsed.shown_currency) else None
         if any(token.kind == "account" for token in parsed.unresolved):
             return None
         return self._peek_account
@@ -1503,7 +1503,7 @@ class LogBarScreen(Screen):
         The rows you just logged belong in the panel — it is the same ledger.
         """
         for entry in entries:
-            account_id, code = entry.parsed.account_id, entry.parsed.currency_code
+            account_id, code = entry.parsed.account_id, entry.parsed.shown_currency
             if isinstance(account_id, str) and code:
                 self._peek_cache.pop((account_id, code), None)
         if self._peek_account and self._peek_account not in self._peek_cache:

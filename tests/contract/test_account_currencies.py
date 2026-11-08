@@ -31,8 +31,8 @@ What it pins:
    request breaking both, every refusal leaving every account as it was: `404` "account not
    found." (unknown or deleted account), `404` "currency <code> not found." (`EUR`, `usd`, one
    removed before, the code as sent), `409 ACCOUNT_ARCHIVED` on `account_id`, `409
-   LAST_CURRENCY` on `currency_code`, `409 HAS_TRANSACTIONS` on `account_id` while the opening
-   balance stands, then `409 IN_LIVE_STATEMENT` on `account_id` while a draft or a completed
+   LAST_CURRENCY` on `currency_code`, `409 HAS_TRANSACTIONS` on `currency_code` while the opening
+   balance stands, then `409 IN_LIVE_STATEMENT` on `currency_code` while a draft or a completed
    statement (reverted, still a draft) holds the currency's balances, and `200` once each is
    gone; the other currency's opening balance and draft stop nothing
    (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
@@ -114,6 +114,17 @@ WORDS = {
 }
 
 
+#: The same two reasons on a currency's removal, keyed on `currency_code` and naming the code
+#: (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
+REMOVAL_WORDS = {
+    "HAS_TRANSACTIONS": "Must not be used by any active transaction in {code}.",
+    "IN_LIVE_STATEMENT": (
+        "Must be a currency no live statement holds in {code}, draft or completed: "
+        "delete the statement first."
+    ),
+}
+
+
 def _add(client, account_id: str, code, **fields) -> dict:
     body = {"currency_code": code, **fields}
     return client.post(f"/accounts/{account_id}/currencies", json_body=body)
@@ -157,9 +168,11 @@ def _deleted(client, scratch) -> str:
     return gone
 
 
-def _says(err, reason: str) -> None:
-    """The refusal's one message is the contract's sentence for `reason`."""
-    assert list(err.fields.values()) == [WORDS[reason]]
+def _says(err, reason: str, code: str | None = None) -> None:
+    """The refusal's one message is the contract's sentence for `reason`; with `code`, the
+    one a removal of that currency gives."""
+    words = REMOVAL_WORDS[reason].format(code=code) if code else WORDS[reason]
+    assert list(err.fields.values()) == [words]
 
 
 def _not_found(err, message: str) -> None:
@@ -394,15 +407,10 @@ def test_the_last_currency_is_refused_before_what_is_booked_in_it_and_its_accoun
     assert person not in {a["id"] for a in all_accounts(client)}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the removal's refusal is keyed on currency_code: task 4 of "
-    "docs/specs/catch-up-to-1002f105c6bacdf1.md",
-)
 def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_deletion(
     client, scratch
 ):
-    """A currency holding an opening balance is `409` `HAS_TRANSACTIONS` on `account_id`; a
+    """A currency holding an opening balance is `409` `HAS_TRANSACTIONS` on `currency_code`; a
     draft holding the currency's balances too still answers `HAS_TRANSACTIONS`, the earlier
     rule; with the opening balance deleted it is `IN_LIVE_STATEMENT`, also once the statement
     is completed and again once it is reverted, and the removal goes through once the
@@ -416,13 +424,13 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
     assert seed is not None
 
     err = _remove_refused(client, account_id, "USD")
-    assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-    _says(err, "HAS_TRANSACTIONS")
+    assert_refusal(err, 409, "CONFLICT", "currency_code", "HAS_TRANSACTIONS")
+    _says(err, "HAS_TRANSACTIONS", "USD")
 
     draft = scratch.statement(account_id, "2026-02-01", "2026-02-28", "USD")["id"]
     err = _remove_refused(client, account_id, "USD")
-    assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-    _says(err, "HAS_TRANSACTIONS")
+    assert_refusal(err, 409, "CONFLICT", "currency_code", "HAS_TRANSACTIONS")
+    _says(err, "HAS_TRANSACTIONS", "USD")
 
     client.delete(f"/transactions/{seed}")
     assert (
@@ -430,8 +438,8 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
         is None
     )
     err = _remove_refused(client, account_id, "USD")
-    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT")
+    assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
+    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.delete(f"/statements/{draft}")
     row = scratch.row(account_id, "2026-02-10", -1000, "PEN")["id"]
@@ -443,13 +451,13 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
     scratch.assign(row, draft)
     client.post(f"/statements/{draft}/complete")
     err = _remove_refused(client, account_id, "USD")
-    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT")
+    assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
+    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.post(f"/statements/{draft}/revert")
     err = _remove_refused(client, account_id, "USD")
-    assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT")
+    assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
+    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.delete(f"/statements/{draft}")
     assert _codes(_remove(client, account_id, "USD")) == ["PEN"]

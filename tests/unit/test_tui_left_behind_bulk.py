@@ -41,12 +41,17 @@ def _rows(titles: list[str]) -> list[dict]:
     ]
 
 
-def _left_bulk(fake_client, monkeypatch, items=ITEMS, refusals=None, quit_instead=False):
+def _left_bulk(
+    fake_client, monkeypatch, items=ITEMS, refusals=None, quit_instead=False, now_in=None
+):
     """Select every row, `b` onto BCP Oro, leave the ledger while the first write waits,
     let the run end, and return `(the app's toasts, the paths sent)`."""
     _stub_ledger(monkeypatch, items)
     refusals = refusals or {}
     _answer_moves(fake_client, [i for i in items if f"/transactions/{i['id']}" not in refusals])
+    for row_id, code in (now_in or {}).items():  # the engine moved the row to another currency
+        answer = fake_client.write_responses[f"/transactions/{row_id}"]
+        fake_client.write_responses[f"/transactions/{row_id}"] = {**answer, "currency_code": code}
     release, started, returned = threading.Event(), threading.Event(), threading.Event()
     sent: list[str] = []
     real_put = fake_client.put
@@ -108,14 +113,20 @@ def test_the_receipt_shows_after_leaving_and_every_row_is_sent(fake_client, monk
     assert sent == ["/transactions/t1", "/transactions/t2", "/transactions/t3"]
     assert len(notes) == 1
     title, message, options = notes[0]
-    assert (title, message, options["markup"]) == ("", "3 rows → BCP Oro · PEN", False)
+    assert (title, message, options["markup"]) == ("", "3 rows → BCP Oro", False)
+
+
+def test_the_receipt_after_leaving_carries_the_currency_change_note(fake_client, monkeypatch):
+    items = [{**ITEMS[0], "currency_code": "USD"}, *ITEMS[1:]]
+    notes, _ = _left_bulk(fake_client, monkeypatch, items=items, now_in={"t1": "PEN"})
+    assert notes[0][1] == "3 rows → BCP Oro\n1 was USD, now PEN, not converted."
 
 
 def test_a_refused_kind_names_its_rows_by_day_title_and_amount(fake_client, monkeypatch):
     refusals = {f"/transactions/{k}": _locked("account_id") for k in ("t1", "t3")}
     notes, sent = _left_bulk(fake_client, monkeypatch, refusals=refusals)
     assert sent == ["/transactions/t1", "/transactions/t2", "/transactions/t3"]
-    assert notes[0][:2] == ("", "1 row → BCP Oro · PEN")
+    assert notes[0][:2] == ("", "1 row → BCP Oro")
     title, message, severity, timeout = _read(notes[1])
     assert (title, severity, timeout) == ("2 of 3 refused", "error", 10)
     assert message.split("\n")[-2:] == [

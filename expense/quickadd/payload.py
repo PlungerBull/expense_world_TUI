@@ -1,8 +1,11 @@
 """A parsed line as a `POST /transactions` body.
 
-A row names its account and the currency it is in, both from the `$account` pick
-(contract: POST /v1/transactions, "`account_id` and `currency_code`"); the batch
-carries the same two keys on each item (contract: POST /v1/transactions/batch).
+A row names its account from the `$account` pick and, only when the line typed a `%`
+currency, the currency (contract: POST /v1/transactions, "`account_id` and `currency_code`");
+the batch carries the same keys on each item (contract: POST /v1/transactions/batch). A
+line with no `%` leaves `currency_code` out and the engine fills an account's only
+currency; on an account holding several it refuses `REQUIRED` on `currency_code`, which
+the LOG bar already stops before sending. An explicit null is `INVALID_FORMAT`, never sent.
 
 The TUI's `ctrl+s` batch builds each body from its row here. Pure: `date`
 arrives already canonicalised (RFC 3339 with an offset), because
@@ -40,9 +43,10 @@ def transaction_payload(
         "id": row_id,
         "amount_cents": parsed.amount_cents,
         "account_id": parsed.account_id,
-        "currency_code": parsed.currency_code,
         "date": date,
     }
+    if parsed.currency_code is not None:
+        payload["currency_code"] = parsed.currency_code
     if parsed.title:
         payload["title"] = parsed.title
     if parsed.category_id is not None:

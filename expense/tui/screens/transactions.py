@@ -68,7 +68,6 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from expense import reads
-from expense.currencies import only_currency
 from expense.errors import (
     EngineError,
     format_error,
@@ -79,7 +78,6 @@ from expense.errors import (
 )
 from expense.formatting import (
     bank_line_columns,
-    currency_label,
     format_hashtag_cell,
     format_short_date,
     grouped_refusals,
@@ -298,10 +296,27 @@ def refusal_notes(
     return notes
 
 
+def currency_change_note(landed: list[tuple[dict, dict]]) -> str:
+    """The second line of a move's receipt, from the answers: `2 were USD, now PEN, not
+    converted.`, one sentence for each currency the rows were in. Empty when no row's
+    currency changed. `landed` pairs each row as the ledger held it with the engine's
+    answer to its move (contract: PUT /v1/transactions/{transaction_id}, "Moving a
+    transaction")."""
+    changes: dict[tuple[str, str], int] = {}
+    for row, answer in landed:
+        was, now = row.get("currency_code"), answer.get("currency_code")
+        if was and now and was != now:
+            changes[(was, now)] = changes.get((was, now), 0) + 1
+    return "".join(
+        f"\n{n} {'was' if n == 1 else 'were'} {was}, now {now}, not converted."
+        for (was, now), n in changes.items()
+    )
+
+
 def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     """The toast after a bulk write: `3 rows → KORAKUEN`, and with `left`
     rows taken out of their statement by an account move,
-    `3 rows → BCP Signature · USD · 2 left their statement`."""
+    `3 rows → BCP Signature · 2 left their statement`."""
     receipt = f"{count} {'row' if count == 1 else 'rows'} → {label}"
     if left == 1:
         receipt += " · 1 left its statement"
@@ -319,18 +334,20 @@ def show_bulk_outcome(
     count: int | None = None,
     stop: Exception | None = None,
     row_lines: dict[object, str] | None = None,
+    note: str = "",
 ) -> None:
     """The toasts of a bulk edit's end, on the ledger or, once it has been left, on
     the app (`row_lines`: `refusal_notes`). `done` writes landed; the receipt
     says `count` rows (`done` when not given) and `left` of them left their
-    statement. A move that changed nothing (`count` 0) shows no receipt; its
+    statement, then `note` (`currency_change_note`). A move that changed nothing (`count` 0)
+    shows no receipt; its
     refusals still show. Rows refused for their own reason (`failed`) read under
     `Refused`, or `2 of 3 refused` counting the rows that landed and those; a
     refusal that stopped the run (`stop`) reads after them, once, in the LOG
     bar's note (`refusal.run_stopped`). Touches no widget."""
     rows = done if count is None else count
     if rows:
-        toast(host, bulk_receipt(rows, label, left))
+        toast(host, bulk_receipt(rows, label, left) + note)
     # One toast per kind of refusal, not per row — see `refusal_notes`. Its
     # colours are content markup, the engine's words set in it by `as_markup`.
     head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
@@ -748,13 +765,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             held = {a: (n, codes) for a, n, codes in self._refs.quickadd_accounts}.get(picked)
             if held is None:
                 return
-            name, codes = held
-            label, payload = name, {"account_id": picked}
-            # An account holding one currency takes every row in it, the amount as it is;
-            # one holding several gets `account_id` alone, so each row keeps its own and
-            # the engine refuses a row whose currency the account lacks.
-            if (only := only_currency(codes)) is not None:  # a fill: `FILLS_AN_ONLY_CURRENCY`
-                label, payload["currency_code"] = currency_label(name, only), only
+            label, payload = held[0], {"account_id": picked}
+            # `account_id` alone, whatever the account holds: the engine moves a row to an
+            # only currency the row lacks, the amount as it is, keeps a row's own currency
+            # on an account holding it, and refuses a row an account of several lacks.
         elif kind == "currency":
             label = names.get(picked, str(picked))
             payload = {"currency_code": picked}
@@ -776,7 +790,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             for key in targets
             if (row := self._by_id.get(key))
         }
-        self._bulk_write(writes, label, kind in ("account", "currency"), row_lines)
+        move = kind in ("account", "currency")
+        self._bulk_write(writes, label, move, row_lines, kind == "account")
 
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")
@@ -786,10 +801,11 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         label: str,
         move: bool,
         row_lines: dict[object, str],
+        account_move: bool = False,
     ) -> None:
         """One save while it runs, its hand-back included (`counted_save`)."""
         with counted_save(self.app):
-            self._put_rows(writes, label, move, row_lines)
+            self._put_rows(writes, label, move, row_lines, account_move)
 
     def _put_rows(
         self,
@@ -797,6 +813,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         label: str,
         move: bool,
         row_lines: dict[object, str],
+        account_move: bool = False,
     ) -> None:
         """One PUT per row, in order, on one client; a refused row is kept by
         number and the rest go through — unlike `run_write`'s queue, which
@@ -812,7 +829,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         the answers that came back (`moved_parts`); a category or hashtag pick
         reaches only the part it names
         (contract: PUT /v1/transactions/{transaction_id}, "Line fields"), so it
-        counts the writes that landed.
+        counts the writes that landed. A move to an account (`account_move`) adds
+        the rows whose answer holds another currency than the row had
+        (`currency_change_note`).
 
         Left before the run ends, every row is still sent, and its end is shown
         on the app (`show_bulk_outcome`), the refused rows named as the ledger
@@ -822,7 +841,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
         app = self.app
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
-        answers: list[dict] = []
+        landed: list[tuple[object, dict]] = []
         failed: list[RefusedRow] = []
         held: list[object] = []
         stop: Exception | None = None
@@ -831,7 +850,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 for sent, (key, body) in enumerate(writes, start=1):
                     try:
-                        answers.append(client.put(f"/transactions/{key}", json_body=body))
+                        landed.append((key, client.put(f"/transactions/{key}", json_body=body)))
                     except Exception as exc:
                         if refuses_every_write(exc):
                             stop = exc
@@ -840,7 +859,13 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                         failed.append((key, numbers.get(key, 0), *refused_row(exc)))
         except Exception as exc:
             failed.append((None, 0, None, format_error(exc)))
+        answers = [answer for _key, answer in landed]
         count, left = moved_parts(answers) if move else (len(answers), 0)
+        note = (
+            currency_change_note([(self._by_id.get(key) or {}, answer) for key, answer in landed])
+            if account_move
+            else ""
+        )
         call_while_attached(
             self,
             self._bulk_finished,
@@ -851,9 +876,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             held,
             count,
             stop,
+            note,
             app=app,
             if_left=lambda: show_bulk_outcome(
-                app, len(answers), failed, label, left, count, stop, row_lines
+                app, len(answers), failed, label, left, count, stop, row_lines, note
             ),
         )
 
@@ -866,10 +892,11 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         held: tuple | list = (),
         count: int | None = None,
         stop: Exception | None = None,
+        note: str = "",
     ) -> None:
         """The ledger still open: `show_bulk_outcome`, then the selection and the reload."""
         self._bulk_busy = False
-        show_bulk_outcome(self, done, failed, label, left, count, stop)
+        show_bulk_outcome(self, done, failed, label, left, count, stop, note=note)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key

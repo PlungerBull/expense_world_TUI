@@ -1242,7 +1242,7 @@ FARM_PARTS = [
             "bl-farm",
             "account",
             "Interbank",
-            {"account_id": "acc2", "currency_code": "USD", "statement_id": None},
+            {"account_id": "acc2", "statement_id": None},
         ),
         ("bl-uber", "operation", "11122233", {"operation_code": "11122233"}),
         ("bl-uber", "0.amount", "-30.00", {}),

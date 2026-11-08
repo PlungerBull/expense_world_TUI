@@ -765,12 +765,12 @@ def test_an_account_holding_one_currency_shows_the_line_dim_with_why_and_the_bar
     assert fake_client.calls == []
 
 
-def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_it_was(
+def test_a_change_of_account_to_one_holding_one_currency_shows_it_and_sends_the_account_alone(
     fake_client, monkeypatch
 ):
-    """A one-currency account: BCP in dollars to Ahorros (soles only): the
-    currency becomes PEN by itself, the line says it was USD, the bar goes on to the
-    amount, and the save sends both keys."""
+    """A one-currency account: BCP in dollars to Ahorros (soles only): the currency line
+    reads PEN, dim, `· was USD · not converted`, the bar goes on to the amount, and the
+    save sends `account_id` alone, never a currency: the engine moves the line."""
     record = {**TXN, "currency_code": "USD"}
     _patch(monkeypatch, _line(record))
     _record_notices(monkeypatch)
@@ -780,9 +780,9 @@ def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_
         await pilot.press(*"Ahorros", "enter")
         assert screen._key == "0.amount"
         assert screen._values["currency"] == "PEN"
-        assert "currency  PEN  · Ahorros holds only PEN · was USD" in _summary(screen)
+        assert "currency  PEN  · was USD · not converted" in _summary(screen)
         taken = _styled_row(screen, "currency")
-        assert "PEN  · Ahorros holds only PEN · was USD" in taken.plain
+        assert "PEN  · was USD · not converted" in taken.plain
         assert _is_dim(taken) and not any(span.style.color for span in taken.spans)
         screen.action_submit()
         await pilot.pause()
@@ -795,11 +795,33 @@ def test_a_change_of_account_to_one_holding_one_currency_takes_it_and_says_what_
             PATH,
             {
                 "account_id": "acc3",
-                "currency_code": "PEN",
                 "statement_id": None,
                 "parts": [_kept()],
             },
         )
+    ]
+
+
+def test_a_change_of_account_to_one_holding_the_lines_own_only_currency_says_no_was(
+    fake_client, monkeypatch
+):
+    """BCP in soles to Ahorros (soles only): the line reads the plain `holds only PEN`,
+    with no `was` words, and the save sends `account_id` alone."""
+    _patch(monkeypatch, _line(TXN))
+    _record_notices(monkeypatch)
+
+    async def steps(screen, pilot, app):
+        _on(screen, "account")
+        await pilot.press(*"Ahorros", "enter")
+        assert "currency  PEN  · Ahorros holds only PEN" in _summary(screen)
+        assert "was" not in _summary(screen).split("currency")[1].splitlines()[0]
+        screen.action_submit()
+        await pilot.pause()
+        await pilot.pause()
+
+    _open(TXN, steps)
+    assert fake_client.calls == [
+        ("PUT", PATH, {"account_id": "acc3", "statement_id": None, "parts": [_kept()]})
     ]
 
 
@@ -957,10 +979,11 @@ def test_a_refusal_naming_currency_code_lands_under_the_parts_in_the_engines_wor
 def test_a_currency_the_account_does_not_hold_shows_the_engines_words_alone(
     fake_client, monkeypatch
 ):
-    """`CURRENCY_NOT_HELD` on `account_id` (an account sent alone onto a currency it does
-    not hold): the engine's words under the parts and nothing of the app's own after
-    `Nothing was saved.` (contract: "Error reasons")."""
-    words = "Must be a currency the account holds: USD."
+    """`CURRENCY_NOT_HELD` on `account_id` (an account sent alone, holding several
+    currencies and not the line's): the engine's words under the parts and nothing of the
+    app's own after `Nothing was saved.`
+    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")."""
+    words = "The account holds no USD: it holds EUR, PEN."
     # the line is in dollars and Visa's dollars are a pick on the list, so the account is
     # sent alone; the engine's read of Visa is newer than the list (it no longer holds them)
     record = {**TXN, "currency_code": "USD"}
@@ -1023,7 +1046,6 @@ def test_a_move_on_a_completed_statement_shows_the_lock_under_the_parts(fake_cli
             PATH,
             {
                 "account_id": "acc2",
-                "currency_code": "USD",
                 "statement_id": None,
                 "parts": [_kept()],
             },

@@ -13,7 +13,7 @@ import pytest
 
 from expense.errors import EngineError, format_error
 from expense.tui.screens._base import list_refusal_text
-from expense.tui.screens.accounts import AccountsScreen, currency_refusal_text
+from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.modals import ConfirmModal, PickModal
@@ -70,11 +70,11 @@ SITES = {
     ),
     "add currency": (
         AccountsScreen, ACCOUNTS, "a-caja", ADD, "post",
-        "Currency added: USD.", "Not added · USD on Caja Chica", currency_refusal_text,
+        "Currency added: USD.", "Not added · USD on Caja Chica", list_refusal_text,
     ),
     "remove currency": (
         AccountsScreen, ACCOUNTS, "a-caja", REMOVE, "delete",
-        "Currency removed: PEN.", "Not removed · PEN on Caja Chica", currency_refusal_text,
+        "Currency removed: PEN.", "Not removed · PEN on Caja Chica", list_refusal_text,
     ),
     "delete account": (
         AccountsScreen, ACCOUNTS, "a-caja", DELETE, "delete",

@@ -324,7 +324,7 @@ def test_extra_columns_on_a_reference_row_are_ignored():
     """A row's columns past the currencies are ignored."""
     rows = [("a2", "BCP Plus", ("PEN",), "extra", 7)]
     result = parse("x -5 $bcp plus", accounts=rows, categories=[], hashtags=[], today=TODAY)
-    assert (result.account_id, result.currency_code) == ("a2", "PEN")
+    assert (result.account_id, result.shown_currency) == ("a2", "PEN")
 
 
 def test_malformed_reference_rows_are_skipped_not_crashed_on():
@@ -463,7 +463,8 @@ def test_a_name_resolves_to_its_one_account_whatever_it_holds():
 
 def test_a_one_currency_account_resolves_on_its_name_alone():
     result = _p("-10 $efectivo")
-    assert (result.account_id, result.currency_code) == ("a5", "PEN")
+    assert (result.account_id, result.currency_code) == ("a5", None)
+    assert result.shown_currency == "PEN"
 
 
 # --- the currency: its own token, `%`, from the account's own currencies --------
@@ -519,9 +520,10 @@ def test_a_bare_percent_names_no_currency_and_offers_the_accounts_own():
     assert found.span.resolved is False
 
 
-def test_a_one_currency_account_takes_its_currency_with_nothing_typed():
+def test_a_one_currency_account_names_no_currency_and_shows_its_only_one():
     result = _banks("Pan $caja chica @wants -4.50 hoy")
-    assert (result.account_id, result.currency_code) == ("c1", "PEN")
+    assert (result.account_id, result.currency_code) == ("c1", None)
+    assert result.shown_currency == "PEN"
     assert result.missing == () and result.unresolved == ()
 
 
@@ -568,11 +570,12 @@ def test_an_account_name_does_not_swallow_the_currency_token():
     assert (result.account_id, result.currency_code) == ("c2", "USD")
 
 
-def test_the_payload_carries_the_account_and_the_currency():
+def test_the_payload_carries_the_account_and_only_a_typed_currency():
     lines = ["-12.99 $visa inventada %usd", "-4.50 $caja chica", "-3 $visa inventada %pen"]
     sent = [transaction_payload(_banks(line), row_id="r", date="2026-10-31") for line in lines]
-    assert [(p["account_id"], p["currency_code"]) for p in sent] == [
+    assert [(p["account_id"], p.get("currency_code")) for p in sent] == [
         ("v1", "USD"),
-        ("c1", "PEN"),
+        ("c1", None),
         ("v1", "PEN"),
     ]
+    assert "currency_code" not in sent[1]  # left out, never a null

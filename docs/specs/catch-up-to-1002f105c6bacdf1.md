@@ -79,11 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-4. **The engine fills an only currency.** A new transaction on a one-currency account leaves
-   `currency_code` out, never `null`; a move by account alone sends `account_id` alone and reads
-   the currency from the answer, with question 2's wording; the three fills the app keeps today
-   go; a currency removal's refusal reads on `currency_code`; no test expects
-   `HAS_RECONCILIATION` from `make-account`.
 5. **Each row shows its own day.** Every list, the delete question, the peek, the Edit form's
    date and the opening balance's `as of` read `day`, never the first ten characters of `date`;
    the Backlog's "A row's day shows in UTC" closes.
@@ -134,6 +129,10 @@ Not built in this spec; sorted when it is done.
   form whose `currencies` line has nothing to pick, since the currencies come with the list's read;
   typing `PEN` says `No currencies match "PEN".` instead of the engine's words. Whether `n` turns
   off until the list loads is the owner's call.
+- **`b`'s note when the moved rows came from several currencies** gives one sentence per currency
+  (`2 were USD, now PEN, not converted.` then `1 was EUR, now PEN, not converted.`), which the
+  mockup did not draw; it cannot happen while the engine lists only PEN and USD. To confirm with the
+  owner when a third currency comes.
 - **For decisions.md at the sweep:** the suite marks its bank accounts by a number starting `9`
   (the cleaner's rule), since the engine builds the name; sample uploads go to the seed's
   `BCP-0000` by its id, since a second `…0000` account cannot exist.

@@ -13,9 +13,9 @@ the title.
 `%` names the currency, from the currencies of the account the line names. A
 whole or partial code picks one of them; a well-formed code the account does not
 hold is upper-cased and sent, and the engine refuses it (`CURRENCY_NOT_HELD`). A
-line with no `%` takes the account's currency when it holds exactly one, and
-is `missing` its currency when it holds several (`ParsedLine.account_currencies`
-lists them): the parser never guesses between currencies.
+line with no `%` names no currency (`ParsedLine.currency_code` is None and the write leaves
+it out for the engine to fill), and is `missing` its currency when it holds several
+(`ParsedLine.account_currencies` lists them): the parser never guesses between currencies.
 
 Names are matched against the reference lists the caller already holds —
 nothing is created here, and an unmatched name is reported rather than
@@ -96,9 +96,9 @@ class ParsedLine:
     # The first signed, amount-shaped token `parse_amount` could not read
     # (`-13.853,20`), as typed; it stays a title word. None when there is none.
     unreadable_amount: str | None = None
-    # The line's currency: the `%` token's, or the one currency the account holds
-    # when none is typed. None when the line names none and the account holds
-    # several (`currency` is then in `missing`).
+    # The line's currency as typed: the `%` token's. None when the line names none; the
+    # write then leaves `currency_code` out and the engine fills an account's only
+    # currency (`currency` is in `missing` when the account holds several).
     currency_code: str | None = None
     # The currencies the named account holds, in the order given; empty until the
     # line names an account. The picker's list for `%`, and the refusal's.
@@ -106,6 +106,12 @@ class ParsedLine:
     # The named account's name as the account list gives it; empty until the line
     # names one. The refusal for a missing currency says whose currencies they are.
     account_name: str = ""
+
+    @property
+    def shown_currency(self) -> str | None:
+        """The currency the line shows: the typed one, else the only one its account
+        holds. A display read; the write sends only the typed one."""
+        return self.currency_code or only_currency(self.account_currencies)
 
     @property
     def is_complete(self) -> bool:
@@ -336,8 +342,6 @@ def parse(
                     candidates=tuple((c, c) for c in c_hits),
                 )
             )
-    else:
-        currency_code = only_currency(held)  # a fill: see `FILLS_AN_ONLY_CURRENCY`
 
     title = " ".join(title_words)
     values = {

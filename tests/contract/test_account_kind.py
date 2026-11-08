@@ -184,8 +184,9 @@ def test_an_account_with_a_statement_cannot_become_a_person(client, scratch):
     """A draft, a completed and a deleted statement each make `make-person` refuse
     `HAS_RECONCILIATION`, writing nothing; a deleted one still counts because it holds the
     account's balances (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
-    The same bank account sent to `make-account` is `KIND_UNCHANGED`, which comes before
-    `HAS_RECONCILIATION` (contract: POST /v1/accounts/{account_id}/make-account, "Refusals")."""
+    The same bank account sent to `make-account` is `KIND_UNCHANGED`; `make-account` never
+    sends `HAS_RECONCILIATION` (contract: POST /v1/accounts/{account_id}/make-account,
+    "Refusals")."""
 
     def kind_unchanged(target: str) -> None:
         err = refused_writing_nothing(client, lambda: _post(client, target, "make-account"))

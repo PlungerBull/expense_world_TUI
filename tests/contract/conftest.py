@@ -490,14 +490,6 @@ LOOSE_LINES_ON_SEALED_DAYS = pytest.mark.xfail(
     reason="LOOSE_LINES_ON_SEALED_DAYS: engine versions cd6574eee1dd5ec0 and 5a465cd6cf5f21fe",
 )
 
-#: A test the engine's currency fill fails: a missing `currency_code` is the account's only
-#: currency, not a refusal. Task 4 of docs/specs/catch-up-to-1002f105c6bacdf1.md rewrites it.
-ENGINE_FILLS_ONLY_CURRENCY = pytest.mark.xfail(
-    strict=True,
-    reason="the engine fills an only currency: task 4 of "
-    "docs/specs/catch-up-to-1002f105c6bacdf1.md",
-)
-
 #: A test of the sheet import's create step, which makes a bank account from the sheet's typed
 #: name, as the engine no longer lets a bank account be named (`NAME_BUILT`). The official
 #: import's rewrite on built names (docs/specs/before-the-official-import.md) drops the mark.
