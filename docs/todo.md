@@ -26,63 +26,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine's contract moved to ce7749236717b163
-Asked 2026-11-07 · Blocks: the acceptance check of [empty lists' `?` cards, and leaving a screen
-while it draws](specs/empty-lists-and-leaving-mid-draw.md), and every new task
-
-The practice engine's contract is ten changes past the one this client last caught up to,
-`f82426fb0a099676`: new `GET /currencies`, opening balances set with `POST /accounts` and
-`PUT /accounts/{id}`, `currency_code` optional on an account holding one currency, a new
-statement sample, and wording. The version check prints:
-
-```
-the engine's contract version has changed: saved f82426fb0a099676, engine ce7749236717b163.
-what the contract changed since f82426fb0a099676, newest first:
-  ce7749236717b163  2026-11-07
-    changed: wording only, *Base Conventions* → *Client-supplied UUIDs*: the keys a taken id is refused on now name `opening_balances.<code>.transaction_id`, for an opening balance `PUT /accounts/{id}` sets, as that route's section already says.
-  f3ee39cdc9d602e5  2026-11-07
-    changed: wording only, the overview and the reasons `UNSUPPORTED_VALUE` and `CURRENCY_NOT_HELD`: the supported currencies are the ones `GET /currencies` lists. A client keeps no list of its own.
-  21bba425e1f9a489  2026-11-07
-    changed: `DELETE /accounts/{id}/currencies/{currency_code}`: `HAS_TRANSACTIONS` and `IN_LIVE_STATEMENT` are keyed on `currency_code` (they were on `account_id`), as `LAST_CURRENCY` is, and their messages name the currency: `"Must not be used by any active transaction in USD."` and `"Must be a currency no live statement holds in USD, draft or completed: delete the statement first."`, the code as in the path. A client reading `fields.account_id` or `reasons.account_id` on this route for these two refusals reads `currency_code` instead. `ACCOUNT_ARCHIVED` stays on `account_id`; `DELETE /accounts/{id}` keeps its refusals, keys and messages as they were.
-    changed: *Bank Accounts*, the account response's `currencies`: states that a live account always lists at least one currency (it is created with at least one, its last currency is never removed, and it is deleted whole); the `[]` for an account holding none is gone from the wording. Wording only.
-  5278888de6fdb51a  2026-11-07
-    added: `GET /statements/samples` and `GET /statements/samples/{sample}`: the sample `card-soles-only`, a soles-only card's made-up paper (26 April to 25 May 2025) whose dollars print at zero with no dollar row. Uploaded for an account holding soles alone, it closes the month in soles only, on a dry run and an apply. It follows `card-no-dollars` in the list. Its `balances` hold soles only: a currency the paper shows at zero with no row has no entry, as the upload leaves it out.
-    changed: `POST /statements/import`, *The paper's layout*: any label on a card's undated line that carries an amount is read as one entry on the statement's last day, in the direction printed, not only the labels the section names.
-    changed: `POST /statements/import`, *Concurrency*: names the `409` on `category_id` or `hashtag_ids` (`CONCURRENT_CHANGE`) when the pending category or hashtag is deleted while a created row is filed under it, and states that only a write creating a statement in the paper's month or moving one into it between the upload's read and its write reaches `STATEMENT_MONTH_TAKEN`: a `POST /statements`, a `PUT /statements/{id}` or another upload's apply.
-    changed: `GET /bank-lines/{id}`, `is_opening_balance`: no longer mentions a `PUT` of a statement's order, a route that does not exist.
-    changed: `POST /transactions`, `OPERATION_CODE_EXISTS`: states both texts as sent, `error.message` `"Another bank line on this account already has operation code '<code>'."` and the field's `"Must not be an operation code already on this account."`; `POST /transactions/batch`, `PUT /transactions/{id}`, the bank-line writes and `POST /transactions/import` say they word it alike. Wording only; the engine did not change.
-    changed: `POST /transactions/batch`: a repeated operation code (`DUPLICATE_IN_REQUEST`) is refused on every item of the later line, the first keeping its place. Wording only.
-    removed: `POST /accounts/{id}/make-account` no longer declares `HAS_RECONCILIATION`: no person ever holds a statement, so it was never sent. `POST /accounts/{id}/make-person` keeps it.
-    changed: reason `HAS_RECONCILIATION`, its description: sent only by `POST /accounts/{id}/make-person`; an account that has had a statement never becomes a person. Wording only.
-  11ab349bdfc38647  2026-11-07
-    changed: `POST /transactions/import-sheet`, *Opening balances*: a row of zero amount (`skipped`) no longer counts as a row of the same currency of the account dated before a `SALDO INICIAL` row. A currency's opening balance is its first `SALDO INICIAL` row of a non-zero amount with no non-zero row of that currency dated before it: a `SALDO INICIAL` of `0.00` on 2 January and one of `1,000.00` on 5 January import the 5 January row as the opening balance (it was an ordinary row). If this leaves two `SALDO INICIAL` rows on the first non-zero day, both are refused (`DUPLICATE_IN_REQUEST`), as before.
-  14fb4741b9db37b8  2026-11-07
-    added: `PUT /accounts/{id}`: `opening_balances`, an object keyed by currency code, sets, changes or clears the opening balance of any currency the account holds in the same write as the account's own fields, all or nothing. An entry is: a **set** (the currency has none): the body of `POST /accounts/{id}/opening-balance` without `currency_code` (`transaction_id`, `amount_cents`, `date` required, `title` optional), judged by that route's rules; a **change** (it has one): `amount_cents`, `date`, `title`, each optional, judged by the rules `PUT /transactions/{id}` applies to that opening balance (`LOCKED` in a completed statement, `SEALED_PERIOD`, `ZERO_AMOUNT`, `FUTURE_DATE`, `ACCOUNT_ARCHIVED`), a `transaction_id` sent there `UNKNOWN_FIELD`; a **clear** (`null`): the opening balance is deleted by the rules of `DELETE /transactions/{id}`, and a currency with none is `422 NO_OPENING_BALANCE`. Each refusal is keyed `opening_balances.<code>.<field>` (or `opening_balances.<code>` for the whole entry: a code the account does not hold, `CURRENCY_NOT_HELD`; one `GET /currencies` does not list, `UNSUPPORTED_VALUE`); a refusal of any part writes nothing, the name and statement code included. The account's `version` moves and its `UPDATED` entry is written only when `name`, `color`, `sort_order` or `statement_code` is sent; each opening balance logs the entry its own route logs. The answer is the account, each currency's `opening_balance_transaction_id` set or `null`. The refusal order is in the route's *Refusals*. On an archived account a set is refused as `POST /accounts/{id}/opening-balance` refuses it (`INVALID_REFERENCE`), a change as `PUT /transactions/{id}` does (`ACCOUNT_ARCHIVED` on each field sent) and a clear as `DELETE /transactions/{id}` does (`409 ACCOUNT_ARCHIVED`), each on `opening_balances.<code>[.<field>]`, and the request is refused whole; a request without `opening_balances` saves the archived account's own fields as before. New reason `NO_OPENING_BALANCE`: a clear of a currency with no opening balance.
-    changed: wording only, *Base Conventions* (*Settings preconditions*), *Bank Accounts* (*An archived account*), *Transactions (Ledger)* (*Opening balances stay put*, *Hashtags on a transaction*, *Bank lines*) and *Bank Lines*: `PUT /accounts/{id}` is listed with the writes that set an opening balance, and its *Sent at the same moment* states how it is ordered with the account's other writes.
-  edbafcc162850075  2026-11-07
-    added: `POST /accounts`: each entry of `currencies` may carry `opening_balance`, the body of `POST /accounts/{id}/opening-balance` without `currency_code` (the entry's own is used; sending one is `UNKNOWN_FIELD`): `transaction_id`, `amount_cents`, `date`, optional `title`. The account is created with each currency's opening balance in one write, all or nothing: a refusal of any part leaves no account, no currency and no opening balance. Each opening balance is judged by the rules of that route and refused on `currencies.<i>.opening_balance.<field>`: a zero `amount_cents` (`ZERO_AMOUNT`), a `date` in the future (`FUTURE_DATE`) and a `transaction_id` carried twice in the request (`DUPLICATE_IN_REQUEST`) with the other request-shape refusals at step 1; a taken `transaction_id` (`ID_EXISTS`, `409`) at step 2, named in one answer with the account's own taken `id`; after the account's rules, in this order: `@Opening` made on first use (`RESERVED_NAME_HELD`, `CONCURRENT_CHANGE`, on `currencies.<i>.opening_balance.category_id`), missing settings (`SETTINGS_MISSING` on `user_settings`, read only when an entry carries `opening_balance`), a sealed day (never on a new account), the line codes used up (`LIMIT_REACHED`). The answer is the account with each currency's `opening_balance_transaction_id` set to the `transaction_id` sent and its `current_balance_cents` the opening balance. Each opening balance is logged as the separate route logs it. An entry without `opening_balance` is created as before.
-  2105213d3035b4d4  2026-11-07
-    changed: `PUT /transactions/{id}` and `PUT /bank-lines/{id}` sending `account_id` and no `currency_code`: onto an account that holds the line's currency, the line keeps it, as before; onto an account that does not but holds exactly one live currency, the line moves to that currency, every live part of a bank line with it, the amount unchanged. A $100.00 outflow moved to a soles-only account is a S/ 100.00 outflow, and the answer's `currency_code` is `"PEN"`. It was `CURRENCY_NOT_HELD` on `account_id`. The move is exactly the one sending that `currency_code` too, with every rule of it (the lock, an archived account, an opening balance, the statement assignment, a sealed day, an operation code taken in the new currency); a refusal stays keyed on `account_id`. Onto an account holding several currencies, none the line's, it is still `CURRENCY_NOT_HELD` on `account_id`, the message now naming the currencies held (`"The account holds no USD: it holds EUR, PEN."`).
-    changed: *Transactions (Ledger)* → *Moving a transaction* states that a move between currencies never converts the amount.
-  b7c5772dbcc8b811  2026-11-07
-    changed: `POST /transactions` and each item of `POST /transactions/batch`: `currency_code` is optional. Left out on an account holding exactly one live currency, the transaction is in that currency (the answer's `currency_code` names it). Left out on an account holding several, it is `422` on `currency_code` (`transactions.<i>.currency_code` in a batch), reason `REQUIRED`, `"Must be one of the account's currencies: PEN, USD."`, the codes in `currency_code` order; nothing is written. An explicit `null` is still `422` (`INVALID_FORMAT`). A currency sent behaves as before. The `REQUIRED` is judged with the account, after a taken `id` (*Which refusal comes first on a create*, step 3); an unknown account is still `INVALID_REFERENCE` on `account_id`.
-    changed: `POST /transactions/batch`: the items of one `line_group` are compared on the currency each lands in, so on a soles-only account an item sending `PEN` and one leaving `currency_code` out are one line; one sending `USD` beside one leaving it out is `CURRENCY_NOT_HELD` on the first and `LINE_GROUP_FIELDS_DIFFER` on the second. An operation code is unique per settled currency. Both are judged with the account (step 3), not at step 1, which compares only what the items sent; a batch sent again still answers `ID_EXISTS`.
-  385b112ad7f34bb8  2026-11-07
-    added: `GET /currencies`: the currencies the engine accepts, `{"items": [{"currency_code": "PEN"}, {"currency_code": "USD"}]}`, in `currency_code` order, the same for every user. Read it instead of keeping a list of codes: it is the list every `currency_code` the engine takes is checked against (`UNSUPPORTED_VALUE`).
-    changed: wording only, *Base Conventions*, *Bank Accounts*, *Transactions (Ledger)*, *Statements* and *Exchange Rates*: a refusal for an unsupported currency points to `GET /currencies` where it named the supported currencies.
-Once the change is handled, record the new version with: python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
-```
-
-- **A.** Ask the engine coders now for one hand-off file from `f82426fb0a099676` to
-  `ce7749236717b163`; record the new version now so the empty-lists spec finishes its check
-  (it touches nothing the engine changed); catching up becomes the next spec once the file
-  arrives.
-- **B.** Ask for the same hand-off file, and leave the empty-lists spec open until it arrives
-  and is planned; the version is recorded then.
-
-**Recommended:** A, because the empty-lists spec reads none of what changed, and the hand-off is
-needed either way.
-
 ### Approve the rewritten specs
 Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
@@ -90,6 +33,11 @@ To approve, every question answered: [the official import](specs/before-the-offi
 
 Answered, waiting on its engine ask (handed over 2026-11-07) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
+
+Approved, waiting on the engine's hand-off for its contract `f82426fb0a099676` to
+`ce7749236717b163` (the version is recorded when it is planned): [empty lists' `?` cards, and
+leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md), tasks 1–2 done,
+task 3 and its acceptance check left.
 
 Approved: [accounts carry their numbers](specs/accounts-carry-their-numbers.md), waiting on the
 engine.

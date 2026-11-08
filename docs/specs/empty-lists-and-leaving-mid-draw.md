@@ -4,8 +4,9 @@ Three things the `?` card's leftovers (done on 2026-11-07) found and did not fix
 that list keys doing nothing on an empty list, and a crash when you leave a screen in the
 moment it draws its list.
 
-**Status: approved on 2026-11-07, tasks and task 2's mockup too; its acceptance check waits on
-the owner's answer to [todo.md](../todo.md) "The engine's contract moved to ce7749236717b163".** It waits on no other spec. When done, the why moves to
+**Status: approved on 2026-11-07, tasks and task 2's mockup too; the contract moved to
+`ce7749236717b163`, so task 3 and the acceptance check wait on the engine's hand-off for
+`f82426fb0a099676` to `ce7749236717b163`.** It waits on no other spec. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -48,7 +49,7 @@ Approved 2026-11-07. Each task's "passes if…" is written when it starts.
 3. **The drift check reads the new test's words as fixture keys:** `esc`
    (tests/unit/test_tui_leaving_mid_draw.py:55, `if how == "esc":`) and `statements` (:197,
    `{"accounts": screen._accounts, "statements": None}`); the check passes again with neither
-   read as a key. Waits on the owner's answer to the moved contract version.
+   read as a key. Waits on the engine's hand-off.
 
 ## Found along the way
 
