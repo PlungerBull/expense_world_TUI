@@ -17,6 +17,7 @@ from expense.formatting import (
     currencies_phrase,
     format_aggregate,
     format_cents,
+    format_cents_with_plus,
     format_hashtag_cell,
     format_month,
     has_aggregate,
@@ -75,6 +76,26 @@ from tests.unit.helpers import ENGINE_URL as BASE
 )
 def test_format_cents(value, expected):
     assert format_cents(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (10**25, "100,000,000,000,000,000,000,000.00"),
+        (-(10**25) - 7, "-100,000,000,000,000,000,000,000.07"),
+        (99999999999 + 1, "1,000,000,000.00"),
+    ],
+)
+def test_format_cents_prints_a_total_past_the_engines_bound(value, expected):
+    """The bound is on what is sent, never on what the engine answers
+    (contract: "Money amounts"): a total of any size prints exactly, and the signed form too."""
+    assert format_cents(value) == expected
+    assert format_cents_with_plus(value) == (expected if value < 0 else "+" + expected)
+
+
+def test_format_cents_prints_a_4000_digit_total():
+    """A 4,000-digit total, far past any the engine sends, prints without raising."""
+    assert len(format_cents(10**4000)) > 4000
 
 
 def test_format_cents_non_int_falls_back_to_str():

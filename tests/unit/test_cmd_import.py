@@ -18,6 +18,7 @@ from typer.testing import CliRunner
 from expense import config as config_module
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
+    IMPORT_ROW_AMOUNT_WORDS,
     account_with_currencies,
     error_body,
     real_cli_app,
@@ -595,6 +596,26 @@ Refused — nothing written. 4 rows:
 
 Fix the sheet and run it again.
 """
+
+
+@respx.mock
+def test_a_row_past_the_largest_amount_is_listed_in_the_engines_words(sheet):
+    """A row past the largest amount is a row refusal like any other: `OUT_OF_RANGE` on its
+    key, the message beginning `Row <row>:` (contract: POST /v1/transactions/import-sheet,
+    "Rejected up front with `422`"). The text after it is a stand-in."""
+    words = IMPORT_ROW_AMOUNT_WORDS.format(row=31)
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"rows.31.amount_cents": words},
+        {"rows.31.amount_cents": "OUT_OF_RANGE"},
+    )
+    _engine(httpx.Response(422, json=refusal))
+    result = _run()
+    assert result.exit_code == 1
+    assert result.stdout == (
+        f"Refused — nothing written. 1 row:\n  {words}\n\nFix the sheet and run it again.\n"
+    )
 
 
 @pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)

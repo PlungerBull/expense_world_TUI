@@ -2,6 +2,7 @@
 the account, each optional, one `POST /statements`, and the engine's refusals landing on
 the currency's line."""
 
+import pytest
 from textual.widgets import Input, Label, Static
 
 from expense.errors import EngineError, format_error
@@ -369,5 +370,31 @@ def test_an_unreadable_balance_names_its_currency_on_a_two_currency_form(fake_cl
             "Begin balance USD: a signed decimal, e.g. 9580.00",
             "End balance USD: a signed decimal, e.g. 9460.00",
         ]
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("typed", ["1e5000", "inf", "nan"])
+def test_an_exponent_inf_or_nan_balance_is_unreadable(fake_client, typed):
+    async def scenario(pilot, app):
+        screen = _visa()
+        await app.push_screen(screen)
+        notes: list[str] = []
+        screen.notify = lambda message, **kw: notes.append(str(message))
+        _head(screen)
+        _enter(screen, typed)
+        assert screen._key == "begin:PEN"
+        assert notes == ["Begin balance PEN: a signed decimal, e.g. 9580.00"]
+
+    run_app(scenario)
+
+
+def test_a_plain_balance_past_the_bound_is_kept_to_be_sent(fake_client):
+    async def scenario(pilot, app):
+        screen = _visa()
+        await app.push_screen(screen)
+        _head(screen)
+        _enter(screen, "9" * 25)
+        assert screen._values["begin:PEN"] == int("9" * 25) * 100
 
     run_app(scenario)

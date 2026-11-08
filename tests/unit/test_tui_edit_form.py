@@ -39,12 +39,15 @@ from expense.tui.screens.edit_form import (
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
+    AMOUNT_BELOW_RANGE_WORDS,
+    AMOUNT_OUT_OF_RANGE_WORDS,
     ENGINE_CURRENCIES,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
     LOCK_MESSAGES,
     LOCKED_WORDS,
     account_with_currencies,
+    amount_refusal,
     edit_limits,
     hashtag_refusal,
     held_currency,
@@ -511,6 +514,63 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused(fake_client, monkeypatc
     assert notes[0] == ("Amount: a signed decimal, e.g. -99.92", "error")
     assert [m for m, sev in notes if sev == "error"] == [notes[0][0]]  # once, then saved
     assert fake_client.calls == [("PUT", PATH, {"parts": [{"id": "tx1", "amount_cents": 1385320}]})]
+
+
+@pytest.mark.parametrize("typed", ["1e5000", "-1e5", "inf", "-nan", "1_000"])
+def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(
+    fake_client, monkeypatch, typed
+):
+    """An exponent, `inf`, `nan` or a digit separator is unreadable on AMOUNT: the
+    field's note, the cursor stays, nothing is sent."""
+    _patch(monkeypatch)
+    notes: list[tuple[str, object]] = []
+
+    async def steps(screen, pilot, app):
+        screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
+        _on(screen, "0.amount")
+        _enter(screen, typed)
+        assert screen._key == "0.amount"
+        assert screen._parts[0].amount_cents == -4250
+
+    _open(scenario_steps=steps)
+    assert notes == [("Amount: a signed decimal, e.g. -99.92", "error")]
+    assert fake_client.calls == []
+
+
+@pytest.mark.parametrize(
+    ("typed", "cents", "words"),
+    [
+        ("-999999999.99", -99999999999, None),
+        ("1000000000.00", 100000000000, AMOUNT_OUT_OF_RANGE_WORDS),
+        ("-1000000000.00", -100000000000, AMOUNT_BELOW_RANGE_WORDS),
+        ("-" + "9" * 25, -int("9" * 25) * 100, AMOUNT_BELOW_RANGE_WORDS),
+        ("1" + "0" * 17, 10**19, AMOUNT_OUT_OF_RANGE_WORDS),
+    ],
+)
+def test_a_plain_amount_of_any_size_is_sent_and_the_engines_refusal_shows(
+    fake_client, monkeypatch, typed, cents, words
+):
+    """The app adds no bound: one cent past the engine's, a 25-digit amount and 10**19 cents
+    are all sent as whole cents, and the refusal shows in the engine's words
+    on the amount's line, the form staying (contract: "Money amounts")."""
+    _patch(monkeypatch)
+    if words:
+        fake_client.errors["PUT"] = amount_refusal("parts.0.amount_cents", below=cents < 0)
+
+    async def steps(screen, pilot, app):
+        _on(screen, "0.amount")
+        _enter(screen, typed)
+        screen.action_submit()
+        if words:
+            await wait_for(pilot, lambda: screen._refusal is not None and not screen._submitting)
+            return _summary(screen, width=120)
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    summary = _open(scenario_steps=steps)
+    assert fake_client.calls == [("PUT", PATH, {"parts": [{"id": "tx1", "amount_cents": cents}]})]
+    if words:
+        assert words in summary
+        assert summary.rstrip().endswith("Nothing was saved.")
 
 
 def test_an_emptied_title_is_refused_and_stays(fake_client, monkeypatch):

@@ -35,6 +35,7 @@ from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_BANK_NAMES,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
+    IMPORT_ROW_AMOUNT_WORDS,
     account_with_currencies,
     held_currency,
     import_answer,
@@ -1156,6 +1157,40 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
         assert len(fake_client.posts) == 1  # the refused dry run, nothing after
         await pilot.press("escape")
         await _on(pilot, app, LogBarScreen, "esc Back did not return to the bar")
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_row_past_the_largest_amount_shows_the_engines_words_on_its_row(
+    fake_client, monkeypatch, tmp_path
+):
+    """A row whose amount is past the bound, whole cents or not, is refused up front
+    (`OUT_OF_RANGE`), and the message the engine sends reads on its row, as it begins
+    `Row <row>:` (contract: POST /v1/transactions/import, "Rejected up front with `422`").
+    The text after it is a stand-in."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    words = IMPORT_ROW_AMOUNT_WORDS.format(row=12)
+    fake_client.errors["POST"] = EngineError(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"rows.12.amount_cents": words},
+        422,
+        {},
+        {"rows.12.amount_cents": "OUT_OF_RANGE"},
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP
+        preview = await _refused(pilot, app)
+        assert _lines_shown(preview)[1:] == [
+            "VALIDATION_ERROR — Import validation failed.",
+            f"! {words}",
+            "Nothing was written.",
+        ]
 
     run_app(scenario, size=(120, 40))
 

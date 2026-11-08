@@ -69,8 +69,11 @@ dot for its decimals (`-99.92`, `13853.20`); every comma is dropped as a thousan
 its own note and the cursor stays (the box stays open), and on the LOG bar `↵` refuses the
 line with a note naming the first signed number it couldn't read, as typed:
 `can't read -13.853,20 as an amount`. A line with no signed number at all is refused with
-`the line has no amount — a number needs a sign to be one`. `nan`, `inf`, `Infinity`
-and an amount whose cents overflow (`1e999999`) are unreadable too. A spreadsheet's cells
+`the line has no amount — a number needs a sign to be one`. Only a plain number is read:
+an exponent (`1e5`, `-1e5000`), `nan`, `inf` and `Infinity` are unreadable too, and nothing is
+sent. A plain number is read at any size and sent as whole cents; the app has no bound, so the engine's
+`OUT_OF_RANGE` shows in its words on the line or file row
+(contract: "Money amounts"). A spreadsheet's cells
 are the engine's to read: a bank download's (§2 "The import door") and the owner's sheet's
 ([commands.md](commands.md) "`expense import sheet`").
 

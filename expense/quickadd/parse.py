@@ -36,7 +36,11 @@ from expense.quickadd.when import parse_date
 # A sign only starts an amount at a token boundary, which is what keeps
 # `coca-cola`, `T-800` and `covid-19` titles while `-30` is money. The `$` is
 # decoration the account already settles, so `-$1800` is `-1800`.
-_AMOUNT = re.compile(r"^[+-]\$?[0-9][0-9,.]*$")
+# A signed exponent form (`-1e5`) or `inf`/`nan` is amount-shaped too, so it is
+# reported as an amount `parse_amount` cannot read, never left in the title.
+_AMOUNT = re.compile(
+    r"^[+-]\$?(?:[0-9][0-9,.]*(?:e[+-]?[0-9]+)?|inf(?:inity)?|nan)$", re.IGNORECASE
+)
 _SIGILS = ("$", "%", "@", "#")
 # A currency code as the engine takes one: three letters. What a `%` word that
 # names none of the account's currencies may still be, to be sent as typed.

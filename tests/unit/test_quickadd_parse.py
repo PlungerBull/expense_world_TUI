@@ -579,3 +579,54 @@ def test_the_payload_carries_the_account_and_only_a_typed_currency():
         ("v1", "PEN"),
     ]
     assert "currency_code" not in sent[1]  # left out, never a null
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1e5000",
+        "1e5",
+        "-1E+3",
+        "inf",
+        "-nan",
+        "Infinity",
+        "1_000",
+        "١٢٣",
+        "0x10",
+        "--5",
+        "1.2.3",
+        ".",
+        "+",
+    ],
+)
+def test_only_a_plain_number_is_read(text):
+    assert parse_amount(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "cents"),
+    [
+        ("999999999.99", 99999999999),
+        ("1000000000.00", 100000000000),
+        ("9" * 25, int("9" * 25) * 100),
+        ("-" + "9" * 25 + ".5", -int("9" * 25 + "50")),
+        ("+.5", 50),
+        ("5.", 500),
+        ("1,000,000,000", 100000000000),
+    ],
+)
+def test_a_plain_number_is_read_at_any_size(text, cents):
+    """No bound of the app's own: the engine owns it (contract: "Money amounts")."""
+    assert parse_amount(text) == cents
+
+
+def test_a_number_too_long_for_python_to_print_is_unreadable_not_a_crash():
+    assert parse_amount("9" * 5000) is None
+
+
+@pytest.mark.parametrize("cents", [10**25, -(10**30) - 7, 10**4290, -5, 5, 0, 250])
+def test_amount_to_text_is_exact_at_any_size(cents):
+    """Integer arithmetic: a large figure never turns to exponent form, so it reads back."""
+    text = amount_to_text(cents)
+    assert "E" not in text and "e" not in text
+    assert parse_amount(text) == cents

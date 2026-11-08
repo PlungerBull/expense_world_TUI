@@ -40,9 +40,11 @@ from expense.tui.screens.log_bar import (
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
 from tests.unit.helpers import (
+    AMOUNT_BELOW_RANGE_WORDS,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
     account_with_currencies,
+    amount_refusal,
     cursor_page,
     hashtag_refusal,
     held_currency,
@@ -2617,3 +2619,59 @@ def test_the_staged_list_cuts_the_title_and_keeps_every_other_cell_whole(width, 
         assert "…" not in whole[whole.index(cells[1]) :]  # amount through category
         for cell in cells:
             assert cell in line
+
+
+@pytest.mark.parametrize("amount", ["-1e5000", "-1e5", "+1E+3", "-inf", "-nan", "-Infinity"])
+def test_a_signed_exponent_inf_or_nan_is_refused_in_place_and_nothing_is_sent(
+    fake_client, monkeypatch, amount
+):
+    """`-1e5000` is amount-shaped but not a plain number: the same note as any
+    unreadable amount, the line kept in the bar, nothing staged or sent."""
+    _patch(monkeypatch)
+    line = f"tottus {amount} $BCP"
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, line)
+        screen.on_input_submitted()
+        assert screen._staged == []
+        assert _bar(screen).value == line
+        out = _text(screen._suggest_renderable(), width=160)
+        assert f"can't read {amount} as an amount" in out
+        assert "needs a sign" not in out
+        assert fake_client.posts == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize(
+    ("amount", "cents"),
+    [
+        ("-1000000000.00", -100000000000),
+        ("-" + "9" * 25, -int("9" * 25) * 100),
+        ("-" + "1" + "0" * 17, -(10**19)),
+    ],
+)
+def test_a_plain_amount_past_the_bound_is_sent_and_refused_in_the_engines_words(
+    fake_client, monkeypatch, amount, cents
+):
+    """The app adds no bound: the amount goes as whole cents, and the engine's refusal reads in its
+    words on its row (contract: "Money amounts")."""
+    _patch(monkeypatch)
+    err = amount_refusal("transactions.0.amount_cents", below=True)
+    words = AMOUNT_BELOW_RANGE_WORDS
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, f"tottus {amount} $BCP")
+        assert screen._staged[0].parsed.amount_cents == cents
+        _script(fake_client, [err])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+        out = _text(save_errors(screen._staged), width=200)
+        assert f"amount_cents: {words} row 1" in out
+        assert [e.saved for e in screen._staged] == [False]
+
+    run_app(scenario)
+    [(_path, body)] = fake_client.posts
+    assert [row["amount_cents"] for row in body["transactions"]] == [cents]

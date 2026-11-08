@@ -79,17 +79,14 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-6. **The largest amount.** An amount the app cannot read as a plain number (an exponent such as
-   `1e5000`) is unreadable before sending; anything else is sent, and `OUT_OF_RANGE` shows in the
-   engine's words on its line or file row; no formatter crashes on a huge amount; the Backlog's
-   "A huge amount reads, then crashes what prints it" closes.
 7. **The preview lists the lines the close will flag,** as question 3 is answered, with each
    currency's `⚠` notes under the balances and the currencies the paper does not cover; the
    lines are read once by their ids, as the lines taken out are.
 8. **The live contract tests:** `GET /currencies`; a currency left out, single and batch, and
    `REQUIRED` on a two-currency account; an account-only move into another currency; a currency
-   removal's keys; the bound one cent past and
-   `1e5000`, typed and in each file; the dry run's notes and `not_covered`; `card-soles-only`
+   removal's keys; a whole number one cent past the bound
+   (`OUT_OF_RANGE`, whatever its size) and `1e5000` sent to the engine directly, since the app
+   never sends it, and a cell past the bound in each file; the dry run's notes and `not_covered`; `card-soles-only`
    left untested and named in the reply (no practice account can take it); a zero-amount `SALDO INICIAL` dated before the opening balance (the
    Backlog's item closes).
 
@@ -133,3 +130,7 @@ Not built in this spec; sorted when it is done.
 - **For decisions.md at the sweep:** the suite marks its bank accounts by a number starting `9`
   (the cleaner's rule), since the engine builds the name; sample uploads go to the seed's
   `BCP-0000` by its id, since a second `…0000` account cannot exist.
+- **Two test names still say "the engine's words"** (`tests/unit/test_cmd_import.py:602`,
+  `tests/unit/test_tui_bank_import.py:1164`), though the row text after `Row <row>:` is a stand-in.
+- **No list renders an engine-sent total past the largest amount** in a test; only the
+  formatter and a typed opening balance are proven.

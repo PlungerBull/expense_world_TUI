@@ -1421,3 +1421,41 @@ def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
         assert screen.query_one("#bar", Input).value == bar  # what was typed
 
     _form(EFECTIVO, body)
+
+
+@pytest.mark.parametrize("typed", ["1e5000", "1e5", "inf", "nan", "-Infinity"])
+def test_an_exponent_inf_or_nan_is_unreadable_and_sends_nothing(fake_client, notes, typed):
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", typed)
+        assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
+
+    _form(EFECTIVO, body)
+    assert [m for m, _ in notes] == ["PEN opening: a signed decimal, e.g. -350.00"]
+    assert fake_client.calls == []
+
+
+@pytest.mark.parametrize(
+    ("typed", "cents"),
+    [("-1000000000.00", -100000000000), ("9" * 25, int("9" * 25) * 100)],
+)
+def test_a_plain_amount_past_the_bound_is_kept_to_be_sent(fake_client, notes, typed, cents):
+    """The form adds no bound: the engine refuses what is past its own."""
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", typed)
+        assert screen._values["opening:PEN"] == cents
+
+    _form(EFECTIVO, body)
+    assert notes == []
+
+
+def test_a_huge_amount_typed_renders_in_the_summary(fake_client, notes):
+    """The summary prints the typed 25-digit amount (and a negative one) without raising."""
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "9" * 25)
+        assert "9,999,999,999,999,999,999,999,999.00" in _summary(screen)
+        _type(screen, "opening:PEN", "-" + "9" * 25)
+        assert "-9,999,999,999,999,999,999,999,999.00" in _summary(screen)
+
+    _form(EFECTIVO, body)
