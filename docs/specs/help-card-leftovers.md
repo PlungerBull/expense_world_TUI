@@ -156,7 +156,11 @@ you see changes.
 Approved 2026-11-07. Each task's "passes if…" is written when it starts. The clean-up runs
 first.
 
-All done; the acceptance check and the doc sweep follow.
+9. **The drift check passes again** (from the acceptance check, 2026-11-07): the parts-row
+   income test's arguments `{"editing": 0}` and `{"flagged": …}`
+   ([test_tui_edit_form_parts.py](../../tests/unit/test_tui_edit_form_parts.py) ~708) read as
+   fixture keys; and the footer guard's module docstring still opens with "A list screen's
+   footer".
 
 ## Found along the way
 
@@ -176,3 +180,10 @@ Not built in this spec; drafted into a new spec when it is done.
   work after `await super()._show()`, query widgets after an await. `esc` or a quit during that
   mount raises `NoMatches` in the worker and the app crashes. The fix is one shared re-check
   after the await, with its own test.
+- **An empty ledger's `?` card lists page keys that do nothing.** With no rows ("no filter · 0
+  of 0 loaded"), the ledger's card lists `pgdn Load the next 10 rows under these`, `pgdn Next
+  page` and `pgup Previous page`, at 80 and 140 columns; none works there and the footer shows
+  none ([decisions.md](../decisions.md) "The `?` card shows whole and lists only keys that
+  work").
+- **With no bank accounts, the Statements account list's card lists `⏎ Its statements` and
+  `↓ Down (↑ up)`** with no row to act on.
