@@ -22,6 +22,8 @@ loop skips it until it can run.
    tasks 1–2 done, task 3 and its acceptance check left. Its acceptance check waits on task 1 of
    [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), which puts the
    live suite on built names.
+2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
+   approved 2026-11-08. Task 1 runs first in the queue, before the empty lists' acceptance check.
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
 The engine already serves `a7dd5e3ed5da676f`; its four later versions (a statement upload or
@@ -45,18 +47,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the two catch-up specs
-Asked 2026-11-08 · Blocks: both specs below
+### Removing a card number added by mistake
+Asked 2026-11-08 · Blocks: [accounts carry their numbers](specs/accounts-carry-their-numbers.md) and its approval
 
-Each has its questions in its "Decided" table, a mockup per question, and its tasks drafted on
-the recommended answers. One reply answers them and approves both:
-
-1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md),
-   questions 2–3, [mockup](mockups/expense-world-moves-and-preview.html).
-2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md),
-   questions 9–12, [mockup](mockups/expense-world-account-numbers.html).
-
-**Recommended:** A on every question (`1A 2A` and `1A 2A 3A 5A`).
+Question 10 in its "Decided" table, pane 2 of [the mockup](mockups/expense-world-account-numbers.html):
+removing is only for undoing a number typed by mistake; a lost card is a replacement, and the
+old number stays in its history. The engine refuses a removal that would change the number of a
+month already closed.
+- **A.** Emptying `last 4` and saving asks first; only `y` removes it.
+- **B.** No removal in the app; a wrong number is only fixed by typing over it.
+**Recommended:** A, because a replacement added by mistake would otherwise stay in the history
+for good.
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.

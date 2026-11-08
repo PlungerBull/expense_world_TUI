@@ -6,9 +6,9 @@ account form (`edbafcc162850075`, `14fb4741b9db37b8`). It runs after
 [catch-up-to-1002f105c6bacdf1.md](catch-up-to-1002f105c6bacdf1.md).
 
 **Status: approved on 2026-11-03; redrawn on 2026-11-08 from the engine's hand-off, which built
-the name and declined the alias, as the owner accepted. Its four new questions and their mockup,
-[expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html), wait for the
-owner's approval. Cash waits on the engine ask "Every user holds one cash account, named
+the name and declined the alias, as the owner accepted. Its new questions 9, 11 and 12 were answered on 2026-11-08 on the mockup
+[expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html); question 10
+and the approval wait for the owner. Cash waits on the engine ask "Every user holds one cash account, named
 `Efectivo`, with no bank and no number" and joins with its hand-off; the sheet import's names
 join [the official import](before-the-official-import.md).** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
@@ -83,10 +83,10 @@ at all.
 | 6 | A PDF sent to an account with no number yet? | Refused until the account has its number, as an account with no statement code is today (2026-11-03). |
 | 7 | A replacement whose start day falls inside a month already closed from a PDF? | Refused, naming that month, so a closed month's paper always matches its account's number (2026-11-03). |
 | 8 | The mockup's first picks | 1A the bank picked from the engine's list · 3A a replacement is `new card` and `new card from` on the Edit form, older numbers read-only as `cards before` · 4A Manage ▸ Accounts keeps its columns, Name the name shown · 5A the LOG bar's `$` matches the name shown, either word · a refused PDF stays on the account question (2026-11-03). |
-| 9 | The New form, mockup pane 1? | Waiting. Recommended **A**: New takes each currency's opening balance, saved with the account in one write. B leaves them to Edit. |
+| 9 | The New form, mockup pane 1? | A: New takes each currency's opening balance, saved with the account in one write (2026-11-08). |
 | 10 | Removing a number, mockup pane 2? | Waiting. Recommended **A**: emptying `last 4` and saving asks `Remove card 5678 from BCP-5678?`, only `y` removes, and the number before it is current again. B offers no removal. |
-| 11 | `t`, mockup pane 3? | Waiting. Recommended **A**: a short question asking the person's name, or the bank and an optional last 4. B opens the Edit form, turned. |
-| 12 | The LOG bar's `$` and a card's digits, mockup pane 5? | Waiting. Recommended **A**: `$` and exactly four digits that are one of the cards' last 4 find that card; any other digits after `$` stay money. B keeps digits after `$` as money always. |
+| 11 | `t`, mockup pane 3? | A: a short question asking the person's name, or the bank and an optional last 4 (2026-11-08). |
+| 12 | The LOG bar's `$` and a card's digits, mockup pane 5? | A: `$` and exactly four digits that are one of the cards' last 4 find that card; any other digits after `$` stay money (2026-11-08). |
 
 ---
 

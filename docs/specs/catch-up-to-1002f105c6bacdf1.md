@@ -5,7 +5,7 @@ hand-off of 2026-11-08 but an account's bank, numbers and built name, which
 [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) takes. The engine's four later
 versions (`cd6574eee1dd5ec0` to `a7dd5e3ed5da676f`) go to the next catch-up.
 
-**Status: drafted 2026-11-08 for the owner's approval, with its two questions and their mockup,
+**Status: approved on 2026-11-08, its questions answered on the mockup
 [expense-world-moves-and-preview.html](../mockups/expense-world-moves-and-preview.html).** When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -69,14 +69,14 @@ engine's dry run now names the lines the close will flag.
 | # | Question | Answer (owner) |
 |---|---|---|
 | 1 | Show the lines the close will flag in the preview? | A: yes, before you confirm; the engine names them on the dry run (2026-11-05). |
-| 2 | A line moved to a soles-only account, mockup pane 1? | Waiting. Recommended **A**: the Edit form's currency line reads `PEN · was USD · not converted`, and after `b` the note counts the rows whose currency changed. B asks first. |
-| 3 | The preview's flagged lines, mockup pane 2? | Waiting. Recommended **A**: a `⚑ Will be flagged` block under the lines taken out, each line under the table's columns, its count beside the others. B shows a count only. |
+| 2 | A line moved to a soles-only account, mockup pane 1? | A: the Edit form's currency line reads `PEN · was USD · not converted`, and after `b` the note counts the rows whose currency changed, asking nothing (2026-11-08). |
+| 3 | The preview's flagged lines, mockup pane 2? | A: a `⚑ Will be flagged` block under the lines taken out, each line under the table's columns, its count beside the others (2026-11-08). |
 
 ---
 
 ## Tasks
 
-Drafted on the recommended answers. Each reads the live contract on the practice engine before
+Approved. Each reads the live contract on the practice engine before
 building.
 
 1. **The live suite runs on built names.** The contract suite's accounts are made with a bank and
