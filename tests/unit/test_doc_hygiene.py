@@ -36,10 +36,10 @@ _PROVENANCE = [
 # Each doc's ceiling: its word count (`wc -w`) rounded up to the next 100, plus about 10%.
 BUDGETS = {
     "AGENTS.md": 110,
-    "CLAUDE.md": 4900,
+    "CLAUDE.md": 3400,
     "README.md": 330,
     "docs/commands.md": 2530,
-    "docs/decisions.md": 21200,
+    "docs/decisions.md": 18000,
     "docs/file-import-plan.md": 220,
     "docs/runtime.md": 3500,
     "docs/todo.md": 2970,
