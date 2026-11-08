@@ -44,12 +44,7 @@ any moment leaves it, with no error; nothing else you see changes.
 
 ## Tasks
 
-Approved 2026-11-07. Each task's "passes if…" is written when it starts.
-
-3. **The drift check reads the new test's words as fixture keys:** `esc`
-   (tests/unit/test_tui_leaving_mid_draw.py:55, `if how == "esc":`) and `statements` (:197,
-   `{"accounts": screen._accounts, "statements": None}`); the check passes again with neither
-   read as a key. Waits on the engine's hand-off.
+Approved 2026-11-07. All done; the acceptance check is next.
 
 ## Found along the way
 

@@ -52,10 +52,8 @@ class Leave:
         async def leaving(awaitable):
             result = await awaitable
             self.left = True
-            if how == "esc":
-                app.pop_screen()
-            else:
-                app.exit()
+            leave = app.exit if how == "quit" else app.pop_screen
+            leave()
             for _ in range(1000):  # yields only: no real time passes
                 if not (self.screen.is_attached and not self.screen._pruning):
                     break
@@ -194,6 +192,6 @@ def test_an_error_while_the_screen_is_showing_is_not_swallowed(monkeypatch):
 
         monkeypatch.setattr(screen, "_set_crumb", boom)
         with pytest.raises(RuntimeError, match="the crumb is gone"):
-            await screen._show({"accounts": screen._accounts, "statements": None})
+            await screen._show(dict(accounts=screen._accounts, statements=None))
 
     run_app(scenario)

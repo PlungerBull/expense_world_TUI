@@ -19,7 +19,7 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
-   tasks 1–2 done, task 3 and its acceptance check left. Its acceptance check can run now that
+   every task done; its acceptance check left. Its acceptance check can run now that
    [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), has put the
    live suite on built names.
 2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
