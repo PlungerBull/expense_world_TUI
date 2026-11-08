@@ -49,6 +49,7 @@ from tests.contract.conftest import (
     assert_refusals,
     read_signed,
     refused,
+    refused_keeping,
     replace_parts,
 )
 
@@ -350,13 +351,12 @@ def test_moving_a_row_onto_an_archived_account_stays_invalid_reference(client, s
     active_id = scratch.account()
     tx_id = scratch.row(active_id, DAY, title="active-row")["id"]
     _archive(client, scratch, archived_id)
-    before = read_signed(client, tx_id)
 
-    err = refused(
-        lambda: client.put(f"/transactions/{tx_id}", json_body={"account_id": archived_id})
+    err = refused_keeping(
+        lambda: read_signed(client, tx_id),
+        lambda: client.put(f"/transactions/{tx_id}", json_body={"account_id": archived_id}),
     )
     assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
-    assert read_signed(client, tx_id) == before
 
 
 #: The colour a create gives when `color` is left out (contract: "Colour format").

@@ -39,6 +39,7 @@ conftest.py.
 """
 
 from datetime import date
+from functools import partial
 from uuid import uuid4
 
 from tests.contract.conftest import (
@@ -49,6 +50,7 @@ from tests.contract.conftest import (
     card_paper,
     free_statement_codes,
     refused,
+    refused_keeping,
     savings_paper,
     send_statement,
 )
@@ -100,11 +102,10 @@ def _counts(client, statement_id: str) -> tuple[int | None, int | None]:
 def _not_ordered(client, statement_id: str) -> str:
     """Completing is refused as not ordered, and the statement stays a draft at its
     `version`; the field's text, which names what is wrong."""
-    before = client.get(f"/statements/{statement_id}")
-    err = refused(lambda: client.post(f"/statements/{statement_id}/complete"))
+    read = partial(client.get, f"/statements/{statement_id}")
+    err = refused_keeping(read, lambda: client.post(f"/statements/{statement_id}/complete"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
-    after = client.get(f"/statements/{statement_id}")
-    assert (after["status"], after["version"]) == (1, before["version"])
+    assert read()["status"] == 1
     return err.fields["statement_order"]
 
 

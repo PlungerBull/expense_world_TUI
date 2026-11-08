@@ -29,6 +29,7 @@ from tests.contract.conftest import (
     assert_refusals,
     balance_of,
     refused,
+    refused_keeping,
     statement_codes,
 )
 
@@ -243,20 +244,19 @@ def test_a_put_naming_one_currency_keeps_the_others(client, scratch):
     assert balance_of(put, "PEN") == {**_entry("PEN", 10000, None), "difference_cents": None}
     assert balance_of(put, "USD") == {**_entry("USD", 5000, 4000), "difference_cents": -1000}
 
-    before = client.get(f"/statements/{sid}")
     assert_refusal(
-        refused(
+        refused_keeping(
+            lambda: client.get(f"/statements/{sid}"),
             lambda: client.put(
                 f"/statements/{sid}",
                 json_body={"balances": [{"currency_code": "USD", "beginning_balance_cents": None}]},
-            )
+            ),
         ),
         422,
         "VALIDATION_ERROR",
         "balances.0.beginning_balance_cents",
         "NOT_NULL",
     )
-    assert client.get(f"/statements/{sid}") == before
 
 
 def test_a_balances_list_names_each_currency_once_and_only_the_accounts(client, scratch):

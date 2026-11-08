@@ -114,6 +114,7 @@ from tests.contract.conftest import (
     read_signed,
     reason_on,
     refused,
+    refused_keeping,
     replace_parts,
     send_download,
 )
@@ -1103,14 +1104,12 @@ def test_the_edit_form_splits_then_re_splits_through_its_own_reads(client, targe
     # part 1 and part 2, and nothing changes.
     scratch.assign(added, statement)
     client.post(f"/statements/{statement}/complete")
-    before = line_parts(line)
     form = _edit_form(target, line)
     form._parts = [
         replace(p, amount_cents=a) for p, a in zip(form._parts, (-6000, -3000), strict=True)
     ]
-    err = refused(lambda: _form_save(client, form))
+    err = refused_keeping(lambda: line_parts(line), lambda: _form_save(client, form))
     assert flagged_parts(err) == frozenset({0, 1})
-    assert line_parts(line) == before
 
 
 TOTTUS = "Tottus Jockey Plaza"
