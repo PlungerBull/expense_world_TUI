@@ -180,7 +180,7 @@ Decisions whose why lives elsewhere:
 
 ## Contract tests verify against a disposable database, and refuse the real ledger (2026-08-16)
 
-**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [runtime.md](runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides). Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
+**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [runtime.md](runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides).
 
 **Rejected.** *A warning banner instead of refusing* — useless when nobody is watching, which is when it matters. *A separate user in the real database* — the junk still accumulates in production. *The drift check inside `pytest tests/unit`* — the unit suite blocks sockets on purpose.
 
@@ -461,9 +461,9 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## The practice engine serves only the engine's shipped code, and only a listed version is recorded (2026-10-28)
 
-**Context.** The engine coders work in the same checkout the practice engine runs from. A practice engine started from that working tree serves their unfinished work, including contract versions that never ship, and fails to restart while the checkout is mid-edit.
+**Context.** The engine coders work in the same checkout the practice engine runs from. Started from that tree, it serves their unfinished work, unshipped versions included, and fails to restart mid-edit.
 
-**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). The drift script records a contract version only when it is the first entry of the served contract's own change log, the entry the contract says is always the current version, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract"); a missing or malformed log records nothing ([runtime.md](runtime.md) "Contract version").
+**Decision.** The practice engine is started only by the engine's own client practice launcher, which exports the engine's last commit and runs it from that export ([runtime.md](runtime.md) "Working against the live engine"). The drift script records a contract version only when it heads the served change log, since an engine running unreleased work serves versions the log never lists (contract: "Base Conventions", "The contract") ([runtime.md](runtime.md) "Contract version").
 
 **Rejected.** *Starting uvicorn from the checkout with its own Python* — it serves whatever the checkout holds, half-built work included. *Trusting the served version alone* — a draft looks like any other version until it never ships.
 
@@ -906,8 +906,8 @@ balance before the PDF there is nothing to compare them against.
 **Decision.** (1) **The unit suite's fake engine answers a write in the engine's shape**,
 through answer builders marked with the endpoint they stand for, one builder per endpoint, which
 the drift script checks both ways against that endpoint's own answer: no required field left out,
-no field it lacks, a field a test passes by name included ([runtime.md](runtime.md) "Fixture
-drift"). (2) **Every request body a unit test sends is
+no field it lacks, a field a test passes by name included, to a shared builder or to a test
+file's own `**fields` one ([runtime.md](runtime.md) "Fixture drift"). (2) **Every request body a unit test sends is
 checked for the fields the engine sets itself**, which it refuses in every body. (3) **Every live
 contract test fails when it leaves an account, category or hashtag it made** ([runtime.md](runtime.md)
 "Leftovers"). (4) **Engine-side probes use a practice user of their own**, never the one this
@@ -923,6 +923,7 @@ statement's sum, so typing the paper's starting figure too counts it twice.
 
 **Rejected.** *Checking every fixture against the one endpoint it mocks* — the fixtures are not
 mapped to endpoints; marking the builders that stand for an answer checks those exactly.
+*Reading every local catch-all* — a widget's `**kwargs` would read as engine fields.
 *Cleaning the practice user before each run* — it hides which test leaks. *Every engine-side
 probe remembering to delete what it made* — a second practice user cannot leak into this one at
 all. *A one-line hint, "0.00 on the first one"*, and *calling the paper's figure the "starting
@@ -1307,11 +1308,12 @@ so tightening alone still cuts its last key below that.
 ## The `?` card shows whole and lists only keys that work (2026-11-07)
 
 **Decision.** A card taller than its room spreads out on a wide terminal, else scrolls; one
-that fits keeps its layout. It lists each key once, and a key a screen names in
-`CARD_FOLLOWS_CHECK` only while it works ([tui.md](tui.md) §4).
+that fits keeps its layout and covers what is behind it to its frame. It lists each key once,
+and a key a screen names in `CARD_FOLLOWS_CHECK` only while it works ([tui.md](tui.md) §4).
 
 **Why.** A footer too narrow leaves keys out for `?` to list, so a cut card left a key shown
-nowhere. A card that fits keeps the look the user knows; a row that does nothing lies.
+nowhere. A card that fits keeps the look the user knows; a row that does nothing lies; a
+screen peeking beside it looks half-drawn.
 
 **Rejected.** *Scrolling at every size* — a wide terminal has room to show it whole. *Spreading
 whenever the terminal is wide* — a card that fits would change shape. *Off keys listed, dimmed*

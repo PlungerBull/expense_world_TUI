@@ -31,6 +31,10 @@ Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
 
 To approve, every question answered: [the official import](specs/before-the-official-import.md).
 
+New, no question open, its tasks to approve: [empty lists' `?` cards, and leaving a screen
+while it draws](specs/empty-lists-and-leaving-mid-draw.md), what the `?` card's leftovers found:
+two cards listing keys that do nothing on an empty list, and a rare crash on `esc`.
+
 Answered, waiting on its engine ask (handed over 2026-11-07) and a mockup of the preview:
 [a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
 
@@ -69,6 +73,18 @@ CLAUDE.md "Specs and tasks".
   ask). The format is used both for amounts typed and for every amount shown.
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
+- **The drift check reads a nested union of lists the old way.** `_list_items` in
+  [check_fixture_drift.py](../scripts/check_fixture_drift.py) reads `anyOf [A[], anyOf [B[],
+  C[]]]` as A's items alone, where `_object_schema` reads nested unions whole. No marked answer
+  has such a shape today. Nothing you see changes.
+- **No unit test pins a union that contains itself.** `_alternatives` in
+  [check_fixture_drift.py](../scripts/check_fixture_drift.py) drops a `$ref` already seen on its
+  path, so such a union ends; nothing in
+  [test_fixture_drift_script.py](../tests/unit/test_fixture_drift_script.py) proves it.
+- **The theme's rule comment repeats tui.md "Amounts" and gets one detail wrong.** The comment
+  in [theme.py](../expense/tui/theme.py) says `AMOUNT_RULE` covers dashboard totals, but Home's
+  inflow and outflow rows are plain; only the net uses it. Cut it to a pointer at
+  [tui.md](tui.md) "Amounts", its one home. Nothing you see changes.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and

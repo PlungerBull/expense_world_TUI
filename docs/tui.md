@@ -270,8 +270,8 @@ account alone (`(unnamed)` for an account with no name, the account's short id f
 read lacks). A ledger opened on an account's currency line names both in the crumb, the
 legend and the empty-state text, `Visa Inventada · USD` (`currency_label`).
 
-`space` selects rows (a `●` in the title gutter, the row in the accent), `a` selects every
-loaded row or clears them, and `c` / `b` / `h` / `m` open the bulk pick for the selection —
+`space` selects rows (a `●` in the title gutter, the row in the accent; every selection key is
+in §4 "The ledger's selection keys"), and `c` / `b` / `h` / `m` open the bulk pick for the selection —
 or for the cursor row when nothing is selected — to set the category, move to an account,
 **replace** the hashtag set, or move to another currency (`m Currency`, after `h Hashtags` in
 the footer). The write is one `PUT /transactions/{id}` per row, in order, on one client.
@@ -471,8 +471,8 @@ goes on to the next part, and `optional · enter saves · (ctrl+s anytime)` on t
 amount that is not a number, a zero amount, or a name that matches nothing is not kept: a toast
 says why and the bar stays.
 **`^n Add part`** adds an empty part at the end of the table, the bar on its AMOUNT.
-**`^x Drop part`**, on a part's line while the table holds two parts or more, drops that part
-at once, the bar moving to the same line of the part above (part 1's when the first goes).
+**`^x Drop part`** drops the part the bar is on at once (where it works: §4 "The Edit form's
+own keys"), the bar moving to the same line of the part above (part 1's when the first goes).
 A part added and left with nothing in it is left out of the save; a part holding only the
 pending hashtag counts as empty, since the table never shows it and the save sends no hashtag
 for it (`part_empty`).
@@ -1321,10 +1321,11 @@ amount in a list (ledger, LOG bar peek, bank import and statement upload preview
 statement's lines, the lines in no statement and their Edit form's heading, the Edit form's
 parts and their count line), and wherever one is named (the question before a delete, a note
 after you leave), writes a positive figure with its `+` (`+800.00` beside `-36.40`); zero stays
-`0.00`. Account balances, Home's totals and grid, a statement's balances and difference, and any
+`0.00`. Account balances, Home's grid and its `net` row, a statement's difference, and any
 other sum of amounts (the staged total, a day's net, a count line's `… left`) write no `+`
-(`12,450.00`, `-234.20`). Each rule's reach is in
-[theme.py](../expense/tui/theme.py) beside `TRANSACTION_RULE`.
+(`12,450.00`, `-234.20`). A statement's beginning and ending balances, and Home's dim `inflow`
+and `outflow` rows, are in no colour. The three rules are
+`TRANSACTION_RULE`, `AMOUNT_RULE` and `BALANCE_RULE` in [theme.py](../expense/tui/theme.py).
 
 **Theme the foreground, never the base surface.** The app runs in ANSI mode
 (`ExpenseApp(ansi_color=True)`): the base fill is `ansi_default` — the terminal's *own*
@@ -1848,11 +1849,11 @@ one whose key a subclass declares again, which Textual's merge replaces (`esc Ba
 from `SectionScreen`, on a screen with its own `esc`), and not one its class names in
 `CARD_FOLLOWS_CHECK` while `check_action` refuses it, as the footer does — the keys that are
 off in some states on the Statements screen and its panel, and a statement's `space`, `c`, `u`
-and `f` ("A statement's screen" above); the account list lists `pgdn` and `pgup` only while
-they page it. The card covers what is behind it from its top rule to its bottom one across the
-full width, so the gutters beside its frame are blank. A card taller than the room between the
-head and the footer spreads out on a terminal wide enough, and only then: the groups three across, no key
-row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
+and `f` ("A statement's screen" above), and the Statements account list's `pgdn` and `pgup`
+while they page nothing. The card covers what is behind it from its top rule to its bottom one
+across the full width, so the gutters beside its frame are blank. A card taller than the room
+between the head and the footer spreads out on a terminal wide enough, and only then: the
+groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
 its two rules, a dim `▲ N lines above` / `▼ N more lines` row saying what is hidden
 ([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,
 **never on the App** — letters bubble up from lists, the same reason there is no app-level
