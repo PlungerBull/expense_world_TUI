@@ -19,9 +19,16 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
-   tasks 1–2 done, task 3 and its acceptance check left. Blocked: the engine's hand-off for its
-   contract `f82426fb0a099676` to `ce7749236717b163` (the version is recorded when it is planned).
-2. [Accounts carry their numbers](specs/accounts-carry-their-numbers.md). Blocked: the engine.
+   tasks 1–2 done, task 3 and its acceptance check left. Blocked: the planning of the engine's
+   hand-off in [from-engine/](from-engine/), `f82426fb0a099676` to `1002f105c6bacdf1`.
+2. [Accounts carry their numbers](specs/accounts-carry-their-numbers.md). Blocked: its redraw
+   from that hand-off, and the engine ask "Every user holds one cash account, named `Efectivo`,
+   with no bank and no number".
+
+The hand-off is planned up to `1002f105c6bacdf1`, as the owner answered on 2026-11-08. The engine already serves
+`a7dd5e3ed5da676f`; its four later versions (a statement upload or close refused while a line in
+no statement sits on a day it would seal, and sealed-day edits judged only on changed fields) go
+to the next catch-up.
 
 ---
 

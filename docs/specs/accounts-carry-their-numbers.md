@@ -5,11 +5,12 @@ own: today the owner names a PDF's account by hand, and the engine never compare
 the paper prints with the account picked, so the preview is the only check against a wrong
 account's paper.
 
-**Status: every question answered, the mockup picked and the tasks approved on 2026-11-03; the
-tasks wait for the engine ask "An account carries its bank and its card numbers over time, and a
-PDF is checked against them"**, handed over to the engine coders; it waits for their hand-off. The engine's hand-off for it is planned into these tasks, with the reply this spec
-then ends with. When done, the why moves to [decisions.md](../decisions.md) and this file is
-deleted.
+**Status: the engine's hand-off landed on 2026-11-08 and declined the alias; the owner accepted
+that on 2026-11-08 (a bank account is `BCP-5678`, or `BCP` with no number; a person keeps a typed
+name), so the tasks and the mockup are redrawn when the hand-off is planned. Cash: one account
+per user named `Efectivo`, no bank and no number, answered on 2026-11-08; it waits on the engine
+ask "Every user holds one cash account, named `Efectivo`, with no bank and no number".** When
+done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
