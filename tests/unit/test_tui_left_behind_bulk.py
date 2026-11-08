@@ -34,7 +34,8 @@ def _rows(titles: list[str]) -> list[dict]:
             **ITEMS[0],
             "id": f"t{i}",
             "title": title,
-            "date": f"2026-10-{30 - i}T00:00:00Z",
+            "date": f"2026-10-{30 - i}T05:00:00Z",
+            "day": f"2026-10-{30 - i}",
             "amount_cents": -1000 * i,
         }
         for i, title in enumerate(titles, start=1)

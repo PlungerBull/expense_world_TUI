@@ -78,8 +78,8 @@ from expense.errors import (
 )
 from expense.formatting import (
     bank_line_columns,
+    format_day,
     format_hashtag_cell,
-    format_short_date,
     grouped_refusals,
     is_split_line,
     resolve_name,
@@ -171,7 +171,7 @@ def transaction_rows(
                     it.get("description") or "",
                     amount_cell(it.get("amount_cents"), palette, TRANSACTION_RULE),
                     it.get("currency_code") or "",
-                    format_short_date(it.get("date")),
+                    format_day(it),
                     resolve_name(it.get("account_id"), accounts),
                     resolve_name(it.get("category_id"), categories),
                     format_hashtag_cell(it.get("hashtag_ids"), hashtags),
@@ -786,9 +786,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             targets, payload, self._by_id, keep_on_currency_move=kind == "currency"
         )
         row_lines = {
-            key: dated_transaction_line(row.get("title"), row.get("amount_cents"), row.get("date"))
-            for key in targets
-            if (row := self._by_id.get(key))
+            key: dated_transaction_line(row) for key in targets if (row := self._by_id.get(key))
         }
         move = kind in ("account", "currency")
         self._bulk_write(writes, label, move, row_lines, kind == "account")

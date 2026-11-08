@@ -59,6 +59,7 @@ ELIANA_ROW = {
     "amount_cents": -15000,
     "transaction_type": 1,
     "date": "2025-12-31T00:00:00-05:00",
+    "day": "2025-12-31",
     "line_code": "#000002",
     "statement_line": None,
     "statement_place": None,
@@ -72,6 +73,7 @@ OPENING_ROW = {
     "amount_cents": -320000,
     "transaction_type": 2,
     "date": "2026-01-01T00:00:00-05:00",
+    "day": "2026-01-01",
     "line_code": "#000001",
     "statement_line": None,
     "statement_place": None,
@@ -322,7 +324,13 @@ VISA_BOTH = account_with_currencies(
         held_currency("USD", opening_balance_transaction_id="tx-usd"),
     ],
 )
-USD_ROW = {**OPENING_ROW, "id": "tx-usd", "amount_cents": 4000, "date": "2026-02-01T00:00:00-05:00"}
+USD_ROW = {
+    **OPENING_ROW,
+    "id": "tx-usd",
+    "amount_cents": 4000,
+    "date": "2026-02-01T00:00:00-05:00",
+    "day": "2026-02-01",
+}
 
 
 def test_each_currency_has_its_pair_in_the_engines_order(fake_client, reads_log):

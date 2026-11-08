@@ -56,7 +56,8 @@ PERSON = account_with_currencies(ACCOUNT, id="acc-ana", name="Ana", is_person=Tr
 CATEGORY = {"id": "cat1", "name": "Mascotas", "color": "#5ab87a", "is_system": False}
 TXN = {
     "id": "tx1",
-    "date": "2026-06-20T00:00:00Z",
+    "date": "2026-06-20T05:00:00Z",
+    "day": "2026-06-20",
     "title": "Farmacia",
     "amount_cents": -4250,
     "account_id": "acc1",
@@ -68,7 +69,8 @@ TXN = {
 }
 _PART = {
     "id": "p1",
-    "date": "2026-06-20T00:00:00Z",
+    "date": "2026-06-20T05:00:00Z",
+    "day": "2026-06-20",
     "title": "FARMACIA",
     "amount_cents": 4250,
     "transaction_type": 1,

@@ -89,8 +89,8 @@ from expense.errors import EngineConnectionError, format_error, row_note
 from expense.formatting import (
     currency_label,
     format_cents,
+    format_day,
     format_hashtag_cell,
-    format_short_date,
     grouped_refusals,
     resolve_name,
     title_or_untitled,
@@ -606,7 +606,7 @@ def peek_rows(
     for item in items:
         rows.append(
             (
-                Text(format_date_cell(format_short_date(item.get("date")), today), style="dim"),
+                Text(format_date_cell(format_day(item), today), style="dim"),
                 Text(truncate(title_or_untitled(item.get("title")), 28), style="bold"),
                 amount_cell(item.get("amount_cents"), palette, TRANSACTION_RULE),
                 Text(resolve_name(item.get("category_id"), refs.category_names), style="dim"),

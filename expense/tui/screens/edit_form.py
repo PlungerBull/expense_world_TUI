@@ -377,7 +377,7 @@ class EditFormScreen(FormScreen):
     def _prefill(self, rec: dict) -> None:
         self._values = {}
         self._display = {}
-        date = (rec.get("date") or "")[:10]
+        date = rec.get("day") or ""
         if date:
             self._values["date"] = self._display["date"] = date
         if rec.get("title"):

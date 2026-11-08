@@ -269,7 +269,7 @@ and the legend says `filter: category @Pendiente · 20 of 57 loaded · 3 selecte
 columns are Title, Description, Amount, **Cur**, Date, Account, Cat and Hashtags: **Cur** is
 the row's own `currency_code` (empty for a row naming none) and **Account** names the
 account alone (`(unnamed)` for an account with no name, the account's short id for one the
-read lacks). A ledger opened on an account's currency line names both in the crumb, the
+read lacks). **A transaction's, or a bank-line part's, date a screen shows is its engine `day`** (`format_day`), the day in the user's time zone the engine counts it on, never the first ten characters of `date`, an instant in UTC; a file row, a `day_mismatches` day and a statement's period show their own dates (contract: GET /v1/transactions). A ledger opened on an account's currency line names both in the crumb, the
 legend and the empty-state text, `Visa Inventada · USD` (`currency_label`).
 
 `space` selects rows (a `●` in the title gutter, the row in the accent; every selection key is

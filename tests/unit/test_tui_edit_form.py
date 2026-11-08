@@ -80,7 +80,8 @@ HASHTAGS = [
 
 TXN = {
     "id": "tx1",
-    "date": "2026-06-20T00:00:00Z",
+    "date": "2026-06-20T05:00:00Z",
+    "day": "2026-06-20",
     "title": "Farmacia",
     "amount_cents": -4250,
     "account_id": "acc1",
@@ -115,7 +116,7 @@ def _as_part(tx: dict) -> dict:
         account_id=tx["account_id"],
         currency_code=tx["currency_code"],
         line=tx["bank_line_id"],
-        day=tx["date"][:10],
+        day=tx["day"],
         title=tx.get("title"),
         category_id=tx.get("category_id"),
         hashtag_ids=tuple(tx.get("hashtag_ids") or ()),

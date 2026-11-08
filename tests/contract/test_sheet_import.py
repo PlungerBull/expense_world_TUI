@@ -446,14 +446,14 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
         )
         assert opening["hashtag_ids"] == []
         assert (opening["account_id"], opening["currency_code"]) == (person, currency)
-        assert (opening["amount_cents"], opening["date"][:10]) == (cents, day.isoformat())
+        assert (opening["amount_cents"], opening["day"]) == (cents, day.isoformat())
         assert (opening["title"], opening["description"]) == ("SALDO", "inicial")
         day, cents = later[currency]
         ordinary = read_signed(client, by_row[4 + place])
         assert ordinary["id"] != opening_id
         assert ordinary["category_id"] == category
         assert (ordinary["account_id"], ordinary["currency_code"]) == (person, currency)
-        assert (ordinary["amount_cents"], ordinary["date"][:10]) == (cents, day.isoformat())
+        assert (ordinary["amount_cents"], ordinary["day"]) == (cents, day.isoformat())
 
     # Applied again: every row matched, nothing created, the ledger unchanged.
     held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]

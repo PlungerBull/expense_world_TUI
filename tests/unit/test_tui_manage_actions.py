@@ -105,7 +105,7 @@ def _edit_two_currency_account(fake_client, monkeypatch, key):
 
     def fetch(cfg, transaction_id, **kw):
         asked.append(transaction_id)
-        return {"amount_cents": 100, "date": "2026-01-01T00:00:00-05:00"}
+        return {"amount_cents": 100, "date": "2026-01-01T00:00:00-05:00", "day": "2026-01-01"}
 
     monkeypatch.setattr("expense.reads.fetch_transaction", fetch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([visa]))

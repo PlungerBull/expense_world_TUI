@@ -42,11 +42,12 @@ def whole_number(value: object) -> int | None:
     return None
 
 
-def format_short_date(iso_value: object) -> str:
-    """`2026-04-24T12:00:00Z` → `2026-04-24`. None / non-string → `—`."""
-    if not isinstance(iso_value, str) or len(iso_value) < 10:
-        return "—"
-    return iso_value[:10]
+def format_day(row: object) -> str:
+    """The day a transaction or bank-line part is counted on: the row's own `day`, a
+    bare `YYYY-MM-DD` in the user's time zone (contract: GET /v1/transactions). The
+    app never derives it from `date`, an instant in UTC. A row without one → `—`."""
+    day = row.get("day") if isinstance(row, dict) else None
+    return day if isinstance(day, str) and len(day) == 10 else "—"
 
 
 def format_month(month: dict | None) -> str:
@@ -122,7 +123,7 @@ def bank_line_columns(line: dict) -> tuple[str, object, object, object]:
     """
     parts = line.get("parts")
     first = parts[0] if isinstance(parts, list) and parts and isinstance(parts[0], dict) else {}
-    day = format_short_date(first.get("date"))
+    day = format_day(first)
     return day, first.get("title"), line.get("operation_code"), line.get("net_cents")
 
 

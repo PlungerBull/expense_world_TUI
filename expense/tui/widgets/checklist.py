@@ -248,7 +248,7 @@ class CheckList(WindowedList):
         t.add_column("Amount", width=widths["amount"], justify="right", no_wrap=True)
         for i, row in rows:
             cells: list = [
-                str(row.date or "")[:10],
+                str(row.date or ""),
                 title_or_untitled(row.title),
                 operation_cell(row.operation),
                 row.currency or "",

@@ -793,7 +793,7 @@ class EditAccountScreen(NewAccountScreen):
         opening = self._openings[code]
         opening.loading = False
         cents = body.get("amount_cents") if isinstance(body, dict) else None
-        day = ((body.get("date") if isinstance(body, dict) else None) or "")[:10]
+        day = (body.get("day") if isinstance(body, dict) else None) or ""
         if isinstance(cents, int):
             self._values[_pair_key("opening", code)] = opening.original["opening"] = cents
         if day:

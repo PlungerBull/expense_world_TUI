@@ -814,6 +814,7 @@ TRANSACTION_RESPONSE = {
     "title": "coffee",
     "amount_cents": 500,
     "date": "2026-04-24T12:00:00Z",
+    "day": "2026-04-24",
     "account_id": "acct-id",
     "category_id": "cat-id",
     "description": None,

@@ -79,9 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-5. **Each row shows its own day.** Every list, the delete question, the peek, the Edit form's
-   date and the opening balance's `as of` read `day`, never the first ten characters of `date`;
-   the Backlog's "A row's day shows in UTC" closes.
 6. **The largest amount.** An amount the app cannot read as a plain number (an exponent such as
    `1e5000`) is unreadable before sending; anything else is sent, and `OUT_OF_RANGE` shows in the
    engine's words on its line or file row; no formatter crashes on a huge amount; the Backlog's
@@ -91,7 +88,7 @@ building.
    lines are read once by their ids, as the lines taken out are.
 8. **The live contract tests:** `GET /currencies`; a currency left out, single and batch, and
    `REQUIRED` on a two-currency account; an account-only move into another currency; a currency
-   removal's keys; `day` and a day filter across a time-zone change; the bound one cent past and
+   removal's keys; the bound one cent past and
    `1e5000`, typed and in each file; the dry run's notes and `not_covered`; `card-soles-only`
    left untested and named in the reply (no practice account can take it); a zero-amount `SALDO INICIAL` dated before the opening balance (the
    Backlog's item closes).

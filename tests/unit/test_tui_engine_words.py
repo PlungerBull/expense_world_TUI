@@ -240,6 +240,7 @@ LEDGER = [
         "description": None,
         "amount_cents": -100 - i,
         "date": "2026-07-01",
+        "day": "2026-07-01",
         "account_id": "acc1",
         "category_id": "pend",
         "hashtag_ids": [],

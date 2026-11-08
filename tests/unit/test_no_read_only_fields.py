@@ -32,10 +32,15 @@ from tests.unit.helpers import (
 CODE = line_code_of("bl1")
 
 #: A value each field reads on a line, as a read row would pass it back.
-VALUES = {"line_code": CODE, "statement_line": "SIG-202603-029", "statement_place": 29}
+VALUES = {
+    "line_code": CODE,
+    "statement_line": "SIG-202603-029",
+    "statement_place": 29,
+    "day": "2026-03-04",
+}
 
 
-def test_the_guarded_fields_are_the_three_the_engine_sets():
+def test_the_guarded_fields_are_the_four_the_engine_sets():
     assert set(READ_ONLY_FIELDS) == set(VALUES)
 
 

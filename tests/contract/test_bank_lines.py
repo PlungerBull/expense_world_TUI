@@ -1209,7 +1209,6 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     that are not ticked, the 30th of April and the 1st of May, and not the ticked purchase
     (contract: GET /v1/bank-lines)
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment")."""
-    from expense.formatting import format_short_date
     from expense.tui.screens.statements import UNFILED_SORT, fetch_month_lines, line_rows
 
     account = scratch.account()
@@ -1239,9 +1238,10 @@ def test_the_statement_screen_lists_and_ticks_lines_through_its_own_reads(client
     assert checked == []
     # lines in no statement, oldest first: the 11th, then the 30th
     assert [r[0] for r in rows] == [split_line, last_day["bank_line_id"]]
-    # the day as every list shows it: the response's own day (format_short_date)
+    # the day as every list shows it: the response's own `day`, 23:30 in the user's zone
+    assert last_day["day"] == "2026-04-30"
     assert rows[1][1:] == (
-        format_short_date(last_day["date"]),
+        "2026-04-30",
         "UBER *TRIP",
         None,
         -4200,

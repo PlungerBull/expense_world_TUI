@@ -36,7 +36,7 @@ from expense.formatting import (
     bank_line_columns,
     bank_line_part_count,
     format_cents_with_plus,
-    format_short_date,
+    format_day,
     name_or_unnamed,
     title_or_untitled,
 )
@@ -658,10 +658,11 @@ def not_saved_line(title: object, amount_cents: object) -> str:
     return not_done_transaction_line("Not saved", title, amount_cents)
 
 
-def dated_transaction_line(title: object, amount_cents: object, date: object) -> str:
+def dated_transaction_line(row: dict) -> str:
     """A transaction as the ledger showed it, to name it where its list is gone:
     `DAY · TITLE · AMOUNT`."""
-    return f"{format_short_date(date)} · {_transaction_words(title, amount_cents)}"
+    words = _transaction_words(row.get("title"), row.get("amount_cents"))
+    return f"{format_day(row)} · {words}"
 
 
 def not_done_line(not_done: str, kind: str, name: object) -> str:
@@ -677,7 +678,7 @@ def transaction_delete_message(record: dict, account_name: str) -> str:
     row = delete_row_line(
         record.get("title"),
         record.get("amount_cents"),
-        format_short_date(record.get("date")),
+        format_day(record),
         account_name,
     )
     return f"{row}\nIt leaves every balance and report, and no screen can bring it back."

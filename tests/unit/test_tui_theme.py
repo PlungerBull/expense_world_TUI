@@ -157,7 +157,7 @@ def test_amount_cell_null_is_a_dash_not_the_literal_null():
     can hand `amount_cell` a None today. `(null)` is
     `format_cents`'s deliberately-ugly marker for "something is off"; an
     un-entered closing balance is an ordinary every-month state, so it gets the
-    repo's absent-value mark instead (same as `format_short_date`)."""
+    repo's absent-value mark instead (same as `format_day`)."""
     dashed = amount_cell(None, SYNTHETIC, "sign")
     assert str(dashed) == "—" and dashed.style == "dim"
     # Palette-less callers get the plain string, same mark.

@@ -90,6 +90,7 @@ PEEK_ITEMS = [
     {
         "id": "t1",
         "date": "2026-08-20T10:00:00-05:00",
+        "day": "2026-08-20",
         "title": "WONG CAYMA",
         "amount_cents": -15240,
         "account_id": "acc1",
@@ -102,6 +103,7 @@ PEEK_ITEMS = [
     {
         "id": "t2",
         "date": "2026-08-19T10:00:00-05:00",
+        "day": "2026-08-19",
         "title": "NETFLIX",
         "amount_cents": -4490,
         "account_id": "acc1",
@@ -1772,6 +1774,7 @@ def test_peek_rows_carry_the_five_columns_and_never_the_account():
 def test_peek_row_of_a_titleless_transaction_shows_untitled():
     row = {
         "date": "2026-08-20T10:00:00-05:00",
+        "day": "2026-08-20",
         "amount_cents": -100,
         "line_code": "#000003",
         "statement_line": None,

@@ -1193,9 +1193,10 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
 
 #: The keys no request body may hold, at any depth. The engine sets each one itself:
 #: it gives every new line its `line_code`, builds `statement_line` on every read and sets
-#: `statement_place` only through a statement's order, and each is in no request body, so
-#: sending one is `422` `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines").
-READ_ONLY_FIELDS = ("line_code", "statement_line", "statement_place")
+#: `statement_place` only through a statement's order, and reads `day` off `date`; each is in no
+#: request body, so sending one is `422` `UNKNOWN_FIELD`
+#: (contract: "Transactions (Ledger)", "Bank lines") (contract: GET /v1/transactions).
+READ_ONLY_FIELDS = ("line_code", "statement_line", "statement_place", "day")
 
 #: Every request a test sent with one of the keys in its body, as
 #: "METHOD path sends <key> at <where>". `refuse_read_only_fields` adds to it; conftest's

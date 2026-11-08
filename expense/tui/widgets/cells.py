@@ -69,7 +69,7 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
     one matches what is drawn.
 
     `None` is a dim em-dash, not `format_cents`'s literal `(null)` — the TUI's
-    mark for an absent value, the same one `format_short_date` already uses.
+    mark for an absent value, the same one `format_day` already uses.
     Only one caller can actually hand this a null today (a statement's
     `ending_balance_cents`, nullable in the engine); the rest —
     account balances, transaction amounts, beginning balances — are non-null by

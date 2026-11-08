@@ -244,6 +244,7 @@ def _ledger_rows(n: int) -> list[dict]:
             "title": f"Txn {i}",
             "amount_cents": -100 - i,
             "date": "2026-07-01",
+            "day": "2026-07-01",
             "line_code": f"#{i + 1:06d}",
             "statement_line": None,
             "statement_place": None,
