@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Moves and preview</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:1100px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Moves and the upload preview</h1>
+  <p>Two screens change with the engine's new version. <b>A move into another currency:</b> moving a transaction to an account that holds only soles now turns a dollar line into a soles line, the amount as it is, never converted. <b>The upload preview:</b> before you press <code>⏎</code>, it now lists the lines the close will flag for review: lines you logged on the paper's days that no statement holds.</p>
+  <p>Everything else on these screens stays as you know it. Accounts, lines and amounts are invented, and so are the engine's words. Drawn at 80 columns.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · A dollar line moved to a soles-only account <span>— the Edit form and the ledger's b · pick A or B</span></div>
+<p class="blurb">A <code>-100.00 USD</code> Netflix line is moved to <b>Caja Chica</b>, which holds only soles. It becomes <code>-100.00 PEN</code>. The engine does the move; the app says it was not converted.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>said on the line, and in the note after</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Edit form</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">Edit</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   date        2026-03-02
+   title       Netflix
+   <span class="b">account     </span>Caja Chica
+   currency    PEN  <span class="d">· was USD · not converted</span>
+
+   <span class="d">amount     category    hashtags  note</span>
+   1  <span class="n">-100.00</span>  Streaming   —         —
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · b on 3 rows</span></div>
+<div class="app"><pre>                    <span class="d">▌</span> 3 rows → Caja Chica
+                    <span class="d">▌</span> 2 were USD, now PEN,
+                    <span class="d">▌</span> not converted.</pre></div></div>
+<p class="cap">You see it on the form before you save. After <code>b</code>, the note counts the rows whose currency changed, from the engine's answer. Rows already in soles are not counted.</p></div>
+
+<div class="var"><div class="oh">B · <span>a question first</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · b on 3 rows</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger
+<span class="d">──────────────────────────────────────────────────</span>
+
+   ┌──────────────────────────────────────────┐
+   │ Move 3 rows to Caja Chica?               │
+   │ It holds only PEN: 2 dollar rows become  │
+   │ soles, the amounts not converted         │
+   │ (-100.00 USD → -100.00 PEN).             │
+   │                                          │
+   │ <span class="a">y</span> moves · any other key keeps them      │
+   └──────────────────────────────────────────┘</pre></div></div>
+<p class="cap">The move waits for <code>y</code>, on the Edit form's save too. One more key, every time a move changes currency.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · The preview names the lines the close will flag <span>— pick A or B</span></div>
+<p class="blurb">The paper is March's, for <b>BCP-5678</b> (soles and dollars). You logged <code>Almuerzo -11.11</code> on 15 March and <code>Amazon -19.99 USD</code> on 12 March; the paper prints neither, and no statement holds them. Today they show only after the close, on the <code>⚑</code> line. The engine's notes for a currency (<code>⚠</code>) show under the balances, as on a statement.</p>
+
+<div class="var"><div class="oh">A · <span>listed under the table, like the lines taken out</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Upload  ▸  EECC_2026-03.pdf
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Preview · BCP-5678 PEN + USD · nothing written yet</span>
+  March 2026 · 2026-02-26 → 2026-03-25 · <span class="d">a draft, filled from the paper</span>
+         <span class="d">begin        end</span>
+  PEN  2,500.00   5,164.45
+  USD      0.00     -45.50
+  <span class="w">⚠ USD: Two days of the paper hold no dollar line.</span>
+
+   <span class="d">#  date        title                         amount  cur</span>
+   1  2026-02-27  WONG SAN ISIDRO               <span class="n">-84.30</span>  PEN  <span class="p">✓</span> <span class="d">In the ledger</span>
+   2  2026-03-02  NETFLIX                       <span class="n">-45.50</span>  USD  <span class="p">✓</span> <span class="d">In the ledger</span>
+   3  2026-03-05  RAPPI                         <span class="n">-32.00</span>  PEN  <span class="a">+ New</span>
+   <span class="d">… 7 more · pgdn</span>
+
+  Taken out · <span class="d">in the statement, not on the paper; they stay in the ledger</span>
+      2026-03-10  Taxi                          <span class="n">-22.22</span>  PEN
+  <span class="w">⚑ Will be flagged</span> · <span class="d">in no statement, on the paper's days</span>
+      2026-03-12  Amazon                        <span class="n">-19.99</span>  USD
+      2026-03-15  Almuerzo                      <span class="n">-11.11</span>  PEN
+
+  10 rows · 5 in the ledger · <span class="a">4 new</span> · 1 taken out · <span class="w">2 to flag</span>
+  <span class="d">new ones go under @Pendiente and #Pendiente</span>
+
+ <span class="a">⏎</span> Close March 2026  <span class="a">esc</span> Cancel</pre></div></div>
+<p class="cap">Every line is in sight before you confirm, in the engine's order, under the table's columns. With nothing to flag, the block and its count leave. A line taken out whose day the close reviews shows in both blocks: the engine flags it too. After the close, the <code>⚑</code> line and <code>f</code> work as today.</p></div>
+
+<div class="var"><div class="oh">B · <span>a count only, the lines after the close</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Upload  ▸  EECC_2026-03.pdf
+<span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Preview · BCP-5678 PEN + USD · nothing written yet</span>
+  March 2026 · 2026-02-26 → 2026-03-25 · <span class="d">a draft, filled from the paper</span>
+         <span class="d">begin        end</span>
+  PEN  2,500.00   5,164.45
+  USD      0.00     -45.50
+  <span class="w">⚠ USD: Two days of the paper hold no dollar line.</span>
+
+   <span class="d">#  date        title                         amount  cur</span>
+   1  2026-02-27  WONG SAN ISIDRO               <span class="n">-84.30</span>  PEN  <span class="p">✓</span> <span class="d">In the ledger</span>
+   2  2026-03-02  NETFLIX                       <span class="n">-45.50</span>  USD  <span class="p">✓</span> <span class="d">In the ledger</span>
+   3  2026-03-05  RAPPI                         <span class="n">-32.00</span>  PEN  <span class="a">+ New</span>
+   <span class="d">… 7 more · pgdn</span>
+
+  Taken out · <span class="d">in the statement, not on the paper; they stay in the ledger</span>
+      2026-03-10  Taxi                          <span class="n">-22.22</span>  PEN
+  <span class="w">⚑ The close will flag 2 lines for review: in no statement, on the paper's days</span>
+
+  10 rows · 5 in the ledger · <span class="a">4 new</span> · 1 taken out
+  <span class="d">new ones go under @Pendiente and #Pendiente</span>
+
+ <span class="a">⏎</span> Close March 2026  <span class="a">esc</span> Cancel</pre></div></div>
+<p class="cap">Shorter, and the table keeps more rows, but you learn which lines only after the close, with <code>f</code> on the result screen.</p></div>
+</div>
+
+<div class="pick">
+<b>To pick:</b> one letter per pane, e.g. <code>1A 2A</code>.
+<ol>
+<li>A dollar line moved to a soles-only account: <b>A</b> said on the line and in the note · <b>B</b> a question first.</li>
+<li>The preview's flagged lines: <b>A</b> listed under the table · <b>B</b> a count only.</li>
+</ol>
+</div>
+
+</body>
+</html>

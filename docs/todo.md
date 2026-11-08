@@ -19,16 +19,15 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [Empty lists' `?` cards, and leaving a screen while it draws](specs/empty-lists-and-leaving-mid-draw.md):
-   tasks 1–2 done, task 3 and its acceptance check left. Blocked: the planning of the engine's
-   hand-off in [from-engine/](from-engine/), `f82426fb0a099676` to `1002f105c6bacdf1`.
-2. [Accounts carry their numbers](specs/accounts-carry-their-numbers.md). Blocked: its redraw
-   from that hand-off, and the engine ask "Every user holds one cash account, named `Efectivo`,
-   with no bank and no number".
+   tasks 1–2 done, task 3 and its acceptance check left. Its acceptance check waits on task 1 of
+   [the catch-up to `1002f105c6bacdf1`](specs/catch-up-to-1002f105c6bacdf1.md), which puts the
+   live suite on built names.
 
-The hand-off is planned up to `1002f105c6bacdf1`, as the owner answered on 2026-11-08. The engine already serves
-`a7dd5e3ed5da676f`; its four later versions (a statement upload or close refused while a line in
-no statement sits on a day it would seal, and sealed-day edits judged only on changed fields) go
-to the next catch-up.
+The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
+The engine already serves `a7dd5e3ed5da676f`; its four later versions (a statement upload or
+close refused while a line in no statement sits on a day it would seal, and sealed-day edits
+judged only on changed fields) go to the next catch-up, so the version check reporting them
+stops nothing.
 
 ---
 
@@ -46,15 +45,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the rewritten specs
-Asked 2026-10-29 · Blocks: every spec in [specs/](specs/)
+### Approve the two catch-up specs
+Asked 2026-11-08 · Blocks: both specs below
 
-To approve, every question answered: [the official import](specs/before-the-official-import.md).
+Each has its questions in its "Decided" table, a mockup per question, and its tasks drafted on
+the recommended answers. One reply answers them and approves both:
 
-Answered, waiting on its engine ask (handed over 2026-11-07) and a mockup of the preview:
-[a statement PDF's preview names the lines the close will flag](specs/the-preview-names-the-lines-the-close-will-flag.md).
+1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md),
+   questions 2–3, [mockup](mockups/expense-world-moves-and-preview.html).
+2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md),
+   questions 9–12, [mockup](mockups/expense-world-account-numbers.html).
 
-**Recommended:** approve the rest.
+**Recommended:** A on every question (`1A 2A` and `1A 2A 3A 5A`).
+
+[The official import](specs/before-the-official-import.md) is rewritten for built names once
+the numbers spec is done, and comes for approval then.
 
 ---
 
@@ -64,23 +69,6 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
-- **The shared practice user holds no accounts,** so the tester proves LOG bar and account
-  checks with unit tests only. Nothing you see changes. Waits on the engine ask "Give the
-  shared practice user an account that every reseed keeps".
-- **No live test sends a zero-amount `SALDO INICIAL` row dated before a person's opening
-  balance.** Nothing you see changes. It waits on the engine ask "Say whether a zero-amount row
-  dated earlier stops a sheet row being the opening balance"; then
-  [test_sheet_import.py](../tests/contract/test_sheet_import.py) pins the answer.
-- **A huge amount reads, then crashes what prints it.** `parse_amount`
-  ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
-  importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
-  repr) raises `ValueError`. The live contract states no largest amount, so it waits on the
-  engine ask "State the largest amount the engine takes, and refuse past it everywhere".
-- **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
-  ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
-  row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
-  Rows dated by day alone (00:00 in the user's time zone) show right. Waits on the engine ask
-  "Send each transaction's calendar day with it"; the lists then show that day.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.
