@@ -96,7 +96,8 @@ building.
 
 1. **Every screen shows the engine's name.** Manage ▸ Accounts, every picker, the peek and the
    toasts show `name` as sent; the LOG bar's `$` matches it by either word and by a card's four
-   digits (question 12).
+   digits (question 12). The unit fixtures' default bank account (`_ACCOUNT_HOLDING` in
+   tests/unit/helpers.py, `BCP Ahorros` today) takes a name the engine builds, with its number.
 2. **The New form, in one write.** A bank account's `bank` (from `GET /banks`) and optional
    `last 4` where `name` is today; a person's `name`; each currency's opening pair (question 9);
    one `POST /accounts`; every refusal on its line, `currencies.<i>.opening_balance.<field>` on

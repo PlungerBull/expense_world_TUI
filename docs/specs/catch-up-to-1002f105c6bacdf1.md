@@ -79,9 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-2. **The test answers match the engine's.** The unit test builders the drift check flags carry
-   `bank_code`, `numbers`, `day`, the upload's notes and `not_covered`, and the sheet import's
-   `ambiguous`; the drift check reports no field difference.
 3. **The currencies come from `GET /currencies`.** Manage ▸ Accounts' columns, `c`'s list and the
    New form's picker read it; the app's own list and every branch for an account holding no
    currency go.
@@ -132,6 +129,10 @@ Not built in this spec; sorted when it is done.
   next catch-up with them.
 - **The shape-first test's docstring** in `tests/contract/test_account_create.py` names "a
   person's empty name" though every body there is a bank account.
+- **Two small test-helper cleanups:** `test_day_of_reads_the_users_zone_whatever_the_machine_zone_is`
+  (tests/unit/test_fake_engine_answers.py) calls `monkeypatch.undo()`, which also lifts the
+  autouse guards for the rest of that test; `_CLOSE_NOTES`' lists in tests/unit/helpers.py are one
+  object shared by every upload answer, where each call used to make fresh ones.
 - **For decisions.md at the sweep:** the suite marks its bank accounts by a number starting `9`
   (the cleaner's rule), since the engine builds the name; sample uploads go to the seed's
   `BCP-0000` by its id, since a second `…0000` account cannot exist.

@@ -296,3 +296,20 @@ def test_a_statement_upload_dry_run_answers_no_statement(creates, statement_id):
         statement_id,
         None,
     )
+
+
+@pytest.mark.parametrize("machine_zone", ["UTC", "Asia/Tokyo", "America/Lima"])
+def test_day_of_reads_the_users_zone_whatever_the_machine_zone_is(monkeypatch, machine_zone):
+    import time
+
+    monkeypatch.setenv("TZ", machine_zone)
+    time.tzset()
+    try:
+        assert helpers.day_of("2026-11-05T04:30:00Z") == "2026-11-04"
+        assert helpers.day_of("2026-11-05T04:30:00+00:00") == "2026-11-04"
+        assert helpers.day_of("2026-11-05T00:30:00-05:00") == "2026-11-05"
+        assert helpers.day_of("2026-11-05T23:30:00+09:00") == "2026-11-05"
+        assert helpers.day_of("2026-11-05") == "2026-11-05"
+    finally:
+        monkeypatch.undo()
+        time.tzset()

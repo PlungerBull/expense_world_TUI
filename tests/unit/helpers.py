@@ -14,8 +14,10 @@ import re
 import threading
 import zlib
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -275,6 +277,21 @@ def line_code_of(line: str) -> str:
     return f"#{zlib.crc32(line.encode()) % 999_999 + 1:06d}"
 
 
+#: The user's time zone in the fixtures: the zone the engine reads a `day` in
+#: (contract: "Base Conventions").
+FIXTURE_ZONE = ZoneInfo("America/Lima")
+
+
+def day_of(date: str, zone: ZoneInfo = FIXTURE_ZONE) -> str:
+    """The `day` the engine sends beside a `date`: the calendar day of that instant in
+    the user's time zone, so `2026-11-05T04:30:00Z` is `2026-11-04` in Lima
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    instant = datetime.fromisoformat(date.replace("Z", "+00:00"))
+    if instant.tzinfo is None:  # a bare date is already a day; never read it in the machine's zone
+        return instant.date().isoformat()
+    return instant.astimezone(zone).date().isoformat()
+
+
 def import_part(
     tx_id: str,
     amount_cents: int,
@@ -308,6 +325,7 @@ def import_part(
         "amount_cents": abs(amount_cents),
         "transaction_type": 1 if amount_cents < 0 else 2,  # 1 outflow, 2 inflow
         "date": f"{day}T05:00:00Z",
+        "day": day_of(f"{day}T05:00:00Z"),
         "account_id": account_id,
         "currency_code": currency_code,
         "category_id": category_id,
@@ -434,9 +452,17 @@ def put_answer(
     (contract: PUT /v1/transactions/{transaction_id}, "Response"). `changed` is `[]`
     for a body that changed no line field. `named` is spread over a whole part, so a
     short one still answers every field; bare, it names one part and changes it."""
-    named = {**import_part("tx-1", -1000), **(named or {})}
-    if changed is None:
-        changed = [named]
+
+    def dated(part: dict, given: dict) -> dict:
+        """The part with its `day` read from its `date` when `given` names a `date`
+        and no `day`."""
+        if "date" in given and "day" not in given:
+            return {**part, "day": day_of(part["date"])}
+        return part
+
+    overrides = named or {}
+    named = dated({**import_part("tx-1", -1000), **overrides}, overrides)
+    changed = [named] if changed is None else [dated(part, part) for part in changed]
     return {
         **named,
         "changed_parts": [
@@ -580,14 +606,22 @@ def import_answer(
 
 
 def sheet_name_use(
-    name: str, rows: int = 1, proposed_id: str | None = None, **currencies: list[str]
+    name: str,
+    rows: int = 1,
+    proposed_id: str | None = None,
+    *,
+    ambiguous: bool = False,
+    **currencies: list[str],
 ) -> dict:
     """One name a sheet uses, as an import-sheet answer's `names` lists it: an account
     `{name, currencies, rows, proposed_id}` (pass `currencies=["PEN", "USD"]`, in the
-    engine's order), a category or hashtag `{name, rows, proposed_id}`
+    engine's order) also saying whether the name `ambiguous`ly fits several accounts, a
+    category or hashtag `{name, rows, proposed_id}`
     (contract: POST /v1/transactions/import-sheet, "Response")."""
     assert set(currencies) <= {"currencies"}, sorted(currencies)
-    return {"name": name, **currencies, "rows": rows, "proposed_id": proposed_id}
+    ambiguity = {"ambiguous": ambiguous} if currencies else {}
+    assert ambiguous <= bool(currencies), "only an account name can be ambiguous"
+    return {"name": name, **currencies, "rows": rows, "proposed_id": proposed_id, **ambiguity}
 
 
 def sheet_row(
@@ -893,6 +927,7 @@ def upload_balance(
         "currency_code": currency_code,
         "beginning_balance_cents": begin,
         "ending_balance_cents": end,
+        **_CLOSE_NOTES,
     }
 
 
@@ -928,7 +963,10 @@ def statement_upload_answer(
     flagged = review_lines or {}
     taken = list(taken_out or [])
     outcomes = [row["outcome"] for row in rows]
-    notes = {"warnings": [], "coverage_gap": None}
+    uncovered = [
+        {"currency_code": code, **_CLOSE_NOTES, "review_lines": list(ids)}
+        for code, ids in (not_covered or {}).items()
+    ]
     closed = {
         "id": statement_id,
         "name": name,
@@ -945,15 +983,12 @@ def statement_upload_answer(
             {
                 **b,
                 "difference_cents": 0,
-                **notes,
+                **_CLOSE_NOTES,
                 "review_lines": list(flagged.get(b["currency_code"], [])),
             }
             for b in paper
         ],
-        "not_covered": [
-            {"currency_code": code, **notes, "review_lines": list(ids)}
-            for code, ids in (not_covered or {}).items()
-        ],
+        "not_covered": [dict(entry) for entry in uncovered],
     }
     return {
         "dry_run": dry_run,
@@ -963,6 +998,7 @@ def statement_upload_answer(
         "date_start": date_start,
         "date_end": date_end,
         "balances": paper,
+        "not_covered": uncovered,
         "statement": None if dry_run else statement,
         "rows": rows,
         "taken_out": taken,
@@ -999,6 +1035,8 @@ _ACCOUNT_HOLDING = {
     "color": "#3b82f6",
     "is_person": False,
     "statement_code": None,
+    "bank_code": "BCP",
+    "numbers": [],
     "is_archived": False,
     "sort_order": 1,
     "currencies": [held_currency("PEN")],
@@ -1016,8 +1054,12 @@ def account_with_currencies(base: dict | None = None, /, **fields: Any) -> dict:
     `held_currency` in the order the engine lists them, PEN before USD
     (contract: GET /v1/accounts/{account_id}) (contract: "Bank Accounts", "Per-currency order").
     It is the shared account builder for the model of one account holding its
-    currencies. A person passes `is_person=True`."""
-    return {**_ACCOUNT_HOLDING, **(base or {}), **fields}
+    currencies. A person passes `is_person=True` and holds no bank (`bank_code` `None`);
+    a bank account's `numbers` are `{last4, start_date, end_date}` entries."""
+    account = {**_ACCOUNT_HOLDING, **(base or {}), **fields}
+    if account["is_person"] and "bank_code" not in fields:
+        account["bank_code"] = None
+    return account
 
 
 #: What `FakeClient` answers a write no `write_responses` entry names: a list of
