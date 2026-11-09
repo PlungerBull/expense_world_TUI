@@ -38,6 +38,7 @@ from expense.reads import (
     load_category_name_map,
     load_hashtag_name_map,
     load_quickadd_refs,
+    number_digits,
     query_params,
 )
 from tests.unit.helpers import (
@@ -1240,3 +1241,19 @@ def test_each_list_and_count_sends_currency_code_only_when_given(configured):
 def test_currencies_phrase_joins_the_codes_in_the_order_given():
     assert currencies_phrase(["PEN"]) == "PEN"
     assert currencies_phrase(("USD", "PEN")) == "USD + PEN"
+
+
+def test_number_digits_reads_every_number_as_sent():
+    accounts = [
+        {
+            "id": "a",
+            "name": "BCP-5678",
+            "numbers": [
+                {"last4": "1234", "start_date": None, "end_date": "2025-12-31"},
+                {"last4": "5678", "start_date": "2026-01-01", "end_date": None},
+            ],
+        },
+        {"id": "b", "name": "BCP", "numbers": []},
+        {"id": "c", "name": "Nico"},
+    ]
+    assert number_digits(accounts) == {"a": ("1234", "5678")}

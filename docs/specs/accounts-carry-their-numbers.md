@@ -92,10 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-1. **Every screen shows the engine's name.** Manage ▸ Accounts, every picker, the peek and the
-   toasts show `name` as sent; the LOG bar's `$` matches it by either word and by a card's four
-   digits (question 12). The unit fixtures' default bank account (`_ACCOUNT_HOLDING` in
-   tests/unit/helpers.py, `BCP Ahorros` today) takes a name the engine builds, with its number.
 2. **The New form, in one write.** A bank account's `bank` (from `GET /banks`) and optional
    `last 4` where `name` is today; a person's `name`; each currency's opening pair (question 9);
    one `POST /accounts`; every refusal on its line, `currencies.<i>.opening_balance.<field>` on
@@ -135,3 +131,17 @@ Not built in this spec; sorted when it is done.
 
 - Once accounts carry their numbers, the engine could name a PDF's account from the number the
   paper prints, so the upload would not ask "Which account is this statement?" at all.
+- **For decisions.md at the sweep:** the parser keeps exact-name-wins, so `$BCP` is the line's
+  text for the account named `BCP` and every written name parses back to its own account (the line
+  is its own storage format); while `$bcp` is typed, the LOG bar's list offers the exact name and
+  every name built on it (`BCP-…`), in the engine's order, since a bank account is
+  named by its bank alone only until it has a number. Rejected: the parser listing them all (a
+  picked `BCP` could never be staged); dropping exact-name-wins for every account name (`BCP
+  Signature` beside `BCP Signature Platinum` turned ambiguous).
+- **Pane 5 draws `"$5678" matches 1 account — ↵ writes the full name`,** but no single match shows
+  a suggestion line on the LOG bar today (a unique name resolves as you type, as `$nic` does), so
+  four digits matching one card resolve the same way. Pane 5 also draws `$56 is an amount: 56.00`
+  under a `$` with digits, which no line shows today either. For the owner: both hint lines for
+  every such token, or as it is.
+- No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
+  (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

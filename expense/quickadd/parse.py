@@ -24,7 +24,7 @@ without parsing it again.
 """
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date as date_cls
 
@@ -182,8 +182,24 @@ def _lookahead(words: list[tuple[int, int, str]], start: int, limit: int) -> int
     return taken
 
 
+def named_on(typed: str, accounts: Sequence[Sequence]) -> list[tuple[str, str]]:
+    """`(id, name)` of the accounts a typed word stands for when it is one account's whole
+    name and other accounts' names are built on it (`BCP` and `BCP-5678`): the exact one
+    and every `<name>-…`, in the order given. Empty when the word is no such name, so the
+    parser's exact-name-wins stands and the line's text stays what it resolves to."""
+    key = fold(" ".join(typed.split()))
+    entries = _entries(accounts)
+    built = [e for e in entries if e.key.startswith(key + "-")]
+    if not built or not any(e.key == key for e in entries):
+        return []
+    return [(e.id, e.name) for e in entries if e.key == key or e in built]
+
+
 def _resolve(
-    words: list[tuple[int, int, str]], start: int, head: str, entries: list[_Entry]
+    words: list[tuple[int, int, str]],
+    start: int,
+    head: str,
+    entries: list[_Entry],
 ) -> tuple[int, list[_Entry]]:
     """Longest-first name matching. Returns (words consumed, hits).
 
@@ -217,12 +233,15 @@ def parse(
     hashtags: Sequence[Sequence],
     today: date_cls,
     number_format: NumberFormat | None = None,
+    numbers: Mapping[str, Sequence[str]] | None = None,
 ) -> ParsedLine:
     """Read one quick-add line into the fields a transaction needs.
 
     The three reference arguments are `(id, name)` sequences the caller
     already holds; `today` is injected so the result is deterministic. The amount
-    is read in `number_format`, the session's current one when not given.
+    is read in `number_format`, the session's current one when not given. `numbers`
+    maps an account id to the last 4 digits of every number it has had (the engine's
+    `numbers`): `$` and exactly four of those digits name that account.
     """
     number_format = number_format or current_format()
     spans: list[Span] = []
@@ -237,6 +256,7 @@ def parse(
         "category": _entries(categories),
         "hashtag": _entries(hashtags),
     }
+    number_digits = numbers or {}
     sigil_kind = {"$": "account", "%": "currency", "@": "category", "#": "hashtag"}
 
     words = [(m.start(), m.end(), m.group()) for m in re.finditer(r"\S+", body)]
@@ -257,11 +277,15 @@ def parse(
         head = text[1:]
         kind = sigil_kind.get(text[0])
 
-        # `$` splits on the next character: digits are money decoration the
-        # account already settles, letters name an account. Safe because no
-        # account name starts with a digit.
+        # `$` splits on the next character: letters name an account; digits are
+        # money decoration the account already settles, unless they are exactly
+        # four and one of an account's numbers' last 4, which names that account.
+        # Safe because no account name starts with a digit.
+        number_hits: list[_Entry] | None = None
         if kind == "account" and head[:1].isdigit():
-            kind = None
+            number_hits = [e for e in refs["account"] if head in number_digits.get(e.id, ())]
+            if not (len(head) == 4 and head.isdigit() and number_hits):
+                kind = None
 
         # The currency is read once the account is known, whichever comes first.
         if kind == "currency" and typed_currency is None:
@@ -272,7 +296,9 @@ def parse(
         if kind in ("account", "category", "hashtag") and (
             kind == "hashtag" or picked.get(kind) is None
         ):
-            if head:
+            if number_hits:
+                count, hits = 1, number_hits
+            elif head:
                 count, hits = _resolve(words, index, head, refs[kind])
             else:
                 # A bare sigil means *show me what there is*. It

@@ -97,7 +97,7 @@ from expense.formatting import (
     truncate,
     visible_len,
 )
-from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
+from expense.quickadd.parse import ParsedLine, Span, Unresolved, named_on, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
@@ -916,6 +916,7 @@ class LogBarScreen(Screen):
                 categories=refs.categories,
                 hashtags=refs.hashtags,
                 today=today_local(),
+                numbers=refs.numbers,
             )
             self._picker = self._picker_at(self.query_one("#bar", Input).cursor_position)
         self._hl.parsed = self._parsed
@@ -932,6 +933,21 @@ class LogBarScreen(Screen):
                 return _Picker(
                     span=span, kind=span.kind, token=token, candidates=list(token.candidates)
                 )
+        # `$bcp` resolves to the account named `BCP`; while it is being typed the list
+        # still offers it with every `BCP-…`. `↵` writes the pick, and the completed
+        # token resolves to that one, so no list stands over it again.
+        refs = self._refs
+        if refs is not None and not self._completed:
+            for span in parsed.spans:
+                if span.kind == "account" and span.resolved and span.start <= caret <= span.end:
+                    built = named_on(span.text[1:], refs.quickadd_accounts)
+                    if built:
+                        token = Unresolved(
+                            kind="account", text=span.text[1:], span=span, candidates=tuple(built)
+                        )
+                        return _Picker(
+                            span=span, kind="account", token=token, candidates=list(built)
+                        )
         return None
 
     def _candidates(self) -> list[tuple[str, ...]]:
@@ -948,7 +964,8 @@ class LogBarScreen(Screen):
     def _set_bar(self, text: str, *, caret: int | None = None) -> None:
         """Write the bar ourselves, without it reading as a keystroke."""
         bar = self.query_one("#bar", Input)
-        self._echo = True
+        # the Input sends no `Changed` for the text it already holds, so no echo waits
+        self._echo = text != bar.value
         bar.value = text
         bar.cursor_position = len(text) if caret is None else caret
         self._reparse(text)
@@ -1279,11 +1296,11 @@ class LogBarScreen(Screen):
         # needs the space that sets it apart
         gap = " " if picker.span.start == picker.span.end and not before.endswith(" ") else ""
         token = gap + SIGIL[picker.kind] + chosen[1]
+        self._completed = True  # before the reparse: no list stands over the finished token
         self._set_bar(
             before + token + line[picker.span.end :],
             caret=picker.span.start + len(token),
         )
-        self._completed = True
         self._suggest_idx = 0
 
     def _stage(self, line: str) -> None:
@@ -1354,10 +1371,12 @@ class LogBarScreen(Screen):
             toast(self, f"Row {index + 1} is written. Edit it from Transactions.")
             return
         self._editing = index
+        self._completed = True  # finished text, not typing: no list opens over its `$` token
         self._set_bar(self._staged[index].line)
 
     def _cancel_edit(self) -> None:
         self._editing = None
+        self._completed = False
         self._set_bar("")
 
     # ---- render ------------------------------------------------------------

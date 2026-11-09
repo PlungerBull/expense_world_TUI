@@ -805,6 +805,21 @@ class CurrencyPick(NamedTuple):
     name: str
 
 
+def number_digits(items: list) -> dict[str, tuple[str, ...]]:
+    """Account id -> the last 4 digits of each number in its `numbers` (current and
+    earlier), for the accounts that have any. Read as sent, never parsed from a name."""
+    out: dict[str, tuple[str, ...]] = {}
+    for account in items:
+        digits = tuple(
+            n["last4"]
+            for n in account.get("numbers") or []
+            if isinstance(n, dict) and isinstance(n.get("last4"), str)
+        )
+        if account.get("id") and digits:
+            out[account["id"]] = digits
+    return out
+
+
 def held_currencies(
     items: list, *, include_people: bool = True, include_archived: bool = True
 ) -> list[tuple[dict, str, dict]]:
@@ -888,6 +903,9 @@ class QuickAddRefs:
     # quick-add pool, which leaves @Pendiente out.
     pickable_categories: list[tuple[str, str]] = field(default_factory=list)
     picks: list[CurrencyPick] = field(default_factory=list)
+    # account id -> the last 4 digits of every number the account has had (the
+    # engine's `numbers`), what a typed `$` and four digits matches.
+    numbers: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def quickadd_accounts(self) -> list[tuple[str, str, tuple[str, ...]]]:
@@ -978,4 +996,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         pending_hashtag=pending_hashtag_of(tags),
         pickable_categories=pickable_categories(cats),
         picks=currency_picks(accts, include_people=True, include_archived=False),
+        numbers=number_digits(accts),
     )

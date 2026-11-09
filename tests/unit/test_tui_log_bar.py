@@ -22,7 +22,9 @@ from expense.quickadd.parse import parse
 from expense.quickadd.route import route
 from expense.reads import QuickAddRefs, currency_picks
 from expense.tui.screens.log_bar import (
+    EDIT_HINT,
     LEGEND,
+    STAGED_HINT,
     AccountPeek,
     LogBarScreen,
     Staged,
@@ -2675,3 +2677,146 @@ def test_a_plain_amount_past_the_bound_is_sent_and_refused_in_the_engines_words(
     run_app(scenario)
     [(_path, body)] = fake_client.posts
     assert [row["amount_cents"] for row in body["transactions"]] == [cents]
+
+
+BANKS = [
+    account_with_currencies(
+        id="n1",
+        name="BCP-5678",
+        numbers=[
+            {"last4": "1234", "start_date": None, "end_date": "2025-12-31"},
+            {"last4": "5678", "start_date": "2026-01-01", "end_date": None},
+        ],
+        currencies=[held_currency("PEN")],
+    ),
+    account_with_currencies(
+        id="n2",
+        name="BCP-4471",
+        numbers=[{"last4": "4471", "start_date": None, "end_date": None}],
+        currencies=[held_currency("PEN")],
+    ),
+    account_with_currencies(id="n3", name="BCP", numbers=[], currencies=[held_currency("PEN")]),
+]
+
+
+@pytest.mark.parametrize(("pick", "typed", "account"), [(2, "$BCP", "n3"), (1, "$BCP-4471", "n2")])
+def test_dollar_bcp_lists_the_three_and_a_pick_resolves_to_that_account(
+    fake_client, monkeypatch, pick, typed, account
+):
+    """The exact name `BCP` and every `BCP-…` stand in the list while `$bcp` is typed; the
+    picked name is written into the line and resolves to its own account, and `↵` again
+    stages it."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(BANKS))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Almuerzo -24.00 $bcp")
+        assert [c[1] for c in screen._picker.candidates] == ["BCP-5678", "BCP-4471", "BCP"]
+        screen._suggest_idx = pick
+        screen.on_input_submitted()
+        assert _bar(screen).value == f"Almuerzo -24.00 {typed}"
+        assert screen._picker is None
+        assert screen._parsed.account_id == account
+        screen.on_input_submitted()
+        assert [e.parsed.account_id for e in screen._staged] == [account]
+
+    run_app(scenario)
+
+
+def test_dollar_and_a_cards_last_four_stage_the_account_that_holds_it(fake_client, monkeypatch):
+    """The wiring from the engine's `numbers` to the parser: a current and an earlier
+    number both find their account, and the line stages on it."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(BANKS))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Almuerzo -24.00 $4471")
+        assert screen._parsed.account_id == "n2"
+        _type(screen, "Almuerzo -24.00 $5678")
+        assert screen._parsed.account_id == "n1"
+        screen.on_input_submitted()
+        assert [e.parsed.account_id for e in screen._staged] == ["n1"]
+        _type(screen, "Cena -9.00 $1234")
+        screen.on_input_submitted()
+        assert [e.parsed.account_id for e in screen._staged] == ["n1", "n1"]
+
+    run_app(scenario)
+
+
+def test_a_lifted_line_naming_bcp_is_finished_text_and_restages_on_the_same_account(
+    fake_client, monkeypatch
+):
+    """Stage `$BCP` through the list, lift the row: no list opens over the resolved token,
+    the hint is the edit's, and `↵` stages the same account with the text unchanged."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(BANKS))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Almuerzo -24.00 $bcp")
+        screen._suggest_idx = 2
+        screen.on_input_submitted()
+        screen.on_input_submitted()
+        assert [e.parsed.account_id for e in screen._staged] == ["n3"]
+        screen._lift(0)
+        assert _bar(screen).value == "Almuerzo -24.00 $BCP"
+        assert screen._picker is None
+        assert screen._hint() == EDIT_HINT
+        screen.on_input_submitted()
+        assert [(e.line, e.parsed.account_id) for e in screen._staged] == [
+            ("Almuerzo -24.00 $BCP", "n3")
+        ]
+
+    run_app(scenario)
+
+
+def test_a_pick_that_writes_the_text_already_in_the_bar_leaves_no_echo_waiting(
+    fake_client, monkeypatch
+):
+    """`$BCP` typed whole and picked as `BCP` changes nothing, so no `Changed` follows; the
+    next keystroke must still read as typing and reopen the list."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(BANKS))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Almuerzo -24.00 $BCP")
+        screen._suggest_idx = 2
+        screen.on_input_submitted()
+        assert _bar(screen).value == "Almuerzo -24.00 $BCP"
+        assert screen._echo is False
+        _type(screen, "Almuerzo -24.00 $BCP")  # the next keystroke
+        assert screen._picker is not None
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("key", ["escape", "ctrl+x"])
+def test_leaving_a_lifted_row_leaves_the_staged_hint_not_the_completed_one(
+    fake_client, monkeypatch, key
+):
+    """A lifted line is finished text; esc or dropping the row empties the bar, and the hint
+    is the staged list's again."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(BANKS))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "Almuerzo -24.00 $5678")
+        screen.on_input_submitted()
+        _type(screen, "Cena -9.00 $4471")
+        screen.on_input_submitted()
+        screen._picked = 0
+        screen._lift(0)
+        assert screen._hint() == EDIT_HINT
+        if key == "escape":
+            screen.action_back()
+        else:
+            screen.action_drop_row()
+        assert _bar(screen).value == ""
+        assert screen._editing is None
+        assert screen._hint() == STAGED_HINT
+
+    run_app(scenario)

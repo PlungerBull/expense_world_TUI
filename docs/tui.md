@@ -1716,11 +1716,16 @@ takes `?` as a character.
 
 **The LOG bar's account is one row per account.** `QuickAddRefs.quickadd_accounts`
 (reads.py) hands the parse one row per account, `(id, name, (code, …))`, in the engine's
-order, the currencies each holds as the engine gives them. `$name` matches the account's name,
-an exact name still winning outright, so a card holding soles and dollars is one match and the
-picker lists accounts by name alone. The currency is the `%` token below. The save sends
-`account_id` on every batch item, and `currency_code` on the items whose line typed a `%`
-(contract: POST /v1/transactions/batch).
+order, the currencies each holds as the engine gives them. `$` names the account by the
+`name` the engine sends ([quickadd/parse.py](../expense/quickadd/parse.py)): a word or part
+of one, an exact name winning, so a card holding soles and dollars is one match and the
+picker lists accounts by name alone. While `$bcp` is typed and an account is named `BCP`
+beside `BCP-5678`, the list still offers `BCP` and every `BCP-…`, and the pick resolves to
+itself. `$` and exactly four digits that are the last 4 of one of an account's `numbers`,
+current or earlier (read as sent, never parsed from the name), find that account, several
+listed when several hold them; any other digits after `$` stay money (`$56` is 56.00). The
+currency is the `%` token below. The save sends `account_id` on every batch item, and
+`currency_code` on the items whose line typed a `%` (contract: POST /v1/transactions/batch).
 The staged table's columns are `date  title  amount  cur  account  category  tags`: `cur` is
 the row's `currency_code`, as the Transactions ledger's `Cur` column draws it, and the account
 cell names the account alone. The title and tags give way 3:2 when the rows are wider than the

@@ -11,7 +11,7 @@ import pytest
 from expense.number_format import NumberFormat
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import fold, matches
-from expense.quickadd.parse import parse
+from expense.quickadd.parse import named_on, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.when import format_date_words, parse_date
 
@@ -141,6 +141,103 @@ def test_dollar_splits_on_the_next_character():
     """Letters name an account, digits are money — no account starts with one."""
     assert _p("x -1 $nico").account_id == "a4"
     assert _p("x -1 $1800").account_id is None
+
+
+# The engine's names: `<bank_code>-<last4>`, the bank alone with no number yet. `NUMBERS` is
+# each account's `numbers` last 4 digits, the current card last, an earlier one before.
+BANK_ACCOUNTS = [
+    ("b1", "BCP-5678", ("PEN",)),
+    ("b2", "BCP-4471", ("PEN",)),
+    ("b3", "BCP", ("PEN",)),
+    ("b4", "IBK-5678", ("PEN",)),
+]
+NUMBERS = {"b1": ("1234", "5678"), "b2": ("4471",), "b4": ("5678",)}
+
+
+def _bank(line: str):
+    return parse(
+        line,
+        accounts=BANK_ACCOUNTS,
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+        numbers=NUMBERS,
+    )
+
+
+def test_dollar_finds_a_built_name_by_either_word():
+    assert _bank("x -24 $bcp-4471").account_id == "b2"
+    assert _bank("x -24 $ibk").account_id == "b4"
+    several = _bank("x -24 $bcp-")
+    assert several.account_id is None
+    assert [c[1] for c in several.unresolved[0].candidates] == ["BCP-5678", "BCP-4471"]
+
+
+def test_the_exact_name_resolves_beside_names_built_on_it():
+    """`$BCP` is the line's text for the account named `BCP`, so it resolves to it."""
+    assert _bank("x -24 $BCP").account_id == "b3"
+
+
+def test_named_on_offers_the_exact_name_and_every_name_built_on_it():
+    assert [n for _, n in named_on("bcp", BANK_ACCOUNTS)] == ["BCP-5678", "BCP-4471", "BCP"]
+    assert named_on("bcp-", BANK_ACCOUNTS) == []
+    assert named_on("nico", ACCOUNTS) == []  # nothing is built on it
+    assert named_on("ibk", BANK_ACCOUNTS) == []  # no account is named `IBK`
+
+
+def test_an_exact_account_name_wins_over_a_name_not_built_on_it():
+    """`$nico` is Nico alone; an exact `BC` wins over `BCP-5678`, which is not `BC-…`;
+    an exact name beside a longer one that merely contains it still wins."""
+    assert _p("x -1 $nico").account_id == "a4"
+    parsed = parse(
+        "x -1 $bc",
+        accounts=[("p1", "BC", ("PEN",)), ("p2", "BCP-5678", ("PEN",))],
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+    )
+    assert parsed.account_id == "p1"
+
+
+def test_dollar_and_four_digits_of_a_current_or_earlier_card_find_its_account():
+    assert _bank("x -24 $4471").account_id == "b2"  # the current card
+    assert _bank("x -24 $1234").account_id == "b1"  # an earlier card of b1
+
+
+def test_dollar_and_four_digits_shared_by_two_accounts_list_both():
+    parsed = _bank("x -24 $5678")
+    assert parsed.account_id is None
+    assert [c[0] for c in parsed.unresolved[0].candidates] == ["b1", "b4"]
+
+
+def test_dollar_and_four_digits_matching_no_card_stay_money():
+    parsed = _bank("x -24 $9999")
+    assert parsed.account_id is None
+    assert not parsed.unresolved
+
+
+def test_dollar_and_other_digits_stay_money():
+    """`$56` is not four digits, so it is not a card; a card's last 4 with more digits
+    after them is not either."""
+    for line in ("x -1 $56", "x -1 $567", "x -1 $56789", "x -1 $5678.5"):
+        parsed = _bank(line)
+        assert parsed.account_id is None, line
+        assert not parsed.unresolved, line
+    assert _bank("x $56").title == "x $56"
+
+
+def test_the_four_digit_match_reads_numbers_not_the_name():
+    """An account named like a card but holding no such number is not found by it."""
+    parsed = parse(
+        "x -24 $5678",
+        accounts=BANK_ACCOUNTS,
+        categories=CATEGORIES,
+        hashtags=HASHTAGS,
+        today=TODAY,
+        numbers={},
+    )
+    assert parsed.account_id is None
+    assert not parsed.unresolved
 
 
 def test_multi_word_names_need_no_quotes():

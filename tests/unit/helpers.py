@@ -1062,16 +1062,17 @@ def held_currency(
 
 
 #: An account as `GET /accounts/{id}` reads it now, every field present: one account
-#: holding soles, nothing recorded on it, no statement code and no opening balance.
+#: holding soles under the engine-built name `BCP-5678` (bank `BCP`, one number), nothing
+#: recorded on it, no statement code and no opening balance.
 _ACCOUNT_HOLDING = {
     "id": "acc1",
     "user_id": "u-1",
-    "name": "BCP Ahorros",
+    "name": "BCP-5678",
     "color": "#3b82f6",
     "kind": "bank",
     "statement_code": None,
     "bank_code": "BCP",
-    "numbers": [],
+    "numbers": [{"last4": "5678", "start_date": None, "end_date": None}],
     "is_archived": False,
     "sort_order": 1,
     "currencies": [held_currency("PEN")],
@@ -1090,7 +1091,8 @@ def account_with_currencies(base: dict | None = None, /, **fields: Any) -> dict:
     (contract: GET /v1/accounts/{account_id}) (contract: "Bank Accounts", "Per-currency order").
     It is the shared account builder for the model of one account holding its
     currencies. A person passes `kind="person"` and holds no bank (`bank_code` `None`);
-    a bank account's `numbers` are `{last4, start_date, end_date}` entries."""
+    a bank account's `numbers` are `{last4, start_date, end_date}` entries, the first with
+    no start day (contract: PUT /v1/accounts/{account_id})."""
     account = {**_ACCOUNT_HOLDING, **(base or {}), **fields}
     if account["kind"] == "person" and "bank_code" not in fields:
         account["bank_code"] = None
