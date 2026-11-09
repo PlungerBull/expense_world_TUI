@@ -59,8 +59,6 @@ for it, and which can be archived but never deleted.
 Approved. Each reads the live contract on the
 practice engine before building.
 
-1. **Home shows cash** (question 2): the block's header reads `ACCOUNTS`; each row of
-   `/dashboard`'s `accounts` in the engine's order, the cash one marked `cash`.
 2. **Making it** (question 1): the New form's type offers `cash` while
    `GET /accounts?include_archived=true` lists no account of kind `cash`; with `cash` picked, name
    reads `Efectivo · set by the engine`, bank, last 4 and statement code leave the form; one

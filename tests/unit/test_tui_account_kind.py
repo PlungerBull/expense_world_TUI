@@ -514,11 +514,11 @@ def _dashboard(rows: list[dict]) -> dict:
 
 
 def _groups(data: dict) -> tuple[list[str], list[str]]:
-    """The names Home draws under BANK ACCOUNTS and under PEOPLE."""
+    """The names Home draws under ACCOUNTS and under PEOPLE."""
     rows = [r for r in home.home_rows(data) if r is not None]
     lefts = [r.left.strip() for r in rows]
     heads = [r.left.strip() if r.id and r.id.count(":") == 1 else "" for r in rows]
-    banks = heads[lefts.index("BANK ACCOUNTS") + 1 : lefts.index("PEOPLE")]
+    banks = heads[lefts.index("ACCOUNTS") + 1 : lefts.index("PEOPLE")]
     people = heads[lefts.index("PEOPLE") + 1 : lefts.index("LEDGER")]
     return [n for n in banks if n], [n for n in people if n]
 

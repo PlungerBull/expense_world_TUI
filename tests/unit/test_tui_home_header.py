@@ -96,7 +96,7 @@ def test_rows_run_categories_totals_accounts_people_screens():
     lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
     assert lefts[:3] == ["CATEGORIES", "▶ @Pendiente", "▶ WANTS"]
     assert lefts[3:7] == ["", "inflow", "outflow", "net"]
-    assert lefts[7:12] == ["BANK ACCOUNTS", "BCP", "PEN", "BCP Ahorros", "USD"]
+    assert lefts[7:12] == ["ACCOUNTS", "BCP", "PEN", "BCP Ahorros", "USD"]
     assert lefts[12:13] == ["PEOPLE"]
     assert lefts[13:] == [x.strip() for x in SECTIONS]
 
@@ -277,7 +277,7 @@ def test_a_one_currency_account_is_its_row_and_one_indented_line():
     rows = home.home_rows(DATA, palette=PALETTE)
     pen = next(r for r in _live(rows) if r.id == "account:a-pen:PEN")
     assert pen.name == "BCP" and pen.right.style == PALETTE.success
-    assert _plain(_by_left(rows)["BANK ACCOUNTS"].right) == "balance today"
+    assert _plain(_by_left(rows)["ACCOUNTS"].right) == "balance today"
 
 
 def test_no_row_on_home_is_named_account_and_code():
@@ -391,7 +391,13 @@ def test_the_ledger_section_no_longer_holds_overview():
 
 
 def test_month_columns_and_balances_end_on_the_same_column():
-    rows = home.home_rows(DATA, home.HomeState(expanded=frozenset({"c-wants"})), PALETTE)
+    cash = _acct("a-cash", "Efectivo de la casa grande", "cash", 23750, 3000)
+    data = {
+        **DATA,
+        "dashboard": {**HOME_DASHBOARD, "accounts": [*HOME_DASHBOARD["accounts"], cash]},
+    }
+    rows = home.home_rows(data, home.HomeState(expanded=frozenset({"c-wants"})), PALETTE)
+    assert any(r and r.mark for r in rows)
     widths = {
         row.left.strip(): len(option.prompt.plain)
         for row, option in zip(rows, home.home_options(rows), strict=True)
@@ -426,3 +432,61 @@ def test_build_header_shows_wordmark_and_month():
 
 def test_build_header_none_is_wordmark_only():
     assert _render(home._build_header(None, PALETTE)).strip() == home._BANNER
+
+
+# ---- the cash account on Home ---------------------------------------------------
+
+
+def _acct(ident, name, kind, *balances):
+    return {**_person(ident, name, *balances), "kind": kind}
+
+
+def _cash_data(*accounts):
+    return {**DATA, "dashboard": {**HOME_DASHBOARD, "accounts": list(accounts), "people": []}}
+
+
+def test_cash_sits_among_the_accounts_in_the_engines_order_marked_cash():
+    data = _cash_data(
+        _acct("a-1", "BCP-5678", "bank", -234050),
+        _acct("a-2", "Efectivo", "cash", 23750, 3000),
+        _acct("a-3", "BCP-4471", "bank", 1245000),
+    )
+    rows = home.home_rows(data, palette=PALETTE)
+    assert _plain(_by_left(rows)["ACCOUNTS"].right) == "balance today"
+    assert [(left, right) for left, _, right, _ in _accounts(rows)] == [
+        ("  BCP-5678", ""),
+        ("    PEN", "-2,340.50"),
+        ("  Efectivo  cash", ""),
+        ("    PEN", "237.50"),
+        ("    USD", "30.00"),
+        ("  BCP-4471", ""),
+        ("    PEN", "12,450.00"),
+    ]
+    text = "\n".join(render_text(o.prompt) for o in home.home_options(rows) if o is not None)
+    assert text.count("cash") == 1
+
+
+def test_the_cash_mark_is_dim_and_the_name_is_not():
+    rows = home.home_rows(_cash_data(_acct("a-2", "Efectivo", "cash", 100)), palette=PALETTE)
+    head = next(o for o in home.home_options(rows) if o and o.id == "account:a-2")
+    spans = [(s.start, s.end, str(s.style)) for s in head.prompt.spans]
+    start = head.prompt.plain.index("cash")
+    assert (start, start + 4, "dim") in spans
+    assert all(s[0] >= start for s in spans)
+
+
+def test_no_cash_row_means_no_mark():
+    rows = home.home_rows(DATA, palette=PALETTE)
+    assert not any(r.mark for r in rows if r)
+    assert "cash" not in "\n".join(r.left for r in rows if r)
+
+
+def test_the_mark_comes_from_kind_never_from_the_name():
+    """A bank account named Efectivo (the engine keeps NAME_EXISTS apart from the cash
+    account's name, but the mark does not lean on it) shows no mark; a cash one does."""
+    rows = home.home_rows(
+        _cash_data(_acct("a-1", "Efectivo", "bank", 100), _acct("a-2", "Caja", "cash", 100)),
+        palette=PALETTE,
+    )
+    lefts = [left for left, ident, _, _ in _accounts(rows) if ident.count(":") == 1]
+    assert lefts == ["  Efectivo", "  Caja  cash"]
