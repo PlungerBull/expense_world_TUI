@@ -24,9 +24,6 @@ loop skips it until it can run.
 2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
-3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
-   approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 take the engine's hand-off of 2026-11-08
-   (`2fa4967b8eed9c3f` to `9b3b43429d8bd11e`), which also covers `c15201ee50485e56`.
 
 ---
 
@@ -117,6 +114,21 @@ next summary.
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3, 4 and 5 yes,
 so the screen says what is there, offers only keys that work and names the fix.
 
+### Small screen details from the number format
+Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
+Found while the number format setting was built; sketches come with the next summary.
+1. **The words not drawn:** saving reads `Number format saved.`; when the Mac's region cannot be
+   named, the row reads `1,234.56  · follows this Mac`, with no region in brackets. Keep both?
+2. **Auth & profile's footer** reads `esc Back  r Refresh  ? Keys  b Bootstrap  f Number
+   format`, every screen's own keys first; the sketch drew `esc Back  b Bootstrap  f Number
+   format  ? Keys`. Keep the app's order?
+3. **A new device, right after Setup,** shows amounts in its own region's format until the app
+   is opened again, since the account's pick is read at launch. Read it as Setup finishes too?
+4. **A pick saved after you left Auth & profile** (the engine answering late) says `Number format
+   saved.`, but Home keeps the old format until it next reloads. Redraw Home when it lands?
+**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
+every amount on screen follows the pick as soon as it is known.
+
 [The official import](specs/before-the-official-import.md) is rewritten for built names now that
 the numbers spec is done, and comes for approval with the next summary.
 
@@ -158,6 +170,17 @@ CLAUDE.md "Specs and tasks".
 - **`account_line`'s docstring example** (`expense/tui/screens/accounts.py:99`) reads
   `Efectivo · bank · PEN 350.00`, a bank account named like the cash account; give it a bank
   account's name.
+- **Small cleanups from the number format:** the `follow-this-mac` case of
+  `test_enter_saves_one_put_with_the_exact_body` (test_number_format_setting.py) starts on the
+  format it ends on, so it proves the `null` body but not the switch back; the launch read takes
+  no `verbose` (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the
+  base's answer; expense/region.py:3 says the region is read once at launch, though Auth &
+  profile reads it on every load; `DEFAULT_FORMAT`'s comment (expense/number_format.py:36-37)
+  leaves out that the account's pick wins over the region; in
+  tests/contract/test_number_format_setting.py, the comment above `CREATED = 1` cites
+  "Response fields" where the numbering lives in "Activity Log", "Action codes", the cleanup's
+  `except Exception` could catch the expected 404 alone, and "mints nothing" is proven for a
+  live token's id but not a revoked one's.
 - **No list test renders an engine-sent total past the largest amount;** only the formatter and a
   typed opening balance are proven.
 - **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps

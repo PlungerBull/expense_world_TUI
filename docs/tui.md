@@ -63,11 +63,11 @@ alone uses (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_hom
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
 form, an account's opening balance, a new statement's two balances and the statement's
 `Starting balance first` and `Ending balance first` boxes, in the session's format
-([number_format.py](../expense/number_format.py)); the account's `number_format` setting
-gives that format at launch (`reads.fetch_number_format`), else the machine's region
-([region.py](../expense/region.py)), `1,234.56` when neither can be read. System ▸ Auth &
-profile shows it and `f` asks which one (`PUT /auth/settings`; *Follow this Mac* sends `null`);
-a save sets the session format at once, and a screen redraws on its next load. The
+([number_format.py](../expense/number_format.py)): at launch the account's `number_format`
+setting, else the machine's region (`launch_format` in [region.py](../expense/region.py),
+the setting read by `reads.fetch_number_format`). System ▸ Auth & profile shows it, and `f`
+picks a format or *Follow this Mac* (`AuthScreen.action_number_format` in
+[system.py](../expense/tui/screens/system.py)); a screen already drawn takes it at its next load. The
 docstring of `parse_amount` holds the rule. An amount it cannot read is refused, never guessed, and nothing is
 sent: the Edit form says `can't read this amount: amounts are 1,234.56`, every other field
 ends its note `Amounts are 1,234.56.`, and the cursor stays (the box stays open). On the LOG
@@ -1330,7 +1330,7 @@ the slot picks (pending is `bold`, not yellow): [decisions.md](decisions.md) "Th
 supplies the palette".
 
 **Amounts.** Every figure shown, and every example amount in a note, is written in the
-session's format ([number_format.py](../expense/number_format.py)). Green is money in, the error colour money out. A transaction's or bank line's
+session's format (§1 "One reader for every typed amount"). Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
 statement's lines, the lines in no statement and their Edit form's heading, the Edit form's
 parts and their count line), and wherever one is named (the question before a delete, a note
