@@ -1177,10 +1177,20 @@ same toasts (`show_bulk_outcome`), except that the rows are named as the ledger 
 `DAY · TITLE · AMOUNT`, one per line, four at most, then `and 2 more`
 (`named_rows`).
 
-**The New form makes an account and its currencies in one write** (`n` on Manage ▸ Accounts).
-Its lines are `type` (`bank` or `person`, prefilled `bank`), `name`, **`currencies`**, a bank
-account's `statement code` (below) and `color`.
+**The New form makes an account, its currencies and their openings in one write** (`n` on
+Manage ▸ Accounts). A bank account's lines are `type` (`bank` or `person`, prefilled `bank`),
+**`bank`**, **`last 4`**, **`currencies`**, `statement code` (below) and `color`, then an
+`opening` and an `as of` line for each currency picked, in pick order (`PEN opening`,
+`PEN as of`, `USD opening`, …), the pair the Edit form draws. A bank account has no `name`
+line: the engine builds its name (contract: POST /v1/accounts, "The name"). A person's lines
+are `type`, `name`, `currencies`, `color` and the pairs; `bank`, `last 4` and `statement code`
+leave the form with `type` on `person` and return holding what was typed.
 
+- **`bank`** picks from the engine's banks (`GET /banks`, shown by code, in the engine's order:
+  `reads.fetch_bank_codes`, read by Manage ▸ Accounts with its currencies) and is required, as
+  `type` is.
+- **`last 4`** is optional; the hint reads `optional · the card's last 4 digits · enter to go
+  on`. The app checks nothing about what is typed: the engine judges its shape.
 - **`currencies` takes one currency or more,** picked as a part's HASHTAGS line on the Edit
   form picks hashtags: the list under the bar holds the currencies not yet picked, in the
   engine's order (the list the Accounts screen read), the first highlighted; a code typed and `⏎` add the
@@ -1188,15 +1198,27 @@ account's `statement code` (below) and `color`.
   goes on. A code nothing matches says `No currencies match “…”.` and stays. Once every
   currency is picked the list is empty. The hint reads `type a code · ↑↓ highlight · enter
   adds & stays · empty enter = done`, and the summary lists the picks as `PEN · USD`.
-- **The save is one `POST /accounts`:** `currencies` holds one `{currency_code}` per pick, in
-  the order picked, and its `kind` is `bank` or `person`
+- **The pairs are the Edit form's** (one copy of the lines and of `opening_balance_body`); a
+  save with an amount and no day says `PEN as of is required.` and sends nothing.
+- **The save is one `POST /accounts`:** `kind`; on a bank account `bank_code`, and `last4`
+  only when typed, never `null`; on a person `name` and no bank field; `currencies`, one
+  `{currency_code}` per pick in the order picked, each with `opening_balance`
+  (`transaction_id` a fresh UUID, `amount_cents`, `date`) only when its amount was typed
   (contract: POST /v1/accounts, "Required")
-  (contract: POST /v1/accounts, "Optional"). The line is required, as `name` is: with
-  nothing picked the save says `Currencies is required.` and sends nothing. A code still in
-  the bar at `ctrl+s` is added first, as `⏎` would add it (§4 "The bar forms' keys").
+  (contract: POST /v1/accounts, "Optional"). The line `currencies` is required: with nothing picked the save says
+  `Currencies is required.` and sends nothing. A code still in the bar at `ctrl+s` is added
+  first, as `⏎` would add it (§4 "The bar forms' keys").
 - **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
-  the line it names, holding what was typed: `name`, `currencies` (any `currencies.<i>…` key
-  too), `statement code` or `color`.
+  the line its key names, holding what was typed: `bank_code` is `bank`, `last4` is `last 4`,
+  `name` is `name`, `currencies` and `currencies.<i>.currency_code` are `currencies`, and
+  `currencies.<i>.opening_balance.<field>` is that currency's pair, `date` on its `as of`
+  line and any other field on its `opening` line (`<i>` counts the body's entries from 0, so
+  `currencies.0` is the first currency picked). A name already taken by a bank account is
+  keyed `last4` or `bank_code`
+  (contract: POST /v1/accounts, "Validation"). A taken id names every id in the engine's words; `user_settings`
+  (`SETTINGS_MISSING`) shows as a note with the setup hint.
+- **Left before the answer,** a bank account, which has no typed name, reads `Not created ·
+  Account (unnamed)`.
 
 **A bank account's statement code is a line of its own on New and Edit.**
 **`statement code`** sits right after `currencies` on New and Edit, on a bank

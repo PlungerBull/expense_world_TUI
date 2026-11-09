@@ -1367,7 +1367,13 @@ def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
     elsewhere = [file for file in sorted(root.rglob("*.py")) if file != root / "formatting.py"]
     assert "transaction_type" not in _string_keys(elsewhere)
     assert "transaction_type" in _string_keys([root / "formatting.py"])  # signed_cents
-    assert "opening_balance" not in _string_keys([root / "tui"])
+    # The @Opening category's key is read nowhere in the TUI. The account form's own body
+    # key `opening_balance` (contract: POST /v1/accounts, "Optional") is the same word, so
+    # that file is left out here and its reads of the category are checked below.
+    form = root / "tui" / "screens" / "create_forms.py"
+    assert "opening_balance" not in _string_keys(
+        [file for file in sorted((root / "tui").rglob("*.py")) if file != form]
+    )
     reads_tree = ast.parse((root / "reads.py").read_text())
     literals = [
         node

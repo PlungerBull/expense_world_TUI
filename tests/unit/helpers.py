@@ -1328,6 +1328,18 @@ def currencies_answer(codes: Sequence[str] = ("PEN", "USD"), /) -> dict:
     return whole([{"currency_code": code} for code in codes])
 
 
+#: The banks the engine lists today, for a test that opens an account form directly.
+ENGINE_BANKS = ["BCP"]
+
+
+@answer_of("GET", "/v1/banks")
+def banks_answer(codes: Sequence[str] = ("BCP",), /) -> dict:
+    """`GET /banks` as the engine reads it: one `{code, name}` per bank, in the order a picker
+    shows them (contract: GET /v1/banks). The unit conftest answers it with BCP for every
+    screen."""
+    return whole([{"code": code, "name": f"Banco {code}"} for code in codes])
+
+
 class FakeClient:
     """Instance-level recorder standing in for expense.http.ExpenseClient.
 

@@ -164,12 +164,14 @@ class AccountsScreen(ResourceListScreen):
     def __init__(self) -> None:
         super().__init__()
         self._currencies: list[str] = []  # the engine's codes, read with the accounts
+        self._banks: list[str] = []  # the engine's bank codes, read with them
 
     def fetch_items(self, cfg, **kw):
-        """The accounts, and with them the engine's currencies (worker thread); a
-        refused or failed read of either shows the engine's words."""
+        """The accounts, and with them the engine's currencies and banks (worker thread); a
+        refused or failed read of any shows the engine's words."""
         accounts = reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
         self._currencies = reads.fetch_currency_codes(cfg, **kw)
+        self._banks = reads.fetch_bank_codes(cfg, **kw)
         return accounts
 
     def build(self, items: list):
@@ -359,4 +361,4 @@ class AccountsScreen(ResourceListScreen):
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen
 
-        return NewAccountScreen(self._currencies)
+        return NewAccountScreen(self._currencies, self._banks)

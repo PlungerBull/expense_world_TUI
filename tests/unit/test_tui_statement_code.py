@@ -18,6 +18,7 @@ from expense.errors import EngineError
 from expense.tui.screens.create_forms import EditAccountScreen, NewAccountScreen
 from expense.tui.screens.modals import ConfirmModal
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
     held_currency,
@@ -71,7 +72,7 @@ async def _open(pilot, app, screen):
 async def _to_code(pilot, screen):
     """A new bank account, typed up to its STATEMENT CODE line."""
     await pilot.press("enter")  # TYPE keeps bank
-    await pilot.press(*"Signature Soles", "enter")
+    await pilot.press("enter", "enter")  # BANK takes BCP, LAST 4 skipped
     await pilot.press(*"PEN", "enter", "enter")  # PEN, then an empty enter goes on
     await pilot.pause()
     assert screen._key == "statement_code"
@@ -87,11 +88,18 @@ async def _save(pilot, screen, fake_client):
 
 
 def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_client):
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
-        assert screen._sequence() == ["type", "name", "currencies", "statement_code", "color"]
+        assert screen._sequence() == [
+            "type",
+            "bank",
+            "last4",
+            "currencies",
+            "statement_code",
+            "color",
+        ]
         await _to_code(pilot, screen)
         assert str(screen.query_one("#field").content) == "STATEMENT CODE"
         assert _hint(screen) == NEW_HINT
@@ -100,7 +108,7 @@ def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_cli
         await pilot.pause()
         assert screen._key == "color"
         assert "statement code SIG" in _summary(screen)
-        await pilot.press("enter")  # COLOR, the last line: creates
+        await pilot.press("enter", "enter", "enter")  # COLOR, then the PEN pair: creates
         await wait_for(pilot, lambda: fake_client.posts)
 
     run_app(scenario)
@@ -110,12 +118,12 @@ def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_cli
 
 
 def test_new_bank_account_skipped_code_is_left_out_of_the_body(fake_client):
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
         await _to_code(pilot, screen)
-        await pilot.press("enter", "enter")  # skip the code, then COLOR creates
+        await pilot.press(*["enter"] * 4)  # skip the code, COLOR and the PEN pair: creates
         await wait_for(pilot, lambda: fake_client.posts)
 
     run_app(scenario)
@@ -126,7 +134,7 @@ def test_new_bank_account_skipped_code_is_left_out_of_the_body(fake_client):
 def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake_client):
     """Typed on bank, then TYPE turned to person: the line leaves the form and
     the person's `POST /accounts` carries no code; back on bank the line returns holding it."""
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
@@ -135,7 +143,14 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
         _on(screen, "type")
         await pilot.press(*"person", "enter")
         await pilot.pause()
-        assert screen._sequence() == ["type", "name", "currencies", "color"]
+        assert screen._sequence() == [
+            "type",
+            "name",
+            "currencies",
+            "color",
+            "opening:PEN",
+            "as_of:PEN",
+        ]
         assert "statement code" not in _summary(screen)
         _on(screen, "type")
         await pilot.press(*"bank", "enter")
@@ -144,7 +159,7 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
         _on(screen, "statement_code")
         assert _bar(screen).value == "SIG"
         _on(screen, "type")
-        await pilot.press(*"person", "enter")
+        await pilot.press(*"person", "enter", *"Eliana", "enter")
         await pilot.pause()
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: fake_client.posts)
@@ -158,13 +173,14 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
 
 
 def test_small_letters_typed_or_pasted_show_as_capitals_on_the_code_line_only(fake_client):
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
         await pilot.press("enter")  # TYPE keeps bank
-        await pilot.press(*"Signature soles")
-        assert _bar(screen).value == "Signature soles"  # NAME takes what is typed
+        await pilot.press("enter")  # BANK takes BCP
+        await pilot.press(*"ab 12")
+        assert _bar(screen).value == "ab 12"  # LAST 4 takes what is typed
         await pilot.press("enter", *"PEN", "enter", "enter")
         await pilot.pause()
         await pilot.press(*"sig")
@@ -387,12 +403,12 @@ def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client):
 
 def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client):
     fake_client.errors["POST"] = TAKEN
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
         await _to_code(pilot, screen)
-        await pilot.press(*"SIG", "enter", "enter")
+        await pilot.press(*"SIG", *["enter"] * 4)
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         assert screen.is_attached

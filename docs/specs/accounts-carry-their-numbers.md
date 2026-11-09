@@ -92,10 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-2. **The New form, in one write.** A bank account's `bank` (from `GET /banks`) and optional
-   `last 4` where `name` is today; a person's `name`; each currency's opening pair (question 9);
-   one `POST /accounts`; every refusal on its line, `currencies.<i>.opening_balance.<field>` on
-   that currency's pair, and an `ID_EXISTS` naming several ids.
 3. **The Edit form, in one write.** The account's lines and `opening_balances` (set, change,
    `null` to clear) in one `PUT /accounts/{id}`; each opening balance read through its
    `opening_balance_transaction_id`; refusals on `opening_balances.<code>[.<field>]`,
@@ -143,5 +139,9 @@ Not built in this spec; sorted when it is done.
   four digits matching one card resolve the same way. Pane 5 also draws `$56 is an amount: 56.00`
   under a `$` with digits, which no line shows today either. For the owner: both hint lines for
   every such token, or as it is.
+- **A bank account's New form left before its save is refused** reads `Not created · Account
+  (unnamed)`: the account has no name until the engine builds it, and the app builds none. For
+  the owner: keep it, or name it by the bank typed (`Account BCP`). The `bank` line has no
+  hint, as the mockup draws none.
 - No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
   (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

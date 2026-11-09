@@ -59,11 +59,13 @@ SITES = {
         "post", "Category created.", "Not created · Category Ropa",
     ),
     "new account": (
-        AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None, ["", "Visa", "PEN", "", "", ""],
-        "post", "Account created.", "Not created · Account Visa",
+        AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,
+        ["", "BCP", "5678", "PEN", "", "", "", "", ""],
+        "post", "Account created.", "Not created · Account (unnamed)",
     ),
     "new person": (
-        AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None, ["person", "Eli", "PEN", "", ""],
+        AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,
+        ["person", "Eli", "PEN", "", "", "", ""],
         "post", "Person created.", "Not created · Person Eli",
     ),
     "edit hashtag": (

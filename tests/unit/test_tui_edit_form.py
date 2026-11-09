@@ -41,6 +41,7 @@ from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
     AMOUNT_BELOW_RANGE_WORDS,
     AMOUNT_OUT_OF_RANGE_WORDS,
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
@@ -343,7 +344,7 @@ FORM_FOOTER = [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field"), ("^n", "Add 
 @pytest.mark.parametrize(
     ("make", "footer"),
     [
-        (lambda: NewAccountScreen(ENGINE_CURRENCIES), "Create"),
+        (lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS), "Create"),
         (lambda: NewCategoryScreen(), "Create"),
         (lambda: NewHashtagScreen(), "Create"),
         (lambda: EditFormScreen(record=TXN), FORM_FOOTER),

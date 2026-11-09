@@ -137,6 +137,18 @@ def fetch_currency_codes(cfg, *, verbose: bool = False) -> list[str]:
     ]
 
 
+def fetch_bank_codes(cfg, *, verbose: bool = False) -> list[str]:
+    """GET /v1/banks → the bank codes a bank account can take, in the order the engine
+    lists them for a picker (contract: GET /v1/banks). The same for every user; an
+    entry without a string `code` is skipped."""
+    body = fetch_body(cfg, path="/banks", params=None, verbose=verbose)
+    return [
+        entry["code"]
+        for entry in items_of(body)
+        if isinstance(entry, dict) and isinstance(entry.get("code"), str)
+    ]
+
+
 def fetch_categories(
     cfg,
     *,

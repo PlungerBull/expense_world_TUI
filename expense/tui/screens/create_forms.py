@@ -23,7 +23,7 @@ from textual.widgets import Input, Static
 
 from expense import reads
 from expense.dates import is_calendar_day, to_canonical_aware
-from expense.errors import EngineError, format_error, key_index, next_step
+from expense.errors import EngineError, format_error, key_field, key_index, next_step
 from expense.formatting import format_cents
 from expense.number_format import amounts_sentence, current_format
 from expense.quickadd.money import amount_to_text, parse_amount
@@ -62,6 +62,8 @@ NAME_HINT = "free text · enter to go on"
 #: The account's COLOR, New and Edit: `⏎` keeps what the line holds — the
 #: account's own colour on Edit, no colour on New.
 ACCOUNT_COLOR_HINT = "optional · enter keeps it · ↑↓ another swatch"
+#: A bank account's LAST 4 on New: optional, and `⏎` goes on to CURRENCIES.
+LAST4_HINT = "optional · the card's last 4 digits · enter to go on"
 #: The account's STATEMENT CODE on New: optional, and `⏎` goes on to COLOR.
 STATEMENT_CODE_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
 #: The same line on Edit, where emptying it and saving clears the code.
@@ -74,8 +76,11 @@ CATEGORY_COLOR_HINT = "optional · enter to save · ↑↓ another swatch"
 # keeps `bank` and adding an ordinary account still costs one keypress.
 _ACCOUNT_TYPES = [("bank", "bank"), ("person", "person")]
 #: The engine field a refusal names → the account form line it lands on, New or
-#: Edit; a line the form does not have is passed over.
+#: Edit; a line the form does not have is passed over. A key under `currencies` is
+#: read by `NewAccountScreen._line_named`.
 _REFUSED_LINES = {
+    "bank_code": "bank",
+    "last4": "last4",
     "name": "name",
     "color": "color",
     "currencies": "currencies",
@@ -83,14 +88,6 @@ _REFUSED_LINES = {
     "date": "as_of",
     "statement_code": "statement_code",
 }
-
-
-def _form_line_named(key: object) -> str | None:
-    """The account form line a refusal's key names: `_REFUSED_LINES`', and
-    CURRENCIES for any `currencies.<i>…` key."""
-    if key_index(key, "currencies") is not None:
-        return "currencies"
-    return _REFUSED_LINES.get(str(key))
 
 
 class Field:
@@ -362,31 +359,81 @@ class NewCategoryScreen(BarFormScreen):
         return payload
 
 
+def opening_side(cents: int | None) -> str:
+    """The word on an `opening` line's right, the same on every account, bank or
+    person: `debt` below zero, `credit` above it, nothing at zero or with
+    nothing readable typed."""
+    if not cents:
+        return ""
+    return "debt" if cents < 0 else "credit"
+
+
+#: An opening balance's two lines, `opening` and `as_of`; each currency of the
+#: account has its own pair, keyed `<line>:<currency code>`.
+_PAIR_LINES = {"opening": "opening", "as_of": "as of"}
+#: An `as of` line's hint; an `opening` line has none.
+AS_OF_HINT = "YYYY-MM-DD · the day the account held this"
+
+
+def _pair_key(line: str, code: str) -> str:
+    return f"{line}:{code}"
+
+
+def _pair_line(key: str) -> tuple[str, str] | None:
+    """`(line, currency code)` for a pair line's key; None for any other line."""
+    line, _, code = key.partition(":")
+    return (line, code) if code and line in _PAIR_LINES else None
+
+
+@dataclasses.dataclass
+class _OpeningBalance:
+    """One currency's opening balance as the form knows it: the row's id
+    (None while it has none), what it read or last saved (`opening` cents,
+    `as_of` day), and whether its read is still out."""
+
+    id: str | None
+    original: dict = dataclasses.field(default_factory=dict)
+    loading: bool = False
+
+
+def opening_balance_body(cents: int, day: str) -> dict:
+    """An opening balance's body, the one shape `POST /accounts` (inside a currency's entry)
+    and `POST /accounts/{id}/opening-balance` share: a fresh `transaction_id`, the signed
+    amount as typed, and the day in its wire form. The title is left out, so the engine
+    names the row (contract: POST /v1/accounts, "Optional")."""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "amount_cents": cents,
+        "date": to_canonical_aware(day),
+    }
+
+
 class NewAccountScreen(BarFormScreen):
     """New bank account *or* person — one form, one key, a TYPE field on top.
 
-    A person is an account of `kind` `person`, and the two take exactly
-    the same fields; the only difference is `kind` in the body. So the
-    choice is a field (Why: docs/decisions.md "A settled person is folded, never
-    hidden"), **prefilled to `bank`** — `n`, `enter`, name… still adds an
-    ordinary account without an extra decision.
+    TYPE is **prefilled to `bank`** — `n`, `enter`, … still adds an ordinary account
+    without an extra decision (Why: docs/decisions.md "A settled person is folded, never
+    hidden"). A bank account's lines are `type`, BANK, LAST 4, CURRENCIES, STATEMENT CODE and
+    COLOR; a person's are `type`, NAME, CURRENCIES and COLOR. BANK, LAST 4 and STATEMENT CODE
+    leave the form with TYPE on person and return holding what was typed. A bank account
+    has no NAME line: the engine builds its name (contract: POST /v1/accounts, "The name").
+    BANK picks from the engine's banks (`GET /banks`, in its order), required; LAST 4 is
+    optional and the engine judges its shape.
 
-    CURRENCIES takes one currency or more, picked as the Edit form's HASHTAGS
-    picks hashtags: a typed code and `⏎` add the highlighted one and stay for
-    another, an empty `⏎` goes on. They go in as `currencies`, one
-    `{currency_code}` each, in the order picked: the account and every currency
-    in one write (contract: POST /v1/accounts, "Required").
+    CURRENCIES takes one currency or more, picked as the Edit form's HASHTAGS picks
+    hashtags: a typed code and `⏎` add the highlighted one and stay for another, an empty
+    `⏎` goes on. After COLOR the form has a pair of optional lines per currency picked, in
+    pick order, as the Edit form has (`PEN opening`, `PEN as of`).
 
-    A bank account has one more line, STATEMENT CODE, after CURRENCIES: only a
-    real account carries a code here, and a person's form has no such line
-    (contract: "What an account is", "Statement code"). With TYPE on person the line
-    leaves the form; back on bank it returns holding what was typed. Letters
-    typed there show as capitals; the engine judges the shape. Skipped, the
-    key is left out of the body (contract: POST /v1/accounts).
+    The save is one `POST /accounts` carrying everything: `kind`; on a bank account
+    `bank_code` and `last4` only when typed (never `null`); on a person `name`; `currencies`
+    in pick order, each `{currency_code}` and, when its amount was typed, `opening_balance`
+    (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional").
+    STATEMENT CODE and COLOR, skipped, are left out of the body.
 
-    A refusal that names one of the form's lines (`_REFUSED_LINES`; any
-    `currencies.<i>…` key names CURRENCIES) reads in the engine's words and puts
-    the cursor back on that line, with what was typed.
+    A refusal reads in the engine's words and puts the cursor back on the line it names
+    (`_line_named`), with what was typed; a key naming `currencies.<i>…` names the
+    currency at place `i` of the body sent.
     """
 
     crumb = ("Manage", "Accounts", "New")
@@ -401,6 +448,8 @@ class NewAccountScreen(BarFormScreen):
             required=True,
             hint="bank or person · enter keeps bank",
         ),
+        Field("bank", "BANK", "choice", required=True),
+        Field("last4", "LAST 4", hint=LAST4_HINT),
         Field("name", "NAME", required=True, hint=NAME_HINT),
         Field(
             "currencies",
@@ -413,15 +462,17 @@ class NewAccountScreen(BarFormScreen):
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
-    def __init__(self, currencies: list[str]) -> None:
-        """`currencies`: the engine's codes (`GET /currencies`), read by the list this
-        form opens from, in the engine's order: what CURRENCIES offers."""
+    def __init__(self, currencies: list[str], banks: list[str]) -> None:
+        """`currencies`, `banks`: the engine's codes (`GET /currencies`, `GET /banks`), read
+        by the list this form opens from, in the engine's order: what CURRENCIES and BANK
+        offer."""
         super().__init__()
+        offered = {
+            "currencies": [(code, code) for code in currencies],
+            "bank": [(code, code) for code in banks],
+        }
         self.FIELDS = [
-            _field_with_choices(f, [(code, code) for code in currencies])
-            if f.key == "currencies"
-            else f
-            for f in self.FIELDS
+            _field_with_choices(f, offered[f.key]) if f.key in offered else f for f in self.FIELDS
         ]
         self._values["type"] = "bank"
         self._refusal_says_next = False  # the last refusal carried its own next step
@@ -431,12 +482,109 @@ class NewAccountScreen(BarFormScreen):
         return self._values.get("type") == "person"
 
     def _sequence(self) -> list[str]:
-        keys = super()._sequence()
-        return [k for k in keys if k != "statement_code"] if self._is_person else keys
+        who = ["name"] if self._is_person else ["bank", "last4"]
+        code = [] if self._is_person else ["statement_code"]
+        pairs = [
+            _pair_key(line, currency)
+            for currency in self._values.get("currencies", ())
+            for line in _PAIR_LINES
+        ]
+        return ["type", *who, "currencies", *code, "color", *pairs]
+
+    def _field(self, key: str) -> Field:
+        """The form's line `key`; a currency's pair lines are made as it is picked."""
+        pair = _pair_line(key)
+        if pair is None:
+            return super()._field(key)
+        line, code = pair
+        if line == "opening":
+            return Field(key, f"{code} OPENING")
+        return Field(key, f"{code} AS OF", hint=AS_OF_HINT)
+
+    def _required(self) -> tuple[str, ...]:
+        return tuple(k for k in self._sequence() if self._field_required(self._field(k)))
 
     def _typed(self, key: str, text: str) -> str:
         return text.upper() if key == "statement_code" else text
 
+    # ---- each currency's two lines -------------------------------------------
+    def _summary_label(self, key: str) -> str:
+        pair = _pair_line(key)
+        return f"{pair[1]} {_PAIR_LINES[pair[0]]}" if pair else super()._summary_label(key)
+
+    def _required_note(self, key: str) -> str:
+        if _pair_line(key):  # `PEN as of is required.`
+            return f"{self._summary_label(key)} is required."
+        return super()._required_note(key)
+
+    def _field_required(self, f: Field) -> bool:
+        pair = _pair_line(f.key)
+        if pair and pair[0] == "as_of":
+            return _pair_key("opening", pair[1]) in self._values  # an amount needs its day
+        return f.required
+
+    def _value_cell(self, key: str, value: object) -> Text:
+        """An `opening` amount is drawn coloured by sign, as the ledger draws it."""
+        pair = _pair_line(key)
+        if pair and pair[0] == "opening":
+            return amount_text(value, PALETTE, AMOUNT_RULE)
+        return super()._value_cell(key, value)
+
+    def _bar_value(self, key: str) -> str:
+        pair = _pair_line(key)
+        if pair and pair[0] == "opening":
+            cents = self._values.get(key)
+            return amount_to_text(cents) if cents is not None else ""
+        return super()._bar_value(key)
+
+    def _bar_word(self, key: str, text: str) -> str:
+        pair = _pair_line(key)
+        return (
+            opening_side(parse_amount(text, current_format()))
+            if pair and pair[0] == "opening"
+            else ""
+        )
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Textual calls the handler of every class in the MRO; this one calls the
+        # bar form's itself, so the message stops here and `⏎` moves one line
+        if event is not None:
+            event.prevent_default()
+        key = self._key
+        pair = _pair_line(key)
+        if pair is None:
+            super().on_input_submitted(event)
+            return
+        line, code = pair
+        amount_key = _pair_key("opening", code)
+        text = self.query_one("#bar", Input).value.strip()
+        if line == "opening":
+            if not text:
+                self._values.pop(key, None)
+            else:
+                cents = parse_amount(text, current_format())
+                if cents is None:
+                    example = format_cents(-35000, grouped=False)
+                    toast(
+                        self,
+                        f"{code} opening: a signed decimal, e.g. {example}. {amounts_sentence()}",
+                        severity="error",
+                    )
+                    return
+                self._values[key] = cents
+        elif not text:
+            if amount_key in self._values:
+                toast(self, self._required_note(key), severity="error")
+                return
+            self._values.pop(key, None)
+        elif not is_calendar_day(text):
+            toast(self, f"{code} as of: use YYYY-MM-DD.", severity="error")
+            return
+        else:
+            self._values[key] = text
+        self._advance()
+
+    # ---- submit ------------------------------------------------------------
     def _submit_request(self) -> tuple[str, str, dict, str]:
         return ("POST", f"/{self.RESOURCE}", self._payload(), "Creating…")
 
@@ -446,28 +594,55 @@ class NewAccountScreen(BarFormScreen):
     def _kind(self) -> str:
         return "Person" if self._is_person else "Account"
 
+    def _shown_name(self) -> str:
+        """A person's name as typed; a bank account has none typed (the engine builds its
+        name), so none: the left-behind line reads `(unnamed)`."""
+        return "" if not self._is_person else self._values["name"]
+
     def _done(self) -> None:
         toast(self, self._saved_words())
         self.dismiss()
 
     def _payload(self) -> dict:
-        payload = {
-            "id": str(uuid.uuid4()),
-            "kind": "person" if self._is_person else "bank",
-            "name": self._values["name"],
-            "currencies": [{"currency_code": code} for code in self._values["currencies"]],
-        }
+        payload: dict = {"id": str(uuid.uuid4()), "kind": "person" if self._is_person else "bank"}
+        if self._is_person:
+            payload["name"] = self._values["name"]
+        else:
+            payload["bank_code"] = self._values["bank"]
+            if self._values.get("last4"):
+                payload["last4"] = self._values["last4"]
+        payload["currencies"] = [self._currency_entry(code) for code in self._values["currencies"]]
         if self._values.get("color"):
             payload["color"] = self._values["color"]
         if not self._is_person and self._values.get("statement_code"):
             payload["statement_code"] = self._values["statement_code"]
         return payload
 
+    def _currency_entry(self, code: str) -> dict:
+        """One entry of the body's `currencies`: the code and, when its amount was typed,
+        its opening balance."""
+        entry: dict = {"currency_code": code}
+        cents = self._values.get(_pair_key("opening", code))
+        if cents is not None:
+            entry["opening_balance"] = opening_balance_body(
+                cents, str(self._values[_pair_key("as_of", code)])
+            )
+        return entry
+
     def _line_named(self, field: object, currency: str | None) -> str | None:
-        """The form line a refusal's `field` names (`_form_line_named`);
-        `currency` is the currency whose write was refused, None for the
-        account's own."""
-        return _form_line_named(field)
+        """The form line a refusal's `field` names: `_REFUSED_LINES`', and for a key under
+        `currencies`, CURRENCIES, or a currency's pair line when it names that currency's
+        opening balance: `date` is its `as of` line, any other part its `opening` line.
+        `currency` is the currency whose own write was refused (Edit's), None otherwise."""
+        index = key_index(field, "currencies")
+        if index is None:
+            return _REFUSED_LINES.get(str(field))
+        part = key_field(field, "currencies") or ""
+        codes = self._values.get("currencies", ())
+        if part.startswith("opening_balance.") and index < len(codes):
+            line = "as_of" if part == "opening_balance.date" else "opening"
+            return _pair_key(line, codes[index])
+        return "currencies"
 
     def _refusal_text(self, exc: Exception, currency: str | None = None) -> str:
         """The `error_text` of this form's writes: notes the form line the
@@ -591,43 +766,6 @@ class EditCategoryScreen(NewCategoryScreen):
         self.dismiss(True)  # wrote: the list starts over (ResourceListScreen._edited)
 
 
-def opening_side(cents: int | None) -> str:
-    """The word on an `opening` line's right, the same on every account, bank or
-    person: `debt` below zero, `credit` above it, nothing at zero or with
-    nothing readable typed."""
-    if not cents:
-        return ""
-    return "debt" if cents < 0 else "credit"
-
-
-#: An opening balance's two lines, `opening` and `as_of`; each currency of the
-#: account has its own pair, keyed `<line>:<currency code>`.
-_PAIR_LINES = {"opening": "opening", "as_of": "as of"}
-#: An `as of` line's hint; an `opening` line has none.
-AS_OF_HINT = "YYYY-MM-DD · the day the account held this"
-
-
-def _pair_key(line: str, code: str) -> str:
-    return f"{line}:{code}"
-
-
-def _pair_line(key: str) -> tuple[str, str] | None:
-    """`(line, currency code)` for a pair line's key; None for any other line."""
-    line, _, code = key.partition(":")
-    return (line, code) if code and line in _PAIR_LINES else None
-
-
-@dataclasses.dataclass
-class _OpeningBalance:
-    """One currency's opening balance as the form knows it: the row's id
-    (None while it has none), what it read or last saved (`opening` cents,
-    `as_of` day), and whether its read is still out."""
-
-    id: str | None
-    original: dict = dataclasses.field(default_factory=dict)
-    loading: bool = False
-
-
 class EditAccountScreen(NewAccountScreen):
     """Edit an account — a bank account or a person — and its opening balances.
 
@@ -684,10 +822,11 @@ class EditAccountScreen(NewAccountScreen):
         if f.key == "statement_code"
         else f
         for f in NewAccountScreen.FIELDS
+        if f.key not in ("bank", "last4")
     ]
 
     def __init__(self, record: dict, currencies: list[str]) -> None:
-        super().__init__(currencies)
+        super().__init__(currencies, [])
         self._id = record["id"]
         self._name = record.get("name") or "—"
         self._was = record.get("name") or ""  # as the list shows it
@@ -729,47 +868,13 @@ class EditAccountScreen(NewAccountScreen):
                 Field(_pair_key("as_of", code), f"{code} AS OF", hint=AS_OF_HINT),
             ]
 
-    # ---- each currency's two lines -------------------------------------------
     @property
     def _openings_loading(self) -> bool:
         return any(o.loading for o in self._openings.values())
 
-    def _summary_label(self, key: str) -> str:
-        pair = _pair_line(key)
-        return f"{pair[1]} {_PAIR_LINES[pair[0]]}" if pair else super()._summary_label(key)
-
-    def _required_note(self, key: str) -> str:
-        if _pair_line(key):  # `PEN as of is required.`
-            return f"{self._summary_label(key)} is required."
-        return super()._required_note(key)
-
-    def _field_required(self, f: Field) -> bool:
-        pair = _pair_line(f.key)
-        if pair and pair[0] == "as_of":
-            return _pair_key("opening", pair[1]) in self._values  # an amount needs its day
-        return f.required
-
-    def _value_cell(self, key: str, value: object) -> Text:
-        """An `opening` amount is drawn coloured by sign, as the ledger draws it."""
-        pair = _pair_line(key)
-        if pair and pair[0] == "opening":
-            return amount_text(value, PALETTE, AMOUNT_RULE)
-        return super()._value_cell(key, value)
-
-    def _bar_value(self, key: str) -> str:
-        pair = _pair_line(key)
-        if pair and pair[0] == "opening":
-            cents = self._values.get(key)
-            return amount_to_text(cents) if cents is not None else ""
-        return super()._bar_value(key)
-
-    def _bar_word(self, key: str, text: str) -> str:
-        pair = _pair_line(key)
-        return (
-            opening_side(parse_amount(text, current_format()))
-            if pair and pair[0] == "opening"
-            else ""
-        )
+    def _sequence(self) -> list[str]:
+        keys = [f.key for f in self.FIELDS]
+        return [k for k in keys if k != "statement_code"] if self._is_person else keys
 
     def _after_mount(self) -> None:
         if self._openings_loading:
@@ -815,45 +920,6 @@ class EditAccountScreen(NewAccountScreen):
         self._refresh_view()
         toast(self, message, title="Failed", severity="error")
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        # Textual calls the handler of every class in the MRO; this one calls the
-        # bar form's itself, so the message stops here and `⏎` moves one line
-        if event is not None:
-            event.prevent_default()
-        key = self._key
-        pair = _pair_line(key)
-        if pair is None:
-            super().on_input_submitted(event)
-            return
-        line, code = pair
-        amount_key = _pair_key("opening", code)
-        text = self.query_one("#bar", Input).value.strip()
-        if line == "opening":
-            if not text:
-                self._values.pop(key, None)
-            else:
-                cents = parse_amount(text, current_format())
-                if cents is None:
-                    example = format_cents(-35000, grouped=False)
-                    toast(
-                        self,
-                        f"{code} opening: a signed decimal, e.g. {example}. {amounts_sentence()}",
-                        severity="error",
-                    )
-                    return
-                self._values[key] = cents
-        elif not text:
-            if amount_key in self._values:
-                toast(self, self._required_note(key), severity="error")
-                return
-            self._values.pop(key, None)
-        elif not is_calendar_day(text):
-            toast(self, f"{code} as of: use YYYY-MM-DD.", severity="error")
-            return
-        else:
-            self._values[key] = text
-        self._advance()
-
     def _opening_write(self, code: str) -> tuple[str, str, dict | None] | None:
         """`code`'s opening balance write for this save, or None."""
         amount_key = _pair_key("opening", code)
@@ -867,12 +933,7 @@ class EditAccountScreen(NewAccountScreen):
                 return None
             # The title is left out, so the engine names the row
             # (contract: POST /v1/accounts/{account_id}/opening-balance).
-            body = {
-                "transaction_id": str(uuid.uuid4()),
-                "currency_code": code,
-                "amount_cents": cents,
-                "date": to_canonical_aware(str(day)),
-            }
+            body = {**opening_balance_body(cents, str(day)), "currency_code": code}
             return ("POST", f"/accounts/{self._id}/opening-balance", body)
         if cents is None:
             return ("DELETE", f"/transactions/{opening.id}", None)

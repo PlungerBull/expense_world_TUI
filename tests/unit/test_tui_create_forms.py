@@ -15,6 +15,7 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
     no_failed_toast,
@@ -153,7 +154,7 @@ def _highlighted(screen) -> list[str]:
 
 @pytest.mark.parametrize(
     "make",
-    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES)],
+    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
     ids=["category", "account"],
 )
 def test_an_empty_optional_color_line_highlights_nothing(fake_client, make):
@@ -170,7 +171,7 @@ def test_an_empty_optional_color_line_highlights_nothing(fake_client, make):
 
 @pytest.mark.parametrize(
     "make",
-    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES)],
+    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
     ids=["category", "account"],
 )
 def test_typing_on_an_optional_color_line_highlights_the_first_match(fake_client, make):
@@ -190,7 +191,7 @@ def test_typing_on_an_optional_color_line_highlights_the_first_match(fake_client
 
 @pytest.mark.parametrize(
     "make",
-    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES)],
+    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
     ids=["category", "account"],
 )
 def test_arrowing_into_an_optional_color_list_highlights_and_enter_picks(fake_client, make):
@@ -201,14 +202,15 @@ def test_arrowing_into_an_optional_color_list_highlights_and_enter_picks(fake_cl
         if isinstance(screen, NewCategoryScreen):
             screen._values["name"] = "Mascotas"
         else:
-            screen._values.update(name="Sueldo", currencies=["PEN"])
+            screen._values.update(bank="BCP", currencies=["PEN"])
         await pilot.press("down")
         await pilot.pause()
         assert _highlighted(screen) == ["██ blue"]
         await pilot.press("down")
         await pilot.pause()
         assert _highlighted(screen) == ["██ green"]
-        await pilot.press("enter")  # the last line: saves with the highlighted swatch
+        # COLOR is the last line of a category; an account's pair lines follow it
+        await pilot.press(*["enter"] * (1 if isinstance(screen, NewCategoryScreen) else 3))
         await wait_for(pilot, lambda: fake_client.posts)
         assert fake_client.posts[0][1]["color"] == "#5ab87a"
 
@@ -520,19 +522,20 @@ def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
     """Empty enter on TYPE keeps `bank` — adding an account costs no extra decision."""
-    # type (empty → the prefilled bank), name, PEN, empty enter goes on, skip code and color
+    # type (empty → the prefilled bank), bank, skip last 4, PEN, empty enter goes on, skip code,
+    # color and the PEN pair
     path, body = _run(
         fake_client,
-        NewAccountScreen(ENGINE_CURRENCIES),
-        ["", "Interbank Sueldo", "PEN", "", "", ""],
+        NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
+        ["", "BCP", "", "PEN", "", "", "", "", ""],
     )
     assert path == "/accounts"
     assert body == {
         "id": body["id"],
         "kind": "bank",
-        "name": "Interbank Sueldo",
+        "bank_code": "BCP",
         "currencies": [{"currency_code": "PEN"}],
-    }  # a skipped code and colour are left out, never null; a bank account sends kind bank
+    }  # a skipped last 4, code, colour and opening are left out, never null
     uuid.UUID(body["id"])
 
 
@@ -540,7 +543,9 @@ def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
     """Picking `person` sends the same body to POST /accounts, with `kind: "person"`
     (contract: POST /v1/accounts, "Optional")."""
     path, body = _run(
-        fake_client, NewAccountScreen(ENGINE_CURRENCIES), ["person", "Eliana", "PEN", "", ""]
+        fake_client,
+        NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
+        ["person", "Eliana", "PEN", "", "", "", ""],
     )
     assert path == "/accounts"
     assert body == {
@@ -553,15 +558,19 @@ def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
 
 @pytest.mark.parametrize(
     "steps",
-    [["", "Eliana", "PEN", "", "", ""], ["person", "Eliana", "PEN", "", ""]],
+    [
+        ["", "BCP", "", "PEN", "", "", "", "", ""],
+        ["person", "Eliana", "PEN", "", "", "", ""],
+    ],
     ids=["bank", "person"],
 )
 def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps):
     """A skipped COLOR leaves the key out of the body, and the form has no
     order field, so the engine applies both defaults; an explicit `null` on
     either is a 422 (contract: POST /v1/accounts, "Optional").
-    A bank account's STATEMENT CODE is skipped too, one line before COLOR."""
-    posted_path, body = _run(fake_client, NewAccountScreen(ENGINE_CURRENCIES), steps)
+    A bank account's STATEMENT CODE is skipped too, one line before COLOR, and so is
+    the PEN opening pair after it."""
+    posted_path, body = _run(fake_client, NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS), steps)
     assert posted_path == "/accounts"
     assert "color" not in body
     assert "sort_order" not in body
@@ -573,11 +582,11 @@ def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_cl
     and a code outside it matches nothing."""
     path, body = _run(
         fake_client,
-        NewAccountScreen(["EUR", "PEN", "USD"]),
-        ["", "Interbank Euros", "EUR", "", "", ""],
+        NewAccountScreen(["EUR", "PEN", "USD"], ENGINE_BANKS),
+        ["", "BCP", "", "EUR", "", "", "", "", ""],
     )
     assert body["currencies"] == [{"currency_code": "EUR"}]
-    screen = NewAccountScreen(["EUR", "PEN", "USD"])
+    screen = NewAccountScreen(["EUR", "PEN", "USD"], ENGINE_BANKS)
     assert screen._field("currencies").choices == [("EUR", "EUR"), ("PEN", "PEN"), ("USD", "USD")]
     assert EditAccountScreen(_ELIANA, ["EUR", "PEN", "USD"])._field("currencies").choices == [
         ("EUR", "EUR"),
@@ -596,9 +605,9 @@ def test_edit_account_locks_type_and_currencies(fake_client):
     assert "kind" not in screen._payload()
 
 
-def test_new_account_required_name_blocks_submit(fake_client):
+def test_new_account_required_bank_blocks_submit(fake_client):
     async def scenario(pilot, app):
-        screen = NewAccountScreen(ENGINE_CURRENCIES)
+        screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()  # nothing entered
@@ -948,7 +957,7 @@ def test_a_forms_own_enter_handler_stops_the_ones_under_it():
         if any("on_input_submitted" in base.__dict__ for base in form.__mro__[1:]):
             overriding.append(form.__name__)
             assert "event.prevent_default()" in inspect.getsource(handler), form.__name__
-    assert "EditAccountScreen" in overriding
+    assert "NewAccountScreen" in overriding  # the Edit form inherits it
 
 
 def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
@@ -1044,16 +1053,15 @@ def _listed(screen) -> list[str]:
 
 
 def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
-    """Visa Inventada, a bank account in PEN and USD with its code: one `POST
-    /accounts` holding both currencies in the order picked, the code and no
-    `kind`; nothing else is sent."""
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    """A BCP account in PEN and USD with its code: one `POST /accounts` holding both
+    currencies in the order picked, the code and no name; nothing else is sent."""
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("enter")  # TYPE keeps bank
-        await pilot.press(*"Visa Inventada", "enter")
+        await pilot.press("enter", "enter")  # BANK takes BCP, LAST 4 skipped
         assert screen._key == "currencies"
         assert str(screen.query_one("#field").content) == "CURRENCIES"
         assert str(screen.query_one("#hint", Static).content) == (
@@ -1072,7 +1080,8 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
         await pilot.press("enter")  # an empty enter goes on
         await pilot.pause()
         assert screen._key == "statement_code"
-        await pilot.press(*"VIS", "enter", "enter")  # code, then COLOR creates
+        # the code, COLOR, then the two pairs: the last `as of` line creates
+        await pilot.press(*"VIS", *["enter"] * 6)
         await wait_for(pilot, lambda: fake_client.posts)
 
     run_app(scenario)
@@ -1081,7 +1090,7 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
     assert body == {
         "id": body["id"],
         "kind": "bank",
-        "name": "Visa Inventada",
+        "bank_code": "BCP",
         "currencies": [{"currency_code": "PEN"}, {"currency_code": "USD"}],
         "statement_code": "VIS",
     }
@@ -1090,8 +1099,8 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
 def test_currencies_go_in_the_order_picked(fake_client):
     path, body = _run(
         fake_client,
-        NewAccountScreen(ENGINE_CURRENCIES),
-        ["", "Visa Inventada", "USD", "PEN", "", "", ""],
+        NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
+        ["", "BCP", "", "USD", "PEN", "", "", "", "", "", "", ""],
     )
     assert body["currencies"] == [{"currency_code": "USD"}, {"currency_code": "PEN"}]
 
@@ -1099,7 +1108,7 @@ def test_currencies_go_in_the_order_picked(fake_client):
 def test_new_person_is_one_post_with_kind_person_and_no_code_line(fake_client):
     """Ana Ejemplo, a person in PEN: no STATEMENT CODE line, one `POST /accounts`
     with `kind: "person"` and no code; nothing goes to `/people`."""
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await app.push_screen(screen)
@@ -1109,7 +1118,7 @@ def test_new_person_is_one_post_with_kind_person_and_no_code_line(fake_client):
         await pilot.press(*"Ana Ejemplo", "enter", *"PEN", "enter", "enter")
         await pilot.pause()
         assert screen._key == "color"  # past CURRENCIES, straight to COLOR
-        await pilot.press("enter")  # COLOR, the last line: creates
+        await pilot.press("enter", "enter", "enter")  # COLOR, then the PEN pair: creates
         await wait_for(pilot, lambda: fake_client.posts)
 
     run_app(scenario)
@@ -1129,10 +1138,10 @@ def test_an_unmatched_code_adds_nothing_and_the_bar_stays(fake_client, monkeypat
     monkeypatch.setattr(NewAccountScreen, "notify", lambda self, m, **kw: notes.append(m))
 
     async def scenario(pilot, app):
-        screen = NewAccountScreen(ENGINE_CURRENCIES)
+        screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", *"Visa", "enter", *"EUR", "enter")
+        await pilot.press("enter", "enter", "enter", *"EUR", "enter")
         await pilot.pause()
         assert screen._key == "currencies"
         assert screen.query_one("#bar", Input).value == "EUR"
@@ -1143,14 +1152,14 @@ def test_an_unmatched_code_adds_nothing_and_the_bar_stays(fake_client, monkeypat
 
 
 def _save_with_typed_currencies(fake_client, typed: list[str], after=None):
-    """Open the New account form, name it, type `typed` on CURRENCIES (each
+    """Open the New account form, pick BCP, type `typed` on CURRENCIES (each
     entry followed by `enter` except the last, which stays typed), then `ctrl+s`."""
 
     async def scenario(pilot, app):
-        screen = NewAccountScreen(ENGINE_CURRENCIES)
+        screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", *"Visa", "enter")
+        await pilot.press("enter", "enter", "enter")
         for code in typed[:-1]:
             await pilot.press(*code, "enter")
         await pilot.press(*typed[-1], "ctrl+s")
@@ -1188,16 +1197,16 @@ def test_a_typed_code_matching_nothing_refuses_ctrl_s(fake_client, monkeypatch):
 
 
 def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
-    """CURRENCIES is a required line, as NAME is: an empty enter goes on, and
+    """CURRENCIES is a required line, as BANK is: an empty enter goes on, and
     the save stops at the form's one required check, sending nothing."""
     notes: list = []
     monkeypatch.setattr(NewAccountScreen, "notify", lambda self, m, **kw: notes.append(m))
 
     async def scenario(pilot, app):
-        screen = NewAccountScreen(ENGINE_CURRENCIES)
+        screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", *"Visa", "enter", "enter")
+        await pilot.press("enter", "enter", "enter", "enter")
         await pilot.pause()
         assert screen._key == "statement_code"
         assert "currencies — *" in _summary_lines(screen)
@@ -1238,12 +1247,12 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
             "",
         ),
         (
-            _keyed("CONFLICT", "name", "NAME_EXISTS", "Name already exists."),
-            "name",
-            "Visa Inventada",
+            _keyed("CONFLICT", "last4", "NAME_EXISTS", "An account named 'BCP-5678' exists."),
+            "last4",
+            "5678",
         ),
     ],
-    ids=["duplicate-currency", "unsupported-currency", "currencies", "name"],
+    ids=["duplicate-currency", "unsupported-currency", "currencies", "last4"],
 )
 def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(fake_client, refusal, line, bar):
     """The block is the engine's words as every failed write reads them, and the
@@ -1256,27 +1265,33 @@ def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(fake_client, re
         assert screen.query_one("#bar", Input).value == bar
         assert screen._values["currencies"] == ["PEN", "USD"]
 
-    steps = ["", "Visa Inventada", "PEN", "USD", "", "", ""]
-    _run_refused(fake_client, NewAccountScreen(ENGINE_CURRENCIES), steps, check, refusal=refusal)
+    steps = ["", "BCP", "5678", "PEN", "USD", "", "", "", "", "", "", ""]
+    _run_refused(
+        fake_client,
+        NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
+        steps,
+        check,
+        refusal=refusal,
+    )
 
 
 def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client):
-    """Saved from NAME with ctrl+s, the refusal moves the cursor to COLOR; the
+    """Saved from BANK with ctrl+s, the refusal moves the cursor to COLOR; the
     block is the engine's words and the colour picked is still held."""
     refusal = _keyed("VALIDATION_ERROR", "color", "INVALID_COLOR", "Color must be a hex.")
     fake_client.errors["POST"] = refusal
-    screen = NewAccountScreen(ENGINE_CURRENCIES)
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        for text in ["", "Visa Inventada", "PEN", "USD", "", ""]:
+        for text in ["", "BCP", "", "PEN", "USD", "", ""]:
             _enter(screen, text)
         assert screen._key == "color"
         screen._values["color"] = "#5ab87a"
-        screen._current = screen._sequence().index("name")
+        screen._current = screen._sequence().index("bank")
         screen._refresh_bar()
-        assert screen._key == "name"
+        assert screen._key == "bank"
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: refusal_block(screen), message="no refusal block shown")
         await pilot.pause()
