@@ -21,6 +21,7 @@ app's own `answer_rows` and `day_mismatches` where a test names them. Pinned her
   - every answer row and every `day_mismatches` entry reads `account_id` and
     `currency_code`;
   - a row of 0 is `skipped`: read, counted, never written;
+  - `"true"` and `1` for `dry_run` are `INVALID_FORMAT` on `dry_run`, nothing written;
   - a row dated after today refuses the whole download, dry run and apply alike,
     `FUTURE_DATE` on `rows.<row>.date`, its message naming the row, nothing written;
   - a day where the ledger holds a line the file does not is a
@@ -55,6 +56,7 @@ from tests.contract.conftest import (
     CURRENT_HEADER,
     account_balance,
     assert_refusal,
+    download_body,
     live_ids,
     read_signed,
     refused,
@@ -218,6 +220,24 @@ def test_a_dollar_row_to_an_account_without_dollars_is_refused_and_nothing_is_wr
         assert_refusal(err, 422, "VALIDATION_ERROR", "rows.3.account_id", "CURRENCY_NOT_HELD")
         assert err.fields["rows.3.account_id"] == "Row 3: The account holds no USD."
         assert read() == before
+
+
+def test_dry_run_is_a_json_boolean_and_nothing_else(scratch):
+    """`"true"` and `1` for `dry_run` are `422` `INVALID_FORMAT` on `dry_run` alone and nothing
+    is written, while the JSON `true` is the dry run
+    (contract: "Base Conventions", "Booleans and whole numbers in a request")
+    (contract: POST /v1/transactions/import)."""
+    client = scratch.client
+    account = scratch.account()
+    good = download_body(account, [CARD_HEADER, ["2026-03-10", TITLE, "S/", -25.9]], dry_run=True)
+    for value in ("true", 1):
+        err = refused(
+            lambda v=value: client.post("/transactions/import", json_body={**good, "dry_run": v})
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "dry_run", "INVALID_FORMAT")
+        assert transaction_count(client, account) == 0
+    assert client.post("/transactions/import", json_body=good)["dry_run"] is True
+    assert transaction_count(client, account) == 0
 
 
 def test_a_row_of_zero_is_skipped_and_never_written(scratch):

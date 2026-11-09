@@ -16,8 +16,8 @@ What it pins:
    has as it was (`refused_writing_nothing`): the request's shape (`REQUIRED`, `INVALID_FORMAT`,
    `UNKNOWN_FIELD`) answered alone, even for an account that does not exist; then `404` for
    an unknown or deleted account; then `UNSUPPORTED_VALUE` (`EUR`, `usd`) on `currency_code`;
-   then `409 DUPLICATE_CURRENCY` on `currency_code`; then, last, `INVALID_REFERENCE` on
-   `account_id` for an archived account, which takes the add again once unarchived
+   then `409 DUPLICATE_CURRENCY` on `currency_code`; then, last, `ACCOUNT_ARCHIVED` on
+   `currency_code` for an archived account, which takes the add again once unarchived
    (contract: POST /v1/accounts/{account_id}/currencies, "Refusals"). Each step is proven
    against the next by one request breaking both, except the pair `UNSUPPORTED_VALUE` and
    `DUPLICATE_CURRENCY`, which no request breaks together (only a supported code can be
@@ -103,7 +103,6 @@ NO_ACCOUNT = "account not found."
 #: The words the engine gives each refusal on its key, quoted by the contract's refusal lists.
 WORDS = {
     "DUPLICATE_CURRENCY": "Must be a currency the account does not hold.",
-    "INVALID_REFERENCE": "Must reference an active, non-archived account.",
     "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
     "LAST_CURRENCY": "Must not be the account's last currency: delete the account instead.",
     "HAS_TRANSACTIONS": "Must not be used by any active transaction.",
@@ -241,7 +240,7 @@ def test_an_unsupported_currency_is_refused_before_a_held_one_and_before_the_arc
     client, scratch
 ):
     """`EUR` and a lower-case `usd` are `422` `UNSUPPORTED_VALUE` on `currency_code`, even on
-    an archived account, which would answer `INVALID_REFERENCE` later
+    an archived account, which would answer `ACCOUNT_ARCHIVED` later
     (contract: POST /v1/accounts/{account_id}/currencies, "Refusals")."""
     account_id = scratch.account("PEN")
     for code in ("EUR", "usd", "pen", ""):
@@ -258,7 +257,7 @@ def test_a_held_currency_is_a_duplicate_before_the_archive_and_a_removed_one_is_
     client, scratch
 ):
     """A currency the account holds is `409` `DUPLICATE_CURRENCY` on `currency_code`, also
-    on an archived account, which would answer `INVALID_REFERENCE` later; a currency removed
+    on an archived account, which would answer `ACCOUNT_ARCHIVED` later; a currency removed
     before does not hold its code (contract: POST /v1/accounts/{account_id}/currencies,
     "Refusals")."""
     account_id = scratch.account("PEN", "USD")
@@ -278,8 +277,8 @@ def test_a_held_currency_is_a_duplicate_before_the_archive_and_a_removed_one_is_
 
 
 def test_an_archived_account_takes_no_new_currency_until_it_is_unarchived(client, scratch):
-    """The add of a currency the archived account lacks is `422` `INVALID_REFERENCE` on
-    `account_id`, for a bank account and a person, and `201` once unarchived, the account
+    """The add of a currency the archived account lacks is `422` `ACCOUNT_ARCHIVED` on
+    `currency_code`, for a bank account and a person, and `201` once unarchived, the account
     then holding every currency (contract: POST /v1/accounts/{account_id}/currencies,
     "Refusals")."""
     for person in (False, True):
@@ -287,8 +286,8 @@ def test_an_archived_account_takes_no_new_currency_until_it_is_unarchived(client
         scratch.archive(account_id)
 
         err = _add_refused(client, account_id, {"currency_code": "USD"})
-        assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
-        _says(err, "INVALID_REFERENCE")
+        assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "ACCOUNT_ARCHIVED")
+        _says(err, "ACCOUNT_ARCHIVED")
 
         client.post(f"/accounts/{account_id}/unarchive")
         made = _add(client, account_id, "USD")
@@ -573,6 +572,26 @@ def test_a_statement_code_is_cleared_by_null_and_the_colour_alone_leaves_it(clie
 
     free = _put(client, account_id, {"statement_code": code})
     assert free["statement_code"] == code
+
+
+def test_a_sort_order_is_a_whole_json_number_within_a_billion_on_an_edit(client, scratch):
+    """`"5"` and `true` are `422` `INVALID_FORMAT` and 1,000,000,001 `OUT_OF_RANGE`, each on
+    `sort_order` alone, every account as it was; 1,000,000,000 is taken as sent
+    (contract: "Base Conventions", "Whole numbers in a request")
+    (contract: PUT /v1/accounts/{account_id})."""
+    account_id = scratch.account("PEN")
+    for value, reason in (
+        ("5", "INVALID_FORMAT"),
+        (True, "INVALID_FORMAT"),
+        (1_000_000_001, "OUT_OF_RANGE"),
+    ):
+        err = refused_writing_nothing(
+            client,
+            lambda v=value: client.put(f"/accounts/{account_id}", json_body={"sort_order": v}),
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "sort_order", reason)
+
+    assert _put(client, account_id, {"sort_order": 1_000_000_000})["sort_order"] == 1_000_000_000
 
 
 def test_an_archived_account_is_edited_and_stays_archived(client, scratch):

@@ -33,6 +33,13 @@ What it pins:
    `account` entry and one `DELETED` `currency` entry per currency; every snapshot carries
    the keys of the contract (contract: "What an account is", "Account snapshot")
    (contract: "Bank Accounts", "Per-currency account").
+6. `kind` is on every answer that is an account (`POST /accounts`, the list, the read, `PUT`,
+   archive, unarchive, a currency's add and removal) and on each `account` entry's snapshots
+   written now, for a bank account and a person alike (contract: "Bank Accounts", "Account
+   response").
+7. A boolean query flag is exactly `true` or `false`: `1` for `include_archived` or
+   `include_people` is `422` `INVALID_FORMAT` on that parameter (contract: "Base Conventions",
+   "Booleans and whole numbers in a request").
 
 What it leaves out:
 
@@ -50,7 +57,17 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 
 from uuid import uuid4
 
-from tests.contract.conftest import DEFAULT_COLOR, all_accounts, bank_code, next_last4
+import pytest
+
+from tests.contract.conftest import (
+    DEFAULT_COLOR,
+    account_body,
+    all_accounts,
+    assert_refusal,
+    bank_code,
+    next_last4,
+    refused,
+)
 
 ACCOUNT_KEYS = {
     "id",
@@ -427,3 +444,45 @@ def test_an_added_and_a_removed_currency_each_log_one_currency_entry(client, scr
     assert held["deleted_at"] is None
     assert gone["deleted_at"] is not None
     assert log.new() == []
+
+
+def test_every_account_answer_and_snapshot_carries_its_kind(client, scratch):
+    """A bank account and a person, each made, listed, read, edited, archived, unarchived, given
+    dollars and relieved of them, answer `kind` as made every time, and every snapshot of the
+    `account` entries these writes left names it too, before and after
+    (contract: "Bank Accounts", "Account response")
+    (contract: "What an account is", "Account snapshot")."""
+    for person in (False, True):
+        kind = "person" if person else "bank"
+        body = account_body("PEN", person=person)
+        account_id = body["id"]
+        scratch.accounts.append(account_id)
+        path = f"/accounts/{account_id}"
+        answers = [client.post("/accounts", json_body=body), client.get(path)]
+        answers.append(next(a for a in all_accounts(client) if a["id"] == account_id))
+        answers.append(client.put(path, json_body={"color": "#00aa00"}))
+        answers.append(client.post(f"{path}/archive"))
+        answers.append(client.post(f"{path}/unarchive"))
+        answers.append(client.post(f"{path}/currencies", json_body={"currency_code": "USD"}))
+        answers.append(client.delete(f"{path}/currencies/USD"))
+        assert [a["kind"] for a in answers] == [kind] * len(answers)
+
+        entries = Entries(client, account_id).new()
+        written = [e for e in entries if e["resource_type"] == "account"]
+        assert len(written) == 4  # create, edit, archive, unarchive
+        for entry in written:
+            for which in ("before_snapshot", "after_snapshot"):
+                if entry[which] is not None:
+                    assert entry[which]["kind"] == kind
+
+
+@pytest.mark.parametrize("path", ["/accounts", "/dashboard"])
+def test_a_query_flag_of_one_is_invalid_format_on_its_parameter(client, path):
+    """`1` is no boolean in a query: `include_archived=1` (and `include_people=1` on the
+    list) is `422` `INVALID_FORMAT` keyed on the parameter, while `true` is taken
+    (contract: "Base Conventions", "Booleans and whole numbers in a request")."""
+    flags = ["include_archived"] + (["include_people"] if path == "/accounts" else [])
+    for flag in flags:
+        err = refused(lambda flag=flag: client.get(path, params={flag: "1"}))
+        assert_refusal(err, 422, "VALIDATION_ERROR", flag, "INVALID_FORMAT")
+        client.get(path, params={flag: "true"})

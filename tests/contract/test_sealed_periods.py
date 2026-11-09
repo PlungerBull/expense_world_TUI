@@ -18,6 +18,14 @@ engine:
     completed, is sealed under the statement's own name once it is, and opens
     again when that next statement is reverted;
   · a draft seals nothing, and revert opens the wall again;
+  · a line in a draft can be dated on a day another completed statement seals, and the writes
+    that would leave it in no statement there are refused `SEALED_PERIOD` on `statement_id`,
+    naming the sealing statement, nothing written: unassigning it (`PUT /transactions/{id}` or
+    `PUT /bank-lines/{id}`) and deleting its draft; deleting the line itself is allowed, and
+    then the draft deletes;
+  · a `PUT /transactions/{id}` sending its `date` unchanged beside a new category is `200` for
+    a line on a sealed day outside a completed statement, and `LOCKED` on `date` alone inside
+    one;
   · a row in the period filed nowhere does not stop `complete`, whose answer flags
     its line in `review_lines`, and its day seals with the rest;
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
@@ -352,6 +360,104 @@ def test_a_skipped_stretch_is_reported_and_a_clean_one_is_not(client, scratch):
     for entry in reverted["balances"]:
         assert "warnings" not in entry
         assert "coverage_gap" not in entry
+
+
+@pytest.fixture
+def sealed_line_in_a_draft(client, scratch):
+    """An account whose March 2026 is completed with one row (March 10), and a draft April
+    holding a row dated March 15, a day March seals (the row joined the draft before March was
+    completed, where it was in a statement and refused nothing): the account, March, the draft,
+    the row in the draft and the row in March."""
+    account = scratch.account()
+    inside = scratch.row(account, "2026-03-10")
+    strayed = scratch.row(account, "2026-03-15")
+    april = scratch.statement(account, *APRIL)
+    scratch.assign(strayed["id"], april["id"])
+    march = scratch.completed(account, *MARCH, inside["id"])
+    assert (march["status"], april["status"]) == (2, 1)
+    assert client.get(f"/transactions/{strayed['id']}")["statement_id"] == april["id"]
+    return account, march, april, strayed, inside
+
+
+def _held(client, april: dict, tx_id: str):
+    """What a refused write on the line or its draft must leave as it was."""
+    return (
+        client.get(f"/statements/{april['id']}"),
+        client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"}),
+    )
+
+
+def test_a_line_on_a_sealed_day_cannot_be_unassigned_from_its_draft(
+    client, scratch, sealed_line_in_a_draft
+):
+    """Unassigning the line (`statement_id: null`) through `PUT /transactions/{id}` and through
+    `PUT /bank-lines/{id}` is `422` `SEALED_PERIOD` on `statement_id` alone, the message naming
+    March, the statement sealing the day, and writes nothing: the draft and the line read as
+    before (contract: "Transactions (Ledger)", "Sealed periods")
+    (contract: PUT /v1/transactions/{transaction_id})."""
+    _, march, april, strayed, _ = sealed_line_in_a_draft
+    line = client.get(f"/transactions/{strayed['id']}")["bank_line_id"]
+
+    err = refused_keeping(
+        lambda: _held(client, april, strayed["id"]),
+        lambda: client.put(f"/transactions/{strayed['id']}", json_body={"statement_id": None}),
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_id", "SEALED_PERIOD")
+    assert march["name"] in err.fields["statement_id"]
+
+    err = refused_line_write(client, line, {"statement_id": None})
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_id", "SEALED_PERIOD")
+    assert march["name"] in err.fields["statement_id"]
+    assert _held(client, april, strayed["id"])[1]["statement_id"] == april["id"]
+
+
+def test_the_draft_of_a_line_on_a_sealed_day_cannot_be_deleted_until_the_line_is(
+    client, scratch, sealed_line_in_a_draft
+):
+    """`DELETE /statements/{id}` of the draft is `422` `SEALED_PERIOD` on `statement_id` alone,
+    naming March, and writes nothing; deleting the line itself is allowed, and the draft then
+    deletes (contract: DELETE /v1/statements/{statement_id}, "Validation")."""
+    _, march, april, strayed, _ = sealed_line_in_a_draft
+
+    err = refused_keeping(
+        lambda: _held(client, april, strayed["id"]),
+        lambda: client.delete(f"/statements/{april['id']}"),
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_id", "SEALED_PERIOD")
+    assert march["name"] in err.fields["statement_id"]
+
+    client.delete(f"/transactions/{strayed['id']}")
+    deleted = client.delete(f"/statements/{april['id']}")
+    assert deleted["deleted_at"] is not None
+
+
+def test_an_unchanged_date_is_judged_only_inside_a_completed_statement(
+    client, scratch, sealed_line_in_a_draft
+):
+    """The `date` read back and sent unchanged beside a new category is `200` for the line on a
+    sealed day in a draft, the category and the date as written; the same for the line inside
+    March is `422` `LOCKED` on `date` alone, and the line reads as before, while the category
+    alone goes through (contract: PUT /v1/transactions/{transaction_id}, "Field locking")
+    (contract: "Transactions (Ledger)", "Sealed periods")."""
+    _, _, april, strayed, inside = sealed_line_in_a_draft
+    category = scratch.category()
+
+    read = client.get(f"/transactions/{strayed['id']}")
+    done = client.put(
+        f"/transactions/{strayed['id']}", json_body={"date": read["date"], "category_id": category}
+    )
+    assert (done["date"], done["category_id"]) == (read["date"], category)
+    assert done["statement_id"] == april["id"]
+
+    locked = client.get(f"/transactions/{inside['id']}")
+    sent = {"date": locked["date"], "category_id": category}
+    err = refused_keeping(
+        lambda: client.get(f"/transactions/{inside['id']}"),
+        lambda: client.put(f"/transactions/{inside['id']}", json_body=sent),
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "LOCKED")
+    changed = client.put(f"/transactions/{inside['id']}", json_body={"category_id": category})
+    assert (changed["date"], changed["category_id"]) == (locked["date"], category)
 
 
 def test_statements_may_not_share_a_day_or_run_backwards(client, scratch):

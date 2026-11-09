@@ -23,7 +23,12 @@ What it pins:
    `id`; then `LIMIT_REACHED` on `id`; then `UNSUPPORTED_VALUE` on every such entry; then
    `NAME_EXISTS` (either kind, ignoring case: on `last4` for a bank account, whose name the
    engine builds from its number, on `name` for a person); then `STATEMENT_CODE_EXISTS`.
-4. An account at the cap of 100 (contract: "Base Conventions", "Create caps"): the cap counts
+4. `kind` that is not `bank`, `person` or `cash` (`null`, another case, a number, empty) is
+   `INVALID_FORMAT` on `kind`; a `sort_order` that is not a JSON number (`"5"`, `true`) is
+   `INVALID_FORMAT` and one past 1,000,000,000 either way `OUT_OF_RANGE`, the bound itself
+   taken, all on `sort_order`, nothing written (contract: POST /v1/accounts, "Required")
+   (contract: "Base Conventions", "Whole numbers in a request").
+5. An account at the cap of 100 (contract: "Base Conventions", "Create caps"): the cap counts
    archived accounts, a deleted one frees a place, and it answers after `ID_EXISTS` and before
    the rules that follow it.
 
@@ -144,6 +149,31 @@ def test_a_currency_code_or_a_holder_on_the_body_is_an_unknown_field(client, scr
     body["currencies"][0]["holder_id"] = str(uuid4())
     err = _refused(client, scratch, body)
     assert_refusal(err, 422, "VALIDATION_ERROR", "currencies.0.holder_id", "UNKNOWN_FIELD")
+
+
+def test_a_kind_that_is_not_one_of_the_three_is_invalid_format(client, scratch):
+    """`null`, a number, an empty string and `Bank` (the kinds are lower case) are each `422`
+    `INVALID_FORMAT` on `kind` alone (contract: POST /v1/accounts, "Required")."""
+    for kind in (None, 1, "", "Bank", "person "):
+        err = _refused(client, scratch, account_body("PEN", kind=kind))
+        _validation(err, {"kind": "INVALID_FORMAT"})
+
+
+def test_a_sort_order_is_a_whole_json_number_within_a_billion(client, scratch):
+    """`"5"` and `true` are `INVALID_FORMAT`, 1,000,000,001 and its negative `OUT_OF_RANGE`,
+    each on `sort_order` alone with nothing written; 1,000,000,000 itself is taken as sent
+    (contract: "Base Conventions", "Whole numbers in a request")."""
+    for value, reason in (
+        ("5", "INVALID_FORMAT"),
+        (True, "INVALID_FORMAT"),
+        (1_000_000_001, "OUT_OF_RANGE"),
+        (-1_000_000_001, "OUT_OF_RANGE"),
+    ):
+        err = _refused(client, scratch, account_body("PEN", sort_order=value))
+        _validation(err, {"sort_order": reason})
+
+    made = _post(client, scratch, account_body("PEN", sort_order=1_000_000_000))
+    assert made["sort_order"] == 1_000_000_000
 
 
 def test_the_requests_shape_is_answered_alone_before_anything_it_shares_a_body_with(

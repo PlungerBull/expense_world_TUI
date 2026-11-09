@@ -63,17 +63,6 @@ Approved. Each reads the live contract on the practice engine before building.
    an operation that takes none (archive, unarchive, every `GET` and `DELETE`), and any
    `sort_order` within ±1,000,000,000. An edit inside a completed statement sends no locked field,
    and an unchanged `date` is not sent. Anything found wrong is fixed.
-6. **The live contract tests:** `kind` on every account answer and on `GET /activity` snapshots;
-   `POST /accounts` without `kind` (`REQUIRED`), with `is_person` (`UNKNOWN_FIELD`), with a
-   wrong kind (`INVALID_FORMAT`); `/dashboard`'s `accounts` with `kind`; `"true"` and `1` for
-   `dry_run` and `"5"` for `sort_order` (`INVALID_FORMAT`); `1` for a query flag
-   (`INVALID_FORMAT`); `{}` sent to archive (`BODY_NOT_ACCEPTED`); `sort_order` past the bound
-   (`OUT_OF_RANGE`); `ACCOUNT_ARCHIVED` on the three account routes; `SEALED_PERIOD` on an
-   unassign and a draft delete; an unchanged `date` let through on a closed day outside a
-   completed statement and `LOCKED` inside one. Two existing live tests move with it:
-   test_account_kind.py's archive/unarchive 404 loop sends no body, and
-   test_account_currencies.py's archived-account currency add expects `ACCOUNT_ARCHIVED` on
-   `currency_code`.
 
 ## Reply to the engine
 

@@ -34,7 +34,8 @@ repo is public. Pinned here:
   · each refusal a made-up file or account provokes, on the dry run and the apply alike,
     each writing nothing, shown by a full read of the account's transactions, bank lines and
     statements before and after: the body's
-    (`UNKNOWN_FIELD`, `INVALID_FORMAT`, `EMPTY`, a file over 5 MB `OUT_OF_RANGE`), the
+    (`UNKNOWN_FIELD`, `INVALID_FORMAT`, `EMPTY`, a file over 5 MB `OUT_OF_RANGE`; a `dry_run` of
+    `"true"` or `1` `INVALID_FORMAT` on `dry_run`), the
     file's (`UNREADABLE_FILE`, more than 20 pages or 999 rows `OUT_OF_RANGE`,
     `UNEXPECTED_LAYOUT`, `TOTALS_MISMATCH`), the account's (`NO_STATEMENT_CODE`,
     `INVALID_REFERENCE` for an archived one, `PERSON_TAKES_NO_STATEMENT` for a person, on
@@ -469,6 +470,25 @@ def test_the_body_is_refused_before_the_paper_is_read(client, scratch):
             err = refused(lambda body=body: client.post("/statements/import", json_body=body))
             assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
             assert _ledger(client, account) == before
+
+
+def test_dry_run_is_a_json_boolean_and_nothing_else(client, scratch):
+    """`"true"` and `1` for `dry_run` are `422` `INVALID_FORMAT` on `dry_run` alone, the paper
+    unread and nothing written, while the JSON `true` is the dry run
+    (contract: "Base Conventions", "Booleans and whole numbers in a request")
+    (contract: POST /v1/statements/import)."""
+    account, _ = _coded(scratch)
+    paper = savings_paper([PaperRow(date(2026, 3, 4), "COMPRA", -100)], before_cents=10000, **MARCH)
+    good = statement_body(account, paper, dry_run=True)
+    before = _ledger(client, account)
+    for value in ("true", 1):
+        err = refused(
+            lambda v=value: client.post("/statements/import", json_body={**good, "dry_run": v})
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "dry_run", "INVALID_FORMAT")
+        assert _ledger(client, account) == before
+    assert client.post("/statements/import", json_body=good)["dry_run"] is True
+    assert _ledger(client, account) == before
 
 
 def test_a_file_the_engine_cannot_take_is_refused_whole(client, scratch):

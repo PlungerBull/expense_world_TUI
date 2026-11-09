@@ -22,11 +22,23 @@ What it pins, in the order the form meets it:
 6. Deleting one leaves its entry `null` and the other's untouched; the currency then takes a
    new one.
 7. A person takes them the same way, per currency, as a bank account.
+8. An archived account takes no opening balance: the seed route is `422` `ACCOUNT_ARCHIVED` on
+   `currency_code`, and an edit sending any `opening_balances` (a set, a change or a clear)
+   is `422` `ACCOUNT_ARCHIVED` on every `opening_balances.<code>` it names, whatever the
+   entries say; nothing is written, and unarchived the same edit goes through.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from tests.contract.conftest import assert_refusal, assert_refusals, refused
+from tests.contract.conftest import (
+    all_accounts,
+    assert_refusal,
+    assert_refusals,
+    refused,
+    refused_keeping,
+    refused_writing_nothing,
+    transaction_count,
+)
 
 DAY = "2026-01-01"
 
@@ -212,3 +224,53 @@ def test_a_person_takes_one_opening_balance_per_currency(client, scratch, status
 
     scratch.opening_balance(person_id, DAY, "USD")
     assert _ids(client, person_id)["USD"] not in (None, tx_id)
+
+
+def test_an_archived_account_takes_no_opening_balance(client, scratch):
+    """On an archived bank account and an archived person, each holding soles with an
+    opening balance and dollars with none, a seed in either currency is `422`
+    `ACCOUNT_ARCHIVED` on `currency_code` (the soles one would be `OPENING_BALANCE_EXISTS`
+    later), and an edit with `opening_balances` for both, a change and a set, or a clear
+    beside it, is `422` `ACCOUNT_ARCHIVED` on `opening_balances.PEN` and `opening_balances.USD`,
+    the account's own colour unsaved. Every account and the account's transaction count read the
+    same after each refusal; unarchived, the edit changes the soles and sets the dollars
+    (contract: POST /v1/accounts/{account_id}/opening-balance, "Validation")
+    (contract: PUT /v1/accounts/{account_id}, "Refusals")."""
+    for person in (False, True):
+        account_id = scratch.account("PEN", "USD", person=person)
+        scratch.opening_balance(account_id, DAY, "PEN", 1000)
+        scratch.archive(account_id)
+        _archived_refusals_then_unarchived(client, scratch, account_id)
+
+
+def _archived_refusals_then_unarchived(client, scratch, account_id: str) -> None:
+    words = "The account is archived. Unarchive it first."
+    held = transaction_count(client, account_id)
+    path = f"/accounts/{account_id}"
+
+    for currency in ("PEN", "USD"):
+        body = scratch.opening_balance_body(DAY, currency, 2000)
+        scratch.transactions.append(body["transaction_id"])
+        err = refused_writing_nothing(client, lambda b=body: _post_seed(client, account_id, b))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "ACCOUNT_ARCHIVED")
+        assert err.fields["currency_code"] == words
+
+    new_seed = scratch.opening_balance_body(DAY, "USD", 3000)
+    del new_seed["currency_code"]
+    scratch.transactions.append(new_seed["transaction_id"])
+    sets_and_changes = {"PEN": {"amount_cents": 7000}, "USD": new_seed}
+    reasons = dict.fromkeys(("opening_balances.PEN", "opening_balances.USD"), "ACCOUNT_ARCHIVED")
+    for entries in (sets_and_changes, {"PEN": None, "USD": None}):
+        sent = {"color": "#00aa00", "opening_balances": entries}
+        err = refused_keeping(
+            lambda: (all_accounts(client), transaction_count(client, account_id)),
+            lambda sent=sent: client.put(path, json_body=sent),
+        )
+        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+        assert set(err.fields.values()) == {words}
+    assert transaction_count(client, account_id) == held
+
+    client.post(f"{path}/unarchive")
+    edited = client.put(path, json_body={"opening_balances": sets_and_changes})
+    assert _ids(client, account_id)["USD"] == new_seed["transaction_id"]
+    assert edited["currencies"][0]["current_balance_cents"] == 7000

@@ -22,9 +22,10 @@ What it pins, in the order the app meets it:
    `404`, then `ACCOUNT_ARCHIVED`, then `KIND_UNCHANGED`, then `HAS_RECONCILIATION`,
    which a draft, a completed and a deleted statement each cause.
 3. `PUT /accounts/{id}` takes no `kind`: `UNKNOWN_FIELD`, whatever its value.
-4. Archive and unarchive act on the account whole, every currency at once, and on a person as
-   on a bank account; a transaction in any currency of an archived account is `INVALID_REFERENCE`
-   on `account_id` (contract: "Bank Accounts", "No new rows on it").
+4. Archive and unarchive take no body (`{}` is `BODY_NOT_ACCEPTED` on `body`) and act on the
+   account whole, every currency at once, and on a person as on a bank account; an unknown
+   id sent with no body is `404`; a transaction in any currency of an archived account is
+   `INVALID_REFERENCE` on `account_id` (contract: "Bank Accounts", "No new rows on it").
 5. A person is refused `POST /statements` as `PERSON_TAKES_NO_STATEMENT` on `account_id`
    (contract: "What an account is", "Its kind").
 6. A `make-person` sent again under the same `X-Idempotency-Key` is replayed: the same answer,
@@ -314,8 +315,25 @@ def test_archiving_again_and_unarchiving_a_live_account_are_allowed(client, scra
     assert again["is_archived"] is True
     assert again["version"] == version + 3
     for route in ("archive", "unarchive"):
-        err = refused(lambda r=route: _post(client, str(uuid4()), r))
+        err = refused(lambda r=route: client.post(f"/accounts/{uuid4()}/{r}"))
         assert (err.status, err.code) == (404, "NOT_FOUND"), route
+
+
+def test_archive_and_unarchive_take_no_body(client, scratch):
+    """`{}` sent to either is `422` `BODY_NOT_ACCEPTED` on `body` alone, for an account and a
+    person, writing nothing; the same two sent with no body are taken
+    (contract: "Base Conventions", "Request bodies")
+    (contract: POST /v1/accounts/{account_id}/archive)."""
+    for person in (False, True):
+        account_id = scratch.account("PEN", person=person)
+        for route in ("archive", "unarchive"):
+            err = refused_writing_nothing(
+                client,
+                lambda a=account_id, r=route: client.post(f"/accounts/{a}/{r}", json_body={}),
+            )
+            assert_refusal(err, 422, "VALIDATION_ERROR", "body", "BODY_NOT_ACCEPTED")
+        assert client.post(f"/accounts/{account_id}/archive")["is_archived"] is True
+        assert client.post(f"/accounts/{account_id}/unarchive")["is_archived"] is False
 
 
 def test_a_person_takes_no_statement(client, scratch):
