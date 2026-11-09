@@ -354,7 +354,7 @@ def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
             a.get("statement_code") or None,
         )
         for a in items
-        if a.get("id") and not a.get("is_person")
+        if a.get("id") and a.get("kind") != "person"
     ]
 
 

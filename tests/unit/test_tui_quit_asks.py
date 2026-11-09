@@ -54,7 +54,7 @@ ACCOUNTS = [
     {
         "id": "a1",
         "name": "BCP",
-        "is_person": False,
+        "kind": "bank",
         "is_archived": False,
         "color": None,
         "opening_balance_transaction_id": None,

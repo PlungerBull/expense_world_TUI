@@ -299,7 +299,7 @@ def test_the_browse_lists_one_row_per_bank_account_with_its_currencies_and_balan
 
 
 def test_the_browse_leaves_people_out_and_reads_the_accounts_currencies_as_sent():
-    person = account_with_currencies(id="per-ana", name="Ana", is_person=True)
+    person = account_with_currencies(id="per-ana", name="Ana", kind="person")
     nameless = account_with_currencies(id="acc-x", name=None, currencies=[held_currency("PEN")])
     rows = browse_accounts([VISA, person, nameless, {"name": "no id"}])
     assert [(r.id, r.name, r.codes, r.code) for r in rows] == [

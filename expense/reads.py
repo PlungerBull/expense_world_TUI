@@ -817,7 +817,7 @@ def held_currencies(
     for account in items:
         if not account.get("id"):
             continue
-        if not include_people and account.get("is_person"):
+        if not include_people and account.get("kind") == "person":
             continue
         if not include_archived and account.get("is_archived"):
             continue

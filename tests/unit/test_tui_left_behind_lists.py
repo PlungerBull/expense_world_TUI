@@ -36,7 +36,7 @@ REFUSAL = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
 ACCOUNTS = [
     account_with_currencies(id="a-caja", name="Caja Chica", currencies=[held_currency("PEN")]),
     account_with_currencies(
-        id="a-ana", name="Ana Ejemplo", is_person=True, currencies=[held_currency("PEN")]
+        id="a-ana", name="Ana Ejemplo", kind="person", currencies=[held_currency("PEN")]
     ),
     account_with_currencies(
         id="a-viejo", name="Ahorro Viejo", is_archived=True, currencies=[held_currency("PEN")]

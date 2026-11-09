@@ -41,7 +41,7 @@ ACCOUNTS = [
     {
         "id": "a-1",
         "name": "Caja",
-        "is_person": False,
+        "kind": "bank",
         "is_archived": False,
         "currencies": [{"currency_code": "PEN"}],
     },

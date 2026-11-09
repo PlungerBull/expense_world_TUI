@@ -50,9 +50,9 @@ def _rows() -> list[dict]:
         ),
         account_with_currencies(id="a-alejo", name="ALEJO", currencies=held("PEN", "USD")),
         account_with_currencies(
-            id="a-eliana", name="Eliana", is_person=True, currencies=held("PEN")
+            id="a-eliana", name="Eliana", kind="person", currencies=held("PEN")
         ),
-        account_with_currencies(id="a-juan", name="Juan", is_person=True, currencies=held("PEN")),
+        account_with_currencies(id="a-juan", name="Juan", kind="person", currencies=held("PEN")),
         account_with_currencies(
             id="a-viejo", name="Ahorro viejo", is_archived=True, currencies=held("PEN")
         ),
@@ -62,7 +62,7 @@ def _rows() -> list[dict]:
 def _engine_order(rows: list[dict]) -> None:
     """The engine's order: active real accounts, then people, then the archived;
     within a group, in the order they joined it."""
-    rows.sort(key=lambda r: (r["is_archived"], r["is_person"]))
+    rows.sort(key=lambda r: (r["is_archived"], r["kind"] == "person"))
 
 
 def _stub_list(monkeypatch, rows: list[dict]) -> None:
@@ -76,7 +76,7 @@ def _turns(rows: list[dict], ident: str, person: bool):
     def answer(_request):
         row = next(r for r in rows if r["id"] == ident)
         rows.remove(row)
-        row["is_person"] = person
+        row["kind"] = "person" if person else "bank"
         rows.append(row)
         _engine_order(rows)
         return httpx.Response(200, json=row)
@@ -162,7 +162,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         seen.update(before=before, after=listing.cursor_index, key=listing.cursor_key)
         seen["footer"] = _footer(screen)
         seen["cells"] = _cells(screen)
-        seen["kind"] = screen.selected_record()["is_person"]
+        seen["kind"] = screen.selected_record()["kind"] == "person"
         seen["opening"] = screen.selected_record()["currencies"][0][
             "opening_balance_transaction_id"
         ]
@@ -370,7 +370,7 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
     """The "Failed" note is the engine's words alone, with no line of the app's,
     for each of `t`'s refusals: `HAS_RECONCILIATION`, `KIND_UNCHANGED` and
     `ACCOUNT_ARCHIVED` (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
-    Nothing changes: the account keeps its kind (`_by_id` holds `is_person`) and the
+    Nothing changes: the account keeps its kind (`_by_id` holds `kind`) and the
     list is not read again. Nothing but the turn is sent, and `t` sends again."""
     rows = _rows()
     reads: list[int] = []
@@ -446,7 +446,7 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
         listing = screen.query_one(CursorList)
         seen["same"] = before == (listing, listing.cursor_index, screen._by_id)
         seen["refused"] = list(notes)
-        seen["kind"] = screen.selected_record()["is_person"]
+        seen["kind"] = screen.selected_record()["kind"] == "person"
         seen["footer"] = _footer(screen)
         await pilot.press("t")  # its statements are deleted meanwhile
         await wait_for(pilot, lambda: ("", "Now a person.") in notes)
@@ -467,7 +467,7 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
     assert seen["kind"] is False
     assert "t Make person" in seen["footer"]
     assert sent.call_count == 2
-    assert seen["after"]["id"] == "a-alejo" and seen["after"]["is_person"] is True
+    assert seen["after"]["id"] == "a-alejo" and seen["after"]["kind"] == "person"
     assert "t Make bank" in seen["after_footer"]
 
 
@@ -486,8 +486,8 @@ def _dashboard(rows: list[dict]) -> dict:
     live = [r for r in rows if not r["is_archived"]]
     return {
         "month": {"year": 2026, "month": 10},
-        "bank_accounts": [entry(r) for r in live if not r["is_person"]],
-        "people": [entry(r) for r in live if r["is_person"]],
+        "bank_accounts": [entry(r) for r in live if r["kind"] != "person"],
+        "people": [entry(r) for r in live if r["kind"] == "person"],
         "categories": [],
         "totals": {"net_home_cents": 0, "unconverted_count": 0},
     }
@@ -587,3 +587,21 @@ def test_a_refusal_reads_in_the_lists_words(
         run_app(scenario, size=SIZE)
     assert seen["notes"] == [("Failed", shown)]
     assert sent.call_count == 1
+
+
+def test_kind_alone_tells_a_person_from_a_bank_or_cash_account():
+    """A `kind: "person"` account is a person; `bank` and `cash` are accounts, in the
+    account line, the list's row and the readers that split people out."""
+    from expense import reads
+    from expense.tui.screens.accounts import account_line, account_rows
+
+    person = account_with_currencies(id="p", name="Ana", kind="person")
+    bank = account_with_currencies(id="b", name="BCP", kind="bank")
+    cash = account_with_currencies(id="c", name="Efectivo", kind="cash")
+    assert " · person · " in account_line(person)
+    assert " · bank · " in account_line(bank) and " · bank · " in account_line(cash)
+    kinds = [cells[1] for _, cells, *_ in account_rows([person, bank, cash], ["PEN"])]
+    assert kinds == ["person", "bank", "bank"]
+    names = [n for _, n, _ in reads.held_currencies([person, bank, cash], include_people=False)]
+    assert names == ["BCP", "Efectivo"]
+    assert len(reads.held_currencies([person, bank, cash])) == 3

@@ -47,7 +47,7 @@ ELIANA = account_with_currencies(
     VISA,
     id="acc-eli",
     name="Eliana",
-    is_person=True,
+    kind="person",
     currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")],
 )
 ROWS = {"tx-open": OPENING_ROW, "tx-usd": USD_ROW}

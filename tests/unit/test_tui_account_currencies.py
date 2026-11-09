@@ -54,7 +54,7 @@ def _rows() -> list[dict]:
             id="a-dolares", name="Ahorro Dólares", currencies=[held_currency("USD", 1240)]
         ),
         account_with_currencies(
-            id="a-ana", name="Ana Ejemplo", is_person=True, currencies=[held_currency("PEN")]
+            id="a-ana", name="Ana Ejemplo", kind="person", currencies=[held_currency("PEN")]
         ),
         account_with_currencies(
             id="a-viejo",

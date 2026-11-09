@@ -1068,7 +1068,7 @@ _ACCOUNT_HOLDING = {
     "user_id": "u-1",
     "name": "BCP Ahorros",
     "color": "#3b82f6",
-    "is_person": False,
+    "kind": "bank",
     "statement_code": None,
     "bank_code": "BCP",
     "numbers": [],
@@ -1089,10 +1089,10 @@ def account_with_currencies(base: dict | None = None, /, **fields: Any) -> dict:
     `held_currency` in the order the engine lists them, PEN before USD
     (contract: GET /v1/accounts/{account_id}) (contract: "Bank Accounts", "Per-currency order").
     It is the shared account builder for the model of one account holding its
-    currencies. A person passes `is_person=True` and holds no bank (`bank_code` `None`);
+    currencies. A person passes `kind="person"` and holds no bank (`bank_code` `None`);
     a bank account's `numbers` are `{last4, start_date, end_date}` entries."""
     account = {**_ACCOUNT_HOLDING, **(base or {}), **fields}
-    if account["is_person"] and "bank_code" not in fields:
+    if account["kind"] == "person" and "bank_code" not in fields:
         account["bank_code"] = None
     return account
 
@@ -1171,7 +1171,7 @@ ENGINE_ORDER_HOLDING_ACCOUNTS = [
     account_with_currencies(
         id="per-ana",
         name="Ana",
-        is_person=True,
+        kind="person",
         sort_order=0,
         currencies=[held_currency("PEN", 100), held_currency("USD", -50)],
     ),
@@ -1179,7 +1179,9 @@ ENGINE_ORDER_HOLDING_ACCOUNTS = [
 
 
 #: The bank accounts' names as the engine orders them, people left out.
-ENGINE_ORDER_BANK_NAMES = [a["name"] for a in ENGINE_ORDER_HOLDING_ACCOUNTS if not a["is_person"]]
+ENGINE_ORDER_BANK_NAMES = [
+    a["name"] for a in ENGINE_ORDER_HOLDING_ACCOUNTS if a["kind"] != "person"
+]
 
 
 def in_order(text: str, names: list[str]) -> bool:

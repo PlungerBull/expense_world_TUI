@@ -29,7 +29,7 @@ ITEMS = [
     account_with_currencies(
         id="a2",
         name="Socio Juan",
-        is_person=True,
+        kind="person",
         color=None,
         currencies=[held_currency("PEN", -150000)],
     ),
@@ -52,7 +52,7 @@ VISA = account_with_currencies(
 ALEJO = account_with_currencies(
     id="alejo",
     name="ALEJO",
-    is_person=True,
+    kind="person",
     color=None,
     currencies=[held_currency("PEN", -15000), held_currency("USD", 4000)],
 )

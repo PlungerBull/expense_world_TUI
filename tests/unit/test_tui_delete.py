@@ -58,7 +58,7 @@ def _cuenta(i: int) -> dict:
     return account_with_currencies(
         id=f"a{i}",
         name=f"Cuenta {i:02d}",
-        is_person=person,
+        kind="person" if person else "bank",
         currencies=[held_currency("PEN", -15000 if person else 0)],
     )
 

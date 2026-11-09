@@ -89,7 +89,7 @@ def owns(account: dict, prefixes: tuple[str, ...], last4_prefix: str | None) -> 
     a number starting `last4_prefix` (none given: by no number); the practice account never."""
     if account["name"] == PRACTICE_ACCOUNT:
         return False
-    if account["is_person"]:
+    if account["kind"] == "person":
         return matches(account["name"], prefixes)
     return last4_prefix is not None and any(
         number["last4"].startswith(last4_prefix) for number in account["numbers"]

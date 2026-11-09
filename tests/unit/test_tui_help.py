@@ -1053,7 +1053,7 @@ def test_the_footer_and_the_card_agree_on_an_empty_list_widget():
         (HashtagsScreen, {"id": "h1", "name": "viaje"}, {"edit", "delete"}),
         (
             AccountsScreen,
-            {"id": "a1", "name": "BCP", "currencies": [], "is_person": False},
+            {"id": "a1", "name": "BCP", "currencies": [], "kind": "bank"},
             {"edit", "delete", "archive", "make_person", "add_currency", "remove_currency"},
         ),
     ],

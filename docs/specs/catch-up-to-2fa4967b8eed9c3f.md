@@ -58,12 +58,6 @@ values it used to take loosely, and a few writes on closed days.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-1. **The account's kind in the app.** Every account read takes `kind` (`bank`, `person`,
-   `cash`); `is_person` is read only from activity entries written before the change
-   (expense/reads.py, the accounts, statements and create-form screens,
-   expense/bank_import/flow.py). The New form and every `POST /accounts` send `kind` (`bank` or
-   `person`), never `is_person`. The unit fake engine (tests/unit/helpers.py) answers with
-   `kind`.
 2. **The live suite on `kind`.** The contract helpers (tests/contract/conftest.py and every test
    making an account) send `kind`; the suite's account reads take `kind`. Passes when the suite
    runs on the practice engine with no `REQUIRED` or `UNKNOWN_FIELD` on `kind`/`is_person`.
@@ -100,3 +94,10 @@ hand-off's "Done when" checks for an edit sending only changed fields, no reques
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **A bank account made on the New form still sends a typed `name`,** which the engine refuses
+  (`NAME_BUILT`, and `bank_code` `REQUIRED`) since accounts carry their numbers; task 2 of
+  [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) replaces it with the bank
+  and last 4. Until then, check 3 proves a person made, not a bank account.
+- **`scripts/clean_practice_user.py` read `is_person`;** task 1 moved it to `kind`, since the
+  cleaner would fail on the new engine.

@@ -108,7 +108,7 @@ def test_a_create_form_of_several_lines_keeps_what_was_typed_and_a_tab_clears_th
 
 def test_an_edit_form_shows_its_refusal_as_a_block_not_a_toast(fake_client):
     fake_client.errors["PUT"] = TAKEN
-    person = account_with_currencies(id="abc", name="Eliana", is_person=True)
+    person = account_with_currencies(id="abc", name="Eliana", kind="person")
 
     async def scenario(pilot, app):
         screen = EditAccountScreen(person, ENGINE_CURRENCIES)

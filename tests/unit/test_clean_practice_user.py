@@ -36,7 +36,7 @@ def _bank(ident, last4, **fields):
 
 def _person(ident, name, **fields):
     return account_with_currencies(
-        id=ident, name=name, is_person=True, bank_code=None, numbers=[], **fields
+        id=ident, name=name, kind="person", bank_code=None, numbers=[], **fields
     )
 
 

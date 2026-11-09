@@ -52,7 +52,7 @@ CODE_GOES_ON = "optional · three capital letters, e.g. SIG · enter to go on"
 CODE_EDIT_GOES_ON = "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
 
 ACCOUNT = account_with_currencies(id="acc-sue", name="Sueldo Soles", color="#4a90d9")
-PERSON = account_with_currencies(ACCOUNT, id="acc-ana", name="Ana", is_person=True)
+PERSON = account_with_currencies(ACCOUNT, id="acc-ana", name="Ana", kind="person")
 CATEGORY = {"id": "cat1", "name": "Mascotas", "color": "#5ab87a", "is_system": False}
 TXN = {
     "id": "tx1",

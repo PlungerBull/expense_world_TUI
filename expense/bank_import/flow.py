@@ -59,7 +59,7 @@ def account_picks(accounts: list[dict]) -> list[AccountPick]:
             a.get("statement_code") or None,
         )
         for a in accounts
-        if a.get("id") and not a.get("is_archived") and not a.get("is_person")
+        if a.get("id") and not a.get("is_archived") and a.get("kind") != "person"
     ]
 
 

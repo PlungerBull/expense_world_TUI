@@ -1188,7 +1188,7 @@ account's `statement code` (below) and `color`.
   currency is picked the list is empty. The hint reads `type a code · ↑↓ highlight · enter
   adds & stays · empty enter = done`, and the summary lists the picks as `PEN · USD`.
 - **The save is one `POST /accounts`:** `currencies` holds one `{currency_code}` per pick, in
-  the order picked, and a person adds `is_person: true`
+  the order picked, and its `kind` is `bank` or `person`
   (contract: POST /v1/accounts, "Required")
   (contract: POST /v1/accounts, "Optional"). The line is required, as `name` is: with
   nothing picked the save says `Currencies is required.` and sends nothing. A code still in

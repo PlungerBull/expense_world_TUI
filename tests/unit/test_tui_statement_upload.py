@@ -444,7 +444,7 @@ def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencie
                 id="usd", name="BBVA Dólares", currencies=[held_currency("USD")]
             ),
             account_with_currencies(id="old", name="Cerrada", is_archived=True),
-            account_with_currencies(id="ana", name="Ana", is_person=True),
+            account_with_currencies(id="ana", name="Ana", kind="person"),
         ],
     )
 

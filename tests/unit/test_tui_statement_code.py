@@ -40,7 +40,7 @@ NO_CODE = account_with_currencies(SIGNATURE, id="acc-sue", name="Sueldo Soles", 
 WITH_OPENING = account_with_currencies(
     SIGNATURE, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")]
 )
-ELIANA = account_with_currencies(NO_CODE, id="acc-eli", name="Eliana", is_person=True)
+ELIANA = account_with_currencies(NO_CODE, id="acc-eli", name="Eliana", kind="person")
 
 
 def _bar(screen) -> Input:
@@ -151,7 +151,7 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
 
     run_app(scenario)
     path, body = fake_client.posts[0]
-    assert path == "/accounts" and body["is_person"] is True and "statement_code" not in body
+    assert path == "/accounts" and body["kind"] == "person" and "statement_code" not in body
 
 
 # ---- capitals while typing -------------------------------------------------------------

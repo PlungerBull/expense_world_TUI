@@ -48,7 +48,7 @@ SUELDO = account_with_currencies(
     color="#4a90d9",
     currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")],
 )
-ELIANA = account_with_currencies(EFECTIVO, id="acc-eli", name="Eliana", is_person=True)
+ELIANA = account_with_currencies(EFECTIVO, id="acc-eli", name="Eliana", kind="person")
 #: A person who has an opening balance, and that row as the engine returns it.
 ELIANA_OPENED = account_with_currencies(
     ELIANA, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-eli")]

@@ -73,7 +73,7 @@ def account_line(account: dict, *, only: str | None = None) -> str:
     with that currency's balance — `Efectivo · bank · PEN 350.00`; with `only`,
     that one currency alone. The line a delete question and the currency picks
     name the account by, and a currency's removal names the currency by."""
-    kind = "person" if account.get("is_person") else "bank"
+    kind = "person" if account.get("kind") == "person" else "bank"
     held = [
         f"{h['currency_code']} {format_cents(h.get('current_balance_cents'))}"
         for _, _, h in reads.held_currencies([account])
@@ -85,7 +85,7 @@ def account_line(account: dict, *, only: str | None = None) -> str:
 def _who(not_done: str, account: dict) -> str:
     """A refused write on an account, left behind: `Account <name>`, `Person <name>`
     for a person (`not_done_line`)."""
-    kind = "Person" if account.get("is_person") else "Account"
+    kind = "Person" if account.get("kind") == "person" else "Account"
     return not_done_line(not_done, kind, account.get("name"))
 
 
@@ -122,7 +122,7 @@ def account_rows(items: list[dict], currencies: list[str], palette: Palette | No
         archived = bool(account.get("is_archived"))
         cells = [
             name_or_unnamed(account.get("name")),
-            "person" if account.get("is_person") else "bank",
+            "person" if account.get("kind") == "person" else "bank",
             code_cell(account.get("statement_code")),
             swatch(account.get("color")),
             *_balance_cells(account, currencies, palette),
@@ -200,7 +200,7 @@ class AccountsScreen(ResourceListScreen):
             return True  # any account, a person's and an archived one's too: the engine judges
         if item.get("is_archived"):
             return False  # an archived account keeps its kind: `t` leaves the footer
-        return bool(item.get("is_person")) == (action == "make_bank")
+        return (item.get("kind") == "person") == (action == "make_bank")
 
     def action_archive(self) -> None:
         item = self.selected_record()

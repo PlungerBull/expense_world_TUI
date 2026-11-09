@@ -5,8 +5,8 @@ bar, pick choices from a suggestion list, `ctrl+s` (or enter with no field
 ahead that can change) POSTs. Reached with `n` on the Manage list screens.
 
 New account covers both kinds: its first field is TYPE (`bank` / `person`,
-prefilled `bank`), and both save with `POST /accounts`; a `person` adds
-`is_person: true` to the body (contract: POST /v1/accounts, "Optional"). Editing
+prefilled `bank`), and both save with `POST /accounts`; the body carries
+`kind: "bank"` or `kind: "person"` (contract: POST /v1/accounts, "Required"). Editing
 cannot change it, so TYPE is locked read-only on the edit form. Its CURRENCIES
 line picks one currency or more, as the Edit form's HASHTAGS line picks
 hashtags.
@@ -365,8 +365,8 @@ class NewCategoryScreen(BarFormScreen):
 class NewAccountScreen(BarFormScreen):
     """New bank account *or* person — one form, one key, a TYPE field on top.
 
-    A person is a bank account with `is_person = true`, and the two take exactly
-    the same fields; the only difference is `is_person: true` in the body. So the
+    A person is an account of `kind` `person`, and the two take exactly
+    the same fields; the only difference is `kind` in the body. So the
     choice is a field (Why: docs/decisions.md "A settled person is folded, never
     hidden"), **prefilled to `bank`** — `n`, `enter`, name… still adds an
     ordinary account without an extra decision.
@@ -453,11 +453,10 @@ class NewAccountScreen(BarFormScreen):
     def _payload(self) -> dict:
         payload = {
             "id": str(uuid.uuid4()),
+            "kind": "person" if self._is_person else "bank",
             "name": self._values["name"],
             "currencies": [{"currency_code": code} for code in self._values["currencies"]],
         }
-        if self._is_person:
-            payload["is_person"] = True
         if self._values.get("color"):
             payload["color"] = self._values["color"]
         if not self._is_person and self._values.get("statement_code"):
@@ -701,7 +700,7 @@ class EditAccountScreen(NewAccountScreen):
         held = [h for _, _, h in reads.held_currencies([record])]
         self._codes: list[str] = [h["currency_code"] for h in held]
         self._values = {
-            "type": "person" if record.get("is_person") else "bank",
+            "type": "person" if (record.get("kind") == "person") else "bank",
             "name": record.get("name") or "",
             "currencies": list(self._codes),
         }
@@ -709,7 +708,7 @@ class EditAccountScreen(NewAccountScreen):
             self._values["color"] = record["color"]
         self._original_color = record.get("color")
         self._original_code: str | None = record.get("statement_code")
-        if self._original_code and not record.get("is_person"):
+        if self._original_code and not (record.get("kind") == "person"):
             self._values["statement_code"] = self._original_code
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
         # The account half as last saved: once it matches, a save sends only

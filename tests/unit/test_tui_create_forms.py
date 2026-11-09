@@ -309,13 +309,13 @@ def _green_category() -> EditCategoryScreen:
     return EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#5ab87a"})
 
 
-_ELIANA = account_with_currencies(id="abc", name="Eliana", is_person=True)
+_ELIANA = account_with_currencies(id="abc", name="Eliana", kind="person")
 
 
-def _edit_account(color, *, is_person=False) -> EditAccountScreen:
+def _edit_account(color, *, kind="bank") -> EditAccountScreen:
     """The edit form of Sueldo, a soles account or person of `color`."""
     return EditAccountScreen(
-        account_with_currencies(id="abc", name="Sueldo", color=color, is_person=is_person),
+        account_with_currencies(id="abc", name="Sueldo", color=color, kind=kind),
         ENGINE_CURRENCIES,
     )
 
@@ -362,7 +362,7 @@ _PATHS = {EditCategoryScreen: "/categories/c1", EditAccountScreen: "/accounts/ab
     [
         _green_category,
         lambda: _edit_account("#5ab87a"),
-        lambda: _edit_account("#5ab87a", is_person=True),
+        lambda: _edit_account("#5ab87a", kind="person"),
     ],
     ids=["category", "bank-account", "person"],
 )
@@ -385,7 +385,7 @@ def test_enter_down_every_line_keeps_the_rows_colour_and_never_sends_it(fake_cli
 
 @pytest.mark.parametrize(
     "make",
-    [_green_category, lambda: _edit_account("#5ab87a", is_person=True)],
+    [_green_category, lambda: _edit_account("#5ab87a", kind="person")],
     ids=["category", "person"],
 )
 def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
@@ -529,14 +529,15 @@ def test_new_account_defaults_to_bank_on_empty_type(fake_client):
     assert path == "/accounts"
     assert body == {
         "id": body["id"],
+        "kind": "bank",
         "name": "Interbank Sueldo",
         "currencies": [{"currency_code": "PEN"}],
-    }  # a skipped code and colour are left out, never null; a bank account sends no is_person
+    }  # a skipped code and colour are left out, never null; a bank account sends kind bank
     uuid.UUID(body["id"])
 
 
 def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
-    """Picking `person` sends the same body to POST /accounts, with `is_person: true`
+    """Picking `person` sends the same body to POST /accounts, with `kind: "person"`
     (contract: POST /v1/accounts, "Optional")."""
     path, body = _run(
         fake_client, NewAccountScreen(ENGINE_CURRENCIES), ["person", "Eliana", "PEN", "", ""]
@@ -546,7 +547,7 @@ def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
         "id": body["id"],
         "name": "Eliana",
         "currencies": [{"currency_code": "PEN"}],
-        "is_person": True,
+        "kind": "person",
     }
 
 
@@ -586,13 +587,13 @@ def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_cl
 
 
 def test_edit_account_locks_type_and_currencies(fake_client):
-    """`is_person` is creation-time-only, so editing shows TYPE read-only, and
+    """`kind` is creation-time-only, so editing shows TYPE read-only, and
     CURRENCIES, which change with their own keys on Manage ▸ Accounts."""
     screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES)
     assert screen._locked == {"currencies", "type"}
     assert screen._values["type"] == "person"
     assert screen._submit_request()[:2] == ("PUT", "/accounts/abc")
-    assert "is_person" not in screen._payload()
+    assert "kind" not in screen._payload()
 
 
 def test_new_account_required_name_blocks_submit(fake_client):
@@ -1045,7 +1046,7 @@ def _listed(screen) -> list[str]:
 def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
     """Visa Inventada, a bank account in PEN and USD with its code: one `POST
     /accounts` holding both currencies in the order picked, the code and no
-    `is_person`; nothing else is sent."""
+    `kind`; nothing else is sent."""
     screen = NewAccountScreen(ENGINE_CURRENCIES)
 
     async def scenario(pilot, app):
@@ -1079,6 +1080,7 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
     path, body = fake_client.posts[0]
     assert body == {
         "id": body["id"],
+        "kind": "bank",
         "name": "Visa Inventada",
         "currencies": [{"currency_code": "PEN"}, {"currency_code": "USD"}],
         "statement_code": "VIS",
@@ -1094,9 +1096,9 @@ def test_currencies_go_in_the_order_picked(fake_client):
     assert body["currencies"] == [{"currency_code": "USD"}, {"currency_code": "PEN"}]
 
 
-def test_new_person_is_one_post_with_is_person_and_no_code_line(fake_client):
+def test_new_person_is_one_post_with_kind_person_and_no_code_line(fake_client):
     """Ana Ejemplo, a person in PEN: no STATEMENT CODE line, one `POST /accounts`
-    with `is_person: true` and no code; nothing goes to `/people`."""
+    with `kind: "person"` and no code; nothing goes to `/people`."""
     screen = NewAccountScreen(ENGINE_CURRENCIES)
 
     async def scenario(pilot, app):
@@ -1117,7 +1119,7 @@ def test_new_person_is_one_post_with_is_person_and_no_code_line(fake_client):
         "id": body["id"],
         "name": "Ana Ejemplo",
         "currencies": [{"currency_code": "PEN"}],
-        "is_person": True,
+        "kind": "person",
     }
     assert "currency_code" not in body
 

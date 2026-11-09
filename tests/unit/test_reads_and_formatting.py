@@ -241,19 +241,19 @@ def test_load_account_index_gives_names_and_archived_ids_from_one_read(configure
                     "id": "a1",
                     "name": "BCP",
                     "is_archived": False,
-                    "is_person": False,
+                    "kind": "bank",
                 },
                 {
                     "id": "a2",
                     "name": "Ahorro viejo",
                     "is_archived": True,
-                    "is_person": False,
+                    "kind": "bank",
                 },
                 {
                     "id": "p1",
                     "name": "Mom",
                     "is_archived": False,
-                    "is_person": True,
+                    "kind": "person",
                 },
             ]
         )
