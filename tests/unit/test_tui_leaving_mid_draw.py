@@ -6,6 +6,7 @@ import asyncio
 import pytest
 from textual.app import App
 from textual.widget import Widget
+from textual.widgets import Static
 
 from expense.tui.screens._base import still_attached
 from expense.tui.screens.statements import (
@@ -14,6 +15,7 @@ from expense.tui.screens.statements import (
     StatementsScreen,
     _FlaggedList,
 )
+from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import run_app, wait_for, wait_for_list
 from tests.unit.test_tui_flagged_lines import TAMBO, UBER, Lines
 from tests.unit.test_tui_flagged_lines import _patch as _patch_flagged_names
@@ -193,5 +195,221 @@ def test_an_error_while_the_screen_is_showing_is_not_swallowed(monkeypatch):
         monkeypatch.setattr(screen, "_set_crumb", boom)
         with pytest.raises(RuntimeError, match="the crumb is gone"):
             await screen._show(dict(accounts=screen._accounts, statements=None))
+
+    run_app(scenario)
+
+
+# ---- the guards after taking the content lock, and after the draw's own awaits ---------
+def _recording(monkeypatch, screen_cls, handback: str) -> list:
+    """The arguments every call of `screen_cls.<handback>` gets, kept in a list."""
+    real = getattr(screen_cls, handback)
+    seen: list = []
+
+    async def recording(screen, *args, **kwargs):
+        seen.append((args, kwargs))
+        return await real(screen, *args, **kwargs)
+
+    monkeypatch.setattr(screen_cls, handback, recording)
+    return seen
+
+
+async def _left_while_waiting_for_the_lock(pilot, app, screen, how: str, handback) -> list:
+    """Holds `screen`'s content lock, starts `handback()` (a coroutine hand-back that waits
+    for it), makes the screen leave (`how`) while it waits, then frees the lock. Returns
+    what the hand-back raised."""
+    lock = screen._content_lock()
+    await lock.acquire()
+    task = asyncio.ensure_future(handback())
+    for _ in range(5):
+        await asyncio.sleep(0)  # yields only: the hand-back is parked on the lock
+    assert not task.done()
+    if how == "quit":
+        app.exit()
+    else:
+        app.pop_screen()
+    await wait_for(pilot, lambda: not still_attached(screen))
+    lock.release()
+    results = await asyncio.gather(task, return_exceptions=True)
+    return [r for r in results if isinstance(r, BaseException)]
+
+
+def _counting(monkeypatch, cls, name: str) -> list:
+    """Every call of `cls.<name>` made, as a list (the call goes on to the real one)."""
+    real = getattr(cls, name)
+    calls: list = []
+
+    def counting(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(cls, name, counting)
+    return calls
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_draw_waits_for_the_lock_builds_nothing(monkeypatch, how):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        seen = _recording(monkeypatch, StatementsScreen, "_show")
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        built = _counting(monkeypatch, StatementsScreen, "build")
+        args, kwargs = seen[0]
+        cleared = _counting(monkeypatch, Widget, "remove_children")
+        errors = await _left_while_waiting_for_the_lock(
+            pilot, app, screen, how, lambda: screen._show(*args, **kwargs)
+        )
+        assert errors == []
+        assert cleared == []
+        assert built == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_draw_clears_the_content_builds_nothing(monkeypatch, how):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        leave = Leave(
+            monkeypatch, app, how, StatementsScreen, "_show", "remove_children", _empties("content")
+        )
+        leave.probe(monkeypatch, StatementsScreen, "build")
+        await app.push_screen(StatementsScreen())
+        await wait_for(pilot, lambda: leave.ended)
+        leave.assert_nothing_crashed()
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_error_waits_for_the_lock_shows_nothing(monkeypatch, how):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        banners = _counting(monkeypatch, Static, "__init__")
+        cleared = _counting(monkeypatch, Widget, "remove_children")
+        errors = await _left_while_waiting_for_the_lock(
+            pilot, app, screen, how, lambda: screen._error("statements unavailable")
+        )
+        assert errors == []
+        assert cleared == []
+        assert banners == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_error_clears_the_content_shows_nothing(monkeypatch, how):
+    _patch_browse(monkeypatch)
+
+    def unavailable(*_args, **_kwargs):
+        raise RuntimeError("accounts unavailable")
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", unavailable)
+
+    async def scenario(pilot, app):
+        leave = Leave(
+            monkeypatch,
+            app,
+            how,
+            StatementsScreen,
+            "_error",
+            "remove_children",
+            _empties("content"),
+        )
+        leave.probe(monkeypatch, Static, "__init__")
+        await app.push_screen(StatementsScreen())
+        await wait_for(pilot, lambda: leave.ended)
+        leave.assert_nothing_crashed()
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_panel_waits_for_the_lock_builds_nothing(monkeypatch, how):
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await wait_for(pilot, lambda: screen._accts_list.has_focus)
+        panels = _counting(monkeypatch, StatementsScreen, "_new_statement_list")
+        errors = await _left_while_waiting_for_the_lock(
+            pilot, app, screen, how, lambda: screen._open_panel("acc1", [])
+        )
+        assert errors == []
+        assert panels == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_a_statements_lines_wait_for_the_lock_paints_nothing(
+    fake_client, monkeypatch, how
+):
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    async def scenario(pilot, app):
+        screen = StatementScreen(dict(VIS_AGOSTO))
+        seen = _recording(monkeypatch, StatementScreen, "_populate")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: seen and screen._list is not None)
+        sized = _counting(monkeypatch, CheckList, "__init__")
+        args, kwargs = seen[-1]
+        cleared = _counting(monkeypatch, Widget, "remove_children")
+        errors = await _left_while_waiting_for_the_lock(
+            pilot, app, screen, how, lambda: screen._populate(*args, **kwargs)
+        )
+        assert errors == []
+        assert cleared == []
+        assert sized == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_a_statements_lines_mount_focuses_nothing(fake_client, monkeypatch, how):
+    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
+
+    async def scenario(pilot, app):
+        leave = Leave(
+            monkeypatch, app, how, StatementScreen, "_populate", "mount", _empties("rlist")
+        )
+        leave.probe(monkeypatch, CheckList, "focus")
+        await app.push_screen(StatementScreen(dict(VIS_AGOSTO)))
+        await wait_for(pilot, lambda: leave.ended)
+        leave.assert_nothing_crashed()
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("how", ["esc", "quit"])
+def test_leaving_while_the_flagged_lines_wait_for_the_lock_paints_nothing(
+    fake_client, monkeypatch, how
+):
+    _patch_flagged_names(monkeypatch)
+    Lines(monkeypatch, fake_client, TAMBO, UBER)
+
+    async def scenario(pilot, app):
+        screen = FlaggedLinesScreen("s-sig", statement="Octubre 2026")
+        seen = _recording(monkeypatch, FlaggedLinesScreen, "_populate")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: seen and screen._list is not None)
+        lists = _counting(monkeypatch, _FlaggedList, "__init__")
+        args, kwargs = seen[-1]
+        cleared = _counting(monkeypatch, Widget, "remove_children")
+        errors = await _left_while_waiting_for_the_lock(
+            pilot, app, screen, how, lambda: screen._populate(*args, **kwargs)
+        )
+        assert errors == []
+        assert cleared == []
+        assert lists == []
 
     run_app(scenario)

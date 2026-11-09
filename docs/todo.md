@@ -62,9 +62,6 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 CLAUDE.md "Specs and tasks".
 
-- **No test proves the leave guards** in the base list screen's draw and error steps, the guards
-  after taking the content lock, or the statement lines' guard after their list mounts; each could
-  be forced to always pass and every test would stay green. Nothing you see changes.
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
   (`expense/tui/screens/transactions.py`) reads the rows read before; the Manage lists drop them.
