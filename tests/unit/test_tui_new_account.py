@@ -530,6 +530,50 @@ def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code(fake_
     }
 
 
+def test_a_cash_account_with_an_opening_in_each_currency_is_one_whole_post(fake_client):
+    _run(
+        fake_client,
+        _cash_screen(),
+        {
+            "type": "cash",
+            "currencies": ["PEN", "USD"],
+            "color": "#4a90d9",
+            "opening:PEN": 23750,
+            "as_of:PEN": "2026-11-01",
+            "opening:USD": -4550,
+            "as_of:USD": "2026-11-02",
+        },
+    )
+    assert fake_client.requests == [("POST", "/accounts")]
+    _, body = fake_client.posts[0]
+    soles, dollars = (c["opening_balance"] for c in body["currencies"])
+    assert soles["transaction_id"] != dollars["transaction_id"]
+    assert soles["date"].startswith("2026-11-01T") and dollars["date"].startswith("2026-11-02T")
+    assert body == {
+        "id": body["id"],
+        "kind": "cash",
+        "currencies": [
+            {
+                "currency_code": "PEN",
+                "opening_balance": {
+                    "transaction_id": soles["transaction_id"],
+                    "amount_cents": 23750,
+                    "date": soles["date"],
+                },
+            },
+            {
+                "currency_code": "USD",
+                "opening_balance": {
+                    "transaction_id": dollars["transaction_id"],
+                    "amount_cents": -4550,
+                    "date": dollars["date"],
+                },
+            },
+        ],
+        "color": "#4a90d9",
+    }
+
+
 @pytest.mark.parametrize("reason", ["CASH_EXISTS", "NAME_EXISTS"])
 def test_a_refusal_keyed_kind_lands_on_type_in_the_engines_words(fake_client, reason):
     refusal = _refusal("CONFLICT", 409, kind=(reason, "You already hold a cash account."))

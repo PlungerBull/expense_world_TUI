@@ -33,10 +33,12 @@ What it pins:
 
 What it cannot pin: the cash account is never deleted, so a practice user keeps the one the
 first run makes. The create of the account itself (its `201` with no name, bank or number, its
-name `Efectivo`) is asserted by the run that makes it, the first on a fresh practice user; a
-later run finds the account and proves its shape (1) instead. The shared practice user is left
-as found: the account stays, live or archived as it was, and the test does not fail for it
-(`cash` below; `holdings` in scripts/clean_practice_user.py leaves it out of the leak check).
+name `Efectivo`, soles and dollars each with its opening balance) is asserted by the run that
+makes it, the first on a fresh practice user; a later run finds the account and proves its
+shape (1) instead. The made account's two openings stay on it, since it cannot be deleted. The
+shared practice user is left as found: the account stays, live or archived as it was, and the
+test does not fail for it (`cash` below; `holdings` in scripts/clean_practice_user.py leaves it
+out of the leak check).
 The reserved-names user is never given one.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
@@ -75,20 +77,37 @@ _NOT_CASH_FOR_DELETE = "Must be an account that is not the cash account: archive
 _NOT_CASH_FOR_STATEMENT = "Must not be the cash account: cash has no bank statements."
 
 
+_OPENINGS = {"PEN": 23750, "USD": -4550}
+_OPENING_DAY = "2026-01-01T12:00:00-05:00"
+
+
 def _cash_body() -> dict:
-    """A `POST /accounts` body for the cash account under a fresh id: its kind and one
-    currency, nothing else (contract: POST /v1/accounts, "Required")."""
-    return {"id": str(uuid4()), "kind": "cash", "currencies": [{"currency_code": "PEN"}]}
+    """A `POST /accounts` body for the cash account under a fresh id: its kind and soles and
+    dollars, each with an opening balance, nothing else (contract: POST /v1/accounts,
+    "Required"). The two opening transactions' ids are in the dict this function returns."""
+    currencies = [
+        {
+            "currency_code": code,
+            "opening_balance": {
+                "transaction_id": str(uuid4()),
+                "amount_cents": cents,
+                "date": _OPENING_DAY,
+            },
+        }
+        for code, cents in _OPENINGS.items()
+    ]
+    return {"id": str(uuid4()), "kind": "cash", "currencies": currencies}
 
 
 @pytest.fixture
 def cash(client):
-    """The shared practice user's cash account, live for the test, as `(id, made)` in a
-    namespace: found among every account (archived ones included) or made once; `made` is the
-    `201` answer when this test made it, else `None`. At teardown its archive state is what
-    it was found in, best effort. It is never deleted: the engine refuses it."""
+    """The shared practice user's cash account, live for the test, as `id`, `made` and `body` in
+    a namespace: found among every account (archived ones included) or made once; `made` is the
+    `201` answer and `body` what was sent when this test made it, else `None`. At teardown its
+    archive state is what it was found in, best effort. It is never deleted: the engine refuses
+    it."""
     found = next((a for a in all_accounts(client) if a["kind"] == "cash"), None)
-    made = None
+    made = body = None
     if found is None:
         body = _cash_body()
         made = client.post("/accounts", json_body=body)
@@ -97,7 +116,7 @@ def cash(client):
         account_id, was_archived = found["id"], found["is_archived"]
         if was_archived:
             client.post(f"/accounts/{account_id}/unarchive")
-    yield SimpleNamespace(id=account_id, made=made)
+    yield SimpleNamespace(id=account_id, made=made, body=body)
     try:
         now = client.get(f"/accounts/{account_id}")["is_archived"]
         if now != was_archived:
@@ -125,7 +144,11 @@ def test_the_cash_account_is_named_efectivo_and_has_no_bank_or_number(client, ca
     if cash.made is not None:
         assert cash.made["kind"] == "cash"
         assert cash.made["name"] == _CASH_ONLY
-        assert cash.made["currencies"][0]["currency_code"] == "PEN"
+        sent = {c["currency_code"]: c["opening_balance"] for c in cash.body["currencies"]}
+        assert [
+            (c["currency_code"], c["current_balance_cents"], c["opening_balance_transaction_id"])
+            for c in cash.made["currencies"]
+        ] == [(code, _OPENINGS[code], sent[code]["transaction_id"]) for code in _OPENINGS]
     read = client.get(f"/accounts/{cash.id}")
     assert read["kind"] == "cash"
     assert read["name"] == _CASH_ONLY
@@ -143,7 +166,7 @@ def test_the_cash_account_has_its_row_in_the_dashboard_and_archives_whole(client
     row = next(r for r in client.get("/dashboard")["accounts"] if r["id"] == cash.id)
     assert set(row) == {"id", "name", "kind", "currencies"}
     assert (row["name"], row["kind"]) == (_CASH_ONLY, "cash")
-    assert [c["currency_code"] for c in row["currencies"]] == ["PEN"]
+    assert {c["currency_code"] for c in row["currencies"]} >= {"PEN"}
 
     for state in _both_states(client, cash.id):
         asked = client.get("/dashboard", params={"include_archived": "true"})
