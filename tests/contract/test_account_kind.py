@@ -21,7 +21,7 @@ What it pins, in the order the app meets it:
    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"):
    `404`, then `ACCOUNT_ARCHIVED`, then `KIND_UNCHANGED`, then `HAS_RECONCILIATION`,
    which a draft, a completed and a deleted statement each cause.
-3. `PUT /accounts/{id}` takes no `is_person`: `UNKNOWN_FIELD`, whatever its value.
+3. `PUT /accounts/{id}` takes no `kind`: `UNKNOWN_FIELD`, whatever its value.
 4. Archive and unarchive act on the account whole, every currency at once, and on a person as
    on a bank account; a transaction in any currency of an archived account is `INVALID_REFERENCE`
    on `account_id` (contract: "Bank Accounts", "No new rows on it").
@@ -110,7 +110,7 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     scratch.row(first, "2026-03-10", -4250, "PEN")
     scratch.row(first, "2026-03-11", 700, "USD")
     seeded = client.get(f"/accounts/{first}")
-    assert seeded["is_person"] is False
+    assert seeded["kind"] == "bank"
     assert [c["current_balance_cents"] for c in seeded["currencies"]] == [45750, 700]
     assert seeded["currencies"][0]["opening_balance_transaction_id"] is not None
     assert seeded["currencies"][1]["opening_balance_transaction_id"] is None
@@ -118,9 +118,9 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     assert len(before_ids) == 3
 
     # To a person: everything kept, version up by one, moved to the people's group.
-    people_orders = [a["sort_order"] for a in all_accounts(client) if a["is_person"]]
+    people_orders = [a["sort_order"] for a in all_accounts(client) if a["kind"] == "person"]
     person = _post(client, first, "make-person")
-    assert person["is_person"] is True
+    assert person["kind"] == "person"
     assert person["name"].startswith("contract-kind-")
     _assert_kept(person, seeded)
     assert client.get(f"/accounts/{first}") == person
@@ -133,9 +133,9 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
     assert second_person["sort_order"] == person["sort_order"] + 1
 
     # And back: the mirror, at the end of the bank accounts.
-    real_orders = [a["sort_order"] for a in all_accounts(client) if not a["is_person"]]
+    real_orders = [a["sort_order"] for a in all_accounts(client) if a["kind"] != "person"]
     real = _post(client, first, "make-account")
-    assert real["is_person"] is False
+    assert real["kind"] == "bank"
     assert real["name"] == f"{real['bank_code']}-{real['numbers'][0]['last4']}"
     _assert_kept(real, person)
     assert real["currencies"] == seeded["currencies"]
@@ -149,20 +149,20 @@ def test_an_account_becomes_a_person_and_back_whole(client, scratch):
 
 
 def test_a_person_made_by_post_accounts_converts_too(client, scratch):
-    """A person created with `is_person: true` and two currencies in one write is turned
+    """A person created with `kind: "person"` and two currencies in one write is turned
     into a bank account with both currencies, and back."""
     person_id = scratch.account("PEN", "USD", person=True)
     made = client.get(f"/accounts/{person_id}")
-    assert made["is_person"] is True
+    assert made["kind"] == "person"
     assert [c["currency_code"] for c in made["currencies"]] == ["PEN", "USD"]
 
     real = _post(client, person_id, "make-account")
-    assert real["is_person"] is False
+    assert real["kind"] == "bank"
     _assert_kept(real, made)
     _assert_is_real(client, person_id, ["PEN", "USD"])
 
     again = _post(client, person_id, "make-person")
-    assert again["is_person"] is True
+    assert again["kind"] == "person"
     _assert_kept(again, real)
     _assert_is_person(client, person_id, ["PEN", "USD"])
 
@@ -215,7 +215,7 @@ def test_an_account_with_a_statement_cannot_become_a_person(client, scratch):
     err = refused_writing_nothing(client, lambda: _post(client, account_id, "make-person"))
     _conflict(err, "HAS_RECONCILIATION")
     kind_unchanged(account_id)
-    assert client.get(f"/accounts/{account_id}")["is_person"] is False
+    assert client.get(f"/accounts/{account_id}")["kind"] == "bank"
 
 
 def test_an_archived_account_keeps_its_kind_whatever_else_applies(client, scratch):
@@ -249,16 +249,16 @@ def test_an_unknown_or_deleted_account_is_not_found(client, scratch):
             assert (err.status, err.code) == (404, "NOT_FOUND"), (target, route)
 
 
-@pytest.mark.parametrize("value", [True, False])
+@pytest.mark.parametrize("value", ["person", "bank"])
 def test_put_accounts_takes_no_kind(client, scratch, value):
-    """`is_person` is not a field of `PUT /accounts/{id}`, whatever its value
+    """`kind` is not a field of `PUT /accounts/{id}`, whatever its value
     (contract: PUT /v1/accounts/{account_id})."""
-    account_id = scratch.account("PEN", "USD", person=not value)
+    account_id = scratch.account("PEN", "USD", person=value == "bank")
     err = refused_writing_nothing(
-        client, lambda: client.put(f"/accounts/{account_id}", json_body={"is_person": value})
+        client, lambda: client.put(f"/accounts/{account_id}", json_body={"kind": value})
     )
-    assert_refusal(err, 422, "VALIDATION_ERROR", "is_person", "UNKNOWN_FIELD")
-    assert client.get(f"/accounts/{account_id}")["is_person"] is (not value)
+    assert_refusal(err, 422, "VALIDATION_ERROR", "kind", "UNKNOWN_FIELD")
+    assert client.get(f"/accounts/{account_id}")["kind"] != value
 
 
 def test_archive_and_unarchive_act_on_every_currency_at_once(client, scratch):
@@ -319,7 +319,7 @@ def test_archiving_again_and_unarchiving_a_live_account_are_allowed(client, scra
 
 
 def test_a_person_takes_no_statement(client, scratch):
-    """`POST /statements` naming a person, made with `is_person` or turned into one, is
+    """`POST /statements` naming a person, made with `kind: "person"` or turned into one, is
     `422` `PERSON_TAKES_NO_STATEMENT` on `account_id`, writing nothing. The order is the
     contract's (contract: POST /v1/statements, "Order"): it comes before a currency the
     person does not hold and before the archive, so those cases pass only if the person
@@ -379,5 +379,5 @@ def test_make_person_sent_again_under_its_key_is_replayed(client, scratch, monke
 
     assert again == first
     after = client.get(f"/accounts/{account_id}")
-    assert after["is_person"] is True
+    assert after["kind"] == "person"
     assert after["version"] == version + 1

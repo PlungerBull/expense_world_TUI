@@ -1200,7 +1200,7 @@ account's `statement code` (below) and `color`.
 **A bank account's statement code is a line of its own on New and Edit.**
 **`statement code`** sits right after `currencies` on New and Edit, on a bank
 account only. The engine lets a person carry a code too
-(contract: "What an account is", "A person carries a code like any account"); these forms
+(contract: "What an account is", "A person carries a code like a bank account"); these forms
 offer it none. On New, TYPE turned to `person` takes the line off the form and the save sends
 no code; turned back to `bank`, the line returns holding what was typed. A person's Edit form
 has no such line.

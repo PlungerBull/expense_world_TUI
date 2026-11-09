@@ -879,9 +879,13 @@ def account_body(*codes: str, code: str | None = None, person: bool = False, **f
     and a new `last4` (`next_last4`), its name the engine's; a person, when `person`, carries a
     `contract-…` name. `fields` replace or add keys (contract: POST /v1/accounts, "Required")."""
     new_id = str(uuid4())
-    body: dict = {"id": new_id, "currencies": [{"currency_code": c} for c in (codes or ("PEN",))]}
+    body: dict = {
+        "id": new_id,
+        "kind": "person" if person else "bank",
+        "currencies": [{"currency_code": c} for c in (codes or ("PEN",))],
+    }
     if person:
-        body |= {"name": f"contract-stmt-{new_id[:8]}", "is_person": True}
+        body["name"] = f"contract-stmt-{new_id[:8]}"
     else:
         body |= {"bank_code": bank_code(), "last4": next_last4()}
     if code is not None:

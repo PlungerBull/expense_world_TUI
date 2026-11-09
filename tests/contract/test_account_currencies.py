@@ -43,7 +43,7 @@ What it pins:
    and an empty body does not; an archived account is edited and stays archived (contract:
    PUT /v1/accounts/{account_id}, "Response").
 6. The edit's refusals, each leaving every account as it was: `currency_code` `IMMUTABLE`
-   (`NOT_NULL` for a `null`), `currencies`, `is_person`, `is_archived` and `holder_id`
+   (`NOT_NULL` for a `null`), `currencies`, `kind`, `is_archived` and `holder_id`
    `UNKNOWN_FIELD` whatever their value, `NOT_NULL` on a person's `name`, `color` and
    `sort_order`, `409 NAME_EXISTS` for a person's name (a held name of either kind, any case,
    trimmed) and `409 STATEMENT_CODE_EXISTS` (a
@@ -198,7 +198,7 @@ def test_a_currency_is_added_at_zero_with_the_account_itself_unwritten(
     assert (pen["current_balance_cents"], pen["opening_balance_transaction_id"]) == (0, None)
     assert _currency(made, "USD") == _currency(before, "USD")
     _unmoved(made, before)
-    assert made["is_person"] is person
+    assert made["kind"] == ("person" if person else "bank")
     assert client.get(f"/accounts/{account_id}") == made
     assert [a for a in all_accounts(client) if a["id"] == account_id] == [made]
 
@@ -535,7 +535,7 @@ def test_an_edit_writes_the_account_once_and_no_currency(client, statuses, scrat
     assert made["version"] == before["version"] + 1
     assert made["updated_at"] >= before["updated_at"]
     assert made["currencies"] == before["currencies"]
-    kept = {"id", "user_id", "color", "is_person", "is_archived", "sort_order", "created_at"}
+    kept = {"id", "user_id", "color", "kind", "is_archived", "sort_order", "created_at"}
     assert {k: made[k] for k in kept} == {k: before[k] for k in kept}
     assert made["deleted_at"] is None
     assert _fresh(client, account_id) == made
@@ -594,7 +594,7 @@ def test_an_archived_account_is_edited_and_stays_archived(client, scratch):
 
 def test_a_currency_is_no_field_of_the_edit_and_nor_are_the_kind_and_archive_state(client, scratch):
     """`currency_code` is `422` `IMMUTABLE` on its key, a `null` there `NOT_NULL` like any
-    other; `currencies`, `is_person`,
+    other; `currencies`, `kind`,
     `is_archived` and `holder_id` are `UNKNOWN_FIELD`, whatever their value (their own, the
     other, `null`); each leaves every account as it was, and a change of kind or archive state
     goes through its own route (contract: PUT /v1/accounts/{account_id})."""
@@ -609,7 +609,7 @@ def test_a_currency_is_no_field_of_the_edit_and_nor_are_the_kind_and_archive_sta
     held = [{"currency_code": "PEN"}, {"currency_code": "USD"}]
     values = {
         "currencies": [held, [], None],
-        "is_person": [False, True, None],
+        "kind": ["bank", "person", None],
         "is_archived": [False, True, None],
         "holder_id": [str(uuid4()), None],
     }
@@ -740,7 +740,7 @@ def test_a_deleted_account_is_gone_with_its_currencies_and_releases_its_name_and
         assert gone["id"] == account_id
         assert _codes(gone) == ["PEN", "USD"]
         assert [c["current_balance_cents"] for c in gone["currencies"]] == [0, 0]
-        assert (gone["name"], gone["is_person"]) == (before["name"], person)
+        assert (gone["name"], gone["kind"]) == (before["name"], "person" if person else "bank")
         assert account_id not in {a["id"] for a in all_accounts(client)}
         _not_found(refused(partial(client.get, f"/accounts/{account_id}")), NO_ACCOUNT)
         _not_found(refused(partial(_put, client, account_id, {})), NO_ACCOUNT)

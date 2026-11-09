@@ -58,9 +58,6 @@ values it used to take loosely, and a few writes on closed days.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-2. **The live suite on `kind`.** The contract helpers (tests/contract/conftest.py and every test
-   making an account) send `kind`; the suite's account reads take `kind`. Passes when the suite
-   runs on the practice engine with no `REQUIRED` or `UNKNOWN_FIELD` on `kind`/`is_person`.
 3. **Home reads `/dashboard`'s `accounts`.** Its balance block, and every other reader of
    `/dashboard`, read `accounts` in place of `bank_accounts`; the look is unchanged.
 4. **The new refusals in the engine's words.** `SEALED_PERIOD` from `space` on a statement's
@@ -80,7 +77,10 @@ Approved. Each reads the live contract on the practice engine before building.
    (`INVALID_FORMAT`); `{}` sent to archive (`BODY_NOT_ACCEPTED`); `sort_order` past the bound
    (`OUT_OF_RANGE`); `ACCOUNT_ARCHIVED` on the three account routes; `SEALED_PERIOD` on an
    unassign and a draft delete; an unchanged `date` let through on a closed day outside a
-   completed statement and `LOCKED` inside one.
+   completed statement and `LOCKED` inside one. Two existing live tests move with it:
+   test_account_kind.py's archive/unarchive 404 loop sends no body, and
+   test_account_currencies.py's archived-account currency add expects `ACCOUNT_ARCHIVED` on
+   `currency_code`.
 
 ## Reply to the engine
 

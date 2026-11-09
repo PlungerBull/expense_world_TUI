@@ -1,13 +1,13 @@
 """Contract: an account is made with its currencies in one write, against a real engine.
 
 `POST /accounts` takes `{id, bank_code, last4?, currencies: [{currency_code}, ...]}` (a person
-`{id, name, is_person, currencies}`) and makes the account and every currency at once, all or
+`{id, name, kind, currencies}`) and makes the account and every currency at once, all or
 nothing (contract: POST /v1/accounts). Manage ▸ Accounts sends it, so only the engine can say what
 it answers and in which order it refuses.
 
 What it pins:
 
-1. A bank account and a person (`is_person: true`), each holding soles and dollars, are `201`
+1. A bank account and a person (`kind: "person"`), each holding soles and dollars, are `201`
    in one write: the currencies read in `currency_code` order whatever order they were sent
    in, each at `current_balance_cents` `0` with no opening balance, `version` `1`, the default
    colour, no statement code, listed where their kind is listed (contract: POST /v1/accounts,
@@ -104,7 +104,7 @@ def test_a_bank_account_and_a_person_are_made_with_their_currencies_in_one_write
         assert made["id"] == body["id"]
         built = f"{body['bank_code']}-{body['last4']}" if not is_person else body["name"]
         assert made["name"] == built
-        assert made["is_person"] is is_person
+        assert made["kind"] == ("person" if is_person else "bank")
         assert made["version"] == 1
         assert made["color"] == DEFAULT_COLOR
         assert made["is_archived"] is False

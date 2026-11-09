@@ -156,11 +156,11 @@ def test_a_person_carries_a_code_like_any_account(client, scratch):
     (`STATEMENT_CODE_EXISTS`), and it holds against a bank account's code the same way. A
     person has no statement, so the code is a label: its lines read a `null` statement
     line. An account keeps its code when it changes kind, in either direction
-    (contract: "What an account is", "A person carries a code like any account")."""
+    (contract: "What an account is", "A person carries a code like a bank account")."""
     first, second, third = free_statement_codes(client, 3)
     person = scratch.account("PEN", "USD", code=first, person=True)
     read = client.get(f"/accounts/{person}")
-    assert (read["is_person"], read["statement_code"]) == (True, first)
+    assert (read["kind"], read["statement_code"]) == ("person", first)
     assert _set_code(client, person, second) == second
     assert _set_code(client, person, None) is None
     assert _set_code(client, person, first) == first
@@ -178,10 +178,10 @@ def test_a_person_carries_a_code_like_any_account(client, scratch):
     assert (line["statement_line"], line["statement_place"]) == (None, None)
 
     made = kind_change(client, bank, "make-person")
-    assert (made["is_person"], made["statement_code"]) == (True, second)
+    assert (made["kind"], made["statement_code"]) == ("person", second)
     assert _code_of(client, bank) == second
     back = kind_change(client, bank, "make-account")
-    assert (back["is_person"], back["statement_code"]) == (False, second)
+    assert (back["kind"], back["statement_code"]) == ("bank", second)
     assert kind_change(client, person, "make-account")["statement_code"] == first
     assert _set_code(client, person, third) == third
 

@@ -27,7 +27,7 @@ def test_two_currency_person_leaves_nothing(client, scratch):
     person = scratch.account("PEN", "USD", person=True)
 
     held = client.get(f"/accounts/{person}")
-    assert held["is_person"] is True
+    assert held["kind"] == "person"
     assert {c["currency_code"] for c in held["currencies"]} == {"PEN", "USD"}
 
 

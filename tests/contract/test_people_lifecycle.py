@@ -6,16 +6,14 @@ was written; `scripts/check_fixture_drift.py` is blind here too, since it only r
 the engine has *stopped* serving. Unit-green therefore says nothing about whether a person
 works — this file does.
 
-A person is an account with `is_person: true`, held in one or more currencies and made in one
+A person is an account with `kind: "person"`, held in one or more currencies and made in one
 `POST /accounts` (contract: POST /v1/accounts, "Optional"). What it pins, in the order the
 client meets it:
 
-1. A person made with two currencies in one write reads `is_person` true, a balance of `0`
+1. A person made with two currencies in one write reads `kind` `person`, a balance of `0`
    and no opening balance in each.
-2. `is_person` that is `null`, a string that is no boolean (`"maybe"`), a list or an object is
-   `422` `INVALID_FORMAT`. The engine also accepts `"yes"`, `1`, `0` and `"true"` as booleans,
-   against the contract's "a value that is not a boolean": that is reported to the engine, not
-   pinned here.
+2. `kind` is required (`422` `REQUIRED`), and `is_person`, the field it replaced, is
+   `422` `UNKNOWN_FIELD` whatever its value.
 3. The name is **shared** with bank accounts, case-insensitively, in both directions (`409`
    `NAME_EXISTS` on `name`), not scoped per kind.
 4. A person takes an opening balance in each of its currencies like any account; a second one
@@ -59,18 +57,26 @@ def test_a_person_is_made_in_one_write_with_two_currencies(client, scratch, stat
 
     assert statuses[-1] == 201
     assert created["id"] == person_id
-    assert created["is_person"] is True
+    assert created["kind"] == "person"
     assert created["is_archived"] is False
     assert _currencies(created) == {"PEN": (0, None), "USD": (0, None)}
     assert client.get(f"/accounts/{person_id}") == created
 
 
-@pytest.mark.parametrize("value", [None, "maybe", [], {}])
-def test_is_person_that_is_not_a_boolean_is_refused(client, scratch, value):
-    body = account_body("PEN", is_person=value)
+def test_kind_is_required_on_create(client, scratch):
+    body = account_body("PEN")
+    del body["kind"]
     scratch.accounts.append(body["id"])
     err = refused_writing_nothing(client, lambda: client.post("/accounts", json_body=body))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "is_person", "INVALID_FORMAT")
+    assert_refusal(err, 422, "VALIDATION_ERROR", "kind", "REQUIRED")
+
+
+@pytest.mark.parametrize("value", [True, False, None])
+def test_is_person_is_no_field_of_create(client, scratch, value):
+    body = account_body("PEN", person=True, is_person=value)
+    scratch.accounts.append(body["id"])
+    err = refused_writing_nothing(client, lambda: client.post("/accounts", json_body=body))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "is_person", "UNKNOWN_FIELD")
 
 
 def test_a_persons_name_is_shared_with_people_and_bank_accounts(client, scratch):
@@ -123,7 +129,7 @@ def test_people_lifecycle(client, scratch):
     # Everything after creation is an ordinary account route.
     renamed = client.put(f"/accounts/{person_id}", json_body={"name": f"{name}-renamed"})
     assert renamed["name"] == f"{name}-renamed"
-    assert renamed["is_person"] is True  # a rename never changes the kind
+    assert renamed["kind"] == "person"  # a rename never changes the kind
     assert client.get(f"/accounts/{person_id}") == renamed
     new_name = renamed["name"]
 
@@ -199,7 +205,7 @@ def test_the_list_with_people_has_every_account_before_every_person(client, scra
     person_id = scratch.account("PEN", "USD", person=True, sort_order=0)
     account_id = scratch.account("PEN", "USD", sort_order=9999)
     rows = client.get("/accounts", params={"include_people": "true"})["items"]
-    flags = [row["is_person"] for row in rows]
+    flags = [row["kind"] == "person" for row in rows]
     assert {row["id"] for row in rows} >= {person_id, account_id}
     assert True in flags and False in flags
     assert next(r for r in rows if r["id"] == person_id)["sort_order"] == 0

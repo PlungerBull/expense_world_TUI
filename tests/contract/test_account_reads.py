@@ -57,7 +57,7 @@ ACCOUNT_KEYS = {
     "user_id",
     "name",
     "color",
-    "is_person",
+    "kind",
     "bank_code",
     "numbers",
     "statement_code",
@@ -136,15 +136,15 @@ def test_an_account_is_read_with_exactly_the_contracts_keys_on_the_list_and_alon
     scratch.archive(archived)
 
     listed = {a["id"]: a for a in all_accounts(client)}
-    for account_id, is_person, is_archived in (
-        (bank, False, False),
-        (person, True, False),
-        (archived, False, True),
+    for account_id, kind, is_archived in (
+        (bank, "bank", False),
+        (person, "person", False),
+        (archived, "bank", True),
     ):
         read = client.get(f"/accounts/{account_id}")
         _assert_whole(read)
         assert listed[account_id] == read
-        assert (read["is_person"], read["is_archived"]) == (is_person, is_archived)
+        assert (read["kind"], read["is_archived"]) == (kind, is_archived)
         assert read["id"] == account_id
         assert read["version"] >= 1
 
@@ -201,7 +201,7 @@ def test_every_bank_account_comes_before_every_person(client, scratch):
 
     plain = _listed(client)
     assert _mine(plain, made) == banks
-    assert not [a for a in plain if a["is_person"]]
+    assert not [a for a in plain if a["kind"] == "person"]
 
 
 def test_an_archived_account_lists_only_when_asked_and_a_person_likewise(client, scratch):
@@ -287,7 +287,7 @@ def test_a_create_logs_one_account_entry_and_one_entry_per_currency(client, scra
 def test_an_edit_an_archive_and_a_kind_change_each_log_the_account_alone(client, scratch):
     """On an account holding soles and dollars, an edit, a `make-person` and an archive each
     write exactly one `account` `UPDATED` entry and no `currency` entry; the snapshots show
-    the colour, then `is_person` (and `sort_order`), then `is_archived` before and after
+    the colour, then `kind` (and `sort_order`), then `is_archived` before and after
     (contract: PUT /v1/accounts/{account_id}) (contract: POST
     /v1/accounts/{account_id}/make-person) (contract: POST /v1/accounts/{account_id}/archive)."""
     account_id = scratch.account("PEN", "USD")
@@ -307,7 +307,7 @@ def test_an_edit_an_archive_and_a_kind_change_each_log_the_account_alone(client,
     assert (kind["resource_type"], kind["action"]) == ("account", UPDATED)
     before = _snapshot(kind, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
     after = _snapshot(kind, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
-    assert (before["is_person"], after["is_person"]) == (False, True)
+    assert (before["kind"], after["kind"]) == ("bank", "person")
     assert after["sort_order"] == made["sort_order"]
 
     client.post(f"/accounts/{account_id}/archive")
@@ -327,7 +327,7 @@ def test_an_unarchive_and_a_turn_back_into_a_bank_account_each_log_the_account_a
     """On an archived account holding soles and dollars, an unarchive writes exactly one
     `account` `UPDATED` entry and no `currency` entry, `is_archived` going from true to false;
     on a person, `make-account` writes exactly one `account` `UPDATED` entry and no `currency`
-    entry, `is_person` going from true to false and `sort_order` ending at the one the write
+    entry, `kind` going from `person` to `bank` and `sort_order` ending at the one the write
     answers (contract: POST /v1/accounts/{account_id}/unarchive) (contract: POST
     /v1/accounts/{account_id}/make-account)."""
     archived = scratch.account("PEN", "USD")
@@ -357,7 +357,7 @@ def test_an_unarchive_and_a_turn_back_into_a_bank_account_each_log_the_account_a
     assert (kind["resource_type"], kind["action"]) == ("account", UPDATED)
     before = _snapshot(kind, "before_snapshot", ACCOUNT_SNAPSHOT_KEYS)
     after = _snapshot(kind, "after_snapshot", ACCOUNT_SNAPSHOT_KEYS)
-    assert (before["is_person"], after["is_person"]) == (True, False)
+    assert (before["kind"], after["kind"]) == ("person", "bank")
     assert after["sort_order"] == made["sort_order"]
     assert after["version"] == before["version"] + 1
     assert log.new() == []

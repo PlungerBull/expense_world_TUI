@@ -195,7 +195,7 @@ def test_one_opening_balance_per_currency_and_each_named_by_its_own_entry(client
 def test_a_person_takes_one_opening_balance_per_currency(client, scratch, statuses):
     person_id = scratch.account("PEN", "USD", person=True)
     created = client.get(f"/accounts/{person_id}")
-    assert created["is_person"] is True
+    assert created["kind"] == "person"
     assert _ids(client, person_id) == {"PEN": None, "USD": None}
 
     scratch.opening_balance(person_id, DAY, "PEN", -42000)
