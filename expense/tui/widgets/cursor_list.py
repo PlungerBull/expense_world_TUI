@@ -210,7 +210,17 @@ def list_table(
 LIST_KEYS = frozenset({"move", "select", "toggle", "more", "page"})
 
 
+def waits_for_a_row(owner, action: str) -> bool:
+    """True when `owner` (a list widget or the screen around one) names `action` in its
+    `CARD_NEEDS_A_ROW` class frozenset and its `has_rows` is false: the footer's
+    `check_action` drops the key and the `?` card does not list it. Both ask this one test."""
+    return action in getattr(owner, "CARD_NEEDS_A_ROW", ()) and not owner.has_rows
+
+
 class CursorList(WindowedList):
+    #: No list key, card or footer, while the list is empty (`waits_for_a_row`, help.py).
+    CARD_NEEDS_A_ROW: frozenset[str] = LIST_KEYS
+
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
         # footer slot — it is obvious and only occupies space. The keys are
@@ -455,7 +465,7 @@ class CursorList(WindowedList):
             self.post_message(self.MoreRequested(self))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if not self._rows and action in self._needs_a_row():
+        if waits_for_a_row(self, action):
             return False  # no row to act on: the key leaves the footer, and returns with the first
         if action == "more":
             return bool(self._more)
@@ -473,10 +483,10 @@ class CursorList(WindowedList):
             return hasattr(host, "on_cursor_list_toggled")
         return True
 
-    def _needs_a_row(self) -> frozenset[str]:
-        """The actions that leave the footer while the list is empty: the ones the `?` card
-        lists only with a row (`CARD_NEEDS_A_ROW`, help.py)."""
-        return frozenset(getattr(self, "CARD_NEEDS_A_ROW", ()))
+    @property
+    def has_rows(self) -> bool:
+        """Whether the list holds a row now."""
+        return bool(self._rows)
 
     def action_select(self) -> None:
         if self._rows:

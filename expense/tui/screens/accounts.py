@@ -43,6 +43,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens.modals import ConfirmModal, PickModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
+from expense.tui.widgets.cursor_list import waits_for_a_row
 from expense.tui.widgets.refusal import toast
 
 _FIXED_HEADS = ["Name", "Type", "Code", "Color"]
@@ -192,9 +193,9 @@ class AccountsScreen(ResourceListScreen):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action not in ("make_person", "make_bank", "add_currency", "remove_currency"):
             return super().check_action(action, parameters)
-        item = self.selected_record()
-        if item is None:
+        if waits_for_a_row(self, action):
             return False  # empty list → nothing to act on; the keys leave the footer
+        item = self.selected_record()
         if action in ("add_currency", "remove_currency"):
             return True  # any account, a person's and an archived one's too: the engine judges
         if item.get("is_archived"):

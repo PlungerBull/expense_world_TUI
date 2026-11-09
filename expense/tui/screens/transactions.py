@@ -114,7 +114,7 @@ from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
 from expense.tui.theme import ACCENT, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell
-from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList, list_table
+from expense.tui.widgets.cursor_list import CursorList, list_table, waits_for_a_row
 from expense.tui.widgets.refusal import as_markup, run_stopped, toast
 
 _HEADERS = ["Title", "Description", "Amount", "Cur", "Date", "Account", "Cat", "Hashtags"]
@@ -394,7 +394,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         DELETE_KEY,
     ]
     crumb = ("Capture & ledger", "Transactions")
-    #: The `?` card lists these only once there is a row (help.py).
+    #: The keys that wait for a row: the `?` card and `check_action` both read this
+    #: (`waits_for_a_row`, help.py).
     CARD_NEEDS_A_ROW = frozenset({"select_all", "pick", "split", "delete"})
     #: With no row there is no selection to clear, so the card's `esc` reads `Back`.
     CARD_TEXT_WHILE_EMPTY = {"back": "Back"}
@@ -495,7 +496,6 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             page_size=self.measure_list_rows(),
         )
         listing.set_growth(more=self._grow.more)
-        listing.CARD_NEEDS_A_ROW = LIST_KEYS  # the card lists no list key while empty
         return [listing, Static(Text(self._legend()), classes="legend", id="legend")]
 
     def _legend(self) -> str:
@@ -550,11 +550,11 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
     # ---- keys ---------------------------------------------------------------
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action in ("select_all", "pick") and not self._rows:
+        if waits_for_a_row(self, action):
             return False  # empty list → nothing to act on; the keys leave the footer
         if action == "pick" and self._bulk_busy:
             return None  # greyed, not gone: one bulk write at a time until its reload lands
-        if action in ("delete", "split") and (self._selected or not self._rows or self._bulk_busy):
+        if action in ("delete", "split") and (self._selected or self._bulk_busy):
             # the cursor row only, never a selection: while rows are selected
             # `s` and `d` are off and leave the footer, and `esc` brings them
             # back. Off too while a bulk write runs, so neither overlaps its PUTs
@@ -565,6 +565,11 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             # the Edit form it opens reads what is read-only from `edit_limits`
             return False
         return True
+
+    @property
+    def has_rows(self) -> bool:
+        """Whether the ledger holds a row: what `CARD_NEEDS_A_ROW` waits for."""
+        return bool(self._rows)
 
     def _on_archived_row(self) -> bool:
         """True while the cursor is on a row whose account is archived."""

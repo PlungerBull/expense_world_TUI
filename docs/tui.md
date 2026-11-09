@@ -1937,8 +1937,8 @@ elsewhere): no `⏎`, no `space`, no key that acts on a row, and the `?` card le
 same keys (§4 "App-wide keys are `^q` and `?`"). A list screen's `check_action` answers
 `False`, not `None`, for such a key, because `None` leaves it in the footer dimmed; `None` is
 kept for a key that is off only for a moment (the ledger's `pick` while a bulk write runs). A
-list's own keys follow its `CARD_NEEDS_A_ROW`, the card's declaration (`_needs_a_row` in
-[cursor_list.py](../expense/tui/widgets/cursor_list.py)).
+list's own keys follow its `CARD_NEEDS_A_ROW`, one class declaration the card and the footer's
+`check_action` both read (`waits_for_a_row` in [cursor_list.py](../expense/tui/widgets/cursor_list.py)).
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed

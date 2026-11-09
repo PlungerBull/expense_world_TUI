@@ -14,7 +14,9 @@ import inspect
 import pkgutil
 import re
 
+import pytest
 from rich.text import Text
+from textual.actions import parse as parse_action
 from textual.binding import Binding
 
 import expense.tui as tui_pkg
@@ -26,14 +28,17 @@ from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import (
     FOLD_INTO,
+    NEEDS_SCREEN_HANDLER,
     HelpModal,
     declared_bindings,
     key_rows,
+    listed_bindings,
     render_card,
     screen_inventory,
     scroll_window,
 )
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.screens.statements import _AccountList, _PanelList
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
@@ -44,7 +49,9 @@ from tests.unit.helpers import (
     run_app,
     screen_lines,
     wait_for,
+    wait_for_list,
     wait_for_loaded,
+    whole,
 )
 
 LEDGER_ROW = {
@@ -67,8 +74,9 @@ LEDGER_ROW = {
 
 
 def _stub_engine(monkeypatch, items=ENGINE_ORDER_HOLDING_ACCOUNTS, rows=(LEDGER_ROW,)):
-    """A ledger and an account list with a row each, unless the test passes none: a card
-    lists no list key while its list is empty."""
+    """A ledger and an account list with a row each, unless the test passes none: the
+    ledger's and Manage's list keys leave the card while the list is empty (the account
+    list is stubbed by `items`, the ledger by `rows`)."""
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda cfg, **k: {"items": list(items)})
     fake_ledger(monkeypatch, list(rows))
@@ -994,3 +1002,97 @@ def test_a_manage_list_with_a_row_keeps_its_card(monkeypatch):
 
         items = ENGINE_ORDER_HOLDING_ACCOUNTS if screen_class is AccountsScreen else [row]
         _manage_card(monkeypatch, screen_class, (100, 32), items, check)
+
+
+def _agree_while_empty(owner):
+    """On an empty list the footer drops a key exactly when the card does not list it,
+    judged both ways: every key the owner's `CARD_NEEDS_A_ROW` names is dropped by both,
+    and every key the card still lists is one `check_action` allows. Left out of the second
+    pass: a key the card judges by `check_action` itself (`CARD_FOLLOWS_CHECK`) and one that
+    waits on the screen around the list, not on a row (`NEEDS_SCREEN_HANDLER`: an unmounted
+    widget has no such host)."""
+    listed_all = listed_bindings(owner)
+    listed = {parse_action(b.action)[1] for b in listed_all}
+    named = type(owner).CARD_NEEDS_A_ROW
+    declared = {parse_action(b.action)[1] for b in declared_bindings(type(owner))}
+    for action in named & declared:
+        in_footer = owner.check_action(action, ()) is not False
+        assert not in_footer, f"{action}: the footer keeps a key the empty list cannot act on"
+        assert action not in listed, f"{action}: the card lists a key the footer drops"
+    follows = getattr(owner, "CARD_FOLLOWS_CHECK", ())
+    for binding in listed_all:
+        _, action, parameters = parse_action(binding.action)
+        if action in follows or action in NEEDS_SCREEN_HANDLER:
+            continue
+        assert owner.check_action(action, parameters) is not False, (
+            f"{action}: the card lists a key the footer drops"
+        )
+
+
+@pytest.mark.parametrize(
+    "screen_class", [AccountsScreen, CategoriesScreen, HashtagsScreen, TransactionsScreen]
+)
+def test_the_footer_and_the_card_agree_on_an_empty_screen(screen_class):
+    screen = screen_class()
+    assert not screen.has_rows and screen_class.CARD_NEEDS_A_ROW
+    _agree_while_empty(screen)
+
+
+def test_the_footer_and_the_card_agree_on_an_empty_list_widget():
+    for widget_class in (_AccountList, _PanelList):
+        widget = widget_class(["A"], [])
+        assert not widget.has_rows
+        _agree_while_empty(widget)
+    assert _AccountList.CARD_NEEDS_A_ROW and not _PanelList.CARD_NEEDS_A_ROW
+
+
+@pytest.mark.parametrize(
+    ("screen_class", "row", "dropped"),
+    [
+        (CategoriesScreen, {"id": "c1", "name": "Comida", "is_system": False}, {"edit", "delete"}),
+        (HashtagsScreen, {"id": "h1", "name": "viaje"}, {"edit", "delete"}),
+        (
+            AccountsScreen,
+            {"id": "a1", "name": "BCP", "currencies": [], "is_person": False},
+            {"edit", "delete", "archive", "make_person", "add_currency", "remove_currency"},
+        ),
+    ],
+)
+def test_a_manage_list_after_a_failed_refresh_drops_its_row_keys_in_footer_and_card(
+    monkeypatch, screen_class, row, dropped
+):
+    """The records read before stay in memory, but no list is on screen: the footer and the
+    `?` card both leave the keys that need a row."""
+    state = {"fail": False}
+
+    def read(*args, **kwargs):
+        if state["fail"]:
+            raise RuntimeError("engine down")
+        return whole([row])
+
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    for name in ("fetch_categories", "fetch_hashtags", "fetch_accounts"):
+        monkeypatch.setattr(f"expense.reads.{name}", read)
+    monkeypatch.setattr("expense.reads.fetch_currency_codes", lambda cfg, **k: ["PEN"])
+
+    def names(screen):
+        return {parse_action(b.action)[1] for b in listed_bindings(screen)}
+
+    async def scenario(pilot, app):
+        screen = screen_class()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.pause()
+        assert screen.has_rows
+        assert {"edit", "delete"} <= names(screen)
+        state["fail"] = True
+        await pilot.press("r")
+        await wait_for(pilot, lambda: "Could not load." in "".join(screen_lines(app)))
+        await pilot.pause()
+        assert not screen.has_rows
+        assert screen._by_id  # the stale records are still held
+        for action in dropped:
+            assert screen.check_action(action, ()) is False, action
+        assert not dropped & names(screen)
+
+    run_app(scenario, size=(100, 32))

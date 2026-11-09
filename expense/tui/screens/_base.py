@@ -43,6 +43,7 @@ from expense.formatting import (
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.widgets.cursor_list import waits_for_a_row
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import as_markup, toast
@@ -988,8 +989,8 @@ class ResourceListScreen(SectionScreen):
         ("n", "new", "New"),
         ("e", "edit", "Edit"),
     ]
-    #: The `?` card lists these only with a row (help.py); `check_action` drops the same
-    #: keys from the footer.
+    #: The keys that wait for a row: the `?` card and `check_action` both read this
+    #: (`waits_for_a_row`, help.py).
     CARD_NEEDS_A_ROW: frozenset[str] = frozenset({"edit", "delete"})
 
     def __init__(self) -> None:
@@ -1039,9 +1040,15 @@ class ResourceListScreen(SectionScreen):
         return False
 
     @property
-    def _rows(self) -> list:
-        """The records on the list: what `CARD_NEEDS_A_ROW` asks whether the list holds."""
-        return list(self._by_id.values())
+    def has_rows(self) -> bool:
+        """Whether the list on screen holds a row now: false while loading, after a failed
+        read (no list is mounted) and while empty. What `CARD_NEEDS_A_ROW` waits for."""
+        from expense.tui.widgets.cursor_list import CursorList
+
+        try:
+            return self.query_one(CursorList).has_rows
+        except Exception:
+            return False
 
     # ---- the one-guarded-write-at-a-time guard -----------------------------
     def run_guarded_write(self, method: str, path: str, **kwargs: Any) -> None:
@@ -1069,13 +1076,12 @@ class ResourceListScreen(SectionScreen):
 
     # ---- binding availability ----------------------------------------------
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action not in ("edit", "archive", "delete"):
-            return True
-        item = self.selected_record()
-        if item is None:
+        if waits_for_a_row(self, action):
             return False  # empty list → nothing to act on; the keys leave the footer
-        if action in ("edit", "delete") and self.is_fixed(item):
-            return False  # a built-in row: the keys leave the footer
+        if action in ("edit", "delete"):
+            item = self.selected_record()
+            if item is not None and self.is_fixed(item):
+                return False  # a built-in row: the keys leave the footer
         return True
 
     def on_cursor_list_highlighted(self, event) -> None:
@@ -1103,7 +1109,7 @@ class ResourceListScreen(SectionScreen):
         return items_of(self.fetch_items(cfg, **screen_fetch_kwargs(self.app)))
 
     def build(self, items: list) -> list[Widget]:
-        from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList
+        from expense.tui.widgets.cursor_list import CursorList
 
         self._by_id = self.index_items(items)
         cursor_list = CursorList(
@@ -1113,7 +1119,6 @@ class ResourceListScreen(SectionScreen):
             empty=self.EMPTY,
             page_size=self.measure_list_rows(),  # adaptive window
         )
-        cursor_list.CARD_NEEDS_A_ROW = LIST_KEYS  # no list key, card or footer, while empty
         # Re-select the acted-on row: _show mounts a fresh CursorList each load,
         # so without this an archive toggle would snap the cursor back to row 0
         # and "press `a` again to undo" would hit the wrong record.

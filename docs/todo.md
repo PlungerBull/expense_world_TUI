@@ -65,19 +65,13 @@ CLAUDE.md "Specs and tasks".
 - **No test proves the leave guards** in the base list screen's draw and error steps, the guards
   after taking the content lock, or the statement lines' guard after their list mounts; each could
   be forced to always pass and every test would stay green. Nothing you see changes.
-- **The `?` card's row rule reads a little unevenly in code.** The ledger's list names
-  `CARD_NEEDS_A_ROW` on its instance where `_AccountList` names it on its class; `listed_bindings`
-  reads the owner's private `_rows`; the `_stub_engine` docstring in test_tui_help.py says every
-  card drops its list keys on an empty list; a screen's row keys are named twice, in its
-  `CARD_NEEDS_A_ROW` for the card and in its own `check_action` for the footer (`_base.py`,
-  `accounts.py`, the ledger), which agree today. Nothing you see changes.
 - **The empty statements panel keeps `⏎ Open` in its footer** (`_PanelList`,
   `expense/tui/screens/statements.py`), with no row to open; it follows the footer rule
   ([decisions.md](decisions.md) "The `?` card shows whole, and it and the footer list only keys
   that work"), so it needs no new pick.
-- **After a reload that fails, a Manage list's `?` card still lists its row keys** from the
-  records read before, while the footer drops them (`_by_id` in `expense/tui/screens/_base.py`
-  is set only when the list is built).
+- **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
+  `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
+  (`expense/tui/screens/transactions.py`) reads the rows read before; the Manage lists drop them.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and

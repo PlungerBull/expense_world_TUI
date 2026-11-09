@@ -32,6 +32,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static
 
 from expense.tui.theme import ACCENT
+from expense.tui.widgets.cursor_list import waits_for_a_row
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.refusal import under_itself
 
@@ -87,13 +88,8 @@ NEEDS_SCREEN_HANDLER = {
 #: lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
-#: A widget or a screen may name, in a `CARD_NEEDS_A_ROW` frozenset, the actions its card
-#: lists only while its `_rows` holds a row; `CursorList.check_action` drops the same
-#: actions from the footer.
-CARD_NEEDS_A_ROW = "CARD_NEEDS_A_ROW"
-
 #: A widget or a screen may name, in a `CARD_TEXT_WHILE_EMPTY` dict, an action's
-#: card wording for while its `_rows` is empty (`{"back": "Back"}`): the ledger's
+#: card wording for while it holds no row (`{"back": "Back"}`): the ledger's
 #: `esc` clears a selection only when there is a row to select. The footer label is
 #: untouched.
 CARD_TEXT_WHILE_EMPTY = "CARD_TEXT_WHILE_EMPTY"
@@ -242,15 +238,14 @@ def listed_bindings(owner) -> list[Binding]:
     """The bindings of `owner` (a screen or the focused widget) the card lists: those
     that are in play, in the order the classes declare them. Left out are a binding
     its `CARD_FOLLOWS_CHECK` names and its `check_action` refuses, one its
-    `CARD_NEEDS_A_ROW` names while `_rows` is empty (one in `CARD_TEXT_WHILE_EMPTY` is
-    listed with that wording then), and one whose key
+    `CARD_NEEDS_A_ROW` names while it holds no row (`waits_for_a_row`; one in
+    `CARD_TEXT_WHILE_EMPTY` is listed with that wording then), and one whose key
     a more derived class declares: Textual's merge lets a subclass's bindings on a key
     replace every inherited one on it, so `esc Back` inherited from `SectionScreen`
     is never reached on a screen with its own `esc`, whatever that one's
     `check_action` says. A binding is judged by its action, parameters included
     (`page(1)`)."""
     named = getattr(owner, CARD_FOLLOWS_CHECK, ())
-    needs_row = getattr(owner, CARD_NEEDS_A_ROW, ())
     empty_text = getattr(owner, CARD_TEXT_WHILE_EMPTY, {})
     declarer: dict[str, type] = {}  # key -> the most derived class that declares it
     listed: list[Binding] = []
@@ -260,9 +255,9 @@ def listed_bindings(owner) -> list[Binding]:
         _, name, parameters = parse_action(binding.action)
         if name in named and owner.check_action(name, parameters) is False:
             continue
-        if name in needs_row and not owner._rows:
+        if waits_for_a_row(owner, name):
             continue
-        if name in empty_text and not owner._rows:
+        if name in empty_text and not owner.has_rows:
             binding = replace(binding, tooltip=empty_text[name])
         listed.append(binding)
     return listed
