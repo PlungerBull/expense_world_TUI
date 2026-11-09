@@ -411,10 +411,11 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
 ):
     """The question and the file's name, dim, nothing read from the file; an
     account holding soles and dollars is one line, every other live account
-    one line, a person and an archived account none."""
+    one line, a person, the cash account and an archived account none."""
     path = _bank_file(tmp_path)
     accounts = [
         *ACCOUNTS,
+        account_with_currencies(id="efe", name="Efectivo", kind="cash"),
         account_with_currencies(
             id="ia", name="Interbank Ahorros", currencies=[held_currency("USD")]
         ),
@@ -1209,8 +1210,13 @@ def test_a_row_past_the_largest_amount_shows_the_engines_words_on_its_row(
             "It is not an Excel workbook (.xlsx): it is not a zip archive.",
         ),
         ("account_id", "INVALID_REFERENCE", "Must reference an active, non-archived account."),
+        (
+            "account_id",
+            "CASH_TAKES_NO_STATEMENT",
+            "Must not be the cash account: cash has no bank statements.",
+        ),
     ],
-    ids=["not-a-download", "unreadable", "account"],
+    ids=["not-a-download", "unreadable", "account", "cash-account"],
 )
 def test_a_file_refused_whole_shows_its_key_and_the_engines_words(
     fake_client, monkeypatch, tmp_path, key, reason, words

@@ -832,6 +832,14 @@ def number_digits(items: list) -> dict[str, tuple[str, ...]]:
     return out
 
 
+def takes_statements(account: dict) -> bool:
+    """Whether a bank statement can name this account: only a bank account does; a person
+    and the cash account are each refused (contract: "What an account is", "The cash account
+    takes no statement either"). The one test under every bank-only list (the Statements
+    browse, the PDF upload's and the bank download's account questions)."""
+    return account.get("kind") == "bank"
+
+
 def held_currencies(
     items: list, *, include_people: bool = True, include_archived: bool = True
 ) -> list[tuple[dict, str, dict]]:

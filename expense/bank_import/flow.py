@@ -47,8 +47,8 @@ class AccountPick:
 
 
 def account_picks(accounts: list[dict]) -> list[AccountPick]:
-    """Every live, non-person account once, in the order given (the engine's:
-    every real account first, `sort_order` ascending, then creation time,
+    """Every live bank account once (`reads.takes_statements`), in the order given
+    (the engine's: every real account first, `sort_order` ascending, then creation time,
     oldest first — contract: GET /v1/accounts, "Ordering"), each with the
     currencies it holds, its `currencies` (contract: "Bank Accounts", "`currencies`")."""
     return [
@@ -59,7 +59,7 @@ def account_picks(accounts: list[dict]) -> list[AccountPick]:
             a.get("statement_code") or None,
         )
         for a in accounts
-        if a.get("id") and not a.get("is_archived") and a.get("kind") != "person"
+        if a.get("id") and not a.get("is_archived") and reads.takes_statements(a)
     ]
 
 

@@ -336,13 +336,15 @@ class BrowseAccount(NamedTuple):
 
 def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
     """The browse's rows from one accounts read, in the order given: every bank
-    account once under its own name, people left out. The currencies are the
+    account once under its own name, people and the cash account left out
+    (`reads.takes_statements`). The currencies are the
     account's `currencies` as sent (`reads.held_currencies`, the one walk over
     them), and the statement code is the account's
     (contract: "What an account is", "Statement code"). `AccountPick` of the bank
     import carries no balance, so it does not serve here."""
+    banks = [a for a in items if a.get("id") and reads.takes_statements(a)]
     held: dict[str, list[tuple[str, int | None]]] = {}
-    for account, _name, entry in reads.held_currencies(items, include_people=False):
+    for account, _name, entry in reads.held_currencies(banks):
         held.setdefault(account["id"], []).append(
             (entry["currency_code"], entry.get("current_balance_cents"))
         )
@@ -353,8 +355,7 @@ def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
             tuple(held.get(a["id"], [])),
             a.get("statement_code") or None,
         )
-        for a in items
-        if a.get("id") and a.get("kind") != "person"
+        for a in banks
     ]
 
 

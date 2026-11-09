@@ -428,7 +428,7 @@ def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencie
 ):
     """A bank account with no statement code is listed too (the engine
     refuses it in its words if picked), a dollar account reads `USD`, an account
-    in the way of nothing is left out: archived accounts and people."""
+    in the way of nothing is left out: archived accounts, people and the cash account."""
     path = _pdf(tmp_path)
     _patch(
         monkeypatch,
@@ -445,6 +445,7 @@ def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencie
             ),
             account_with_currencies(id="old", name="Cerrada", is_archived=True),
             account_with_currencies(id="ana", name="Ana", kind="person"),
+            account_with_currencies(id="efe", name="Efectivo", kind="cash"),
         ],
     )
 
@@ -1115,6 +1116,21 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
                 "Nothing was written.",
             ],
         ),
+        # Cash is not offered, but should the engine refuse one anyway it shows in its words
+        # (contract: "What an account is", "The cash account takes no statement either")
+        (
+            _refusal(
+                "VALIDATION_ERROR",
+                "account_id",
+                "Must not be the cash account: cash has no bank statements.",
+                "CASH_TAKES_NO_STATEMENT",
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! account_id: Must not be the cash account: cash has no bank statements.",
+                "Nothing was written.",
+            ],
+        ),
         # The dry run taking a line out of the draft on a day another statement seals
         # (contract: POST /v1/statements/import, "More than a day off")
         (
@@ -1152,6 +1168,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         "currency-not-held",
         "currency-not-on-paper",
         "money-at-start",
+        "cash-account",
         "sealed-period",
         "loose-lines-on-sealed-days",
     ],

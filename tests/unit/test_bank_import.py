@@ -139,11 +139,12 @@ def test_an_account_holding_two_currencies_is_one_pick_sending_its_id():
     ]
 
 
-def test_archived_accounts_people_and_id_less_rows_are_left_out():
+def test_archived_accounts_people_cash_and_id_less_rows_are_left_out():
     picks = account_picks(
         [
             account_with_currencies(id="old", name="Retired", is_archived=True),
             account_with_currencies(id="ana", name="Ana", kind="person"),
+            account_with_currencies(id="cash", name="Efectivo", kind="cash"),
             account_with_currencies(id="visa", name="Visa"),
             {"name": "no id"},
         ]

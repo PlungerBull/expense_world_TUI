@@ -645,7 +645,7 @@ statement upload's own three ("A statement PDF closes its month" below):
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this file?** | the file's name dim beside the question; every live, non-person account once, in the engine's order, named by the account, its currencies its own, the account's `currencies` in the engine's order (contract: "Bank Accounts", "`currencies`"): an account holding both is one line (`VISA Infinite Sapphire   PEN + USD`); archived accounts left out. `account_picks` in [flow.py](../expense/bank_import/flow.py) reads the one accounts list alone. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Which account is this file?** | the file's name dim beside the question; every live bank account once, in the engine's order, named by the account, its currencies its own, the account's `currencies` in the engine's order (contract: "Bank Accounts", "`currencies`"): an account holding both is one line (`VISA Infinite Sapphire   PEN + USD`); archived accounts left out. `account_picks` in [flow.py](../expense/bank_import/flow.py) reads the one accounts list alone. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
 | **Preview · <account> · nothing written yet** | the engine's dry run as one table, `#  date  title  amount  ✓  reason` (the mark's column has no heading), one row per row the engine read, numbered by its spreadsheet row (the first data row is 2), the amount signed by `signed_cents`, a row with no title showing `(untitled)`; on an account holding two currencies, `cur` after the amount: the row's own `currency_code`. Each row's mark and reason (below); `… N more · pgdn` when the rows outrun the screen; then the counts (below), and under them the days where the file and the ledger disagree (below) | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line, then the counts in the past tense (below): no table and no days | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
@@ -843,7 +843,8 @@ browse, the new-statement form and the bank import's "Which account is this file
 show accounts as `GET /accounts` lists them, every account that is not a person (a bank or
 cash account) first, then every person (contract: GET /v1/accounts). No screen sorts them. A
 person is an account whose `kind` is `person`, never told by name. A screen that has no use
-for people leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account
+for people leaves them out and moves nothing else; the bank-only lists hold bank accounts alone
+(`reads.takes_statements`). The LOG bar's `$` picker, the Edit form's account
 field and the ledger's `b` pick offer no archived account (`QuickAddRefs.quickadd_accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
@@ -1416,8 +1417,8 @@ and the "no statement" pane, it appends the next 10 rows (§5; [decisions.md](de
 loaded (§5). On Home it walks the month window one month older, `pgup` one newer (§2).
 
 **The Statements browse** opens on the **account list alone**, full height, and reads no
-statements. The list is the bank accounts of one `GET /accounts`, people left out, one row
-each under its own name: `Account · Currencies · Balances`, the currencies as `PEN + USD` and
+statements. The list is the bank accounts of one `GET /accounts`, people and cash left out,
+one row each under its own name: `Account · Currencies · Balances`, the currencies as `PEN + USD` and
 a balance in each, `-234.20 PEN   -30.98 USD`, never added together, every account's first
 figure ending in one column (`browse_accounts` and `balances_cells` in
 [statements.py](../expense/tui/screens/statements.py)). An archived account is not

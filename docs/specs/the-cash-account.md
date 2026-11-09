@@ -59,9 +59,6 @@ for it, and which can be archived but never deleted.
 Approved. Each reads the live contract on the
 practice engine before building.
 
-4. **Cash out of the bank-only places:** the Statements browse, the PDF upload's account question
-   and the bank download's leave out kind `cash`; `CASH_TAKES_NO_STATEMENT` in the engine's words
-   should one come anyway.
 5. **The live contract tests:** a cash account made with no name, bank or number, named
    `Efectivo`; `CASH_EXISTS`, the archived one included; `CASH_TAKES_NO_FIELD` on create and
    update; `CASH_KIND_FIXED` on both kind changes; `CASH_NOT_DELETABLE`; `CASH_TAKES_NO_STATEMENT`
