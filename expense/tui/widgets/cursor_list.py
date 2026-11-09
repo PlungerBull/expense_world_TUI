@@ -211,10 +211,6 @@ LIST_KEYS = frozenset({"move", "select", "toggle", "more", "page"})
 
 
 class CursorList(WindowedList):
-    #: Actions that leave the footer while the list is empty, beyond the ones its
-    #: `CARD_NEEDS_A_ROW` names.
-    FOOTER_NEEDS_A_ROW: frozenset[str] = frozenset()
-
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
         # footer slot — it is obvious and only occupies space. The keys are
@@ -479,8 +475,8 @@ class CursorList(WindowedList):
 
     def _needs_a_row(self) -> frozenset[str]:
         """The actions that leave the footer while the list is empty: the ones the `?` card
-        lists only with a row (`CARD_NEEDS_A_ROW`, help.py), and `FOOTER_NEEDS_A_ROW`."""
-        return frozenset(getattr(self, "CARD_NEEDS_A_ROW", ())) | self.FOOTER_NEEDS_A_ROW
+        lists only with a row (`CARD_NEEDS_A_ROW`, help.py)."""
+        return frozenset(getattr(self, "CARD_NEEDS_A_ROW", ()))
 
     def action_select(self) -> None:
         if self._rows:

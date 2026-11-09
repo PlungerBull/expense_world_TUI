@@ -50,8 +50,6 @@ Approved.
    the empty ledger, no `⏎ Its statements` on the empty Statements account list, and no `⏎ Open`
    or row keys, greyed or not, on an empty Accounts, Categories or Hashtags list; each comes back
    with the first row.
-2. **Manage's three `?` cards** list no key that needs a row while their list is empty
-   (`CARD_NEEDS_A_ROW`, as the ledger's card does), the moving keys included.
 3. **The ledger's card** reads `esc  Back` while the list is empty.
 
 ## Found along the way
@@ -62,3 +60,9 @@ Not built in this spec; sorted when it is done.
   `expense/tui/screens/statements.py`), a key with no row to act on there.
 - **A Manage list's row keys leave its footer while it loads,** where they showed greyed; the
   same rule, since none works before the rows land.
+- **A screen's row keys are declared twice:** its `CARD_NEEDS_A_ROW` feeds the card, its own
+  `check_action` tuples the footer (`expense/tui/screens/_base.py`, `accounts.py`, the ledger
+  alike); they agree today. It joins the Backlog's "The `?` card's row rule reads a little
+  unevenly in code".
+- **After a reload that fails, a Manage card still lists its row keys** from the records read
+  before, while the footer drops them (`_by_id` is set only in `build`).

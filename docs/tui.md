@@ -1859,9 +1859,10 @@ terse footer label (`Archive`). The card lists only bindings in play
 `CARD_FOLLOWS_CHECK` follows the footer — the keys that are off in some states on the
 Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A statement's
 screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
-and one in `CARD_NEEDS_A_ROW` waits for a row: the empty ledger and the Statements account list
-with no account list none of their list keys, so the empty ledger's card holds only `+`, `r`
-and `esc`. The card covers what is behind it from its top rule to its bottom one
+and one in `CARD_NEEDS_A_ROW` waits for a row: the empty ledger, the Statements account list,
+Accounts, Categories and Hashtags list none of their row keys, so an empty ledger's card holds
+only `+`, `r` and `esc`, and an empty Manage list's `n`, `r` and `esc`, with no "Moving around"
+column. The card covers what is behind it from its top rule to its bottom one
 across the full width, so the gutters beside its frame are blank. A card taller than the room
 between the head and the footer spreads out on a terminal wide enough, and only then: the
 groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
@@ -1937,7 +1938,7 @@ elsewhere): no `⏎`, no `space`, no key that acts on a row. A list screen's
 `check_action` answers `False`, not `None`, for such a key, because `None` leaves it in the
 footer dimmed. `None` is kept for a key that is off only for a moment (the ledger's `pick`
 while a bulk write runs). `CursorList.check_action` drops the actions its `CARD_NEEDS_A_ROW`
-names, the `?` card's own declaration, and `FOOTER_NEEDS_A_ROW` while it holds no row
+names, the `?` card's own declaration, while it holds no row
 ([cursor_list.py](../expense/tui/widgets/cursor_list.py)).
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app

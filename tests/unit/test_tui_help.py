@@ -22,6 +22,8 @@ from expense.reads import AccountIndex
 from expense.tui.app import ExpenseApp
 from expense.tui.screens._form import form_bindings
 from expense.tui.screens.accounts import AccountsScreen
+from expense.tui.screens.categories import CategoriesScreen
+from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import (
     FOLD_INTO,
     HelpModal,
@@ -889,15 +891,72 @@ def test_a_ledger_with_a_row_lists_its_keys_again(monkeypatch):
     _ledger_inventory(monkeypatch, (140, 24), check)
 
 
-def test_an_empty_and_a_filled_manage_list_keep_their_card(monkeypatch):
-    for items in ((), ENGINE_ORDER_HOLDING_ACCOUNTS):
-        _stub_engine(monkeypatch, items=items)
-        seen: list = []
+def _manage_card(monkeypatch, screen_class, size, items, check):
+    """`screen_class`'s `?` card over a list of `items`, read as groups and drawn at `size`."""
+    _stub_engine(monkeypatch, items=items)
+    for name in ("fetch_categories", "fetch_hashtags"):
+        monkeypatch.setattr(f"expense.reads.{name}", lambda cfg, **k: {"items": list(items)})
 
-        async def scenario(pilot, app, seen=seen):
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            seen.append(_keys_of(screen_inventory(app.screen)[1], "Moving around"))
+    async def scenario(pilot, app):
+        await app.push_screen(screen_class())
+        await wait_for_loaded(pilot, app)
+        _, groups = screen_inventory(app.screen)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
+        await pilot.pause()
+        check(groups, screen_lines(app))
 
-        run_app(scenario, size=(100, 32))
-        assert seen[0] == ["↓", "pgdn", "pgup"]
+    run_app(scenario, size=size)
+
+
+EMPTY_MANAGE_CARD = [
+    "This screen                       Everywhere",
+    "  n    New                          ^q  Quit",
+    "  r    Refresh                      ?   This help",
+    "  esc  Back",
+    "Always true",
+    "  r refreshes, everywhere",
+    "  y alone confirms",
+    "  ⏎ never changes data, except on",
+    "    a currency pick",
+]
+
+
+def test_an_empty_manage_list_card_lists_no_key_that_needs_a_row_at_80_and_40_lines(monkeypatch):
+    """`n`, `r`, `esc`; `Everywhere` takes the column "Moving around" had."""
+
+    def check(groups, lines):
+        assert _titles(groups) == ["This screen", "Always true", "Everywhere"]
+        assert _keys_of(groups, "This screen") == ["n", "r", "esc"]
+        drawn = [re.sub(r"\s+", " ", line.replace("│", "")).strip() for line in lines]
+        start = next(i for i, line in enumerate(drawn) if line.startswith("This screen"))
+        shown = [line for line in drawn[start:] if line]
+        wanted = [re.sub(r"\s+", " ", row).strip() for row in EMPTY_MANAGE_CARD]
+        assert shown[: len(wanted)] == wanted
+        text = " ".join(lines)
+        for gone in ("Moving around", "pgdn", "pgup", "Edit", "Delete", "Archive"):
+            assert gone not in text
+
+    for screen_class in (AccountsScreen, CategoriesScreen, HashtagsScreen):
+        for size in ((80, 24), (80, 40)):
+            if screen_class is not AccountsScreen and size == (80, 40):
+                continue
+            _manage_card(monkeypatch, screen_class, size, (), check)
+
+
+def test_a_manage_list_with_a_row_keeps_its_card(monkeypatch):
+    keys = {
+        AccountsScreen: ["n", "e", "c", "x", "a", "t", "t", "d", "r", "esc"],
+        CategoriesScreen: ["d", "n", "e", "r", "esc"],
+        HashtagsScreen: ["d", "n", "e", "r", "esc"],
+    }
+    row = {"id": "x-1", "name": "Food", "currency_code": "PEN", "is_system": False}
+
+    for screen_class, expected in keys.items():
+
+        def check(groups, lines, expected=expected):
+            assert _keys_of(groups, "This screen") == expected
+            assert _keys_of(groups, "Moving around") == ["↓", "pgdn", "pgup"]
+
+        items = ENGINE_ORDER_HOLDING_ACCOUNTS if screen_class is AccountsScreen else [row]
+        _manage_card(monkeypatch, screen_class, (100, 32), items, check)

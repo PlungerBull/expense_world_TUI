@@ -152,6 +152,13 @@ class AccountsScreen(ResourceListScreen):
         Binding("t", "make_bank", "Make bank"),
         DELETE_KEY,
     ]
+    CARD_NEEDS_A_ROW = ResourceListScreen.CARD_NEEDS_A_ROW | {
+        "add_currency",
+        "remove_currency",
+        "archive",
+        "make_person",
+        "make_bank",
+    }
 
     def __init__(self) -> None:
         super().__init__()
