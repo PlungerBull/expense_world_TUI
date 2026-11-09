@@ -140,6 +140,14 @@ KNOWN_LOCAL = frozenset(
         "delete",
         "unexpected",
         "mouse",
+        # the OpenAPI document's own top-level keys, which the drift script's unit tests
+        # build tiny stand-in documents from (`{"components": {"schemas": ...}}`)
+        "components",
+        "schemas",
+        # the key of the C library's `localeconv()` answer, which the region tests fake
+        "decimal_point",
+        # the way the app is left (`how="esc"` or `how="quit"`), a test parameter's value
+        "quit",
         # the Python keyword names a fake's call log records for
         # fetch_transactions / count_transactions (the wire names are
         # account_id, category_id, hashtag_id)

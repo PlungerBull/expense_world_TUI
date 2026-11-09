@@ -79,7 +79,7 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-All done; the acceptance check and the doc sweep follow.
+All done; the acceptance check passed but for the drift keys, fixed since; the doc sweep follows.
 
 ## Reply to the engine
 

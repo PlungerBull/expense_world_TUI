@@ -1063,10 +1063,10 @@ def test_a_manage_list_after_a_failed_refresh_drops_its_row_keys_in_footer_and_c
 ):
     """The records read before stay in memory, but no list is on screen: the footer and the
     `?` card both leave the keys that need a row."""
-    state = {"fail": False}
+    engine_down = []
 
     def read(*args, **kwargs):
-        if state["fail"]:
+        if engine_down:
             raise RuntimeError("engine down")
         return whole([row])
 
@@ -1085,7 +1085,7 @@ def test_a_manage_list_after_a_failed_refresh_drops_its_row_keys_in_footer_and_c
         await pilot.pause()
         assert screen.has_rows
         assert {"edit", "delete"} <= names(screen)
-        state["fail"] = True
+        engine_down.append(True)
         await pilot.press("r")
         await wait_for(pilot, lambda: "Could not load." in "".join(screen_lines(app)))
         await pilot.pause()
