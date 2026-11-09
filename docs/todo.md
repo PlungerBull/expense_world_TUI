@@ -56,7 +56,8 @@ from sending a request the engine refuses.
 
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
-Found while the catch-up to `1002f105c6bacdf1` ran; sketches come with the next summary.
+Found while the catch-up to `1002f105c6bacdf1` ran; drawn as panes 1–3 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
 1. **`n` on Manage ▸ Accounts while the list shows "Could not load."** It opens a New form whose
    currencies line has nothing to pick (the currencies come with the list's read), and its type
    line offers `cash` from the last list that loaded (the engine refuses a second one, so nothing
@@ -69,9 +70,8 @@ Found while the catch-up to `1002f105c6bacdf1` ran; sketches come with the next 
 
 ### Small screen details from the account numbers work
 Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while accounts got their numbers; each is built as described, against the mockup
-[expense-world-account-numbers.html](mockups/expense-world-account-numbers.html); sketches come
-with the next summary.
+Found while accounts got their numbers; each is built as described; drawn as panes 4–8 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
 1. **A New bank account left before the engine refuses it** reads `Not created · Account
    (unnamed)`, since the account has no name until the engine builds it. Keep it, or name it by
    the bank typed (`Account BCP`)?
@@ -95,9 +95,8 @@ in the app; 5 ask the engine, since the paper already says which account it is.
 
 ### Small screen details from the cash account
 Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while the cash account was built against
-[expense-world-cash-account.html](mockups/expense-world-cash-account.html); sketches come with the
-next summary.
+Found while the cash account was built; drawn as panes 9–13 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
 1. **The New form's type line** reads `bank, person or cash · enter keeps bank`, the form's own
    hint shape; the mockup drew `bank · person · cash · ←→ picks`, naming keys the form does not
    use. Keep it as built?
@@ -116,7 +115,8 @@ so the screen says what is there, offers only keys that work and names the fix.
 
 ### Small screen details from the number format
 Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while the number format setting was built; sketches come with the next summary.
+Found while the number format setting was built; drawn as panes 14–16 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
 1. **The words not drawn:** saving reads `Number format saved.`; when the Mac's region cannot be
    named, the row reads `1,234.56  · follows this Mac`, with no region in brackets. Keep both?
 2. **Auth & profile's footer** reads `esc Back  r Refresh  ? Keys  b Bootstrap  f Number
@@ -129,8 +129,12 @@ Found while the number format setting was built; sketches come with the next sum
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
 every amount on screen follows the pick as soon as it is known.
 
-[The official import](specs/before-the-official-import.md) is rewritten for built names now that
-the numbers spec is done, and comes for approval with the next summary.
+### The official import, redrafted for built names: approve it?
+Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)
+The spec is rewritten now that the engine names bank accounts itself and lists one bank. Its
+questions 15–17 are in the spec, 15 and 16 drawn as panes 17–18 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html). One reply answers
+them and approves the spec and its tasks.
 
 ---
 

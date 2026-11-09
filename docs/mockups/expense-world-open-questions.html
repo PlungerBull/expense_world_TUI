@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Open questions</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick,.grp{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .grp{margin-top:64px;padding-top:14px;border-top:1px solid var(--line)}
+  .grp h2{font-size:14px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 6px;font-weight:600}
+  .grp p{color:var(--muted);font-size:13px;line-height:1.65;margin:0;max-width:90ch}
+  .grp code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .opt.wide{grid-template-columns:1fr}
+  @media (max-width:1100px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Small details, open questions</h1>
+  <p>Panes 1 to 16 are small details found while building the last few pieces of work. <b>Each is built as A today</b> (A is drawn from the app as it is), and B, or C, is the smallest change that answers it. Panes 17 and 18 belong to the official import's draft and aren't built yet. Most carry a recommendation; pane 2 is your call.</p>
+  <p>Answer with one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip stays as A. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+</div>
+
+<!-- ================================================================== group 1 -->
+<div class="grp">
+  <h2>From the catch-up</h2>
+  <p>Screens already built: Manage ▸ Accounts, the PDF upload's preview and the close.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · n while Accounts could not load <span>— pick A or B</span></div>
+<p class="blurb">Manage ▸ Accounts read nothing: the engine did not answer. The New form takes its banks, currencies and types from the list, so with no list it has nothing to offer.</p>
+
+<div class="var"><div class="oh">A · <span>as built: n opens the New form</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts, the read failed</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="b">Could not load.</span>
+  INTERNAL_ERROR — Something went wrong.
+
+
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, then ⏎ on type</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BANK            </span><span class="a">▍</span>
+
+     <span class="d">no match</span>
+
+   type            bank
+   <span class="b">bank            </span><span class="d">—  *</span>
+   last 4          <span class="d">—  (optional)</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+</div>
+<p class="cap">Bank and currencies have nothing to pick, so the form can't be finished. If the list loaded once and a refresh then failed, the form offers what that earlier list held instead: its banks, its currencies, and <code>cash</code> on the type line if that list had no cash account.</p></div>
+
+<div class="var"><div class="oh">B · <span>n leaves the footer until the list loads</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts, the read failed</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="b">Could not load.</span>
+  INTERNAL_ERROR — Something went wrong.
+
+
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys</pre></div></div>
+</div>
+<p class="cap"><code>r</code> reads again; <code>n New</code> comes back once the list is on screen. A form that opens always holds what the engine says now.</p></div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · A flagged line in a currency the paper doesn't cover <span>— pick A, B or C · your call</span></div>
+<p class="blurb"><code>BCP-4471</code> holds soles and dollars, but its October paper covers soles only. The close will flag a dollar line, <code>AMAZON</code>. The <code>cur</code> column only appears on a paper that covers two currencies, so here nothing on screen says that line is in dollars.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>as built: no currency shown</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the upload's preview</span></div>
+<div class="app"><pre>  Preview · BCP-4471 PEN + USD · <span class="d">nothing written yet</span>
+  PEN-202610 · 2026-10-01 → 2026-10-31 · <span class="d">a new statement</span>
+<span class="d">             begin          end</span>
+  PEN    <span class="p">10,912.40    12,450.00</span>
+
+<span class="d">     #  date        title          amount</span>
+     1  2026-10-01  HABERES     <span class="p">+4,850.00</span>  <span class="p">✓</span>  In the ledger
+     2  2026-10-03  TRANSF        <span class="n">-800.00</span>  <span class="p">✓</span>  In the ledger
+     3  2026-10-09  YAPE          <span class="n">-120.00</span>  <span class="p">✓</span>  In the ledger
+     4  2026-10-15  CAJERO        <span class="n">-400.00</span>  <span class="a">+</span>  <span class="a">New</span>
+     5  2026-10-28  LUZ           <span class="n">-192.40</span>  <span class="p">✓</span>  In the ledger
+     6  2026-10-30  INTERES          0.00  <span class="d">·  Empty</span>
+
+  <span class="w">⚑ Will be flagged</span><span class="d"> · in no statement, on the last day, which stays open until
+    the next month closes</span>
+        2026-10-03  UBER *TRIP     <span class="n">-42.00</span>
+        2026-10-12  AMAZON         <span class="n">-19.99</span>
+
+  6 rows · 4 in the ledger · <span class="a">1 new</span> · 1 empty · <span class="w">2 to flag</span>
+  <span class="d">new ones go under @Pendiente and #Pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Close PEN-202610</pre></div></div>
+<p class="cap"><code>-19.99</code> reads as soles, though it is dollars.</p></div>
+
+<div class="var"><div class="oh">B · <span>the currency on such lines only</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the upload's preview</span></div>
+<div class="app"><pre>  Preview · BCP-4471 PEN + USD · <span class="d">nothing written yet</span>
+  PEN-202610 · 2026-10-01 → 2026-10-31 · <span class="d">a new statement</span>
+<span class="d">             begin          end</span>
+  PEN    <span class="p">10,912.40    12,450.00</span>
+
+<span class="d">     #  date        title          amount</span>
+     1  2026-10-01  HABERES     <span class="p">+4,850.00</span>  <span class="p">✓</span>  In the ledger
+     2  2026-10-03  TRANSF        <span class="n">-800.00</span>  <span class="p">✓</span>  In the ledger
+     3  2026-10-09  YAPE          <span class="n">-120.00</span>  <span class="p">✓</span>  In the ledger
+     4  2026-10-15  CAJERO        <span class="n">-400.00</span>  <span class="a">+</span>  <span class="a">New</span>
+     5  2026-10-28  LUZ           <span class="n">-192.40</span>  <span class="p">✓</span>  In the ledger
+     6  2026-10-30  INTERES          0.00  <span class="d">·  Empty</span>
+
+  <span class="w">⚑ Will be flagged</span><span class="d"> · in no statement, on the last day, which stays open until
+    the next month closes</span>
+        2026-10-03  UBER *TRIP     <span class="n">-42.00</span>
+        2026-10-12  AMAZON         <span class="n">-19.99</span>  USD
+
+  6 rows · 4 in the ledger · <span class="a">1 new</span> · 1 empty · <span class="w">2 to flag</span>
+  <span class="d">new ones go under @Pendiente and #Pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Close PEN-202610</pre></div></div>
+<p class="cap">Only a line in a currency the paper doesn't cover says its code; the table stays as it is.</p></div>
+
+<div class="var"><div class="oh">C · <span>the cur column whenever the paper misses a currency</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the upload's preview</span></div>
+<div class="app"><pre>  Preview · BCP-4471 PEN + USD · <span class="d">nothing written yet</span>
+  PEN-202610 · 2026-10-01 → 2026-10-31 · <span class="d">a new statement</span>
+<span class="d">             begin          end</span>
+  PEN    <span class="p">10,912.40    12,450.00</span>
+
+<span class="d">     #  date        title          amount  cur</span>
+     1  2026-10-01  HABERES     <span class="p">+4,850.00</span>  PEN  <span class="p">✓</span>  In the ledger
+     2  2026-10-03  TRANSF        <span class="n">-800.00</span>  PEN  <span class="p">✓</span>  In the ledger
+     3  2026-10-09  YAPE          <span class="n">-120.00</span>  PEN  <span class="p">✓</span>  In the ledger
+     4  2026-10-15  CAJERO        <span class="n">-400.00</span>  PEN  <span class="a">+</span>  <span class="a">New</span>
+     5  2026-10-28  LUZ           <span class="n">-192.40</span>  PEN  <span class="p">✓</span>  In the ledger
+     6  2026-10-30  INTERES          0.00  PEN  <span class="d">·  Empty</span>
+
+  <span class="w">⚑ Will be flagged</span><span class="d"> · in no statement, on the last day, which stays open until
+    the next month closes</span>
+        2026-10-03  UBER *TRIP     <span class="n">-42.00</span>  PEN
+        2026-10-12  AMAZON         <span class="n">-19.99</span>  USD
+
+  6 rows · 4 in the ledger · <span class="a">1 new</span> · 1 empty · <span class="w">2 to flag</span>
+  <span class="d">new ones go under @Pendiente and #Pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Close PEN-202610</pre></div></div>
+<p class="cap">The whole table carries the column, as it does on a two-currency paper. Every line then says its currency, at the cost of a column of <code>PEN</code>.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 3 -->
+<div class="pane">
+<div class="lbl">3 · The ⚠ notes, preview and close <span>— pick A or B</span></div>
+<p class="blurb">The engine adds notes about each currency. The upload's preview starts each note with its currency. The close screen (Statements ▸ a statement, after <code>c</code>) leaves the currency off, unless the paper doesn't cover that currency at all.</p>
+
+<div class="var"><div class="oh">A · <span>as built: each as it is</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the upload's preview, its top</span></div>
+<div class="app"><pre>  Preview · BCP-5678 PEN + USD · <span class="d">nothing written yet</span>
+  SIG-202610 · 2026-09-26 → 2026-10-25 · <span class="d">a new statement</span>
+<span class="d">             begin          end</span>
+  PEN    <span class="n">-1,204.10      -512.30</span>
+  USD       <span class="n">-36.42       -61.40</span>
+  <span class="w">⚠ USD: Two days of the paper hold no dollar line.</span>
+
+<span class="d">     #  date        title     amount  cur</span>
+     1  2026-09-24  TAMBO …    <span class="n">-7.50</span>  PEN  <span class="p">✓</span>  In the ledger</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the close screen, after c</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Statements  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  BCP-5678  ·  2026-09-26 → 2026-10-25  ·  status completed
+<span class="d">            begin          end      diff</span>
+  PEN   <span class="n">-1,204.10      -512.30</span>         <span class="d">—</span>
+  USD      <span class="n">-36.42       -61.40</span>         <span class="d">—</span>
+  <span class="w">⚠ Two days of the paper hold no dollar line.</span>
+
+<span class="d">  Date        Title                     Operation  Cur     Amount</span>
+  2026-09-24  TAMBO MIRAFLORES          004512     PEN      <span class="n">-7.50</span>
+  2026-09-27  PLAZA VEA SURCO           004530     PEN     <span class="n">-84.30</span>
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+</div>
+<p class="cap">The same sentence, with the currency on one screen and without it on the other. On a two-currency statement the close doesn't say which currency the note is about.</p></div>
+
+<div class="var"><div class="oh">B · <span>lead with the currency on both screens</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the close screen, after c</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Statements  ▸  <span class="b">SIG-202610</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+  SIG-202610  ·  BCP-5678  ·  2026-09-26 → 2026-10-25  ·  status completed
+<span class="d">            begin          end      diff</span>
+  PEN   <span class="n">-1,204.10      -512.30</span>         <span class="d">—</span>
+  USD      <span class="n">-36.42       -61.40</span>         <span class="d">—</span>
+  <span class="w">⚠ USD: Two days of the paper hold no dollar line.</span>
+
+<span class="d">  Date        Title                     Operation  Cur     Amount</span>
+  2026-09-24  TAMBO MIRAFLORES          004512     PEN      <span class="n">-7.50</span>
+  2026-09-27  PLAZA VEA SURCO           004530     PEN     <span class="n">-84.30</span>
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+</div>
+<p class="cap">The preview stays as in A. Every note on either screen starts with its currency, including the note the close shows as a message after you've left the screen.</p></div>
+</div>
+
+<!-- ================================================================== group 2 -->
+<div class="grp">
+  <h2>From the account numbers work</h2>
+  <p>Details the earlier mockup didn't settle, <code>docs/mockups/expense-world-account-numbers.html</code>.</p>
+</div>
+
+<!-- ================================================================== 4 -->
+<div class="pane">
+<div class="lbl">4 · A New bank account refused after you left the form <span>— pick A or B</span></div>
+<p class="blurb">You save a new bank account and press <code>esc</code> before the engine answers. The engine refuses it, and a message names what wasn't made. A bank account has no typed name, since the engine builds it from the bank and last 4.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: (unnamed)</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · back on Manage ▸ Accounts</span></div>
+<div class="app"><pre>    <span class="d">Name         Type   Code  Color       PEN</span>
+    <span class="rev">BCP-5678     bank   SIG   ██    -2,340.50 </span>
+
+
+           <span class="d">▌</span>
+           <span class="d">▌</span> <span class="n b">Not created · Account (unnamed)</span>
+           <span class="d">▌</span> VALIDATION_ERROR — The request is
+           <span class="d">▌</span> not valid.
+           <span class="d">▌</span>   last4: Must be exactly 4 digits.
+           <span class="d">▌</span> <span class="d">Nothing was saved: open it again to</span>
+           <span class="d">▌</span> <span class="d">fix it.</span>
+           <span class="d">▌</span></pre></div></div>
+<p class="cap">The same words as a person's or a category's, with no name: what was refused is in the engine's lines under it.</p></div>
+
+<div class="var"><div class="oh">B · <span>the bank typed</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · back on Manage ▸ Accounts</span></div>
+<div class="app"><pre>    <span class="d">Name         Type   Code  Color       PEN</span>
+    <span class="rev">BCP-5678     bank   SIG   ██    -2,340.50 </span>
+
+
+           <span class="d">▌</span>
+           <span class="d">▌</span> <span class="n b">Not created · Account BCP</span>
+           <span class="d">▌</span> VALIDATION_ERROR — The request is
+           <span class="d">▌</span> not valid.
+           <span class="d">▌</span>   last4: Must be exactly 4 digits.
+           <span class="d">▌</span> <span class="d">Nothing was saved: open it again to</span>
+           <span class="d">▌</span> <span class="d">fix it.</span>
+           <span class="d">▌</span></pre></div></div>
+<p class="cap">Names the bank you picked, though the account would have been <code>BCP-5678</code>, not <code>BCP</code>.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 5 -->
+<div class="pane">
+<div class="lbl">5 · Removing a card <span>— pick A or B</span></div>
+<p class="blurb">The Visa's old card was <code>1234</code>; <code>5678</code> replaced it. You empty <b>last 4</b> on the Edit form and save, and the app asks first.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ^s with last 4 emptied</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP-5678  ▸  <span class="b">Edit</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="d">────────────────────────────────────────────────</span>
+
+   <span class="b">Remove card 5678 from BCP-5678?</span>
+
+   1234 is its number again. No screen can bring
+   5678 back.
+   <span class="a">[y]</span> confirm    <span class="a">[enter / n / esc]</span> cancel
+
+   <span class="d">────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">After <code>y</code> the list shows the account's new name, <code>BCP-1234</code>. With no card before it, the second line is just <code>No screen can bring 5678 back.</code></p></div>
+
+<div class="var"><div class="oh">B · <span>the question names the new name</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ^s with last 4 emptied</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP-5678  ▸  <span class="b">Edit</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="d">────────────────────────────────────────────────</span>
+
+   <span class="b">Remove card 5678 from BCP-5678?</span>
+
+   1234 is its number again, and it shows as
+   BCP-1234. No screen can bring 5678 back.
+   <span class="a">[y]</span> confirm    <span class="a">[enter / n / esc]</span> cancel
+
+   <span class="d">────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">The app can't know the name before the save, because the engine builds it. So this <b>needs an engine change</b> (a way to ask for the name first).</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 6 -->
+<div class="pane">
+<div class="lbl">6 · The Edit form's number lines <span>— pick A or B</span></div>
+<p class="blurb">Lines the earlier mockup didn't draw, shown as built. <b>since</b> and <b>new card</b> only appear once the account has a number. <b>new card from</b> appears once <b>new card</b> holds digits. Several older cards share one <b>cards before</b> line, oldest first. Each line's hint sits under the bar.</p>
+
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · e on BCP (no number yet)</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP  ▸  <span class="b">Edit</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LAST 4          </span><span class="a">▍</span>
+   <span class="d">the card's last 4 digits · empty removes it · enter to go on</span>
+
+   type            bank  <span class="d">read-only</span>
+   bank            BCP
+   <span class="b">last 4          </span><span class="d">—  (optional)</span>
+   currencies      PEN · USD  <span class="d">read-only</span>
+   statement code  SIG
+   color           <span class="s1">██</span> blue
+   PEN opening     <span class="d">—  (optional)</span>
+   PEN as of       <span class="d">—  (optional)</span></pre></div></div>
+
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · e on BCP-5678, its first card</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP-5678  ▸  <span class="b">Edit</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NEW CARD        </span><span class="a">▍</span>
+   <span class="d">optional · the replacement card's last 4 digits · enter to go on</span>
+
+   type            bank  <span class="d">read-only</span>
+   bank            BCP
+   last 4          5678
+   since           <span class="d">first card</span>
+   <span class="b">new card        </span><span class="d">—  (optional)</span>
+   currencies      PEN · USD  <span class="d">read-only</span>
+   statement code  SIG
+   color           <span class="s1">██</span> blue</pre></div></div>
+
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · 9012 typed on new card, then ⏎</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP-5678  ▸  <span class="b">Edit</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NEW CARD FROM   </span><span class="a">▍</span>
+   <span class="d">YYYY-MM-DD · the new card's first day · enter to go on</span>
+
+   type            bank  <span class="d">read-only</span>
+   bank            BCP
+   last 4          5678
+   since           <span class="d">first card</span>
+   new card        9012
+   <span class="b">new card from   </span><span class="d">—  *</span>
+   currencies      PEN · USD  <span class="d">read-only</span>
+   statement code  SIG</pre></div></div>
+
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · e on BCP-9012, two cards before it</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  BCP-9012  ▸  <span class="b">Edit</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">SINCE           </span>2026-08-15<span class="a">▍</span>
+   <span class="d">YYYY-MM-DD · this card's first day · enter to go on</span>
+
+   type            bank  <span class="d">read-only</span>
+   bank            BCP
+   last 4          9012
+   <span class="b">since           </span>2026-08-15
+   cards before    <span class="d">1234 until 2025-12-31 · 5678 until 2026-08-14</span>
+   new card        <span class="d">—  (optional)</span>
+   currencies      PEN · USD  <span class="d">read-only</span></pre></div></div>
+</div>
+<p class="cap">On an account with no number, <b>last 4</b>'s hint still says "empty removes it", as on every bank account.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>keep them as drawn</span><span class="rec">recommended</span></div></div>
+<div class="var"><div class="oh">B · <span>tell us what to change</span></div>
+<p class="cap">Name the line and the words you'd want instead; no alternative is drawn.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 7 -->
+<div class="pane">
+<div class="lbl">7 · The LOG bar's $ and a card's digits <span>— pick A or B</span></div>
+<p class="blurb"><code>$</code> with a card's last 4 finds that card's account. Today a single match resolves as you type, with nothing said under the bar.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>as built: no line</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the LOG bar</span></div>
+<div class="app"><pre>   <span class="a">LOG</span>              Almuerzo -24.00 $5678<span class="a">▍</span>
+
+
+   <span class="d">$account · %currency · @category · #tag · ±amount · //note · when</span>
+
+   <span class="a">LOG</span>              Almuerzo $56<span class="a">▍</span>
+
+
+   <span class="d">$account · %currency · @category · #tag · ±amount · //note · when</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Stage  <span class="a">^s</span> Save</pre></div></div>
+<p class="cap"><code>$5678</code> is <code>BCP-5678</code>, and the line stages on it. Today <code>$56</code>, with no sign, stays part of the title, since a sign is what makes a number an amount. Several matches (<code>$bcp</code>) still open the list with <code>"$bcp" matches 3 accounts — ↑↓ moves, ↵ writes the full name into the line</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>a line says what $ found</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the LOG bar</span></div>
+<div class="app"><pre>   <span class="a">LOG</span>              Almuerzo -24.00 $5678<span class="a">▍</span>
+
+   <span class="d">"$5678" matches 1 account</span>
+   <span class="d">$account · %currency · @category · #tag · ±amount · //note · when</span>
+
+   <span class="a">LOG</span>              Almuerzo $56<span class="a">▍</span>
+
+   <span class="d">$56 is an amount: 56.00</span>
+   <span class="d">$account · %currency · @category · #tag · ±amount · //note · when</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Stage  <span class="a">^s</span> Save</pre></div></div>
+<p class="cap">The line under the bar says what each <code>$</code> was read as.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 8 -->
+<div class="pane">
+<div class="lbl">8 · "Which account is this statement?" <span>— pick A or B</span></div>
+<p class="blurb">A statement PDF dropped on the LOG bar asks for its account first. The paper prints its card number, which already names the account.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: it asks</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a PDF dropped, ⏎</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="d">EECC_2026-10.pdf</span>
+
+   <span class="rev">BCP-5678    PEN + USD</span>
+   BCP-4471    PEN + USD
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Pick  <span class="a">↑↓</span> Move</pre></div></div>
+<p class="cap">One more <code>⏎</code> per paper. A wrong pick is refused in the engine's words and the screen stays on this question.</p></div>
+
+<div class="var"><div class="oh">B · <span>straight to the preview</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · a PDF dropped, ⏎</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  … ▸  Upload  ▸  <span class="b">EECC_2026-10.pdf</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+  Preview · BCP-5678 PEN + USD · <span class="d">nothing written yet</span>
+  SIG-202610 · 2026-09-26 → 2026-10-25 · <span class="d">a new statement</span>
+<span class="d">             begin          end</span>
+  PEN    <span class="n">-1,204.10      -512.30</span>
+  USD       <span class="n">-36.42       -61.40</span>
+
+<span class="d">     #  date        title     amount  cur</span>
+     1  2026-09-24  TAMBO …    <span class="n">-7.50</span>  PEN  <span class="p">✓</span>  In the ledger</pre></div></div>
+<p class="cap">The engine reads the card number off the paper and names the account; the preview opens on it. A paper with no matching card is refused in the engine's words. This <b>needs an engine change</b>.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== group 3 -->
+<div class="grp">
+  <h2>From the cash account</h2>
+  <p>Details the earlier mockup didn't settle, <code>docs/mockups/expense-world-cash-account.html</code>.</p>
+</div>
+
+<!-- ================================================================== 9 -->
+<div class="pane">
+<div class="lbl">9 · The New form's type line <span>— pick A or B</span></div>
+<p class="blurb">While you have no cash account, <b>type</b> offers <code>cash</code> as a third choice.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: a list under the bar</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n on Manage ▸ Accounts</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">TYPE            </span><span class="a">▍</span>
+   <span class="d">bank, person or cash · enter keeps bank</span>
+
+     <span class="rev">bank  </span>
+     person
+     cash
+
+   <span class="b">type            </span>bank
+   bank            <span class="d">—  *</span>
+   last 4          <span class="d">—  (optional)</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Typed or picked from the list, like every other line on the form. Once you have a cash account, the hint reads <code>bank or person · enter keeps bank</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>the earlier mockup's words</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n on Manage ▸ Accounts</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">TYPE            </span>bank<span class="a">▍</span>
+   <span class="d">bank · person · cash · ←→ picks</span>
+
+   <span class="b">type            </span>bank
+   bank            <span class="d">—  *</span>
+   last 4          <span class="d">—  (optional)</span>
+   currencies      <span class="d">—  *</span>
+   statement code  <span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap"><code>←→</code> steps through the three; no list. The type line would be the only line on the form picked this way.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 10 -->
+<div class="pane">
+<div class="lbl">10 · The Accounts ? keys card <span>— pick A or B</span></div>
+<p class="blurb">The footer shows the one <code>t</code> the cursor row takes (<code>t Make person</code> on a bank account, <code>t Make bank</code> on a person). The <code>?</code> card lists both.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: both t lines</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ? with the cursor on BCP-5678</span></div>
+<div class="app"><pre>      <span class="b">Keys — Accounts</span>
+
+       <span class="d">This screen</span>
+        <span class="a">n</span>    New
+        <span class="a">e</span>    Edit
+        <span class="a">c</span>    Add a currency
+        <span class="a">x</span>    Remove a currency
+        <span class="a">a</span>    Archive / unarchive
+        <span class="a">t</span>    Make person
+        <span class="a">t</span>    Make bank
+        <span class="a">d</span>    Delete
+        <span class="a">r</span>    Refresh
+        <span class="a">esc</span>  Back
+
+ <span class="a">esc</span> Close</pre></div></div>
+<p class="cap">One card for the whole screen: what <code>t</code> can do on any row.</p></div>
+
+<div class="var"><div class="oh">B · <span>only the t the cursor row takes</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ? with the cursor on BCP-5678</span></div>
+<div class="app"><pre>      <span class="b">Keys — Accounts</span>
+
+       <span class="d">This screen</span>
+        <span class="a">n</span>    New
+        <span class="a">e</span>    Edit
+        <span class="a">c</span>    Add a currency
+        <span class="a">x</span>    Remove a currency
+        <span class="a">a</span>    Archive / unarchive
+        <span class="a">t</span>    Make person
+        <span class="a">d</span>    Delete
+        <span class="a">r</span>    Refresh
+        <span class="a">esc</span>  Back
+
+
+ <span class="a">esc</span> Close</pre></div></div>
+<p class="cap">The card matches the footer. On a person it lists <code>t Make bank</code>; on the cash account or an archived one, no <code>t</code>.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 11 -->
+<div class="pane">
+<div class="lbl">11 · Home with no accounts <span>— pick A or B</span></div>
+<p class="blurb">Someone who has made no accounts yet opens the app.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: a heading, no rows</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div>
+<div class="app"><pre>  <span class="d">────────────────────────────────────────</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+  <span class="d">PEOPLE                            none</span>
+  <span class="d">────────────────────────────────────────</span>
+  <span class="d">LEDGER</span>
+    Transactions
+    Statements</pre></div></div>
+<p class="cap">ACCOUNTS says nothing; PEOPLE, right under it, says <code>none</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>none under it, as PEOPLE does</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div>
+<div class="app"><pre>  <span class="d">────────────────────────────────────────</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+  <span class="d">                                  none</span>
+  <span class="d">PEOPLE                            none</span>
+  <span class="d">────────────────────────────────────────</span>
+  <span class="d">LEDGER</span>
+    Transactions</pre></div></div>
+<p class="cap">Both blocks say they're empty in the same word and place.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 12 -->
+<div class="pane">
+<div class="lbl">12 · ⏎ Open in the Manage lists' footer <span>— pick A or B</span></div>
+<p class="blurb">On Manage ▸ Accounts and Manage ▸ Categories, <code>⏎</code> does nothing, yet the footer starts with <code>⏎ Open</code>. At 80 columns the Accounts footer has no room left for <code>a Archive</code>, <code>t</code> and <code>d Delete</code> (they still work, and the <code>?</code> card lists them).</p>
+
+<div class="var"><div class="oh">A · <span>as built: ⏎ Open shown</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+    <span class="d">Name         Type       Code    Color            PEN        USD   Status</span>
+    <span class="d">────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">BCP-5678     bank       SIG     ██         -2,340.50    -185.20   active</span>
+    BCP-4471     bank       PEN     <span class="d">—</span>          <span class="p">12,450.00</span>          <span class="d">—</span>   active
+    Eliana       person     <span class="d">—</span>       <span class="d">—</span>            <span class="n">-150.00</span>          <span class="d">—</span>   active
+
+  <span class="d">balances are native currency</span>
+
+<span class="a">⏎</span> Open <span class="a">esc</span> Back <span class="a">r</span> Refresh <span class="a">?</span> Keys <span class="a">n</span> New <span class="a">e</span> Edit <span class="a">c</span> Currency <span class="a">x</span> Remove currency</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Categories</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Categories</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+    <span class="d">Color          Name                       System</span>
+    <span class="d">────────────────────────────────────────────────────────</span>
+    <span class="rev"><span class="s2">██</span>             Comida                     —     </span>
+    <span class="d">—</span>              Transporte                 <span class="d">—</span>
+
+  <span class="d">System categories cannot be renamed or deleted.</span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
+</div></div>
+
+<div class="var"><div class="oh">B · <span>⏎ Open dropped</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts, its footer</span></div>
+<div class="app"><pre><span class="a">esc</span> Back <span class="a">r</span> Refresh <span class="a">?</span> Keys <span class="a">n</span> New <span class="a">e</span> Edit <span class="a">c</span> Currency <span class="a">x</span> Remove currency <span class="a">a</span> Archive</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Categories, its footer</span></div>
+<div class="app"><pre> <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
+</div>
+<p class="cap">The footer only shows keys that do something, and Accounts gains room for <code>a Archive</code>. Hashtags keeps its own footer as it is.</p></div>
+</div>
+
+<!-- ================================================================== 13 -->
+<div class="pane">
+<div class="lbl">13 · Making the cash account while a person is named Efectivo <span>— pick A or B</span></div>
+<p class="blurb">The cash account is always named <code>Efectivo</code>. If a person already has that name, the engine refuses it. The cursor goes back to <b>type</b>.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>as built: pick another name</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ^s on the New form</span></div>
+<div class="app"><pre>   <span class="b">TYPE         </span>cash<span class="a">▍</span>
+   <span class="d">bank, person or cash · enter keeps bank</span>
+
+   <span class="b">type         </span>cash
+   name         Efectivo  <span class="d">set by the engine</span>
+   currencies   PEN
+   color        <span class="d">—  (optional)</span>
+   PEN opening  <span class="d">—  (optional)</span>
+   PEN as of    <span class="d">—  (optional)</span>
+
+   <span class="d">▌</span> <span class="n">Failed</span>
+   <span class="d">▌</span> CONFLICT — An account named Efectivo already exists.
+   <span class="d">▌</span>   kind: An account named Efectivo already exists.
+   <span class="d">▌</span>
+   <span class="d">▌</span> That name is taken: pick another.</pre></div></div>
+<p class="cap">The name can't be changed here, so the line asks for something you can't do on this form.</p></div>
+
+<div class="var"><div class="oh">B · <span>a line naming the fix</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ^s on the New form</span></div>
+<div class="app"><pre>   <span class="b">TYPE         </span>cash<span class="a">▍</span>
+   <span class="d">bank, person or cash · enter keeps bank</span>
+
+   <span class="b">type         </span>cash
+   name         Efectivo  <span class="d">set by the engine</span>
+   currencies   PEN
+   color        <span class="d">—  (optional)</span>
+   PEN opening  <span class="d">—  (optional)</span>
+   PEN as of    <span class="d">—  (optional)</span>
+
+   <span class="d">▌</span> <span class="n">Failed</span>
+   <span class="d">▌</span> CONFLICT — An account named Efectivo already exists.
+   <span class="d">▌</span>   kind: An account named Efectivo already exists.
+   <span class="d">▌</span>
+   <span class="d">▌</span> A person is named Efectivo: rename them to make the cash account.</pre></div></div>
+<p class="cap">Says what to do: rename the person (<code>e</code> on their row), then make the cash account again.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== group 4 -->
+<div class="grp">
+  <h2>From the number format</h2>
+  <p>System ▸ Auth & profile, and the amounts that follow your pick.</p>
+</div>
+
+<!-- ================================================================== 14 -->
+<div class="pane">
+<div class="lbl">14 · Words not drawn before <span>— pick A or B</span></div>
+<p class="blurb">After a save, a short message confirms it. When the Mac's region has no name the app can read, the number format row leaves the brackets out.</p>
+
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · f, Follow this Mac, ⏎</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  System  ▸  <span class="b">Auth &amp; profile</span>
+<span class="d">──────────────────────────────────────────────────</span>
+
+  Auth &amp; profile — your identity &amp; settings
+
+   <span class="d">display name </span>   Alex
+   <span class="d">user id      </span>   u-7f3a
+   <span class="d">main currency</span>   PEN
+   <span class="d">timezone     </span>   America/Lima
+   <span class="d">number format</span>   1,234.56  <span class="d">· follows this Mac</span>
+
+  <span class="d">b bootstrap (provision)</span>
+
+                    <span class="d">▌</span>
+                    <span class="d">▌</span> Number format saved.
+                    <span class="d">▌</span>
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">b</span> Bootstrap  <span class="a">f</span> Number format</pre></div></div>
+</div>
+<p class="cap">With a region name the row reads <code>1,234.56  · follows this Mac (English (Peru))</code>; with a pick of your own, <code>1.234,56  · your setting</code>.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>keep both</span><span class="rec">recommended</span></div></div>
+<div class="var"><div class="oh">B · <span>tell us the words</span></div>
+<p class="cap">Write the message or the row as you'd want it; no alternative is drawn.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 15 -->
+<div class="pane">
+<div class="lbl">15 · Auth &amp; profile's footer <span>— pick A or B</span></div>
+<p class="blurb">The order of the keys along the bottom.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>as built: the shared keys first</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · System ▸ Auth &amp; profile, its footer</span></div>
+<div class="app"><pre> <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">b</span> Bootstrap  <span class="a">f</span> Number format</pre></div></div>
+<p class="cap">The same order as every screen in the app: <code>esc</code>, <code>r</code> and <code>?</code> first, then the screen's own keys.</p></div>
+
+<div class="var"><div class="oh">B · <span>the screen's keys first, ? last</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · System ▸ Auth &amp; profile, its footer</span></div>
+<div class="app"><pre> <span class="a">esc</span> Back  <span class="a">b</span> Bootstrap  <span class="a">f</span> Number format  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap"><code>r Refresh</code> leaves the footer (it still works, and the <code>?</code> card lists it). This screen would be the only one ordered this way.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 16 -->
+<div class="pane">
+<div class="lbl">16 · Amounts following the pick <span>— pick A or B</span></div>
+<p class="blurb">Your account's pick is <code>1.234,56</code>; this Mac's region uses <code>1,234.56</code>. Two moments where the pick becomes known while Home is already on screen: the first Home right after Setup on a new device, and a pick saved on Auth &amp; profile whose answer arrives after you've gone back to Home.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built: Home waits</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home, before the pick is known</span></div>
+<div class="app"><pre>  <span class="d">CATEGORIES        Oct 2026  ▸ Nov 2026</span>
+  ▶ WANTS          <span class="n">-1,608.43</span>     <span class="n">-266.20</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+    BCP-5678
+      PEN                      <span class="n">-2,340.50</span></pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home, after the pick is known</span></div>
+<div class="app"><pre>  <span class="d">CATEGORIES        Oct 2026  ▸ Nov 2026</span>
+  ▶ WANTS          <span class="n">-1,608.43</span>     <span class="n">-266.20</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+    BCP-5678
+      PEN                      <span class="n">-2,340.50</span></pre></div></div>
+<p class="cap">Home keeps the Mac's format: after Setup, until you reopen the app; after a late save, until Home reloads (<code>r</code>, or opening it again).</p></div>
+
+<div class="var"><div class="oh">B · <span>Home redraws at once</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home, before the pick is known</span></div>
+<div class="app"><pre>  <span class="d">CATEGORIES        Oct 2026  ▸ Nov 2026</span>
+  ▶ WANTS          <span class="n">-1,608.43</span>     <span class="n">-266.20</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+    BCP-5678
+      PEN                      <span class="n">-2,340.50</span></pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home, after the pick is known</span></div>
+<div class="app"><pre>  <span class="d">CATEGORIES        Oct 2026  ▸ Nov 2026</span>
+  ▶ WANTS          <span class="n">-1.608,43</span>     <span class="n">-266,20</span>
+  <span class="d">ACCOUNTS                 balance today</span>
+    BCP-5678
+      PEN                      <span class="n">-2.340,50</span></pre></div></div>
+<p class="cap">Both moments: every amount on screen switches to your pick as soon as the app knows it. Nothing else on Home moves.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== group 5 -->
+<div class="grp">
+  <h2>The official import</h2>
+  <p>Two questions from the official import's draft, <code>docs/specs/before-the-official-import.md</code>: the ledger is wiped, the bank accounts are made in the app, then the spreadsheet is imported once with <code>expense import sheet</code>.</p>
+</div>
+
+<!-- ================================================================== 17 -->
+<div class="pane">
+<div class="lbl">17 · Where the sheet's accounts are made <span>— pick A or B</span></div>
+<p class="blurb">The ledger is empty but for the bank accounts you made in the app. The first dry run puts the Visa's sheet name on <code>BCP-5678</code>; <code>Sueldo Soles=BCP-1234</code> was given on an earlier run, and the import remembers it. <code>Cuenta Digital Dólares</code> is a bank account you forgot to make.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>the people are made in the app too</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · the dry run</span></div>
+<div class="app"><pre><span class="d">%</span> expense import sheet libro.xlsx \
+    --account-name "VISA Infinite Sapphire=BCP-5678"
+Accounts (4)
+  SHEET NAME               CUR          ROWS   GOES TO
+  VISA Infinite Sapphire   PEN + USD   1,846   BCP-5678  yours
+  Sueldo Soles             PEN         1,203   BCP-1234  yours
+  Cuenta Digital Dólares   USD           312   make it in the app
+  ALEJO                    PEN + USD      58   yours
+
+Categories (3)
+  SHEET NAME       ROWS   GOES TO
+  Comida          1,010   missing
+  Transporte        435   missing
+  SALDO INICIAL      12   missing
+
+Hashtags (2)
+  SHEET NAME    ROWS   GOES TO
+  Personal     1,722   missing
+  Trabajo        239   missing
+
+No counts yet: the engine counts once every name exists.
+
+1 sheet account has no account yet: make it in the app. A bank account then
+gets the sheet's name with --account-name "Cuenta Digital Dólares=&lt;its name&gt;".
+5 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+It makes categories and hashtags only, never an account.
+Dry run — nothing written.</pre></div></div>
+<p class="cap">ALEJO, made in the app as a person under the sheet's name, is found by that name. The one place accounts are made is the app, and nothing is guessed. <b>New lines:</b> <code>make it in the app</code>, the two lines starting <code>1 sheet account has no account yet</code>, and <code>It makes categories and hashtags only, never an account.</code> The rest is today's output.</p></div>
+
+<div class="var"><div class="oh">B · <span>the create step makes the people</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · the dry run</span></div>
+<div class="app"><pre><span class="d">%</span> expense import sheet libro.xlsx \
+    --account-name "VISA Infinite Sapphire=BCP-5678"
+Accounts (4)
+  SHEET NAME               CUR          ROWS   GOES TO
+  VISA Infinite Sapphire   PEN + USD   1,846   BCP-5678  yours
+  Sueldo Soles             PEN         1,203   BCP-1234  yours
+  Cuenta Digital Dólares   USD           312   missing · made a person
+  ALEJO                    PEN + USD      58   missing · made a person
+
+Categories (3)
+  SHEET NAME       ROWS   GOES TO
+  Comida          1,010   missing
+  Transporte        435   missing
+  SALDO INICIAL      12   missing
+
+Hashtags (2)
+  SHEET NAME    ROWS   GOES TO
+  Personal     1,722   missing
+  Trabajo        239   missing
+
+No counts yet: the engine counts once every name exists.
+
+7 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+Dry run — nothing written.</pre></div></div>
+<p class="cap"><code>--create-names</code> makes each sheet account with no account a person under the sheet's name: eight fewer names to make by hand. But <code>Cuenta Digital Dólares</code>, a bank account forgotten in the app, would also be made a person. <b>New words:</b> <code>· made a person</code>, meaning it's made a person by <code>--create-names</code> (shortened so the line fits 80 columns). The rest is today's output.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 18 -->
+<div class="pane">
+<div class="lbl">18 · The closed accounts at other banks <span>— pick A or B</span></div>
+<p class="blurb">Your two closed Interbank accounts come in with the sheet and are archived after the import. Drawn as Manage ▸ Accounts once that's done; the last 4s are made up.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>bank accounts at Interbank, archived</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts, after the import</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+    <span class="d">Name              Type     Code   Color         PEN       USD   Status</span>
+    <span class="d">────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">BCP-5678          bank     SIG    ██      -2,340.50   -185.20   active  </span>
+    BCP-1234          bank     PEN    <span class="d">—</span>       <span class="p">12,450.00</span>         <span class="d">—</span>   active
+    BCP-9876          bank     USD    <span class="d">—</span>            0.00    <span class="p">412.30</span>   active
+    <span class="d">INTERBANK-1111    bank     —      —            0.00         —   archived</span>
+    <span class="d">INTERBANK-2222    bank     —      —            0.00      0.00   archived</span>
+    ALEJO             person   <span class="d">—</span>      <span class="d">—</span>         <span class="n">-150.00</span>     <span class="p">20.00</span>   active
+    LIDIA             person   <span class="d">—</span>      <span class="d">—</span>          <span class="p">300.00</span>         <span class="d">—</span>   active
+
+  <span class="d">balances are native currency</span>
+
+<span class="a">⏎</span> Open <span class="a">esc</span> Back <span class="a">r</span> Refresh <span class="a">?</span> Keys <span class="a">n</span> New <span class="a">e</span> Edit <span class="a">c</span> Currency <span class="a">x</span> Remove currency</pre></div></div>
+<p class="cap">Each closed account is what it was: a bank account at its own bank, named by the engine from that bank and its last 4. Today the engine lists only BCP, so <b>A needs an engine change</b> (the engine lists Interbank, and whichever banks held the Oro card and Alcancía).</p></div>
+
+<div class="var"><div class="oh">B · <span>made people</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Accounts, after the import</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+    <span class="d">Name             Type      Code   Color         PEN       USD   Status</span>
+    <span class="d">────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">BCP-5678         bank      SIG    ██      -2,340.50   -185.20   active  </span>
+    BCP-1234         bank      PEN    <span class="d">—</span>       <span class="p">12,450.00</span>         <span class="d">—</span>   active
+    BCP-9876         bank      USD    <span class="d">—</span>            0.00    <span class="p">412.30</span>   active
+    <span class="d">Interbank        person    —      —            0.00         —   archived</span>
+    <span class="d">Interbank USD    person    —      —            0.00      0.00   archived</span>
+    ALEJO            person    <span class="d">—</span>      <span class="d">—</span>         <span class="n">-150.00</span>     <span class="p">20.00</span>   active
+    LIDIA            person    <span class="d">—</span>      <span class="d">—</span>          <span class="p">300.00</span>         <span class="d">—</span>   active
+
+  <span class="d">balances are native currency</span>
+
+<span class="a">⏎</span> Open <span class="a">esc</span> Back <span class="a">r</span> Refresh <span class="a">?</span> Keys <span class="a">n</span> New <span class="a">e</span> Edit <span class="a">c</span> Currency <span class="a">x</span> Remove currency</pre></div></div>
+<p class="cap">Works with the engine as it is. Each keeps its rows and its balance under the sheet's name, but it's listed as a person, and Home shows it under PEOPLE.</p></div>
+</div>
+</div>
+
+<div class="pick">
+<b>To pick:</b> one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip from 1 to 16 stays as A; 17 and 18 need an answer.
+<ol>
+<li>n while Accounts could not load: <b>A</b> the New form opens · <b>B</b> n leaves the footer until the list loads.</li>
+<li>A flagged line in a currency the paper doesn't cover: <b>A</b> no currency shown · <b>B</b> the currency on such lines · <b>C</b> the cur column whenever the paper misses a currency. Your call.</li>
+<li>The ⚠ notes: <b>A</b> each as it is · <b>B</b> lead with the currency on both screens.</li>
+<li>A New bank account refused after leaving: <b>A</b> <code>Account (unnamed)</code> · <b>B</b> <code>Account BCP</code>.</li>
+<li>Removing a card: <b>A</b> as built · <b>B</b> the question names the new name (engine change).</li>
+<li>The Edit form's number lines: <b>A</b> keep · <b>B</b> tell us what to change.</li>
+<li>The LOG bar's $: <b>A</b> no line · <b>B</b> a line says what $ found.</li>
+<li>"Which account is this statement?": <b>A</b> it asks · <b>B</b> straight to the preview (engine change).</li>
+<li>The New form's type line: <b>A</b> a list under the bar · <b>B</b> <code>bank · person · cash · ←→ picks</code>.</li>
+<li>The Accounts ? card: <b>A</b> both t lines · <b>B</b> only the cursor row's t.</li>
+<li>Home with no accounts: <b>A</b> a heading, no rows · <b>B</b> <code>none</code> under it.</li>
+<li>⏎ Open in the Manage lists: <b>A</b> shown · <b>B</b> dropped.</li>
+<li>Cash while a person is named Efectivo: <b>A</b> pick another name · <b>B</b> a line naming the fix.</li>
+<li>Words not drawn before: <b>A</b> keep both · <b>B</b> tell us the words.</li>
+<li>Auth &amp; profile's footer: <b>A</b> shared keys first · <b>B</b> the screen's keys first, ? last.</li>
+<li>Amounts following the pick: <b>A</b> Home waits · <b>B</b> Home redraws at once.</li>
+<li>Where the sheet's accounts are made: <b>A</b> the people are made in the app too · <b>B</b> the create step makes the people.</li>
+<li>The closed accounts at other banks: <b>A</b> bank accounts at Interbank, archived (engine change) · <b>B</b> made people.</li>
+</ol>
+</div>
+
+</body>
+</html>
