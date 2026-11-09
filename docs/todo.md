@@ -19,21 +19,18 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08; tasks 1–7 done. Task 8 waits on the engine finishing its
-   current work.
+   approved 2026-11-08; tasks 1–7 done. Task 8 runs once the next catch-up's live suite
+   sends an account's `kind` (its task 2).
 2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
-   approved 2026-11-08. Waits on the engine finishing its current work; its cash part on
-   the engine ask "Every user holds one cash account, named `Efectivo`, with no bank and no
-   number".
+   approved 2026-11-08; its cash part moves to the drafted cash spec.
 3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
    approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
    settings hold their number format".
 
-The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
-The engine already serves `b6d2ae85aea48ea2`, thirteen versions later (sealed days, booleans and
-whole numbers in a request, a body refused where none is listed, an archived account's opening
-balances); the practice engine cannot read accounts while the engine side is mid-work. The engine's
-message when it is done brings them, and the loop resumes the two specs above on it.
+The engine's hand-off of 2026-11-08 to `2fa4967b8eed9c3f` is drafted into three specs waiting
+on you below. The order, approved 2026-11-08: the catch-up first, then specs 1 and 2 above, the
+cash account, closing with leftover lines, the official import; number format whenever its engine
+ask lands.
 
 ---
 
@@ -50,6 +47,19 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
+
+### Approve the three specs from the engine's latest hand-off
+Asked 2026-11-08 · Blocks: all three
+- [The app on contract `2fa4967b8eed9c3f`](specs/catch-up-to-2fa4967b8eed9c3f.md): no question,
+  approval only. Runs first.
+- [The cash account](specs/the-cash-account.md): two questions on
+  [expense-world-cash-account.html](mockups/expense-world-cash-account.html). **Recommended:**
+  1A 2A. Also a fact only you know: does your spreadsheet hold a cash (`Efectivo`) account? If
+  so, this spec must land before the official import.
+- [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): three questions
+  on [expense-world-leftover-lines.html](mockups/expense-world-leftover-lines.html).
+  **Recommended:** 1A 2A 3A. Its tasks 1 and 2 also wait on the engine ask "A loose-lines
+  refusal names its lines by id, in a field a client reads".
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.

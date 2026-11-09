@@ -1,0 +1,98 @@
+# Closing a month with leftover lines
+
+Part of the catch-up to contract `2fa4967b8eed9c3f` (the engine's hand-off of 2026-11-08,
+part A, 1 to 3): resolving lines in no statement before a close.
+
+**Status: draft, 2026-11-08, for the owner to approve, with its three questions on the mockup
+[expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html). Tasks 1 and 2
+wait on the engine ask "A loose-lines refusal names its lines by id, in a field a client
+reads".** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+
+---
+
+## Why
+
+Once a month's statement is completed, every line dated on its closed days is in a statement: a
+line left over is wrong by definition, not something to review after the close. The engine now
+refuses a close, and a statement PDF's upload (its preview too), while a line in no statement sits
+on a day the close seals. The owner deals with each line first: fixes it so the paper takes it,
+moves it, puts it in a statement, or deletes it.
+
+## What it must do
+
+1. **A close or an upload refused for leftover lines lists them,** read from the engine, and lets
+   the owner deal with each one and close again, without leaving the screen.
+2. **Nothing tells the owner to clean up a line on a closed day after closing.** Only the month's
+   last day stays open until the next month closes; a line there is still flagged after the close.
+3. **The upload preview's flagged lines say they sit on the last day.**
+
+## How the owner knows it is done
+
+1. A PDF whose month holds a line in no statement is refused before the preview; the app lists
+   the line, and fixing it to the paper's row, moving it or deleting it, then reading the paper
+   again, opens the preview, and the month closes.
+2. `c` on a statement closed by hand, refused for a leftover line, lists it; putting it in the
+   statement, then closing again, closes the month.
+3. No screen tells the owner to clean up a flagged line on a closed day after the close.
+4. A line on the paper's last day shows in the preview as one the close will flag, worded as
+   staying open until the next month closes.
+
+## What the engine declined, or did differently
+
+- **The days a close seals:** every day of the statement but its last; the last day too once the
+  next statement is completed; and the previous statement's last day, once that is completed and
+  ends the day before. A line on a day that stays open (the last day, a gap between statements)
+  is flagged, not refused.
+- **A line taken out by the upload counts as in no statement,** so a paper that leaves out a line
+  of the draft on a sealed day is refused for it too.
+- **Refused, never a conflict:** a write and a close that would seal its day happen one after the
+  other; whichever comes second is refused, never retried.
+
+## Questions
+
+Drawn on [expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html).
+
+| # | Question | Options | Recommended |
+|---|---|---|---|
+| 1 | A PDF refused for leftover lines? Pane 1. | A: a screen listing them, `⏎` edits, `d` deletes, `r` reads the paper again · B: the refusal lists them; fix them in the ledger and drop the PDF again | A: the month closes without leaving the upload |
+| 2 | `c` refused on a statement closed by hand? Pane 2. | A: the same screen, plus `space` to put a line in the statement and `c` to close again · B: stay on the checklist, the lines marked `⚑` | A: one screen for both ways of closing, and it reaches a line outside the checklist's days |
+| 3 | The preview's "⚑ Will be flagged" block? Pane 3. | A: kept, reworded for the last day · B: dropped | A: every line the close touches stays in sight before you confirm |
+
+Also for the owner: check 7 of [catch-up-to-1002f105c6bacdf1.md](catch-up-to-1002f105c6bacdf1.md)
+says a line the paper lacks shows in the preview as one the close will flag; under the new rule
+that holds only for a line on the paper's last day.
+
+---
+
+## Tasks
+
+Drafted 2026-11-08 on the recommended answers (1A, 2A, 3A). Each reads the live contract on the
+practice engine before building.
+
+1. **The leftover-lines screen from an upload** (question 1; waits on the engine ask):
+   `LOOSE_LINES_ON_SEALED_DAYS` on the preview opens it, its lines read with
+   `GET /bank-lines?ids=` from the refusal's ids; `⏎` opens a line in the ledger's Edit form and
+   comes back, `d` deletes after the delete question, `r` sends the same PDF again as a dry run,
+   opening the preview once nothing is left over. Each refusal on it in the engine's words.
+2. **The same screen from `c`** (question 2; waits on the engine ask): opened by the refusal on
+   `POST /statements/{id}/complete`, with `space` putting the line in the statement and `c`
+   asking "Complete statement?" again.
+3. **The preview's flagged block and the flagged screen's words** (question 3): the block's note
+   says the lines sit on the last day, open until the next month closes; nothing on the flagged
+   screen (`FLAGGED_WAYS` in expense/tui/screens/statements.py) speaks of a closed day.
+4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
+   run and apply, nothing written; the refusal's ids; the line taken out of the draft counted;
+   the request the message names answering `200`; a flagged line on the open last day letting the
+   close through; the previous statement's last day sealed once it is completed.
+
+## Reply to the engine
+
+Part 3 of the reply to the hand-off of 2026-11-08 ("A closed day never holds a line in no
+statement…"): part A, 1 to 3. It reports on the hand-off's "Done when" checks for a refused close
+or upload showing the loose lines and no screen cleaning up after the close, and any contract
+problem found, and names the ask "A loose-lines refusal names its lines by id, in a field a client
+reads" as what it was built on.
+
+## Found along the way
+
+Not built in this spec; sorted when it is done.

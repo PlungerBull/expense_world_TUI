@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Leftover lines</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:1100px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Closing a month with leftover lines</h1>
+  <p><b>The new rule:</b> once a month is closed, every line dated on its days is in its statement. A leftover line, one you logged on those days that no statement holds, is a mistake by definition, so the engine now <b>refuses the close</b> (and the PDF upload, preview included) while one is there. Today the close goes through and flags it for you to clean up after. From now on you deal with each line <b>before</b> closing: fix it so the paper takes it, move it, or delete it.</p>
+  <p>Only the month's last day stays open until next month closes, so a line there is still flagged after the close, as today. Accounts, lines and amounts are invented, and so are the engine's words. Drawn at 80 columns.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · A PDF refused for leftover lines <span>— your usual way to close a month · pick A or B</span></div>
+<p class="blurb">You drop March's paper for <b>BCP-5678</b>. You had logged <code>Amazon -19.99 USD</code> on 12 March (the bank books it in April) and <code>Almuerzo -11.11</code> on 15 March (the paper prints <code>SANGUCHERIA -11.10</code> that day). Neither is in a statement, so the engine refuses the upload before the preview. Nothing is written.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>a screen that lists them, to fix right there</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close March 2026 yet</span> · BCP-5678
+  <span class="w">2 lines in no statement sit on its days.</span>
+  <span class="d">Nothing written.</span>
+
+   <span class="d">date        title            amount  cur</span>
+ <span class="rev"> 2026-03-12  Amazon           -19.99  USD </span>
+   2026-03-15  Almuerzo         <span class="n">-11.11</span>  PEN
+
+  <span class="d">For each one:</span>
+  <span class="d">· the paper prints it another way: ⏎ fix it</span>
+  <span class="d">  to the paper's day and amount, and the</span>
+  <span class="d">  upload takes it</span>
+  <span class="d">· the paper doesn't print it: ⏎ move it to</span>
+  <span class="d">  another day, or d delete it (next month's</span>
+  <span class="d">  paper brings a late purchase on its own)</span>
+  <span class="d">Then r reads the paper again.</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Edit  <span class="a">d</span> Delete  <span class="a">r</span> Read again</pre></div></div>
+<p class="cap"><code>⏎</code> opens the line in the ledger's Edit form and comes back here; <code>d</code> asks first, as every delete does. A line you fix or delete leaves the list. <code>r</code> sends the same PDF again as a preview: with nothing left over, the usual preview opens and <code>⏎</code> closes March.</p></div>
+
+<div class="var"><div class="oh">B · <span>the refusal lists them; you fix them in the ledger</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Preview · BCP-5678 PEN + USD · nothing written</span>
+
+  <span class="n">▌ Failed</span>
+  <span class="n">▌ VALIDATION_ERROR — Cannot close the</span>
+  <span class="n">▌ statement: 2 lines in no statement sit</span>
+  <span class="n">▌ on days it seals.</span>
+
+      2026-03-12  Amazon           -19.99  USD
+      2026-03-15  Almuerzo         <span class="n">-11.11</span>  PEN
+
+  <span class="d">Fix or delete each one in the ledger, then</span>
+  <span class="d">drop the PDF again.</span>
+
+
+
+
+ <span class="a">esc</span> Back</pre></div></div>
+<p class="cap">No new keys: you leave, find each line in the ledger by its day, and drop the file on the LOG bar again. More back and forth on every month that has a leftover line.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · <span class="b">c</span> refused on a statement you close by hand <span>— an account with no statement code · pick A or B</span></div>
+<p class="blurb">An account without a statement code is closed with <code>c</code> on its statement's checklist instead of a PDF. The same rule refuses <code>c</code>. Here a line can also go into the statement by hand. The leftover line can sit just outside the checklist's days (the day before, which the previous month's close left open).</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the same screen as pane 1, plus space</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Statements  ▸  March  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close March yet</span> · BCP-9012
+  <span class="w">2 lines in no statement sit on its days.</span>
+  <span class="d">Nothing written.</span>
+
+   <span class="d">date        title            amount  cur</span>
+ <span class="rev"> 2026-02-28  Taxi             -22.22  PEN </span>
+   2026-03-15  Almuerzo         <span class="n">-11.11</span>  PEN
+
+  <span class="d">For each one: space puts it in March,</span>
+  <span class="d">⏎ fixes or moves it, d deletes it.</span>
+  <span class="d">Then c closes March again.</span>
+
+ <span class="a">esc</span> Back  <span class="a">space</span> Put in March  <span class="a">⏎</span> Edit  <span class="a">d</span> Delete  <span class="a">c</span> Close</pre></div></div>
+<p class="cap">One screen for both ways of closing, so it reads and works the same. <code>c</code> here asks the usual "Complete statement?" and closes March once nothing is left over.</p></div>
+
+<div class="var"><div class="oh">B · <span>stay on the checklist, the lines marked</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Statements  ▸  <span class="b">March</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="n">▌ Cannot complete the statement: 2 lines in</span>
+  <span class="n">▌ no statement sit on days it seals.</span>
+
+   <span class="d">   date        title            amount</span>
+   [x] 2026-03-02  Netflix          -45.50
+   [x] 2026-03-05  Rappi            -32.00
+   [ ] 2026-03-15  Almuerzo         <span class="n">-11.11</span>  <span class="w">⚑</span>
+   <span class="w">⚑ 1 more outside March: 2026-02-28 Taxi</span>
+
+ <span class="a">esc</span> Back  <span class="a">space</span> Toggle  <span class="a">c</span> Complete</pre></div></div>
+<p class="cap">Nothing new to learn on this screen, but a line outside March's days has no row to tick: it is only named, and you find it in the ledger.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 3 -->
+<div class="pane">
+<div class="lbl">3 · The preview's "⚑ Will be flagged" block <span>— now only the paper's last day · pick A or B</span></div>
+<p class="blurb">The upload preview lists, under the table, the lines the close will flag. Under the new rule a leftover line on any other day refuses the upload (pane 1), so this block can now hold only lines on the paper's <b>last day</b>, which stays open until April closes. Its words change to say so.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>keep the block, reworded</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the preview's foot</span></div>
+<div class="app"><pre>  Taken out · <span class="d">in the statement, not on the paper</span>
+      2026-03-25  Taxi             -22.22  PEN
+  <span class="w">⚑ Will be flagged</span> · <span class="d">in no statement, on the</span>
+  <span class="d">  last day, which stays open until the next</span>
+  <span class="d">  month closes</span>
+      2026-03-25  Taxi             -22.22  PEN
+
+  10 rows · 5 in the ledger · <span class="a">4 new</span> · 1 taken
+  out · <span class="w">1 to flag</span>
+
+ <span class="a">⏎</span> Close March 2026  <span class="a">esc</span> Cancel</pre></div></div>
+<p class="cap">You still see every such line before you confirm. After the close, the <code>⚑</code> line and <code>f</code> work as today, and the line must be dealt with before April closes.</p></div>
+
+<div class="var"><div class="oh">B · <span>drop the block</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · the preview's foot</span></div>
+<div class="app"><pre>  Taken out · <span class="d">in the statement, not on the paper</span>
+      2026-03-25  Taxi             -22.22  PEN
+
+  10 rows · 5 in the ledger · <span class="a">4 new</span> · 1 taken
+  out
+
+ <span class="a">⏎</span> Close March 2026  <span class="a">esc</span> Cancel</pre></div></div>
+<p class="cap">Shorter. A last-day line shows only after the close, on the <code>⚑</code> line, as it did before the preview named them.</p></div>
+</div>
+</div>
+
+<div class="pick">
+<b>To pick:</b> one letter per pane, e.g. <code>1A 2A 3A</code>.
+<ol>
+<li>A PDF refused for leftover lines: <b>A</b> a screen to fix them there · <b>B</b> the refusal lists them, fix in the ledger.</li>
+<li><code>c</code> refused on a statement closed by hand: <b>A</b> the same screen, plus space · <b>B</b> stay on the checklist.</li>
+<li>The preview's "⚑ Will be flagged" block: <b>A</b> keep it, reworded · <b>B</b> drop it.</li>
+</ol>
+</div>
+
+</body>
+</html>
