@@ -248,7 +248,7 @@ def test_t_leaves_the_footer_on_an_archived_row_and_sends_nothing(configured, mo
 
 
 def test_t_is_unavailable_on_an_empty_list(configured, monkeypatch):
-    """As `a` is: shown, but nothing to act on."""
+    """As `a` is: out of the footer, nothing to act on."""
     _stub_list(monkeypatch, [])
     seen: dict = {}
 
@@ -267,7 +267,7 @@ def test_t_is_unavailable_on_an_empty_list(configured, monkeypatch):
         sent = engine.post(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert not sent.called
-    assert seen["checks"] == [None, None, None]
+    assert seen["checks"] == [False, False, False]
     assert seen["screen"]
 
 

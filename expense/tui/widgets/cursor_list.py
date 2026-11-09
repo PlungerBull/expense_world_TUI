@@ -211,6 +211,10 @@ LIST_KEYS = frozenset({"move", "select", "toggle", "more", "page"})
 
 
 class CursorList(WindowedList):
+    #: Actions that leave the footer while the list is empty, beyond the ones its
+    #: `CARD_NEEDS_A_ROW` names.
+    FOOTER_NEEDS_A_ROW: frozenset[str] = frozenset()
+
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
         # footer slot — it is obvious and only occupies space. The keys are
@@ -455,6 +459,8 @@ class CursorList(WindowedList):
             self.post_message(self.MoreRequested(self))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if not self._rows and action in self._needs_a_row():
+            return False  # no row to act on: the key leaves the footer, and returns with the first
         if action == "more":
             return bool(self._more)
         if action == "page":  # the base's rule: none on one page, no `pgup` on page 1
@@ -470,6 +476,11 @@ class CursorList(WindowedList):
             # keep the row, greyed — a key that says "not here" every time)
             return hasattr(host, "on_cursor_list_toggled")
         return True
+
+    def _needs_a_row(self) -> frozenset[str]:
+        """The actions that leave the footer while the list is empty: the ones the `?` card
+        lists only with a row (`CARD_NEEDS_A_ROW`, help.py), and `FOOTER_NEEDS_A_ROW`."""
+        return frozenset(getattr(self, "CARD_NEEDS_A_ROW", ())) | self.FOOTER_NEEDS_A_ROW
 
     def action_select(self) -> None:
         if self._rows:

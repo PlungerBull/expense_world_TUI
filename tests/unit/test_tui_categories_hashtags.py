@@ -204,8 +204,8 @@ def test_hashtags_empty_list_still_says_so(monkeypatch):
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         assert "(no hashtags)" in _card_text(screen)
-        assert screen.check_action("edit", ()) is None
-        assert screen.check_action("delete", ()) is None
+        assert screen.check_action("edit", ()) is False
+        assert screen.check_action("delete", ()) is False
 
     run_app(scenario)
 

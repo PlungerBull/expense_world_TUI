@@ -213,7 +213,7 @@ def test_d_is_off_on_an_empty_list(configured, monkeypatch, resource):
         screen = make()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        assert screen.check_action("delete", ()) is None
+        assert screen.check_action("delete", ()) is False  # gone, not greyed
         await pilot.press("d")
         await pilot.pause()
         assert app.screen is screen

@@ -1065,7 +1065,7 @@ class ResourceListScreen(SectionScreen):
             return True
         item = self.selected_record()
         if item is None:
-            return None  # empty list → nothing to act on
+            return False  # empty list → nothing to act on; the keys leave the footer
         if action in ("edit", "delete") and self.is_fixed(item):
             return False  # a built-in row: the keys leave the footer
         return True
@@ -1105,6 +1105,7 @@ class ResourceListScreen(SectionScreen):
             empty=self.EMPTY,
             page_size=self.measure_list_rows(),  # adaptive window
         )
+        cursor_list.FOOTER_NEEDS_A_ROW = frozenset({"select"})  # `⏎ Open` needs a row
         # Re-select the acted-on row: _show mounts a fresh CursorList each load,
         # so without this an archive toggle would snap the cursor back to row 0
         # and "press `a` again to undo" would hit the wrong record.

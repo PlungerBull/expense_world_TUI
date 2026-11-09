@@ -187,7 +187,7 @@ class AccountsScreen(ResourceListScreen):
             return super().check_action(action, parameters)
         item = self.selected_record()
         if item is None:
-            return None  # empty list → nothing to act on
+            return False  # empty list → nothing to act on; the keys leave the footer
         if action in ("add_currency", "remove_currency"):
             return True  # any account, a person's and an archived one's too: the engine judges
         if item.get("is_archived"):

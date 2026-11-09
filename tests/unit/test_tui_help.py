@@ -846,7 +846,7 @@ def test_an_empty_ledger_lists_only_plus_r_and_esc_at_80_and_140(monkeypatch):
         _ledger_inventory(monkeypatch, size, check, rows=())
 
 
-def test_an_empty_ledger_keeps_its_footer_and_its_keys(monkeypatch):
+def test_an_empty_ledger_footer_leaves_the_keys_that_need_a_row(monkeypatch):
     _stub_engine(monkeypatch, rows=())
 
     async def scenario(pilot, app):
@@ -854,10 +854,10 @@ def test_an_empty_ledger_keeps_its_footer_and_its_keys(monkeypatch):
         await app.push_screen(screen)
         await wait_for_loaded(pilot, app)
         shown = {b.binding.key: b.enabled for b in screen.active_bindings.values()}
-        assert "enter" in shown and "space" in shown
+        assert "enter" not in shown and "space" not in shown
         listing = screen.query_one(CursorList)
-        assert listing.check_action("select", ()) is True
-        assert listing.check_action("toggle", ()) is True
+        assert listing.check_action("select", ()) is False
+        assert listing.check_action("toggle", ()) is False
         assert screen.check_action("select_all", ()) is False
 
     run_app(scenario, size=(100, 32))

@@ -1930,6 +1930,16 @@ when the keys are still too wide, whole keys leave it from the end, so none is e
 A key left out still works, and the `?` card lists it on a screen that has one. Every screen's
 footer is the `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)).
 
+**A key with no row to act on leaves the footer, and returns with the first row.** On an empty
+ledger, Statements account list, Accounts, Categories or Hashtags list the footer is
+`esc Back  r Refresh  ? Keys` and the screen's add key (`+ Add` on the ledger, `n New`
+elsewhere): no `⏎`, no `space`, no key that acts on a row. A list screen's
+`check_action` answers `False`, not `None`, for such a key, because `None` leaves it in the
+footer dimmed. `None` is kept for a key that is off only for a moment (the ledger's `pick`
+while a bulk write runs). `CursorList.check_action` drops the actions its `CARD_NEEDS_A_ROW`
+names, the `?` card's own declaration, and `FOOTER_NEEDS_A_ROW` while it holds no row
+([cursor_list.py](../expense/tui/widgets/cursor_list.py)).
+
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed
 ([decisions.md](decisions.md) "A terminal too small is the user's to fix").

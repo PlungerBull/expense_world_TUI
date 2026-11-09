@@ -88,7 +88,8 @@ NEEDS_SCREEN_HANDLER = {
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
 #: A widget or a screen may name, in a `CARD_NEEDS_A_ROW` frozenset, the actions its card
-#: lists only while its `_rows` holds a row; the footer is not asked.
+#: lists only while its `_rows` holds a row; `CursorList.check_action` drops the same
+#: actions from the footer.
 CARD_NEEDS_A_ROW = "CARD_NEEDS_A_ROW"
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66

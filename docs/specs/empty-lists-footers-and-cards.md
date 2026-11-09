@@ -57,3 +57,8 @@ Approved.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **The empty statements panel keeps `⏎ Open` in its footer** (`_PanelList`,
+  `expense/tui/screens/statements.py`), a key with no row to act on there.
+- **A Manage list's row keys leave its footer while it loads,** where they showed greyed; the
+  same rule, since none works before the rows land.

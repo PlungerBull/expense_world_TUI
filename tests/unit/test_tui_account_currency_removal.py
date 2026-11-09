@@ -205,7 +205,7 @@ def test_x_is_off_on_an_empty_list(configured, monkeypatch):
         seen["screen"] = app.screen is screen
 
     run_app(scenario, size=SIZE)
-    assert seen["check"] is None
+    assert seen["check"] is False
     assert seen["screen"]
 
 
