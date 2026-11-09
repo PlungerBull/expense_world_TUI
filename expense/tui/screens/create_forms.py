@@ -25,6 +25,7 @@ from expense import reads
 from expense.dates import is_calendar_day, to_canonical_aware
 from expense.errors import EngineError, format_error, key_index, next_step
 from expense.formatting import format_cents
+from expense.number_format import amounts_sentence, current_format
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.tui.screens._base import (
     LeftBehind,
@@ -765,7 +766,11 @@ class EditAccountScreen(NewAccountScreen):
 
     def _bar_word(self, key: str, text: str) -> str:
         pair = _pair_line(key)
-        return opening_side(parse_amount(text)) if pair and pair[0] == "opening" else ""
+        return (
+            opening_side(parse_amount(text, current_format()))
+            if pair and pair[0] == "opening"
+            else ""
+        )
 
     def _after_mount(self) -> None:
         if self._openings_loading:
@@ -828,9 +833,13 @@ class EditAccountScreen(NewAccountScreen):
             if not text:
                 self._values.pop(key, None)
             else:
-                cents = parse_amount(text)
+                cents = parse_amount(text, current_format())
                 if cents is None:
-                    toast(self, f"{code} opening: a signed decimal, e.g. -350.00", severity="error")
+                    toast(
+                        self,
+                        f"{code} opening: a signed decimal, e.g. -350.00. {amounts_sentence()}",
+                        severity="error",
+                    )
                     return
                 self._values[key] = cents
         elif not text:

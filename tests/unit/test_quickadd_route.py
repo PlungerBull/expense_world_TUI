@@ -85,6 +85,7 @@ def test_a_number_without_a_sign_is_not_an_amount():
     ("line", "token"),
     [
         ("tottus -13.853,20 $BCP Plus", "-13.853,20"),
+        ("tottus -1,5 $BCP Plus", "-1,5"),
         ("bonus +1.000,00 $BCP Plus", "+1.000,00"),
         ("tottus -$13.853,20 $BCP Plus", "-$13.853,20"),  # named as typed
         ("tottus -1.2.3 -13.853,20 $BCP Plus", "-1.2.3"),  # the first one is named
@@ -95,7 +96,7 @@ def test_a_signed_number_it_cannot_read_is_named(line, token):
     instead of saying a number needs a sign."""
     result = _route(line)
     assert result.target == REFUSED
-    assert result.reasons == (f"can't read {token} as an amount",)
+    assert result.reasons == (f"can't read {token} as an amount: amounts are 1,234.56",)
 
 
 def test_a_readable_amount_after_an_unreadable_one_routes_to_the_ledger():

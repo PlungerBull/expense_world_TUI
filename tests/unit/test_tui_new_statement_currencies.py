@@ -366,9 +366,9 @@ def test_an_unreadable_balance_names_its_currency_on_a_two_currency_form(fake_cl
         assert screen._key == "end:USD"
         _enter(screen, "abc")
         assert notes == [
-            "Begin balance PEN: a signed decimal, e.g. 9580.00",
-            "Begin balance USD: a signed decimal, e.g. 9580.00",
-            "End balance USD: a signed decimal, e.g. 9460.00",
+            "Begin balance PEN: a signed decimal, e.g. 9580.00. Amounts are 1,234.56.",
+            "Begin balance USD: a signed decimal, e.g. 9580.00. Amounts are 1,234.56.",
+            "End balance USD: a signed decimal, e.g. 9460.00. Amounts are 1,234.56.",
         ]
 
     run_app(scenario)
@@ -384,7 +384,7 @@ def test_an_exponent_inf_or_nan_balance_is_unreadable(fake_client, typed):
         _head(screen)
         _enter(screen, typed)
         assert screen._key == "begin:PEN"
-        assert notes == ["Begin balance PEN: a signed decimal, e.g. 9580.00"]
+        assert notes == ["Begin balance PEN: a signed decimal, e.g. 9580.00. Amounts are 1,234.56."]
 
     run_app(scenario)
 

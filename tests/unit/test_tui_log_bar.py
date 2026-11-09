@@ -531,7 +531,7 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
         assert screen._refused is not None
         out = _text(screen._suggest_renderable(), width=160)
         assert "not staged" in out
-        assert "can't read -13.853,20 as an amount" in out
+        assert "can't read -13.853,20 as an amount: amounts are 1,234.56" in out
         assert "needs a sign" not in out
         assert fake_client.posts == []
 
@@ -2637,7 +2637,7 @@ def test_a_signed_exponent_inf_or_nan_is_refused_in_place_and_nothing_is_sent(
         assert screen._staged == []
         assert _bar(screen).value == line
         out = _text(screen._suggest_renderable(), width=160)
-        assert f"can't read {amount} as an amount" in out
+        assert f"can't read {amount} as an amount: amounts are 1,234.56" in out
         assert "needs a sign" not in out
         assert fake_client.posts == []
 

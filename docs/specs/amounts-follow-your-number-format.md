@@ -47,19 +47,16 @@ so it is kept on the account and every client follows it.
 
 ## Tasks
 
-Approved. Tasks 1 to 3 need no engine change; 4 and 5 wait on the engine ask "A user's
+Approved. Tasks 2 and 3 need no engine change; 4 and 5 wait on the engine ask "A user's
 settings hold their number format".
 
-1. **The reader follows a format.** `parse_amount` reads an amount in a given format: a
-   thousands mark is followed by exactly three digits, so under `1,234.56` `-1,5` and `-12,34`
-   are unreadable, and `1.234,56` is the mirror. Every place that reads a typed amount passes the
-   format, `1,234.56` until task 3; the LOG bar's and each form's refusal note names it
-   (`can't read -1,5 as an amount: amounts are 1,234.56`). Unit tests for both formats.
 2. **Every shown amount follows the format.** `format_cents`, `format_cents_with_plus` and
    `amount_to_text` write the session's format, read from one place; a form opened to edit shows
-   its amount in it. Unit tests render a list, Home and a form under each format.
+   its amount in it, and every note's example amount (`e.g. -350.00`, `e.g. 9580.00`) is written
+   in it. Unit tests render a list, Home and a form under each format.
 3. **The Mac's region gives the format until one is picked** (question 1). The region's decimal
-   mark decides; when it cannot be read, `1,234.56`.
+   mark decides; when it cannot be read, `1,234.56`. The unit suite pins the format, so no test
+   depends on the machine's region.
 4. **The setting** (waits on the engine). The format on `GET /auth/me` wins over the region;
    System ▸ Auth & profile shows the `number format` row and `f` asks which one, saving through
    `PUT /auth/settings`, *Follow this Mac* clearing it; a refusal in the engine's words; amounts

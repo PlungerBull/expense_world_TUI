@@ -175,8 +175,8 @@ def test_new_statement_refuses_a_balance_with_a_comma_after_its_dot(fake_client,
 
     run_app(scenario)
     assert notes[:2] == [
-        "Begin balance PEN: a signed decimal, e.g. 9580.00",
-        "End balance PEN: a signed decimal, e.g. 9460.00",
+        "Begin balance PEN: a signed decimal, e.g. 9580.00. Amounts are 1,234.56.",
+        "End balance PEN: a signed decimal, e.g. 9460.00. Amounts are 1,234.56.",
     ]
     [(_path, body)] = fake_client.posts
     [balance] = body["balances"]

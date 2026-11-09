@@ -242,8 +242,8 @@ def test_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
 
     _form(EFECTIVO, body)
     assert [m for m, _ in notes] == [
-        "PEN opening: a signed decimal, e.g. -350.00",
-        "PEN opening: a signed decimal, e.g. -350.00",
+        "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56.",
+        "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56.",
         "PEN as of: use YYYY-MM-DD.",
         "PEN as of is required.",
     ]
@@ -1430,7 +1430,9 @@ def test_an_exponent_inf_or_nan_is_unreadable_and_sends_nothing(fake_client, not
         assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
 
     _form(EFECTIVO, body)
-    assert [m for m, _ in notes] == ["PEN opening: a signed decimal, e.g. -350.00"]
+    assert [m for m, _ in notes] == [
+        "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56."
+    ]
     assert fake_client.calls == []
 
 

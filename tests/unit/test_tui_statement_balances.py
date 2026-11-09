@@ -329,7 +329,13 @@ def test_text_the_box_cannot_read_keeps_it_open_and_sends_nothing(fake_client, m
         await _press_c(pilot, app)
         await _type_in(pilot, "abc")
         await wait_for(pilot, lambda: notices)
-        assert notices == [("", "Begin balance USD: a signed decimal, e.g. 9580.00", "error")]
+        assert notices == [
+            (
+                "",
+                "Begin balance USD: a signed decimal, e.g. 9580.00. Amounts are 1,234.56.",
+                "error",
+            )
+        ]
         assert app.screen.query_one(Input).value == "abc"
         assert fake_client.calls == []
 

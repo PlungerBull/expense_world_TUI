@@ -130,6 +130,7 @@ from expense.formatting import (
     title_or_untitled,
     whole_number,
 )
+from expense.number_format import amounts_are, current_format
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.reads import QuickAddRefs, hashtags_to_send, load_quickadd_refs
 from expense.tui.screens._base import (
@@ -751,9 +752,9 @@ class EditFormScreen(FormScreen):
 
     def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:
         if field == "amount":
-            cents = parse_amount(text)
+            cents = parse_amount(text, current_format())
             if cents is None:
-                self.notify("Amount: a signed decimal, e.g. -99.92", severity="error")
+                toast(self, f"can't read this amount: {amounts_are()}", severity="error")
                 return False
             # Mid-form ergonomics guard; mirrors the engine's 422 on a zero
             # amount (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules").

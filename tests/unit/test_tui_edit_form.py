@@ -511,7 +511,7 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused(fake_client, monkeypatc
         await wait_for(pilot, lambda: fake_client.puts)
 
     _open(scenario_steps=steps)
-    assert notes[0] == ("Amount: a signed decimal, e.g. -99.92", "error")
+    assert notes[0] == ("can't read this amount: amounts are 1,234.56", "error")
     assert [m for m, sev in notes if sev == "error"] == [notes[0][0]]  # once, then saved
     assert fake_client.calls == [("PUT", PATH, {"parts": [{"id": "tx1", "amount_cents": 1385320}]})]
 
@@ -533,7 +533,7 @@ def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(
         assert screen._parts[0].amount_cents == -4250
 
     _open(scenario_steps=steps)
-    assert notes == [("Amount: a signed decimal, e.g. -99.92", "error")]
+    assert notes == [("can't read this amount: amounts are 1,234.56", "error")]
     assert fake_client.calls == []
 
 

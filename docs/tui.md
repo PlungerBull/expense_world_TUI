@@ -62,18 +62,16 @@ alone uses (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_hom
 **One reader for every typed amount.** `parse_amount` in
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
 form, an account's opening balance, a new statement's two balances and the statement's
-`Starting balance first` and `Ending balance first` boxes. It takes a signed decimal with a
-dot for its decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark
-(`13,853.20`, `1,000`) unless one comes after the dot. An amount with a comma after its dot
-(`13.853,20`, `-12.50,`) is unreadable, never read as 13.85: each form field refuses it with
-its own note and the cursor stays (the box stays open), and on the LOG bar `↵` refuses the
-line with a note naming the first signed number it couldn't read, as typed:
-`can't read -13.853,20 as an amount`. A line with no signed number at all is refused with
-`the line has no amount — a number needs a sign to be one`. Only a plain number is read:
-an exponent (`1e5`, `-1e5000`), `nan`, `inf` and `Infinity` are unreadable too, and nothing is
-sent. A plain number is read at any size and sent as whole cents; the app has no bound, so the engine's
-`OUT_OF_RANGE` shows in its words on the line or file row
-(contract: "Money amounts"). A spreadsheet's cells
+`Starting balance first` and `Ending balance first` boxes, in the session's format
+([number_format.py](../expense/number_format.py), `1,234.56` until another is picked); its
+docstring holds the rule. An amount it cannot read is refused, never guessed, and nothing is
+sent: the Edit form says `can't read this amount: amounts are 1,234.56`, every other field
+ends its note `Amounts are 1,234.56.`, and the cursor stays (the box stays open). On the LOG
+bar `↵` refuses the line, naming the first signed number it couldn't read, as typed:
+`can't read -1,5 as an amount: amounts are 1,234.56`. A line with no signed number is refused
+with `the line has no amount — a number needs a sign to be one`. A plain number is read at
+any size and sent as whole cents; the app has no bound, so the engine's `OUT_OF_RANGE` shows
+in its words on the line or file row (contract: "Money amounts"). A spreadsheet's cells
 are the engine's to read: a bank download's (§2 "The import door") and the owner's sheet's
 ([commands.md](commands.md) "`expense import sheet`").
 

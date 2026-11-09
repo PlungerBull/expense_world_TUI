@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import date as date_cls
 
 from expense.formatting import codes_and
+from expense.number_format import amounts_are
 from expense.quickadd.parse import ParsedLine, Unresolved
 
 LEDGER = "ledger"
@@ -66,7 +67,10 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
         # A signed number the amount reader refused has its sign, so "needs a
         # sign" would be wrong: the note names the token instead.
         if field == "amount" and parsed.unreadable_amount is not None:
-            reasons.append(f"can't read {parsed.unreadable_amount} as an amount")
+            reasons.append(
+                f"can't read {parsed.unreadable_amount} as an amount: "
+                f"{amounts_are(parsed.number_format)}"
+            )
             continue
         if field == "currency":
             reasons.append(

@@ -11,6 +11,7 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Input, Static
 
+from expense.number_format import current_format
 from expense.quickadd.money import parse_amount
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.picker import suggestion_list
@@ -265,7 +266,7 @@ class AmountPromptModal(PromptBox[int | None]):
         self._unreadable = unreadable
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        cents = parse_amount(event.value)
+        cents = parse_amount(event.value, current_format())
         if cents is None:
             toast(self, self._unreadable, severity="error")
             return

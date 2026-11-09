@@ -2157,7 +2157,9 @@ def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, type
         await _type(pilot, typed)
         await pilot.press("enter")
         await wait_for(pilot, lambda: notices)
-        assert notices == [("", "End balance PEN: a signed decimal, e.g. 9460.00", "error")]
+        assert notices == [
+            ("", "End balance PEN: a signed decimal, e.g. 9460.00. Amounts are 1,234.56.", "error")
+        ]
         assert isinstance(app.screen, AmountPromptModal)
         assert app.screen.query_one(Input).value == typed
         assert fake_client.calls == []

@@ -89,6 +89,7 @@ from expense.formatting import (
     signed_cents,
     title_or_untitled,
 )
+from expense.number_format import amounts_sentence, current_format
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.reads import (
     fetch_all_cursor_pages,
@@ -1168,11 +1169,12 @@ def balance_key(kind: str, code: str) -> str:
 
 def unreadable_note(kind: str, code: str) -> str:
     """The note for a `begin` or `end` balance the money parser cannot read, naming
-    its currency like the form's line label: `Begin balance USD: a signed decimal,
-    e.g. 9580.00`. The New statement form and the statement screen's balance boxes
-    share it."""
+    its currency like the form's line label, then the format: `Begin balance USD: a
+    signed decimal, e.g. 9580.00. Amounts are 1,234.56.` The New statement form and
+    the statement screen's balance boxes share it."""
     example = "9580.00" if kind == "begin" else "9460.00"
-    return f"{kind.capitalize()} balance {code}: a signed decimal, e.g. {example}"
+    head = f"{kind.capitalize()} balance {code}: a signed decimal, e.g. {example}."
+    return f"{head} {amounts_sentence()}"
 
 
 def balance_label(kind: str, code: str) -> str:
@@ -1364,7 +1366,7 @@ class NewStatementScreen(FormScreen):
         elif line is not None:
             # optional: an empty line leaves the figure out
             if text:
-                cents = parse_amount(text)
+                cents = parse_amount(text, current_format())
                 if cents is None:
                     toast(
                         self,

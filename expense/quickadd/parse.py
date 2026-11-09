@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from datetime import date as date_cls
 
 from expense.currencies import only_currency
+from expense.number_format import DEFAULT_FORMAT, NumberFormat, current_format
 from expense.quickadd.money import parse_amount
 from expense.quickadd.names import fold
 from expense.quickadd.when import parse_date
@@ -110,6 +111,8 @@ class ParsedLine:
     # The named account's name as the account list gives it; empty until the line
     # names one. The refusal for a missing currency says whose currencies they are.
     account_name: str = ""
+    # The format the amount was read in; the refusal for an unreadable one names it.
+    number_format: NumberFormat = DEFAULT_FORMAT
 
     @property
     def shown_currency(self) -> str | None:
@@ -213,12 +216,15 @@ def parse(
     categories: Sequence[Sequence],
     hashtags: Sequence[Sequence],
     today: date_cls,
+    number_format: NumberFormat | None = None,
 ) -> ParsedLine:
     """Read one quick-add line into the fields a transaction needs.
 
     The three reference arguments are `(id, name)` sequences the caller
-    already holds; `today` is injected so the result is deterministic.
+    already holds; `today` is injected so the result is deterministic. The amount
+    is read in `number_format`, the session's current one when not given.
     """
+    number_format = number_format or current_format()
     spans: list[Span] = []
     unresolved: list[Unresolved] = []
 
@@ -306,7 +312,7 @@ def parse(
             continue
 
         if amount_cents is None and _AMOUNT.match(text):
-            cents = parse_amount(text.replace("$", ""))
+            cents = parse_amount(text.replace("$", ""), number_format)
             if cents is not None:
                 amount_cents = cents
                 spans.append(Span("amount", start, end, text))
@@ -368,6 +374,7 @@ def parse(
         unresolved=tuple(unresolved),
         missing=tuple(missing),
         unreadable_amount=unreadable_amount,
+        number_format=number_format,
         currency_code=currency_code,
         account_currencies=held if picked["account"] is not None else (),
         account_name=account_name,

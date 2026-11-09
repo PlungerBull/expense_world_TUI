@@ -8,6 +8,7 @@ from datetime import date
 
 import pytest
 
+from expense.number_format import NumberFormat
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import fold, matches
 from expense.quickadd.parse import parse
@@ -15,6 +16,8 @@ from expense.quickadd.payload import transaction_payload
 from expense.quickadd.when import format_date_words, parse_date
 
 TODAY = date(2026, 8, 20)
+DOT = NumberFormat.DOT_DECIMAL
+COMMA = NumberFormat.COMMA_DECIMAL
 
 # Two accounts share "Signature" so `$sig` is genuinely ambiguous;
 # "CAJA" is a prefix of "CAJA CHICA" so exact-beats-contains gets exercised.
@@ -42,7 +45,7 @@ def _p(line: str, *, today: date = TODAY):
 )
 def test_parse_amount(text, expected):
     """Signed amounts parse to cents."""
-    assert parse_amount(text) == expected
+    assert parse_amount(text, DOT) == expected
 
 
 @pytest.mark.parametrize(
@@ -56,19 +59,19 @@ def test_parse_amount(text, expected):
     ],
 )
 def test_a_thousands_comma_is_dropped(text, expected):
-    assert parse_amount(text) == expected
+    assert parse_amount(text, DOT) == expected
 
 
-@pytest.mark.parametrize("text", ["13.853,20", "-1.234,5", "+1.000,00", "1,234.5,6"])
+@pytest.mark.parametrize("text", ["13.853,20", "-1.234,5", "+1.000,00", "1,234.5,6", "-1.234,56"])
 def test_a_comma_after_the_dot_is_unreadable(text):
-    """`13.853,20` writes its decimals after a comma; dropping that comma as a
-    thousands comma would read 13.85, so the amount is refused, not guessed."""
-    assert parse_amount(text) is None
+    """Under `1,234.56` a comma after the dot, or the other format's grouping, is no
+    mark of this format, so the amount is refused, not guessed."""
+    assert parse_amount(text, DOT) is None
 
 
 def test_amount_to_text_roundtrips():
     assert amount_to_text(-9992) == "-99.92"
-    assert parse_amount(amount_to_text(-123456)) == -123456
+    assert parse_amount(amount_to_text(-123456), DOT) == -123456
 
 
 # --- the amount token -------------------------------------------------------
@@ -441,14 +444,14 @@ def test_parse_amount_refuses_non_finite_decimals():
     """`Decimal` reads "nan" and "inf" happily; `int()` on either raises. A
     form field must warn on an unreadable amount, not crash."""
     for text in ("nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"):
-        assert parse_amount(text) is None
+        assert parse_amount(text, DOT) is None
 
 
 def test_parse_amount_refuses_an_amount_whose_cents_overflow():
     """`1e999999` is a finite Decimal, but times 100 it overflows the decimal
     context, which raises: unreadable, never a crash."""
     for text in ("1e999999", "-1e999999", "1E+999999999"):
-        assert parse_amount(text) is None
+        assert parse_amount(text, DOT) is None
 
 
 # --- an account is one row, holding its currencies ----------------------------------
@@ -600,7 +603,7 @@ def test_the_payload_carries_the_account_and_only_a_typed_currency():
     ],
 )
 def test_only_a_plain_number_is_read(text):
-    assert parse_amount(text) is None
+    assert parse_amount(text, DOT) is None
 
 
 @pytest.mark.parametrize(
@@ -617,11 +620,11 @@ def test_only_a_plain_number_is_read(text):
 )
 def test_a_plain_number_is_read_at_any_size(text, cents):
     """No bound of the app's own: the engine owns it (contract: "Money amounts")."""
-    assert parse_amount(text) == cents
+    assert parse_amount(text, DOT) == cents
 
 
 def test_a_number_too_long_for_python_to_print_is_unreadable_not_a_crash():
-    assert parse_amount("9" * 5000) is None
+    assert parse_amount("9" * 5000, DOT) is None
 
 
 @pytest.mark.parametrize("cents", [10**25, -(10**30) - 7, 10**4290, -5, 5, 0, 250])
@@ -629,4 +632,116 @@ def test_amount_to_text_is_exact_at_any_size(cents):
     """Integer arithmetic: a large figure never turns to exponent form, so it reads back."""
     text = amount_to_text(cents)
     assert "E" not in text and "e" not in text
-    assert parse_amount(text) == cents
+    assert parse_amount(text, DOT) == cents
+
+
+# --- the number format ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "cents"),
+    [
+        ("-1,500", -150000),
+        ("-1500", -150000),
+        ("13,853.20", 1385320),
+        ("1,000", 100000),
+        ("123,456,789.5", 12345678950),
+        ("-0.5", -50),
+        ("1,234.", 123400),
+        (".5", 50),
+        ("1.005", 101),  # the third decimal rounds the cents up
+        ("1.004", 100),
+    ],
+)
+def test_dot_decimal_reads_a_group_of_exactly_three_digits(text, cents):
+    assert parse_amount(text, DOT) == cents
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "-1,5",
+        "-12,34",
+        "-1,23,456",
+        "1,2345",
+        ",500",
+        "1,,000",
+        "-1.234,56",
+        "1,234,",
+        "1,000.5,0",
+        "-0,500",
+        "000,500",
+        "-01,500",
+    ],
+)
+def test_dot_decimal_refuses_a_misgrouped_or_foreign_mark(text):
+    assert parse_amount(text, DOT) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "cents"),
+    [
+        ("-1.500", -150000),
+        ("-1500", -150000),
+        ("13.853,20", 1385320),
+        ("-1,5", -150),
+        ("+1.000", 100000),
+        ("1.234.567,891", 123456789),
+        ("1.234,", 123400),
+        (",5", 50),
+        ("1,005", 101),
+        ("0,50", 50),
+    ],
+)
+def test_comma_decimal_mirrors_dot_decimal(text, cents):
+    assert parse_amount(text, COMMA) == cents
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "-1.5",
+        "-12.34",
+        "-1.23.456",
+        "-1,234.56",
+        "1.2345",
+        ".500",
+        "1,2,3",
+        "1e5",
+        "nan",
+        "-inf",
+        "0.500",
+        "-0.500",
+        "000.500",
+        "-01.500",
+    ],
+)
+def test_comma_decimal_refuses_a_misgrouped_or_foreign_mark(text):
+    assert parse_amount(text, COMMA) is None
+
+
+@pytest.mark.parametrize("number_format", [DOT, COMMA])
+def test_either_format_reads_any_size_and_refuses_what_python_cannot_print(number_format):
+    group = number_format.group
+    huge = "9" * 25
+    grouped = "-" + group.join([huge[:1]] + [huge[i : i + 3] for i in range(1, 25, 3)])
+    assert parse_amount(grouped, number_format) == -int(huge) * 100
+    assert parse_amount("9" * 5000, number_format) is None
+
+
+def test_a_format_names_itself_by_example():
+    assert DOT.example == "1,234.56"
+    assert COMMA.example == "1.234,56"
+
+
+def test_the_current_format_is_one_session_value():
+    from expense import number_format as nf
+
+    assert nf.current_format() is DOT
+    nf.set_current_format(COMMA)
+    try:
+        assert nf.current_format() is COMMA
+        assert nf.amounts_are() == "amounts are 1.234,56"
+        assert _p("tottus -1.500 $efectivo").amount_cents == -150000
+    finally:
+        nf.set_current_format(DOT)
