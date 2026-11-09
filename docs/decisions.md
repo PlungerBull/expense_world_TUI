@@ -962,13 +962,14 @@ its pending hashtag exists and can never be deleted, and no other hashtag may ta
 **Rejected.** *An app line for the refusal* — the engine's words are enough. *Faking the state on
 the shared user* — the engine allows no way in.
 
-## A close flags lines instead of refusing, and a statement is the account's (2026-10-26)
+## A close refuses a leftover line on a day it seals, and flags one on a day it leaves open (2026-11-09)
 
-**Decision.** (1) A statement that adds up completes; the app treats no leftover line as a refusal,
-keeps no rule of which lines a close flags, and shows them on a screen of its own right after the
-complete and from the `⚑` line and `f` (contract: POST /v1/statements/{statement_id}/complete). (2)
-That screen, the `⚑` count and whether the screen opens all go by the statement's review list and
-the engine's count of it, never a sum of `review_lines`
+**Decision.** (1) A close or a statement PDF's upload refused `LOOSE_LINES_ON_SEALED_DAYS` shows the
+engine's words; the app keeps no rule of which days a close seals
+(contract: POST /v1/statements/{statement_id}/complete, "Validation"). (2) A close that goes through
+may flag lines on days it leaves open (its last day, a gap); they show on a screen of its own right
+after the complete and from the `⚑` line and `f`. That screen, the `⚑` count and whether the screen
+opens go by the statement's review list and the engine's count of it, never a sum of `review_lines`
 (contract: GET /v1/bank-lines, "It has no bound"). Details: [tui.md](tui.md) §4
 "The lines a complete flagged for review" and "On the statement". (3) A statement is the account's,
 covering its currencies, under the account's code
@@ -977,14 +978,33 @@ covering its currencies, under the account's code
 reserved-names practice user's key is handled like the shared one's ([runtime.md](runtime.md)
 "Working against the live engine").
 
-**Why.** Which lines a close leaves is an engine rule; a copy per client drifts. Such a line is
-often a later statement's, so blocking on it stops the owner for nothing. The review list rereads
-them any time, in the statement's order, and also holds earlier lines in no statement, so a
-`review_lines` sum can disagree with it; the count, read first, shows sooner.
+**Why.** Once a month is closed, every line dated on its days is in a statement: a line left over is
+wrong by definition, so it is resolved before the close, not reviewed after. A line on a day the
+close leaves open may still be the next statement's, so it is flagged, not refused. Which days a
+close seals and which lines it flags are engine rules; a copy per client drifts. The review list
+rereads the flagged lines any time, in the statement's order; the count, read first, shows sooner.
 
-**Rejected.** *One read per flagged line, sorted by the app* — a call per line and a copied ordering
-rule. *Listing them on the statement itself* — among its own lines, each needing keys of its own.
-*Dropping the `!`* — it marks the lines worth opening first.
+**Rejected.** *Flagging every leftover line after the close* — a closed month would hold a line no
+statement explains. *One read per flagged line, sorted by the app* — a call per line and a copied
+ordering rule. *Listing them on the statement itself* — among its own lines, each needing keys of
+its own. *Dropping the `!`* — it marks the lines worth opening first.
+
+## The engine lists the currencies, dates each row and bounds every amount (2026-11-09)
+
+**Decision.** (1) Every currency list and picker reads `GET /currencies`; the app keeps no list.
+(2) A row shows on the engine's `day`, never a day the app works out from its moment. (3) An amount
+past the largest is refused in the engine's words, typed or in a file; the app's reader refuses
+what it cannot read for sure before anything is sent. (4) The statement PDF's preview lists the lines
+the close will flag before `⏎`, under the table's columns, its count beside the others, with the
+close's notes per currency (contract: POST /v1/statements/import, "Response").
+
+**Why.** Each is an engine fact every client needs the same way, and a copy drifts: a currency
+added, a time zone changed, a bound moved. The preview is where the owner checks an upload before
+anything is written, so a line the close will flag shows there.
+
+**Rejected.** *A count only in the preview* — the lines would show only after the close. *A day
+worked out from the row's moment in the machine's zone* — wrong whenever the machine's zone is not
+the user's.
 
 ## A statement PDF comes in through the import door, and its preview is the check (2026-10-27)
 

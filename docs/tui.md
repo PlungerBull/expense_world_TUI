@@ -242,8 +242,8 @@ changing the address or key later is System ▸ Config.
 |---|---|---|
 | **CATEGORIES** · four month columns, the newest marked `▸` | every category with activity somewhere in the window, home currency, `—` for a month with none, `3 unrated` when unpriceable — **a category with nothing in the whole window is hidden**. `→` unfolds its hashtag rows, `←` folds them, `@Pendiente` included. Under them: `inflow`, `outflow`, `net` | the ledger filtered to that category, every month |
 | hashtag row (unfolded) | the category's spend on that hashtag, per month, one row per row of the engine's `hashtag_breakdown`, under the name `GET /hashtags` gives it. The rows still waiting for a hashtag are the **pending hashtag's row** (`#Pendiente`), dim like every hashtag row: the engine groups the pending hashtag like any other, so `hashtag_ids` is never empty (contract: GET /v1/dashboard) | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`); on the pending row, that category's transactions still waiting for a hashtag (contract: GET /v1/transactions). A combo of several hashtags is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag |
-| **BANK ACCOUNTS** · *balance today* | one row per account, its name alone, then an indented line per currency it holds: the code and that currency's `current_balance_cents`, in the engine's order (accounts as sent, each one's currencies as sent); balances are native only, never summed (contract: GET /v1/dashboard, "Balances are native only") | on the account's row, the ledger filtered to that account, every currency; on a currency line, to that account and that currency alone |
-| **PEOPLE** | one row per person and its currency lines, drawn like the accounts; a person is settled when **every** currency it holds reads exactly zero (`formatting.split_settled`), so a person settled in soles and owing in dollars stays in sight whole, its zero line included; settled people fold behind `▶ N settled`, counting people (`⏎`/`→` opens it); `none` when there is nobody | as for an account |
+| **BANK ACCOUNTS** · *balance today* | one row per account in `/dashboard`'s `accounts`, a cash account among them, its name alone, then an indented line per currency it holds: the code and that currency's `current_balance_cents`, in the engine's order (accounts as sent, each one's currencies as sent); balances are native only, never summed (contract: GET /v1/dashboard, "Balances are native only") | on the account's row, the ledger filtered to that account, every currency; on a currency line, to that account and that currency alone |
+| **PEOPLE** | one row per person in `/dashboard`'s `people` and its currency lines, drawn like the accounts; a person is settled when **every** currency it holds reads exactly zero (`formatting.split_settled`), so a person settled in soles and owing in dollars stays in sight whole, its zero line included; settled people fold behind `▶ N settled`, counting people (`⏎`/`→` opens it); `none` when there is nobody | as for an account |
 | **LEDGER** | Transactions · Statements, each a row of its own | `⏎` on an entry pushes the screen |
 | **MANAGE** | Accounts · Categories · Hashtags | as above |
 | **SYSTEM** | Config · Auth & profile | as above |
@@ -845,9 +845,10 @@ screen: no `Failed` toast repeats them.
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
 picker, the Edit form's account field, the ledger's `b` pick, the Statements
 browse, the new-statement form and the bank import's "Which account is this file?"
-show accounts as `GET /accounts` lists them, every real account first, then every person
-(contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
-leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account
+show accounts as `GET /accounts` lists them, every account that is not a person (a bank or
+cash account) first, then every person (contract: GET /v1/accounts). No screen sorts them. A
+person is an account whose `kind` is `person`, never told by name. A screen that has no use
+for people leaves them out and moves nothing else. The LOG bar's `$` picker, the Edit form's account
 field and the ledger's `b` pick offer no archived account (`QuickAddRefs.quickadd_accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
@@ -902,10 +903,11 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
 banks and people together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). The currency columns are the currencies the engine lists,
+in the engine's order everywhere" above). Type reads `person` for a person and `bank` for any
+other account. The currency columns are the currencies the engine lists,
 in its order (`GET /currencies`, read in the list's worker with the accounts by
-`fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies);
-today `PEN` then `USD`. The list screen hands the same codes to the New and Edit forms. Each
+`fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
+The list screen hands the same codes to the New and Edit forms. Each
 holds the account's balance in that currency, right-aligned and never summed with another, or a
 dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
 when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
@@ -1058,9 +1060,8 @@ show alone.
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
 | `IN_LIVE_STATEMENT` on `currency_code` | `x` on Manage ▸ Accounts, on a currency a live statement holds | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | `x` on Manage ▸ Accounts, on an archived account's currency, offered on purpose since the engine judges it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save, `c` or an opening balance) | `c` and `x` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); an opening balance saved on an archived account's Edit form (contract: POST /v1/accounts/{account_id}/opening-balance); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
-| `INVALID_REFERENCE` on `account_id` | `c` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") | none: the engine's words alone |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
 | `REQUIRED` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save of a line with no `%` on an account holding several, which routing stops before sending (contract: POST /v1/transactions, "Fields") | none: the engine's words list the codes held, and the staged row stays |

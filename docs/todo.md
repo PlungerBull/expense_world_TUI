@@ -20,16 +20,13 @@ loop skips it until it can run.
 
 1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
    approved 2026-11-08.
-2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08; tasks 1–7 done. Task 8 runs once spec 1's live suite sends an
-   account's `kind` (its task 2).
-3. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
+2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
    approved 2026-11-08.
-4. [The cash account](specs/the-cash-account.md): approved 2026-11-08.
-5. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+3. [The cash account](specs/the-cash-account.md): approved 2026-11-08.
+4. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
-6. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
+5. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
    approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
    settings hold their number format".
 
@@ -66,6 +63,18 @@ rounds".
 **Recommended:** A, because the fix is named and small, and the guard keeps every later change
 from sending a request the engine refuses.
 
+### Three small screen questions from the finished catch-up
+Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
+Found while the catch-up to `1002f105c6bacdf1` ran; sketches come with the next summary.
+1. **`n` on Manage ▸ Accounts while the list shows "Could not load."** It opens a New form whose
+   currencies line has nothing to pick (the currencies come with the list's read). Turn `n` off
+   until the list loads, or keep it?
+2. **A flagged line in a currency a one-currency paper does not cover** shows in the preview's
+   `⚑` block with no currency (the column shows only on a two-currency paper). Leave it, show the
+   currency on such lines, or show the column whenever the paper misses a currency?
+3. **The `⚠` notes:** the preview leads each with its currency (`⚠ USD: …`), the close screen
+   leaves a covered currency's bare. One way on both screens, or each as it is?
+
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
 
@@ -80,6 +89,17 @@ CLAUDE.md "Specs and tasks".
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
   (`expense/tui/screens/transactions.py`) reads the rows read before; the Manage lists drop them.
+- **Small test cleanups from the catch-up to `1002f105c6bacdf1`:** test_account_create.py's
+  shape-first docstring names "a person's empty name" though every body there is a bank account;
+  `test_day_of_reads_the_users_zone_whatever_the_machine_zone_is` (test_fake_engine_answers.py)
+  calls `monkeypatch.undo()`, lifting the autouse guards for the rest of that test;
+  `_CLOSE_NOTES`' lists in helpers.py are one object shared by every upload answer; two test names
+  say "the engine's words" (test_cmd_import.py:602, test_tui_bank_import.py:1164) though the row
+  text is a stand-in.
+- **No list test renders an engine-sent total past the largest amount;** only the formatter and a
+  typed opening balance are proven.
+- **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps
+  on a narrow window.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
@@ -102,6 +122,9 @@ No commitment. Declined ideas stay listed so they are not proposed again.
 - **The "no statement" list under 68 columns.** The Statements screen's list of lines in no
   statement cuts its amount, then its currency, under 68 columns, and under 62 its caption wraps a
   lone `·` onto a line of its own. Parked 2026-11-07: the app is built for 80 columns.
+- **`b`'s note when moved rows came from several currencies** gives one sentence per currency, a
+  case the engine's two currencies cannot reach; confirm its wording with the owner when a third
+  currency comes.
 - **TUI live niceties.** Auto-refresh / watch mode, search-as-you-type, richer dashboards.
   Mouse stays **off** — see [tui.md](tui.md) §4.
 - **An MCP server for agents.** The way for an agent to read or write the ledger on the owner's

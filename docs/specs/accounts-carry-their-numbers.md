@@ -2,8 +2,7 @@
 
 Catches up to contract sections 12 and 13 of the engine's hand-off of 2026-11-08
 (`d9bd079557801740`, `8b9824e76593ec1e`, `be127df8432341a1`, `9dc0e6c4a5c83bcb`), and its one-write
-account form (`edbafcc162850075`, `14fb4741b9db37b8`). It runs after
-[catch-up-to-1002f105c6bacdf1.md](catch-up-to-1002f105c6bacdf1.md).
+account form (`edbafcc162850075`, `14fb4741b9db37b8`).
 
 **Status: approved on 2026-11-03; redrawn on 2026-11-08 from the engine's hand-off, which built
 the name and declined the alias, as the owner accepted. Its new questions 9 to 12 were answered and the spec approved on 2026-11-08, on the mockup

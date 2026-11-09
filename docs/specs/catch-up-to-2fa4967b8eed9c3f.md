@@ -90,3 +90,7 @@ Not built in this spec; sorted when it is done.
   so `ACCOUNT_ARCHIVED` keyed `opening_balances.<code>` on `PUT /accounts/{id}` reaches it only
   once task 3 of [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) saves the
   form in one write; that task shows it on its line.
+- **The sheet import's `--create-names` sends no `kind`** (expense/import_/engine.py
+  `_create_body`), the one `POST /accounts` task 1 missed; it also sends a typed `name`, which a
+  bank account no longer takes. [The official import](before-the-official-import.md) rewrites that
+  step for built names, so it takes `kind` with it.
