@@ -53,6 +53,19 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Task 5 of the catch-up hit four review rounds: finish it or trim it?
+Asked 2026-11-09 · Blocks: task 5 of [the catch-up](specs/catch-up-to-2fa4967b8eed9c3f.md)
+Task 5 proves every request the app sends fits the engine's stricter rules. The app already does,
+and needed no change. The tests also added a guard that fails any future test sending a malformed
+request; four reviews in a row found one more corner where that guard was stricter or looser
+than the engine (the last: it calls `5.0` malformed, which the engine accepts). The work is kept
+aside, unchanged, in git's stash, named "catch-up task 5 (strict requests), parked after 4 review
+rounds".
+- **A.** A fresh builder finishes it: the two-line fix the last review named, one more review.
+- **B.** Keep only the plain tests (the app's requests checked once) and drop the always-on guard.
+**Recommended:** A, because the fix is named and small, and the guard keeps every later change
+from sending a request the engine refuses.
+
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
 
