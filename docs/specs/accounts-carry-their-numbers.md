@@ -92,11 +92,7 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-8. **The live contract tests:** the banks read, `bank_code` and `numbers` on every account read,
-   the built name, a replacement and its end day, a removal, the kind changes' bodies, the
-   one-write create and edit (all or nothing, each refusal's key), a card paper refused on the
-   savings account, an account with no number refused, and a replaced card's earlier month
-   closing.
+All tasks are done; the acceptance check comes next.
 
 ## Reply to the engine
 
@@ -158,5 +154,13 @@ Not built in this spec; sorted when it is done.
 - The quit-question test of a number refusal waits with two `pilot.pause()`; waiting on
   `app._after_quit_question` before its assert would make it certain
   (tests/unit/test_tui_quit_asks.py:545-548).
+- **`scripts/clean_practice_user.py` cannot remove an unnumbered `BCP`** a killed live run leaves
+  behind (it matches bank accounts by a number starting 9, `owns`, :87-96), so every later run
+  would hit `NAME_EXISTS` until it is deleted by hand.
+- The live suite pins neither the PDF's group-line number check (`card_paper` prints no group
+  line, tests/contract/conftest.py:768-840) nor the edit's `ID_EXISTS` and `CURRENCY_NOT_HELD`
+  on `opening_balances`; two module docstrings overstate their tests
+  (test_statement_numbers.py:15-16, test_account_one_write.py:16-18), and `_bank_account`
+  (test_account_numbers.py:41-51) repeats `scratch.account`.
 - No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
   (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

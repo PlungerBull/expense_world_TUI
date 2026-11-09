@@ -173,6 +173,20 @@ KNOWN_LOCAL = frozenset(
         # the QuickAddRefs field holding the account pool (expense/reads.py), set by
         # keyword in the fixtures that build refs; a client dataclass, not an engine field
         "picks",
+        # the account forms' own field name for the bank (the engine's wire name is
+        # `bank_code`), keyed in the form-fill helpers and read by the focus assertion
+        "bank",
+        # a fake engine's sentinel account id that a test's write check compares against
+        "aho",
+        # what the opening-balance screen's test records of the focused line
+        # (`{"key": "opening:USD", "bar": ""}`), not a body
+        "bar",
+        "key",
+        # what the account question's test records of the screen it left
+        # (`{"on_list": True, "notes": [], "busy": False}`), not a body
+        "busy",
+        "notes",
+        "on_list",
     }
 )
 
