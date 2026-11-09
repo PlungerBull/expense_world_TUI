@@ -34,7 +34,7 @@ from expense.tui.screens.help import (
     scroll_window,
 )
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.transactions import TransactionsScreen
+from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_HOLDING_ACCOUNTS,
@@ -822,13 +822,15 @@ def _keys_of(groups, title) -> list[str]:
     return [row.keys for row in _rows(groups, title)] if title in _titles(groups) else []
 
 
-def _ledger_inventory(monkeypatch, size, check, **engine):
+def _ledger_inventory(monkeypatch, size, check, flt=None, select=False, **engine):
     """The ledger's card groups, read off the screen as `?` reads them, and drawn at `size`."""
     _stub_engine(monkeypatch, **engine)
 
     async def scenario(pilot, app):
-        await app.push_screen(TransactionsScreen())
+        await app.push_screen(TransactionsScreen(flt))
         await wait_for_loaded(pilot, app)
+        if select:
+            await pilot.press("space")
         _, groups = screen_inventory(app.screen)
         await pilot.press("question_mark")
         await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
@@ -842,6 +844,12 @@ def test_an_empty_ledger_lists_only_plus_r_and_esc_at_80_and_140(monkeypatch):
     def check(groups, drawn):
         assert _titles(groups) == ["This screen", "Always true", "Everywhere"]
         assert _keys_of(groups, "This screen") == ["+", "r", "esc"]
+        assert [(r.keys, r.description) for r in _rows(groups, "This screen")] == [
+            ("+", "Add"),
+            ("r", "Refresh"),
+            ("esc", "Back"),
+        ]
+        assert "Clear the selection" not in drawn
         assert "pgdn" not in drawn and "Moving around" not in drawn
 
     for size in ((80, 24), (140, 24)):
@@ -889,6 +897,32 @@ def test_a_ledger_with_a_row_lists_its_keys_again(monkeypatch):
         ]
 
     _ledger_inventory(monkeypatch, (140, 24), check)
+
+
+def _esc_row(groups):
+    return next((r.keys, r.description) for r in _rows(groups, "This screen") if r.keys == "esc")
+
+
+def test_the_ledger_card_says_clear_the_selection_while_it_has_a_row(monkeypatch):
+    def check(groups, drawn):
+        assert _esc_row(groups) == ("esc", "Clear the selection, else go back")
+
+    _ledger_inventory(monkeypatch, (80, 24), check)
+    _ledger_inventory(monkeypatch, (80, 24), check, select=True)
+
+
+def test_the_filtered_ledger_card_follows_the_same_esc_rule(monkeypatch):
+    flt = LedgerFilter("category", "cat-efe", "EFECTIVO")
+
+    def with_rows(groups, drawn):
+        assert _esc_row(groups) == ("esc", "Clear the selection, else go back")
+
+    _ledger_inventory(monkeypatch, (80, 24), with_rows, flt=flt)
+
+    def empty(groups, drawn):
+        assert _esc_row(groups) == ("esc", "Back")
+
+    _ledger_inventory(monkeypatch, (80, 24), empty, flt=flt, rows=())
 
 
 def _manage_card(monkeypatch, screen_class, size, items, check):

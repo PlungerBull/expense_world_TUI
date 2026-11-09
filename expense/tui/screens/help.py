@@ -15,7 +15,7 @@ own keys). tests/unit/test_tui_help.py is the guard — it fails if a binding we
 declare has no description for this card to show.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from rich.cells import cell_len
 from rich.console import Console, ConsoleOptions
@@ -91,6 +91,12 @@ CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 #: lists only while its `_rows` holds a row; `CursorList.check_action` drops the same
 #: actions from the footer.
 CARD_NEEDS_A_ROW = "CARD_NEEDS_A_ROW"
+
+#: A widget or a screen may name, in a `CARD_TEXT_WHILE_EMPTY` dict, an action's
+#: card wording for while its `_rows` is empty (`{"back": "Back"}`): the ledger's
+#: `esc` clears a selection only when there is a row to select. The footer label is
+#: untouched.
+CARD_TEXT_WHILE_EMPTY = "CARD_TEXT_WHILE_EMPTY"
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
 #: interior columns.
@@ -236,7 +242,8 @@ def listed_bindings(owner) -> list[Binding]:
     """The bindings of `owner` (a screen or the focused widget) the card lists: those
     that are in play, in the order the classes declare them. Left out are a binding
     its `CARD_FOLLOWS_CHECK` names and its `check_action` refuses, one its
-    `CARD_NEEDS_A_ROW` names while `_rows` is empty, and one whose key
+    `CARD_NEEDS_A_ROW` names while `_rows` is empty (one in `CARD_TEXT_WHILE_EMPTY` is
+    listed with that wording then), and one whose key
     a more derived class declares: Textual's merge lets a subclass's bindings on a key
     replace every inherited one on it, so `esc Back` inherited from `SectionScreen`
     is never reached on a screen with its own `esc`, whatever that one's
@@ -244,6 +251,7 @@ def listed_bindings(owner) -> list[Binding]:
     (`page(1)`)."""
     named = getattr(owner, CARD_FOLLOWS_CHECK, ())
     needs_row = getattr(owner, CARD_NEEDS_A_ROW, ())
+    empty_text = getattr(owner, CARD_TEXT_WHILE_EMPTY, {})
     declarer: dict[str, type] = {}  # key -> the most derived class that declares it
     listed: list[Binding] = []
     for base, binding in _declared(type(owner)):
@@ -254,6 +262,8 @@ def listed_bindings(owner) -> list[Binding]:
             continue
         if name in needs_row and not owner._rows:
             continue
+        if name in empty_text and not owner._rows:
+            binding = replace(binding, tooltip=empty_text[name])
         listed.append(binding)
     return listed
 

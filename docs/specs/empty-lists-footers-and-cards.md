@@ -50,7 +50,8 @@ Approved.
    the empty ledger, no `⏎ Its statements` on the empty Statements account list, and no `⏎ Open`
    or row keys, greyed or not, on an empty Accounts, Categories or Hashtags list; each comes back
    with the first row.
-3. **The ledger's card** reads `esc  Back` while the list is empty.
+
+All done.
 
 ## Found along the way
 

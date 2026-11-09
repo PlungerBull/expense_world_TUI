@@ -396,6 +396,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     crumb = ("Capture & ledger", "Transactions")
     #: The `?` card lists these only once there is a row (help.py).
     CARD_NEEDS_A_ROW = frozenset({"select_all", "pick", "split", "delete"})
+    #: With no row there is no selection to clear, so the card's `esc` reads `Back`.
+    CARD_TEXT_WHILE_EMPTY = {"back": "Back"}
     # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the list
     # window fill its height: the ledger is the screen you sit in, so it takes
     # the window you gave it instead of holding a 110x20 card in the corner of

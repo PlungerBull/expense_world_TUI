@@ -1861,8 +1861,9 @@ Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A sta
 screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
 and one in `CARD_NEEDS_A_ROW` waits for a row: the empty ledger, the Statements account list,
 Accounts, Categories and Hashtags list none of their row keys, so an empty ledger's card holds
-only `+`, `r` and `esc`, and an empty Manage list's `n`, `r` and `esc`, with no "Moving around"
-column. The card covers what is behind it from its top rule to its bottom one
+only `+`, `r` and `esc Back` (with rows its `esc` reads `Clear the selection, else go back`,
+which `CARD_TEXT_WHILE_EMPTY` swaps while the list is empty; the footer's stays `Back`), and an
+empty Manage list's `n`, `r` and `esc`, with no "Moving around" column. The card covers what is behind it from its top rule to its bottom one
 across the full width, so the gutters beside its frame are blank. A card taller than the room
 between the head and the footer spreads out on a terminal wide enough, and only then: the
 groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
