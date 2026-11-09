@@ -505,13 +505,10 @@ def _object_schema(doc: dict, schema: object) -> dict | None:
 
 
 def _list_items(doc: dict, schema: object) -> object | None:
-    """The `items` schema of the one array schema `schema` allows; None when none."""
-    schema = _resolve(doc, schema)
-    members = _members(schema)
-    if members is not None:
-        arrays = [found for m in members if (found := _list_items(doc, m)) is not None]
-        return arrays[0] if len(arrays) == 1 else None
-    return schema.get("items") if schema.get("type") == "array" else None
+    """The `items` schema of the one array schema `schema` allows, nested unions
+    flattened as `_object_schema` does; None when it allows none, or more than one."""
+    arrays = [alt for alt in _alternatives(doc, schema) if alt.get("type") == "array"]
+    return arrays[0].get("items") if len(arrays) == 1 else None
 
 
 def _answer_json(doc: dict, endpoint: str) -> object | None:

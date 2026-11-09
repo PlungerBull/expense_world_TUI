@@ -506,6 +506,32 @@ def test_an_object_the_contract_leaves_open_has_no_extra_key(drift):
     assert drift.extra_keys(doc, schema, dict(name="x", gap=None, items=[], anything=1)) == []
 
 
+def _arr(name):
+    return {"type": "array", "items": {"$ref": f"#/components/schemas/{name}"}}
+
+
+def test_a_nested_union_of_two_lists_has_no_one_list_items(drift):
+    schema = {"anyOf": [_arr("A"), {"anyOf": [_arr("B"), _arr("C")]}]}
+
+    assert drift._list_items({}, schema) is None
+
+
+def test_a_nested_union_holding_one_list_gives_its_items(drift):
+    schema = {"anyOf": [{"type": "null"}, {"oneOf": [{"type": "string"}, _arr("B")]}]}
+
+    assert drift._list_items({}, schema) == {"$ref": "#/components/schemas/B"}
+
+
+def test_a_union_that_contains_itself_ends(drift):
+    doc = {
+        "components": {"schemas": {"U": {"anyOf": [{"$ref": "#/components/schemas/U"}, _arr("B")]}}}
+    }
+    ref = {"$ref": "#/components/schemas/U"}
+
+    assert drift._list_items(doc, ref) == {"$ref": "#/components/schemas/B"}
+    assert drift._alternatives(doc, ref) == [_arr("B")]
+
+
 @respx.mock
 @pytest.mark.parametrize(
     "endpoint", ["POST /v1/things/{thing_id}/open", "GET /v1/things/{thing_id}/close"]
