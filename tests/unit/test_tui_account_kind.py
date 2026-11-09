@@ -1,15 +1,17 @@
 """`t` on Manage ▸ Accounts turns an account into a person and back.
 
-`t Make person` on a bank account's row sends `POST /accounts/{id}/make-person`,
-`t Make bank` on a person's sends `POST /accounts/{id}/make-account`, each with no
-body and no question (contract: POST /v1/accounts/{account_id}/make-person)
-(contract: POST /v1/accounts/{account_id}/make-account). The write goes through the
+`t Make person` on a bank account's row asks the person's name and sends
+`POST /accounts/{id}/make-person`, `t Make bank` on a person's asks the bank and sends
+`POST /accounts/{id}/make-account` (contract: POST /v1/accounts/{account_id}/make-person)
+(contract: POST /v1/accounts/{account_id}/make-account). The question's own tests are in
+`test_tui_account_question.py`. The write goes through the
 real HTTP client against a respx-mocked engine, so the idempotency key and the error
 envelope are the client's own; the list's read is stubbed and plays the engine's
 order: every real account first, then every person, a turned account at the end of
 its new group.
 """
 
+import json
 import threading
 
 import httpx
@@ -20,7 +22,7 @@ import expense.config as config_module
 import expense.tui.screens.home as home
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.home import HomeScreen
-from expense.tui.screens.modals import ConfirmModal
+from expense.tui.screens.modals import QuestionModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -120,6 +122,14 @@ async def _open(pilot, app, monkeypatch, cursor: str):
     return screen, notes
 
 
+async def _answer(pilot, app, route: str) -> None:
+    """Answer `t`'s question: a name for `make-person`, the one bank for `make-account`."""
+    await wait_for(pilot, lambda: isinstance(app.screen, QuestionModal))
+    if route == "make-person":
+        app.screen.query_one("#line-name").value = "Mamá"
+    await pilot.press("enter")
+
+
 # ---- both directions ------------------------------------------
 
 TURNS = [
@@ -134,11 +144,11 @@ TURNS = [
 
 
 @pytest.mark.parametrize(("row", "route", "person", "note", "index", "label"), TURNS)
-def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
+def test_t_asks_then_turns_the_account_and_the_cursor_follows_it(
     configured, monkeypatch, row, route, person, note, index, label
 ):
-    """`t` sends the one route with no body and an idempotency key, asks
-    nothing, and the reload keeps the cursor on the turned account in its new
+    """`t` asks, then sends the one route with the answer as its body and an idempotency
+    key, and the reload keeps the cursor on the turned account in its new
     place, the note saying what it is now and the footer offering the way back,
     its opening balance, if any, still on it."""
     ident = row
@@ -154,7 +164,7 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         before = screen.query_one(CursorList).cursor_index
         seen["cells_before"] = _cells(screen)
         await pilot.press("t")
-        assert not isinstance(app.screen, ConfirmModal)
+        await _answer(pilot, app, route)
         await wait_for(pilot, lambda: ("", note) in notes)
         await wait_for(pilot, lambda: not screen._toggle_busy)  # the reload landed
         await pilot.pause()
@@ -174,7 +184,9 @@ def test_t_turns_the_account_at_once_and_the_cursor_follows_it(
         run_app(scenario, size=SIZE)
     assert sent.call_count == 1
     request = sent.calls.last.request
-    assert request.content == b""
+    assert json.loads(request.content) == (
+        {"name": "Mamá"} if route == "make-person" else {"bank_code": "BCP"}
+    )
     assert request.headers["X-Idempotency-Key"]
     assert seen["key"] == row
     assert seen["after"] == index != seen["before"]
@@ -274,7 +286,7 @@ def test_t_is_unavailable_on_an_empty_list(configured, monkeypatch):
 # ---- one at a time ----------------------------------------------------------
 
 
-def test_a_second_t_while_one_is_in_flight_does_nothing(configured, monkeypatch):
+def test_a_second_enter_while_one_is_in_flight_does_nothing(configured, monkeypatch):
     rows = _rows()
     _stub_list(monkeypatch, rows)
     asked, release = threading.Event(), threading.Event()
@@ -289,14 +301,15 @@ def test_a_second_t_while_one_is_in_flight_does_nothing(configured, monkeypatch)
         screen, notes = await _open(pilot, app, monkeypatch, "a-alejo")
         try:
             await pilot.press("t")
+            await _answer(pilot, app, "make-person")
             await wait_for(pilot, asked.is_set)  # the write is in flight
-            await pilot.press("t")
-            await pilot.press("a")  # nor does an archive toggle
+            await pilot.press("enter")
             await pilot.pause()
         finally:
             release.set()
         await wait_for(pilot, lambda: ("", "Now a person.") in notes)
         await wait_for(pilot, lambda: not screen._toggle_busy)
+        assert app.screen is screen  # the question closed with the write
 
     with respx.mock(assert_all_called=False) as engine:
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-alejo/make-person").mock(side_effect=held)
@@ -367,9 +380,10 @@ REFUSALS = [
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
-    """The "Failed" note is the engine's words alone, with no line of the app's,
-    for each of `t`'s refusals: `HAS_RECONCILIATION`, `KIND_UNCHANGED` and
-    `ACCOUNT_ARCHIVED` (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
+    """A refusal keyed `account_id` closes the question; the "Failed" note is the engine's
+    words alone, with no line of the app's, for each of `t`'s refusals:
+    `HAS_RECONCILIATION`, `KIND_UNCHANGED` and `ACCOUNT_ARCHIVED`
+    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
     Nothing changes: the account keeps its kind (`_by_id` holds `kind`) and the
     list is not read again. Nothing but the turn is sent, and `t` sends again."""
     rows = _rows()
@@ -388,13 +402,16 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
         before = (listing, listing.cursor_key, dict(screen._by_id))
         read_before = len(reads)
         await pilot.press("t")
+        await _answer(pilot, app, route)
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
+        seen["closed"] = app.screen is screen
         listing = screen.query_one(CursorList)
         seen["same"] = before == (listing, listing.cursor_key, screen._by_id)
         seen["reread"] = len(reads) - read_before
         seen["notes"] = list(notes)
         await pilot.press("t")
+        await _answer(pilot, app, route)
         await wait_for(pilot, lambda: len(notes) == 2)
 
     with respx.mock() as engine:
@@ -403,6 +420,7 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
         )
         run_app(scenario, size=SIZE)
     assert seen["notes"] == [("Failed", shown)]
+    assert seen["closed"]
     assert seen["same"]
     assert seen["reread"] == 0
     assert sent.call_count == 2
@@ -440,6 +458,7 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
         listing = screen.query_one(CursorList)
         before = (listing, listing.cursor_index, dict(screen._by_id))
         await pilot.press("t")
+        await _answer(pilot, app, "make-person")
         await wait_for(pilot, lambda: notes)
         await wait_for(pilot, lambda: not screen._toggle_busy)
         await pilot.pause()
@@ -449,6 +468,7 @@ def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configure
         seen["kind"] = screen.selected_record()["kind"] == "person"
         seen["footer"] = _footer(screen)
         await pilot.press("t")  # its statements are deleted meanwhile
+        await _answer(pilot, app, "make-person")
         await wait_for(pilot, lambda: ("", "Now a person.") in notes)
         await wait_for(pilot, lambda: not screen._toggle_busy)
         await pilot.pause()
@@ -529,6 +549,7 @@ def test_home_shows_the_turned_account_in_its_new_group(
         seen["before"] = _groups(homes._data)
         screen, notes = await _open(pilot, app, monkeypatch, ident)
         await pilot.press("t")
+        await _answer(pilot, app, route)
         await wait_for(pilot, lambda: not screen._toggle_busy and notes)
         homes._data = None
         await pilot.press("escape")

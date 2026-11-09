@@ -14,8 +14,8 @@ surface converts an account balance to the home currency. `n` creates; `e` edits
 the cursor row's account (prefilled EditAccountScreen, an opening balance's
 pair of lines per currency); `a` toggles its archive immediately — a second `a` undoes; `t`
 turns a bank account into a person (`t Make person`) or a person into a bank
-account (`t Make bank`) immediately, the footer naming the one the cursor row
-takes, and is off on an archived row; `d` deletes the cursor row's account after a
+account (`t Make bank`) after a short question (`QuestionModal`), the footer naming the one the
+cursor row takes, and is off on an archived row; `d` deletes the cursor row's account after a
 question (`a` puts an account away, `d` is for one made by mistake). Each acts on
 the whole account, every currency at once, through one call with the account's id.
 After `a` or `t` the list reloads with the cursor on the same account, so a second
@@ -28,10 +28,13 @@ only `y` answers. After either the list reloads with the cursor on the same acco
 one currency write at a time, as for `a` and `t`. `enter` on the list does nothing.
 """
 
+from collections.abc import Callable
+
 from rich.text import Text
 from textual.binding import Binding
 
 from expense import reads
+from expense.errors import EngineError, format_error
 from expense.formatting import format_cents, name_or_unnamed
 from expense.tui.screens._base import (
     DELETE_KEY,
@@ -40,13 +43,29 @@ from expense.tui.screens._base import (
     list_refusal_text,
     not_done_line,
 )
-from expense.tui.screens.modals import ConfirmModal, PickModal
+from expense.tui.screens.modals import ConfirmModal, PickModal, QuestionLine, QuestionModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
 from expense.tui.widgets.cursor_list import waits_for_a_row
 from expense.tui.widgets.refusal import toast
 
 _FIXED_HEADS = ["Name", "Type", "Code", "Color"]
+
+
+def _bank_body(values: dict[str, str]) -> dict:
+    """`make-account`'s body: the bank and the last 4, each only when the line holds text,
+    as typed, never `null`, and no `name` (contract: POST
+    /v1/accounts/{account_id}/make-account, "Body"). With no bank listed none is sent: the
+    engine answers `REQUIRED` on `bank_code`."""
+    return {key: values[key] for key in ("bank_code", "last4") if values[key]}
+
+
+def _refused_line(failure: Exception, lines: list[str]) -> str | None:
+    """The first of the question's `lines` (engine field names) a refusal names, or None."""
+    if not isinstance(failure, EngineError):
+        return None
+    named = {*(failure.reasons or {}), *(failure.fields or {})}
+    return next((key for key in lines if key in named), None)
 
 
 def account_headers(currencies: list[str]) -> list[str]:
@@ -312,28 +331,92 @@ class AccountsScreen(ResourceListScreen):
         )
 
     def action_make_person(self) -> None:
-        # No body (contract: POST /v1/accounts/{account_id}/make-person).
+        """`t` on a bank account: the question for the person's name."""
         if self.check_action("make_person", ()):
-            self._turn("make-person", "Now a person.", "Not made a person")
+            self._ask_to_turn(
+                "make-person",
+                "a person",
+                (QuestionLine("name", "name"),),
+                lambda values: {"name": values["name"]},
+                "Now a person.",
+                "Not made a person",
+            )
 
     def action_make_bank(self) -> None:
-        # No body (contract: POST /v1/accounts/{account_id}/make-account).
+        """`t` on a person: the question for the bank and an optional last 4."""
         if self.check_action("make_bank", ()):
-            self._turn("make-account", "Now a bank account.", "Not made a bank account")
+            self._ask_to_turn(
+                "make-account",
+                "a bank account",
+                (
+                    QuestionLine("bank_code", "bank", tuple(self._banks)),
+                    QuestionLine("last4", "last 4", note="optional"),
+                ),
+                _bank_body,
+                "Now a bank account.",
+                "Not made a bank account",
+            )
 
-    def _turn(self, verb: str, note: str, not_done: str) -> None:
-        """`t`: turn the cursor account into a person or a bank."""
+    def _ask_to_turn(
+        self,
+        verb: str,
+        kind: str,
+        lines: tuple[QuestionLine, ...],
+        body_of: Callable[[dict[str, str]], dict],
+        note: str,
+        not_done: str,
+    ) -> None:
+        """`t`: ask what the engine needs to turn the cursor account into `kind`, then
+        `⏎` sends `POST /accounts/{id}/{verb}` with the body `body_of` makes of the lines.
+        The engine judges what was typed: a refusal keyed on one of the question's own
+        lines (`name`, `bank_code`, `last4`) keeps the question open on that line, in the
+        engine's words, what was typed kept; any other closes the question and reads in
+        the list's words. Written, the note shows and the list reloads with the cursor on
+        the same account. One at a time, as `a` is (`run_guarded_write`)."""
         item = self.selected_record()
-        if item:
-            self._toggle(item, verb, note, not_done)
+        if not item or self._toggle_busy:
+            return
+        ident = item["id"]
+        title = f"Make {name_or_unnamed(item.get('name'))} {kind}?"
+
+        def written() -> None:
+            toast(self, note)
+            self._restore_key = ident
+            if modal.is_attached:
+                modal.dismiss()
+            self._load()
+
+        def failed(failure: Exception) -> None:
+            line = _refused_line(failure, modal.keys())
+            if line is not None and modal.is_attached:
+                self.clear_guard()
+                modal.refuse(line, format_error(failure))
+                return
+            if modal.is_attached:
+                modal.dismiss()
+            self._toggle_failed(list_refusal_text(failure))
+
+        def send(values: dict[str, str]) -> None:
+            self.run_guarded_write(
+                "POST",
+                f"/{self.RESOURCE}/{ident}/{verb}",
+                json_body=body_of(values),
+                success=note,
+                on_success=written,
+                on_failure=failed,
+                error_text=list_refusal_text,
+                left_behind=LeftBehind(_who(not_done, item)),
+            )
+
+        modal = QuestionModal(title, lines, "⏎ makes it · esc keeps it", send)
+        self.app.push_screen(modal)
 
     def _toggle(self, item: dict, verb: str, note: str, not_done: str) -> None:
-        """`a`'s and `t`'s write: `POST /accounts/{id}/{verb}` at once, with no
-        question, a refusal read in the list's words; the list reloads with the
-        cursor on the same account. One toggle at a time: a second press while
-        one is in flight does nothing until the engine refuses it or the list
-        builds from a read that began after it was answered
-        (`run_guarded_write`)."""
+        """`a`'s write: `POST /accounts/{id}/{verb}` at once, with no question, a
+        refusal read in the list's words; the list reloads with the cursor on the
+        same account. One toggle at a time: a second press while one is in flight
+        does nothing until the engine refuses it or the list builds from a read that
+        began after it was answered (`run_guarded_write`)."""
         if self._toggle_busy:
             return
         self._restore_key = self.selected_key()

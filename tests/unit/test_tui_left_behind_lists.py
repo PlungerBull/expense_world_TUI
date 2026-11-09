@@ -16,7 +16,7 @@ from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
-from expense.tui.screens.modals import ConfirmModal, PickModal
+from expense.tui.screens.modals import ConfirmModal, PickModal, QuestionModal
 from expense.tui.screens.system import AuthScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
@@ -45,6 +45,7 @@ ACCOUNTS = [
 CATEGORIES = [{"id": "c-1", "name": "COMIDA", "is_system": False, "color": None}]
 HASHTAGS = [{"id": "h-1", "name": "viaje", "system_key": None}]
 
+ASK = [("t", QuestionModal), ("enter", None)]
 ADD = [("c", PickModal), ("enter", None)]
 REMOVE = [("x", PickModal), ("enter", ConfirmModal), ("y", None)]
 DELETE = [("d", ConfirmModal), ("y", None)]
@@ -61,11 +62,11 @@ SITES = {
         "Unarchived.", "Not unarchived · Account Ahorro Viejo", list_refusal_text,
     ),
     "make person": (
-        AccountsScreen, ACCOUNTS, "a-caja", [("t", None)], "post",
+        AccountsScreen, ACCOUNTS, "a-caja", ASK, "post",
         "Now a person.", "Not made a person · Account Caja Chica", list_refusal_text,
     ),
     "make bank": (
-        AccountsScreen, ACCOUNTS, "a-ana", [("t", None)], "post",
+        AccountsScreen, ACCOUNTS, "a-ana", ASK, "post",
         "Now a bank account.", "Not made a bank account · Person Ana Ejemplo", list_refusal_text,
     ),
     "add currency": (

@@ -1790,9 +1790,11 @@ class LateAnswer:
 
 async def leave_then_answer(pilot, app, screen, late: LateAnswer, notes: list) -> None:
     """With `late`'s write in flight from `screen`: leave the screen, let the engine
-    answer, and wait for the app's first toast in `notes` (`app_notes`)."""
+    answer, and wait for the app's first toast in `notes` (`app_notes`). A question
+    still open over the screen (`t`'s, which closes when the write lands) goes with it."""
     await wait_for(pilot, late.started.is_set)
-    await app.pop_screen()
+    while screen in app.screen_stack:
+        await app.pop_screen()
     await wait_for(pilot, lambda: app.screen is not screen)
     late.release.set()
     await wait_for(pilot, lambda: notes, timeout=3)

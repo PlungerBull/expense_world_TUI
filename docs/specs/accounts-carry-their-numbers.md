@@ -92,8 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-6. **`t` asks for what the engine needs** (question 11): `make-person` with the name typed,
-   `make-account` with the bank and an optional last 4; `NAME_EXISTS` on its line.
 7. **The PDF upload's two new refusals:** `STATEMENT_NUMBER_MISMATCH` and `ACCOUNT_HAS_NO_NUMBER`
    show in the engine's words on the account question, which stays open.
 8. **The live contract tests:** the banks read, `bank_code` and `numbers` on every account read,
@@ -131,7 +129,9 @@ Not built in this spec; sorted when it is done.
   every such token, or as it is.
 - **For decisions.md at the sweep:** the account Edit form saves in one `PUT`, so its partial-save
   wording and the "a save of several writes counts once, the account Edit form's" example are no
-  longer true (decisions.md ~854, ~1320, ~1333).
+  longer true (decisions.md ~854, ~1320, ~1333). `t` now asks (a person's name, or a bank and an
+  optional last 4, which the engine needs), so decisions.md ~862 ("at once and with no
+  question") and ~866 (asking before `t` rejected) are no longer true.
 - The Edit form's tests land no `color` refusal, and a few refusal tests put a raw string in
   `_values` (tests/unit/test_tui_opening_balance.py:514, :712); they check only where the
   cursor lands.
@@ -154,5 +154,8 @@ Not built in this spec; sorted when it is done.
 - **The removal question's footer** is the shared question's `[y] confirm    [enter / n / esc]
   cancel`, as the opening balance's delete question reads, not pane 2's `y removes · any other
   key keeps it`.
+- `t`'s question: no test proves a pick change or typing hides that line's refusal
+  (modals.py:402, :414; test_tui_account_question.py:317); its `written()` closure repeats
+  `_currency_write`'s toast, key restore and reload (accounts.py:317, :382).
 - No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
   (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

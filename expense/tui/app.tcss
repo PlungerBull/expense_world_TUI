@@ -153,7 +153,7 @@ Input {
 }
 
 /* modal screens — center the #modal box (else it collapses top-left) */
-ConfirmModal, PromptBox, PickModal, HelpModal, DiscardStagedModal {
+ConfirmModal, PromptBox, PickModal, QuestionModal, HelpModal, DiscardStagedModal {
     align: center middle;
 }
 /* The dim scrim. `black`, NOT `$background`, and that is
@@ -224,7 +224,7 @@ HelpModal #modal.scrolling > #help-scroll {
     display: block;
 }
 /* confirm/prompt carry short messages — a narrower box reads better */
-ConfirmModal #modal, PromptBox #modal {
+ConfirmModal #modal, PromptBox #modal, QuestionModal #modal {
     width: 52;
     max-width: 90%;
 }
@@ -270,6 +270,24 @@ PromptBox.under-head Input {
     border: none;
     height: 1;
     padding: 0;
+}
+/* a question's typed line: its label, the input, a dim note; the engine's words under it */
+.line-row {
+    height: 1;
+}
+.line-input {
+    width: 1fr;
+    height: 1;
+    padding: 0;
+}
+.line-note {
+    width: auto;
+}
+.line-refusal {
+    margin: 0 0 0 2;
+}
+.question-footer {
+    margin-top: 1;
 }
 /* the pick's choices stand apart from its line above and its hint below */
 #pick-choices {

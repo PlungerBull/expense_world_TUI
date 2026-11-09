@@ -1,12 +1,14 @@
 """Reusable modal screens."""
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import TypeVar
 
+from rich.console import Group
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Input, Static
@@ -271,6 +273,168 @@ class AmountPromptModal(PromptBox[int | None]):
             toast(self, self._unreadable, severity="error")
             return
         self.dismiss(cents)
+
+
+@dataclass(frozen=True)
+class QuestionLine:
+    """One line of a `QuestionModal`: `key` is the engine field it carries, `label` the word
+    before it. `choices` None makes it a typed line (`note`, dim, after it, as `optional`);
+    otherwise it is the engine's list, a fixed line while it holds one and a pick while it
+    holds more."""
+
+    key: str
+    label: str
+    choices: tuple[str, ...] | None = None
+    note: str = ""
+
+
+class QuestionModal(ModalScreen[None]):
+    """A short question of a few lines: the title, its lines, the footer words. `⏎`
+    hands what the lines hold, as `{key: text}`, to `send` and does nothing more: the
+    caller writes, then `dismiss`es the question when the engine took it, or `refuse`s
+    a line with the engine's words, which keeps the question open on that line with what
+    was typed. `esc` closes it, sending nothing. `⇥`/`⇧⇥` move between the lines that
+    take input; `↑↓` pick on a choice line holding several choices, and elsewhere move
+    between lines. One send at a time until a refusal frees the question."""
+
+    AUTO_FOCUS = ""  # the first line that takes input is focused by `_focus_line`, a choice's none
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Send", show=False),
+        Binding("tab", "line(1)", "Field", key_display="⇥"),
+        Binding("shift+tab", "line(-1)", "Prev field", show=False),
+        Binding("up", "arrow(-1)", "Highlight up or prev line", show=False),
+        Binding("down", "arrow(1)", "Highlight down or next line", show=False),
+    ]
+
+    def __init__(
+        self,
+        title: str,
+        lines: Sequence[QuestionLine],
+        footer: str,
+        send: Callable[[dict[str, str]], None],
+    ) -> None:
+        super().__init__()
+        self._title = title
+        self._lines = list(lines)
+        self._footer = footer
+        self._send = send
+        self._sending = False
+        self._picked = {ln.key: 0 for ln in self._lines if ln.choices}
+        # the lines that take input, in order: typed ones and choices holding several
+        self._reachable = [
+            i for i, ln in enumerate(self._lines) if ln.choices is None or len(ln.choices) > 1
+        ]
+        self._at = 0  # the place in `_reachable`
+        self._label_width = max(len(ln.label) for ln in self._lines) + 2
+
+    def compose(self) -> ComposeResult:
+        rows: list[Widget] = [Static(Text(self._title), classes="modal-title")]
+        for line in self._lines:
+            if line.choices is None:
+                label = Static(Text(line.label), classes="line-label")
+                label.styles.width = self._label_width
+                field = Input(id=f"line-{line.key}", classes="line-input")
+                if line.note:  # the note sits right after a short input
+                    field.styles.width = 8
+                rows.append(
+                    Horizontal(
+                        label,
+                        field,
+                        Static(Text(line.note, style="dim"), classes="line-note"),
+                        classes="line-row",
+                    )
+                )
+            else:
+                rows.append(Static(self._choice_view(line), id=f"line-{line.key}"))
+            refusal = Static("", id=f"refusal-{line.key}", classes="error line-refusal")
+            refusal.display = False
+            rows.append(refusal)
+        rows.append(Static(Text(self._footer, style="dim"), classes="question-footer"))
+        yield Vertical(*rows, id="modal")
+        yield FittingFooter()
+
+    def on_mount(self) -> None:
+        self._focus_line()
+
+    def _choice_view(self, line: QuestionLine):
+        assert line.choices is not None
+        if not line.choices:
+            return Text(line.label)  # the engine lists none: nothing to pick
+        if len(line.choices) == 1:
+            return Text(f"{line.label:<{self._label_width}}{line.choices[0]}")
+        return Group(Text(line.label), suggestion_list(line.choices, self._picked[line.key]))
+
+    def _focus_line(self) -> None:
+        if not self._reachable:
+            return
+        line = self._lines[self._reachable[self._at]]
+        if line.choices is None:
+            self.query_one(f"#line-{line.key}", Input).focus()
+        else:
+            self.set_focus(None)
+
+    def values(self) -> dict[str, str]:
+        """What each line holds: the text typed, or the choice picked."""
+        out: dict[str, str] = {}
+        for line in self._lines:
+            if line.choices is None:
+                out[line.key] = self.query_one(f"#line-{line.key}", Input).value
+            else:
+                out[line.key] = line.choices[self._picked[line.key]] if line.choices else ""
+        return out
+
+    def action_line(self, delta: int) -> None:
+        if 0 <= self._at + delta < len(self._reachable):  # stops at either end, as the forms do
+            self._at += delta
+            self._focus_line()
+
+    def action_arrow(self, delta: int) -> None:
+        if not self._reachable:
+            return
+        line = self._lines[self._reachable[self._at]]
+        if line.choices is None:
+            if 0 <= self._at + delta < len(self._reachable):
+                self.action_line(delta)
+            return
+        self._picked[line.key] = max(0, min(self._picked[line.key] + delta, len(line.choices) - 1))
+        self.query_one(f"#line-{line.key}", Static).update(self._choice_view(line))
+        self.query_one(f"#refusal-{line.key}", Static).display = False  # the pick changed
+
+    def action_submit(self) -> None:
+        if self._sending:
+            return
+        self._sending = True
+        self._send(self.values())
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        event.stop()
+        self.action_submit()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        note = self.query_one(f"#refusal-{(event.input.id or '').removeprefix('line-')}", Static)
+        note.display = False
+
+    def refuse(self, key: str, message: str) -> None:
+        """The engine's `message` under the line `key`, the cursor on it, what was typed
+        kept; the question takes a new send."""
+        self._sending = False
+        for other in self.query(".line-refusal"):
+            other.display = False
+        note = self.query_one(f"#refusal-{key}", Static)
+        note.update(Text(message))
+        note.display = True
+        for place, index in enumerate(self._reachable):
+            if self._lines[index].key == key:
+                self._at = place
+        self._focus_line()
+
+    def keys(self) -> list[str]:
+        """The engine fields this question's lines carry, in order."""
+        return [line.key for line in self._lines]
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class DiscardStagedModal(ModalScreen[str]):

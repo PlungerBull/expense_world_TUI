@@ -914,31 +914,32 @@ nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
 
 **`t` turns an account into a person and back.** On Manage ▸ Accounts the footer reads
 `t Make person` on a bank account's row and `t Make bank` on a person's, following the cursor,
-between `a Archive` and `d Delete`. `t` sends `POST /accounts/{id}/make-person` or
-`POST /accounts/{id}/make-account` at once, with no body and no question, through `run_write`
-as `a` does
-(contract: POST /v1/accounts/{account_id}/make-person)
-(contract: POST /v1/accounts/{account_id}/make-account). The list reads again with the
-cursor on the account in its new place, among the people or the bank accounts, and the
-note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. An
-account with an opening balance keeps it as a person, the same transaction under `@Opening`,
-so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). An
-account in two currencies turns on its one row, every currency with it, each balance still in
-its column. On an archived row `t` leaves the footer and does nothing, a person's too. A
-refusal leaves the list as it was and `t` works again ("When the engine says no" below); a person never has statements, so an account that has ever
-been in one, a deleted one included, is refused. Home shows the account under its new group,
-BANK ACCOUNTS or PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays
-read-only: `t` is how an account's type changes.
+between `a Archive` and `d Delete`. `t` opens a short question (`QuestionModal` in
+[modals.py](../expense/tui/screens/modals.py)). On a bank account it reads `Make <name> a person?`
+with a `name` line, empty; on a person, `Make <name> a bank account?` with a `bank` line, the
+engine's `GET /banks` (fixed while it lists one, a pick in the engine's order with `↑↓` when
+it lists more), and a `last 4` line marked `optional`. Both end `⏎ makes it · esc keeps it`;
+`⇥` moves between the lines that take input, stopping at the ends, `↑↓` too where they pick nothing. `⏎` sends
+`POST /accounts/{id}/make-person` with `{"name"}`, or `POST /accounts/{id}/make-account` with
+`{"bank_code"}` and `last4` only when typed, never a `name`, through `run_guarded_write` as `a`
+does (contract: POST /v1/accounts/{account_id}/make-person, "Body")
+(contract: POST /v1/accounts/{account_id}/make-account, "Body"); `esc` sends nothing. The app
+checks nothing. A refusal keyed on a line of the question (`name`, `bank_code`, `last4`:
+`NAME_EXISTS`, `REQUIRED`, `EMPTY`, `INVALID_FORMAT`, `UNSUPPORTED_VALUE`) keeps it open: the
+engine's words show under that line, the cursor goes there and what was typed stays. Any other
+refusal closes it and reads as "When the engine says no" below says, titled `Failed`, or
+`Not made a person` / `Not made a bank account` once the list is left. Written, the list reads again with the cursor on the account in its
+new place, under the name the engine gives it, and the note says `Now a person.` or
+`Now a bank account.`. On an archived row `t` leaves the footer. The Edit form's `type` line
+stays read-only.
 
 **`c` adds a currency to an account.** On Manage ▸ Accounts the footer reads `c Currency`
 after `e Edit`, on every row, a person's and an archived account's too. `c` opens the pick
-`Add a currency · <account>`, naming the account (`PickModal` in
+`Add a currency · <account>` (`PickModal` in
 [modals.py](../expense/tui/screens/modals.py)): the account on one line as the delete question
-names it (`Caja Chica · bank · PEN 350.00`), the engine's currencies it does not hold, in the
-engine's order (`currencies_to_add` in
-[accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
-`[enter] add    [esc] cancel`; the footer is `esc Cancel`. `↑↓` move the highlight, `esc`
-leaves the list as it was, and `⏎` sends `POST /accounts/{id}/currencies` with
+names it, then the engine's currencies it does not hold, in the engine's order
+(`currencies_to_add` in [accounts.py](../expense/tui/screens/accounts.py)). `↑↓` move the
+highlight, `esc` leaves the list as it was, and `⏎` sends `POST /accounts/{id}/currencies` with
 `{"currency_code": …}` at once, with no question, through `run_write` as `a` does
 (contract: POST /v1/accounts/{account_id}/currencies). The note says `Currency added: USD.`
 and the list reads again with the cursor on the same account, its new currency's column at
@@ -949,14 +950,13 @@ the engine's to refuse, not the app's ("When the engine says no" below).
 
 **`x` removes a currency from an account.** The footer reads `x Remove currency` after
 `c Currency`, on every row, a person's and an archived account's too. `x` opens the pick
-`Remove a currency · <account>`: the account on one line as `c`'s pick names it, the currencies it holds in the engine's order (`currencies_held` in
-[accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
-`[enter] pick    [esc] cancel`; the footer is `esc Cancel`, and `esc` leaves the list as it
-was. `⏎` sends nothing yet: it asks first with `ConfirmModal`, as a delete does, the question
-naming the account and the currency (`removal_question`): `Remove USD from Visa Inventada?`,
-its body the account with that currency's balance alone, then what the account keeps
-(`Visa Inventada · bank · USD -185.20` · `Visa Inventada keeps PEN.`), or, for its only
-currency, `It is the account's only currency.`. Only `y` sends
+`Remove a currency · <account>`: the account as `c`'s pick names it, then the currencies it
+holds in the engine's order (`currencies_held` in
+[accounts.py](../expense/tui/screens/accounts.py)); `esc` leaves the list as it was. `⏎`
+asks first with `ConfirmModal`, as a delete does, the question naming the account and the
+currency (`removal_question`): `Remove USD from Visa Inventada?`, its body the account with
+that currency's balance alone, then what the account keeps, or, for its only currency, `It is
+the account's only currency.`. Only `y` sends
 `DELETE /accounts/{id}/currencies/{code}`, with no body, through `run_write`
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}); `⏎`, `n`, `esc` and
 any other key send nothing. The note says `Currency removed: USD.` and the list reads again
