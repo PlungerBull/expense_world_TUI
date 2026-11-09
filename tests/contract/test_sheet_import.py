@@ -468,6 +468,46 @@ def test_an_existing_person_gets_its_opening_balance_in_each_currency(client, sc
     assert live_ids(client, person) == written
 
 
+def test_a_zero_saldo_inicial_dated_earlier_leaves_the_first_non_zero_one_the_opening_balance(
+    client, scratch
+):
+    """A `SALDO INICIAL` of `0.00` on 2 January never counts as a row dated before the one of
+    1,000.00 on 5 January: that one is the currency's opening balance, `is_opening_balance`
+    and counted in `counts.opening_balances`, the zero row `skipped` and never written
+    (contract: POST /v1/transactions/import-sheet, "Opening balances")."""
+    n = Names()
+    person = scratch.account("PEN", person=True)
+    category, hashtag = scratch.category(), scratch.hashtag()
+    names = {
+        "accounts": [{"name": n.account, "account_id": person}],
+        "categories": [{"name": "SALDO INICIAL", "category_id": category}],
+        "hashtags": [{"name": n.home, "hashtag_id": hashtag}],
+    }
+    data = sheet_file(
+        [
+            sheet_row("CERO", n.home, "SALDO INICIAL", date(2026, 1, 2), 0, n.account, "PEN"),
+            sheet_row("SALDO", n.home, "SALDO INICIAL", date(2026, 1, 5), 1000, n.account, "PEN"),
+        ]
+    )
+    for dry_run in (True, False):
+        answer = client.post(
+            "/transactions/import-sheet",
+            json_body=request_body(data, dry_run=dry_run, names=names),
+        )
+        scratch.transactions.extend(
+            r["transaction_id"] for r in answer["rows"] if r["transaction_id"]
+        )
+        assert [r["outcome"] for r in answer["rows"]] == ["skipped", "new"]
+        assert [r["is_opening_balance"] for r in answer["rows"]] == [False, True]
+        assert answer["counts"]["opening_balances"] == 1
+    opening = next(c for c in client.get(f"/accounts/{person}")["currencies"])
+    assert opening["opening_balance_transaction_id"] == answer["rows"][1]["transaction_id"]
+    read = read_signed(client, opening["opening_balance_transaction_id"])
+    assert (read["amount_cents"], read["day"]) == (100000, "2026-01-05")
+    assert client.get(f"/categories/{read['category_id']}")["system_key"] == "opening_balance"
+    assert transaction_count(client, person) == 1
+
+
 @SHEET_IMPORT_TYPES_A_NAME
 def test_a_renamed_account_lands_under_its_rename(client, target, scratch):
     n = Names()

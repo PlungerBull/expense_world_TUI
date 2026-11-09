@@ -79,13 +79,7 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-8. **The live contract tests:** `GET /currencies`; a currency left out, single and batch, and
-   `REQUIRED` on a two-currency account; an account-only move into another currency; a currency
-   removal's keys; a whole number one cent past the bound
-   (`OUT_OF_RANGE`, whatever its size) and `1e5000` sent to the engine directly, since the app
-   never sends it, and a cell past the bound in each file; the dry run's notes and `not_covered`; `card-soles-only`
-   left untested and named in the reply (no practice account can take it); a zero-amount `SALDO INICIAL` dated before the opening balance (the
-   Backlog's item closes).
+All done; the acceptance check and the doc sweep follow.
 
 ## Reply to the engine
 

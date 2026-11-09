@@ -12,7 +12,8 @@ What it pins:
 1. A create is `201` and echoes `account_id` and `currency_code`, in the answer, the read of
    the row and the list, for each currency of one account.
 2. `currency_code` missing is `422` `REQUIRED` on an account holding several, an item's on
-   `transactions.<i>.currency_code` (on a one-currency account it is that currency);
+   `transactions.<i>.currency_code`, its message naming the currencies held, and an explicit
+   `null` `INVALID_FORMAT` (on a one-currency account a left-out code is that currency);
    a code the engine does not support (`EUR`, a lower-case `usd`) is `UNSUPPORTED_VALUE`, and
    a supported one the account does not hold (`USD` on a soles-only account, or on one whose
    dollars were removed) is `CURRENCY_NOT_HELD` with the engine's words
@@ -174,21 +175,48 @@ def test_a_create_echoes_the_account_and_the_currency_for_each_currency_of_an_ac
     assert transaction_count(client, account_id) == 2
 
 
-def test_a_currency_missing_is_required_on_a_create_and_on_a_batch_item(client, scratch):
-    """No `currency_code` is `422` `REQUIRED` on it, an item's on
-    `transactions.<i>.currency_code`, nothing written (contract: POST /v1/transactions,
-    "Fields")."""
-    account_id = scratch.account("PEN", "USD")
-    body = scratch.body(account_id)
-    del body["currency_code"]
-    err = _refused_writing_nothing(client, [account_id], partial(_post, client, body))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
+def test_a_currency_left_out_is_the_only_one_the_account_holds(client, scratch):
+    """On an account holding exactly one live currency, soles or dollars, a create and a batch
+    item without `currency_code` are in that currency, and the answer, the read and the list
+    say so (contract: POST /v1/transactions, "Fields")."""
+    for currency in ("PEN", "USD"):
+        account_id = scratch.account(currency)
+        single = scratch.body(account_id, currency=currency)
+        item = scratch.body(account_id, currency=currency)
+        del single["currency_code"], item["currency_code"]
+        assert _post(client, single)["currency_code"] == currency
+        made = _batch(client, [item])["created"][0]
+        assert (made["account_id"], made["currency_code"]) == (account_id, currency)
+        for sent in (single, item):
+            assert client.get(f"/transactions/{sent['id']}")["currency_code"] == currency
+        listed = client.get("/transactions", params={"account_id": account_id})["items"]
+        assert {row["currency_code"] for row in listed} == {currency}
+        assert transaction_count(client, account_id) == 2
 
+
+def test_a_currency_left_out_of_an_account_of_several_names_the_ones_held(client, scratch):
+    """On an account holding soles and dollars, a create without `currency_code` is `REQUIRED`
+    with the message `Must be one of the account's currencies: PEN, USD.`, an item's on
+    `transactions.<i>.currency_code`; an explicit `null` is not an omission but `INVALID_FORMAT`
+    on the same key; nothing is written (contract: POST /v1/transactions, "Fields")."""
+    account_id = scratch.account("PEN", "USD")
+    words = "Must be one of the account's currencies: PEN, USD."
+    omitted = scratch.body(account_id)
+    del omitted["currency_code"]
+    nulled = scratch.body(account_id, currency=None)
     good = scratch.body(account_id)
-    bad = scratch.body(account_id)
-    del bad["currency_code"]
-    err = _refused_writing_nothing(client, [account_id], partial(_batch, client, [good, bad]))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "transactions.1.currency_code", "REQUIRED")
+    for bodies, key, reason in (
+        ([omitted], "currency_code", "REQUIRED"),
+        ([nulled], "currency_code", "INVALID_FORMAT"),
+        ([good, omitted], "transactions.1.currency_code", "REQUIRED"),
+        ([good, nulled], "transactions.1.currency_code", "INVALID_FORMAT"),
+    ):
+        single = len(bodies) == 1
+        call = partial(_post, client, bodies[0]) if single else partial(_batch, client, bodies)
+        err = _refused_writing_nothing(client, [account_id], call)
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
+        if reason == "REQUIRED":
+            assert err.fields[key] == words
 
 
 def test_a_currency_the_engine_does_not_support_is_unsupported_not_unheld(client, scratch):

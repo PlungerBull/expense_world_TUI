@@ -46,6 +46,9 @@ repo is public. Pinned here:
     "Row <place>: Must not be in the future."), and the statement's (`PERIOD_OVERLAPS`, and
     `NO_TRANSACTIONS_ASSIGNED` for a paper of `0.00` rows only).
 
+The dry run's close notes and `not_covered` are pinned beside the apply's, the paper's last day
+being the one a stray line stays flagged on.
+
 `RESERVED_NAME_HELD` is drawn in test_reserved_name_held.py, as the user holding the names.
 The published samples, fetched live, are tested here too: `card` then `card-no-dollars`
 closing one account of soles and dollars, the second closing its dollars with no line, and the
@@ -278,6 +281,53 @@ def test_the_dry_run_shows_the_close_and_the_apply_does_it(client, scratch):
     assert all(r["transaction_id"] is None for r in again["rows"])
     assert again["statement"]["status"] == 2
     assert transaction_count(client, account) == len(after[0])
+
+
+def test_the_dry_run_gives_the_closes_notes_and_not_covered_as_the_apply_does(client, scratch):
+    """On a soles paper for an account of soles and dollars, the dry run's `balances` carry the
+    close's notes for the soles and `not_covered` those of the dollars the statement holds no
+    balances for, both empty (`[]`, `coverage_gap` null) when nothing is flagged. With lines in
+    no statement on the paper's last day, which stays open, the dry run flags them: the soles
+    in `review_lines`, a draft line the paper does not print (`taken_out`) among them, a dollar
+    line in `not_covered`'s; the apply answers the same, its `statement` holding the same notes
+    (contract: POST /v1/statements/import, "Response")."""
+    account, _ = _coded(scratch, "PEN", "USD")
+    scratch.line(account, "2026-03-10", -2590)
+    paper = savings_paper(
+        [PaperRow(date(2026, 3, 10), "COMPRA BODEGA", -2590)], before_cents=10000, **MARCH
+    )
+
+    def notes(entry: dict) -> tuple:
+        return entry["warnings"], entry["coverage_gap"], sorted(entry["review_lines"])
+
+    quiet = send_statement(client, account, paper, dry_run=True)
+    assert [notes(b) for b in quiet["balances"]] == [([], None, [])]
+    assert [(n["currency_code"], *notes(n)) for n in quiet["not_covered"]] == [
+        ("USD", [], None, [])
+    ]
+
+    stray = scratch.row(account, "2026-03-31", -500)["bank_line_id"]
+    stray_usd = scratch.row(account, "2026-03-31", -300, "USD")["bank_line_id"]
+    draft = scratch.statement(account, "2026-03-01", "2026-03-31", "PEN")["id"]
+    held = scratch.row(account, "2026-03-31", -700)
+    scratch.assign(held["id"], draft)
+    before = _ledger(client, account)
+
+    dry = send_statement(client, account, paper, dry_run=True)
+    assert _ledger(client, account) == before
+    assert dry["taken_out"] == [held["bank_line_id"]]
+    assert [notes(b) for b in dry["balances"]] == [
+        ([], None, sorted([stray, held["bank_line_id"]]))
+    ]
+    assert [(n["currency_code"], *notes(n)) for n in dry["not_covered"]] == [
+        ("USD", [], None, [stray_usd])
+    ]
+
+    done = send_statement(client, account, paper, dry_run=False)
+    scratch.took(done)
+    assert (done["balances"], done["not_covered"]) == (dry["balances"], dry["not_covered"])
+    assert [notes(b) for b in done["statement"]["balances"]] == [notes(b) for b in done["balances"]]
+    assert done["statement"]["not_covered"] == done["not_covered"]
 
 
 @LOOSE_LINES_ON_SEALED_DAYS
@@ -679,6 +729,8 @@ def _answer_balances(answer: dict, balances: list[dict]) -> list[dict]:
     ]
 
 
+# The sample `card-soles-only` is not uploaded: a sample goes only to an account numbered `0000`,
+# names are unique, and the one such account, `BCP-0000`, holds dollars, so none can take it.
 def test_the_card_samples_close_one_account_month_after_month(client, scratch, practice_account):
     """`card` then `card-no-dollars`, both currencies of one account closing in turn: the
     second, with no dollar row, closes its dollars with no line, their balances equal
