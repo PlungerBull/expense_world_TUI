@@ -26,7 +26,7 @@ expense/tui/
     header.py       # Breadcrumb + rate_alert(), the `!` both headers share
     cells.py        # cell renderers: swatch, signed amount, code, null glyphs
     windowed.py     # CURSOR_STYLE + WindowedList, the window/cursor/page arithmetic
-    cursor_list.py  # CursorList, list_table(), list_cell(), CursorOptionList (home menu)
+    cursor_list.py  # CursorList, list_table(), list_cell(), waits_for_a_row(), CursorOptionList (home menu)
     checklist.py    # CheckList — a statement's bank lines, one per row
     footer.py       # FittingFooter — every screen's footer (§5)
     picker.py       # suggestion_list() + matching() — the name list under a bar
@@ -89,7 +89,8 @@ stopped, so a read still in flight when its screen is popped or the app quits st
 lands, and painting it then queries widgets already taken down (`NoMatches`).
 `call_while_attached` in [_base.py](../expense/tui/screens/_base.py) runs the hand-back on
 the UI thread only while its node is still in the app, and drops it otherwise; a coroutine
-hand-back asks `still_attached` again after every await. Every thread worker in
+hand-back asks `still_attached` again after every await
+([test_tui_leaving_mid_draw.py](../tests/unit/test_tui_leaving_mid_draw.py)). Every thread worker in
 `expense/tui/` hands back this way, but the app's rate check, which has no screen
 (guard: `test_no_worker_hands_back_raw` in
 [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
@@ -1940,8 +1941,9 @@ statement `esc Back  r Refresh  ? Keys` (`d Delete` leaves too). The `?` card le
 same keys (§4 "App-wide keys are `^q` and `?`"). A list screen's `check_action` answers
 `False`, not `None`, for such a key, because `None` leaves it in the footer dimmed; `None` is
 kept for a key that is off only for a moment (the ledger's `pick` while a bulk write runs). A
-list's own keys follow its `CARD_NEEDS_A_ROW`, one class declaration the card and the footer's
-`check_action` both read (`waits_for_a_row` in [cursor_list.py](../expense/tui/widgets/cursor_list.py)).
+list's own keys follow its `CARD_NEEDS_A_ROW` (`waits_for_a_row` in
+[cursor_list.py](../expense/tui/widgets/cursor_list.py); guard:
+`test_the_footer_and_the_card_agree_on_an_empty_screen` in [test_tui_help.py](../tests/unit/test_tui_help.py)).
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed
