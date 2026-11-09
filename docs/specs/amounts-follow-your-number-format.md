@@ -60,10 +60,7 @@ so it is kept on the account and every client follows it.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-5. **The live contract tests:** the setting saved, read back on `GET /auth/me`, cleared with
-   `null`, an unknown format refused `INVALID_FORMAT` with nothing written, `number_format`
-   refused on `POST /auth/bootstrap`, a timezone sent in small letters read back in its listed
-   spelling, and a reused token id's message.
+All done; the acceptance check, the sweep and the reply follow.
 
 ## Reply to the engine
 
@@ -90,3 +87,7 @@ Not built in this spec; sorted when it is done.
   `test_enter_saves_one_put_with_the_exact_body` starts on the format it ends on, so it proves
   the `null` body but not the switch back; the launch read takes no `verbose`
   (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the base's answer.
+- **Small cleanups in tests/contract/test_number_format_setting.py:** the comment above
+  `CREATED = 1` cites "Response fields" where the numbering lives in "Activity Log", "Action
+  codes"; the cleanup's `except Exception` could catch the expected 404 alone; "mints nothing"
+  is proven for a live token's id but not a revoked one's.
