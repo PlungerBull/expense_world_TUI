@@ -120,7 +120,7 @@ from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, TRANSACTION_RULE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text, difference_cell, operation_cell
 from expense.tui.widgets.checklist import AMOUNT_WIDTH, TITLE_WIDTH, CheckList
-from expense.tui.widgets.cursor_list import CursorList, list_cell
+from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList, list_cell, waits_for_a_row
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching
@@ -489,7 +489,8 @@ class _PanelList(CursorList):
     ]
     #: The `?` card lists these only while `check_action` allows them (help.py).
     CARD_FOLLOWS_CHECK = frozenset({"edit_row", "select", "more", "page"})
-    CARD_NEEDS_A_ROW = frozenset[str]()  # its list keys stay with no row
+    #: Every list key, and `edit_row`, leaves with no row to open or edit.
+    CARD_NEEDS_A_ROW = LIST_KEYS | {"edit_row"}
 
     def _listing_unfiled(self) -> bool:
         try:
@@ -498,6 +499,8 @@ class _PanelList(CursorList):
             return False
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if waits_for_a_row(self, action):
+            return False
         if action == "edit_row":
             return self._listing_unfiled()
         if action == "select" and self._listing_unfiled():
@@ -540,6 +543,8 @@ class StatementsScreen(SectionScreen):
     ]
     #: The `?` card lists these only while `check_action` allows them (help.py).
     CARD_FOLLOWS_CHECK = frozenset({"close_panel", "back", "new", "unfiled", "delete_row"})
+    #: `d` deletes the line under the cursor, so it waits for one (`waits_for_a_row`).
+    CARD_NEEDS_A_ROW = frozenset({"delete_row"})
 
     def __init__(self) -> None:
         super().__init__()
@@ -795,12 +800,18 @@ class StatementsScreen(SectionScreen):
         # the lines in no statement have `⏎ Edit` and `d Delete` of their own, and neither
         # `n` nor `u`
         if action == "delete_row":
-            return self._mode == "unfiled"
+            return self._mode == "unfiled" and not waits_for_a_row(self, action)
         if action == "unfiled":
             return self._open_aid is not None and self._mode != "unfiled"
         if action == "new":
             return self._mode != "unfiled"
         return True
+
+    @property
+    def has_rows(self) -> bool:
+        """Whether the list on screen holds a row: what `CARD_NEEDS_A_ROW` waits for."""
+        shown = self._statement_list if self._mode != "accts" else self._accts_list
+        return shown is not None and shown.is_attached and shown.has_rows
 
     @property
     def active_bindings(self) -> dict[str, ActiveBinding]:

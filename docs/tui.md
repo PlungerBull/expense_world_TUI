@@ -1933,7 +1933,10 @@ footer is the `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)).
 **A key with no row to act on leaves the footer, and returns with the first row.** On an empty
 ledger, Statements account list, Accounts, Categories or Hashtags list the footer is
 `esc Back  r Refresh  ? Keys` and the screen's add key (`+ Add` on the ledger, `n New`
-elsewhere): no `⏎`, no `space`, no key that acts on a row, and the `?` card leaves out the
+elsewhere): no `⏎`, no `space`, no key that acts on a row. The Statements panel keeps its own
+keys and loses only the row ones: an account's empty statements read
+`esc Close the panel  r Refresh  ? Keys  n New  u No statement`, and its empty rows in no
+statement `esc Back  r Refresh  ? Keys` (`d Delete` leaves too). The `?` card leaves out the
 same keys (§4 "App-wide keys are `^q` and `?`"). A list screen's `check_action` answers
 `False`, not `None`, for such a key, because `None` leaves it in the footer dimmed; `None` is
 kept for a key that is off only for a moment (the ledger's `pick` while a bulk write runs). A

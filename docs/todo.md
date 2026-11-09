@@ -65,10 +65,6 @@ CLAUDE.md "Specs and tasks".
 - **No test proves the leave guards** in the base list screen's draw and error steps, the guards
   after taking the content lock, or the statement lines' guard after their list mounts; each could
   be forced to always pass and every test would stay green. Nothing you see changes.
-- **The empty statements panel keeps `⏎ Open` in its footer** (`_PanelList`,
-  `expense/tui/screens/statements.py`), with no row to open; it follows the footer rule
-  ([decisions.md](decisions.md) "The `?` card shows whole, and it and the footer list only keys
-  that work"), so it needs no new pick.
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
   (`expense/tui/screens/transactions.py`) reads the rows read before; the Manage lists drop them.

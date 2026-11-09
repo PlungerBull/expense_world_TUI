@@ -2428,3 +2428,105 @@ def test_the_card_of_the_account_list_lists_no_list_key_with_no_bank_account_and
         ]
 
     run_app(scenario, size=(80, 24))
+
+
+def _panel_footer_and_card(app):
+    """The footer the panel shows now, and the `?` card's keys for its list."""
+    from expense.tui.screens.help import listed_bindings
+    from tests.unit.test_tui_fitting_footer import _footer
+
+    panel = app.screen._statement_list
+    card = {b.key for b in listed_bindings(panel)}
+    card |= {f"screen:{b.key}" for b in listed_bindings(app.screen)}
+    return _footer(app).strip(), card
+
+
+#: unfiled -> (the footer with no row, the footer with rows) at 80 columns
+PANEL_FOOTERS = {
+    False: (
+        "esc Close the panel  r Refresh  ? Keys  n New  u No statement",
+        "⏎ Open  esc Close the panel  r Refresh  ? Keys  n New  u No statement",
+    ),
+    True: (
+        "esc Back  r Refresh  ? Keys",
+        "esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys",
+    ),
+}
+
+
+#: unfiled -> (the card's keys with no row, with rows): the panel's list, then the screen's
+PANEL_CARDS = {
+    False: (
+        {"screen:escape", "screen:n", "screen:question_mark", "screen:r", "screen:u"},
+        {"down", "enter", "space", "up"}
+        | {"screen:escape", "screen:n", "screen:question_mark", "screen:r", "screen:u"},
+    ),
+    True: (
+        {"screen:escape", "screen:question_mark", "screen:r"},
+        {"down", "enter", "space", "up"}
+        | {"screen:d", "screen:escape", "screen:question_mark", "screen:r"},
+    ),
+}
+
+
+@pytest.mark.parametrize("unfiled", [False, True])
+def test_the_panel_without_a_row_keeps_no_key_that_needs_one_and_gets_them_back(
+    monkeypatch, unfiled
+):
+    """Each panel kind (an account's statements, its rows in no statement): empty, the
+    footer and the `?` card drop `⏎` and the list keys; with a row they are listed."""
+    _patch_browse(monkeypatch, items=[])
+    _patch_unfiled(monkeypatch, items=[])
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        if unfiled:
+            await pilot.press("u")
+            await wait_for(pilot, lambda: screen._mode == "unfiled")
+        await wait_for(pilot, lambda: not screen._statement_list.has_rows)
+        await pilot.pause()
+        return _panel_footer_and_card(app)
+
+    empty_footer, empty_card = run_app(scenario, size=(80, 24))
+    assert "⏎" not in empty_footer
+    assert empty_card == PANEL_CARDS[unfiled][0]
+    assert "screen:d" not in empty_card
+    assert empty_footer == PANEL_FOOTERS[unfiled][0]
+
+    if unfiled:
+        _patch_unfiled(monkeypatch)
+    else:
+        _patch_browse(monkeypatch)
+
+    async def with_rows(pilot, app):
+        screen = await _open_panel(pilot, app)
+        if unfiled:
+            await pilot.press("u")
+            await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        await pilot.pause()
+        return _panel_footer_and_card(app)
+
+    footer, card = run_app(with_rows, size=(80, 24))
+    assert footer == PANEL_FOOTERS[unfiled][1]
+    assert card == PANEL_CARDS[unfiled][1]
+
+
+def test_the_screen_has_no_row_while_its_list_is_off_screen_after_a_failed_read(monkeypatch):
+    """A failed refresh swaps the list out; the held reference must not count as a row."""
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = StatementsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert screen.has_rows
+        monkeypatch.setattr(
+            "expense.reads.fetch_accounts",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("engine down")),
+        )
+        await pilot.press("r")
+        await wait_for(pilot, lambda: not screen._accts_list.is_attached)
+        await pilot.pause()
+        assert not screen.has_rows
+
+    run_app(scenario, size=(80, 24))

@@ -1043,7 +1043,7 @@ def test_the_footer_and_the_card_agree_on_an_empty_list_widget():
         widget = widget_class(["A"], [])
         assert not widget.has_rows
         _agree_while_empty(widget)
-    assert _AccountList.CARD_NEEDS_A_ROW and not _PanelList.CARD_NEEDS_A_ROW
+    assert _AccountList.CARD_NEEDS_A_ROW and {"select", "edit_row"} <= _PanelList.CARD_NEEDS_A_ROW
 
 
 @pytest.mark.parametrize(
