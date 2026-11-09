@@ -1320,7 +1320,8 @@ pin the app back to one terminal — guarded by `test_theme_is_ansi_slots_not_he
 the slot picks (pending is `bold`, not yellow): [decisions.md](decisions.md) "The terminal
 supplies the palette".
 
-**Amounts.** Green is money in, the error colour money out. A transaction's or bank line's
+**Amounts.** Every figure shown, and every example amount in a note, is written in the
+session's format ([number_format.py](../expense/number_format.py)). Green is money in, the error colour money out. A transaction's or bank line's
 amount in a list (ledger, LOG bar peek, bank import and statement upload previews, a
 statement's lines, the lines in no statement and their Edit form's heading, the Edit form's
 parts and their count line), and wherever one is named (the question before a delete, a note

@@ -468,6 +468,25 @@ def test_a_double_submit_sends_one_write(fake_client, monkeypatch):
     _open(scenario_steps=steps)
 
 
+@pytest.mark.parametrize(
+    ("comma", "typed", "summary"),
+    [(False, "-42.5", "-42.50"), (True, "-42,5", "-42,50")],
+)
+def test_the_form_shows_and_prefills_its_amount_in_the_number_format(
+    fake_client, monkeypatch, request, comma, typed, summary
+):
+    if comma:
+        request.getfixturevalue("comma_format")
+    _patch(monkeypatch)
+
+    async def steps(screen, pilot, app):
+        _on(screen, "0.amount")
+        assert screen.query_one("#bar", Input).value == typed
+        assert summary in _summary(screen)
+
+    _open(scenario_steps=steps)
+
+
 def test_a_zero_amount_and_an_unknown_account_are_refused_and_stay(fake_client, monkeypatch):
     _patch(monkeypatch)
 

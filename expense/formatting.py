@@ -9,6 +9,7 @@ import re
 from collections.abc import Callable, Hashable, Iterable, Sequence
 
 from expense.currencies import MINOR_UNIT_SCALE
+from expense.number_format import current_format
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
@@ -60,10 +61,13 @@ def format_month(month: dict | None) -> str:
     return "(unknown)"
 
 
-def format_cents(value: object) -> str:
-    """Render an integer-cents amount as grouped major units with 2 decimals.
+def format_cents(value: object, *, grouped: bool = True) -> str:
+    """Render an integer-cents amount as major units with 2 decimals, in the
+    session's number format (`number_format.py`), thousands grouped unless `grouped`
+    is False (an example a person would type).
 
     `651900` → `6,519.00`; `-418797` → `-4,187.97`; `0` → `0.00`; None → `(null)`.
+    These are as written under `1,234.56`; `1.234,56` swaps the two marks.
 
     Integer arithmetic throughout — no float division — so large amounts never
     drift. This is a human-display convenience only; `--json` output stays the
@@ -77,7 +81,9 @@ def format_cents(value: object) -> str:
     negative = number < 0
     cents = -number if negative else number
     major, minor = divmod(cents, MINOR_UNIT_SCALE)
-    body = f"{major:,}.{minor:02d}"
+    marks = current_format()
+    whole = f"{major:,}".replace(",", marks.group) if grouped else str(major)
+    body = f"{whole}{marks.decimal}{minor:02d}"
     return f"-{body}" if negative else body
 
 

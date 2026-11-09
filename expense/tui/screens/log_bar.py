@@ -162,7 +162,12 @@ PEEK_LOADING = "loading…"
 
 #: The marker a written row carries. A saved row is done — it is never re-sent.
 SAVED_GLYPH = "✓"
-EXAMPLE = "e.g.  tottus -38.60 $signature @korakuen #caja hoy"
+
+
+def example_line() -> str:
+    """The LOG bar's example line, its amount in the session's number format."""
+    return f"e.g.  tottus {format_cents(-3860, grouped=False)} $signature @korakuen #caja hoy"
+
 
 #: The legend — the whole grammar in one fixed row under the bar. It never
 #: changes: it describes the grammar, not the moment, and the moment is the
@@ -448,11 +453,11 @@ def staged_table(
                 Text(f"  Nothing staged. {last_save} a moment ago.", style="dim"),
                 Text("  Type a line and press ↵.", style="dim"),
                 Text(""),
-                Text("  " + EXAMPLE, style="dim"),
+                Text("  " + example_line(), style="dim"),
             )
         lines = [Text("  " + line, style="dim") for line in EMPTY_LINES]
         lines.append(Text(""))
-        lines.append(Text("  " + EXAMPLE, style="dim"))
+        lines.append(Text("  " + example_line(), style="dim"))
         return Group(*lines)
     # The title and tags give way, 3:2 as the ledger's Title and Hashtags do
     # (`CursorList(flex=…)`); the other columns take their natural width first.

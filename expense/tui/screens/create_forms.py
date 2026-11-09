@@ -835,9 +835,10 @@ class EditAccountScreen(NewAccountScreen):
             else:
                 cents = parse_amount(text, current_format())
                 if cents is None:
+                    example = format_cents(-35000, grouped=False)
                     toast(
                         self,
-                        f"{code} opening: a signed decimal, e.g. -350.00. {amounts_sentence()}",
+                        f"{code} opening: a signed decimal, e.g. {example}. {amounts_sentence()}",
                         severity="error",
                     )
                     return

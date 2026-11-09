@@ -13,6 +13,7 @@ import pytest
 
 from expense import config as config_module
 from expense import http as http_module
+from expense import number_format
 from tests.unit import helpers
 
 # Loopback stays reachable so a locally-bound helper never trips the guard;
@@ -94,6 +95,22 @@ def _no_read_only_fields_in_requests(monkeypatch):
             "body (422 UNKNOWN_FIELD):\n" + "\n".join(leaks),
             pytrace=False,
         )
+
+
+@pytest.fixture(autouse=True)
+def _default_number_format():
+    """Every test starts and ends on the default number format, so one that sets
+    `1.234,56` (the `comma_format` fixture, or `set_current_format` itself) cannot
+    leak it into another."""
+    number_format.set_current_format(number_format.DEFAULT_FORMAT)
+    yield
+    number_format.set_current_format(number_format.DEFAULT_FORMAT)
+
+
+@pytest.fixture
+def comma_format():
+    """The session reads and shows amounts as `1.234,56` for this test."""
+    number_format.set_current_format(number_format.NumberFormat.COMMA_DECIMAL)
 
 
 @pytest.fixture(autouse=True)

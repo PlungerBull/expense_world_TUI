@@ -47,13 +47,9 @@ so it is kept on the account and every client follows it.
 
 ## Tasks
 
-Approved. Tasks 2 and 3 need no engine change; 4 and 5 wait on the engine ask "A user's
+Approved. Task 3 needs no engine change; 4 and 5 wait on the engine ask "A user's
 settings hold their number format".
 
-2. **Every shown amount follows the format.** `format_cents`, `format_cents_with_plus` and
-   `amount_to_text` write the session's format, read from one place; a form opened to edit shows
-   its amount in it, and every note's example amount (`e.g. -350.00`, `e.g. 9580.00`) is written
-   in it. Unit tests render a list, Home and a form under each format.
 3. **The Mac's region gives the format until one is picked** (question 1). The region's decimal
    mark decides; when it cannot be read, `1,234.56`. The unit suite pins the format, so no test
    depends on the machine's region.

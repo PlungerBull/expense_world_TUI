@@ -7,7 +7,7 @@ line, and the staged-row round trip needs to write one back into it.
 import re
 
 from expense.currencies import MINOR_UNIT_SCALE
-from expense.number_format import NumberFormat
+from expense.number_format import NumberFormat, current_format
 
 
 def _plain_number(number_format: NumberFormat) -> re.Pattern[str]:
@@ -51,8 +51,9 @@ def parse_amount(text: str, number_format: NumberFormat) -> int | None:
 
 
 def amount_to_text(cents: int) -> str:
-    """Cents → an editable decimal string (no grouping): -9992 → '-99.92'."""
+    """Cents → an editable decimal string (no grouping) in the session's format:
+    -9992 → '-99.92', or '-99,92' under `1.234,56`. `parse_amount` reads it back."""
     major, minor = divmod(abs(cents), MINOR_UNIT_SCALE)
     sign = "-" if cents < 0 else ""
-    fraction = f".{minor:02d}".rstrip("0") if minor else ""
+    fraction = f"{current_format().decimal}{minor:02d}".rstrip("0") if minor else ""
     return f"{sign}{major}{fraction}"

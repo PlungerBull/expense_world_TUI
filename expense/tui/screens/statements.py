@@ -1147,12 +1147,17 @@ _STATEMENT_LABELS = {
     "date_start": "DATE START",
     "date_end": "DATE END",
 }
-#: The begin balance hint's second line, on every begin field: a statement holding
-#: the account's opening balance begins at 0.00, as the engine sums every assigned
-#: transaction, that line included, into the account's add-up check
-#: (contract: "Statements", "`difference_cents` — the add-up check").
-#: The hint widget lays out one line per `\n`.
-_OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
+
+
+def _opening_note() -> str:
+    """The begin balance hint's second line, on every begin field: a statement holding
+    the account's opening balance begins at zero, as the engine sums every assigned
+    transaction, that line included, into the account's add-up check
+    (contract: "Statements", "`difference_cents` — the add-up check").
+    The hint widget lays out one line per `\n`."""
+    return f"{format_cents(0)} if it holds the account's opening balance, which already counts it"
+
+
 _R_HINTS = {
     "name": "e.g. “April 2026” · enter to go on",
     "account": "pick a bank account · ↑↓ highlight · enter select",
@@ -1172,7 +1177,7 @@ def unreadable_note(kind: str, code: str) -> str:
     its currency like the form's line label, then the format: `Begin balance USD: a
     signed decimal, e.g. 9580.00. Amounts are 1,234.56.` The New statement form and
     the statement screen's balance boxes share it."""
-    example = "9580.00" if kind == "begin" else "9460.00"
+    example = format_cents(958000 if kind == "begin" else 946000, grouped=False)
     head = f"{kind.capitalize()} balance {code}: a signed decimal, e.g. {example}."
     return f"{head} {amounts_sentence()}"
 
@@ -1274,7 +1279,7 @@ class NewStatementScreen(FormScreen):
         if kind == "begin":
             return (
                 f"signed decimal · the statement's opening balance in {code} · optional"
-                f"\n{_OPENING_NOTE}"
+                f"\n{_opening_note()}"
             )
         hint = "signed decimal · statement's closing balance · optional"
         return f"{hint} · enter saves" if not self._goes_on(key) else hint
@@ -2165,7 +2170,7 @@ class StatementScreen(
             return
         (currency, kind), rest = asks[0], asks[1:]
         acct = self._acct_name or resolve_name(self._account_id, {})
-        where = f"{acct},\nin {currency} · signed · e.g. 13,853.20"
+        where = f"{acct},\nin {currency} · signed · e.g. {format_cents(1385320)}"
         if kind == "beginning":
             title, message, unreadable = (
                 "Starting balance first",
