@@ -449,6 +449,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             return
         if not self._keep_bar() or not self._required_met():
             return
+        self._send_save()
+
+    def _send_save(self) -> None:
+        """Send the save: the form's request, as `action_submit` does once its checks pass
+        (and a form that asks a question first, once it is answered)."""
         request = self._submit_request()
         if request is None:
             return

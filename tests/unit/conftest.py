@@ -211,7 +211,8 @@ def _engine_banks(monkeypatch):
     """Manage ▸ Accounts lists the engine's banks (`reads.fetch_bank_codes`)
     (contract: GET /v1/banks) for its New form: every test gets BCP, as `FakeClient` has
     no answer for `/banks`. A test of the picker patches `expense.reads.fetch_bank_codes`
-    itself; the read is tested in test_banks.py through respx."""
+    itself; the read is tested in `test_the_bank_codes_are_the_engines_list_in_its_order`
+    (test_tui_new_account.py) through respx."""
     monkeypatch.setattr(
         "expense.reads.fetch_bank_codes", lambda cfg, **kw: list(helpers.ENGINE_BANKS)
     )

@@ -154,100 +154,12 @@ class LeftBehind:
     (`EngineWriteMixin`): `first_line` is a refusal's first line, what did not
     happen; `note` ends that refusal with one more line, dim: a string, or a function
     of the failure (None: no line); `success_from` makes the success words of the
-    engine's answer, where they depend on it (None from it: a success that shows nothing);
-    `part` makes the write one of several
-    that a `SaveReport` reports as one message, in place of its own. Touches no widget."""
+    engine's answer, where they depend on it (None from it: a success that shows nothing).
+    Touches no widget."""
 
     first_line: str
     note: "str | Callable[[Exception | None], str | None] | None" = None
     success_from: Callable[[dict], str | None] | None = None
-    part: "ReportedPart | None" = None  # set: the write is one part of a `SaveReport`
-
-
-class SaveReport:
-    """One message for a save that is several writes, shown when the last answers after
-    its screen has left. Each write is a `part` (`SaveReport.part`, its `LeftBehind.part`)
-    and each answer, from before the screen left or after, is recorded in the order sent.
-    Saved whole, the message is `saved`; else an error toast of 10 seconds, titled
-    `all_refused` when every part was refused and `some_refused` when not, one line per
-    part (its words, then the engine's words under a refused one), and a dim last line
-    from `closing`, given each refused part's `name` and the failure that refused it
-    (None from it: no last line). Touches no widget."""
-
-    def __init__(
-        self,
-        parts: int,
-        some_refused: str,
-        all_refused: str,
-        closing: Callable[[list[tuple[str, Exception | None]]], str | None],
-        saved: str = "Saved.",
-    ) -> None:
-        self.parts = parts
-        self._titles = (some_refused, all_refused)
-        self._closing = closing
-        self._saved = saved
-        self._answers: list[tuple[ReportedPart, str | None, Exception | None]] = []
-
-    def part(self, name: str, saved: str, refused: str) -> "ReportedPart":
-        """A write of this save: `name` is what a refusal leaves to do again, `saved` and
-        `refused` the lines for its two endings."""
-        return ReportedPart(self, name, saved, refused)
-
-    @property
-    def complete(self) -> bool:
-        return len(self._answers) >= self.parts
-
-    @property
-    def landed(self) -> bool:
-        """At least one part was saved."""
-        return any(error is None for _, error, _ in self._answers)
-
-    @property
-    def failures(self) -> list[Exception | None]:
-        """The failure of each part that did not save."""
-        return [failure for _, error, failure in self._answers if error is not None]
-
-    def record(self, part: "ReportedPart", error: str | None, failure: Exception | None) -> None:
-        """One write's answer: None when it was saved, else the engine's words and its failure."""
-        self._answers.append((part, error, failure))
-
-    def show(self, app: "App") -> None:
-        refused = [
-            (part.name, failure) for part, error, failure in self._answers if error is not None
-        ]
-        if not refused:
-            toast(app, self._saved)
-            return
-        lines: list[tuple[str, str]] = []
-        for part, error, _ in self._answers:
-            if error is None:
-                lines.append((part.saved, ""))
-            else:
-                lines += [(part.refused, ""), (error, "")]
-        closing = self._closing(refused)
-        if closing is not None:
-            lines.append((closing, "dim"))
-        app.notify(
-            as_markup(lines),
-            title=self._titles[len(refused) == self.parts],
-            severity="error",
-            timeout=10,
-            markup=True,
-        )
-
-
-@dataclass(frozen=True)
-class ReportedPart:
-    """One write of a `SaveReport`; `record` is called with its answer: None when it
-    was saved, else the engine's words and the failure they came from."""
-
-    report: SaveReport
-    name: str
-    saved: str
-    refused: str
-
-    def record(self, error: str | None, failure: Exception | None = None) -> None:
-        self.report.record(self, error, failure)
 
 
 @dataclass
@@ -294,7 +206,7 @@ def pending_writes(app: "App") -> int:
     """The one count of the saves on this app that are sent and not answered, or waiting
     to be sent, across every screen, left ones included (`EngineWriteMixin.saves_pending`),
     and the runs that joined through `counted_save`. A save of several writes (a
-    `SaveReport`, a batch, a run of PUTs) counts once."""
+    batch, a run of PUTs) counts once."""
     saves: set[int] = set()
     for screen in list(app_writers(app)):
         saves.update(id(save) for save in screen.saves_pending())
@@ -328,8 +240,7 @@ class EngineWriteMixin:
     would have resynced is gone). Textual refuses to start a worker of an
     unmounted node, so those sends run as thread workers of the *app*
     (`App.run_worker`, same `engine-write` group); the queue itself is plain
-    state on the screen object, which outlives its mount. Writes that are parts of a
-    `SaveReport` show no message of their own: the report's, when the last answers. A write with no
+    state on the screen object, which outlives its mount. A write with no
     `left_behind` is dropped when its answer lands after the screen has left,
     and nothing queued behind it is sent.
     """
@@ -391,9 +302,8 @@ class EngineWriteMixin:
 
     def saves_pending(self) -> list[object]:
         """What this screen has sent and not had answered, or has queued: one entry per
-        write, or one per `SaveReport` for the writes that are its parts. On a screen
-        that has left, only the writes carrying a `LeftBehind` count, up to the first
-        that does not: it and every write behind it are dropped."""
+        write. On a screen that has left, only the writes carrying a `LeftBehind` count, up to
+        the first that does not: it and every write behind it are dropped."""
         writes = self.writes_unanswered()
         if not (self.is_attached and not self._pruning):  # type: ignore[attr-defined]
             kept = []
@@ -402,9 +312,7 @@ class EngineWriteMixin:
                     break
                 kept.append(write)
             writes = kept
-        return [
-            w.left_behind.part.report if w.left_behind and w.left_behind.part else w for w in writes
-        ]
+        return list(writes)
 
     def dismiss(self, result: Any = None) -> Any:
         """Close this screen; while the quit question is on top, once it is answered."""
@@ -495,12 +403,6 @@ class EngineWriteMixin:
         self._write_current = None
         behind = item.left_behind
         assert behind is not None  # only a write that opted in is finished here
-        if behind.part is not None:  # one message for the whole save, at its last answer
-            behind.part.record(error, failure)
-            if behind.part.report.complete:
-                behind.part.report.show(app)
-            self._send_next_after_leaving(app)
-            return
         note = behind.note
         if callable(note):
             note = note(failure)

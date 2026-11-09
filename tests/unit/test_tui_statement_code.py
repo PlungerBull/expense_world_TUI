@@ -229,19 +229,16 @@ def test_edit_opens_holding_the_code_and_unchanged_does_not_send_it(fake_client)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
-        await pilot.press("enter")  # NAME kept
-        await pilot.pause()
-        assert screen._key == "statement_code"
+        assert screen._key == "statement_code"  # a bank account has no NAME line
         assert _bar(screen).value == "SGI"
         assert _hint(screen) == EDIT_HINT
         assert "statement code SGI" in _summary(screen)
         await pilot.press("enter")  # the code kept
-        _on(screen, "name")
-        await pilot.press("end", *" 2", "enter")  # a name change, so the save sends
+        _type(screen, "color", "green")  # a colour change, so the save sends
         await _save(pilot, screen, fake_client)
 
     run_app(scenario)
-    assert fake_client.puts == [("/accounts/acc-sig", {"name": "Signature Soles 2"})]
+    assert fake_client.puts == [("/accounts/acc-sig", {"color": "#5ab87a"})]
 
 
 def test_edit_a_changed_code_is_sent(fake_client):
@@ -254,9 +251,7 @@ def test_edit_a_changed_code_is_sent(fake_client):
         await _save(pilot, screen, fake_client)
 
     run_app(scenario)
-    assert fake_client.puts == [
-        ("/accounts/acc-sig", {"name": "Signature Soles", "statement_code": "SIG"})
-    ]
+    assert fake_client.puts == [("/accounts/acc-sig", {"statement_code": "SIG"})]
 
 
 def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
@@ -270,9 +265,7 @@ def test_edit_a_code_given_to_an_account_without_one_is_sent(fake_client):
         await _save(pilot, screen, fake_client)
 
     run_app(scenario)
-    assert fake_client.puts == [
-        ("/accounts/acc-sue", {"name": "Sueldo Soles", "statement_code": "PEN"})
-    ]
+    assert fake_client.puts == [("/accounts/acc-sue", {"statement_code": "PEN"})]
 
 
 def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
@@ -292,9 +285,7 @@ def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
 
     run_app(scenario)
     assert asked == []
-    assert fake_client.puts == [
-        ("/accounts/acc-sig", {"name": "Signature Soles", "statement_code": None})
-    ]
+    assert fake_client.puts == [("/accounts/acc-sig", {"statement_code": None})]
 
 
 def _type(screen, key, text):
@@ -305,12 +296,11 @@ def _type(screen, key, text):
     screen.on_input_submitted(None)
 
 
-def test_edit_name_colour_and_code_go_in_one_put(fake_client):
+def test_edit_colour_and_code_go_in_one_put(fake_client):
     screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
-        _type(screen, "name", "Signature")
         _type(screen, "statement_code", "SIG")
         _type(screen, "color", "green")
         await _save(pilot, screen, fake_client)
@@ -320,17 +310,16 @@ def test_edit_name_colour_and_code_go_in_one_put(fake_client):
         (
             "PUT",
             "/accounts/acc-sig",
-            {"name": "Signature", "color": "#5ab87a", "statement_code": "SIG"},
+            {"color": "#5ab87a", "statement_code": "SIG"},
         )
     ]
 
 
-def test_edit_an_emptied_code_rides_in_the_same_put_as_the_name_and_colour(fake_client):
+def test_edit_an_emptied_code_rides_in_the_same_put_as_the_colour(fake_client):
     screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
-        _type(screen, "name", "Signature")
         _type(screen, "statement_code", "")
         _type(screen, "color", "green")
         await _save(pilot, screen, fake_client)
@@ -340,7 +329,7 @@ def test_edit_an_emptied_code_rides_in_the_same_put_as_the_name_and_colour(fake_
         (
             "PUT",
             "/accounts/acc-sig",
-            {"name": "Signature", "color": "#5ab87a", "statement_code": None},
+            {"color": "#5ab87a", "statement_code": None},
         )
     ]
 
@@ -387,7 +376,7 @@ def test_a_taken_code_on_edit_shows_the_engines_words_alone(fake_client):
         await _open(pilot, app, screen)
         _on(screen, "statement_code")
         await pilot.press(*"SIG", "enter")
-        _on(screen, "name")
+        _on(screen, "color")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
@@ -439,7 +428,7 @@ def test_other_code_refusals_keep_the_engines_words_alone(fake_client, refusal):
         await _open(pilot, app, screen)
         _on(screen, "statement_code")
         await pilot.press(*"S1G", "enter")
-        _on(screen, "name")
+        _on(screen, "color")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()

@@ -236,8 +236,8 @@ def test_writes_dropped_with_a_left_screen_are_not_counted(fake_client, monkeypa
     assert seen == [0, True]
 
 
-def test_a_save_of_several_writes_counts_once(fake_client, monkeypatch):
-    """The account Edit form's account write and two opening balances are one save."""
+def test_the_account_edit_forms_save_with_opening_balances_counts_once(fake_client, monkeypatch):
+    """The account Edit form's one write, two opening balances in it, is one save."""
     seen = []
 
     async def ask(pilot, app):

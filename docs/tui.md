@@ -110,19 +110,15 @@ The writes that carry one, each naming its words where it is sent:
 
 - **Manage ▸ Accounts' `a`, `t`, `c` and `x`, every Manage list's `d`, `d` on the ledger, the
   "no statement" list and the flagged lines, and `b` on Auth & profile.**
-- **The New and Edit forms of Manage ▸ Hashtags and Categories, and New account:** `Not
-  created · Category Ropa`, `Not saved · Hashtag #viaje` (the name its list showed before the
-  edit); a refusal ends, dim, `Nothing was saved: open it again to fix it.`, except under a
-  5xx or when the engine did not answer (`open_it_again`).
+- **The New and Edit forms of Manage ▸ Hashtags and Categories, New account and the account
+  Edit form:** `Not created · Category Ropa`, `Not saved · Hashtag #viaje`, `Not saved ·
+  Account BCP-5678` (the name its list showed before the edit; `Person` for a person); a
+  refusal ends, dim, `Nothing was saved: open it again to fix it.`, except under a 5xx or when
+  the engine did not answer (`open_it_again`).
 - **A line's Edit forms** (`EditFormScreen`, `BankLineEditFormScreen`): `Not saved · <title> ·
   <amount>`; success says `Saved.` or `Saved. It left its statement.`, as the form would
   (`saved_words`); a refusal shows the words the form shows under its parts, ending with the
   same dim line (the same rule).
-- **The account Edit form** says its whole save, several writes, in one message at the last
-  answer (`SaveReport`): `Saved.`, or an error toast titled `Not all saved · Account <name>`
-  (`Not saved · …` when every write was refused), a line per write with the engine's words
-  under a refused one, then, dim, what is left to set again (`Open the account's Edit form to
-  set PEN again.`), naming only the writes refused clearly, by the same rule; none, no line.
 - **A statement's writes:** New statement (`Not created · Statement <name>`, the name as
   typed; a refusal ends with the same dim line, by the same rule), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
   shows nothing), `u` (`Not reverted · Statement <name>`), `d` (`Not deleted · Statement
@@ -139,9 +135,8 @@ The writes that carry one, each naming its words where it is sent:
 
 When such a write ends while the screen shown is the one it changed, that screen reads
 again: a Manage form's list from its first page, cursor on row 1, after a save that landed or
-whose ending is not known (a 5xx, no answer: `may_have_landed`), never after a clear refusal
-(the account Edit form's once, at its last answer, if any of its writes landed or ended
-unknown); the screen that opened a line's Edit form, as after any save; the Statements
+whose ending is not known (a 5xx, no answer: `may_have_landed`), never after a clear refusal;
+the screen that opened a line's Edit form, as after any save; the Statements
 screen, a new statement opening that account's panel on it, and after the last tick too,
 however it ended.
 
@@ -150,7 +145,7 @@ any screen, a left one included, sent and not answered or waiting to be sent, as
 through the confirm modal: `2 saves are still being sent. Quit anyway?` over `If you quit
 now, no screen will tell you whether they were saved.` (`1 save … it was saved.`). Only `y`
 quits; any other answer leaves the app running and each save still ends as above. With none,
-quitting is immediate. What counts, a save of several writes (the account Edit form's, the
+quitting is immediate. What counts, a save of several writes (the
 LOG bar's `ctrl+s` batch, a ledger bulk key, an import's apply) once, is `pending_writes` and
 `counted_save` in [_base.py](../expense/tui/screens/_base.py); a screen that finishes under
 the question closes once it is answered (`after_quit_question` in
@@ -1060,7 +1055,7 @@ show alone.
 | `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
 | `IN_LIVE_STATEMENT` on `currency_code` | `x` on Manage ▸ Accounts, on a currency a live statement holds | none: the engine's words alone |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save, `c` or an opening balance) | `c` and `x` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); an opening balance saved on an archived account's Edit form (contract: POST /v1/accounts/{account_id}/opening-balance); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save, `c` or an opening balance) | `c` and `x` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); an opening balance saved on an archived account's Edit form, keyed `opening_balances.<code>` for every code sent (contract: PUT /v1/accounts/{account_id}, "Keys"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
 | `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
@@ -1077,7 +1072,7 @@ show alone.
 | `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
-| `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
+| `OPENING_BALANCE_EXISTS` on `opening_balances.<code>` | saving an opening balance on the account's Edit form (contract: PUT /v1/accounts/{account_id}, "Sent at the same moment") | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a statement's screen | `Press u to revert it, then d again.` |
 | `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
@@ -1237,14 +1232,13 @@ has no such line.
   digit, a missing letter or a fourth one comes back refused in its words.
 - **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
   is left out of the body, never sent as `null` (contract: POST /v1/accounts).
-- **On Edit,** the line opens holding the account's code. The account's own changes go in
-  one `PUT /accounts/{id}`: `name`, `color` when it is not the account's own, and
-  `statement_code` only when it differs from the account's own, `null` when the line was
-  emptied, which clears the code with no question: nothing is lost, since typing the code
-  again brings every statement line back
-  (contract: PUT /v1/accounts/{account_id}, "`statement_code`").
-  The body holds no currency; an opening balance goes in its own request after it ("An
-  account's opening balance lives on its Edit form" below).
+- **On Edit,** the line opens holding the account's code. The account's one `PUT
+  /accounts/{id}` carries `color` when it is not the account's own, and `statement_code` only
+  when it differs from the account's own, `null` when the line was emptied, which clears the
+  code with no question: nothing is lost, since typing the code again brings every statement
+  line back (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). The body holds no
+  currency; the opening balances ride in it ("An account's opening balance lives on its Edit
+  form" below).
 - **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
   line with what was typed, on New and Edit.
 
@@ -1256,7 +1250,9 @@ lines per currency after `color`, in the engine's order of the account's currenc
 **`PEN opening`**, the amount, and **`PEN as of`**, its day, then **`USD opening`** and
 **`USD as of`**; the bar reads `PEN OPENING`. There is no title line; the engine names the
 row. A person's form has the pairs, as a bank account's does, and its opening balances are
-written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
+written the same way. A bank account's form has no `name` line, since its name is the
+engine's and a `name` sent for it is refused (contract: PUT /v1/accounts/{account_id}); a
+person's `name` opens holding its name.
 
 - **The amount is signed and taken as typed**, in its line's currency; the app never adds or
   flips a sign. No hint sits under an `opening` line; on the bar's right a word follows what
@@ -1275,29 +1271,30 @@ written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
   A save waits for those reads, saying `The PEN opening balance is still loading.` (the first
   currency still loading, in the form's order); a read that fails shows its "Failed" note and
   leaves that currency's pair read-only, so the rest still saves.
-- **A save sends, in order:** the account's own changes (`PUT /accounts/{id}`), then one write
-  per currency whose pair changed, in the pairs' order — `POST /accounts/{id}/opening-balance`
-  with a client `transaction_id`, that currency's `currency_code`, the signed `amount_cents`
-  and the `date` when it has none; a `PUT /transactions/{id}` of only the changed amount or
-  date when it has one. A currency left as it was sends nothing. The account write goes when
-  the account changed, or when no opening balance has anything to send.
-- **Emptying the amount of an existing one and saving deletes it**, after `ConfirmModal` asks
+- **A save is one `PUT /accounts/{id}`**, all or nothing
+  (contract: PUT /v1/accounts/{account_id}, "`opening_balances`"). It carries the account's
+  own fields only when changed (a person's `name`, `color`, `statement_code`), and
+  `opening_balances`, keyed by currency code, only for the currencies whose pair changed: a
+  currency with none gets a set (a client `transaction_id`, the signed `amount_cents`, the
+  `date`); one that has it gets a change of only the amount or date that changed, never
+  `transaction_id`; one whose amount was emptied gets `null`. Nothing changed sends `{}`,
+  which the engine answers unchanged.
+- **Emptying the amount of an existing one and saving clears it**, after `ConfirmModal` asks
   `Delete this opening balance?` over the form (`Sueldo Soles · PEN · 3,200.00 · 2026-01-01` ·
   `It leaves the account's balance, and no screen can bring it back.`); emptying two asks once,
   `Delete these opening balances?`, a line per currency, then `They leave the account's
-  balance, and no screen can bring them back.` Only `y` sends the account's changes and
-  `DELETE /transactions/{id}` for each; `⏎`, `n` and `esc` go back to the form with nothing
-  saved.
+  balance, and no screen can bring them back.` Only `y` sends the one `PUT`; `⏎`, `n` and
+  `esc` go back to the form with nothing sent.
 - **A refusal** shows the "Failed" note in the engine's words, with the line saying what to
-  do when it has one (`format_error`), and leaves the form open with what was typed. A refusal
-  stops the writes behind it (`EngineWriteMixin`). The cursor goes on the line the refusal
-  names: a name, statement code or colour on its own line; an opening balance's refusal on its
-  currency's lines, a date on its `as of` and anything else on its `opening`, so the cursor
-  always says whose it was. When the account saved and an opening balance was refused, the
-  note says so: `The account's changes are saved. The PEN opening balance is not:` (the refused
-  write's own currency), the engine's words, then `It is still in the form: fix it and save
-  again.`, or, for a refusal with a line of its own ("When the engine says no" above), that
-  line instead. The next save sends only what is still unsaved; `esc` just leaves.
+  do when it has one (`format_error`), and leaves the form open with what was typed; nothing
+  was saved, and the next save sends the whole body again, a set with a new `transaction_id`.
+  The cursor goes on the line the key names: a person's `name`, the statement code or colour on
+  its own line; `opening_balances.<code>.date` on that currency's `as of`, and any other
+  `opening_balances.<code>` key (`amount_cents`, `title`, `transaction_id`, `category_id`, or the
+  whole entry) on its `opening`. When the engine names several codes (`ACCOUNT_ARCHIVED` names
+  every one sent), the cursor goes to the first in the form's order and the note shows the
+  engine's words whole. `user_settings` (`SETTINGS_MISSING`) names no line: a note, the cursor
+  stays. `esc` just leaves.
 - **Saved,** the form closes with `Saved.` and the account list reads again from its first
   page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
   this way: one that wrote dismisses with `True` and the list starts over; one closed with

@@ -120,7 +120,6 @@ def _edit_two_currency_account(fake_client, monkeypatch, key):
         await pilot.press("e")
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
         await wait_for(pilot, lambda: not app.screen._openings_loading)
-        seen["name"] = app.screen._values["name"]
         seen["sequence"] = app.screen._sequence()
         seen["opening_ids"] = {c: o.id for c, o in app.screen._openings.items()}
         await pilot.press(key)
@@ -140,7 +139,7 @@ def test_e_edits_the_account_with_every_currencys_pair_and_a_cancel_keeps_the_ro
     pair of opening lines per currency, as the engine lists them, each with its
     own opening balance."""
     seen = _edit_two_currency_account(fake_client, monkeypatch, "escape")
-    assert seen["name"] == "Visa" and seen["cursor"] == "visa"
+    assert "name" not in seen["sequence"] and seen["cursor"] == "visa"  # a bank account: no NAME
     assert fake_client.calls == []
     assert seen["sequence"][-4:] == ["opening:PEN", "as_of:PEN", "opening:USD", "as_of:USD"]
     assert seen["opening_ids"] == {"PEN": "tx-pen", "USD": "tx-usd"}
@@ -149,7 +148,7 @@ def test_e_edits_the_account_with_every_currencys_pair_and_a_cancel_keeps_the_ro
 
 def test_e_on_a_two_currency_account_saves_it_by_its_id(fake_client, monkeypatch):
     _edit_two_currency_account(fake_client, monkeypatch, "ctrl+s")
-    assert "/accounts/visa" in dict(fake_client.puts)
+    assert fake_client.puts == [("/accounts/visa", {})]
 
 
 def test_unarchive_is_direct(fake_client, monkeypatch):
@@ -214,7 +213,7 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
     assert ("POST", "/accounts/a22/archive") in fake_client.requests
 
 
-def test_edit_prefills_and_puts(fake_client, monkeypatch):
+def test_edit_prefills_and_sends_nothing_unchanged(fake_client, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ACCOUNT]))
 
     async def scenario(pilot, app):
@@ -228,8 +227,7 @@ def test_edit_prefills_and_puts(fake_client, monkeypatch):
     run_app(scenario)
     puts = dict(fake_client.puts)
     assert "/accounts/a1" in puts
-    assert puts["/accounts/a1"]["name"] == "BCP"  # prefilled name round-trips
-    assert "currency_code" not in puts["/accounts/a1"]  # currency is immutable
+    assert puts["/accounts/a1"] == {}  # nothing changed: the bank account's name is not sent
 
 
 def test_categories_have_no_archive_action(fake_client, monkeypatch):

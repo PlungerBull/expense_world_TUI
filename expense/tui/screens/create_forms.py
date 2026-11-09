@@ -19,24 +19,21 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 from textual import work
-from textual.widgets import Input, Static
+from textual.widgets import Input
 
 from expense import reads
 from expense.dates import is_calendar_day, to_canonical_aware
-from expense.errors import EngineError, format_error, key_field, key_index, next_step
+from expense.errors import EngineError, format_error, key_field, key_index
 from expense.formatting import format_cents
 from expense.number_format import amounts_sentence, current_format
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.tui.screens._base import (
-    LeftBehind,
-    ReportedPart,
     ResourceListScreen,
-    SaveReport,
     call_while_attached,
     not_done_line,
     screen_fetch_kwargs,
 )
-from expense.tui.screens._form import FormScreen, form_bindings, may_have_landed, open_it_again
+from expense.tui.screens._form import FormScreen, form_bindings, may_have_landed
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_text
@@ -84,8 +81,6 @@ _REFUSED_LINES = {
     "name": "name",
     "color": "color",
     "currencies": "currencies",
-    "amount_cents": "opening",
-    "date": "as_of",
     "statement_code": "statement_code",
 }
 
@@ -398,7 +393,7 @@ class _OpeningBalance:
 
 def opening_balance_body(cents: int, day: str) -> dict:
     """An opening balance's body, the one shape `POST /accounts` (inside a currency's entry)
-    and `POST /accounts/{id}/opening-balance` share: a fresh `transaction_id`, the signed
+    and `PUT /accounts/{id}` (a currency's set) share: a fresh `transaction_id`, the signed
     amount as typed, and the day in its wire form. The title is left out, so the engine
     names the row (contract: POST /v1/accounts, "Optional")."""
     return {
@@ -475,14 +470,18 @@ class NewAccountScreen(BarFormScreen):
             _field_with_choices(f, offered[f.key]) if f.key in offered else f for f in self.FIELDS
         ]
         self._values["type"] = "bank"
-        self._refusal_says_next = False  # the last refusal carried its own next step
 
     @property
     def _is_person(self) -> bool:
         return self._values.get("type") == "person"
 
+    def _identity_lines(self) -> list[str]:
+        """The lines after TYPE that name the account: a person's NAME, a bank account's
+        BANK and LAST 4."""
+        return ["name"] if self._is_person else ["bank", "last4"]
+
     def _sequence(self) -> list[str]:
-        who = ["name"] if self._is_person else ["bank", "last4"]
+        who = self._identity_lines()
         code = [] if self._is_person else ["statement_code"]
         pairs = [
             _pair_key(line, currency)
@@ -629,11 +628,10 @@ class NewAccountScreen(BarFormScreen):
             )
         return entry
 
-    def _line_named(self, field: object, currency: str | None) -> str | None:
+    def _line_named(self, field: object) -> str | None:
         """The form line a refusal's `field` names: `_REFUSED_LINES`', and for a key under
         `currencies`, CURRENCIES, or a currency's pair line when it names that currency's
-        opening balance: `date` is its `as of` line, any other part its `opening` line.
-        `currency` is the currency whose own write was refused (Edit's), None otherwise."""
+        opening balance: `date` is its `as of` line, any other part its `opening` line."""
         index = key_index(field, "currencies")
         if index is None:
             return _REFUSED_LINES.get(str(field))
@@ -644,30 +642,20 @@ class NewAccountScreen(BarFormScreen):
             return _pair_key(line, codes[index])
         return "currencies"
 
-    def _refusal_text(self, exc: Exception, currency: str | None = None) -> str:
-        """The `error_text` of this form's writes: notes the form line the
-        refusal names, for the failure callback to land on, then reads as every
-        failed write does."""
+    def _refusal_text(self, exc: Exception) -> str:
+        """The `error_text` of this form's writes: notes the form line the refusal
+        names, for the failure callback to land on (the first in the form's order when
+        it names several), then reads as every failed write does."""
         self._refused_line = None
-        self._refusal_says_next = next_step(exc) is not None
         if isinstance(exc, EngineError):
-            for field in [*(exc.reasons or {}), *(exc.fields or {})]:
-                line = self._line_named(field, currency)
-                if line in self._sequence() and line not in self._locked:
-                    self._refused_line = line
-                    break
+            sequence = self._sequence()
+            named = (
+                self._line_named(field) for field in [*(exc.reasons or {}), *(exc.fields or {})]
+            )
+            lines = [line for line in named if line in sequence and line not in self._locked]
+            if lines:
+                self._refused_line = min(lines, key=sequence.index)
         return format_error(exc)
-
-
-def _set_again(refused: list[tuple[str, Exception | None]]) -> str | None:
-    """The last line of a save's refusal message: what to set again, in the order sent.
-    Only the parts refused clearly (`open_it_again`) are named, since any other may have
-    landed; None when there are none."""
-    clear = [name for name, failure in refused if open_it_again(failure) is not None]
-    if not clear:
-        return None
-    names = f"{', '.join(clear[:-1])} and {clear[-1]}" if len(clear) > 1 else clear[0]
-    return f"Open the account's Edit form to set {names} again."
 
 
 def _edit_payload(values: dict, original_color: str | None) -> dict:
@@ -772,20 +760,15 @@ class EditAccountScreen(NewAccountScreen):
     The form opens on the account. CURRENCIES lists the currencies it holds,
     read-only, in the engine's order (contract: "Bank Accounts",
     "Per-currency order"), and the form ends with a pair of optional lines per
-    currency after COLOR, each named by its currency: `PEN opening` (the signed
+    currency after COLOR, built as New's are: `PEN opening` (the signed
     amount, taken as typed) and `PEN as of` (its day), then `USD opening` and
     `USD as of`. Under an `opening` line there is no hint; on its right a word
     follows what is typed: `debt` below zero, `credit` above it, nothing at
-    zero or while empty, the same on a bank account and a person. A person's opening
-    balance is written as a bank account's is, with the currency's code
-    (contract: POST /v1/accounts/{account_id}/opening-balance, "Required").
+    zero or while empty, the same on a bank account and a person.
 
-    A bank account's STATEMENT CODE opens holding its code. The account's own
-    fields go in one `PUT /accounts/{id}`: the name, the colour when it changed,
-    and the code only when it changed, `null` when the line was emptied, which
-    clears the code with no question
-    (contract: PUT /v1/accounts/{account_id}, "`statement_code`"). No currency
-    rides in it. A person's form has no such line.
+    A bank account has no NAME line: its name is the engine's, and a `name` sent
+    for it is refused (contract: PUT /v1/accounts/{account_id}). A person's NAME
+    opens holding its name. A bank account's STATEMENT CODE opens holding its code.
 
     Each currency's entry in the account's `currencies` names its opening
     balance by id, or `null` when it has none (contract: "Bank Accounts",
@@ -795,20 +778,21 @@ class EditAccountScreen(NewAccountScreen):
     reads land a save is held back, and a read that fails leaves that
     currency's pair read-only so the rest still saves.
 
-    One save sends, in order, through `run_write`'s queue: the account's own
-    changes (`PUT /accounts/{id}`), then one write per currency whose pair
-    changed, in the pairs' order — `POST /accounts/{id}/opening-balance` with
-    its `currency_code` when it has none, a `PUT /transactions/{id}` of only
-    what changed, or, when the amount is emptied, a `DELETE
-    /transactions/{id}` after one question naming each currency it deletes. A
-    currency left as it was sends nothing. The account half is sent whenever
-    it changed or no opening balance has anything to send. A refusal stops
-    the writes behind it; it lands the cursor on its currency's line (the
-    `as of` line for a date, the `opening` line otherwise), the typed values
-    stay in the form, and the next save sends only what is still unsaved.
-    When the account saved and an opening balance is refused, the note says
-    which half went through. Saved, it dismisses with True so the list starts
-    over; `esc` dismisses with True too once the account half went through.
+    The save is one `PUT /accounts/{id}`, all or nothing
+    (contract: PUT /v1/accounts/{account_id}). It carries the account's own fields
+    only when they changed: a person's `name`, the `color`, and the
+    `statement_code`, `null` when the line was emptied, which clears the code with
+    no question. `opening_balances`, keyed by currency code, carries only the
+    currencies whose pair changed: a currency with no opening balance gets a set
+    (`transaction_id`, `amount_cents`, `date`); one that has it gets a change of
+    only the `amount_cents` and/or `date` that changed; one whose amount was
+    emptied gets `null`, after one question naming each currency it deletes, and
+    only `y` sends. A form with nothing changed sends `{}`.
+
+    A refusal names its line: `opening_balances.<code>.date` is that currency's
+    `as of`, any other `opening_balances.<code>` key its `opening`. The typed
+    values stay in the form; with several codes named the cursor goes to the
+    first in the form's order. Saved, it dismisses with True so the list starts over.
     """
 
     BINDINGS = form_bindings("Save")
@@ -838,43 +822,33 @@ class EditAccountScreen(NewAccountScreen):
         self._locked = {"currencies", "type"}
         held = [h for _, _, h in reads.held_currencies([record])]
         self._codes: list[str] = [h["currency_code"] for h in held]
+        person = record.get("kind") == "person"
         self._values = {
-            "type": "person" if (record.get("kind") == "person") else "bank",
-            "name": record.get("name") or "",
+            "type": "person" if person else "bank",
             "currencies": list(self._codes),
         }
+        if person:
+            self._values["name"] = self._was
         if record.get("color"):
             self._values["color"] = record["color"]
         self._original_color = record.get("color")
         self._original_code: str | None = record.get("statement_code")
-        if self._original_code and not (record.get("kind") == "person"):
+        if self._original_code and not person:
             self._values["statement_code"] = self._original_code
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
-        # The account half as last saved: once it matches, a save sends only
-        # the opening balances.
-        self._account_sent = self._payload()
-        self._wrote = False  # any write of the save landed: the list reloads
-        self._refused_currency: str | None = None  # the currency of the last refused write
         self._openings: dict[str, _OpeningBalance] = {}
         for h in held:
             opening_id = h.get("opening_balance_transaction_id")
             self._openings[h["currency_code"]] = _OpeningBalance(
                 opening_id, loading=opening_id is not None
             )
-        self.FIELDS = [*self.FIELDS]
-        for code in self._codes:
-            self.FIELDS += [
-                Field(_pair_key("opening", code), f"{code} OPENING"),
-                Field(_pair_key("as_of", code), f"{code} AS OF", hint=AS_OF_HINT),
-            ]
 
     @property
     def _openings_loading(self) -> bool:
         return any(o.loading for o in self._openings.values())
 
-    def _sequence(self) -> list[str]:
-        keys = [f.key for f in self.FIELDS]
-        return [k for k in keys if k != "statement_code"] if self._is_person else keys
+    def _identity_lines(self) -> list[str]:
+        return ["name"] if self._is_person else []
 
     def _after_mount(self) -> None:
         if self._openings_loading:
@@ -920,67 +894,54 @@ class EditAccountScreen(NewAccountScreen):
         self._refresh_view()
         toast(self, message, title="Failed", severity="error")
 
-    def _opening_write(self, code: str) -> tuple[str, str, dict | None] | None:
-        """`code`'s opening balance write for this save, or None."""
+    def _opening_entry(self, code: str) -> dict | None | bool:
+        """`code`'s entry of the body's `opening_balances`: the set, the change, or
+        `None` for a clear; False when the pair is as it was (nothing to send)."""
         amount_key = _pair_key("opening", code)
         if amount_key in self._locked:
-            return None
+            return False
         opening = self._openings[code]
         cents = self._values.get(amount_key)
         day = self._values.get(_pair_key("as_of", code))
         if opening.id is None:
-            if cents is None:
-                return None
-            # The title is left out, so the engine names the row
-            # (contract: POST /v1/accounts/{account_id}/opening-balance).
-            body = {**opening_balance_body(cents, str(day)), "currency_code": code}
-            return ("POST", f"/accounts/{self._id}/opening-balance", body)
+            return False if cents is None else opening_balance_body(cents, str(day))
         if cents is None:
-            return ("DELETE", f"/transactions/{opening.id}", None)
+            return None
         changes: dict = {}
         if cents != opening.original.get("opening"):
             changes["amount_cents"] = cents
         if day != opening.original.get("as_of"):
             changes["date"] = to_canonical_aware(str(day))
-        if not changes:
-            return None
-        return ("PUT", f"/transactions/{opening.id}", changes)
+        return changes or False
 
-    def _line_named(self, field: object, currency: str | None) -> str | None:
-        """The pair lines a refusal names are its currency's own; the
-        account's own write names none of them."""
-        line = super()._line_named(field, currency)
-        if line in _PAIR_LINES:
-            return _pair_key(line, currency) if currency else None
-        return line
-
-    def _refusal_text(self, exc: Exception, currency: str | None = None) -> str:
-        """As New's; a currency's refusal that names none of its lines lands
-        on its `opening` line, so the cursor always says whose it was."""
-        text = super()._refusal_text(exc, currency)
-        self._refused_currency = currency
-        if currency is not None and self._refused_line is None:
-            line = _pair_key("opening", currency)
-            if line not in self._locked:
-                self._refused_line = line
-        return text
+    def _line_named(self, field: object) -> str | None:
+        """As New's, and `opening_balances.<code>.date` is that currency's `as of`
+        line, any other `opening_balances.<code>…` key its `opening` line."""
+        bits = str(field).split(".", 2)
+        if bits[0] != "opening_balances" or len(bits) < 2:
+            return super()._line_named(field)
+        return _pair_key("as_of" if bits[2:] == ["date"] else "opening", bits[1])
 
     # ---- submit ------------------------------------------------------------
     def _submit_request(self) -> tuple[str, str, dict, str]:
-        """The account half alone; `action_submit` adds the opening balances."""
         return ("PUT", f"/accounts/{self._id}", self._payload(), "Saving…")
 
     def _payload(self) -> dict:
-        return self._account_body(self._values)
-
-    def _account_body(self, values: dict) -> dict:
-        """The account half's body from `values`: `_edit_payload`'s, and on a
-        bank account the statement code when it is not the account's own,
-        `null` when emptied."""
-        body = _edit_payload(values, self._original_color)
-        code = values.get("statement_code")
+        """The account's own fields that changed, and `opening_balances` for the
+        currencies whose pair changed."""
+        body: dict = {}
+        if self._is_person and self._values["name"] != self._was:
+            body["name"] = self._values["name"]
+        if self._values.get("color") and self._values["color"] != self._original_color:
+            body["color"] = self._values["color"]
+        code = self._values.get("statement_code")
         if not self._is_person and code != self._original_code:
             body["statement_code"] = code
+        openings = {
+            code: entry for code in self._codes if (entry := self._opening_entry(code)) is not False
+        }
+        if openings:
+            body["opening_balances"] = openings
         return body
 
     def action_submit(self) -> None:
@@ -992,153 +953,39 @@ class EditAccountScreen(NewAccountScreen):
             return
         if not self._keep_bar() or not self._required_met():
             return
-        account = self._payload()
-        openings = [(code, w) for code in self._codes if (w := self._opening_write(code))]
-        send_account = account != self._account_sent or not openings
-        deleted = [code for code, (method, _, _) in openings if method == "DELETE"]
-        if deleted:
-            lines = "\n".join(
-                " · ".join(
-                    [
-                        self._name,
-                        code,
-                        format_cents(self._openings[code].original.get("opening")),
-                        str(self._openings[code].original.get("as_of") or "—"),
-                    ]
-                )
-                for code in deleted
-            )
-            if len(deleted) == 1:
-                title = "Delete this opening balance?"
-                closing = "It leaves the account's balance, and no screen can bring it back."
-            else:
-                title = "Delete these opening balances?"
-                closing = "They leave the account's balance, and no screen can bring them back."
-
-            def answered(ok: bool | None) -> None:
-                if ok:
-                    self._send(account if send_account else None, openings)
-
-            self.app.push_screen(ConfirmModal(title, f"{lines}\n{closing}"), answered)
+        deleted = [code for code in self._codes if self._opening_entry(code) is None]
+        if not deleted:
+            self._send_save()
             return
-        self._send(account if send_account else None, openings)
-
-    def _send(
-        self, account: dict | None, openings: list[tuple[str, tuple[str, str, dict | None]]]
-    ) -> None:
-        self._submitting = True
-        self.query_one("#hint", Static).update(Text("Saving…", style="dim"))
-        report = SaveReport(
-            len(openings) + (account is not None),
-            not_done_line("Not all saved", self._kind(), self._shown_name()),
-            self._left_behind() or "",
-            _set_again,
+        lines = "\n".join(
+            " · ".join(
+                [
+                    self._name,
+                    code,
+                    format_cents(self._openings[code].original.get("opening")),
+                    str(self._openings[code].original.get("as_of") or "—"),
+                ]
+            )
+            for code in deleted
         )
-        if account is not None:
-            account_part = report.part(
-                "its changes",
-                "The account's changes are saved.",
-                "The account's changes are not saved:",
-            )
+        if len(deleted) == 1:
+            title = "Delete this opening balance?"
+            closing = "It leaves the account's balance, and no screen can bring it back."
+        else:
+            title = "Delete these opening balances?"
+            closing = "They leave the account's balance, and no screen can bring them back."
 
-            def account_saved() -> None:
-                # the colour it sent is now the account's own: picking the old
-                # one again is a change, and the next save sends it
-                self._original_color = account.get("color", self._original_color)
-                self._original_code = account.get("statement_code", self._original_code)
-                self._account_sent = self._account_body(
-                    {"statement_code": self._original_code, **account}
-                )
-                self._wrote = True
-                account_part.record(None)
-                if not openings:
-                    self._done()
+        def answered(ok: bool | None) -> None:
+            if ok:
+                self._send_save()
 
-            self.run_write(
-                "PUT",
-                f"/accounts/{self._id}",
-                json_body=account,
-                on_success=account_saved,
-                on_error=self._failed,
-                error_text=self._refusal_text,
-                left_behind=LeftBehind(account_part.refused, part=account_part),
-            )
-        for i, (code, (method, path, body)) in enumerate(openings):
-            sent = {
-                "opening": self._values.get(_pair_key("opening", code)),
-                "as_of": self._values.get(_pair_key("as_of", code)),
-            }
-            deleted = method == "DELETE"
-            part = report.part(
-                code,
-                f"The {code} opening balance is {'deleted' if deleted else 'saved'}.",
-                f"The {code} opening balance is not{' deleted' if deleted else ''}:",
-            )
-            self.run_write(
-                method,
-                path,
-                json_body=body,
-                on_success=self._opening_saved(code, body, sent, part, last=i == len(openings) - 1),
-                on_error=self._half_failed if account is not None else self._failed,
-                error_text=lambda exc, code=code: self._refusal_text(exc, code),
-                left_behind=LeftBehind(part.refused, part=part),
-            )
-
-    def _opening_saved(
-        self, code: str, body: dict | None, sent: dict, part: ReportedPart, *, last: bool
-    ):
-        """The success callback of `code`'s write: the form now knows the row
-        as saved, so a later refusal's next save sends only what is unsaved."""
-
-        def saved() -> None:
-            self._wrote = True
-            part.record(None)
-            opening = self._openings[code]
-            if sent["opening"] is None:  # deleted
-                opening.id, opening.original = None, {}
-            else:
-                if opening.id is None and body is not None:
-                    opening.id = body["transaction_id"]
-                opening.original = dict(sent)
-            if last:
-                self._done()
-
-        return saved
+        self.app.push_screen(ConfirmModal(title, f"{lines}\n{closing}"), answered)
 
     def _shown_name(self) -> str:
         return self._was
 
-    def _landed_after_leaving(self, item, error, failure) -> bool:
-        """The list reads again once, at the save's last answer, if any part landed or
-        ended unknown; parts all refused clearly leave it be. A write with no part is one
-        report of its own: it lands, or ends unknown, as any single save does."""
-        behind = item.left_behind
-        if behind is None or behind.part is None:
-            return error is None or may_have_landed(failure)
-        report = behind.part.report
-        return report.complete and (
-            report.landed or any(may_have_landed(f) for f in report.failures)
-        )
-
     def _saved_words(self) -> str:
         return "Saved."
-
-    def _half_failed(self, message: str) -> None:
-        """The account saved, an opening balance was refused: say which is which.
-
-        A refusal with a line of its own saying what to do (`errors.next_step`)
-        ends the note with that line; any other ends it with the form's own."""
-        self._land_on_refused_line()
-        self._submitting = False
-        closing = (
-            "" if self._refusal_says_next else "\n\nIt is still in the form: fix it and save again."
-        )
-        saved = f"The account's changes are saved. The {self._refused_currency} opening balance"
-        self._show_refusal(f"{saved} is not:\n{message}{closing}")
-        self._refresh_view()
-
-    def action_cancel(self) -> None:
-        self.dismiss(True if self._wrote else None)
 
     def _done(self) -> None:
         self.notify("Saved.")

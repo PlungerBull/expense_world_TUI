@@ -167,17 +167,18 @@ def test_a_statements_form_lands_on_the_refused_line_and_the_block_fits_80_by_24
     run_app(scenario, toasts=True)
 
 
-def test_the_half_saved_account_shows_which_half_went_through_in_the_block(fake_client):
-    """The account saved, its opening balance was refused: the same block says which."""
+def test_a_refused_opening_balance_shows_the_engines_words_alone_in_the_block(fake_client):
+    """One write, all or nothing: the block holds the engine's words, claims nothing
+    saved, and the cursor is on the line the key names."""
     future = EngineError(
         "VALIDATION_ERROR",
         "Transaction validation failed.",
-        {"date": "Must not be in the future."},
+        {"opening_balances.PEN.date": "Must not be in the future."},
         422,
         {},
-        {"date": "FUTURE_DATE"},
+        {"opening_balances.PEN.date": "FUTURE_DATE"},
     )
-    fake_client.errors["POST"] = future
+    fake_client.errors["PUT"] = future
     efectivo = account_with_currencies(
         id="acc-efe", name="Efectivo", color=None, currencies=[held_currency("PEN")]
     )
@@ -201,10 +202,8 @@ def test_the_half_saved_account_shows_which_half_went_through_in_the_block(fake_
         assert screen._key == "as_of:PEN"
         words = _words(app)
         assert words[0] == "Failed"
-        assert " ".join(words[1:]).startswith(
-            "The account's changes are saved. The PEN opening balance is not:"
-        )
-        assert "It is still in the form: fix it and save again." in " ".join(words)
+        assert " ".join(words[1:]).startswith("VALIDATION_ERROR — Transaction validation failed.")
+        assert "saved" not in " ".join(words)
         assert no_failed_toast(app)
 
     run_app(scenario, toasts=True)

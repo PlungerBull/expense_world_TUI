@@ -92,10 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-3. **The Edit form, in one write.** The account's lines and `opening_balances` (set, change,
-   `null` to clear) in one `PUT /accounts/{id}`; each opening balance read through its
-   `opening_balance_transaction_id`; refusals on `opening_balances.<code>[.<field>]`,
-   `NO_OPENING_BALANCE` among them; the chain of writes and its partial-save wording go.
 4. **The Edit form's number lines.** `bank`, `last 4` (a first number, or its digits fixed) and
    `since` (the current number's first day) through `current_number`; emptying `last 4` removes
    the number after question 10's question; each refusal on its line.
@@ -139,6 +135,12 @@ Not built in this spec; sorted when it is done.
   four digits matching one card resolve the same way. Pane 5 also draws `$56 is an amount: 56.00`
   under a `$` with digits, which no line shows today either. For the owner: both hint lines for
   every such token, or as it is.
+- **For decisions.md at the sweep:** the account Edit form saves in one `PUT`, so its partial-save
+  wording and the "a save of several writes counts once, the account Edit form's" example are no
+  longer true (decisions.md ~854, ~1320, ~1333).
+- The Edit form's tests land no `color` refusal, and a few refusal tests put a raw string in
+  `_values` (tests/unit/test_tui_opening_balance.py:514, :712); they check only where the
+  cursor lands.
 - **A bank account's New form left before its save is refused** reads `Not created · Account
   (unnamed)`: the account has no name until the engine builds it, and the app builds none. For
   the owner: keep it, or name it by the bank typed (`Account BCP`). The `bank` line has no

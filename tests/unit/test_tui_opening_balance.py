@@ -5,9 +5,9 @@ A person's form has the same pair. Each
 currency of the account names its opening balance by id
 (contract: "Bank Accounts", "Opening balance"); the form reads that row signed
 with one `GET /transactions/{id}`
-(contract: "Base Conventions", "Sign convention — responses") and writes it
-through `POST /accounts/{id}/opening-balance`, `PUT /transactions/{id}` and
-`DELETE /transactions/{id}`.
+(contract: "Base Conventions", "Sign convention — responses") and writes every
+change in one `PUT /accounts/{id}`, its `opening_balances` keyed by currency code
+(contract: PUT /v1/accounts/{account_id}, "`opening_balances`").
 """
 
 import threading
@@ -144,6 +144,19 @@ def _form(record, body):
     return run_app(scenario)
 
 
+def _only_put(fake_client, account_id: str) -> dict:
+    """The save was exactly one `PUT /accounts/{id}`: its body."""
+    assert fake_client.requests == [("PUT", f"/accounts/{account_id}")]
+    return fake_client.puts[0][1]
+
+
+def _set_entry(entry: dict, cents: int, day: str) -> None:
+    """`entry` is a set: a fresh `transaction_id`, the amount and the day, no title."""
+    assert set(entry) == {"transaction_id", "amount_cents", "date"}
+    assert len(entry["transaction_id"]) == 36
+    assert (entry["amount_cents"], entry["date"]) == (cents, to_canonical_aware(day))
+
+
 @pytest.fixture
 def reads_log(monkeypatch):
     """`reads.fetch_transaction` answering `reads_log.rows[id]`, else
@@ -174,7 +187,6 @@ def test_two_empty_lines_after_colour_and_no_read(fake_client):
     async def body(pilot, app, screen):
         assert screen._sequence() == [
             "type",
-            "name",
             "currencies",
             "statement_code",
             "color",
@@ -184,19 +196,19 @@ def test_two_empty_lines_after_colour_and_no_read(fake_client):
         text = _summary(screen)
         assert "PEN opening — (optional)" in text
         assert "PEN as of — (optional)" in text
-        assert _hint(screen) == "free text · enter to go on"
+        assert screen._key == "statement_code"  # a bank account has no NAME line
 
     _form(EFECTIVO, body)
     assert fake_client.calls == []  # null id: nothing to read
 
 
-def test_left_empty_the_save_is_the_account_alone(fake_client, notes):
+def test_nothing_changed_sends_one_put_with_an_empty_body(fake_client, notes):
     async def body(pilot, app, screen):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
-    assert fake_client.requests == [("PUT", "/accounts/acc-efe")]
+    assert _only_put(fake_client, "acc-efe") == {}
     assert ("Saved.", {}) in notes
 
 
@@ -271,7 +283,7 @@ def test_the_word_on_the_right_follows_the_sign_as_typed(fake_client, record, ty
         screen.query_one("#bar", Input).value = typed
         await pilot.pause()
         assert _word(screen) == word
-        _on(screen, "name")
+        _on(screen, "color")
         assert _word(screen) == ""  # no other line has a word
 
     _form(ELIANA if record == "person" else EFECTIVO, body)
@@ -287,22 +299,17 @@ def test_the_word_shows_on_landing_on_a_filled_amount(fake_client, reads_log):
     _form(SUELDO, body)
 
 
-def test_a_new_opening_balance_posts_signed_with_no_title(fake_client, notes):
+def test_a_new_opening_balance_is_a_set_signed_with_no_title(fake_client, notes):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-350.00")
         _type(screen, "as_of:PEN", "2026-01-01")  # last line: enter saves
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
-    # the account did not change, so the save is the opening balance alone
-    assert fake_client.requests == [("POST", "/accounts/acc-efe/opening-balance")]
-    (_path, sent) = fake_client.posts[0]
-    # the title is the engine's to name
-    assert set(sent) == {"transaction_id", "currency_code", "amount_cents", "date"}
-    assert sent["currency_code"] == "PEN"
-    assert sent["amount_cents"] == -35000
-    assert sent["date"] == to_canonical_aware("2026-01-01")
-    assert len(sent["transaction_id"]) == 36
+    # the account did not change, so the body is the opening balance alone
+    body = _only_put(fake_client, "acc-efe")
+    assert list(body) == ["opening_balances"] and list(body["opening_balances"]) == ["PEN"]
+    _set_entry(body["opening_balances"]["PEN"], -35000, "2026-01-01")
     assert ("Saved.", {}) in notes
 
 
@@ -345,7 +352,6 @@ def test_each_currency_has_its_pair_in_the_engines_order(fake_client, reads_log)
         ]
         assert [line for line in _summary(screen).splitlines() if line] == [
             "type bank read-only",
-            "name Visa",
             "currencies PEN · USD read-only",
             "statement code — (optional)",
             "color ██ blue",
@@ -388,20 +394,19 @@ def test_each_pair_reads_its_own_opening_balance(fake_client, reads_log):
     assert reads_log == ["tx-open", "tx-usd"]
 
 
-def test_changing_only_the_dollars_sends_one_request_with_usd(fake_client, reads_log):
+def test_changing_only_the_dollars_sets_the_dollars_alone(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "opening:USD", "-45.50")
         _type(screen, "as_of:USD", "2026-01-01")  # last line: enter saves
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(VISA, body)
-    assert fake_client.requests == [("POST", "/accounts/acc-visa/opening-balance")]
-    (_path, sent) = fake_client.posts[0]
-    assert sent["currency_code"] == "USD" and sent["amount_cents"] == -4550
-    assert not fake_client.puts and not fake_client.deletes
+    body = _only_put(fake_client, "acc-visa")
+    assert list(body) == ["opening_balances"] and list(body["opening_balances"]) == ["USD"]
+    _set_entry(body["opening_balances"]["USD"], -4550, "2026-01-01")
 
 
-def test_the_account_goes_first_then_the_dollars_alone(fake_client, reads_log):
+def test_a_colour_and_one_currencys_set_go_in_one_put(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
         _type(screen, "opening:USD", "-45.50")
@@ -409,15 +414,13 @@ def test_the_account_goes_first_then_the_dollars_alone(fake_client, reads_log):
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(VISA, body)
-    assert fake_client.requests == [
-        ("PUT", "/accounts/acc-visa"),
-        ("POST", "/accounts/acc-visa/opening-balance"),
-    ]
-    assert "currency_code" not in fake_client.puts[0][1]
-    assert fake_client.posts[0][1]["currency_code"] == "USD"
+    body = _only_put(fake_client, "acc-visa")
+    assert set(body) == {"color", "opening_balances"} and body["color"] == "#5ab87a"
+    assert list(body["opening_balances"]) == ["USD"]
+    _set_entry(body["opening_balances"]["USD"], -4550, "2026-01-01")
 
 
-def test_changing_both_sends_one_request_per_currency_in_order(fake_client, reads_log):
+def test_two_currencies_at_once_are_a_change_and_a_set_in_one_put(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-3000.00")
         _type(screen, "opening:USD", "40.00")
@@ -425,16 +428,15 @@ def test_changing_both_sends_one_request_per_currency_in_order(fake_client, read
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(VISA, body)
-    assert fake_client.requests == [
-        ("PUT", "/transactions/tx-open"),
-        ("POST", "/accounts/acc-visa/opening-balance"),
-    ]
-    assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
-    assert fake_client.posts[0][1]["currency_code"] == "USD"
-    assert fake_client.posts[0][1]["amount_cents"] == 4000
+    body = _only_put(fake_client, "acc-visa")
+    assert list(body) == ["opening_balances"]
+    entries = body["opening_balances"]
+    assert list(entries) == ["PEN", "USD"]
+    assert entries["PEN"] == {"amount_cents": -300000}  # a change: no id, no date
+    _set_entry(entries["USD"], 4000, "2026-01-01")
 
 
-def test_the_soles_pair_changes_the_soles_opening_balance_only(fake_client, reads_log):
+def test_a_change_of_only_the_amount_sends_no_date_and_no_id(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-3000.00")
         await pilot.press("ctrl+s")
@@ -442,11 +444,12 @@ def test_the_soles_pair_changes_the_soles_opening_balance_only(fake_client, read
 
     _form(VISA, body)
     assert reads_log == ["tx-open"]
-    assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
-    assert not fake_client.posts
+    assert _only_put(fake_client, "acc-visa") == {
+        "opening_balances": {"PEN": {"amount_cents": -300000}}
+    }
 
 
-def test_emptying_the_dollars_asks_then_deletes_the_dollars_row(fake_client, reads_log):
+def test_emptying_the_dollars_asks_then_clears_the_dollars(fake_client, reads_log):
     reads_log.rows = {"tx-usd": USD_ROW}
     asked: dict = {}
 
@@ -455,6 +458,7 @@ def test_emptying_the_dollars_asks_then_deletes_the_dollars_row(fake_client, rea
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         asked["title"], asked["message"] = app.screen._title, app.screen._message
+        assert fake_client.calls == []  # nothing is sent before the answer
         await pilot.press("y")
         await wait_for(pilot, lambda: not screen.is_attached)
 
@@ -464,7 +468,7 @@ def test_emptying_the_dollars_asks_then_deletes_the_dollars_row(fake_client, rea
         "message": "Visa · USD · 40.00 · 2026-02-01\n"
         "It leaves the account's balance, and no screen can bring it back.",
     }
-    assert fake_client.requests == [("DELETE", "/transactions/tx-usd")]
+    assert _only_put(fake_client, "acc-visa") == {"opening_balances": {"USD": None}}
 
 
 def test_emptying_both_asks_once_naming_each(fake_client, reads_log):
@@ -487,86 +491,276 @@ def test_emptying_both_asks_once_naming_each(fake_client, reads_log):
         "Visa · USD · 40.00 · 2026-02-01\n"
         "They leave the account's balance, and no screen can bring them back.",
     }
-    assert fake_client.requests == [
-        ("DELETE", "/transactions/tx-open"),
-        ("DELETE", "/transactions/tx-usd"),
-    ]
+    assert _only_put(fake_client, "acc-visa") == {"opening_balances": {"PEN": None, "USD": None}}
 
 
-def test_a_refusal_on_the_dollars_lands_on_usd_opening_and_resends_only_it(
-    fake_client, notes, reads_log
-):
-    """The soles' change goes through, the dollars' is refused for a reason
-    naming no line: the cursor lands on `USD opening`, and the next save sends
-    the dollars alone."""
-    fake_client.errors["POST"] = EXISTS
+def _keyed(key: str, reason: str, words: str = "stand-in field words", *, status: int = 422):
+    """A refusal of the account's `PUT` naming one key
+    (contract: PUT /v1/accounts/{account_id}, "Keys")."""
+    code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
+    return EngineError(code, "stand-in", {key: words}, status, {}, {key: reason})
+
+
+def _refused_save(fake_client, error, record, steps, *, then_on="color"):
+    """Type `steps`, save from `then_on` (a line that is not a pair's last), and read
+    where the cursor, the bar and the block ended up."""
+    fake_client.errors["PUT"] = error
     seen: dict = {}
 
     async def body(pilot, app, screen):
-        _type(screen, "opening:PEN", "-3000.00")
-        _type(screen, "opening:USD", "40.00")
-        screen._values["as_of:USD"] = "2026-01-01"
-        _on(screen, "name")
+        for key, text in steps[:-1]:
+            _type(screen, key, text)
+        # the last typed without `⏎`, which on a pair's last line would save from there
+        screen._values[steps[-1][0]] = steps[-1][1]
+        _on(screen, then_on)
         await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: refusal_block(screen))
+        await pilot.pause()
+        assert screen.is_attached  # nothing saved, the form stays
+        seen["key"] = screen._key
+        seen["bar"] = screen.query_one("#bar", Input).value
+        seen["block"] = refusal_block(screen)
+        seen["values"] = dict(screen._values)
+
+    _form(record, body)
+    assert len(fake_client.requests) == 1  # no retry beyond the client's own
+    return seen
+
+
+def test_a_date_refusal_lands_on_that_currencys_as_of_with_two_currencies(
+    fake_client, notes, reads_log
+):
+    """USD's `date` is refused: the cursor is on `USD as of`, not `PEN as of`, holding
+    what was typed, and PEN's typed pair stays in the form."""
+    error = _keyed("opening_balances.USD.date", "FUTURE_DATE", "Must not be in the future.")
+    seen = _refused_save(
+        fake_client,
+        error,
+        account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")]),
+        [
+            ("opening:PEN", "100.00"),
+            ("as_of:PEN", "2026-01-01"),
+            ("opening:USD", "40.00"),
+            ("as_of:USD", "2026-11-01"),
+        ],
+    )
+    assert (seen["key"], seen["bar"]) == ("as_of:USD", "2026-11-01")
+    assert "opening_balances.USD.date: Must not be in the future." in seen["block"]
+    assert seen["values"]["opening:PEN"] == 10000 and seen["values"]["as_of:PEN"] == "2026-01-01"
+    _no_failed_toast(notes)
+
+
+@pytest.mark.parametrize("part", ["amount_cents", "title", "transaction_id", "category_id"])
+def test_every_other_part_of_an_entry_lands_on_its_opening_line(
+    fake_client, notes, reads_log, part
+):
+    error = _keyed(f"opening_balances.USD.{part}", "ZERO_AMOUNT")
+    seen = _refused_save(
+        fake_client,
+        error,
+        VISA,
+        [("opening:USD", "0"), ("as_of:USD", "2026-01-01")],
+    )
+    assert (seen["key"], seen["bar"]) == ("opening:USD", "0")
+    assert f"opening_balances.USD.{part}: stand-in field words" in seen["block"]
+
+
+def test_an_amount_refusal_lands_on_its_opening_line_holding_what_was_typed(
+    fake_client, notes, reads_log
+):
+    error = _keyed("opening_balances.PEN.amount_cents", "ZERO_AMOUNT", "Must not be zero.")
+    seen = _refused_save(
+        fake_client, error, EFECTIVO, [("opening:PEN", "0"), ("as_of:PEN", "2026-01-01")]
+    )
+    assert (seen["key"], seen["bar"]) == ("opening:PEN", "0")
+    assert seen["block"] == (
+        "Failed\nVALIDATION_ERROR — stand-in\n"
+        "  opening_balances.PEN.amount_cents: Must not be zero."
+    )
+    _no_failed_toast(notes)
+
+
+@pytest.mark.parametrize(
+    ("reason", "status"),
+    [
+        ("NO_OPENING_BALANCE", 422),
+        ("CURRENCY_NOT_HELD", 422),
+        ("UNSUPPORTED_VALUE", 422),
+        ("OPENING_BALANCE_EXISTS", 409),
+    ],
+)
+def test_a_refusal_of_the_whole_entry_lands_on_its_opening_line(
+    fake_client, notes, reads_log, reason, status
+):
+    """`opening_balances.<code>` names the entry as a whole: the clear of a currency
+    that has nothing to clear, say."""
+    error = _keyed("opening_balances.USD", reason, "The engine's words.", status=status)
+    asked: list = []
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:USD", "40.00")
+        _type(screen, "as_of:USD", "2026-01-01")
+        _on(screen, "color")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: refusal_block(screen))
+        await pilot.pause()
+        asked.append((screen._key, screen.query_one("#bar", Input).value))
+        assert "  opening_balances.USD: The engine's words." in refusal_block(screen)
+
+    fake_client.errors["PUT"] = error
+    _form(VISA, body)
+    assert asked == [("opening:USD", "40")]
+
+
+def test_a_refused_clear_lands_on_its_opening_line(fake_client, notes, reads_log):
+    """NO_OPENING_BALANCE after `y`: the question was answered, one PUT went out, the
+    line is the currency's `opening`, and the typed (emptied) bar is kept."""
+    reads_log.rows = {"tx-usd": USD_ROW}
+    fake_client.errors["PUT"] = _keyed("opening_balances.USD", "NO_OPENING_BALANCE")
+    seen: dict = {}
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:USD", "")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
         seen["key"] = screen._key
         seen["bar"] = screen.query_one("#bar", Input).value
-        seen["block"] = refusal_block(screen)
-        seen["first"] = list(fake_client.requests)
-        fake_client.errors.clear()
+
+    _form(VISA_BOTH, body)
+    assert fake_client.puts == [("/accounts/acc-visa", {"opening_balances": {"USD": None}})]
+    assert seen == {"key": "opening:USD", "bar": ""}
+
+
+def test_an_archived_account_naming_two_codes_lands_on_the_first_in_the_forms_order(
+    fake_client, notes, reads_log
+):
+    """ACCOUNT_ARCHIVED names every code sent: the cursor goes to the first in the
+    form's order, wherever the engine lists it, and the block shows the engine's words
+    whole, both keys."""
+    words = "The account is archived. Unarchive it first."
+    error = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"opening_balances.USD": words, "opening_balances.PEN": words},
+        422,
+        {},
+        {"opening_balances.USD": "ACCOUNT_ARCHIVED", "opening_balances.PEN": "ACCOUNT_ARCHIVED"},
+    )
+    seen = _refused_save(
+        fake_client,
+        error,
+        account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")]),
+        [
+            ("opening:PEN", "100.00"),
+            ("as_of:PEN", "2026-01-01"),
+            ("opening:USD", "40.00"),
+            ("as_of:USD", "2026-01-01"),
+        ],
+    )
+    assert (seen["key"], seen["bar"]) == ("opening:PEN", "100")
+    assert f"  opening_balances.USD: {words}" in seen["block"]
+    assert f"  opening_balances.PEN: {words}" in seen["block"]
+    assert seen["block"].startswith(f"Failed\nVALIDATION_ERROR — {words}")
+
+
+def test_missing_settings_shows_as_a_note_with_the_cursor_where_it_was(
+    fake_client, notes, reads_log
+):
+    """`user_settings` is no line of the form: the block shows the engine's words and
+    its hint, and the cursor stays."""
+    error = EngineError(
+        "SETTINGS_MISSING",
+        "Settings are missing.",
+        {"user_settings": "Settings are missing."},
+        422,
+        {},
+        {"user_settings": "SETTINGS_MISSING"},
+    )
+    seen = _refused_save(
+        fake_client,
+        error,
+        EFECTIVO,
+        [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")],
+        then_on="color",
+    )
+    assert seen["key"] == "color"
+    assert seen["block"].startswith("Failed\nSETTINGS_MISSING — Settings are missing.")
+    assert "  user_settings: Settings are missing." in seen["block"]
+    assert "Hint: First-time setup is not done yet." in seen["block"]
+    _no_failed_toast(notes)
+
+
+def test_a_bank_accounts_form_has_no_name_line_and_never_sends_a_name(fake_client, reads_log):
+    async def body(pilot, app, screen):
+        assert "name" not in screen._sequence() and "name" not in screen._values
+        _type(screen, "color", "green")
+        _type(screen, "statement_code", "SIG")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(VISA, body)
-    assert (seen["key"], seen["bar"]) == ("opening:USD", "40")
-    assert seen["block"].startswith("Failed\nCONFLICT — Account already has an opening balance.")
-    _no_failed_toast(notes)
-    assert seen["first"] == [
-        ("PUT", "/transactions/tx-open"),
-        ("POST", "/accounts/acc-visa/opening-balance"),
-    ]
-    assert fake_client.requests[2:] == [("POST", "/accounts/acc-visa/opening-balance")]
+    _form(SUELDO, body)
+    assert _only_put(fake_client, "acc-sue") == {"color": "#5ab87a", "statement_code": "SIG"}
 
 
-def test_a_dated_refusal_on_the_dollars_lands_on_usd_as_of(fake_client, notes, reads_log):
-    fake_client.errors["POST"] = FUTURE
-
-    async def body(pilot, app, screen):
-        _type(screen, "opening:USD", "40.00")
-        screen._values["as_of:USD"] = "2026-11-01"
-        _on(screen, "name")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        assert screen._key == "as_of:USD"
-        assert screen.query_one("#bar", Input).value == "2026-11-01"
-
-    _form(VISA, body)
+def test_a_name_refusal_on_a_bank_account_lands_on_no_line(fake_client, notes):
+    """The form never sends a bank account's `name`; were one refused (`NAME_BUILT`),
+    the form has no line for it and the cursor stays."""
+    error = _keyed("name", "NAME_BUILT", "A bank account's name is the engine's.")
+    seen = _refused_save(fake_client, error, EFECTIVO, [("color", "green")])
+    assert seen["key"] == "color"
+    assert "  name: A bank account's name is the engine's." in seen["block"]
 
 
-def test_a_refusal_stops_the_currency_behind_it(fake_client, notes, reads_log):
-    """The queue's rule: a refused write drops those behind it."""
-    fake_client.errors["PUT"] = EngineError(
-        "VALIDATION_ERROR",
-        LOCKED_WORDS,
-        {"amount_cents": LOCK_MESSAGES["LOCKED"]},
-        422,
-        {},
-        {"amount_cents": "LOCKED"},
-    )
+def test_a_persons_name_is_sent_only_when_changed_and_its_refusal_lands_on_it(fake_client, notes):
+    error = _keyed("name", "NAME_EXISTS", "That name is taken.", status=409)
+    seen = _refused_save(fake_client, error, ELIANA, [("name", "Eliana Vega")], then_on="color")
+    assert fake_client.puts == [("/accounts/acc-eli", {"name": "Eliana Vega"})]
+    assert (seen["key"], seen["bar"]) == ("name", "Eliana Vega")  # holding what was typed
+    assert "  name: That name is taken." in seen["block"]
+
+
+def test_a_refusal_keeps_everything_typed_and_the_next_save_sends_it_all_again(
+    fake_client, notes, reads_log
+):
+    """Nothing was written: the same one body goes again, its set with a new id."""
+    fake_client.errors["PUT"] = _keyed("opening_balances.PEN.date", "FUTURE_DATE")
 
     async def body(pilot, app, screen):
-        _type(screen, "opening:PEN", "-3000.00")
-        _type(screen, "opening:USD", "40.00")
-        screen._values["as_of:USD"] = "2026-01-01"
-        await pilot.press("ctrl+s")
+        _type(screen, "color", "green")
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-11-01")
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
-        assert screen._key == "opening:PEN"
+        fake_client.errors.clear()
+        _type(screen, "as_of:PEN", "2026-01-01")
+        await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(VISA, body)
-    assert fake_client.requests == [("PUT", "/transactions/tx-open")]
+    _form(EFECTIVO, body)
+    assert fake_client.requests == [("PUT", "/accounts/acc-efe")] * 2
+    second = fake_client.puts[1][1]
+    assert second["color"] == "#5ab87a"
+    _set_entry(second["opening_balances"]["PEN"], 35000, "2026-01-01")
+
+
+def test_a_second_refusal_after_a_fix_is_shown_again(fake_client, notes):
+    """One write per save, so a form refused twice reads the second refusal."""
+    fake_client.errors["PUT"] = _keyed("opening_balances.PEN.amount_cents", "ZERO_AMOUNT")
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "0")
+        _type(screen, "as_of:PEN", "2026-01-01")
+        await wait_for(pilot, lambda: refusal_block(screen))
+        await pilot.pause()
+        fake_client.errors["PUT"] = _keyed("opening_balances.PEN.date", "FUTURE_DATE")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: "date:" in refusal_block(screen))
+        await pilot.pause()
+        assert screen._key == "as_of:PEN"
+
+    _form(EFECTIVO, body)
 
 
 def test_a_failed_read_locks_its_currency_and_the_other_pair_stays_editable(
@@ -589,7 +783,9 @@ def test_a_failed_read_locks_its_currency_and_the_other_pair_stays_editable(
 
     _form(VISA_BOTH, body)
     assert "NOT_FOUND" in notes[0][0]
-    assert fake_client.requests == [("PUT", "/transactions/tx-open")]
+    assert _only_put(fake_client, "acc-visa") == {
+        "opening_balances": {"PEN": {"amount_cents": -300000}}  # USD is never named
+    }
 
 
 #: The soles with no opening balance yet, the dollars with one.
@@ -602,51 +798,26 @@ VISA_USD_OPENED = account_with_currencies(
 )
 
 
-def test_a_posted_opening_balance_is_changed_by_its_id_on_the_next_save(
-    fake_client, notes, reads_log
-):
-    """The soles' POST goes through, the dollars' PUT is refused: the form
-    stays, and a later change of the soles sends a PUT on the id the POST sent,
-    never a second POST."""
+def test_a_set_and_a_change_of_two_currencies_go_in_one_put(fake_client, reads_log):
+    """The soles have no opening balance, the dollars have one: PEN is a set, USD a
+    change of only the amount."""
     reads_log.rows = {"tx-usd": USD_ROW}
-    fake_client.errors["PUT"] = EngineError(
-        "VALIDATION_ERROR",
-        LOCKED_WORDS,
-        {"amount_cents": LOCK_MESSAGES["LOCKED"]},
-        422,
-        {},
-        {"amount_cents": "LOCKED"},
-    )
 
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-100.00")
-        screen._values["as_of:PEN"] = "2026-01-01"
+        _type(screen, "as_of:PEN", "2026-01-01")
         _type(screen, "opening:USD", "50.00")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        assert screen.is_attached and screen._key == "opening:USD"
-        fake_client.errors.clear()
-        _type(screen, "opening:PEN", "-120.00")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(VISA_USD_OPENED, body)
-    (_path, posted) = fake_client.posts[0]
-    assert posted["currency_code"] == "PEN"
-    assert fake_client.requests == [
-        ("POST", "/accounts/acc-visa/opening-balance"),
-        ("PUT", "/transactions/tx-usd"),
-        ("PUT", f"/transactions/{posted['transaction_id']}"),
-        ("PUT", "/transactions/tx-usd"),
-    ]
-    assert fake_client.puts[1] == (
-        f"/transactions/{posted['transaction_id']}",
-        {"amount_cents": -12000},
-    )
+    entries = _only_put(fake_client, "acc-visa")["opening_balances"]
+    assert list(entries) == ["PEN", "USD"]
+    _set_entry(entries["PEN"], -10000, "2026-01-01")
+    assert entries["USD"] == {"amount_cents": 5000}
 
 
-def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
+def test_a_colour_and_a_set_go_in_one_put(fake_client):
     async def body(pilot, app, screen):
         _type(screen, "color", "green")
         _type(screen, "opening:PEN", "350.00")
@@ -654,11 +825,9 @@ def test_one_save_sends_the_account_first_then_the_opening_balance(fake_client):
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(EFECTIVO, body)
-    assert fake_client.requests == [
-        ("PUT", "/accounts/acc-efe"),
-        ("POST", "/accounts/acc-efe/opening-balance"),
-    ]
-    assert fake_client.puts[0][1] == {"name": "Efectivo", "color": "#5ab87a"}
+    body = _only_put(fake_client, "acc-efe")
+    assert set(body) == {"color", "opening_balances"} and body["color"] == "#5ab87a"
+    _set_entry(body["opening_balances"]["PEN"], 35000, "2026-01-01")
 
 
 # ---- an account that already has one -------------------------------------------
@@ -681,37 +850,36 @@ def test_the_lines_open_filled_from_one_signed_read(fake_client, reads_log):
     assert fake_client.calls == []
 
 
-def test_a_changed_amount_puts_only_the_amount(fake_client, reads_log):
-
+def test_a_changed_amount_sends_only_the_amount(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "opening:PEN", "-3000")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
-    assert fake_client.puts == [("/transactions/tx-open", {"amount_cents": -300000})]
+    assert _only_put(fake_client, "acc-sue") == {
+        "opening_balances": {"PEN": {"amount_cents": -300000}}
+    }
 
 
-def test_a_changed_date_puts_only_the_date(fake_client, reads_log):
-
+def test_a_changed_date_sends_only_the_date(fake_client, reads_log):
     async def body(pilot, app, screen):
         _type(screen, "as_of:PEN", "2026-02-01")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
-    assert fake_client.puts == [
-        ("/transactions/tx-open", {"date": to_canonical_aware("2026-02-01")})
-    ]
+    assert _only_put(fake_client, "acc-sue") == {
+        "opening_balances": {"PEN": {"date": to_canonical_aware("2026-02-01")}}
+    }
 
 
-def test_unchanged_the_save_is_the_account_alone(fake_client, reads_log):
-
+def test_unchanged_the_save_is_one_put_with_an_empty_body(fake_client, reads_log):
     async def body(pilot, app, screen):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
-    assert fake_client.requests == [("PUT", "/accounts/acc-sue")]
+    assert _only_put(fake_client, "acc-sue") == {}
 
 
 def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
@@ -778,7 +946,7 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
     _form(SUELDO, body)
     assert notes[0][1] == {"title": "Failed", "severity": "error", "markup": False}
     assert "NOT_FOUND" in notes[0][0]
-    assert fake_client.requests == [("PUT", "/accounts/acc-sue")]
+    assert _only_put(fake_client, "acc-sue") == {}
 
 
 # ---- ⏎ moves one line, and saves when no line ahead can change -----------------
@@ -787,8 +955,8 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
 @pytest.mark.parametrize(
     "record, lines",
     [
-        (EFECTIVO, ["name", "statement_code", "color", "opening:PEN", "as_of:PEN"]),
-        (SUELDO, ["name", "statement_code", "color", "opening:PEN", "as_of:PEN"]),
+        (EFECTIVO, ["statement_code", "color", "opening:PEN", "as_of:PEN"]),
+        (SUELDO, ["statement_code", "color", "opening:PEN", "as_of:PEN"]),
         (ELIANA, ["name", "color", "opening:PEN", "as_of:PEN"]),
     ],
     ids=["no-opening", "read-opening", "person"],
@@ -820,8 +988,8 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
     reads_log.error = EngineError("NOT_FOUND", "transaction not found.", None, 404, {})
 
     async def body(pilot, app, screen):
-        assert screen._key == "name"
-        await pilot.press("enter", "enter")
+        assert screen._key == "statement_code"
+        await pilot.press("enter")
         await pilot.pause()
         assert screen._key == "color"
         await pilot.press(*"green")
@@ -829,7 +997,7 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
-    assert fake_client.puts == [("/accounts/acc-sue", {"name": "Sueldo Soles", "color": "#5ab87a"})]
+    assert fake_client.puts == [("/accounts/acc-sue", {"color": "#5ab87a"})]
     assert ("Saved.", {}) in notes
 
 
@@ -866,12 +1034,12 @@ def test_emptying_the_amount_asks_first(fake_client, reads_log):
     }
 
 
-def test_y_saves_the_account_then_deletes(fake_client, reads_log):
+def test_y_sends_the_colour_and_the_clear_in_one_put(fake_client, reads_log):
     _empty_and_save(fake_client, "y")
-    assert fake_client.requests == [
-        ("PUT", "/accounts/acc-sue"),
-        ("DELETE", "/transactions/tx-open"),
-    ]
+    assert _only_put(fake_client, "acc-sue") == {
+        "color": "#5ab87a",
+        "opening_balances": {"PEN": None},
+    }
 
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
@@ -914,15 +1082,9 @@ def test_a_person_adds_an_opening_balance(fake_client, notes):
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(ELIANA, body)
-    assert fake_client.requests == [
-        ("PUT", "/accounts/acc-eli"),
-        ("POST", "/accounts/acc-eli/opening-balance"),
-    ]
-    assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
-    (_path, sent) = fake_client.posts[0]
-    assert set(sent) == {"transaction_id", "currency_code", "amount_cents", "date"}
-    assert sent["currency_code"] == "PEN" and sent["amount_cents"] == -15000
-    assert sent["date"] == to_canonical_aware("2025-12-31")
+    body = _only_put(fake_client, "acc-eli")
+    assert set(body) == {"color", "opening_balances"}  # no name, no code
+    _set_entry(body["opening_balances"]["PEN"], -15000, "2025-12-31")
     assert ("Saved.", {}) in notes
 
 
@@ -953,7 +1115,9 @@ def test_a_person_changes_its_opening_balance(fake_client, reads_log):
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(ELIANA_OPENED, body)
-    assert fake_client.puts == [("/transactions/tx-eli", {"amount_cents": -20000})]
+    assert _only_put(fake_client, "acc-eli") == {
+        "opening_balances": {"PEN": {"amount_cents": -20000}}
+    }
 
 
 def test_a_person_empties_its_opening_balance(fake_client, reads_log):
@@ -964,192 +1128,76 @@ def test_a_person_empties_its_opening_balance(fake_client, reads_log):
         "message": "Eliana · PEN · -150.00 · 2025-12-31\n"
         "It leaves the account's balance, and no screen can bring it back.",
     }
-    assert fake_client.requests == [
-        ("PUT", "/accounts/acc-eli"),
-        ("DELETE", "/transactions/tx-eli"),
-    ]
-    assert fake_client.puts[0][1] == {"name": "Eliana", "color": "#5ab87a"}  # no code
+    assert _only_put(fake_client, "acc-eli") == {
+        "color": "#5ab87a",
+        "opening_balances": {"PEN": None},
+    }
 
-
-# ---- the account saves, the opening balance is refused -----------------------------
 
 FUTURE = EngineError(
     "VALIDATION_ERROR",
     "Transaction validation failed.",
-    {"date": "Must not be in the future."},
+    {"opening_balances.PEN.date": "Must not be in the future."},
     422,
     {},
-    {"date": "FUTURE_DATE"},
+    {"opening_balances.PEN.date": "FUTURE_DATE"},
 )
 
 
-def test_the_note_says_which_half_went_through_and_resends_only_the_opening(fake_client, notes):
-    fake_client.errors["POST"] = FUTURE
-    seen: dict = {}
-
-    async def body(pilot, app, screen):
-        _type(screen, "color", "green")
-        _type(screen, "opening:PEN", "350.00")
-        _type(screen, "as_of:PEN", "2026-11-01")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        assert screen.is_attached and screen._key == "as_of:PEN"
-        seen["block"] = refusal_block(screen)
-        assert screen.query_one("#bar", Input).value == "2026-11-01"  # still in the form
-        assert (screen._values["opening:PEN"], screen._values["as_of:PEN"]) == (35000, "2026-11-01")
-        seen["first"] = list(fake_client.requests)
-        fake_client.errors.clear()
-        _type(screen, "as_of:PEN", "2026-01-01")
-        await wait_for(pilot, lambda: not screen.is_attached)
-
-    _form(EFECTIVO, body)
-    _no_failed_toast(notes)
-    assert seen["block"] == (
-        "Failed\nThe account's changes are saved. The PEN opening balance is not:\n"
-        "VALIDATION_ERROR — Transaction validation failed.\n"
-        "  date: Must not be in the future.\n\n"
-        "It is still in the form: fix it and save again."
-    )
-    assert seen["first"] == [
-        ("PUT", "/accounts/acc-efe"),
-        ("POST", "/accounts/acc-efe/opening-balance"),
-    ]
-    # the second save sends only the opening balance
-    assert fake_client.requests[2:] == [("POST", "/accounts/acc-efe/opening-balance")]
+ZERO = EngineError(
+    "VALIDATION_ERROR",
+    "Transaction validation failed.",
+    {"opening_balances.PEN.amount_cents": "Must not be zero."},
+    422,
+    {},
+    {"opening_balances.PEN.amount_cents": "ZERO_AMOUNT"},
+)
+EXISTS = EngineError(
+    "CONFLICT",
+    "Account already has an opening balance.",
+    {"opening_balances.PEN": "Account already has an opening balance."},
+    409,
+    {},
+    {"opening_balances.PEN": "OPENING_BALANCE_EXISTS"},
+)
 
 
 @pytest.mark.parametrize(
     ("key", "reason", "line"),
     [
         (
-            "account_id",
-            "OPENING_BALANCE_EXISTS",
-            "It got one meanwhile: close the form and open it again to change it.",
+            "opening_balances.PEN.transaction_id",
+            "ID_EXISTS",
+            None,
         ),
         (
-            "category_id",
+            "opening_balances.PEN.category_id",
             "RESERVED_NAME_HELD",
             "One of your categories has a built-in category's name: "
             "rename it on Manage ▸ Categories, then save again.",
         ),
-        ("category_id", "CONCURRENT_CHANGE", "It changed at the same moment: save again."),
+        (
+            "opening_balances.PEN.category_id",
+            "CONCURRENT_CHANGE",
+            "It changed at the same moment: save again.",
+        ),
     ],
-    ids=["reserved-name", "opening-balance-exists", "concurrent-change"],
+    ids=["id-exists", "reserved-name", "concurrent-change"],
 )
-def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, key, reason, line):
-    """The account saved, the opening balance was refused for a reason that has
-    its own line: the block is the half sentence, the engine's words, then that
-    line, which takes the place of the form's own closing line."""
-    fake_client.errors["POST"] = EngineError(
-        "CONFLICT", "stand-in", {key: "stand-in field words"}, 409, {}, {key: reason}
+def test_a_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, key, reason, line):
+    """A reason that has its own line (`errors.next_step`) ends the block with it,
+    after the engine's words; the cursor is on the line the key names."""
+    error = _keyed(key, reason, status=409)
+    seen = _refused_save(
+        fake_client, error, EFECTIVO, [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")]
     )
-
-    async def body(pilot, app, screen):
-        _type(screen, "color", "green")
-        _type(screen, "opening:PEN", "350.00")
-        _type(screen, "as_of:PEN", "2026-01-01")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        seen["block"] = refusal_block(screen)
-
-    seen: dict = {}
-    _form(EFECTIVO, body)
+    assert seen["key"] == "opening:PEN"
+    words = f"{error.code} — stand-in\n  {key}: stand-in field words"
+    if line is None:
+        assert seen["block"].startswith(f"Failed\n{words}")
+    else:
+        assert seen["block"] == f"Failed\n{words}\n\n{line}"
     _no_failed_toast(notes)
-    assert seen["block"] == (
-        "Failed\nThe account's changes are saved. The PEN opening balance is not:\n"
-        f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
-    )
-
-
-def test_esc_after_one_opening_saved_and_another_refused_starts_the_list_over(fake_client, notes):
-    """Only the opening balances are written: the dollars' is refused after the
-    soles' landed. A write went through, so `esc` closes the form with `True`,
-    the answer that makes the list reload. That the list then starts on row 1 is
-    pinned in test_tui_manage_actions.py ("after an edit")."""
-    plain = account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")])
-    sent = fake_client.post
-
-    def post(path, json_body=None):
-        if json_body and json_body.get("currency_code") == "USD":
-            fake_client.calls.append(("POST", path, json_body))
-            raise FUTURE
-        return sent(path, json_body)
-
-    fake_client.post = post
-    result: list = []
-
-    async def scenario(pilot, app):
-        screen = EditAccountScreen(plain, ENGINE_CURRENCIES)
-        await app.push_screen(screen, result.append)
-        await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await wait_for(pilot, lambda: not screen._openings_loading)
-        _type(screen, "opening:PEN", "350.00")
-        _type(screen, "as_of:PEN", "2026-01-01")
-        _type(screen, "opening:USD", "40.00")
-        _type(screen, "as_of:USD", "2026-11-01")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        assert screen.is_attached
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: result)
-
-    run_app(scenario)
-    assert [c[0:2] for c in fake_client.calls if c[0] == "POST"] == [
-        ("POST", "/accounts/acc-visa/opening-balance"),
-        ("POST", "/accounts/acc-visa/opening-balance"),
-    ]
-    assert result == [True]
-
-
-def test_the_half_saved_block_names_the_currency_refused(fake_client, notes):
-    """The account saves, the soles' opening balance lands and the dollars' is
-    refused: the block names the dollars."""
-    plain = account_with_currencies(VISA, currencies=[held_currency("PEN"), held_currency("USD")])
-    sent = fake_client.post
-
-    def post(path, json_body=None):
-        if json_body and json_body.get("currency_code") == "USD":
-            raise FUTURE
-        return sent(path, json_body)
-
-    fake_client.post = post
-
-    async def body(pilot, app, screen):
-        _type(screen, "color", "green")
-        _type(screen, "opening:PEN", "350.00")
-        _type(screen, "as_of:PEN", "2026-01-01")
-        _type(screen, "opening:USD", "40.00")
-        _type(screen, "as_of:USD", "2026-11-01")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        seen["block"] = refusal_block(screen)
-
-    seen: dict = {}
-    _form(plain, body)
-    _no_failed_toast(notes)
-    assert seen["block"].startswith(
-        "Failed\nThe account's changes are saved. The USD opening balance is not:\n"
-    )
-
-
-def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
-    fake_client.errors["POST"] = FUTURE
-    result: list = []
-
-    async def scenario(pilot, app):
-        screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES)
-        await app.push_screen(screen, result.append)
-        await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        _type(screen, "color", "green")
-        _type(screen, "opening:PEN", "350.00")
-        _type(screen, "as_of:PEN", "2026-11-01")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: result)
-
-    run_app(scenario)
-    assert result == [True]  # a write went through: the list starts over
-    assert len(fake_client.calls) == 2  # leaving sends nothing more
 
 
 # ---- when the engine says no -------------------------------------------------------
@@ -1161,21 +1209,14 @@ def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
         (
             EFECTIVO,
             [("opening:PEN", "350.00"), ("as_of:PEN", "2026-11-01")],
-            "POST",
+            "PUT",
             FUTURE,
         ),
         (
             EFECTIVO,
             [("opening:PEN", "0"), ("as_of:PEN", "2026-01-01")],
-            "POST",
-            EngineError(
-                "VALIDATION_ERROR",
-                "Transaction validation failed.",
-                {"amount_cents": "Must not be zero."},
-                422,
-                {},
-                {"amount_cents": "ZERO_AMOUNT"},
-            ),
+            "PUT",
+            ZERO,
         ),
         (
             SUELDO,
@@ -1185,26 +1226,20 @@ def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
                 "VALIDATION_ERROR",
                 "Transaction falls inside a sealed statement period.",
                 {
-                    "date": "Period 2026-03-01 to 2026-03-30 is sealed by completed statement "
-                    "'Marzo 2026'. Revert it to draft to change anything inside it."
+                    "opening_balances.PEN.date": "Period 2026-03-01 to 2026-03-30 is sealed by "
+                    "completed statement 'Marzo 2026'. Revert it to draft to change anything "
+                    "inside it."
                 },
                 422,
                 {},
-                {"date": "SEALED_PERIOD"},
+                {"opening_balances.PEN.date": "SEALED_PERIOD"},
             ),
         ),
         (
             EFECTIVO,
             [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")],
-            "POST",
-            EngineError(
-                "CONFLICT",
-                "Account already has an opening balance.",
-                {"account_id": "Account already has an opening balance."},
-                409,
-                {},
-                {"account_id": "OPENING_BALANCE_EXISTS"},
-            ),
+            "PUT",
+            EXISTS,
         ),
         (
             SUELDO,
@@ -1213,10 +1248,10 @@ def test_esc_just_leaves_with_the_account_saved(fake_client, notes):
             EngineError(
                 "VALIDATION_ERROR",
                 LOCKED_WORDS,
-                {"amount_cents": LOCK_MESSAGES["LOCKED"]},
+                {"opening_balances.PEN.amount_cents": LOCK_MESSAGES["LOCKED"]},
                 422,
                 {},
-                {"amount_cents": "LOCKED"},
+                {"opening_balances.PEN.amount_cents": "LOCKED"},
             ),
         ),
     ],
@@ -1251,7 +1286,6 @@ def test_each_refusal_shows_in_the_engines_words(
     assert message.startswith(f"Failed\n{error.code} — {error.message}")
     for field, words in (error.fields or {}).items():
         assert f"  {field}: {words}" in message
-    assert "account's changes" not in message  # the account was not part of this save
     for key, _text in steps:
         assert key in typed  # what was typed is still there
 
@@ -1259,13 +1293,13 @@ def test_each_refusal_shows_in_the_engines_words(
 def test_an_opening_balance_on_an_archived_account_shows_the_engines_words_on_its_line(
     fake_client, notes
 ):
-    """`POST /accounts/{id}/opening-balance` on an archived account is refused
-    `ACCOUNT_ARCHIVED` on `currency_code`
-    (contract: POST /v1/accounts/{account_id}/opening-balance): the engine's words in the
-    block under the form, the cursor on that currency's `opening` line, what was typed
-    kept, and one request."""
+    """`PUT /accounts/{id}` with an opening balance of an archived account is refused
+    `ACCOUNT_ARCHIVED` on `opening_balances.<code>`
+    (contract: PUT /v1/accounts/{account_id}, "Keys"): the engine's words in the block
+    under the form, the cursor on that currency's `opening` line, what was typed kept, and
+    one request."""
     words = "The account is archived. Unarchive it first."
-    fake_client.errors["POST"] = archived_refusal(422, words, "currency_code")
+    fake_client.errors["PUT"] = archived_refusal(422, words, "opening_balances.PEN")
     seen: dict = {}
 
     async def body(pilot, app, screen):
@@ -1281,10 +1315,10 @@ def test_an_opening_balance_on_an_archived_account_shows_the_engines_words_on_it
     _form(EFECTIVO, body)
     _no_failed_toast(notes)
     assert seen["block"].startswith(f"Failed\nVALIDATION_ERROR — {words}")
-    assert f"  currency_code: {words}" in seen["block"]
+    assert f"  opening_balances.PEN: {words}" in seen["block"]
     assert seen["line"] == "opening:PEN"
     assert seen["typed"] == 35000
-    assert [c[0] for c in fake_client.calls].count("POST") == 1
+    assert fake_client.requests == [("PUT", "/accounts/acc-efe")]
 
 
 # ---- after a successful save -------------------------------------------------------
@@ -1324,7 +1358,7 @@ def test_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, notes, mo
     seen = _list_then_edit(fake_client, monkeypatch, steps, save=True)
     assert seen["cursor"] == "acc-sue"  # first page, cursor on row 1
     assert ("Saved.", {}) in notes
-    assert ("POST", "/accounts/acc-efe/opening-balance") in fake_client.requests
+    assert fake_client.requests == [("PUT", "/accounts/acc-efe")]
 
 
 def test_leaving_without_a_save_keeps_the_row(fake_client, notes, monkeypatch):
@@ -1411,50 +1445,29 @@ def test_the_opening_category_guard_sees_reads_through_a_module():
 
 # ---- a refusal lands on the line it names ----------------------------------------------
 
-ZERO = EngineError(
-    "VALIDATION_ERROR",
-    "Transaction validation failed.",
-    {"amount_cents": "Must not be zero."},
-    422,
-    {},
-    {"amount_cents": "ZERO_AMOUNT"},
-)
-EXISTS = EngineError(
-    "CONFLICT",
-    "Account already has an opening balance.",
-    {"account_id": "Account already has an opening balance."},
-    409,
-    {},
-    {"account_id": "OPENING_BALANCE_EXISTS"},
-)
-
 
 @pytest.mark.parametrize(
-    ("error", "change_colour", "lands_on", "bar"),
+    ("error", "lands_on", "bar"),
     [
-        (ZERO, False, "opening:PEN", "0"),  # plain refusal → the amount line
-        (FUTURE, True, "as_of:PEN", "2026-11-01"),  # half refusal → the date line
-        (EXISTS, False, "opening:PEN", "350"),  # names no line: its currency's amount
+        (ZERO, "opening:PEN", "0"),  # the amount's key → the amount line
+        (FUTURE, "as_of:PEN", "2026-11-01"),  # the date's key → the date line
+        (EXISTS, "opening:PEN", "350"),  # the whole entry's key → its amount line
     ],
-    ids=["plain-amount", "half-date", "no-line-its-amount"],
+    ids=["amount", "date", "whole-entry"],
 )
 def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
-    fake_client, notes, error, change_colour, lands_on, bar
+    fake_client, notes, error, lands_on, bar
 ):
-    fake_client.errors["POST"] = error
+    fake_client.errors["PUT"] = error
 
     async def body(pilot, app, screen):
-        if change_colour:
-            _type(screen, "color", "green")  # enter here moves on, it does not save
         _type(screen, "opening:PEN", "0" if error is ZERO else "350.00")
         # the date set without enter on the last line, which would save from there
         screen._values["as_of:PEN"] = "2026-11-01" if error is FUTURE else "2026-01-01"
-        _on(screen, "name")
+        _on(screen, "color")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: refusal_block(screen))
         await pilot.pause()
-        half = "The account's changes are saved." in refusal_block(screen)
-        assert half is change_colour
         assert screen._key == lands_on
         assert screen.query_one("#bar", Input).value == bar  # what was typed
 

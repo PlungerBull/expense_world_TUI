@@ -68,7 +68,7 @@ def test_ctrl_s_keeps_a_create_form_s_typed_line(fake_client):
 def test_ctrl_s_keeps_an_edit_form_s_typed_name(fake_client):
     async def scenario(pilot, app):
         screen = EditAccountScreen(
-            account_with_currencies(id="abc", name="Sueldo"), ENGINE_CURRENCIES
+            account_with_currencies(id="abc", name="Sueldo", kind="person"), ENGINE_CURRENCIES
         )
         await _open(pilot, app, screen)
         assert screen._key == "name"
@@ -158,7 +158,7 @@ def test_ctrl_s_with_a_required_line_emptied_stops_as_enter_stops(fake_client, m
 def test_ctrl_s_on_a_read_only_line_keeps_nothing_and_saves_as_before(fake_client):
     async def scenario(pilot, app):
         screen = EditAccountScreen(
-            account_with_currencies(id="abc", name="Sueldo"), ENGINE_CURRENCIES
+            account_with_currencies(id="abc", name="Sueldo", kind="person"), ENGINE_CURRENCIES
         )
         await _open(pilot, app, screen)
         screen._locked.add("name")
@@ -168,7 +168,7 @@ def test_ctrl_s_on_a_read_only_line_keeps_nothing_and_saves_as_before(fake_clien
 
     run_app(scenario)
     [(_path, body)] = fake_client.puts
-    assert body["name"] == "Sueldo"
+    assert body == {}  # the name was kept as it was
 
 
 def test_ctrl_s_on_an_untouched_pick_line_picks_nothing(fake_client, monkeypatch):

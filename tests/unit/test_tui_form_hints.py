@@ -183,15 +183,12 @@ def test_new_person_name_goes_on(fake_client):
     _open(NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS), body)
 
 
-def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
-    """Edit opens on NAME (TYPE is read-only); `⏎` keeps the name and goes on
-    past the read-only CURRENCY to STATEMENT CODE, whose hint adds that
-    emptying it clears the code, then to COLOR."""
+def test_edit_bank_account_opens_on_its_code_and_color_keeps_it(fake_client):
+    """A bank account's Edit has no NAME line: it opens on STATEMENT CODE (TYPE and
+    CURRENCY are read-only), whose hint adds that emptying it clears the code; `⏎`
+    goes on to COLOR."""
 
     async def body(pilot, screen):
-        assert screen._key == "name"
-        assert _hint(screen) == NAME_GOES_ON
-        await pilot.press("enter")
         assert screen._key == "statement_code"
         assert _hint(screen) == CODE_EDIT_GOES_ON
         await pilot.press("enter")
@@ -199,6 +196,26 @@ def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
         assert _hint(screen) == COLOR_KEEPS
 
     _open(EditAccountScreen(ACCOUNT, ENGINE_CURRENCIES), body)
+
+
+def test_edit_person_name_goes_on_and_color_keeps_it(fake_client):
+    """A person's Edit opens on NAME; `⏎` keeps it and goes on to COLOR (a person has
+    no statement code)."""
+
+    async def body(pilot, screen):
+        assert screen._key == "name"
+        assert _hint(screen) == NAME_GOES_ON
+        await pilot.press("enter")
+        assert screen._key == "color"
+        assert _hint(screen) == COLOR_KEEPS
+
+    _open(
+        EditAccountScreen(
+            account_with_currencies(ACCOUNT, id="acc-eli", name="Eliana", kind="person"),
+            ENGINE_CURRENCIES,
+        ),
+        body,
+    )
 
 
 @pytest.mark.parametrize(

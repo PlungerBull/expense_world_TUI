@@ -303,7 +303,7 @@ def test_edit_category_with_no_color_cannot_save_a_null(fake_client):
 #
 # Stepping through a form never changes it (decisions.md): `enter` down every
 # line of a category's or an account's Edit screen keeps its colour. A save
-# with nothing changed is the form's usual one, the name alone, so the colour is
+# with nothing changed sends no colour (a category sends its name, an account `{}`), so it is
 # never sent and the engine keeps it; the summary goes on showing it.
 
 
@@ -359,6 +359,11 @@ async def _enter_until_saved(pilot, screen):
 _PATHS = {EditCategoryScreen: "/categories/c1", EditAccountScreen: "/accounts/abc"}
 
 
+def _unchanged_body(screen) -> dict:
+    """What a save with nothing changed sends: a category's name, an account's `{}`."""
+    return {"name": screen._values["name"]} if isinstance(screen, EditCategoryScreen) else {}
+
+
 @pytest.mark.parametrize(
     "make",
     [
@@ -382,7 +387,7 @@ def test_enter_down_every_line_keeps_the_rows_colour_and_never_sends_it(fake_cli
     assert screen._values["color"] == "#5ab87a"
     assert "██ green" in _summary_color(screen)
     assert fake_client.requests == [("PUT", _PATHS[type(screen)])]
-    assert fake_client.puts[0][1] == {"name": screen._values["name"]}  # no colour
+    assert fake_client.puts[0][1] == _unchanged_body(screen)  # no colour
 
 
 @pytest.mark.parametrize(
@@ -405,7 +410,7 @@ def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
 
     run_app(scenario)
     assert fake_client.puts == [
-        (_PATHS[type(screen)], {"name": screen._values["name"], "color": "#d96a5a"})
+        (_PATHS[type(screen)], {**_unchanged_body(screen), "color": "#d96a5a"})
     ]
 
 
@@ -423,7 +428,7 @@ def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_cli
         await _enter_until_saved(pilot, screen)
 
     run_app(scenario)
-    assert fake_client.puts == [("/accounts/abc", {"name": "Sueldo"})]
+    assert fake_client.puts == [("/accounts/abc", {})]
 
 
 @pytest.mark.parametrize(
@@ -450,58 +455,7 @@ def test_a_colour_no_swatch_shows_is_kept_and_never_sent(fake_client, make):
     run_app(scenario)
     assert screen._values["color"] == "#123456"
     assert "#123456" in _summary_color(screen)
-    assert fake_client.puts == [(_PATHS[type(screen)], {"name": screen._values["name"]})]
-
-
-def test_after_the_account_half_saves_the_old_colour_picked_again_is_sent(fake_client, monkeypatch):
-    """green → red: the account's PUT lands, the opening balance is refused and
-    the form stays open. Red is now the account's own, so picking green again is
-    a change: the next save sends it, with the opening balance."""
-    screen = _edit_account("#5ab87a")
-    monkeypatch.setattr(EditAccountScreen, "notify", lambda self, message, **kw: None)
-    fake_client.errors["POST"] = EngineError("CONFLICT", "it got one meanwhile", None, 409, {})
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, screen)
-        await _enter_until_color(pilot, screen)
-        await pilot.press("down")  # green → red
-        await pilot.press("enter")
-        await pilot.pause()
-        await pilot.press(*"350")
-        await pilot.press("enter")
-        await pilot.pause()
-        await pilot.press(*"2026-01-01")
-        await pilot.press("enter")  # the last line: saves both halves
-        await wait_for(pilot, lambda: len(fake_client.calls) == 2)
-        await wait_for(pilot, lambda: not screen._submitting)
-        assert screen.is_attached and screen._wrote
-        fake_client.errors.clear()
-        for _ in range(len(screen._sequence())):
-            if screen._key == "color":
-                break
-            await pilot.press("shift+tab")
-            await pilot.pause()
-        assert screen._key == "color"
-        assert _highlighted(screen) == ["██ red"]
-        await pilot.press("up")  # red → green, the colour the form opened on
-        await pilot.pause()
-        assert _highlighted(screen) == ["██ green"]
-        await pilot.press("enter")
-        await pilot.pause()
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen.is_attached)
-
-    run_app(scenario)
-    assert fake_client.requests == [
-        ("PUT", "/accounts/abc"),
-        ("POST", "/accounts/abc/opening-balance"),
-        ("PUT", "/accounts/abc"),
-        ("POST", "/accounts/abc/opening-balance"),
-    ]
-    assert [body for _path, body in fake_client.puts] == [
-        {"name": "Sueldo", "color": "#d96a5a"},
-        {"name": "Sueldo", "color": "#5ab87a"},
-    ]
+    assert fake_client.puts == [(_PATHS[type(screen)], _unchanged_body(screen))]
 
 
 def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
@@ -905,12 +859,12 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, make, steps, 
 # ---------------------------------------------------------------------------
 #
 # EditAccountScreen is the form with read-only fields: TYPE and CURRENCY are
-# locked, so the editable sequence is NAME (a plain text field, no list), a bank
-# account's STATEMENT CODE (plain text), COLOR (a palette list), then OPENING
+# locked, so the editable sequence is a bank account's STATEMENT CODE (plain text; a
+# person's form starts on NAME), COLOR (a palette list), then OPENING
 # and AS OF (plain text), on a bank account and a person alike. Every bar form takes the same keymap
 # from FormScreen.
 
-_ACCOUNT = account_with_currencies(id="abc", name="Eliana")
+_ACCOUNT = account_with_currencies(id="abc", name="Eliana")  # a bank account: no NAME line
 
 
 def _navigate(steps):
@@ -920,7 +874,7 @@ def _navigate(steps):
         screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        assert screen._key == "name"  # the first editable field
+        assert screen._key == "statement_code"  # the first editable field
         for key, expected in steps:
             await pilot.press(key)
             await pilot.pause()
@@ -964,16 +918,14 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     """tab → next editable field, shift+tab → previous; both stop at the ends."""
     _navigate(
         [
-            ("tab", "statement_code"),  # skips locked CURRENCIES
             ("tab", "color"),
             ("tab", "opening:PEN"),
             ("tab", "as_of:PEN"),
             ("tab", "as_of:PEN"),  # no editable field further on: stays
             ("shift+tab", "opening:PEN"),
             ("shift+tab", "color"),
-            ("shift+tab", "statement_code"),
-            ("shift+tab", "name"),
-            ("shift+tab", "name"),  # TYPE is locked: stays
+            ("shift+tab", "statement_code"),  # skips locked CURRENCIES
+            ("shift+tab", "statement_code"),  # TYPE is locked: stays
         ]
     )
 
@@ -985,7 +937,7 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
         screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("tab", "tab")
+        await pilot.press("tab")
         await pilot.pause()
         assert screen._key == "color" and screen._suggestions  # list open
         await pilot.press("shift+tab")
@@ -996,17 +948,15 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
 
 
 def test_plain_arrows_walk_a_list_and_move_fields_without_one():
-    """NAME and STATEMENT CODE have no list, so `↓` moves on; COLOR's palette
+    """STATEMENT CODE has no list, so `↓` moves on; COLOR's palette
     list takes `↑`/`↓` until it empties, and then `↑` moves back."""
 
     async def scenario(pilot, app):
         screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("down")  # NAME: no list → next field
-        await pilot.pause()
         assert screen._key == "statement_code" and screen._suggestions == []
-        await pilot.press("down")
+        await pilot.press("down")  # STATEMENT CODE: no list → next field
         await pilot.pause()
         assert screen._key == "color" and len(screen._suggestions) > 2
         assert screen._suggest_idx == -1  # optional and empty: nothing highlighted
@@ -1028,7 +978,7 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
 
 
 def test_ctrl_arrows_still_move_fields():
-    _navigate([("ctrl+down", "statement_code"), ("ctrl+up", "name")])
+    _navigate([("ctrl+down", "color"), ("ctrl+up", "statement_code")])
 
 
 # ---------------------------------------------------------------------------

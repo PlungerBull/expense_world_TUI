@@ -467,10 +467,9 @@ def test_an_opening_balance_that_cannot_be_read_shows_the_words_whole(fake_clien
     run_app(scenario, toasts=True)
 
 
-def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole(fake_client):
-    """The account saves, its opening balance is refused: the block that says
-    which half went through."""
-    fake_client.errors["POST"] = refusal(key="date")
+def test_a_refused_opening_balance_shows_the_words_whole(fake_client):
+    """The save's one write is refused on an opening balance's key: the block."""
+    fake_client.errors["PUT"] = refusal(key="opening_balances.PEN.date")
 
     async def scenario(pilot, app):
         screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES)
@@ -480,7 +479,7 @@ def test_a_refused_opening_balance_after_the_account_saved_shows_the_words_whole
         _type_account(screen, "opening:PEN", "350.00")
         _type_account(screen, "as_of:PEN", "2026-01-01")
         shown = await block_with_words(pilot, app, screen)
-        assert "The PEN opening balance is not:" in shown and whole_in(shown)
+        assert whole_in(shown) and "saved" not in shown
 
     run_app(scenario, toasts=True)
 
