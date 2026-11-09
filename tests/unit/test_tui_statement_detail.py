@@ -662,6 +662,98 @@ def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client,
     assert fake_client.puts == [("/transactions/t2a", {"statement_id": "r1"})]
 
 
+#: The engine's words on a write that would leave a line in no statement on a day another
+#: completed statement seals, naming that statement
+#: (contract: "Transactions (Ledger)", "Sealed periods").
+SEALED_WORDS = (
+    "Period 2026-03-01 to 2026-03-30 is sealed by completed statement 'Marzo 2026'. "
+    "Revert it to draft to change anything inside it."
+)
+
+
+def _sealed(code: str = "VALIDATION_ERROR", status: int = 422) -> EngineError:
+    return EngineError(
+        code,
+        SEALED_WORDS,
+        {"statement_id": SEALED_WORDS},
+        status,
+        {},
+        {"statement_id": "SEALED_PERIOD"},
+    )
+
+
+def test_an_unassigning_tick_refused_as_sealed_shows_the_engines_words_alone(
+    fake_client, monkeypatch
+):
+    """`space` on a line in the statement sends `statement_id: null`; the day is another
+    statement's, so the engine refuses it `SEALED_PERIOD`, naming that statement. `Couldn't
+    update` carries those words and no line of the app's, the one request is not sent
+    again, and the list is read again with the engine's ticks."""
+    _patch(monkeypatch)
+    fake_client.errors["PUT"] = _sealed()
+    notices: list = []
+    monkeypatch.setattr(
+        StatementScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, message)),
+    )
+
+    async def scenario(pilot, app):
+        screen = StatementScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        assert first.cursor_key == "l1" and "l1" in first.checked
+        await pilot.press("space")
+        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: screen._list is not first)
+        await pilot.pause()
+        assert notices == [
+            (
+                "Couldn't update",
+                f"VALIDATION_ERROR — {SEALED_WORDS}\n  statement_id: {SEALED_WORDS}",
+            )
+        ]
+        assert screen._list.checked == {"l1"}  # nothing changed on screen
+
+    run_app(scenario)
+    assert [body for _path, body in fake_client.puts] == [{"statement_id": None}]
+
+
+def test_a_draft_delete_refused_as_sealed_shows_the_engines_words_alone(fake_client, monkeypatch):
+    """`d`, then `y`, on a draft holding a line the delete would leave loose on a sealed
+    day: `Couldn't delete` carries the engine's words naming the sealing statement and no
+    line of the app's (contract: DELETE /v1/statements/{statement_id}); one request."""
+    _patch(monkeypatch)
+    fake_client.errors["DELETE"] = _sealed()
+    notices: list = []
+    monkeypatch.setattr(
+        StatementScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, message)),
+    )
+
+    async def scenario(pilot, app):
+        screen = StatementScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        await pilot.pause()
+        assert notices == [
+            (
+                "Couldn't delete",
+                f"VALIDATION_ERROR — {SEALED_WORDS}\n  statement_id: {SEALED_WORDS}",
+            )
+        ]
+        assert screen.is_attached  # nothing left the screen
+
+    run_app(scenario)
+    assert fake_client.deletes == [STATEMENT_PATH]
+
+
 def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_client, monkeypatch):
     """Tick A lands while tick B waits behind it, then B is refused: A moved the
     month's `diff`, so the screen reads the month again as well as its lines,

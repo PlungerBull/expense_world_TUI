@@ -588,7 +588,7 @@ def test_c_is_off_on_an_empty_list(configured, monkeypatch):
 # the contract's own words for each refusal
 # (contract: POST /v1/accounts/{account_id}/currencies, "Refusals")
 _DUPLICATE = "Must be a currency the account does not hold."
-_ARCHIVED = "Must reference an active, non-archived account."
+_ARCHIVED = "The account is archived. Unarchive it first."
 
 REFUSALS = [
     # the account got the currency meanwhile
@@ -610,10 +610,10 @@ REFUSALS = [
             422,
             "VALIDATION_ERROR",
             _ARCHIVED,
-            {"account_id": _ARCHIVED},
-            {"account_id": "INVALID_REFERENCE"},
+            {"currency_code": _ARCHIVED},
+            {"currency_code": "ACCOUNT_ARCHIVED"},
         ),
-        f"VALIDATION_ERROR — {_ARCHIVED}\n  account_id: {_ARCHIVED}",
+        f"VALIDATION_ERROR — {_ARCHIVED}\n  currency_code: {_ARCHIVED}",
     ),
 ]
 

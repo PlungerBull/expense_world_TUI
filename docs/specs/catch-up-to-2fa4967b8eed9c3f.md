@@ -58,11 +58,6 @@ values it used to take loosely, and a few writes on closed days.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-4. **The new refusals in the engine's words.** `SEALED_PERIOD` from `space` on a statement's
-   checklist, the Edit form's statement change, a draft's delete and an upload;
-   `ACCOUNT_ARCHIVED` from an opening-balance edit and a currency add, on their line. A unit test
-   each, and a test that `expense/http.py` retries neither `SEALED_PERIOD` nor
-   `LOOSE_LINES_ON_SEALED_DAYS`.
 5. **Strict requests, proven.** Unit tests that every body true/false the app sends is JSON
    `true`/`false`, every number a JSON number, every query flag exactly `true`/`false`, no body on
    an operation that takes none (archive, unarchive, every `GET` and `DELETE`), and any
@@ -102,3 +97,7 @@ Not built in this spec; sorted when it is done.
 - **Some unit tests build dashboard rows by hand without `kind`** (test_tui_bracketed_names.py,
   test_tui_home_dispatch.py, test_tui_home_header.py), and test_tui_smoke.py's sample rows keep an
   old flat shape (no `id`, no `currencies`); Home reads neither, so nothing fails.
+- **The account Edit form writes openings one by one** (`POST /accounts/{id}/opening-balance`),
+  so `ACCOUNT_ARCHIVED` keyed `opening_balances.<code>` on `PUT /accounts/{id}` reaches it only
+  once task 3 of [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) saves the
+  form in one write; that task shows it on its line.

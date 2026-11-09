@@ -1115,6 +1115,34 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
                 "Nothing was written.",
             ],
         ),
+        # The dry run taking a line out of the draft on a day another statement seals
+        # (contract: POST /v1/statements/import, "More than a day off")
+        (
+            _refusal(
+                "VALIDATION_ERROR",
+                "file",
+                "Sealed by completed statement 'Marzo 2026'. Revert it to draft first.",
+                "SEALED_PERIOD",
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! file: Sealed by completed statement 'Marzo 2026'. Revert it to draft first.",
+                "Nothing was written.",
+            ],
+        ),
+        (
+            _refusal(
+                "VALIDATION_ERROR",
+                "file",
+                "A line left in no statement on a day the close seals.",
+                "LOOSE_LINES_ON_SEALED_DAYS",
+            ),
+            [
+                "VALIDATION_ERROR — The statement cannot be uploaded.",
+                "! file: A line left in no statement on a day the close seals.",
+                "Nothing was written.",
+            ],
+        ),
     ],
     ids=[
         "refused-file",
@@ -1124,6 +1152,8 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         "currency-not-held",
         "currency-not-on-paper",
         "money-at-start",
+        "sealed-period",
+        "loose-lines-on-sealed-days",
     ],
 )
 def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(

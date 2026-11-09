@@ -322,6 +322,33 @@ def test_write_4xx_is_not_retried(config):
     assert route.call_count == 1
 
 
+@pytest.mark.parametrize("method", ["put", "delete", "post"])
+@pytest.mark.parametrize(
+    ("code", "key", "reason"),
+    [
+        ("VALIDATION_ERROR", "statement_id", "SEALED_PERIOD"),
+        ("VALIDATION_ERROR", "file", "LOOSE_LINES_ON_SEALED_DAYS"),
+    ],
+)
+@respx.mock
+def test_a_sealed_day_refusal_is_final_and_never_retried(config, method, code, key, reason):
+    """`SEALED_PERIOD` and `LOOSE_LINES_ON_SEALED_DAYS` are final answers
+    (contract: "Transactions (Ledger)", "Sealed periods"): one request, whatever the verb."""
+    route = getattr(respx, method)(f"{BASE}/v1/statements/s1").mock(
+        return_value=error_response(
+            422, code, "Period is sealed by 'Marzo 2026'.", {key: "sealed"}, {key: reason}
+        )
+    )
+    with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
+        if method == "delete":
+            client.delete("/statements/s1")
+        else:
+            getattr(client, method)("/statements/s1", json_body={key: None})
+
+    assert route.call_count == 1
+    assert exc.value.reasons == {key: reason}
+
+
 @respx.mock
 def test_read_timeout_is_not_retried(config):
     route = respx.get(f"{BASE}/v1/auth/me").mock(side_effect=httpx.TimeoutException("timed out"))

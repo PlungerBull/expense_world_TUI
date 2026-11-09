@@ -29,6 +29,7 @@ from tests.unit.helpers import (
     LOCK_MESSAGES,
     LOCKED_WORDS,
     account_with_currencies,
+    archived_refusal,
     held_currency,
     refusal_block,
     render_text,
@@ -1253,6 +1254,37 @@ def test_each_refusal_shows_in_the_engines_words(
     assert "account's changes" not in message  # the account was not part of this save
     for key, _text in steps:
         assert key in typed  # what was typed is still there
+
+
+def test_an_opening_balance_on_an_archived_account_shows_the_engines_words_on_its_line(
+    fake_client, notes
+):
+    """`POST /accounts/{id}/opening-balance` on an archived account is refused
+    `ACCOUNT_ARCHIVED` on `currency_code`
+    (contract: POST /v1/accounts/{account_id}/opening-balance): the engine's words in the
+    block under the form, the cursor on that currency's `opening` line, what was typed
+    kept, and one request."""
+    words = "The account is archived. Unarchive it first."
+    fake_client.errors["POST"] = archived_refusal(422, words, "currency_code")
+    seen: dict = {}
+
+    async def body(pilot, app, screen):
+        _type(screen, "opening:PEN", "350.00")
+        _type(screen, "as_of:PEN", "2026-01-01")  # the last line's `⏎` saves
+        await wait_for(pilot, lambda: refusal_block(screen))
+        await pilot.pause()
+        assert screen.is_attached  # nothing saved, the form stays
+        seen["block"] = refusal_block(screen)
+        seen["line"] = screen._key
+        seen["typed"] = screen._values["opening:PEN"]
+
+    _form(EFECTIVO, body)
+    _no_failed_toast(notes)
+    assert seen["block"].startswith(f"Failed\nVALIDATION_ERROR — {words}")
+    assert f"  currency_code: {words}" in seen["block"]
+    assert seen["line"] == "opening:PEN"
+    assert seen["typed"] == 35000
+    assert [c[0] for c in fake_client.calls].count("POST") == 1
 
 
 # ---- after a successful save -------------------------------------------------------

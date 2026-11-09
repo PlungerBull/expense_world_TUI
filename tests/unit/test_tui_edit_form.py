@@ -1137,6 +1137,32 @@ def test_a_move_on_a_completed_statement_shows_the_lock_under_the_parts(fake_cli
     assert on_top  # not dismissed: nothing was saved
 
 
+def test_a_move_that_leaves_a_line_on_a_sealed_day_shows_the_engines_words_alone(
+    fake_client, monkeypatch
+):
+    """A move sends `statement_id: null`; the line's day is sealed by another completed
+    statement, so the engine refuses `SEALED_PERIOD` on `statement_id`, naming it
+    (contract: "Transactions (Ledger)", "Sealed periods"). Under the parts the engine's
+    words and `Nothing was saved.`, no line of the app's; the form stays, one request."""
+    words = (
+        "Period 2026-06-01 to 2026-06-30 is sealed by completed statement 'Junio 2026'. "
+        "Revert it to draft to change anything inside it."
+    )
+    err = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"statement_id": words},
+        422,
+        {},
+        reasons={"statement_id": "SEALED_PERIOD"},
+    )
+    summary, on_top = _move_refused(err, fake_client, monkeypatch)
+    assert [call[0] for call in fake_client.calls] == ["PUT"]
+    flat = " ".join(summary.split())  # the summary wraps long words
+    assert flat.endswith(f"VALIDATION_ERROR — {words} ! statement_id: {words} Nothing was saved.")
+    assert on_top
+
+
 def test_a_move_onto_an_account_holding_its_operation_code_says_what_to_do(
     fake_client, monkeypatch
 ):
