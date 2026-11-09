@@ -1184,15 +1184,14 @@ leave the form with `type` on `person` and return holding what was typed.
 - **`bank`** picks from the engine's banks (`GET /banks`, shown by code, in the engine's order:
   `reads.fetch_bank_codes`, read by Manage ▸ Accounts with its currencies) and is required, as
   `type` is.
-- **`last 4`** is optional; the hint reads `optional · the card's last 4 digits · enter to go
-  on`. The app checks nothing about what is typed: the engine judges its shape.
+- **`last 4`** is optional. The app checks nothing about what is typed: the engine judges
+  its shape.
 - **`currencies` takes one currency or more,** picked as a part's HASHTAGS line on the Edit
   form picks hashtags: the list under the bar holds the currencies not yet picked, in the
   engine's order (the list the Accounts screen read), the first highlighted; a code typed and `⏎` add the
   highlighted one, the bar empties and the line stays for another; `⏎` with nothing typed
   goes on. A code nothing matches says `No currencies match “…”.` and stays. Once every
-  currency is picked the list is empty. The hint reads `type a code · ↑↓ highlight · enter
-  adds & stays · empty enter = done`, and the summary lists the picks as `PEN · USD`.
+  currency is picked the list is empty; the summary lists the picks as `PEN · USD`.
 - **The pairs are the Edit form's** (one copy of the lines and of `opening_balance_body`); a
   save with an amount and no day says `PEN as of is required.` and sends nothing.
 - **The save is one `POST /accounts`:** `kind`; on a bank account `bank_code`, and `last4`
@@ -1204,16 +1203,32 @@ leave the form with `type` on `person` and return holding what was typed.
   `Currencies is required.` and sends nothing. A code still in the bar at `ctrl+s` is added
   first, as `⏎` would add it (§4 "The bar forms' keys").
 - **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
-  the line its key names, holding what was typed: `bank_code` is `bank`, `last4` is `last 4`,
-  `name` is `name`, `currencies` and `currencies.<i>.currency_code` are `currencies`, and
-  `currencies.<i>.opening_balance.<field>` is that currency's pair, `date` on its `as of`
-  line and any other field on its `opening` line (`<i>` counts the body's entries from 0, so
-  `currencies.0` is the first currency picked). A name already taken by a bank account is
+  the line its key names, holding what was typed (`NewAccountScreen._line_named`):
+  `currencies.<i>…` names the currency at place `i` of the body, `date` on its `as of`
+  line and any other field of its `opening_balance` on its `opening` line. A name already taken by a bank account is
   keyed `last4` or `bank_code`
   (contract: POST /v1/accounts, "Validation"). A taken id names every id in the engine's words; `user_settings`
   (`SETTINGS_MISSING`) shows as a note with the setup hint.
 - **Left before the answer,** a bank account, which has no typed name, reads `Not created ·
   Account (unnamed)`.
+
+**A bank account's Edit form holds its number on three lines,** `bank`, `last 4` and `since`,
+after `type` (a person's has none). `bank` is New's choice (one copy of the line), opening on
+the account's bank. `last 4` opens holding the current number's digits (the last of the
+account's `numbers`), `since` that number's `start_date`; on the first number, which has none,
+it reads `first card`, and with no number the line is not on the form. The app checks
+nothing typed on them, a day on a first number included (contract: PUT /v1/accounts/{account_id}, "The numbers").
+
+- **The save is the form's one `PUT`,** carrying only what changed: `bank_code`
+  (contract: PUT /v1/accounts/{account_id}, "`bank_code`"); `current_number` with `last4` when
+  the digits changed and a bare `start_date` when `since` did, in one object when both did.
+  A `last 4` typed on an account with no number is its first and sends no start; `since`
+  emptied sends `start_date: null`.
+- **Emptying `last 4` on an account that has a number removes it,** after `ConfirmModal` asks
+  `Remove card 5678 from BCP-5678?` (the name as the engine sent it) over the form:
+  `1234 is its number again. No screen can bring 5678 back.` with a number before it, else
+  `No screen can bring 5678 back.` Only `y` sends `current_number: null`; any other answer
+  sends nothing. An emptied opening balance's question follows this one.
 
 **A bank account's statement code is a line of its own on New and Edit.**
 **`statement code`** sits right after `currencies` on New and Edit, on a bank
@@ -1223,13 +1238,10 @@ offer it none. On New, TYPE turned to `person` takes the line off the form and t
 no code; turned back to `bank`, the line returns holding what was typed. A person's Edit form
 has no such line.
 
-- **The hint** reads `optional · three capital letters, e.g. SIG · enter to go on` on New,
-  and `optional · three capital letters, e.g. SIG · empty clears it · enter to go on` on
-  Edit; `⏎` goes on to `color`.
-- **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`,
-  which `FormBar` applies to every edit of the bar); no other line of any form changes what
-  is typed. The app checks nothing else about the code: the engine judges its shape, and a
-  digit, a missing letter or a fourth one comes back refused in its words.
+- **The hint** says on Edit that emptying the line clears the code; `⏎` goes on to `color`.
+- **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`);
+  no other line of any form changes what is typed. The app checks nothing else about the
+  code: the engine judges its shape.
 - **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
   is left out of the body, never sent as `null` (contract: POST /v1/accounts).
 - **On Edit,** the line opens holding the account's code. The account's one `PUT
@@ -1258,10 +1270,9 @@ person's `name` opens holding its name.
   flips a sign. No hint sits under an `opening` line; on the bar's right a word follows what
   is typed: `debt` below zero, `credit` above it, nothing while the line is empty or `0.00`,
   the same on every account, bank or person, with no currency after it. An `as of` line takes
-  `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the account held this`), starts empty, and is
+  `YYYY-MM-DD`, starts empty, and is
   marked `*` once its currency has an amount.
-  The summary draws each `opening` amount coloured by sign, as the ledger does (negative in
-  the error colour, positive, `0.00` included, in the success colour); `as of` lines stay plain.
+  The summary draws each `opening` amount coloured by sign, as the ledger does.
 - **A currency that has one opens with its pair filled.** Each currency's entry in the
   account's `currencies` names its opening balance by id, or `null` when it has none
   (contract: "Bank Accounts", "`currencies`"),
@@ -1273,23 +1284,23 @@ person's `name` opens holding its name.
   leaves that currency's pair read-only, so the rest still saves.
 - **A save is one `PUT /accounts/{id}`**, all or nothing
   (contract: PUT /v1/accounts/{account_id}, "`opening_balances`"). It carries the account's
-  own fields only when changed (a person's `name`, `color`, `statement_code`), and
+  own fields only when changed (a person's `name`, `color`, `statement_code`, and on a bank account `bank_code` and `current_number`, above), and
   `opening_balances`, keyed by currency code, only for the currencies whose pair changed: a
   currency with none gets a set (a client `transaction_id`, the signed `amount_cents`, the
   `date`); one that has it gets a change of only the amount or date that changed, never
   `transaction_id`; one whose amount was emptied gets `null`. Nothing changed sends `{}`,
   which the engine answers unchanged.
 - **Emptying the amount of an existing one and saving clears it**, after `ConfirmModal` asks
-  `Delete this opening balance?` over the form (`Sueldo Soles · PEN · 3,200.00 · 2026-01-01` ·
-  `It leaves the account's balance, and no screen can bring it back.`); emptying two asks once,
-  `Delete these opening balances?`, a line per currency, then `They leave the account's
-  balance, and no screen can bring them back.` Only `y` sends the one `PUT`; `⏎`, `n` and
-  `esc` go back to the form with nothing sent.
-- **A refusal** shows the "Failed" note in the engine's words, with the line saying what to
-  do when it has one (`format_error`), and leaves the form open with what was typed; nothing
-  was saved, and the next save sends the whole body again, a set with a new `transaction_id`.
-  The cursor goes on the line the key names: a person's `name`, the statement code or colour on
-  its own line; `opening_balances.<code>.date` on that currency's `as of`, and any other
+  `Delete this opening balance?` over the form, a line naming the account, currency, amount
+  and day, then `It leaves the account's balance, and no screen can bring it back.`; two
+  emptied ask once, `Delete these opening balances?`, a line each. Only `y` sends the one
+  `PUT`; `⏎`, `n` and `esc` go back to the form with nothing sent.
+- **A refusal** shows the "Failed" note in the engine's words (`format_error`) and leaves the
+  form open with what was typed; nothing was saved, and the next save sends the whole body
+  again, a set with a new `transaction_id`.
+  The cursor goes on the line the key names: a person's `name`, `bank_code` on `bank`,
+  `current_number` and `current_number.last4` on `last 4`, `current_number.start_date` on
+  `since`, the statement code or colour on its own line; `opening_balances.<code>.date` on that currency's `as of`, and any other
   `opening_balances.<code>` key (`amount_cents`, `title`, `transaction_id`, `category_id`, or the
   whole entry) on its `opening`. When the engine names several codes (`ACCOUNT_ARCHIVED` names
   every one sent), the cursor goes to the first in the form's order and the note shows the

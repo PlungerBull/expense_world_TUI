@@ -92,9 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-4. **The Edit form's number lines.** `bank`, `last 4` (a first number, or its digits fixed) and
-   `since` (the current number's first day) through `current_number`; emptying `last 4` removes
-   the number after question 10's question; each refusal on its line.
 5. **A replacement card.** `new card` and `new card from` through `new_number`, the older numbers
    read-only as `cards before` with their end days; `NUMBER_IN_COMPLETED_STATEMENT` on `new card
    from` in the engine's words.
@@ -145,5 +142,15 @@ Not built in this spec; sorted when it is done.
   (unnamed)`: the account has no name until the engine builds it, and the app builds none. For
   the owner: keep it, or name it by the bank typed (`Account BCP`). The `bank` line has no
   hint, as the mockup draws none.
+- **The removal question (pane 2 A) leaves out the name the account will show:** pane 2 draws
+  `1234 is its number again, and it shows as BCP-1234` (or `shows as BCP`), which the app could
+  only write by building the name. It reads `1234 is its number again. No screen can bring 5678
+  back.` For the owner: keep it, or ask the engine for the name a removal would leave.
+- **Hints not drawn on the mockup:** the Edit form's `last 4` reads `the card's last 4 digits ·
+  empty removes it · enter to go on` and `since` reads `YYYY-MM-DD · this card's first day ·
+  enter to go on`; `since` leaves the form while the account has no number.
+- **The removal question's footer** is the shared question's `[y] confirm    [enter / n / esc]
+  cancel`, as the opening balance's delete question reads, not pane 2's `y removes · any other
+  key keeps it`.
 - No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
   (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

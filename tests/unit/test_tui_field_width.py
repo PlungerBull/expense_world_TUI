@@ -22,7 +22,7 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import _LABELS
 from expense.tui.screens.setup import LABELS as SETUP_LABELS
 from expense.tui.screens.statements import _STATEMENT_LABELS, balance_label
-from tests.unit.helpers import ENGINE_CURRENCIES
+from tests.unit.helpers import ENGINE_BANKS, ENGINE_CURRENCIES
 
 
 def _field_rule(scope: str = "") -> tuple[int, int]:
@@ -50,7 +50,7 @@ def _all_form_labels() -> dict[str, str]:
     every = {"id": "a", "currencies": [{"currency_code": c} for c in ENGINE_CURRENCIES]}
     labels |= {
         f"EditAccountScreen:{f.key}": f.label
-        for f in EditAccountScreen(every, ENGINE_CURRENCIES).FIELDS
+        for f in EditAccountScreen(every, ENGINE_CURRENCIES, ENGINE_BANKS).FIELDS
     }
     return labels
 

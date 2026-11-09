@@ -22,6 +22,7 @@ from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
     app_notes,
@@ -126,7 +127,7 @@ def _left_save(
             form = app.screen
             assert isinstance(form, EditAccountScreen)
         else:
-            form = EditAccountScreen(record, ENGINE_CURRENCIES)
+            form = EditAccountScreen(record, ENGINE_CURRENCIES, ENGINE_BANKS)
             await app.push_screen(form)
         await wait_for(pilot, lambda: bool(form.query("#bar")) and not form._openings_loading)
         for key, text in edits:
@@ -247,7 +248,7 @@ def test_quitting_mid_save_sends_and_shows_nothing_more(fake_client, monkeypatch
     ids=["landed", "refused", "unknown"],
 )
 def test_the_landing_check_reads_the_list_again_unless_refused_clearly(error, failure, reads):
-    form = EditAccountScreen(VISA, ENGINE_CURRENCIES)
+    form = EditAccountScreen(VISA, ENGINE_CURRENCIES, ENGINE_BANKS)
     item = SimpleNamespace(left_behind=LeftBehind("Not saved"))
     assert form._landed_after_leaving(item, error, failure) is reads
 

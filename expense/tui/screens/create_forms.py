@@ -61,6 +61,12 @@ NAME_HINT = "free text · enter to go on"
 ACCOUNT_COLOR_HINT = "optional · enter keeps it · ↑↓ another swatch"
 #: A bank account's LAST 4 on New: optional, and `⏎` goes on to CURRENCIES.
 LAST4_HINT = "optional · the card's last 4 digits · enter to go on"
+#: The same line on Edit, where emptying it and saving removes the current number.
+LAST4_EDIT_HINT = "the card's last 4 digits · empty removes it · enter to go on"
+#: A bank account's SINCE on Edit: the current number's first day.
+SINCE_HINT = "YYYY-MM-DD · this card's first day · enter to go on"
+#: SINCE's value while the current number is the account's first, which has no start day.
+FIRST_CARD = "first card"
 #: The account's STATEMENT CODE on New: optional, and `⏎` goes on to COLOR.
 STATEMENT_CODE_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
 #: The same line on Edit, where emptying it and saving clears the code.
@@ -127,6 +133,11 @@ class BarFormScreen(FormScreen):
         overrides this (the account Edit form's AS OF, once there is an amount)."""
         return f.required
 
+    def _blank_cell(self, key: str) -> Text | None:
+        """What the summary draws for an empty line instead of `—`; None, the default,
+        draws `—`."""
+        return None
+
     def _value_text(self, key: str, value: object) -> str:
         """How a text field's value reads in the summary."""
         return str(value)
@@ -141,6 +152,12 @@ class BarFormScreen(FormScreen):
     def _bar_value(self, key: str) -> str:
         f = self._field(key)
         return str(self._values.get(key, "")) if f.kind == "text" else ""
+
+    def _held_index(self, key: str) -> int:
+        """The place in the suggestions of the value line `key` holds; -1 when it is none
+        of them."""
+        held = self._values.get(key)
+        return next((i for i, (v, _) in enumerate(self._suggestions) if v == held), -1)
 
     def _recompute(self, text: str) -> None:
         f = self._f
@@ -160,10 +177,7 @@ class BarFormScreen(FormScreen):
             # A colour line starts on the colour it holds (on an Edit screen, the
             # row's own), so `enter` keeps it; a colour no swatch shows highlights
             # nothing, and `enter` keeps that too.
-            held = self._values[f.key]
-            self._suggest_idx = next(
-                (i for i, (v, _) in enumerate(self._suggestions) if v == held), -1
-            )
+            self._suggest_idx = self._held_index(f.key)
         else:
             # An optional line left empty highlights nothing: its `enter` skips, so
             # no swatch may look picked. Typing, or `↑`/`↓` into the list, highlights.
@@ -268,6 +282,8 @@ class BarFormScreen(FormScreen):
                     value = Text(" · ".join(self._values[f.key]) or "—")
                 else:
                     value = self._value_cell(f.key, self._values[f.key])
+            elif (blank := self._blank_cell(f.key)) is not None:
+                value = blank
             else:
                 tag = "  *" if self._field_required(f) else "  (optional)"
                 value = Text("—" + tag, style="dim")
@@ -769,6 +785,10 @@ class EditAccountScreen(NewAccountScreen):
     A bank account has no NAME line: its name is the engine's, and a `name` sent
     for it is refused (contract: PUT /v1/accounts/{account_id}). A person's NAME
     opens holding its name. A bank account's STATEMENT CODE opens holding its code.
+    Its BANK opens on its bank, picked from the engine's banks as New's is, and its LAST 4
+    on its current number's digits (empty with none); SINCE, only while the account has a
+    number, holds that number's first day, `first card` while it is the first and has
+    none (contract: PUT /v1/accounts/{account_id}, "The numbers").
 
     Each currency's entry in the account's `currencies` names its opening
     balance by id, or `null` when it has none (contract: "Bank Accounts",
@@ -787,30 +807,43 @@ class EditAccountScreen(NewAccountScreen):
     (`transaction_id`, `amount_cents`, `date`); one that has it gets a change of
     only the `amount_cents` and/or `date` that changed; one whose amount was
     emptied gets `null`, after one question naming each currency it deletes, and
-    only `y` sends. A form with nothing changed sends `{}`.
+    only `y` sends. A bank account's `bank_code` goes when the bank changed, and
+    `current_number` when its digits or first day did: `{last4}` and/or `{start_date}`
+    (the first number of a numberless account sends `last4` alone), `start_date: null` for
+    a SINCE emptied (the engine's refusal shows), and `null` for a LAST 4 emptied, after
+    a question naming the number removed; that question comes before the openings' and
+    only `y` goes on. A form with nothing changed sends `{}`.
 
     A refusal names its line: `opening_balances.<code>.date` is that currency's
-    `as of`, any other `opening_balances.<code>` key its `opening`. The typed
+    `as of`, any other `opening_balances.<code>` key its `opening`; `bank_code` is BANK,
+    `current_number.start_date` SINCE, and `current_number` or any other key under it
+    LAST 4. The typed
     values stay in the form; with several codes named the cursor goes to the
     first in the form's order. Saved, it dismisses with True so the list starts over.
     """
 
     BINDINGS = form_bindings("Save")
     NOT_DONE = "Not saved"
-    # New's lines, CURRENCIES read-only, STATEMENT CODE's hint saying that
-    # emptying it clears the code
+    # New's lines, CURRENCIES read-only, LAST 4's and STATEMENT CODE's hints saying that
+    # emptying them removes or clears, and SINCE after LAST 4
     FIELDS = [
-        Field("currencies", "CURRENCIES", "picks")
-        if f.key == "currencies"
-        else _field_with_hint(f, STATEMENT_CODE_EDIT_HINT)
-        if f.key == "statement_code"
-        else f
+        line
         for f in NewAccountScreen.FIELDS
-        if f.key not in ("bank", "last4")
+        for line in (
+            [Field("currencies", "CURRENCIES", "picks")]
+            if f.key == "currencies"
+            else [_field_with_hint(f, STATEMENT_CODE_EDIT_HINT)]
+            if f.key == "statement_code"
+            else [_field_with_hint(f, LAST4_EDIT_HINT), Field("since", "SINCE", hint=SINCE_HINT)]
+            if f.key == "last4"
+            else [f]
+        )
     ]
 
-    def __init__(self, record: dict, currencies: list[str]) -> None:
-        super().__init__(currencies, [])
+    def __init__(self, record: dict, currencies: list[str], banks: list[str]) -> None:
+        """`currencies`, `banks`: the engine's codes, as New's (`GET /currencies`,
+        `GET /banks`)."""
+        super().__init__(currencies, banks)
         self._id = record["id"]
         self._name = record.get("name") or "—"
         self._was = record.get("name") or ""  # as the list shows it
@@ -829,6 +862,22 @@ class EditAccountScreen(NewAccountScreen):
         }
         if person:
             self._values["name"] = self._was
+        # the current number is the last of the account's `numbers`; the one before it
+        # is current again once it is removed
+        numbers = record.get("numbers") or []
+        self._has_number = bool(numbers) and not person
+        self._number_before: str | None = numbers[-2]["last4"] if len(numbers) > 1 else None
+        self._original_bank: str | None = record.get("bank_code")
+        self._original_last4: str | None = numbers[-1]["last4"] if numbers else None
+        self._original_since: str | None = numbers[-1].get("start_date") if numbers else None
+        if not person:
+            for key, was in (
+                ("bank", self._original_bank),
+                ("last4", self._original_last4),
+                ("since", self._original_since),
+            ):
+                if was:
+                    self._values[key] = was
         if record.get("color"):
             self._values["color"] = record["color"]
         self._original_color = record.get("color")
@@ -848,7 +897,25 @@ class EditAccountScreen(NewAccountScreen):
         return any(o.loading for o in self._openings.values())
 
     def _identity_lines(self) -> list[str]:
-        return ["name"] if self._is_person else []
+        if self._is_person:
+            return ["name"]
+        return ["bank", "last4", *(["since"] if self._has_number else [])]
+
+    def _field_required(self, f: Field) -> bool:
+        """The account's bank is already there: BANK is never asked for."""
+        return False if f.key == "bank" else super()._field_required(f)
+
+    def _recompute(self, text: str) -> None:
+        """As New's; BANK, empty, highlights the account's own bank, so `enter` keeps it."""
+        super()._recompute(text)
+        if self._key == "bank" and not text.strip():
+            self._suggest_idx = self._held_index("bank")
+
+    def _blank_cell(self, key: str) -> Text | None:
+        """SINCE, empty on the first number, reads `first card`."""
+        if key == "since" and self._original_since is None:
+            return Text(FIRST_CARD, style="dim")
+        return None
 
     def _after_mount(self) -> None:
         if self._openings_loading:
@@ -918,6 +985,8 @@ class EditAccountScreen(NewAccountScreen):
         """As New's, and `opening_balances.<code>.date` is that currency's `as of`
         line, any other `opening_balances.<code>…` key its `opening` line."""
         bits = str(field).split(".", 2)
+        if bits[0] == "current_number":
+            return "since" if bits[1:] == ["start_date"] else "last4"
         if bits[0] != "opening_balances" or len(bits) < 2:
             return super()._line_named(field)
         return _pair_key("as_of" if bits[2:] == ["date"] else "opening", bits[1])
@@ -926,12 +995,37 @@ class EditAccountScreen(NewAccountScreen):
     def _submit_request(self) -> tuple[str, str, dict, str]:
         return ("PUT", f"/accounts/{self._id}", self._payload(), "Saving…")
 
+    @property
+    def _removes_number(self) -> bool:
+        """Whether LAST 4 was emptied on an account that has a number."""
+        return self._original_last4 is not None and not self._values.get("last4")
+
+    def _number_entry(self) -> dict | None | bool:
+        """The body's `current_number`: the digits and/or first day that changed, `None`
+        for the removal; False when the number is as it was. A removal drops a changed
+        `since`: the day belonged to the number removed, and one `current_number` cannot be
+        `null` and carry a `start_date`."""
+        if self._removes_number:
+            return None
+        change: dict = {}
+        last4 = self._values.get("last4")
+        if last4 and last4 != self._original_last4:
+            change["last4"] = last4
+        if self._has_number and self._values.get("since") != self._original_since:
+            change["start_date"] = self._values.get("since")
+        return change or False
+
     def _payload(self) -> dict:
         """The account's own fields that changed, and `opening_balances` for the
         currencies whose pair changed."""
         body: dict = {}
         if self._is_person and self._values["name"] != self._was:
             body["name"] = self._values["name"]
+        if not self._is_person:
+            if self._values.get("bank") != self._original_bank:
+                body["bank_code"] = self._values["bank"]
+            if (number := self._number_entry()) is not False:
+                body["current_number"] = number
         if self._values.get("color") and self._values["color"] != self._original_color:
             body["color"] = self._values["color"]
         code = self._values.get("statement_code")
@@ -953,10 +1047,38 @@ class EditAccountScreen(NewAccountScreen):
             return
         if not self._keep_bar() or not self._required_met():
             return
+        questions = []
+        if not self._is_person and self._removes_number:
+            questions.append(self._removal_question())
         deleted = [code for code in self._codes if self._opening_entry(code) is None]
-        if not deleted:
+        if deleted:
+            questions.append(self._deletion_question(deleted))
+        self._ask(questions)
+
+    def _ask(self, questions: list[tuple[str, str]]) -> None:
+        """Ask each question in turn over the form, then send the save; only `y` goes
+        on, any other key goes back to the form with nothing sent."""
+        if not questions:
             self._send_save()
             return
+
+        def answered(ok: bool | None) -> None:
+            if ok:
+                self._ask(questions[1:])
+
+        self.app.push_screen(ConfirmModal(*questions[0]), answered)
+
+    def _removal_question(self) -> tuple[str, str]:
+        """The question before a number is removed: the number goes, the one before it,
+        if any, is the account's number again."""
+        gone = str(self._original_last4)
+        words = f"No screen can bring {gone} back."
+        if self._number_before is not None:
+            words = f"{self._number_before} is its number again. {words}"
+        return f"Remove card {gone} from {self._name}?", words
+
+    def _deletion_question(self, deleted: list[str]) -> tuple[str, str]:
+        """The question before opening balances are deleted, a line per currency."""
         lines = "\n".join(
             " · ".join(
                 [
@@ -969,17 +1091,14 @@ class EditAccountScreen(NewAccountScreen):
             for code in deleted
         )
         if len(deleted) == 1:
-            title = "Delete this opening balance?"
-            closing = "It leaves the account's balance, and no screen can bring it back."
-        else:
-            title = "Delete these opening balances?"
-            closing = "They leave the account's balance, and no screen can bring them back."
-
-        def answered(ok: bool | None) -> None:
-            if ok:
-                self._send_save()
-
-        self.app.push_screen(ConfirmModal(title, f"{lines}\n{closing}"), answered)
+            return (
+                "Delete this opening balance?",
+                f"{lines}\nIt leaves the account's balance, and no screen can bring it back.",
+            )
+        return (
+            "Delete these opening balances?",
+            f"{lines}\nThey leave the account's balance, and no screen can bring them back.",
+        )
 
     def _shown_name(self) -> str:
         return self._was

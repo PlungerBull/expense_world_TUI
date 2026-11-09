@@ -35,6 +35,7 @@ from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList, CursorOptionList
 from expense.tui.widgets.refusal import as_markup
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     ENGINE_URL,
     account_with_currencies,
@@ -461,7 +462,7 @@ def test_an_opening_balance_that_cannot_be_read_shows_the_words_whole(fake_clien
     monkeypatch.setattr("expense.reads.fetch_transaction", refused)
 
     async def scenario(pilot, app):
-        await app.push_screen(EditAccountScreen(SUELDO, ENGINE_CURRENCIES))
+        await app.push_screen(EditAccountScreen(SUELDO, ENGINE_CURRENCIES, ENGINE_BANKS))
         assert whole_in(await toast_with_words(pilot, app))
 
     run_app(scenario, toasts=True)
@@ -472,7 +473,7 @@ def test_a_refused_opening_balance_shows_the_words_whole(fake_client):
     fake_client.errors["PUT"] = refusal(key="opening_balances.PEN.date")
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type_account(screen, "color", "green")

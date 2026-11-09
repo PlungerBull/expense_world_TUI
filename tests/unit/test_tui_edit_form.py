@@ -348,7 +348,7 @@ FORM_FOOTER = [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field"), ("^n", "Add 
         (lambda: NewCategoryScreen(), "Create"),
         (lambda: NewHashtagScreen(), "Create"),
         (lambda: EditFormScreen(record=TXN), FORM_FOOTER),
-        (lambda: EditAccountScreen(ACCOUNTS[0], ENGINE_CURRENCIES), "Save"),
+        (lambda: EditAccountScreen(ACCOUNTS[0], ENGINE_CURRENCIES, ENGINE_BANKS), "Save"),
         (lambda: EditCategoryScreen({"id": "cat1", "name": "Food"}), "Save"),
         (lambda: EditHashtagScreen({"id": "tag1", "name": "#trip"}), "Save"),
     ],

@@ -19,6 +19,7 @@ from expense.tui.screens.create_forms import (
 )
 from expense.tui.screens.statements import NewStatementScreen
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
     held_currency,
@@ -111,7 +112,7 @@ def test_an_edit_form_shows_its_refusal_as_a_block_not_a_toast(fake_client):
     person = account_with_currencies(id="abc", name="Eliana", kind="person")
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(person, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(person, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await pilot.press("ctrl+s")
         await _refused(pilot, screen)
@@ -184,7 +185,7 @@ def test_a_refused_opening_balance_shows_the_engines_words_alone_in_the_block(fa
     )
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(efectivo, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(efectivo, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")) and not screen._openings_loading)
         for key, text in (

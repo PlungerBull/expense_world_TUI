@@ -25,6 +25,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import PALETTE
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ENGINE_BANKS,
     ENGINE_CURRENCIES,
     LOCK_MESSAGES,
     LOCKED_WORDS,
@@ -135,7 +136,7 @@ def _form(record, body):
     `body(pilot, app, screen)`."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(record, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(record, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await wait_for(pilot, lambda: not screen._openings_loading)
@@ -187,6 +188,9 @@ def test_two_empty_lines_after_colour_and_no_read(fake_client):
     async def body(pilot, app, screen):
         assert screen._sequence() == [
             "type",
+            "bank",
+            "last4",
+            "since",
             "currencies",
             "statement_code",
             "color",
@@ -196,7 +200,7 @@ def test_two_empty_lines_after_colour_and_no_read(fake_client):
         text = _summary(screen)
         assert "PEN opening — (optional)" in text
         assert "PEN as of — (optional)" in text
-        assert screen._key == "statement_code"  # a bank account has no NAME line
+        assert screen._key == "bank"  # a bank account has no NAME line
 
     _form(EFECTIVO, body)
     assert fake_client.calls == []  # null id: nothing to read
@@ -352,6 +356,9 @@ def test_each_currency_has_its_pair_in_the_engines_order(fake_client, reads_log)
         ]
         assert [line for line in _summary(screen).splitlines() if line] == [
             "type bank read-only",
+            "bank BCP",
+            "last 4 5678",
+            "since first card",
             "currencies PEN · USD read-only",
             "statement code — (optional)",
             "color ██ blue",
@@ -892,7 +899,7 @@ def test_a_save_waits_for_the_read(fake_client, notes, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(SUELDO, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(SUELDO, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
@@ -919,7 +926,7 @@ def test_the_loading_note_names_the_currency_still_loading(fake_client, notes, m
     monkeypatch.setattr("expense.reads.fetch_transaction", slow)
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(VISA_USD_OPENED, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(VISA_USD_OPENED, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         screen.action_submit()
@@ -955,8 +962,11 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
 @pytest.mark.parametrize(
     "record, lines",
     [
-        (EFECTIVO, ["statement_code", "color", "opening:PEN", "as_of:PEN"]),
-        (SUELDO, ["statement_code", "color", "opening:PEN", "as_of:PEN"]),
+        (
+            EFECTIVO,
+            ["bank", "last4", "since", "statement_code", "color", "opening:PEN", "as_of:PEN"],
+        ),
+        (SUELDO, ["bank", "last4", "since", "statement_code", "color", "opening:PEN", "as_of:PEN"]),
         (ELIANA, ["name", "color", "opening:PEN", "as_of:PEN"]),
     ],
     ids=["no-opening", "read-opening", "person"],
@@ -988,7 +998,7 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
     reads_log.error = EngineError("NOT_FOUND", "transaction not found.", None, 404, {})
 
     async def body(pilot, app, screen):
-        assert screen._key == "statement_code"
+        _on(screen, "statement_code")
         await pilot.press("enter")
         await pilot.pause()
         assert screen._key == "color"

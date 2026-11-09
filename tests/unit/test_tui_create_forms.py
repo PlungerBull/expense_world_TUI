@@ -319,6 +319,7 @@ def _edit_account(color, *, kind="bank") -> EditAccountScreen:
     return EditAccountScreen(
         account_with_currencies(id="abc", name="Sueldo", color=color, kind=kind),
         ENGINE_CURRENCIES,
+        ENGINE_BANKS,
     )
 
 
@@ -542,7 +543,9 @@ def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_cl
     assert body["currencies"] == [{"currency_code": "EUR"}]
     screen = NewAccountScreen(["EUR", "PEN", "USD"], ENGINE_BANKS)
     assert screen._field("currencies").choices == [("EUR", "EUR"), ("PEN", "PEN"), ("USD", "USD")]
-    assert EditAccountScreen(_ELIANA, ["EUR", "PEN", "USD"])._field("currencies").choices == [
+    assert EditAccountScreen(_ELIANA, ["EUR", "PEN", "USD"], ENGINE_BANKS)._field(
+        "currencies"
+    ).choices == [
         ("EUR", "EUR"),
         ("PEN", "PEN"),
         ("USD", "USD"),
@@ -552,7 +555,7 @@ def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_cl
 def test_edit_account_locks_type_and_currencies(fake_client):
     """`kind` is creation-time-only, so editing shows TYPE read-only, and
     CURRENCIES, which change with their own keys on Manage ▸ Accounts."""
-    screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES)
+    screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES, ENGINE_BANKS)
     assert screen._locked == {"currencies", "type"}
     assert screen._values["type"] == "person"
     assert screen._submit_request()[:2] == ("PUT", "/accounts/abc")
@@ -664,7 +667,7 @@ def test_a_refused_create_can_be_submitted_again(fake_client):
 
 def test_a_refused_edit_reports_through_the_same_path(fake_client):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
-    screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES)
+    screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def check(pilot, screen, shown):
         assert shown == "Failed\nCONFLICT — that name is taken"
@@ -682,7 +685,7 @@ def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
 
 
 def _eliana() -> EditAccountScreen:
-    return EditAccountScreen(_ELIANA, ENGINE_CURRENCIES)
+    return EditAccountScreen(_ELIANA, ENGINE_CURRENCIES, ENGINE_BANKS)
 
 
 @pytest.mark.parametrize(
@@ -867,14 +870,22 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, make, steps, 
 _ACCOUNT = account_with_currencies(id="abc", name="Eliana")  # a bank account: no NAME line
 
 
-def _navigate(steps):
+def _land(screen, key):
+    """Put the cursor on `key`."""
+    screen._current = screen._sequence().index(key)
+    screen._refresh_bar()
+    screen._refresh_view()
+
+
+def _navigate(steps, start="statement_code"):
     """Push the account edit form, then run each `(key, expected field)` step."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        assert screen._key == "statement_code"  # the first editable field
+        assert screen._key == "bank"  # the first editable field
+        _land(screen, start)
         for key, expected in steps:
             await pilot.press(key)
             await pilot.pause()
@@ -924,8 +935,11 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
             ("tab", "as_of:PEN"),  # no editable field further on: stays
             ("shift+tab", "opening:PEN"),
             ("shift+tab", "color"),
-            ("shift+tab", "statement_code"),  # skips locked CURRENCIES
-            ("shift+tab", "statement_code"),  # TYPE is locked: stays
+            ("shift+tab", "statement_code"),
+            ("shift+tab", "since"),  # skips locked CURRENCIES
+            ("shift+tab", "last4"),
+            ("shift+tab", "bank"),
+            ("shift+tab", "bank"),  # TYPE is locked: stays
         ]
     )
 
@@ -934,9 +948,10 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
     """On COLOR the palette list is open; tab and shift+tab still move fields."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        _land(screen, "statement_code")
         await pilot.press("tab")
         await pilot.pause()
         assert screen._key == "color" and screen._suggestions  # list open
@@ -952,10 +967,11 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
     list takes `↑`/`↓` until it empties, and then `↑` moves back."""
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES)
+        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        assert screen._key == "statement_code" and screen._suggestions == []
+        _land(screen, "statement_code")
+        assert screen._suggestions == []
         await pilot.press("down")  # STATEMENT CODE: no list → next field
         await pilot.pause()
         assert screen._key == "color" and len(screen._suggestions) > 2

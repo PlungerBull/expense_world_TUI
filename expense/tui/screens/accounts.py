@@ -356,7 +356,7 @@ class AccountsScreen(ResourceListScreen):
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        return EditAccountScreen(item, self._currencies)
+        return EditAccountScreen(item, self._currencies, self._banks)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen

@@ -20,6 +20,7 @@ from tests.unit.helpers import (
     ENGINE_BANKS,
     ENGINE_CURRENCIES,
     ENGINE_URL,
+    account_with_currencies,
     banks_answer,
     no_failed_toast,
     refusal_block,
@@ -388,6 +389,21 @@ def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_form(monk
         await wait_for_list(pilot, app)
         assert screen._banks == ["BCP", "IBK"]
         form = screen.new_screen()
+        assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
+
+    run_app(scenario)
+
+
+def test_the_accounts_screen_hands_the_banks_to_the_edit_form(monkeypatch):
+    monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP", "IBK"])
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        form = screen.edit_screen(account_with_currencies(id="acc-bcp", name="BCP-5678"))
         assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
 
     run_app(scenario)
