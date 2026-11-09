@@ -64,6 +64,12 @@ Approved. Each reads the live contract on the practice engine before building.
    follows it; System ▸ Auth & profile shows the `number format` row and `f` asks which one,
    saving through `PUT /auth/settings`, *Follow this Mac* sending `null`; `INVALID_FORMAT` in the
    engine's words; amounts on screen follow the new format at once.
+   *In progress:* round 1 sits in git's stash ("number format task 4 (the setting), round 1
+   rejected: 3 blockers in the spec's task 4 note"). Its review left: the launch read reaches
+   the network in unit tests (pin `reads.fetch_number_format` beside the region pin); no test
+   draws Home in the new format after a save; the launch read needs a short time bound. Also
+   asked: the save's `LeftBehind`, the "Not saved" title against the app's others, `f` shown
+   while not provisioned.
 5. **The live contract tests:** the setting saved, read back on `GET /auth/me`, cleared with
    `null`, an unknown format refused `INVALID_FORMAT` with nothing written, `number_format`
    refused on `POST /auth/bootstrap`, a timezone sent in small letters read back in its listed
@@ -80,3 +86,7 @@ closes the ask "A user's settings hold their number format".
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **After Setup connects, the account's number format waits for the next launch:** a new
+  device follows its region for its first session (expense/tui/screens/setup.py reads
+  `/auth/me` already).
