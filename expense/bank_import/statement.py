@@ -11,7 +11,7 @@ engine's word. Nothing here matches, adds up or picks an account or a currency.
 
 from dataclasses import dataclass
 
-from expense.formatting import signed_cents
+from expense.formatting import close_notes, signed_cents
 
 #: A row's outcomes (contract: POST /v1/statements/import, "Response").
 MATCHED = "matched"
@@ -66,6 +66,21 @@ class StatementBalance:
     currency: str
     beginning_balance_cents: int | None
     ending_balance_cents: int | None
+    #: The ids of the lines the close will flag for review, in the engine's order.
+    review_lines: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class NotCovered:
+    """A live currency of the account the paper holds no balances for, with the
+    lines the close will flag for it (contract: POST /v1/statements/import, "Response")."""
+
+    currency: str
+    review_lines: tuple[str, ...]
+
+
+def _texts(values: list | None) -> tuple[str, ...]:
+    return tuple(str(v) for v in values or [] if v)
 
 
 def statement_balances(response: dict) -> list[StatementBalance]:
@@ -77,8 +92,21 @@ def statement_balances(response: dict) -> list[StatementBalance]:
             currency=str(balance.get("currency_code") or "?"),
             beginning_balance_cents=balance.get("beginning_balance_cents"),
             ending_balance_cents=balance.get("ending_balance_cents"),
+            review_lines=_texts(balance.get("review_lines")),
         )
         for balance in response.get("balances") or []
+    ]
+
+
+def statement_not_covered(response: dict) -> list[NotCovered]:
+    """The answer's `not_covered`, in its order: each currency of the account the
+    paper holds no balances for (contract: POST /v1/statements/import, "Response")."""
+    return [
+        NotCovered(
+            currency=str(entry.get("currency_code") or "?"),
+            review_lines=_texts(entry.get("review_lines")),
+        )
+        for entry in response.get("not_covered") or []
     ]
 
 
@@ -123,6 +151,13 @@ class StatementAnswer:
     #: first: taken out of it, never changed or deleted.
     taken_out: tuple[str, ...]
     counts: StatementCounts
+    #: The currencies of the account the paper does not cover.
+    not_covered: tuple[NotCovered, ...] = ()
+    #: Each currency's `warnings` as the engine wrote them, led by the code (`USD: …`):
+    #: the balances', then the uncovered currencies', in the engine's order.
+    #: `coverage_gap` is the figures behind a warning's sentence; the sentence is
+    #: shown, not the figures.
+    notes: tuple[str, ...] = ()
 
     @property
     def fills_a_draft(self) -> bool:
@@ -136,8 +171,17 @@ class StatementAnswer:
 
     def lines_to_read(self) -> list[str]:
         """The ids the answer names a ledger line by alone, each once: the lines
-        taken out, in the engine's order."""
-        return list(dict.fromkeys(self.taken_out))
+        taken out, then the lines the close will flag, in the engine's order."""
+        return list(dict.fromkeys([*self.taken_out, *self.flagged]))
+
+    @property
+    def flagged(self) -> tuple[str, ...]:
+        """The lines the close will flag for review (contract: POST /v1/statements/import,
+        "Response"): each balance's, then each uncovered currency's,
+        in the engine's order, each once. The engine names them; nothing here decides."""
+        ids = [i for b in self.balances for i in b.review_lines]
+        ids += [i for entry in self.not_covered for i in entry.review_lines]
+        return tuple(dict.fromkeys(ids))
 
 
 def statement_answer(response: dict) -> StatementAnswer:
@@ -151,4 +195,6 @@ def statement_answer(response: dict) -> StatementAnswer:
         rows=tuple(statement_rows(response)),
         taken_out=tuple(str(i) for i in response.get("taken_out") or []),
         counts=statement_counts(response),
+        not_covered=tuple(statement_not_covered(response)),
+        notes=tuple(close_notes(response, covered_led_by_code=True)),
     )

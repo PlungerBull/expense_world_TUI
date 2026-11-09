@@ -30,7 +30,7 @@ expense/tui/
     checklist.py    # CheckList — a statement's bank lines, one per row
     footer.py       # FittingFooter — every screen's footer (§5)
     picker.py       # suggestion_list() + matching() — the name list under a bar
-    refusal.py      # hanging(), under_itself(), toast(), as_markup(), run_stopped()
+    refusal.py      # hanging(), under_itself(), warning_note(), toast(), as_markup(), run_stopped()
     parts_table.py  # the Edit form's parts table, read-only lines, refused-save lines
   screens/
     _base.py        # SectionScreen, EngineWriteMixin, ResourceListScreen, NewestReadMixin,
@@ -126,7 +126,7 @@ The writes that carry one, each naming its words where it is sent:
   typed; a refusal ends with the same dim line, by the same rule), a tick (`Not ticked · <title> · <amount>`, `Not unticked · …`; a tick that lands
   shows nothing), `u` (`Not reverted · Statement <name>`), `d` (`Not deleted · Statement
   <name>`) and `c`, which opens no screen by itself. A complete that went through is
-  `Statement completed · <name>` with the engine's notes (`gap_notes`, the lines the head
+  `Statement completed · <name>` with the engine's notes (`close_notes`, the lines the head
   shows), then, when the engine's count of the review list read after the answer is above
   zero, `⚑ 3 lines flagged for review: open the statement and press f.`; with neither, the
   plain `Statement completed.`; refused, `Not completed · Statement <name>`. The balances `c`
@@ -791,7 +791,7 @@ nothing. Its three full screens replace one another above the LOG bar, as a down
 | Screen | Shows | Keys |
 |---|---|---|
 | **Which account is this statement?** | crumb `Upload a statement`; the file's name dim beside the question; the download's account list ("Which account is this file?" above), an account with no statement code included (the engine refuses it in its words when picked). Picking an account sends its id | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name with its currencies when it holds two (`BCP Signature PEN + USD`), else the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
+| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name with its currencies when it holds two (`BCP Signature PEN + USD`), else the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, the account's currency order, and no line for a currency the paper does not cover; the app sorts nothing (contract: POST /v1/statements/import, "Response") (contract: POST /v1/statements/import, "Which currencies the statement covers"). Under them each currency's `warnings` as `⚠ USD: <sentence>` in the warning colour, the balances' first and then those of `not_covered` (the account's currencies the paper holds no balances for), in the engine's order; `coverage_gap` is not drawn, its sentence is the warning. Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, with no old day and no count of such rows (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then `⚑ Will be flagged · in no statement, on the paper's days` (warning colour) and the lines the close will flag, each under the table's columns, in the engine's order: every balance's `review_lines`, then every `not_covered` entry's, each id once (a line taken out may show in both blocks), left out with its count when none is named; the app decides nothing about which lines are flagged (contract: POST /v1/statements/import, "Response"); then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
 | **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the engine's count of the completed statement's review list, read once after the apply, is above zero, the `⚑` line a statement shows (§4 "On the statement"). No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
 
 Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
@@ -800,14 +800,14 @@ colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `�
 stays empty, its amount in no colour. Every other amount is coloured by its sign. The title
 column takes what the screen leaves once the other columns have their room, so no row wraps;
 only a screen too narrow for the paper's longest title cuts one, with `…`. The answer names
-the lines taken out by id alone, so the preview's worker reads them once by their ids
+the lines taken out and the lines to flag by id alone, so the preview's worker reads them once, together, by their ids
 (`statement_lines` in [flow.py](../expense/bank_import/flow.py)), never while drawing, and not
-at all when there are none. When the read fails, the taken-out block keeps its head, and a dim
+at all when there are none. When the read fails, each block keeps its head, and a dim
 `! could not read the ledger lines: <why>` sits under the counts.
 
 **The counts** are the engine's `counts` and its rows for the total:
 `10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out`, the `new` count in the accent colour
-when not zero, `empty` and `taken out` only when not zero. After the close they read
+when not zero, `empty` and `taken out` only when not zero, then, in the warning colour, `2 to flag` (the lines under `⚑ Will be flagged`) only when not zero. After the close they read
 `10 rows · 5 were in the ledger · 4 created · 1 empty · 1 taken out`. The screen after the close
 reads the apply's answer, not the dry run's.
 
@@ -1605,7 +1605,9 @@ notes of each currency of the account the statement holds no balances for in `no
 (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`"). Each `warnings`
 sentence shows under the head in the engine's words, `  ⚠ <sentence>` in the warning colour,
 those of a currency not covered after the others and led by its code, `  ⚠ USD: <sentence>`,
-until the next status change. A head line or note too long for the width wraps under its own
+until the next status change. The notes are `close_notes` in [formatting.py](../expense/formatting.py),
+drawn by `warning_note` in [refusal.py](../expense/tui/widgets/refusal.py), which the upload's preview
+shares. A head line or note too long for the width wraps under its own
 first word (`under_itself`), never at column 1.
 
 **The lines a complete flagged for review.**

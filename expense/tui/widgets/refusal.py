@@ -20,6 +20,7 @@ from textual.app import App
 from textual.widget import Widget
 
 from expense.errors import format_error
+from expense.tui.theme import PALETTE
 
 
 def under_itself(head: Text, words: Text) -> RenderableType:
@@ -30,6 +31,14 @@ def under_itself(head: Text, words: Text) -> RenderableType:
     grid.add_column()
     grid.add_row(head, words)
     return grid
+
+
+def warning_note(sentence: str, lead: str) -> RenderableType:
+    """One `⚠` note of a close, in the warning colour, a long sentence wrapping under
+    its own first word, never under the `⚠`: the close screen's (led by two
+    spaces) and the upload preview's (in its balances' column)."""
+    style = PALETTE.warning
+    return under_itself(Text(f"{lead}⚠ ", style=style), Text(sentence, style=style))
 
 
 def hanging(line: Text) -> RenderableType:

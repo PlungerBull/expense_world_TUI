@@ -662,6 +662,212 @@ def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monke
     run_app(scenario, size=(120, 50))
 
 
+# ---- the lines the close will flag, and the close's notes -------------------------
+USD_LINE = bank_line_row(
+    "bl-usd",
+    [
+        import_part(
+            "t-usd", -1999, account_id="sig", line="bl-usd", day="2026-10-12", title="AMAZON"
+        )
+    ],
+    net_cents=-1999,
+    account_id="sig",
+    currency_code="USD",
+)
+FLAG_LINES = {**LINES, "bl-usd": USD_LINE}
+
+
+def _flag_block(lines: list[str]) -> list[str]:
+    """The lines from the `⚑ Will be flagged` head to the counts line, left out."""
+    start = next(i for i, line in enumerate(lines) if line.startswith("⚑ Will be flagged"))
+    end = next(i for i in range(start, len(lines)) if " rows · " in lines[i])
+    return lines[start:end]
+
+
+def test_the_lines_the_close_will_flag_show_under_the_lines_taken_out(
+    fake_client, monkeypatch, tmp_path
+):
+    """The engine's `review_lines`, balance by balance in its order, are read once by
+    their ids with the lines taken out; a line in both shows in both blocks."""
+    path = _pdf(tmp_path)
+    reads_by_ids = _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {
+        **CARD,
+        "review_lines": {"USD": ["bl-usd"], "PEN": ["bl-farm", "bl-uber"]},
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert lines.index(
+            "Taken out · in the statement, not on the paper; they stay in the ledger"
+        ) < (lines.index("⚑ Will be flagged · in no statement, on the paper's days"))
+        block = _flag_block(lines)
+        assert [_cells(line)[:2] for line in block[1:]] == [
+            ["2026-10-12", "AMAZON"],
+            ["2026-10-11", "FARMACIA CENTRAL"],
+            ["2026-10-03", "UBER *TRIP"],
+        ]
+        assert [line.split()[-1] for line in block[1:]] == ["USD", "PEN", "PEN"]
+        assert any("FARMACIA" in line for line in lines[: lines.index(block[0])])  # taken out too
+        assert lines[lines.index(block[0]) + len(block)].endswith(" · 1 taken out · 3 to flag")
+        raw = _body(preview).split("\n")
+        row = next(line for line in raw if "TAMBO" in line)
+        amazon = next(line for line in raw if "AMAZON" in line and "2026-10-12" in line)
+        assert amazon.index("2026-10-12") == row.index("2026-09-24")
+        assert amazon.index("AMAZON") == row.index("TAMBO")
+        assert reads_by_ids == [["bl-farm", "bl-usd", "bl-uber"]]  # one read, each id once
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_the_flagged_lines_follow_the_engines_order(fake_client, monkeypatch, tmp_path):
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber", "bl-farm"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        block = _flag_block(_lines(preview))
+        assert [_cells(line)[1] for line in block[1:]] == ["UBER *TRIP", "FARMACIA CENTRAL"]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_paper_with_nothing_to_flag_shows_no_block_and_no_count(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): CARD})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        text = "\n".join(_lines(preview))
+        assert "Will be flagged" not in text and "to flag" not in text and "⚠" not in text
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_each_currencys_notes_show_under_the_balances_and_the_uncovered_ones_too(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _pdf(tmp_path)
+    reads_by_ids = _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {
+        **CARD,
+        "taken_out": [],
+        "warnings": {
+            "USD": ["Two days of the paper hold no dollar line."],
+            "EUR": ["The paper holds no euro balance."],
+        },
+        "not_covered": {"EUR": ["bl-uber"]},
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert lines[5:7] == [
+            "⚠ USD: Two days of the paper hold no dollar line.",
+            "⚠ EUR: The paper holds no euro balance.",
+        ]
+        assert lines[4].split()[0] == "PEN"  # the notes follow the last balance line
+        block = _flag_block(lines)
+        assert block[1].split()[-1] == "PEN"  # the line's own currency
+        assert reads_by_ids == [["bl-uber"]]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_an_uncovered_currencys_flagged_line_on_a_one_balance_paper_has_no_cur_column(
+    fake_client, monkeypatch, tmp_path
+):
+    """The `cur` column is a card's (two balances); a flagged line of a currency the
+    paper does not cover shows day, title and amount only."""
+    path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")
+    _patch(monkeypatch, lines=FLAG_LINES)
+    _engine(fake_client, {path.read_bytes(): {**SAVINGS, "not_covered": {"USD": ["bl-usd"]}}})
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _accounts(pilot, app)
+        await pilot.press("down", "enter")
+        preview = await _previewed(pilot, app)
+        block = _flag_block(_lines(preview))
+        assert _cells(block[1]) == ["2026-10-12", "AMAZON", "-19.99"]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_a_long_note_wraps_under_its_own_first_word(fake_client, monkeypatch, tmp_path):
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    sentence = "Two days of the paper hold no dollar line and the days after it hold none either."
+    paper = {**CARD, "warnings": {"USD": [sentence]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        raw = _body(preview, width=50).split("\n")
+        first = next(i for i, line in enumerate(raw) if "⚠ USD:" in line)
+        balance = next(line for line in raw if line.startswith("USD"))
+        assert raw[first].index("⚠") == balance.index("USD")  # the balances' column
+        assert raw[first].startswith("⚠ USD: Two days")
+        assert raw[first + 1].startswith("  ") and raw[first + 1].strip()  # under the words
+        assert raw[first + 1].index(raw[first + 1].strip()) == raw[first].index("USD")
+
+    run_app(scenario, size=(60, 50))
+
+
+def test_leaving_a_preview_that_names_flagged_lines_writes_nothing(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {**CARD, "review_lines": {"PEN": ["bl-uber"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        assert any("to flag" in line for line in _lines(preview))
+        await pilot.press("escape")
+        await _on(pilot, app, LogBarScreen, "esc did not return to the bar")
+        await pilot.pause()
+        assert _uploads(fake_client) == [True]
+        assert [path for path, _ in fake_client.posts] == ["/statements/import"]
+
+    run_app(scenario, size=(120, 50))
+
+
+def test_flagged_lines_that_cannot_be_read_keep_the_head_the_count_and_say_why(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    def refused(cfg, ids, **kwargs):
+        raise EngineError("INTERNAL_ERROR", "Something went wrong.", None, 500, {})
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines_by_ids", refused)
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        lines = _lines(preview)
+        assert "⚑ Will be flagged · in no statement, on the paper's days" in lines
+        assert not any("UBER" in line and "2026" in line and "TRIP" in line for line in lines[12:])
+        assert any(line.endswith(" · 1 to flag") for line in lines)
+        assert "! could not read the ledger lines: INTERNAL_ERROR — Something went wrong." in lines
+        assert _shown(preview)["enter"] == "Close SIG-202610"
+
+    run_app(scenario, size=(120, 50))
+
+
 # ---- a savings account's paper ---------------------------------------------------
 def test_a_savings_preview_has_one_balance_line_and_no_currency(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path, "BCP Ahorros 2026-10.pdf")

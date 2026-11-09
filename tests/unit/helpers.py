@@ -965,27 +965,43 @@ def statement_upload_answer(
     balances: list[dict] | None = None,
     taken_out: list[str] | None = None,
     review_lines: dict[str, list[str]] | None = None,
+    warnings: dict[str, list[str]] | None = None,
     not_covered: dict[str, list[str]] | None = None,
     counts: dict | None = None,
 ) -> dict:
     """`POST /statements/import`'s answer: `dry_run` echoed, `statement_id` (`None` on a
     dry run that creates the statement), `creates`, the statement's name and days, its
-    `balances` (one `upload_balance` by default, one per currency the statement covers),
-    `statement` (on an apply the completed statement as a complete answers it, each
-    balance flagging the ids `review_lines` gives for its currency code, and one
-    `not_covered` entry per currency of `not_covered` flagging its ids; `None` on a dry
-    run), one row per row of the paper (each a
+    `balances` (one `upload_balance` by default, one per currency the statement covers,
+    each flagging the ids `review_lines` gives for its currency code and carrying the
+    `warnings` given for it, on a dry run and an apply alike), `not_covered` (one entry
+    per currency of `not_covered` flagging its ids; `warnings` gives a currency's notes whether
+    it is covered or not),
+    `statement` (on an apply the completed statement as a complete answers it, repeating
+    the balances and `not_covered`; `None` on a dry run), one row per row of the paper (each a
     `statement_row`), `taken_out` and `counts` (by default the rows and the lines taken
     out counted) (contract: POST /v1/statements/import, "Response"). The bare answer is
     an apply holding a new row, so the drift script checks each nested shape."""
     if rows is None:
         rows = [statement_row(1, outcome="new")]
-    paper = balances if balances is not None else [upload_balance()]
     flagged = review_lines or {}
+    noted = warnings or {}
+    paper = [
+        {
+            **b,
+            "review_lines": list(flagged.get(b["currency_code"], b.get("review_lines", []))),
+            "warnings": list(noted.get(b["currency_code"], b.get("warnings", []))),
+        }
+        for b in (balances if balances is not None else [upload_balance()])
+    ]
     taken = list(taken_out or [])
     outcomes = [row["outcome"] for row in rows]
     uncovered = [
-        {"currency_code": code, **_CLOSE_NOTES, "review_lines": list(ids)}
+        {
+            "currency_code": code,
+            **_CLOSE_NOTES,
+            "review_lines": list(ids),
+            "warnings": list(noted.get(code, [])),
+        }
         for code, ids in (not_covered or {}).items()
     ]
     closed = {
@@ -1004,8 +1020,6 @@ def statement_upload_answer(
             {
                 **b,
                 "difference_cents": 0,
-                **_CLOSE_NOTES,
-                "review_lines": list(flagged.get(b["currency_code"], [])),
             }
             for b in paper
         ],

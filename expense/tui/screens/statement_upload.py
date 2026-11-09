@@ -67,7 +67,7 @@ from expense.tui.screens.bank_import import (
 )
 from expense.tui.screens.statements import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, BALANCE_RULE, PALETTE, TRANSACTION_RULE
-from expense.tui.widgets.refusal import hanging, toast
+from expense.tui.widgets.refusal import hanging, toast, warning_note
 
 #: The account list's breadcrumb.
 ACCOUNT_CRUMB = ("Upload a statement",)
@@ -91,6 +91,11 @@ DAY_MOVED = "· day moved"
 #: The "Taken out" block's head and the words after it.
 TAKEN_OUT = "Taken out"
 TAKEN_OUT_NOTE = " · in the statement, not on the paper; they stay in the ledger"
+
+#: The "Will be flagged" block's head and the words after it: the lines the
+#: close will flag for review.
+FLAGGED = "⚑ Will be flagged"
+FLAGGED_NOTE = " · in no statement, on the paper's days"
 
 #: What `⏎` does after the apply met something changed while it ran.
 RERUN = "It changed while the upload ran: ⏎ checks the paper against the ledger again."
@@ -251,6 +256,28 @@ def taken_out_lines(
     return out
 
 
+def flagged_lines(answer: StatementAnswer, lines: dict[str, dict], columns: Columns) -> list[Text]:
+    """The "Will be flagged" block: the lines the engine says the close will flag
+    for review, in its order, each read by its id and shown under the table's
+    columns. Empty when none is named. A line taken out may be in both blocks."""
+    if not answer.flagged:
+        return []
+    out = [Text.assemble((FLAGGED, PALETTE.warning), (FLAGGED_NOTE, "dim"))]
+    for line_id in answer.flagged:
+        line = lines.get(line_id)
+        if line is None:
+            continue
+        day, title, _code, net = bank_line_columns(line)
+        currency = str(line.get("currency_code") or "?")
+        out.append(columns.line("", day, title_or_untitled(title), _cents(net), currency))
+    return out
+
+
+def note_lines(answer: StatementAnswer) -> list[RenderableType]:
+    """The engine's `⚠` notes under the balances, one line each, led by their currency."""
+    return [warning_note(note, "") for note in answer.notes]
+
+
 def balance_lines(answer: StatementAnswer) -> list[Text]:
     """`begin  end` dim, then one line per currency the engine's answer holds, and
     no other (a currency the paper does not cover shows nothing): its code and
@@ -281,10 +308,11 @@ def statement_head(answer: StatementAnswer) -> Text:
     return head
 
 
-def counts_line(counts: StatementCounts, *, done: bool) -> Text:
+def counts_line(counts: StatementCounts, *, done: bool, to_flag: int = 0) -> Text:
     """`10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out`, the empty
     and taken-out counts only when not zero; after the close, in the past
-    tense: `5 were in the ledger · 4 created`. Every figure is the engine's."""
+    tense: `5 were in the ledger · 4 created`. Every figure is the engine's.
+    `to_flag`, the lines the close will flag, is counted last, only when not zero."""
     line = Text(f"{counts.rows} {plural(counts.rows, 'row', 'rows')} · ")
     if done:
         line.append(f"{counts.matched} {plural(counts.matched, 'was', 'were')} in the ledger · ")
@@ -296,6 +324,9 @@ def counts_line(counts: StatementCounts, *, done: bool) -> Text:
         line.append(f" · {counts.empty} empty")
     if counts.taken_out:
         line.append(f" · {counts.taken_out} taken out")
+    if to_flag:
+        line.append(" · ")
+        line.append(f"{to_flag} to flag", style=PALETTE.warning)
     return line
 
 
@@ -434,7 +465,8 @@ class StatementPreviewScreen(PreviewScreen):
     # ---- render --------------------------------------------------------------
     def _columns(self) -> Columns:
         assert self._answer is not None
-        taken = [self._lines[i] for i in self._answer.taken_out if i in self._lines]
+        named = dict.fromkeys([*self._answer.taken_out, *self._answer.flagged])
+        taken = [self._lines[i] for i in named if i in self._lines]
         return Columns(self._answer, taken, width=max(40, self.size.width - 4))
 
     def _under_table(self, columns: Columns) -> list[RenderableType]:
@@ -444,11 +476,14 @@ class StatementPreviewScreen(PreviewScreen):
         answer = self._answer
         assert answer is not None
         parts: list[RenderableType] = []
-        taken = taken_out_lines(answer, self._lines, columns)
-        if taken:
-            parts.extend(taken)
+        shown = [
+            *taken_out_lines(answer, self._lines, columns),
+            *flagged_lines(answer, self._lines, columns),
+        ]
+        if shown:
+            parts.extend(shown)
             parts.append(Text(""))
-        parts.append(counts_line(answer.counts, done=False))
+        parts.append(counts_line(answer.counts, done=False, to_flag=len(answer.flagged)))
         if answer.counts.new:
             parts.append(Text(PENDING_NOTE, style="dim"))
         if self._lines_error:
@@ -471,7 +506,10 @@ class StatementPreviewScreen(PreviewScreen):
         if answer is None:
             return MIN_PAGE
         extra = 1 + 1 + len(answer.balances)  # the statement's line, the balances
+        extra += len(answer.notes)
         extra += (2 + len(answer.taken_out)) if answer.taken_out else 0
+        extra += (1 + len(answer.flagged)) if answer.flagged else 0
+        extra += 1 if answer.flagged and not answer.taken_out else 0  # the blank above the counts
         extra += 1 if answer.counts.new else 0
         extra += 1 if self._lines_error else 0
         return max(MIN_PAGE, self.size.height - PREVIEW_CHROME - extra)
@@ -502,6 +540,7 @@ class StatementPreviewScreen(PreviewScreen):
         title.append(" · ")
         title.append("nothing written yet", style="dim")
         parts: list[RenderableType] = [title, statement_head(answer), *balance_lines(answer)]
+        parts.extend(note_lines(answer))
         parts.append(Text(""))
         columns = self._columns()
         parts.append(columns.header())

@@ -79,9 +79,6 @@ engine's dry run now names the lines the close will flag.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-7. **The preview lists the lines the close will flag,** as question 3 is answered, with each
-   currency's `⚠` notes under the balances and the currencies the paper does not cover; the
-   lines are read once by their ids, as the lines taken out are.
 8. **The live contract tests:** `GET /currencies`; a currency left out, single and batch, and
    `REQUIRED` on a two-currency account; an account-only move into another currency; a currency
    removal's keys; a whole number one cent past the bound
@@ -134,3 +131,13 @@ Not built in this spec; sorted when it is done.
   `tests/unit/test_tui_bank_import.py:1164`), though the row text after `Row <row>:` is a stand-in.
 - **No list renders an engine-sent total past the largest amount** in a test; only the
   formatter and a typed opening balance are proven.
+- **A flagged line in a currency the paper does not cover, on a one-currency paper,** shows in
+  the preview's `⚑ Will be flagged` block as `2026-10-12  AMAZON  -19.99`, with no currency,
+  since the currency column shows only on a two-balance paper; only the `⚠ USD: …` note names
+  it. For the owner, with a sketch: leave it, show the currency on lines whose currency is not
+  the paper's, or show the column whenever the paper misses a currency.
+- **The preview leads every `⚠` note with its currency** (`⚠ USD: …`, as drawn), while the
+  close screen leaves a covered currency's note bare; `formatting.close_notes` serves both with a
+  switch. For the owner: one way on both screens, or each as it is.
+- **The preview's page budget counts each `⚠` note as one line,** though a long one wraps on a
+  narrow window.

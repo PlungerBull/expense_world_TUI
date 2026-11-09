@@ -496,3 +496,22 @@ def currency_label(name: str, code: str) -> str:
     """The words for a currency: its account's name and its code, `VISA · USD`. A
     currency has no name of its own; one copy for the picks, the parser and the picker."""
     return f"{name} · {code}"
+
+
+def close_notes(body: dict, *, covered_led_by_code: bool = False) -> list[str]:
+    """The notes of a close's answer (a complete's, or an upload's), one sentence each
+    as the engine wrote it, in its order: each currency's `warnings` off its entry in
+    `balances` (led by its code, `USD: …`, when `covered_led_by_code`), then each
+    `not_covered` currency's, always led by its code. A currency the statement holds
+    no balances for has no row to sit under, so its notes follow
+    (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`")."""
+    notes: list[str] = []
+    for balance in body.get("balances") or []:
+        if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
+            lead = f"{balance.get('currency_code') or '—'}: " if covered_led_by_code else ""
+            notes.extend(f"{lead}{w}" for w in balance["warnings"] if w)
+    for entry in body.get("not_covered") or []:
+        if isinstance(entry, dict) and isinstance(entry.get("warnings"), list):
+            code = entry.get("currency_code") or "—"
+            notes.extend(f"{code}: {w}" for w in entry["warnings"] if w)
+    return notes

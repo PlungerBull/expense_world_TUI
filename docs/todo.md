@@ -19,7 +19,7 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08; tasks 1–6 done.
+   approved 2026-11-08; tasks 1–7 done.
 2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
    approved 2026-11-08. Its cash part waits on the engine ask "Every user holds one cash account,
    named `Efectivo`, with no bank and no number".

@@ -267,11 +267,14 @@ def test_a_statement_upload_apply_answers_the_completed_statement():
     )
     closed = answer["statement"]
 
-    assert (answer["statement_id"], answer["creates"], answer["balances"]) == (
-        "s-paper",
-        True,
-        paper,
-    )
+    assert (answer["statement_id"], answer["creates"]) == ("s-paper", True)
+    # the top-level balances and not_covered repeat the statement's notes
+    # (contract: POST /v1/statements/import, "Response")
+    assert [(b["currency_code"], b["review_lines"]) for b in answer["balances"]] == [
+        ("PEN", []),
+        ("USD", ["bl-flag"]),
+    ]
+    assert answer["not_covered"] == closed["not_covered"]
     assert (closed["id"], closed["status"], closed["name"]) == ("s-paper", 2, "SIG-202610")
     assert [(b["currency_code"], b["review_lines"]) for b in closed["balances"]] == [
         ("PEN", []),

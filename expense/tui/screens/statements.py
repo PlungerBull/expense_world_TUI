@@ -81,6 +81,7 @@ from expense.dates import is_calendar_day
 from expense.errors import EngineError, format_error
 from expense.formatting import (
     bank_line_columns,
+    close_notes,
     format_cents,
     is_split_line,
     name_or_unnamed,
@@ -123,7 +124,7 @@ from expense.tui.widgets.cursor_list import LIST_KEYS, CursorList, list_cell
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching
-from expense.tui.widgets.refusal import as_markup, toast, under_itself
+from expense.tui.widgets.refusal import as_markup, toast, under_itself, warning_note
 
 # Status labels + period formatting are owned by expense/formatting.py
 # (format_status / format_period) — one copy, per the §5 rule.
@@ -2024,7 +2025,7 @@ class StatementScreen(
         name = name_or_unnamed(self._record.get("name"))
         if item.path == f"/statements/{self._id}/complete":
             app.run_worker(
-                partial(self._count_then_say, app, self._id, name, gap_notes(body)),
+                partial(self._count_then_say, app, self._id, name, close_notes(body)),
                 thread=True,
                 group="engine-read",
                 exit_on_error=False,
@@ -2309,7 +2310,7 @@ class StatementScreen(
         the rows they name. The review surface for that is the "no statement"
         pane (`u`).
         """
-        self._show_warnings(gap_notes(body))
+        self._show_warnings(close_notes(body))
 
     def _show_warnings(self, lines: list[str]) -> None:
         line = self.query_one("#rwarn", Static)
@@ -2317,16 +2318,7 @@ class StatementScreen(
             line.display = False
             line.update("")
             return
-        warning = PALETTE.warning
-        # each note wraps under its own first word, after the `⚠ `
-        line.update(
-            Group(
-                *(
-                    under_itself(Text("  ⚠ ", style=warning), Text(text, style=warning))
-                    for text in lines
-                )
-            )
-        )
+        line.update(Group(*(warning_note(text, "  ") for text in lines)))
         line.display = True
 
     def _show_flagged(self, count: int) -> None:
@@ -2425,25 +2417,6 @@ class StatementScreen(
         # the flagged lines' screen opens off the engine's count, whichever read brings it
         self._open_when_counted = verb == "completed"
         self._load_txns()
-
-
-def gap_notes(body: dict) -> list[str]:
-    """The notes of a complete's answer, one sentence each as the engine wrote it, in its
-    order: each currency's `warnings` off its entry in `balances`, then each
-    `not_covered` currency's, led by its code (`USD: …`). One copy for the lines under
-    the head and the message after the screen has left."""
-    notes: list[str] = []
-    for balance in body.get("balances") or []:
-        if isinstance(balance, dict) and isinstance(balance.get("warnings"), list):
-            notes.extend(str(w) for w in balance["warnings"] if w)
-    # A currency the statement holds no balances for has no row to sit under, so
-    # its notes follow, each led by its code
-    # (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`").
-    for entry in body.get("not_covered") or []:
-        if isinstance(entry, dict) and isinstance(entry.get("warnings"), list):
-            code = entry.get("currency_code") or "—"
-            notes.extend(f"{code}: {w}" for w in entry["warnings"] if w)
-    return notes
 
 
 def flagged_after_leaving(n: int) -> str:
