@@ -59,11 +59,6 @@ for it, and which can be archived but never deleted.
 Approved. Each reads the live contract on the
 practice engine before building.
 
-2. **Making it** (question 1): the New form's type offers `cash` while
-   `GET /accounts?include_archived=true` lists no account of kind `cash`; with `cash` picked, name
-   reads `Efectivo · set by the engine`, bank, last 4 and statement code leave the form; one
-   `POST /accounts` with `kind: "cash"`, its currencies and openings, and no name, bank, number
-   or code. `CASH_EXISTS` and `NAME_EXISTS` (keyed `kind`) in the engine's words on the type line.
 3. **The cash account's row and Edit form** (pane 3): Type `cash` on Manage ▸ Accounts; no `t`
    and no `d` on its row; its Edit form holds type, name and currencies read-only, color and the
    openings; `CASH_TAKES_NO_FIELD`, `CASH_KIND_FIXED` and `CASH_NOT_DELETABLE` in the engine's
@@ -89,3 +84,11 @@ number".
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **The type line's hint** reads `bank, person or cash · enter keeps bank`, the form's own hint
+  shape, where pane 1 draws `bank · person · cash · ←→ picks`, naming keys the form does not use.
+- **`n` after a reload that failed,** or while the reload after making the cash account is still
+  out, offers `cash` from the last good list; the engine refuses `CASH_EXISTS` on `type`, so
+  nothing wrong is written (expense/tui/screens/accounts.py:451-452).
+- **For task 3:** `NewAccountScreen._locked_word("name")` returns `set by the engine`, and the Edit
+  form inherits it; pane 3 draws the cash account's Edit `name` as `read-only`.

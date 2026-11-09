@@ -1193,7 +1193,15 @@ checks nothing typed on `last 4`, the engine judging its shape.
   (contract: POST /v1/accounts, "Validation"); `user_settings` (`SETTINGS_MISSING`) shows as a
   note with the setup hint.
 - **Left before the answer,** a bank account, which has no typed name, reads `Not created ·
-  Account (unnamed)`.
+  Account (unnamed)`, and the cash account `Not created · Account Efectivo`.
+- **`type` offers `cash` too,** only once the list has loaded and holds no account of kind `cash`,
+  archived ones included (the Accounts read asks for them); its hint then reads `bank, person or cash`.
+  With `cash` picked the lines are `type`, `name`, `currencies`, `color` and the pairs: `name`
+  reads `Efectivo` and `set by the engine`, read-only, and `bank`, `last 4` and `statement code`
+  return holding what was typed when the type changes back. The save is `kind: "cash"`,
+  `currencies` and `color`, with no name, bank, number or code
+  (contract: POST /v1/accounts, "The name"). A refusal keyed `kind` (`CASH_EXISTS`,
+  `NAME_EXISTS`) lands on `type`.
 
 **A bank account's Edit form holds its number on three lines,** `bank` (New's line), `last 4`
 and `since`, after `type`, with `cards before`, `new card` and `new card from` for a

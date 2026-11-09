@@ -63,6 +63,11 @@ SITES = {
         ["", "BCP", "5678", "PEN", "", "", "", "", ""],
         "post", "Account created.", "Not created · Account (unnamed)",
     ),
+    "new cash account": (
+        AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,
+        ["cash", "PEN", "", "", "", ""],
+        "post", "Account created.", "Not created · Account Efectivo",
+    ),
     "new person": (
         AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,
         ["person", "Eli", "PEN", "", "", "", ""],

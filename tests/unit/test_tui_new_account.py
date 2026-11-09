@@ -6,6 +6,8 @@ an `opening` and `as of` line per currency picked; a person has `type`, `name`,
 line its key names (contract: POST /v1/accounts).
 """
 
+import threading
+
 import httpx
 import pytest
 import respx
@@ -15,7 +17,7 @@ from expense import config as config_module
 from expense.errors import EngineError, format_error
 from expense.reads import fetch_bank_codes
 from expense.tui.screens.accounts import AccountsScreen
-from expense.tui.screens.create_forms import NewAccountScreen
+from expense.tui.screens.create_forms import CASH_NAME, NewAccountScreen
 from tests.unit.helpers import (
     ENGINE_BANKS,
     ENGINE_CURRENCIES,
@@ -24,6 +26,7 @@ from tests.unit.helpers import (
     banks_answer,
     no_failed_toast,
     refusal_block,
+    render_text,
     run_app,
     wait_for,
     wait_for_list,
@@ -407,3 +410,198 @@ def test_the_accounts_screen_hands_the_banks_to_the_edit_form(monkeypatch):
         assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
 
     run_app(scenario)
+
+
+# ---- the cash account -------------------------------------------------------------------
+
+
+def _cash_screen():
+    return NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS, cash_offered=True)
+
+
+def _new_form_with_accounts(monkeypatch, accounts):
+    """The New form the Accounts screen hands over when the engine lists `accounts`; the
+    read asked for archived accounts."""
+    asked: list = []
+
+    def fetch_accounts(cfg, **kw):
+        asked.append(kw)
+        return whole(accounts)
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", fetch_accounts)
+    monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP"])
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    forms: list = []
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        forms.append(screen.new_screen())
+
+    run_app(scenario)
+    assert asked and all(kw.get("include_archived") for kw in asked)
+    return forms[0]
+
+
+@pytest.mark.parametrize(
+    ("accounts", "offered"),
+    [
+        ([], True),
+        ([account_with_currencies(id="a-1", kind="bank")], True),
+        ([account_with_currencies(id="c-1", kind="cash", name="Efectivo")], False),
+        (
+            [account_with_currencies(id="c-1", kind="cash", name="Efectivo", is_archived=True)],
+            False,
+        ),
+    ],
+    ids=["none", "a bank only", "live cash", "archived cash"],
+)
+def test_cash_is_offered_only_while_no_account_of_kind_cash_exists(monkeypatch, accounts, offered):
+    form = _new_form_with_accounts(monkeypatch, accounts)
+    values = [v for v, _ in form._field("type").choices]
+    assert values == (["bank", "person", "cash"] if offered else ["bank", "person"])
+    hint = form._hint_for("type")
+    assert ("cash" in hint) is offered
+    assert hint == (
+        "bank, person or cash · enter keeps bank"
+        if offered
+        else "bank or person · enter keeps bank"
+    )
+
+
+def test_a_cash_account_has_the_lines_of_the_mockup_and_the_name_is_the_engines():
+    screen = _cash_screen()
+    _fill(screen, {"currencies": ["PEN", "USD"], "type": "cash"})
+    assert screen._sequence() == ["type", "name", "currencies", "color", *PAIRS]
+    shown = render_text(screen._summary_renderable(), width=100)
+    lines = [" ".join(line.split()) for line in shown.splitlines()]
+    assert lines[:2] == ["type cash", f"name {CASH_NAME}"]  # the key-driven test adds the word
+    assert not any(word in shown for word in ("bank ", "last 4", "statement code"))
+    assert "NAME is required" not in shown and screen._required() == ("type", "currencies")
+
+
+def test_switching_the_type_back_restores_what_was_typed_on_a_bank_account():
+    screen = _cash_screen()
+    _fill(screen, {"bank": "BCP", "last4": "5678", "statement_code": "SIG"})
+    _fill(screen, {"type": "cash"})
+    assert "bank" not in screen._sequence() and "statement_code" not in screen._sequence()
+    _fill(screen, {"type": "bank"})
+    assert screen._sequence()[:3] == ["type", "bank", "last4"]
+    assert "statement_code" in screen._sequence()
+    shown = render_text(screen._summary_renderable(), width=100)
+    assert "BCP" in shown and "5678" in shown and "SIG" in shown
+
+
+def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code(fake_client):
+    _run(
+        fake_client,
+        _cash_screen(),
+        {
+            "type": "cash",
+            "currencies": ["PEN", "USD"],
+            "color": "#4a90d9",
+            "bank": "BCP",
+            "last4": "5678",
+            "statement_code": "SIG",
+            "name": "Caja",
+            "opening:PEN": 23750,
+            "as_of:PEN": "2026-11-01",
+        },
+    )
+    assert fake_client.requests == [("POST", "/accounts")]
+    _, body = fake_client.posts[0]
+    opening = body["currencies"][0]["opening_balance"]
+    assert body == {
+        "id": body["id"],
+        "kind": "cash",
+        "currencies": [
+            {
+                "currency_code": "PEN",
+                "opening_balance": {
+                    "transaction_id": opening["transaction_id"],
+                    "amount_cents": 23750,
+                    "date": opening["date"],
+                },
+            },
+            {"currency_code": "USD"},
+        ],
+        "color": "#4a90d9",
+    }
+
+
+@pytest.mark.parametrize("reason", ["CASH_EXISTS", "NAME_EXISTS"])
+def test_a_refusal_keyed_kind_lands_on_type_in_the_engines_words(fake_client, reason):
+    refusal = _refusal("CONFLICT", 409, kind=(reason, "You already hold a cash account."))
+    values = {"type": "cash", "currencies": ["PEN"]}
+
+    async def check(pilot, screen):
+        assert refusal_block(screen) == f"Failed\n{format_error(refusal)}"
+        assert "You already hold a cash account." in refusal_block(screen)
+        assert screen._key == "type"
+        assert screen._values == {"type": "cash", "currencies": ["PEN"]}
+
+    _run(fake_client, _cash_screen(), values, error=refusal, check=check)
+
+
+def test_a_cash_account_saved_says_account_created():
+    assert _cash_screen()._saved_words() == "Account created."
+
+
+def test_entering_cash_on_type_skips_the_read_only_name_and_the_summary_reads_it():
+    screen = _cash_screen()
+    shown: list = []
+
+    async def scenario(pilot, app):
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("c", "a", "s", "h", "enter")
+        await wait_for(pilot, lambda: screen._key == "currencies")  # `name` is skipped
+        text = render_text(screen._summary_renderable(), width=100)
+        shown.extend(" ".join(line.split()) for line in text.splitlines())
+
+    run_app(scenario)
+    assert shown[:2] == ["type cash", f"name {CASH_NAME} set by the engine"]
+
+
+def _accounts_screen_new_form(monkeypatch, fetch_accounts, *, before_load=False):
+    """The New form `n` hands over: asked once the list has loaded, or, with `before_load`,
+    while the accounts read is still out."""
+    release = threading.Event()
+
+    def read(cfg, **kw):
+        if before_load:
+            release.wait(5)
+        return fetch_accounts()
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", read)
+    monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP"])
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    forms: list = []
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        if before_load:
+            await pilot.pause()
+            forms.append(screen.new_screen())
+            release.set()
+        else:
+            await wait_for(pilot, lambda: app.screen.query(".error"))
+            forms.append(screen.new_screen())
+
+    run_app(scenario)
+    return forms[0]
+
+
+def test_cash_is_not_offered_while_the_list_is_still_loading(monkeypatch):
+    form = _accounts_screen_new_form(monkeypatch, lambda: whole([]), before_load=True)
+    assert [v for v, _ in form._field("type").choices] == ["bank", "person"]
+
+
+def test_cash_is_not_offered_after_the_list_failed_to_load(monkeypatch):
+    def refused():
+        raise EngineError("UNAUTHORIZED", "Invalid or revoked token.", None, 401, {})
+
+    form = _accounts_screen_new_form(monkeypatch, refused)
+    assert [v for v, _ in form._field("type").choices] == ["bank", "person"]
