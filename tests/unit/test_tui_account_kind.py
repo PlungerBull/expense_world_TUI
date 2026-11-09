@@ -481,12 +481,12 @@ def _dashboard(rows: list[dict]) -> dict:
         held = [
             {k: c[k] for k in ("currency_code", "current_balance_cents")} for c in r["currencies"]
         ]
-        return {"id": r["id"], "name": r["name"], "currencies": held}
+        return {"id": r["id"], "name": r["name"], "kind": r["kind"], "currencies": held}
 
     live = [r for r in rows if not r["is_archived"]]
     return {
         "month": {"year": 2026, "month": 10},
-        "bank_accounts": [entry(r) for r in live if r["kind"] != "person"],
+        "accounts": [entry(r) for r in live if r["kind"] != "person"],
         "people": [entry(r) for r in live if r["kind"] == "person"],
         "categories": [],
         "totals": {"net_home_cents": 0, "unconverted_count": 0},

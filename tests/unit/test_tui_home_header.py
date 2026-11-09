@@ -302,7 +302,7 @@ def test_a_two_currency_account_is_its_row_then_a_line_per_currency_in_the_engin
             "currencies": [{"currency_code": "PEN", "current_balance_cents": 5}],
         },
     ]
-    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "bank_accounts": accounts}}
+    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "accounts": accounts}}
     assert _accounts(home.home_rows(data, palette=PALETTE)) == [
         ("  VISA", "account:a-1", "", False),
         ("    PEN", "account:a-1:PEN", "1.00", False),

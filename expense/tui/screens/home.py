@@ -247,7 +247,7 @@ def _account_rows(
 ) -> list[HomeRow]:
     """One account as Home draws it: its row, its name alone, then an indented
     line per currency it holds, in the engine's order
-    (contract: GET /v1/dashboard, "`bank_accounts`"): the code, then that
+    (contract: GET /v1/dashboard, "`accounts`"): the code, then that
     currency's own `current_balance_cents`, never summed with another. Every
     row's `name` is the account's; the ledger's crumb says it, and on a currency
     line `<name> · <code>`, which the dispatch builds."""
@@ -282,7 +282,7 @@ def home_rows(
         rows.append(None)
         dashboard = data.get("dashboard") or {}
         rows.append(HomeRow(None, "BANK ACCOUNTS", Text("balance today", style="dim"), dim=True))
-        for acct in _with_id(dashboard.get("bank_accounts") or []):
+        for acct in _with_id(dashboard.get("accounts") or []):
             rows.extend(_account_rows(acct, "  ", palette))
         people = _with_id(dashboard.get("people") or [])
         outstanding, settled = split_settled(people)

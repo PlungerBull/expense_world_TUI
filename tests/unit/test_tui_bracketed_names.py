@@ -95,7 +95,7 @@ def test_the_apps_own_styled_cells_keep_their_styling():
 def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
     """Home's balances: a bank account and a person as the engine holds them,
     each name whole on its own row, its currency's line under it."""
-    account = {**HOME_DASHBOARD["bank_accounts"][0], "name": words}  # one PEN currency
+    account = {**HOME_DASHBOARD["accounts"][0], "name": words}  # one PEN currency
     person = {
         "id": "p1",
         "name": words,
@@ -103,7 +103,7 @@ def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
     }
     dashboard = {
         **HOME_DASHBOARD,
-        "bank_accounts": [account, *HOME_DASHBOARD["bank_accounts"][1:]],
+        "accounts": [account, *HOME_DASHBOARD["accounts"][1:]],
         "people": [person],
     }
     stub_home_month(monkeypatch, dashboard=dashboard)

@@ -1689,15 +1689,17 @@ HOME_MONTHS = [
 ]
 _DASHBOARD = {
     "month": {"year": 2026, "month": 9},
-    "bank_accounts": [
+    "accounts": [
         {
             "id": "a-pen",
             "name": "BCP",
+            "kind": "bank",
             "currencies": [{"currency_code": "PEN", "current_balance_cents": 514582}],
         },
         {
             "id": "a-usd",
             "name": "BCP Ahorros",
+            "kind": "bank",
             "currencies": [{"currency_code": "USD", "current_balance_cents": 130}],
         },
     ],

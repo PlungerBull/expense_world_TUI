@@ -98,7 +98,7 @@ def test_freshman_flow(isolated_env):
             )
 
             dashboard = client.get("/dashboard")
-            assert any(key in dashboard for key in ("totals", "accounts", "bank_accounts")), (
+            assert any(key in dashboard for key in ("totals", "accounts")), (
                 f"/dashboard missing expected keys; got: {sorted(dashboard.keys())}"
             )
         finally:

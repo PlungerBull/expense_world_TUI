@@ -13,9 +13,7 @@ from tests.unit.helpers import run_app, stub_home_month, wait_for
 
 SAMPLE = {
     "month": {"year": 2026, "month": 3},
-    "bank_accounts": [
-        {"name": "BCP Soles", "currency_code": "PEN", "current_balance_cents": 1245000}
-    ],
+    "accounts": [{"name": "BCP Soles", "currency_code": "PEN", "current_balance_cents": 1245000}],
     "people": [{"name": "Socio Juan", "currency_code": "PEN", "current_balance_cents": -150000}],
     # Aggregates are home-currency only, each nullable with an
     # `unconverted_count`. `Vacío` spent nothing and must not be drawn.

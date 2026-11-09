@@ -14,7 +14,7 @@ What it pins, in the order the app meets it:
    currency its balance and its opening balance (the same transaction, so each currency's
    `opening_balance_transaction_id` is the same before and after), `version` goes up by one,
    and it moves group: listed only with `?include_people=true` and in `/dashboard`'s `people`
-   as a person, every currency in its row, listed without the flag and in `bank_accounts` as
+   as a person, every currency in its row, listed without the flag and in `accounts` as
    a bank account. Its `sort_order` joins the end of its new group.
 2. Each refusal is `409` `CONFLICT` keyed on `account_id`, and nothing is written (every account
    read the same before and after), in the engine's order
@@ -82,7 +82,7 @@ def _assert_is_person(client, account_id: str, currencies: list[str]) -> None:
     assert account_id in _ids(listed)
     assert account_id not in _ids(client.get("/accounts")["items"])
     dashboard = client.get("/dashboard")
-    assert account_id not in _ids(dashboard["bank_accounts"])
+    assert account_id not in _ids(dashboard["accounts"])
     shown = _row(dashboard["people"], account_id)
     assert [c["currency_code"] for c in shown["currencies"]] == currencies
 
@@ -91,7 +91,7 @@ def _assert_is_real(client, account_id: str, currencies: list[str]) -> None:
     assert account_id in _ids(client.get("/accounts")["items"])
     dashboard = client.get("/dashboard")
     assert account_id not in _ids(dashboard["people"])
-    shown = _row(dashboard["bank_accounts"], account_id)
+    shown = _row(dashboard["accounts"], account_id)
     assert [c["currency_code"] for c in shown["currencies"]] == currencies
 
 

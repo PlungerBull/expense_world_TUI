@@ -274,7 +274,7 @@ def test_enter_on_a_currency_line_opens_the_ledger_on_that_currency_alone(monkey
             {"currency_code": "USD", "current_balance_cents": -250},
         ],
     }
-    stub_home_month(monkeypatch, dashboard={**HOME_DASHBOARD, "bank_accounts": [two]})
+    stub_home_month(monkeypatch, dashboard={**HOME_DASHBOARD, "accounts": [two]})
     monkeypatch.setattr(SectionScreen, "_load", lambda self: None)
 
     async def scenario(pilot, app):

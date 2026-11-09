@@ -89,7 +89,7 @@ def test_a_bank_account_and_a_person_are_made_with_their_currencies_in_one_write
     """Soles and dollars, sent in either order, are one `201` each: the currencies read PEN
     before USD at `0` with no opening balance, the account at `version` `1`, with the
     default colour and no code, and the read of the account is the answer. The bank account
-    is listed without `include_people` and in the dashboard's `bank_accounts`, the person only
+    is listed without `include_people` and in the dashboard's `accounts`, the person only
     with it and in `people`, its currencies in its row
     (contract: POST /v1/accounts, "Response")."""
     bank = account_body("PEN", "USD", code=free_statement_codes(client, 1)[0])
@@ -120,8 +120,8 @@ def test_a_bank_account_and_a_person_are_made_with_their_currencies_in_one_write
     with_people = client.get("/accounts", params={"include_people": "true"})["items"]
     assert person["id"] in {a["id"] for a in with_people}
     dashboard = client.get("/dashboard")
-    rows = {row["id"]: row for key in ("bank_accounts", "people") for row in dashboard[key]}
-    assert bank["id"] in {row["id"] for row in dashboard["bank_accounts"]}
+    rows = {row["id"]: row for key in ("accounts", "people") for row in dashboard[key]}
+    assert bank["id"] in {row["id"] for row in dashboard["accounts"]}
     assert person["id"] in {row["id"] for row in dashboard["people"]}
     for account_id in (bank["id"], person["id"]):
         assert [c["currency_code"] for c in rows[account_id]["currencies"]] == ["PEN", "USD"]

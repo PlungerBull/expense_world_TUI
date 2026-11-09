@@ -58,8 +58,6 @@ values it used to take loosely, and a few writes on closed days.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-3. **Home reads `/dashboard`'s `accounts`.** Its balance block, and every other reader of
-   `/dashboard`, read `accounts` in place of `bank_accounts`; the look is unchanged.
 4. **The new refusals in the engine's words.** `SEALED_PERIOD` from `space` on a statement's
    checklist, the Edit form's statement change, a draft's delete and an upload;
    `ACCOUNT_ARCHIVED` from an opening-balance edit and a currency add, on their line. A unit test
@@ -101,3 +99,6 @@ Not built in this spec; sorted when it is done.
   and last 4. Until then, check 3 proves a person made, not a bank account.
 - **`scripts/clean_practice_user.py` read `is_person`;** task 1 moved it to `kind`, since the
   cleaner would fail on the new engine.
+- **Some unit tests build dashboard rows by hand without `kind`** (test_tui_bracketed_names.py,
+  test_tui_home_dispatch.py, test_tui_home_header.py), and test_tui_smoke.py's sample rows keep an
+  old flat shape (no `id`, no `currencies`); Home reads neither, so nothing fails.

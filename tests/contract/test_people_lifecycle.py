@@ -142,7 +142,7 @@ def test_people_lifecycle(client, scratch):
     dashboard = client.get("/dashboard", params={"include_archived": "true"})
     row = next(p for p in dashboard["people"] if p["id"] == person_id)
     assert [c["currency_code"] for c in row["currencies"]] == ["PEN", "USD"]
-    assert new_name not in _names(dashboard["bank_accounts"])
+    assert new_name not in _names(dashboard["accounts"])
     assert new_name not in _names(dashboard["archived_accounts"])
 
     # Archived, she moves to her own panel and the two archived panels never mix.

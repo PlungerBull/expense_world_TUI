@@ -35,10 +35,10 @@ def _balances(row: dict) -> dict[str, int]:
 
 
 def _assert_row_shape(row: dict) -> None:
-    """`{id, name, currencies}`, each currency `{currency_code, current_balance_cents}`,
+    """`{id, name, kind, currencies}`, each currency `{currency_code, current_balance_cents}`,
     and no home-currency value anywhere on it
     (contract: GET /v1/dashboard, "Balances are native only")."""
-    assert row.keys() == {"id", "name", "currencies"}
+    assert row.keys() == {"id", "name", "kind", "currencies"}
     codes = [c["currency_code"] for c in row["currencies"]]
     assert codes == sorted(codes), "currencies are not by code ascending"
     for currency in row["currencies"]:
@@ -62,7 +62,7 @@ def test_dashboard_has_the_sections_home_indexes_by(client):
 
     for key in (
         "month",
-        "bank_accounts",
+        "accounts",
         "people",
         "archived_accounts",
         "archived_people",
@@ -78,11 +78,11 @@ def test_dashboard_has_the_sections_home_indexes_by(client):
     assert body["archived_people"] is None
 
     assert {"year", "month"} <= body["month"].keys()
-    assert isinstance(body["bank_accounts"], list)
+    assert isinstance(body["accounts"], list)
     assert isinstance(body["people"], list)
     assert isinstance(body["categories"], list)
     assert {"net_home_cents", "unconverted_count"} <= body["totals"].keys()
-    for row in body["bank_accounts"] + body["people"]:
+    for row in body["accounts"] + body["people"]:
         _assert_row_shape(row)
 
 
@@ -90,7 +90,7 @@ def test_a_two_currency_account_and_person_are_one_row_each_with_a_balance_per_c
     client, scratch
 ):
     """Home draws one row per account and a balance per currency under it, each in its
-    own currency (contract: GET /v1/dashboard, "`bank_accounts`"); a client that kept the
+    own currency (contract: GET /v1/dashboard, "`accounts`"); a client that kept the
     old one-currency row would show one of the two balances and call it the account's."""
     card = scratch.account("PEN", "USD")
     friend = scratch.account("PEN", "USD", person=True)
@@ -101,13 +101,13 @@ def test_a_two_currency_account_and_person_are_one_row_each_with_a_balance_per_c
 
     body = client.get("/dashboard")
 
-    card_row = _row(body["bank_accounts"], card)
+    card_row = _row(body["accounts"], card)
     _assert_row_shape(card_row)
     assert _balances(card_row) == {"PEN": 50000 - 1200, "USD": 50000}
     friend_row = _row(body["people"], friend)
     _assert_row_shape(friend_row)
     assert _balances(friend_row) == {"PEN": 0, "USD": 50000}
-    assert not any(r["id"] == friend for r in body["bank_accounts"])
+    assert not any(r["id"] == friend for r in body["accounts"])
     assert not any(r["id"] == card for r in body["people"])
 
 
@@ -120,7 +120,7 @@ def test_the_rows_come_in_the_accounts_order(client, scratch):
     body = client.get("/dashboard")
     listed = client.get("/accounts", params={"include_people": "true"})["items"]
 
-    for section, mine in ((body["bank_accounts"], banks), (body["people"], people)):
+    for section, mine in ((body["accounts"], banks), (body["people"], people)):
         order = [r["id"] for r in section if r["id"] in mine]
         assert sorted(order) == sorted(mine)
         assert order == [a["id"] for a in listed if a["id"] in mine]
@@ -128,23 +128,23 @@ def test_the_rows_come_in_the_accounts_order(client, scratch):
 
 def test_a_removed_currency_is_not_listed(client, scratch):
     """A row lists the account's live currencies only
-    (contract: GET /v1/dashboard, "`bank_accounts`")."""
+    (contract: GET /v1/dashboard, "`accounts`")."""
     account_id = scratch.account("PEN", "USD")
-    assert set(_balances(_row(client.get("/dashboard")["bank_accounts"], account_id))) == {
+    assert set(_balances(_row(client.get("/dashboard")["accounts"], account_id))) == {
         "PEN",
         "USD",
     }
 
     client.delete(f"/accounts/{account_id}/currencies/USD")
 
-    row = _row(client.get("/dashboard")["bank_accounts"], account_id)
+    row = _row(client.get("/dashboard")["accounts"], account_id)
     assert _balances(row) == {"PEN": 0}
 
 
 def test_an_archived_account_moves_whole_to_its_own_section(client, scratch):
     """`include_archived` is a parameter here. An archived account is real
     (docs/decisions.md "Archive is a prompt-free toggle"), so the row still
-    exists when asked for — but it does **not** rejoin `bank_accounts`, and it moves
+    exists when asked for — but it does **not** rejoin `accounts`, and it moves
     with every currency in it (contract: GET /v1/dashboard, "`?include_archived=true`").
 
     The engine answers with a separate `archived_accounts` list — **null** until
@@ -165,13 +165,13 @@ def test_an_archived_account_moves_whole_to_its_own_section(client, scratch):
     scratch.archive(friend)
 
     default = client.get("/dashboard")
-    assert not any(r["id"] == account_id for r in default["bank_accounts"])
+    assert not any(r["id"] == account_id for r in default["accounts"])
     assert not any(r["id"] == friend for r in default["people"])
     assert default["archived_accounts"] is None  # not asked for
     assert default["archived_people"] is None
 
     asked = client.get("/dashboard", params={"include_archived": "true"})
-    assert not any(r["id"] == account_id for r in asked["bank_accounts"])
+    assert not any(r["id"] == account_id for r in asked["accounts"])
     assert not any(r["id"] == friend for r in asked["people"])
     archived = _row(asked["archived_accounts"], account_id)
     _assert_row_shape(archived)
@@ -182,7 +182,7 @@ def test_an_archived_account_moves_whole_to_its_own_section(client, scratch):
 
     client.post(f"/accounts/{account_id}/unarchive")
     back = client.get("/dashboard", params={"include_archived": "true"})
-    assert _balances(_row(back["bank_accounts"], account_id)) == {"PEN": 0, "USD": 50000}
+    assert _balances(_row(back["accounts"], account_id)) == {"PEN": 0, "USD": 50000}
     assert not any(r["id"] == account_id for r in back["archived_accounts"])
 
 
