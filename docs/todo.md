@@ -19,17 +19,20 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08; tasks 1–7 done. Task 8 waits on "The practice engine cannot
-   read accounts".
+   approved 2026-11-08; tasks 1–7 done. Task 8 waits on the engine finishing its
+   current work.
 2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
-   approved 2026-11-08. Waits on "The practice engine cannot read accounts"; its cash part on
+   approved 2026-11-08. Waits on the engine finishing its current work; its cash part on
    the engine ask "Every user holds one cash account, named `Efectivo`, with no bank and no
    number".
+3. [Empty lists' footers, and the other lists' `?` cards](specs/empty-lists-footers-and-cards.md):
+   approved 2026-11-08.
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
 The engine already serves `b6d2ae85aea48ea2`, thirteen versions later (sealed days, booleans and
 whole numbers in a request, a body refused where none is listed, an archived account's opening
-balances); they go to the next catch-up, as "The practice engine cannot read accounts" asks.
+balances); the practice engine cannot read accounts while the engine side is mid-work. The engine's
+message when it is done brings them, and the loop resumes the two specs above on it.
 
 ---
 
@@ -46,20 +49,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### The practice engine cannot read accounts, so the live checks cannot run
-Asked 2026-11-08 · Blocks: catch-up task 8, then both specs' acceptance checks
-Since its last update, the practice engine on `:8002` answers every account read with a server
-error (`column "is_person" does not exist`: its test database is behind its code), and its
-reseed cannot make the practice account `BCP-0000`. Only the engine side can fix it. It also
-moved on to `b6d2ae85aea48ea2`, eight versions past the five already left for the next
-catch-up. The loop is stopped until the engine reads accounts again.
-- **A.** Ask the engine coder to bring the practice engine's test database up to its code, and
-  leave all thirteen later versions to the next catch-up, in one hand-off from
-  `1002f105c6bacdf1` to whatever it serves then.
-- **B.** The same fix, but catch up to the thirteen versions before this spec finishes.
-**Recommended:** A, because this spec is one task from done and the later versions are a
-separate piece of work; the version check's shapes still match the app's.
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
