@@ -343,8 +343,8 @@ def account_balance(client: ExpenseClient, account_id: str, code: str = "PEN") -
 
 
 def all_accounts(client: ExpenseClient) -> list[dict]:
-    """Every account the caller has, as `GET /accounts` lists them: bank accounts and people,
-    archived ones included, each whole with its currencies."""
+    """Every account the caller has, as `GET /accounts` lists them: bank accounts, the cash
+    account and people, archived ones included, each whole with its currencies."""
     params = {"include_people": "true", "include_archived": "true"}
     return client.get("/accounts", params=params)["items"]
 

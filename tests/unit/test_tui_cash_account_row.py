@@ -92,13 +92,9 @@ def test_t_and_d_leave_the_footer_on_the_cash_row_the_other_keys_stay(configured
     run_app(scenario, size=SIZE)
     assert "t" not in seen["cash"] and "d" not in seen["cash"]
     assert {"a", "e", "n"} <= set(seen["cash"])
-    assert seen["actions"] == {
-        "make_person": False,
-        "make_bank": False,
-        "delete": False,
-        "archive": True,
-        "edit": True,
-    }
+    assert seen["actions"] == dict(
+        make_person=False, make_bank=False, delete=False, archive=True, edit=True
+    )
     assert "t" in seen["bank"] and "d" in seen["bank"]
     assert "d" not in seen["cash_card"] and "d" in seen["bank_card"]
     assert "t" in seen["cash_card"]  # the card lists `t` on every row

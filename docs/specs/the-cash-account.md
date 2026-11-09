@@ -56,15 +56,7 @@ for it, and which can be archived but never deleted.
 
 ## Tasks
 
-Approved. Each reads the live contract on the
-practice engine before building.
-
-5. **The live contract tests:** a cash account made with no name, bank or number, named
-   `Efectivo`; `CASH_EXISTS`, the archived one included; `CASH_TAKES_NO_FIELD` on create and
-   update; `CASH_KIND_FIXED` on both kind changes; `CASH_NOT_DELETABLE`; `CASH_TAKES_NO_STATEMENT`
-   on `POST /statements`, `POST /statements/import` and `POST /transactions/import`; a person
-   named `Efectivo` refused `NAME_EXISTS` on `kind`; its `/dashboard` row; archive and unarchive.
-   The cash account cannot be deleted, so the suite copes with one left by an earlier run.
+All done; the acceptance check, the sweep and the reply follow.
 
 ## Reply to the engine
 

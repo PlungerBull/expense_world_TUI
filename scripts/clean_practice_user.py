@@ -26,7 +26,9 @@ A category, hashtag or person is matched only by its own name starting with a pr
 account only by one of its numbers starting with `TEST_LAST4_PREFIX`, never by its name. A
 system category or hashtag, which the engine creates for itself and never deletes, is never
 matched, and neither is the practice account `BCP-0000` the seed holds (`PRACTICE_ACCOUNT`),
-whatever it is asked to match. A matched account's
+whatever it is asked to match, and neither is the cash account, which the engine never deletes
+(`owns` takes a bank account by its numbers, and the cash account has none; `holdings` leaves
+it out). A matched account's
 statements and transactions go with it; nothing else is touched. A hashtag still on a
 live transaction is left, since deleting it would rewrite that transaction
 (contract: DELETE /v1/hashtags/{hashtag_id}). A category or an account the engine refuses
@@ -86,7 +88,8 @@ def matches(name: str | None, prefixes: tuple[str, ...]) -> bool:
 
 def owns(account: dict, prefixes: tuple[str, ...], last4_prefix: str | None) -> bool:
     """True for an account a run matches: a person by its name (`prefixes`), a bank account by
-    a number starting `last4_prefix` (none given: by no number); the practice account never."""
+    a number starting `last4_prefix` (none given: by no number); the practice account never, and
+    the cash account never: it has no numbers."""
     if account["name"] == PRACTICE_ACCOUNT:
         return False
     if account["kind"] == "person":
@@ -105,11 +108,17 @@ def user_rows(client: ExpenseClient, path: str) -> list[dict]:
 
 
 def holdings(client: ExpenseClient) -> dict[str, str]:
-    """Every account (people and archived ones too), and every category and hashtag but
-    the system rows, the caller holds: id to a label naming its kind and name. What a
-    test may leave behind (`leaves_nothing` in tests/contract/conftest.py)."""
+    """Every account (people and archived ones too) but the cash account, and every category
+    and hashtag but the system rows, the caller holds: id to a label naming its kind and
+    name. What a test may leave behind (`leaves_nothing` in tests/contract/conftest.py). The
+    cash account is never deleted, so it is never a leftover
+    (contract: DELETE /v1/accounts/{account_id}, "Refusals")."""
     listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
-    held = {item["id"]: f"account {item['name']!r}" for item in listed["items"]}
+    held = {
+        item["id"]: f"account {item['name']!r}"
+        for item in listed["items"]
+        if item["kind"] != "cash"
+    }
     for kind, path in (("category", "/categories"), ("hashtag", "/hashtags")):
         held |= {row["id"]: f"{kind} {row['name']!r}" for row in user_rows(client, path)}
     return held

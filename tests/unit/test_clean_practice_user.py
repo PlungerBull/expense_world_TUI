@@ -40,6 +40,13 @@ def _person(ident, name, **fields):
     )
 
 
+def _cash(ident, **fields):
+    """The cash account as the engine reads it: named `Efectivo`, at no bank, with no numbers."""
+    return account_with_currencies(
+        id=ident, name="Efectivo", kind="cash", bank_code=None, numbers=[], **fields
+    )
+
+
 def _statement(ident, account, status=1):
     return dict(id=ident, account_id=account, name=f"stmt {ident}", status=status)
 
@@ -379,3 +386,19 @@ def test_a_page_holding_only_refused_deletes_does_not_hide_the_rows_behind_it(sc
     out = capsys.readouterr().out
     assert out.count("left delete transaction t1 ") == 1
     assert out.count("left delete transaction t2 ") == 1
+
+
+@respx.mock
+def test_the_cash_account_is_never_matched_or_deleted_and_is_no_leftover(script, capsys):
+    """The engine never deletes the cash account (`CASH_NOT_DELETABLE`): the cleaner leaves it
+    whatever prefix it is asked to match, and the leak check never counts it."""
+    engine = FakeEngine(accounts=[_cash("a1"), _person("a2", "contract-x")])
+    _serve(engine)
+
+    assert script.main([*TARGET, "--prefix", "Efectivo", "--apply"]) == 0
+    assert script.main([*TARGET, "--apply"]) == 0
+
+    assert engine.calls == ["DELETE /accounts/a2"]
+    assert "a1" in engine.accounts
+    with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
+        assert script.holdings(client) == {}
