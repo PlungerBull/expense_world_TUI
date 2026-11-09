@@ -67,6 +67,13 @@ LAST4_EDIT_HINT = "the card's last 4 digits · empty removes it · enter to go o
 SINCE_HINT = "YYYY-MM-DD · this card's first day · enter to go on"
 #: SINCE's value while the current number is the account's first, which has no start day.
 FIRST_CARD = "first card"
+#: The engine's code for a number write that would change which number covers a day of a
+#: completed statement (contract: PUT /v1/accounts/{account_id}, "The numbers").
+NUMBER_IN_COMPLETED_STATEMENT = "NUMBER_IN_COMPLETED_STATEMENT"
+#: A bank account's NEW CARD on Edit: the replacement card's last 4 digits.
+NEW_CARD_HINT = "optional · the replacement card's last 4 digits · enter to go on"
+#: NEW CARD FROM, on the form while NEW CARD holds text: the replacement's first day.
+NEW_CARD_FROM_HINT = "YYYY-MM-DD · the new card's first day · enter to go on"
 #: The account's STATEMENT CODE on New: optional, and `⏎` goes on to COLOR.
 STATEMENT_CODE_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
 #: The same line on Edit, where emptying it and saving clears the code.
@@ -189,8 +196,8 @@ class BarFormScreen(FormScreen):
         text = self.query_one("#bar", Input).value.strip()
         if f.kind == "text":
             if not text:
-                if f.required:
-                    toast(self, f"{f.label.title()} is required.", severity="error")
+                if self._field_required(f):
+                    toast(self, self._required_note(f.key), severity="error")
                     return
                 self._values.pop(f.key, None)
             else:
@@ -287,8 +294,9 @@ class BarFormScreen(FormScreen):
             else:
                 tag = "  *" if self._field_required(f) else "  (optional)"
                 value = Text("—" + tag, style="dim")
-            if locked:  # edit forms lock immutable fields (e.g. account currency)
-                value.append("  read-only", style="dim")
+            if locked and (word := self._locked_word(f.key)):
+                # edit forms lock immutable fields (e.g. account currency)
+                value.append(f"  {word}", style="dim")
             label = Text(self._summary_label(f.key), style="dim" if locked else "")
             if f.key == self._key and not locked:
                 label.stylize("bold")
@@ -644,8 +652,9 @@ class NewAccountScreen(BarFormScreen):
             )
         return entry
 
-    def _line_named(self, field: object) -> str | None:
-        """The form line a refusal's `field` names: `_REFUSED_LINES`', and for a key under
+    def _line_named(self, field: object, reason: str | None = None) -> str | None:
+        """The form line a refusal's `field` names, `reason` being the engine's code for
+        it: `_REFUSED_LINES`', and for a key under
         `currencies`, CURRENCIES, or a currency's pair line when it names that currency's
         opening balance: `date` is its `as of` line, any other part its `opening` line."""
         index = key_index(field, "currencies")
@@ -665,8 +674,10 @@ class NewAccountScreen(BarFormScreen):
         self._refused_line = None
         if isinstance(exc, EngineError):
             sequence = self._sequence()
+            reasons = exc.reasons or {}
             named = (
-                self._line_named(field) for field in [*(exc.reasons or {}), *(exc.fields or {})]
+                self._line_named(field, reasons.get(field))
+                for field in [*reasons, *(exc.fields or {})]
             )
             lines = [line for line in named if line in sequence and line not in self._locked]
             if lines:
@@ -788,7 +799,10 @@ class EditAccountScreen(NewAccountScreen):
     Its BANK opens on its bank, picked from the engine's banks as New's is, and its LAST 4
     on its current number's digits (empty with none); SINCE, only while the account has a
     number, holds that number's first day, `first card` while it is the first and has
-    none (contract: PUT /v1/accounts/{account_id}, "The numbers").
+    none (contract: PUT /v1/accounts/{account_id}, "The numbers"). CARDS BEFORE, read-only
+    and only with earlier numbers, reads each as `<last4> until <end_date>`, oldest first.
+    NEW CARD, only while the account has a number, takes a replacement's digits; NEW CARD
+    FROM, on the form only while NEW CARD holds text and required then, its first day.
 
     Each currency's entry in the account's `currencies` names its opening
     balance by id, or `null` when it has none (contract: "Bank Accounts",
@@ -812,12 +826,15 @@ class EditAccountScreen(NewAccountScreen):
     (the first number of a numberless account sends `last4` alone), `start_date: null` for
     a SINCE emptied (the engine's refusal shows), and `null` for a LAST 4 emptied, after
     a question naming the number removed; that question comes before the openings' and
-    only `y` goes on. A form with nothing changed sends `{}`.
+    only `y` goes on. A NEW CARD typed sends `new_number: {last4, start_date}` as typed,
+    beside whatever else changed: the engine refuses a request carrying both numbers. A
+    form with nothing changed sends `{}`.
 
     A refusal names its line: `opening_balances.<code>.date` is that currency's
     `as of`, any other `opening_balances.<code>` key its `opening`; `bank_code` is BANK,
     `current_number.start_date` SINCE, and `current_number` or any other key under it
-    LAST 4. The typed
+    LAST 4; `new_number.start_date` is NEW CARD FROM, and so is `new_number` when its code is
+    `NUMBER_IN_COMPLETED_STATEMENT`, any other `new_number` key NEW CARD. The typed
     values stay in the form; with several codes named the cursor goes to the
     first in the form's order. Saved, it dismisses with True so the list starts over.
     """
@@ -825,7 +842,7 @@ class EditAccountScreen(NewAccountScreen):
     BINDINGS = form_bindings("Save")
     NOT_DONE = "Not saved"
     # New's lines, CURRENCIES read-only, LAST 4's and STATEMENT CODE's hints saying that
-    # emptying them removes or clears, and SINCE after LAST 4
+    # emptying them removes or clears, and SINCE and the replacement's lines after LAST 4
     FIELDS = [
         line
         for f in NewAccountScreen.FIELDS
@@ -834,7 +851,13 @@ class EditAccountScreen(NewAccountScreen):
             if f.key == "currencies"
             else [_field_with_hint(f, STATEMENT_CODE_EDIT_HINT)]
             if f.key == "statement_code"
-            else [_field_with_hint(f, LAST4_EDIT_HINT), Field("since", "SINCE", hint=SINCE_HINT)]
+            else [
+                _field_with_hint(f, LAST4_EDIT_HINT),
+                Field("since", "SINCE", hint=SINCE_HINT),
+                Field("cards_before", "CARDS BEFORE"),
+                Field("new_card", "NEW CARD", hint=NEW_CARD_HINT),
+                Field("new_card_from", "NEW CARD FROM", hint=NEW_CARD_FROM_HINT),
+            ]
             if f.key == "last4"
             else [f]
         )
@@ -866,6 +889,11 @@ class EditAccountScreen(NewAccountScreen):
         # is current again once it is removed
         numbers = record.get("numbers") or []
         self._has_number = bool(numbers) and not person
+        before = [f"{n['last4']} until {n['end_date']}" for n in numbers[:-1]]
+        self._cards_before = " · ".join(before) if not person else ""
+        if self._cards_before:
+            self._values["cards_before"] = self._cards_before
+            self._locked.add("cards_before")
         self._number_before: str | None = numbers[-2]["last4"] if len(numbers) > 1 else None
         self._original_bank: str | None = record.get("bank_code")
         self._original_last4: str | None = numbers[-1]["last4"] if numbers else None
@@ -899,11 +927,36 @@ class EditAccountScreen(NewAccountScreen):
     def _identity_lines(self) -> list[str]:
         if self._is_person:
             return ["name"]
-        return ["bank", "last4", *(["since"] if self._has_number else [])]
+        return [
+            "bank",
+            "last4",
+            *(["since"] if self._has_number else []),
+            *(["cards_before"] if self._cards_before else []),
+            *(["new_card"] if self._has_number else []),
+            *(["new_card_from"] if self._values.get("new_card") else []),
+        ]
 
     def _field_required(self, f: Field) -> bool:
-        """The account's bank is already there: BANK is never asked for."""
+        """The account's bank is already there: BANK is never asked for. NEW CARD FROM is
+        asked for while NEW CARD holds text (it is on the form only then)."""
+        if f.key == "new_card_from":
+            return True
         return False if f.key == "bank" else super()._field_required(f)
+
+    def _required_note(self, key: str) -> str:
+        if key == "new_card_from":  # `New card from is required.`
+            return f"{self._summary_label(key).capitalize()} is required."
+        return super()._required_note(key)
+
+    def _locked_word(self, key: str) -> str:
+        return "" if key == "cards_before" else super()._locked_word(key)
+
+    def _value_cell(self, key: str, value: object) -> Text:
+        return (
+            Text(str(value), style="dim")
+            if key == "cards_before"
+            else super()._value_cell(key, value)
+        )
 
     def _recompute(self, text: str) -> None:
         """As New's; BANK, empty, highlights the account's own bank, so `enter` keeps it."""
@@ -981,14 +1034,20 @@ class EditAccountScreen(NewAccountScreen):
             changes["date"] = to_canonical_aware(str(day))
         return changes or False
 
-    def _line_named(self, field: object) -> str | None:
+    def _line_named(self, field: object, reason: str | None = None) -> str | None:
         """As New's, and `opening_balances.<code>.date` is that currency's `as of`
-        line, any other `opening_balances.<code>…` key its `opening` line."""
+        line, any other `opening_balances.<code>…` key its `opening` line;
+        `current_number.start_date` is `since`, any other `current_number…` key `last4`;
+        `new_number.start_date` is `new_card_from`, and so is `new_number` itself when
+        `reason` is NUMBER_IN_COMPLETED_STATEMENT, any other `new_number…` key `new_card`."""
         bits = str(field).split(".", 2)
         if bits[0] == "current_number":
             return "since" if bits[1:] == ["start_date"] else "last4"
+        if bits[0] == "new_number":
+            whole = bits[1:] == [] and reason == NUMBER_IN_COMPLETED_STATEMENT
+            return "new_card_from" if whole or bits[1:] == ["start_date"] else "new_card"
         if bits[0] != "opening_balances" or len(bits) < 2:
-            return super()._line_named(field)
+            return super()._line_named(field, reason)
         return _pair_key("as_of" if bits[2:] == ["date"] else "opening", bits[1])
 
     # ---- submit ------------------------------------------------------------
@@ -1026,6 +1085,11 @@ class EditAccountScreen(NewAccountScreen):
                 body["bank_code"] = self._values["bank"]
             if (number := self._number_entry()) is not False:
                 body["current_number"] = number
+            if self._values.get("new_card"):
+                body["new_number"] = {
+                    "last4": self._values["new_card"],
+                    "start_date": self._values["new_card_from"],
+                }
         if self._values.get("color") and self._values["color"] != self._original_color:
             body["color"] = self._values["color"]
         code = self._values.get("statement_code")

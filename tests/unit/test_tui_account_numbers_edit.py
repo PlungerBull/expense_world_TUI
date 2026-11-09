@@ -95,20 +95,22 @@ def _save(record, fake_client, edit):
 
 def test_a_bank_accounts_lines_in_order_with_first_card():
     async def body(pilot, app, screen):
-        assert screen._sequence()[:7] == [
+        assert screen._sequence()[:8] == [
             "type",
             "bank",
             "last4",
             "since",
+            "new_card",
             "currencies",
             "statement_code",
             "color",
         ]
-        assert _summary(screen)[:5] == [
+        assert _summary(screen)[:6] == [
             "type bank read-only",
             "bank BCP",
             "last 4 5678",
             "since first card",
+            "new card — (optional)",
             "currencies PEN read-only",
         ]
         assert not {"bank", "last4", "since"} & screen._locked
@@ -404,3 +406,225 @@ def test_a_removal_refused_lands_on_last_4_empty(fake_client):
         assert screen.query_one("#bar", Input).value == ""
 
     _form(REPLACED, body)
+
+
+# ---- a replacement card ------------------------------------------------------------
+
+#: Two earlier numbers, then the current one.
+TWICE = account_with_currencies(
+    FIRST,
+    numbers=[
+        {"last4": "1111", "start_date": None, "end_date": "2026-03-31"},
+        {"last4": "1234", "start_date": "2026-04-01", "end_date": "2026-08-14"},
+        {"last4": "5678", "start_date": "2026-08-15", "end_date": None},
+    ],
+)
+TAIL = ["currencies", "statement_code", "color"]
+
+
+def test_the_lines_with_a_card_before_and_no_replacement_typed():
+    async def body(pilot, app, screen):
+        assert screen._sequence()[:8] == [
+            "type",
+            "bank",
+            "last4",
+            "since",
+            "cards_before",
+            "new_card",
+            *TAIL[:2],
+        ]
+        assert _summary(screen)[:7] == [
+            "type bank read-only",
+            "bank BCP",
+            "last 4 5678",
+            "since 2026-08-15",
+            "cards before 1234 until 2026-08-14",
+            "new card — (optional)",
+            "currencies PEN read-only",
+        ]
+
+    _form(REPLACED, body)
+
+
+def test_cards_before_lists_every_earlier_number_oldest_first():
+    async def body(pilot, app, screen):
+        assert "cards before 1111 until 2026-03-31 · 1234 until 2026-08-14" in _summary(screen)
+        assert "cards_before" in screen._locked
+
+    _form(TWICE, body)
+
+
+def test_with_no_earlier_number_there_is_no_cards_before_line():
+    async def body(pilot, app, screen):
+        assert "cards_before" not in screen._sequence()
+        assert screen._sequence()[:6] == [
+            "type",
+            "bank",
+            "last4",
+            "since",
+            "new_card",
+            "currencies",
+        ]
+
+    _form(FIRST, body)
+
+
+def test_with_no_number_there_is_no_new_card_line():
+    async def body(pilot, app, screen):
+        assert "new_card" not in screen._sequence()
+        assert "new_card_from" not in screen._sequence()
+
+    _form(NUMBERLESS, body)
+
+
+def test_a_persons_form_has_no_replacement_lines():
+    async def body(pilot, app, screen):
+        assert not {"new_card", "new_card_from", "cards_before"} & set(screen._sequence())
+
+    _form(PERSON, body)
+
+
+def test_new_card_from_is_on_the_form_only_while_new_card_holds_text():
+    async def body(pilot, app, screen):
+        assert "new_card_from" not in screen._sequence()
+        _type(screen, "new_card", "9012")
+        seq = screen._sequence()
+        assert seq[seq.index("new_card") + 1] == "new_card_from"
+        assert "new card from — *" in _summary(screen)
+        assert screen._key == "new_card_from"  # enter went on to it
+        _type(screen, "new_card", "")
+        assert "new_card_from" not in screen._sequence()
+
+    _form(REPLACED, body)
+
+
+def test_the_hints_of_new_card_and_new_card_from():
+    async def body(pilot, app, screen):
+        _on(screen, "new_card")
+        assert _hint(screen) == "optional · the replacement card's last 4 digits · enter to go on"
+        _type(screen, "new_card", "9012")
+        assert _hint(screen) == "YYYY-MM-DD · the new card's first day · enter to go on"
+
+    _form(REPLACED, body)
+
+
+def test_a_replacement_alone_sends_new_number(fake_client):
+    def edit(screen):
+        _type(screen, "new_card", "9012")
+        _type(screen, "new_card_from", "2026-09-01")
+
+    assert _save(REPLACED, fake_client, edit) == {
+        "new_number": {"last4": "9012", "start_date": "2026-09-01"}
+    }
+
+
+def test_a_replacement_rides_with_a_colour_change(fake_client):
+    def edit(screen):
+        _type(screen, "new_card", "9012")
+        _type(screen, "new_card_from", "2026-09-01")
+        _type(screen, "color", "green")
+
+    assert _save(REPLACED, fake_client, edit) == {
+        "color": "#5ab87a",
+        "new_number": {"last4": "9012", "start_date": "2026-09-01"},
+    }
+
+
+def test_a_replacement_with_a_last_4_change_sends_both_keys(fake_client):
+    def edit(screen):
+        _type(screen, "last4", "7777")
+        _type(screen, "new_card", "9012")
+        _type(screen, "new_card_from", "2026-09-01")
+
+    assert _save(REPLACED, fake_client, edit) == {
+        "current_number": {"last4": "7777"},
+        "new_number": {"last4": "9012", "start_date": "2026-09-01"},
+    }
+
+
+def test_a_replacement_with_a_removal_sends_both_after_the_question(fake_client):
+    async def body(pilot, app, screen):
+        _type(screen, "last4", "")
+        _type(screen, "new_card", "9012")
+        _type(screen, "new_card_from", "2026-09-01")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(REPLACED, body)
+    assert fake_client.puts == [
+        (
+            "/accounts/acc-bcp",
+            {
+                "current_number": None,
+                "new_number": {"last4": "9012", "start_date": "2026-09-01"},
+            },
+        )
+    ]
+
+
+def test_new_card_without_its_day_sends_nothing_and_says_so(fake_client, monkeypatch):
+    notes: list[str] = []
+    monkeypatch.setattr(
+        EditAccountScreen, "notify", lambda self, message, **kw: notes.append(message)
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "new_card", "9012")
+        _on(screen, "color")
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert screen.is_attached
+
+    _form(REPLACED, body)
+    assert fake_client.requests == []
+    assert notes == ["New card from is required."]
+
+
+@pytest.mark.parametrize(
+    "key, code, status, line",
+    [
+        ("new_number.last4", "INVALID_FORMAT", 422, "new_card"),
+        ("new_number.last4", "NAME_EXISTS", 409, "new_card"),
+        ("new_number.start_date", "NUMBER_START_NOT_LATER", 422, "new_card_from"),
+        ("new_number.start_date", "REQUIRED", 422, "new_card_from"),
+        ("new_number", "NUMBER_IN_COMPLETED_STATEMENT", 409, "new_card_from"),
+        ("new_number", "NO_NUMBER", 422, "new_card"),
+        ("new_number", "CONFLICTING_PARAMETERS", 422, "new_card"),
+    ],
+)
+def test_a_replacements_refusal_lands_on_its_line_holding_what_was_typed(
+    fake_client, key, code, status, line
+):
+    fake_client.errors["PUT"] = _refusal(key, code, status)
+
+    async def body(pilot, app, screen):
+        _type(screen, "new_card", "9012")
+        _type(screen, "new_card_from", "2026-09-01")
+        _on(screen, "color")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: refusal_block(screen) is not None)
+        assert "The engine's words." in refusal_block(screen)
+        assert screen._key == line
+        assert screen.query_one("#bar", Input).value == screen._values[line]
+        assert screen._values["new_card"] == "9012"
+        assert screen._values["new_card_from"] == "2026-09-01"
+
+    _form(REPLACED, body)
+
+
+def test_enter_on_an_empty_new_card_from_says_it_is_required_and_stays(fake_client, monkeypatch):
+    notes: list[str] = []
+    monkeypatch.setattr(
+        EditAccountScreen, "notify", lambda self, message, **kw: notes.append(message)
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "new_card", "9012")
+        assert screen._key == "new_card_from"
+        _type(screen, "new_card_from", "")
+        assert screen._key == "new_card_from"
+
+    _form(REPLACED, body)
+    assert notes == ["New card from is required."]

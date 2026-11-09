@@ -184,13 +184,13 @@ def test_new_person_name_goes_on(fake_client):
 
 
 def test_edit_bank_account_opens_on_its_code_and_color_keeps_it(fake_client):
-    """A bank account's Edit has no NAME line: after BANK, LAST 4 and SINCE it reaches
-    STATEMENT CODE (TYPE and CURRENCY are read-only), whose hint adds that emptying it
+    """A bank account's Edit has no NAME line: after BANK, LAST 4, SINCE and NEW CARD it
+    reaches STATEMENT CODE (TYPE and CURRENCY are read-only), whose hint adds that emptying it
     clears the code; `⏎` goes on to COLOR."""
 
     async def body(pilot, screen):
         assert screen._key == "bank"
-        await pilot.press("enter", "enter", "enter")
+        await pilot.press("enter", "enter", "enter", "enter")
         assert screen._key == "statement_code"
         assert _hint(screen) == CODE_EDIT_GOES_ON
         await pilot.press("enter")

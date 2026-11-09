@@ -936,7 +936,8 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
             ("shift+tab", "opening:PEN"),
             ("shift+tab", "color"),
             ("shift+tab", "statement_code"),
-            ("shift+tab", "since"),  # skips locked CURRENCIES
+            ("shift+tab", "new_card"),  # skips locked CURRENCIES
+            ("shift+tab", "since"),
             ("shift+tab", "last4"),
             ("shift+tab", "bank"),
             ("shift+tab", "bank"),  # TYPE is locked: stays

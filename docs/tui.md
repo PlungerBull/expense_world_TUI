@@ -1217,18 +1217,24 @@ after `type` (a person's has none). `bank` is New's choice (one copy of the line
 the account's bank. `last 4` opens holding the current number's digits (the last of the
 account's `numbers`), `since` that number's `start_date`; on the first number, which has none,
 it reads `first card`, and with no number the line is not on the form. The app checks
-nothing typed on them, a day on a first number included (contract: PUT /v1/accounts/{account_id}, "The numbers").
+nothing typed on them (contract: PUT /v1/accounts/{account_id}, "The numbers").
 
 - **The save is the form's one `PUT`,** carrying only what changed: `bank_code`
   (contract: PUT /v1/accounts/{account_id}, "`bank_code`"); `current_number` with `last4` when
   the digits changed and a bare `start_date` when `since` did, in one object when both did.
-  A `last 4` typed on an account with no number is its first and sends no start; `since`
-  emptied sends `start_date: null`.
+  A `last 4` on an account with no number is its first, with no start; `since` emptied
+  sends `start_date: null`.
 - **Emptying `last 4` on an account that has a number removes it,** after `ConfirmModal` asks
-  `Remove card 5678 from BCP-5678?` (the name as the engine sent it) over the form:
-  `1234 is its number again. No screen can bring 5678 back.` with a number before it, else
-  `No screen can bring 5678 back.` Only `y` sends `current_number: null`; any other answer
-  sends nothing. An emptied opening balance's question follows this one.
+  `Remove card 5678 from BCP-5678?` over the form (`EditAccountScreen._removal_question`
+  holds the words). Only `y` sends `current_number: null`; any other answer sends nothing.
+  An emptied opening balance's question follows this one.
+- **A replacement card is `new card`** (only with a number) **and `new card from`** (only while
+  `new card` holds text, marked `*`; without it the save says `New card from is required.`
+  and sends nothing), after `cards before`, which is read-only, only with earlier numbers, and
+  reads `1234 until 2026-08-14`, oldest first. A `new card` sends `new_number` as typed beside
+  whatever else changed; a replacement beside a changed `last 4` or `since`, or a removal, is
+  the engine's refusal to show
+  (contract: PUT /v1/accounts/{account_id}, "The numbers").
 
 **A bank account's statement code is a line of its own on New and Edit.**
 **`statement code`** sits right after `currencies` on New and Edit, on a bank
@@ -1298,12 +1304,9 @@ person's `name` opens holding its name.
 - **A refusal** shows the "Failed" note in the engine's words (`format_error`) and leaves the
   form open with what was typed; nothing was saved, and the next save sends the whole body
   again, a set with a new `transaction_id`.
-  The cursor goes on the line the key names: a person's `name`, `bank_code` on `bank`,
-  `current_number` and `current_number.last4` on `last 4`, `current_number.start_date` on
-  `since`, the statement code or colour on its own line; `opening_balances.<code>.date` on that currency's `as of`, and any other
-  `opening_balances.<code>` key (`amount_cents`, `title`, `transaction_id`, `category_id`, or the
-  whole entry) on its `opening`. When the engine names several codes (`ACCOUNT_ARCHIVED` names
-  every one sent), the cursor goes to the first in the form's order and the note shows the
+  The cursor goes on the line the key names (`EditAccountScreen._line_named`). When the
+  engine names several codes (`ACCOUNT_ARCHIVED` names every one sent), the cursor goes to
+  the first in the form's order and the note shows the
   engine's words whole. `user_settings` (`SETTINGS_MISSING`) names no line: a note, the cursor
   stays. `esc` just leaves.
 - **Saved,** the form closes with `Saved.` and the account list reads again from its first

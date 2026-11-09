@@ -92,9 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-5. **A replacement card.** `new card` and `new card from` through `new_number`, the older numbers
-   read-only as `cards before` with their end days; `NUMBER_IN_COMPLETED_STATEMENT` on `new card
-   from` in the engine's words.
 6. **`t` asks for what the engine needs** (question 11): `make-person` with the name typed,
    `make-account` with the bank and an optional last 4; `NAME_EXISTS` on its line.
 7. **The PDF upload's two new refusals:** `STATEMENT_NUMBER_MISMATCH` and `ACCOUNT_HAS_NO_NUMBER`
@@ -149,6 +146,11 @@ Not built in this spec; sorted when it is done.
 - **Hints not drawn on the mockup:** the Edit form's `last 4` reads `the card's last 4 digits ·
   empty removes it · enter to go on` and `since` reads `YYYY-MM-DD · this card's first day ·
   enter to go on`; `since` leaves the form while the account has no number.
+- **The replacement's details not drawn on the mockup:** `cards before` lists several earlier
+  numbers on its one line, oldest first, joined by ` · `; `new card` leaves the form while the
+  account has no number; `new card from` shows only once `new card` holds digits, marked `*`;
+  their hints read `optional · the replacement card's last 4 digits · enter to go on` and
+  `YYYY-MM-DD · the new card's first day · enter to go on`.
 - **The removal question's footer** is the shared question's `[y] confirm    [enter / n / esc]
   cancel`, as the opening balance's delete question reads, not pane 2's `y removes · any other
   key keeps it`.
