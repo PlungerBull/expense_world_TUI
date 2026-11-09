@@ -8,6 +8,7 @@ from textual import work
 from textual.app import App
 
 from expense.context import get_verbose
+from expense.region import apply_launch_format
 from expense.tui.screens._base import pending_writes
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.modals import ConfirmModal
@@ -190,6 +191,7 @@ def launch(ctx: typer.Context) -> None:
     cfg = config_module.load_usable()
     config_module.hold(cfg)
     setup = cfg is None
+    apply_launch_format()
     # mouse=False: the TUI is keyboard-only. Textual otherwise enables terminal
     # mouse tracking on launch (clicks/scroll act on widgets AND the terminal's
     # native text-selection/copy is suppressed). Disabling it makes the app

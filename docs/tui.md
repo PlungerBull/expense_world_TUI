@@ -63,8 +63,10 @@ alone uses (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_hom
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
 form, an account's opening balance, a new statement's two balances and the statement's
 `Starting balance first` and `Ending balance first` boxes, in the session's format
-([number_format.py](../expense/number_format.py), `1,234.56` until another is picked); its
-docstring holds the rule. An amount it cannot read is refused, never guessed, and nothing is
+([number_format.py](../expense/number_format.py)); the machine's region gives that format at
+launch, `1,234.56` when it cannot be read ([region.py](../expense/region.py), which also holds
+the seam for a saved setting to win). The
+docstring of `parse_amount` holds the rule. An amount it cannot read is refused, never guessed, and nothing is
 sent: the Edit form says `can't read this amount: amounts are 1,234.56`, every other field
 ends its note `Amounts are 1,234.56.`, and the cursor stays (the box stays open). On the LOG
 bar `↵` refuses the line, naming the first signed number it couldn't read, as typed:

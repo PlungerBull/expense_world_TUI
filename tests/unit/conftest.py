@@ -13,7 +13,7 @@ import pytest
 
 from expense import config as config_module
 from expense import http as http_module
-from expense import number_format
+from expense import number_format, region
 from tests.unit import helpers
 
 # Loopback stays reachable so a locally-bound helper never trips the guard;
@@ -105,6 +105,13 @@ def _default_number_format():
     number_format.set_current_format(number_format.DEFAULT_FORMAT)
     yield
     number_format.set_current_format(number_format.DEFAULT_FORMAT)
+
+
+@pytest.fixture(autouse=True)
+def _pinned_region(monkeypatch):
+    """No test reads the machine's region: the reader answers the default format.
+    test_region.py tests the reader itself with its OS calls faked."""
+    monkeypatch.setattr(region, "read_region_format", lambda: number_format.DEFAULT_FORMAT)
 
 
 @pytest.fixture

@@ -26,7 +26,7 @@ loop skips it until it can run.
    the engine ask "Every user holds one cash account, named `Efectivo`, with no bank and no
    number".
 3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
-   approved 2026-11-08. Tasks 1–3 run now; tasks 4 and 5 wait on the engine ask "A user's
+   approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
    settings hold their number format".
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.

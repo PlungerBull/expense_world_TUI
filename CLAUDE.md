@@ -13,7 +13,7 @@ This app is **the first of four clients** sharing the same engine (engine → te
 - **The app is a contract validator.** Each screen is a real-world test of the endpoints it calls; the live contract suite ([tests/contract/](tests/contract/)) covers the rest, including engine features with no screen. A wrong 422 hint, sign convention, idempotency replay or field lock should surface here, not on mobile.
 - **No terminal-only shortcuts.** Anything that only makes sense for this client (e.g. engine logic re-implemented here) is rejected; every pattern must carry over to the next client.
 - **Idempotency, the error envelope, the sign convention and date handling are shared infrastructure**, used faithfully so web and iOS inherit working patterns.
-- **What stays specific to this client:** [expense/dates.py](expense/dates.py) (date forgiveness), [expense/quickadd/](expense/quickadd/) (the LOG bar's one-line grammar), [expense/import_/](expense/import_/) (the sheet import) and [expense/bank_import/](expense/bank_import/) (the import door), both sending their file to the engine whole, and `~/.expense-config` (token storage).
+- **What stays specific to this client:** [expense/dates.py](expense/dates.py) (date forgiveness), [expense/region.py](expense/region.py) (the machine's number format), [expense/quickadd/](expense/quickadd/) (the LOG bar's one-line grammar), [expense/import_/](expense/import_/) (the sheet import) and [expense/bank_import/](expense/bank_import/) (the import door), both sending their file to the engine whole, and `~/.expense-config` (token storage).
 
 Scale, distribution, multi-tenancy, billing, onboarding and localization land on web and iOS, not here.
 

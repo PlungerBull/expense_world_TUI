@@ -47,12 +47,9 @@ so it is kept on the account and every client follows it.
 
 ## Tasks
 
-Approved. Task 3 needs no engine change; 4 and 5 wait on the engine ask "A user's
+Approved. Tasks 4 and 5 wait on the engine ask "A user's
 settings hold their number format".
 
-3. **The Mac's region gives the format until one is picked** (question 1). The region's decimal
-   mark decides; when it cannot be read, `1,234.56`. The unit suite pins the format, so no test
-   depends on the machine's region.
 4. **The setting** (waits on the engine). The format on `GET /auth/me` wins over the region;
    System ▸ Auth & profile shows the `number format` row and `f` asks which one, saving through
    `PUT /auth/settings`, *Follow this Mac* clearing it; a refusal in the engine's words; amounts

@@ -27,7 +27,8 @@ class NumberFormat(Enum):
         return f"1{self.group}234{self.decimal}56"
 
 
-#: Until a format is picked, amounts read and show as `1,234.56`.
+#: The format when nothing else decides: the machine's region (expense/region.py)
+#: gives the session's format at launch, and this stands when it cannot be read.
 DEFAULT_FORMAT = NumberFormat.DOT_DECIMAL
 
 _current = DEFAULT_FORMAT
