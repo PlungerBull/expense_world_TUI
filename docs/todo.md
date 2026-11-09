@@ -27,12 +27,8 @@ loop skips it until it can run.
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
 5. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
-   approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
-   settings hold their number format".
-
-The engine already serves `c15201ee50485e56`, past spec 1's range (a timezone accepted in any
-capitals); the loop runs on, and the engine's next hand-off file covers it (owner's answer,
-2026-11-08).
+   approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 take the engine's hand-off of 2026-11-08
+   (`2fa4967b8eed9c3f` to `9b3b43429d8bd11e`), which also covers `c15201ee50485e56`.
 
 ---
 

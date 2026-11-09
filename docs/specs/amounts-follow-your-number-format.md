@@ -1,8 +1,8 @@
 # Amounts follow your number format
 
 **Status: approved on 2026-11-08 on the recommended answers, on the mockup
-[expense-world-number-format.html](../mockups/expense-world-number-format.html).** Tasks 4 and 5
-wait on the engine ask "A user's settings hold their number format". When done, the why moves to
+[expense-world-number-format.html](../mockups/expense-world-number-format.html); its last two tasks
+take the engine's hand-off of 2026-11-08, contract `2fa4967b8eed9c3f` to `9b3b43429d8bd11e`.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -36,6 +36,17 @@ so it is kept on the account and every client follows it.
 4. The live contract suite proves the setting is saved, read back and cleared, and that an
    unknown format is refused.
 
+## What the engine declined, or did differently
+
+- **A format other than the two is refused `INVALID_FORMAT`,** not a reason of its own: the
+  engine has one reason per rule.
+- **Sign-up takes no format:** `POST /auth/bootstrap` refuses `number_format` (`UNKNOWN_FIELD`);
+  a new user reads `null` until they pick one.
+- **`null` clears the pick,** unlike `display_timezone`, whose `null` is refused.
+- **Also in the hand-off, nothing to build:** a timezone is stored and answered in its listed
+  spelling (`america/lima` reads back `America/Lima`), and a reused token id's message names "a
+  personal access token". The app compares neither.
+
 ## Decided
 
 | # | Question | Answer (owner) |
@@ -47,15 +58,24 @@ so it is kept on the account and every client follows it.
 
 ## Tasks
 
-Approved. Tasks 4 and 5 wait on the engine ask "A user's
-settings hold their number format".
+Approved. Each reads the live contract on the practice engine before building.
 
-4. **The setting** (waits on the engine). The format on `GET /auth/me` wins over the region;
-   System ▸ Auth & profile shows the `number format` row and `f` asks which one, saving through
-   `PUT /auth/settings`, *Follow this Mac* clearing it; a refusal in the engine's words; amounts
-   on screen follow the new format at once.
-5. **The live contract tests** (waits on the engine): the setting saved, read back on
-   `GET /auth/me`, cleared, and an unknown format refused.
+4. **The setting.** `settings.number_format` on `GET /auth/me` wins over the region, and `null`
+   follows it; System ▸ Auth & profile shows the `number format` row and `f` asks which one,
+   saving through `PUT /auth/settings`, *Follow this Mac* sending `null`; `INVALID_FORMAT` in the
+   engine's words; amounts on screen follow the new format at once.
+5. **The live contract tests:** the setting saved, read back on `GET /auth/me`, cleared with
+   `null`, an unknown format refused `INVALID_FORMAT` with nothing written, `number_format`
+   refused on `POST /auth/bootstrap`, a timezone sent in small letters read back in its listed
+   spelling, and a reused token id's message.
+
+## Reply to the engine
+
+The reply to the hand-off "A user's settings hold their number format, a timezone is stored in
+its listed spelling, and a reused token id names the token in words" (2026-11-08, `2fa4967b8eed9c3f`
+to `9b3b43429d8bd11e`). It reports on its "Done when" checks, a pick made on one device showing
+on another and the practice runs passing on `9b3b43429d8bd11e`, any contract problem found, and
+closes the ask "A user's settings hold their number format".
 
 ## Found along the way
 
