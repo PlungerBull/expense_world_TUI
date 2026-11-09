@@ -12,6 +12,7 @@ import pytest
 import respx
 from textual.types import NoActiveAppError
 
+from expense.errors import EngineError
 from expense.tui.screens._base import LeftBehind, pending_writes
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.bank_import import ImportPreviewScreen, ImportResultScreen
@@ -20,7 +21,11 @@ from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.statement_upload import StatementPreviewScreen, StatementResultScreen
+from expense.tui.screens.statement_upload import (
+    StatementAccountScreen,
+    StatementPreviewScreen,
+    StatementResultScreen,
+)
 from expense.tui.screens.transactions import TransactionsScreen
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -47,6 +52,7 @@ from tests.unit.test_tui_left_behind_account_form import _left_save
 from tests.unit.test_tui_log_bar import _open as _open_log
 from tests.unit.test_tui_log_bar import _patch as _patch_log
 from tests.unit.test_tui_statement_upload import _card_preview, _pdf
+from tests.unit.test_tui_statement_upload import _drop as _drop_pdf
 from tests.unit.test_tui_statement_upload import _engine as _upload_engine
 from tests.unit.test_tui_statement_upload import _patch as _patch_upload
 
@@ -505,6 +511,47 @@ def test_a_statement_upload_apply_counts_as_one_save(fake_client, monkeypatch, t
 
     run_app(scenario, size=(120, 50))
     assert seen == [1, ONE, True]
+
+
+def test_a_number_refusal_waits_for_the_quit_question_then_shows_the_account_question(
+    fake_client, monkeypatch, tmp_path
+):
+    """The dry run's number refusal lands while the quit question is on top: the
+    question stays, and answering `n` shows the account question on the refused pick."""
+    path = _pdf(tmp_path)
+    _patch_upload(monkeypatch)
+    refusal = EngineError(
+        "VALIDATION_ERROR",
+        "The statement cannot be uploaded.",
+        {"account_id": "The paper prints the number ending 1492."},
+        422,
+        {},
+        {"account_id": "STATEMENT_NUMBER_MISMATCH"},
+    )
+    late = LateAnswer(fake_client, "post", refusal)
+    # a save is still being sent elsewhere, so quitting asks
+    monkeypatch.setattr("expense.tui.app.pending_writes", lambda app: 1)
+
+    async def scenario(pilot, app):
+        screen = await _open_log(app, pilot)
+        await _drop_pdf(pilot, screen, path)
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementAccountScreen))
+        await wait_for(pilot, lambda: app.screen._run.picks is not None)
+        await pilot.press("down", "enter")  # Sueldo Soles, the second
+        await wait_for(pilot, late.started.is_set)
+        await pilot.press("ctrl+q")
+        question = app.screen
+        assert isinstance(question, ConfirmModal)
+        late.release.set()
+        await pilot.pause()
+        await pilot.pause()
+        assert app.screen is question
+        await pilot.press("n")
+        await wait_for(pilot, lambda: isinstance(app.screen, StatementAccountScreen))
+        assert app.screen._cursor == 1
+        assert not any(isinstance(x, StatementPreviewScreen) for x in app.screen_stack)
+
+    run_app(scenario, size=(120, 50))
 
 
 # ---- the save is counted until its ending has been handed back -------------------------

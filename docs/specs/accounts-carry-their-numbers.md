@@ -92,8 +92,6 @@ at all.
 Approved. Each reads the live contract on the practice engine before
 building.
 
-7. **The PDF upload's two new refusals:** `STATEMENT_NUMBER_MISMATCH` and `ACCOUNT_HAS_NO_NUMBER`
-   show in the engine's words on the account question, which stays open.
 8. **The live contract tests:** the banks read, `bank_code` and `numbers` on every account read,
    the built name, a replacement and its end day, a removal, the kind changes' bodies, the
    one-write create and edit (all or nothing, each refusal's key), a card paper refused on the
@@ -157,5 +155,8 @@ Not built in this spec; sorted when it is done.
 - `t`'s question: no test proves a pick change or typing hides that line's refusal
   (modals.py:402, :414; test_tui_account_question.py:317); its `written()` closure repeats
   `_currency_write`'s toast, key restore and reload (accounts.py:317, :382).
+- The quit-question test of a number refusal waits with two `pilot.pause()`; waiting on
+  `app._after_quit_question` before its assert would make it certain
+  (tests/unit/test_tui_quit_asks.py:545-548).
 - No screen test covers a plain `↵` on a typed `$bcp` taking the list's first entry
   (tests/unit/test_tui_log_bar.py's pick test covers picks 1 and 2 only).

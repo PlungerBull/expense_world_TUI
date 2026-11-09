@@ -1180,6 +1180,99 @@ def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
 
 
 @pytest.mark.parametrize(
+    ("reason", "words"),
+    [
+        (
+            "STATEMENT_NUMBER_MISMATCH",
+            "The paper prints the number ending 1492, and the account's number on 2026-10-25 "
+            "ends 4471.",
+        ),
+        ("ACCOUNT_HAS_NO_NUMBER", "The account has no card or account number."),
+    ],
+)
+def test_a_number_refusal_stays_on_the_account_question_and_another_pick_goes_on(
+    fake_client, monkeypatch, tmp_path, reason, words
+):
+    """A dry run refused on the account's number (by its reason code): the account
+    question again, the cursor on the picked account, the engine's words in the
+    "Failed" note, nothing written. Picking another account sends that account's
+    dry run."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): SAVINGS})
+    answer = fake_client.post
+    refusal = EngineError(
+        "VALIDATION_ERROR",
+        "The statement cannot be uploaded.",
+        {"account_id": words},
+        422,
+        {},
+        {"account_id": reason},
+    )
+
+    def post(path_, json_body=None):
+        if json_body["account_id"] != "aho":
+            return answer(path_, json_body)
+        fake_client.calls.append(("POST", path_, json_body))
+        raise refusal
+
+    fake_client.post = post
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _accounts(pilot, app)
+        await pilot.press("down", "enter")  # Sueldo Soles, the second
+        account = await _accounts(pilot, app)
+        await wait_for(pilot, lambda: bool(app._notifications), message="no note")
+        assert _lines(account)[0].startswith("Which account is this statement?")
+        assert account._cursor == 1
+        note = list(app._notifications)
+        assert [n.title for n in note] == ["Failed"]
+        assert words in str(note[0].message)
+        assert _shown(account)["escape"] == "Cancel"
+        assert [b["account_id"] for _, b in fake_client.posts] == ["aho"]
+        assert _uploads(fake_client) == [True]
+
+        await pilot.press("up", "enter")  # BCP Premier
+        await _previewed(pilot, app)
+        assert [b["account_id"] for _, b in fake_client.posts] == ["aho", "sig"]
+        assert _uploads(fake_client) == [True, True]  # nothing written
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_number_refusal_on_the_apply_shows_on_the_preview(fake_client, monkeypatch, tmp_path):
+    """Only the dry run goes back to the question: the apply's refusal (a number
+    changed in between) shows where apply refusals show."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch)
+    _engine(fake_client, {path.read_bytes(): CARD})
+    answer = fake_client.post
+
+    def post(path_, json_body=None):
+        if not json_body["dry_run"]:
+            raise _refusal(
+                "VALIDATION_ERROR",
+                "account_id",
+                "The paper prints the number ending 1492.",
+                "STATEMENT_NUMBER_MISMATCH",
+            )
+        return answer(path_, json_body)
+
+    fake_client.post = post
+
+    async def scenario(pilot, app):
+        await _card_preview(pilot, app, path)
+        await pilot.press("enter")
+        preview = await _refused(pilot, app)
+        assert app.screen is preview
+        assert "! account_id: The paper prints the number ending 1492." in _lines(preview)
+
+    run_app(scenario, size=(120, 40))
+
+
+@pytest.mark.parametrize(
     ("key", "words"),
     [
         ("rows.4", "Another request changed this row's ledger line. Send it again."),

@@ -22,6 +22,7 @@ draw.
 """
 
 from contextlib import nullcontext
+from typing import TypeGuard
 
 from rich.console import Group, RenderableType
 from rich.text import Text
@@ -121,6 +122,21 @@ def changed_meanwhile(err: Exception) -> bool:
     )
 
 
+#: The reasons, on `account_id`, of a PDF whose numbers do not fit the picked account
+#: (contract: POST /v1/statements/import, "The numbers the paper prints must fit the account's").
+NUMBER_REASONS = ("STATEMENT_NUMBER_MISMATCH", "ACCOUNT_HAS_NO_NUMBER")
+
+
+def refused_on_number(err: Exception) -> TypeGuard[EngineError]:
+    """A `422` whose reason on `account_id` is one of `NUMBER_REASONS`, matched by
+    the engine's reason code and never by its words."""
+    return (
+        isinstance(err, EngineError)
+        and err.status == 422
+        and (err.reasons or {}).get("account_id") in NUMBER_REASONS
+    )
+
+
 # ---------------------------------------------------------------------------
 # which account is this statement?
 # ---------------------------------------------------------------------------
@@ -130,6 +146,24 @@ class StatementAccountScreen(ImportAccountScreen):
     engine never picks one by the number the paper prints."""
 
     QUESTION = "Which account is this statement?  "
+
+    def __init__(
+        self, run: ImportRun, owner, refused: tuple[AccountPick, EngineError] | None = None
+    ) -> None:
+        super().__init__(run, owner)
+        #: The pick whose dry run the engine refused on the number, and its
+        #: refusal: the cursor starts on that account and the "Failed" note
+        #: carries the engine's words.
+        self._refused = refused
+
+    def on_mount(self) -> None:
+        super().on_mount()
+        if self._refused is None:
+            return
+        pick, err = self._refused
+        self._cursor = next((i for i, p in enumerate(self._picks) if p == pick), 0)
+        toast(self, format_error(err), title="Failed", severity="error")
+        self._repaint()
 
     def crumb(self) -> tuple[str, ...]:
         """`Upload a statement`, then `file 1 of 2` as a download's list reads
@@ -360,6 +394,16 @@ class StatementPreviewScreen(PreviewScreen):
 
     def changed(self, err: Exception) -> bool:
         return changed_meanwhile(err)
+
+    def _failed(self, err: Exception) -> None:
+        """A dry run refused on the account's number writes nothing and goes
+        back to the account question, on the account picked; every other
+        refusal, and the apply's, shows here."""
+        if not self._writing and refused_on_number(err):
+            question = StatementAccountScreen(self._run, self._owner, (self._pick, err))
+            self.app.after_quit_question(lambda: self.app.switch_screen(question))
+            return
+        super()._failed(err)
 
     def _forget_answer(self) -> None:
         self._answer, self._lines, self._lines_error = None, {}, None
