@@ -47,8 +47,8 @@ engine's dry run now names the lines the close will flag.
    holding such a row shows the refusal on that row.
 6. A transaction logged at 23:30 in Lima shows on its own day in every list, and filtering by
    that day finds it.
-7. A PDF whose month holds a ledger line the paper lacks shows that line in the preview as one
-   the close will flag, under its currency; a paper with nothing to flag shows none; leaving the
+7. A PDF whose last day holds a ledger line the paper lacks shows that line in the preview as
+   one the close will flag, under its currency; a paper with nothing to flag shows none; leaving the
    preview writes nothing. After the close, the same line shows on the `⚑` line, as today.
 8. The tester logs a transaction on the practice account `BCP-0000` in the real app, against the
    practice engine, with the id the seed printed.

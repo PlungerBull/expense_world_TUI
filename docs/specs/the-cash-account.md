@@ -5,7 +5,7 @@ part C, 3 and 4): the cash account's screens. It runs after
 [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md), whose New and Edit forms it
 builds on.
 
-**Status: draft, 2026-11-08, for the owner to approve, with its two questions on the mockup
+**Status: approved on 2026-11-08, its questions answered on the mockup
 [expense-world-cash-account.html](../mockups/expense-world-cash-account.html).** When done, the
 why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -46,20 +46,18 @@ for it, and which can be archived but never deleted.
 - **Shared names:** a person named `Efectivo` (any case) keeps the cash account from being made
   (`NAME_EXISTS` on `kind`); once it exists, no account can take that name.
 
-## Questions
+## Decided
 
-Drawn on [expense-world-cash-account.html](../mockups/expense-world-cash-account.html).
-
-| # | Question | Options | Recommended |
-|---|---|---|---|
-| 1 | Where is it made? Pane 1. | A: a third type, `cash`, on Manage ▸ Accounts' New form, offered only while you hold none · B: a waiting `+ Efectivo · not made yet` row on the accounts list | A: no new key or row; the form already drops lines by type |
-| 2 | How does Home show it? Pane 2. | A: one `ACCOUNTS` list, cash among them in the accounts' order, marked `cash` · B: a `CASH` section of its own | A: the engine lists it among the accounts in their order |
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | Where is it made? Mockup pane 1. | A: a third type, `cash`, on Manage ▸ Accounts' New form, offered only while you hold none (2026-11-08). |
+| 2 | How does Home show it? Mockup pane 2. | A: one `ACCOUNTS` list, cash among the accounts in their order, marked `cash` (2026-11-08). |
 
 ---
 
 ## Tasks
 
-Drafted 2026-11-08 on the recommended answers (1A, 2A). Each reads the live contract on the
+Approved. Each reads the live contract on the
 practice engine before building.
 
 1. **Home shows cash** (question 2): the block's header reads `ACCOUNTS`; each row of

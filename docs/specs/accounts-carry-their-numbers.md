@@ -7,8 +7,7 @@ account form (`edbafcc162850075`, `14fb4741b9db37b8`). It runs after
 
 **Status: approved on 2026-11-03; redrawn on 2026-11-08 from the engine's hand-off, which built
 the name and declined the alias, as the owner accepted. Its new questions 9 to 12 were answered and the spec approved on 2026-11-08, on the mockup
-[expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html). Cash waits on the engine ask "Every user holds one cash account, named
-`Efectivo`, with no bank and no number" and joins with its hand-off; the sheet import's names
+[expense-world-account-numbers.html](../mockups/expense-world-account-numbers.html). Cash is [the cash account](the-cash-account.md)'s, which runs after it; the sheet import's names
 join [the official import](before-the-official-import.md).** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 

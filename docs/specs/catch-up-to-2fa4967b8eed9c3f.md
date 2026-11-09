@@ -8,7 +8,7 @@ but two pieces of screen work: the cash account's screens, which
 which [closing-with-leftover-lines.md](closing-with-leftover-lines.md) takes. It runs first:
 until it lands, the live contract suite cannot run on the engine.
 
-**Status: draft, 2026-11-08, for the owner to approve.** It has no open question. When done, the
+**Status: approved on 2026-11-08.** When done, the
 why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -56,7 +56,7 @@ values it used to take loosely, and a few writes on closed days.
 
 ## Tasks
 
-Drafted 2026-11-08. Each reads the live contract on the practice engine before building.
+Approved. Each reads the live contract on the practice engine before building.
 
 1. **The account's kind in the app.** Every account read takes `kind` (`bank`, `person`,
    `cash`); `is_person` is read only from activity entries written before the change

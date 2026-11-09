@@ -3,7 +3,7 @@
 Part of the catch-up to contract `2fa4967b8eed9c3f` (the engine's hand-off of 2026-11-08,
 part A, 1 to 3): resolving lines in no statement before a close.
 
-**Status: draft, 2026-11-08, for the owner to approve, with its three questions on the mockup
+**Status: approved on 2026-11-08, its questions answered on the mockup
 [expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html). Tasks 1 and 2
 wait on the engine ask "A loose-lines refusal names its lines by id, in a field a client
 reads".** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
@@ -48,25 +48,19 @@ moves it, puts it in a statement, or deletes it.
 - **Refused, never a conflict:** a write and a close that would seal its day happen one after the
   other; whichever comes second is refused, never retried.
 
-## Questions
+## Decided
 
-Drawn on [expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html).
-
-| # | Question | Options | Recommended |
-|---|---|---|---|
-| 1 | A PDF refused for leftover lines? Pane 1. | A: a screen listing them, `⏎` edits, `d` deletes, `r` reads the paper again · B: the refusal lists them; fix them in the ledger and drop the PDF again | A: the month closes without leaving the upload |
-| 2 | `c` refused on a statement closed by hand? Pane 2. | A: the same screen, plus `space` to put a line in the statement and `c` to close again · B: stay on the checklist, the lines marked `⚑` | A: one screen for both ways of closing, and it reaches a line outside the checklist's days |
-| 3 | The preview's "⚑ Will be flagged" block? Pane 3. | A: kept, reworded for the last day · B: dropped | A: every line the close touches stays in sight before you confirm |
-
-Also for the owner: check 7 of [catch-up-to-1002f105c6bacdf1.md](catch-up-to-1002f105c6bacdf1.md)
-says a line the paper lacks shows in the preview as one the close will flag; under the new rule
-that holds only for a line on the paper's last day.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | A PDF refused for leftover lines? Mockup pane 1. | A: a screen listing them, `⏎` edits, `d` deletes, `r` reads the paper again (2026-11-08). |
+| 2 | `c` refused on a statement closed by hand? Mockup pane 2. | A: the same screen, plus `space` to put a line in the statement and `c` to close again (2026-11-08). |
+| 3 | The preview's "⚑ Will be flagged" block? Mockup pane 3. | A: kept, reworded for the last day (2026-11-08). |
 
 ---
 
 ## Tasks
 
-Drafted 2026-11-08 on the recommended answers (1A, 2A, 3A). Each reads the live contract on the
+Approved. Each reads the live contract on the
 practice engine before building.
 
 1. **The leftover-lines screen from an upload** (question 1; waits on the engine ask):

@@ -18,19 +18,20 @@ Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A
 when the owner approves it and leaves when it retires; one that is blocked says on what, and the
 loop skips it until it can run.
 
-1. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
-   approved 2026-11-08; tasks 1–7 done. Task 8 runs once the next catch-up's live suite
-   sends an account's `kind` (its task 2).
-2. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
-   approved 2026-11-08; its cash part moves to the drafted cash spec.
-3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
+1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
+   approved 2026-11-08.
+2. [The app on contract `1002f105c6bacdf1`, and the preview names the lines the close will flag](specs/catch-up-to-1002f105c6bacdf1.md):
+   approved 2026-11-08; tasks 1–7 done. Task 8 runs once spec 1's live suite sends an
+   account's `kind` (its task 2).
+3. [Accounts carry their numbers, the account form saves in one write](specs/accounts-carry-their-numbers.md):
+   approved 2026-11-08.
+4. [The cash account](specs/the-cash-account.md): approved 2026-11-08.
+5. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+   2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
+   in a field a client reads".
+6. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
    approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
    settings hold their number format".
-
-The engine's hand-off of 2026-11-08 to `2fa4967b8eed9c3f` is drafted into three specs waiting
-on you below. The order, approved 2026-11-08: the catch-up first, then specs 1 and 2 above, the
-cash account, closing with leftover lines, the official import; number format whenever its engine
-ask lands.
 
 ---
 
@@ -47,19 +48,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### Approve the three specs from the engine's latest hand-off
-Asked 2026-11-08 · Blocks: all three
-- [The app on contract `2fa4967b8eed9c3f`](specs/catch-up-to-2fa4967b8eed9c3f.md): no question,
-  approval only. Runs first.
-- [The cash account](specs/the-cash-account.md): two questions on
-  [expense-world-cash-account.html](mockups/expense-world-cash-account.html). **Recommended:**
-  1A 2A. Also a fact only you know: does your spreadsheet hold a cash (`Efectivo`) account? If
-  so, this spec must land before the official import.
-- [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): three questions
-  on [expense-world-leftover-lines.html](mockups/expense-world-leftover-lines.html).
-  **Recommended:** 1A 2A 3A. Its tasks 1 and 2 also wait on the engine ask "A loose-lines
-  refusal names its lines by id, in a field a client reads".
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
