@@ -71,9 +71,6 @@ practice engine before building.
 2. **The same screen from `c`** (question 2; waits on the engine ask): opened by the refusal on
    `POST /statements/{id}/complete`, with `space` putting the line in the statement and `c`
    asking "Complete statement?" again.
-3. **The preview's flagged block and the flagged screen's words** (question 3): the block's note
-   says the lines sit on the last day, open until the next month closes; nothing on the flagged
-   screen (`FLAGGED_WAYS` in expense/tui/screens/statements.py) speaks of a closed day.
 4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
    run and apply, nothing written; the refusal's ids; the line taken out of the draft counted;
    the request the message names answering `200`; a flagged line on the open last day letting the
@@ -90,3 +87,15 @@ reads" as what it was built on.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **The upload preview spills under its footer after a resize from 120 to 80 columns,** and on a
+  fresh window narrower than about 80, with the old flagged note as with the new
+  (`_budget` in expense/tui/screens/statement_upload.py).
+- **`_flagged_head_lines` falls back to the screen's width before the body is laid out,** leaving
+  out the body's 4 cells of padding, where `_columns` takes them off; the dry run's answer comes
+  after layout, so it has not been seen.
+- **The 80-column wrap test's `startswith("  ")` check is true by construction**
+  (test_tui_statement_upload.py, `test_the_flagged_head_wraps_under_its_own_words_at_80_columns`);
+  it would also take a three-cell indent.
+- **docs/mockups/expense-world-moves-and-preview.html still draws the old note** `on the paper's
+  days` (:134, :163).

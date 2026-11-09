@@ -15,7 +15,7 @@ import threading
 import httpx
 import pytest
 import respx
-from textual.widgets import Static
+from textual.widgets import Footer, Static
 
 from expense.bank_import.flow import AccountPick, statement_call
 from expense.bank_import.statement import statement_answer
@@ -678,6 +678,12 @@ USD_LINE = bank_line_row(
 FLAG_LINES = {**LINES, "bl-usd": USD_LINE}
 
 
+FLAGGED_CAPTION = (
+    "⚑ Will be flagged · in no statement, on the last day,"
+    " which stays open until the next month closes"
+)
+
+
 def _flag_block(lines: list[str]) -> list[str]:
     """The lines from the `⚑ Will be flagged` head to the counts line, left out."""
     start = next(i for i, line in enumerate(lines) if line.startswith("⚑ Will be flagged"))
@@ -703,7 +709,7 @@ def test_the_lines_the_close_will_flag_show_under_the_lines_taken_out(
         lines = _lines(preview)
         assert lines.index(
             "Taken out · in the statement, not on the paper; they stay in the ledger"
-        ) < (lines.index("⚑ Will be flagged · in no statement, on the paper's days"))
+        ) < (lines.index(FLAGGED_CAPTION))
         block = _flag_block(lines)
         assert [_cells(line)[:2] for line in block[1:]] == [
             ["2026-10-12", "AMAZON"],
@@ -721,6 +727,56 @@ def test_the_lines_the_close_will_flag_show_under_the_lines_taken_out(
         assert reads_by_ids == [["bl-farm", "bl-usd", "bl-uber"]]  # one read, each id once
 
     run_app(scenario, size=(120, 50))
+
+
+def test_the_flagged_head_wraps_under_its_own_words_at_80_columns(
+    fake_client, monkeypatch, tmp_path
+):
+    """The wrapped part of the head stands two cells in, under `Will`, not under `⚑`."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        raw = _body(preview, width=preview.query_one("#import-body", Static).content_region.width)
+        raw_lines = raw.split("\n")
+        at = next(i for i, line in enumerate(raw_lines) if line.startswith("⚑ Will be flagged"))
+        head = [raw_lines[at].rstrip()]
+        for line in raw_lines[at + 1 :]:
+            if not line.startswith("  ") or line.strip()[:4].isdigit():
+                break
+            head.append(line.rstrip())
+        assert len(head) >= 2
+        assert all(line.startswith("  ") for line in head[1:])  # under `Will`, not `⚑`
+        assert " ".join(line.strip() for line in head) == FLAGGED_CAPTION
+
+    run_app(scenario, size=(80, 30))
+
+
+def test_a_full_page_with_a_flagged_line_ends_above_the_footer_at_80x30(
+    fake_client, monkeypatch, tmp_path
+):
+    """The wrapped head counts in the page budget: the body ends above the footer."""
+    path = _pdf(tmp_path)
+    _patch(monkeypatch, lines=FLAG_LINES)
+    rows = [statement_row(n, -100 * n, description=f"ROW {n}") for n in range(1, 41)]
+    paper = {
+        "rows": rows,
+        "balances": CARD["balances"],
+        "review_lines": {"PEN": ["bl-uber"]},
+    }
+    _engine(fake_client, {path.read_bytes(): paper})
+
+    async def scenario(pilot, app):
+        preview = await _card_preview(pilot, app, path)
+        body = preview.query_one("#import-body", Static)
+        footer = preview.query_one(Footer)
+        assert "UBER *TRIP" in " ".join(_lines(preview, width=body.content_region.width))
+        assert body.region.y + body.virtual_size.height <= footer.region.y
+
+    run_app(scenario, size=(80, 30))
 
 
 def test_the_flagged_lines_follow_the_engines_order(fake_client, monkeypatch, tmp_path):
@@ -860,7 +916,7 @@ def test_flagged_lines_that_cannot_be_read_keep_the_head_the_count_and_say_why(
     async def scenario(pilot, app):
         preview = await _card_preview(pilot, app, path)
         lines = _lines(preview)
-        assert "⚑ Will be flagged · in no statement, on the paper's days" in lines
+        assert FLAGGED_CAPTION in lines
         assert not any("UBER" in line and "2026" in line and "TRIP" in line for line in lines[12:])
         assert any(line.endswith(" · 1 to flag") for line in lines)
         assert "! could not read the ledger lines: INTERNAL_ERROR — Something went wrong." in lines

@@ -547,3 +547,12 @@ def test_the_footer_reads_the_drawn_keys_first_and_the_paging_keys_after_them(
     )
     second_page = _listed_at(fake_client, monkeypatch, 80, down=7)
     assert second_page[-1].strip() == drawn + "  pgup Prev"
+
+
+def test_the_flagged_words_speak_of_no_closed_day():
+    """A flagged line sits on the last day, which stays open; nothing under the list
+    speaks of a closed or sealed day."""
+    from expense.tui.screens.statements import FLAGGED_WAYS
+
+    words = " ".join(w for _, w in FLAGGED_WAYS).lower()
+    assert "closed" not in words and "seal" not in words

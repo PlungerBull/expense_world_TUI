@@ -30,6 +30,7 @@ from textual import work
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.types import NoActiveAppError
+from textual.widgets import Static
 
 from expense import reads
 from expense.bank_import import flow
@@ -68,7 +69,7 @@ from expense.tui.screens.bank_import import (
 )
 from expense.tui.screens.statements import FlaggedLinesScreen, flagged_note
 from expense.tui.theme import ACCENT, BALANCE_RULE, PALETTE, TRANSACTION_RULE
-from expense.tui.widgets.refusal import hanging, toast, warning_note
+from expense.tui.widgets.refusal import hanging, toast, under_itself, warning_note
 
 #: The account list's breadcrumb.
 ACCOUNT_CRUMB = ("Upload a statement",)
@@ -93,10 +94,9 @@ DAY_MOVED = "· day moved"
 TAKEN_OUT = "Taken out"
 TAKEN_OUT_NOTE = " · in the statement, not on the paper; they stay in the ledger"
 
-#: The "Will be flagged" block's head and the words after it: the lines the
-#: close will flag for review.
-FLAGGED = "⚑ Will be flagged"
-FLAGGED_NOTE = " · in no statement, on the paper's days"
+#: The "Will be flagged" block's note after its head: the lines the close will
+#: flag for review.
+FLAGGED_NOTE = " · in no statement, on the last day, which stays open until the next month closes"
 
 #: What `⏎` does after the apply met something changed while it ran.
 RERUN = "It changed while the upload ran: ⏎ checks the paper against the ledger again."
@@ -290,13 +290,21 @@ def taken_out_lines(
     return out
 
 
-def flagged_lines(answer: StatementAnswer, lines: dict[str, dict], columns: Columns) -> list[Text]:
+def flagged_words() -> Text:
+    """The "Will be flagged" block's words after its `⚑`: the head in the warning
+    colour, the note dim."""
+    return Text.assemble(("Will be flagged", PALETTE.warning), (FLAGGED_NOTE, "dim"))
+
+
+def flagged_lines(
+    answer: StatementAnswer, lines: dict[str, dict], columns: Columns
+) -> list[RenderableType]:
     """The "Will be flagged" block: the lines the engine says the close will flag
     for review, in its order, each read by its id and shown under the table's
     columns. Empty when none is named. A line taken out may be in both blocks."""
     if not answer.flagged:
         return []
-    out = [Text.assemble((FLAGGED, PALETTE.warning), (FLAGGED_NOTE, "dim"))]
+    out: list[RenderableType] = [under_itself(Text("⚑ ", style=PALETTE.warning), flagged_words())]
     for line_id in answer.flagged:
         line = lines.get(line_id)
         if line is None:
@@ -543,6 +551,12 @@ class StatementPreviewScreen(PreviewScreen):
             parts.extend(hanging(t) for t in self._failure)
         return parts
 
+    def _flagged_head_lines(self) -> int:
+        """Lines the "Will be flagged" head takes at the body's width, wrapped
+        under its own words (two cells in)."""
+        width = self.query_one("#import-body", Static).content_region.width or self.size.width
+        return len(flagged_words().wrap(self.app.console, max(1, width - 2)))
+
     def _budget(self) -> int:
         """Lines the table's rows may take: the screen less the import door's
         chrome and everything this preview adds above and under the table."""
@@ -552,7 +566,7 @@ class StatementPreviewScreen(PreviewScreen):
         extra = 1 + 1 + len(answer.balances)  # the statement's line, the balances
         extra += len(answer.notes)
         extra += (2 + len(answer.taken_out)) if answer.taken_out else 0
-        extra += (1 + len(answer.flagged)) if answer.flagged else 0
+        extra += (self._flagged_head_lines() + len(answer.flagged)) if answer.flagged else 0
         extra += 1 if answer.flagged and not answer.taken_out else 0  # the blank above the counts
         extra += 1 if answer.counts.new else 0
         extra += 1 if self._lines_error else 0
