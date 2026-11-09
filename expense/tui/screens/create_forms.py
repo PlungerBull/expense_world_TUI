@@ -532,6 +532,10 @@ class NewAccountScreen(BarFormScreen):
     def _is_cash(self) -> bool:
         return self._values.get("type") == "cash"
 
+    @property
+    def _is_bank(self) -> bool:
+        return not (self._is_person or self._is_cash)
+
     def _identity_lines(self) -> list[str]:
         """The lines after TYPE that name the account: a person's or the cash account's NAME,
         a bank account's BANK and LAST 4."""
@@ -848,7 +852,10 @@ class EditAccountScreen(NewAccountScreen):
     zero or while empty, the same on a bank account and a person.
 
     A bank account has no NAME line: its name is the engine's, and a `name` sent
-    for it is refused (contract: PUT /v1/accounts/{account_id}). A person's NAME
+    for it is refused (contract: PUT /v1/accounts/{account_id}). The cash account's NAME
+    reads its name as read, `read-only`, and it has no BANK, LAST 4, STATEMENT CODE or card
+    lines: its body holds only the `color` and `opening_balances` that changed
+    (contract: PUT /v1/accounts/{account_id}). A person's NAME
     opens holding its name. A bank account's STATEMENT CODE opens holding its code.
     Its BANK opens on its bank, picked from the engine's banks as New's is, and its LAST 4
     on its current number's digits (empty with none); SINCE, only while the account has a
@@ -933,18 +940,22 @@ class EditAccountScreen(NewAccountScreen):
         held = [h for _, _, h in reads.held_currencies([record])]
         self._codes: list[str] = [h["currency_code"] for h in held]
         person = record.get("kind") == "person"
+        cash = record.get("kind") == "cash"
+        bank = not person and not cash
         self._values = {
-            "type": "person" if person else "bank",
+            "type": "person" if person else "cash" if cash else "bank",
             "currencies": list(self._codes),
         }
         if person:
             self._values["name"] = self._was
+        if cash:  # its name is the engine's: read-only, as read
+            self._locked.add("name")
         # the current number is the last of the account's `numbers`; the one before it
         # is current again once it is removed
         numbers = record.get("numbers") or []
-        self._has_number = bool(numbers) and not person
+        self._has_number = bool(numbers) and bank
         before = [f"{n['last4']} until {n['end_date']}" for n in numbers[:-1]]
-        self._cards_before = " · ".join(before) if not person else ""
+        self._cards_before = " · ".join(before) if bank else ""
         if self._cards_before:
             self._values["cards_before"] = self._cards_before
             self._locked.add("cards_before")
@@ -952,7 +963,7 @@ class EditAccountScreen(NewAccountScreen):
         self._original_bank: str | None = record.get("bank_code")
         self._original_last4: str | None = numbers[-1]["last4"] if numbers else None
         self._original_since: str | None = numbers[-1].get("start_date") if numbers else None
-        if not person:
+        if bank:
             for key, was in (
                 ("bank", self._original_bank),
                 ("last4", self._original_last4),
@@ -964,7 +975,7 @@ class EditAccountScreen(NewAccountScreen):
             self._values["color"] = record["color"]
         self._original_color = record.get("color")
         self._original_code: str | None = record.get("statement_code")
-        if self._original_code and not person:
+        if self._original_code and bank:
             self._values["statement_code"] = self._original_code
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
         self._openings: dict[str, _OpeningBalance] = {}
@@ -979,7 +990,7 @@ class EditAccountScreen(NewAccountScreen):
         return any(o.loading for o in self._openings.values())
 
     def _identity_lines(self) -> list[str]:
-        if self._is_person:
+        if self._is_person or self._is_cash:
             return ["name"]
         return [
             "bank",
@@ -1003,7 +1014,15 @@ class EditAccountScreen(NewAccountScreen):
         return super()._required_note(key)
 
     def _locked_word(self, key: str) -> str:
-        return "" if key == "cards_before" else super()._locked_word(key)
+        if key == "cards_before":
+            return ""
+        if key == "name":  # the cash account's: not NewAccountScreen's `set by the engine`
+            return BarFormScreen._locked_word(self, key)
+        return super()._locked_word(key)
+
+    def _fixed_text(self, key: str) -> str | None:
+        """The cash account's NAME reads the name the engine gave it."""
+        return self._was if key == "name" and self._is_cash else None
 
     def _value_cell(self, key: str, value: object) -> Text:
         return (
@@ -1134,7 +1153,7 @@ class EditAccountScreen(NewAccountScreen):
         body: dict = {}
         if self._is_person and self._values["name"] != self._was:
             body["name"] = self._values["name"]
-        if not self._is_person:
+        if self._is_bank:
             if self._values.get("bank") != self._original_bank:
                 body["bank_code"] = self._values["bank"]
             if (number := self._number_entry()) is not False:
@@ -1147,7 +1166,7 @@ class EditAccountScreen(NewAccountScreen):
         if self._values.get("color") and self._values["color"] != self._original_color:
             body["color"] = self._values["color"]
         code = self._values.get("statement_code")
-        if not self._is_person and code != self._original_code:
+        if self._is_bank and code != self._original_code:
             body["statement_code"] = code
         openings = {
             code: entry for code in self._codes if (entry := self._opening_entry(code)) is not False
@@ -1166,7 +1185,7 @@ class EditAccountScreen(NewAccountScreen):
         if not self._keep_bar() or not self._required_met():
             return
         questions = []
-        if not self._is_person and self._removes_number:
+        if self._is_bank and self._removes_number:
             questions.append(self._removal_question())
         deleted = [code for code in self._codes if self._opening_entry(code) is None]
         if deleted:

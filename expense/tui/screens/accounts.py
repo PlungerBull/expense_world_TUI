@@ -87,12 +87,19 @@ def _balance_cells(
     ]
 
 
+def _kind_word(account: dict) -> str:
+    """The Type column's word: `person` and `cash` as the engine's `kind` says, any other
+    account `bank`."""
+    kind = account.get("kind")
+    return kind if kind in ("person", "cash") else "bank"
+
+
 def account_line(account: dict, *, only: str | None = None) -> str:
     """The account on one line: its name, its kind, then each currency it holds
     with that currency's balance — `Efectivo · bank · PEN 350.00`; with `only`,
     that one currency alone. The line a delete question and the currency picks
     name the account by, and a currency's removal names the currency by."""
-    kind = "person" if account.get("kind") == "person" else "bank"
+    kind = _kind_word(account)
     held = [
         f"{h['currency_code']} {format_cents(h.get('current_balance_cents'))}"
         for _, _, h in reads.held_currencies([account])
@@ -141,7 +148,7 @@ def account_rows(items: list[dict], currencies: list[str], palette: Palette | No
         archived = bool(account.get("is_archived"))
         cells = [
             name_or_unnamed(account.get("name")),
-            "person" if account.get("kind") == "person" else "bank",
+            _kind_word(account),
             code_cell(account.get("statement_code")),
             swatch(account.get("color")),
             *_balance_cells(account, currencies, palette),
@@ -172,6 +179,7 @@ class AccountsScreen(ResourceListScreen):
         Binding("t", "make_bank", "Make bank"),
         DELETE_KEY,
     ]
+    CARD_FOLLOWS_CHECK = frozenset({"delete"})
     CARD_NEEDS_A_ROW = ResourceListScreen.CARD_NEEDS_A_ROW | {
         "add_currency",
         "remove_currency",
@@ -214,6 +222,8 @@ class AccountsScreen(ResourceListScreen):
         return _who("Not deleted", item)
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action == "delete" and self._on_cash():
+            return False  # `d` leaves the footer and the card on the cash row
         if action not in ("make_person", "make_bank", "add_currency", "remove_currency"):
             return super().check_action(action, parameters)
         if waits_for_a_row(self, action):
@@ -221,9 +231,19 @@ class AccountsScreen(ResourceListScreen):
         item = self.selected_record()
         if action in ("add_currency", "remove_currency"):
             return True  # any account, a person's and an archived one's too: the engine judges
-        if item.get("is_archived"):
-            return False  # an archived account keeps its kind: `t` leaves the footer
+        if item.get("is_archived") or item.get("kind") == "cash":
+            return False  # an archived or cash account keeps its kind: `t` leaves the footer
         return (item.get("kind") == "person") == (action == "make_bank")
+
+    def _on_cash(self) -> bool:
+        """Whether the cursor row is the cash account (its `kind` alone says so)."""
+        item = self.selected_record()
+        return item is not None and item.get("kind") == "cash"
+
+    def action_delete(self) -> None:
+        if self._on_cash():
+            return  # the engine never deletes it (contract: DELETE /v1/accounts/{account_id})
+        super().action_delete()
 
     def action_archive(self) -> None:
         item = self.selected_record()

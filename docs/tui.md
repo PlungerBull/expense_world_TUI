@@ -898,10 +898,12 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
 banks and people together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). Type reads `person` for a person and `bank` for any
-other account. The currency columns are the currencies the engine lists,
-in its order (`GET /currencies`, read in the list's worker with the accounts by
-`fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
+in the engine's order everywhere" above). Type reads `person` for a person, `cash` for the cash
+account (by its `kind`) and `bank` for any other account. On the cash row `t` leaves the footer
+and `d` leaves the footer and the `?` card; its Edit form is `EditAccountScreen`'s in
+[create_forms.py](../expense/tui/screens/create_forms.py). The currency columns are the
+currencies the engine lists, in its order (`GET /currencies`, read in the list's worker with the
+accounts by `fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
 The list screen hands the same codes to the New and Edit forms. Each
 holds the account's balance in that currency, right-aligned and never summed with another, or a
 dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`

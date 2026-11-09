@@ -59,10 +59,6 @@ for it, and which can be archived but never deleted.
 Approved. Each reads the live contract on the
 practice engine before building.
 
-3. **The cash account's row and Edit form** (pane 3): Type `cash` on Manage ▸ Accounts; no `t`
-   and no `d` on its row; its Edit form holds type, name and currencies read-only, color and the
-   openings; `CASH_TAKES_NO_FIELD`, `CASH_KIND_FIXED` and `CASH_NOT_DELETABLE` in the engine's
-   words should one come anyway.
 4. **Cash out of the bank-only places:** the Statements browse, the PDF upload's account question
    and the bank download's leave out kind `cash`; `CASH_TAKES_NO_STATEMENT` in the engine's words
    should one come anyway.
@@ -90,5 +86,6 @@ Not built in this spec; sorted when it is done.
 - **`n` after a reload that failed,** or while the reload after making the cash account is still
   out, offers `cash` from the last good list; the engine refuses `CASH_EXISTS` on `type`, so
   nothing wrong is written (expense/tui/screens/accounts.py:451-452).
-- **For task 3:** `NewAccountScreen._locked_word("name")` returns `set by the engine`, and the Edit
-  form inherits it; pane 3 draws the cash account's Edit `name` as `read-only`.
+- **The Accounts `?` card lists both `t` lines on every row,** the cash and archived rows
+  included, though the footer shows only the one the row takes; showing only that one would
+  change the card on every row.

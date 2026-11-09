@@ -612,7 +612,7 @@ def test_a_refusal_reads_in_the_lists_words(
 
 def test_kind_alone_tells_a_person_from_a_bank_or_cash_account():
     """A `kind: "person"` account is a person; `bank` and `cash` are accounts, in the
-    account line, the list's row and the readers that split people out."""
+    readers that split people out; the line and the row name a cash account `cash`."""
     from expense import reads
     from expense.tui.screens.accounts import account_line, account_rows
 
@@ -620,9 +620,9 @@ def test_kind_alone_tells_a_person_from_a_bank_or_cash_account():
     bank = account_with_currencies(id="b", name="BCP", kind="bank")
     cash = account_with_currencies(id="c", name="Efectivo", kind="cash")
     assert " · person · " in account_line(person)
-    assert " · bank · " in account_line(bank) and " · bank · " in account_line(cash)
+    assert " · bank · " in account_line(bank) and " · cash · " in account_line(cash)
     kinds = [cells[1] for _, cells, *_ in account_rows([person, bank, cash], ["PEN"])]
-    assert kinds == ["person", "bank", "bank"]
+    assert kinds == ["person", "bank", "cash"]
     names = [n for _, n, _ in reads.held_currencies([person, bank, cash], include_people=False)]
     assert names == ["BCP", "Efectivo"]
     assert len(reads.held_currencies([person, bank, cash])) == 3
