@@ -25,6 +25,9 @@ loop skips it until it can run.
    approved 2026-11-08. Waits on the engine finishing its current work; its cash part on
    the engine ask "Every user holds one cash account, named `Efectivo`, with no bank and no
    number".
+3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
+   approved 2026-11-08. Tasks 1–3 run now; tasks 4 and 5 wait on the engine ask "A user's
+   settings hold their number format".
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
 The engine already serves `b6d2ae85aea48ea2`, thirteen versions later (sealed days, booleans and
@@ -75,11 +78,6 @@ CLAUDE.md "Specs and tasks".
 - **After a reload that fails, a Manage list's `?` card still lists its row keys** from the
   records read before, while the footer drops them (`_by_id` in `expense/tui/screens/_base.py`
   is set only when the list is built).
-- **Amounts follow your number format.** The app reads the Mac's region by default, and an
-  optional setting on the owner's account wins when set, so every device agrees (an engine
-  ask). The format is used both for amounts typed and for every amount shown.
-  Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
-  Needs a spec.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
