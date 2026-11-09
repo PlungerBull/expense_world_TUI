@@ -33,6 +33,10 @@ loop skips it until it can run.
    approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 wait on the engine ask "A user's
    settings hold their number format".
 
+The engine already serves `c15201ee50485e56`, past spec 1's range (a timezone accepted in any
+capitals); the loop runs on, and the engine's next hand-off file covers it (owner's answer,
+2026-11-08).
+
 ---
 
 ## Waiting on you
@@ -48,22 +52,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### The engine moved past its latest hand-off: ask for one more file?
-Asked 2026-11-08 · Blocks: the whole queue (the loop is stopped)
-This client is catching up to `2fa4967b8eed9c3f`, the hand-off's last version (recorded:
-`1002f105c6bacdf1`, until the catch-up spec retires). The practice engine now serves
-`c15201ee50485e56`, one version later. The version check prints:
-`c15201ee50485e56 2026-11-08 — changed: a timezone is accepted in any capitals and stored and
-answered in its listed spelling: POST /auth/bootstrap (timezone) and PUT /auth/settings
-(display_timezone) answer America/Lima for america/lima. … An unknown zone is still 422
-UNSUPPORTED_VALUE.` The app does nothing with a timezone's capitals, so it likely needs nothing.
-- **A.** Ask the engine coders for one hand-off file covering `2fa4967b8eed9c3f` →
-  `c15201ee50485e56`, and drop it in docs/from-engine/; the loop folds it into the running
-  catch-up and resumes.
-- **B.** Fold it into the running catch-up now, as a live contract test only, without a file.
-**Recommended:** A, because it is the agreed path (each hand-off file covers every version
-since the last one, so nothing is skipped), and the file will be short.
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names once
 the numbers spec is done, and comes for approval then.
