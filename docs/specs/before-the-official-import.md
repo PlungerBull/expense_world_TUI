@@ -1,8 +1,7 @@
 # The official import
 
 **Status: draft, written 2026-10-29 for the owner to approve; its five questions answered on
-2026-11-05. To be rewritten once [accounts carry their numbers](accounts-carry-their-numbers.md)
-is done: the engine now builds a bank account's name (`BCP-5678`), so the sheet's account names
+2026-11-05. To be rewritten now that accounts carry their numbers: the engine now builds a bank account's name (`BCP-5678`), so the sheet's account names
 no longer create or match accounts as steps 3 and 4 say, and a sheet name several accounts share
 comes back `ambiguous`. It runs last:
 after the catch-up to contract `f82426fb0a099676`

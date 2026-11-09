@@ -77,19 +77,16 @@ hand-off's "Done when" checks for an edit sending only changed fields, no reques
 
 Not built in this spec; sorted when it is done.
 
-- **A bank account made on the New form still sends a typed `name`,** which the engine refuses
-  (`NAME_BUILT`, and `bank_code` `REQUIRED`) since accounts carry their numbers; task 2 of
-  [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) replaces it with the bank
-  and last 4. Until then, check 3 proves a person made, not a bank account.
+- **A bank account made on the New form sent a typed `name`,** which the engine refuses
+  (`NAME_BUILT`); the New form now sends the bank and last 4, so check 3 can prove a bank
+  account made too.
 - **`scripts/clean_practice_user.py` read `is_person`;** task 1 moved it to `kind`, since the
   cleaner would fail on the new engine.
 - **Some unit tests build dashboard rows by hand without `kind`** (test_tui_bracketed_names.py,
   test_tui_home_dispatch.py, test_tui_home_header.py), and test_tui_smoke.py's sample rows keep an
   old flat shape (no `id`, no `currencies`); Home reads neither, so nothing fails.
-- **The account Edit form writes openings one by one** (`POST /accounts/{id}/opening-balance`),
-  so `ACCOUNT_ARCHIVED` keyed `opening_balances.<code>` on `PUT /accounts/{id}` reaches it only
-  once task 3 of [accounts-carry-their-numbers.md](accounts-carry-their-numbers.md) saves the
-  form in one write; that task shows it on its line.
+- **`ACCOUNT_ARCHIVED` keyed `opening_balances.<code>`** on `PUT /accounts/{id}` now reaches the
+  account Edit form, which saves in one write and shows it on that currency's line.
 - **The sheet import's `--create-names` sends no `kind`** (expense/import_/engine.py
   `_create_body`), the one `POST /accounts` task 1 missed; it also sends a typed `name`, which a
   bank account no longer takes. [The official import](before-the-official-import.md) rewrites that

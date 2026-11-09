@@ -1,9 +1,8 @@
 # The cash account
 
 Part of the catch-up to contract `2fa4967b8eed9c3f` (the engine's hand-off of 2026-11-08,
-part C, 3 and 4): the cash account's screens. It runs after
-[accounts-carry-their-numbers.md](accounts-carry-their-numbers.md), whose New and Edit forms it
-builds on.
+part C, 3 and 4): the cash account's screens, built on the account New and Edit forms, which
+save in one write.
 
 **Status: approved on 2026-11-08, its questions answered on the mockup
 [expense-world-cash-account.html](../mockups/expense-world-cash-account.html).** When done, the

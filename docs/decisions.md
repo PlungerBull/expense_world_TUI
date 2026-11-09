@@ -851,19 +851,59 @@ balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn
 
 ## A person carries an opening balance (2026-10-28)
 
-**Decision.** A person's opening balance works as a bank account's, in the engine (contract: POST /v1/accounts/{account_id}/opening-balance) and in the app: the same Edit form pairs, kept through `t`. A person's New and Edit forms have no statement code line, though the engine takes one. Details: [tui.md](tui.md) §2 "An account's opening balance lives on its Edit form, one per currency" and "A bank account's statement code is a line of its own on New and Edit".
+**Decision.** A person's opening balance works as a bank account's, in the engine (contract: PUT /v1/accounts/{account_id}) and in the app: the same Edit form pairs, kept through `t`. A person's New and Edit forms have no statement code line, though the engine takes one. Details: [tui.md](tui.md) §2 "An account's opening balance lives on its Edit form, one per currency" and "A bank account's statement code is a line of its own on New and Edit".
 
 **Why.** A person's balance is a debt to or from them, and a debt standing when tracking starts is an opening balance, as on a bank account.
 
 **Rejected.** *A person's opening balance only from the sheet import* — a starting debt is a balance like any other, and nothing in the app could set or fix one.
 
-## An account becomes a person, and back, with one key (2026-10-22)
+## An account becomes a person, and back, with one key and a short question (2026-10-22)
 
-**Decision.** An account turns into a person and back in the app, not in the import: `t` on Manage ▸ Accounts, at once and with no question, keeping the account's id, name, currencies, balances, opening balance and transactions (contract: POST /v1/accounts/{account_id}/make-person), as "A person carries an opening balance" says. A refusal, such as `HAS_RECONCILIATION` on an account ever in a statement, is the engine's words alone. The sheet import matches no names itself: the engine proposes an account per sheet name, so a re-run after a conversion is the engine's to match. Details: [tui.md](tui.md) §2 "`t` turns an account into a person and back".
+**Decision.** An account turns into a person and back in the app, not in the import: `t` on Manage ▸ Accounts, which asks for what the engine needs: a person's name, or a bank account's bank and an optional last 4, from which the engine builds its name. The account keeps its id, currencies, balances, opening balance and transactions (contract: POST /v1/accounts/{account_id}/make-person) (contract: POST /v1/accounts/{account_id}/make-account), as "A person carries an opening balance" says. A refusal, such as `HAS_RECONCILIATION` on an account ever in a statement, is the engine's words alone. The sheet import matches no names itself: the engine proposes an account per sheet name, so a re-run after a conversion is the engine's to match. Details: [tui.md](tui.md) §2 "`t` turns an account into a person and back".
 
 **Why.** The owner's sheet records loans as the app does, one account per person and currency whose balance is the debt (ALEJO, ALONSO, LC, ALEX, LIDIA, MATILDE, CARLOS, KORAKUEN), and the import creates every sheet account as a bank account. A person never has statements, since a person sends no bank statement.
 
-**Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with the sheet, while an account action also fixes any account created as the wrong kind. *Asking before `t`* — nothing is lost, and `t` again undoes it.
+**Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with the sheet, while an account action also fixes any account created as the wrong kind. *`t` opening the Edit form, turned* — a whole form for one or two lines.
+
+## The engine names a bank account from its bank and card number (2026-11-09)
+
+**Decision.** A bank account holds its bank and the last 4 digits of its card or account number
+over time, and the engine builds its name, `BCP-5678`, or `BCP` until it has a number
+(contract: POST /v1/accounts, "The name"). Every screen shows that name, and no client types or
+builds one, not even to say what a removal or a failed create would leave. A person keeps a typed
+name. A replaced card is the same account, its name following the new card; older numbers read
+`cards before`; emptying `last 4` asks before it removes a number. On the LOG bar, `$` finds a
+name by either word, and `$` with exactly four digits that are one of a card's last 4 finds that
+account; other digits after `$` stay money. Exact-name-wins stays, so `$BCP` is the account named
+`BCP` and every written line parses back to its own account; while `$bcp` is typed, the list
+offers the exact name and every name built on it, in the engine's order. Details: [tui.md](tui.md)
+§2, the account forms and the LOG bar's `$`.
+
+**Why.** Every BCP paper prints its number, so an account that knows it lets the engine refuse a
+paper sent to the wrong account and name the account as the bank does. A card replaced after a
+loss keeps its balance, so the account keeps its numbers by day.
+
+**Rejected.** *An alias beside the built name* — the engine declined it; one name per account.
+*The parser listing every name built on `BCP`* — a picked `BCP` could never be staged. *Dropping
+exact-name-wins* — `BCP Signature` beside `BCP Signature Platinum` turns ambiguous. *Digits after
+`$` always money* — the number on the card in hand would not find it. *No removal in the app* — a
+replacement added by mistake would stay for good.
+
+## The account form saves in one write (2026-11-09)
+
+**Decision.** The New form makes an account, its currencies and each currency's opening balance in
+one `POST /accounts`; the Edit form saves its lines, numbers and every opening balance (set,
+changed or cleared) in one `PUT /accounts/{id}` (contract: PUT /v1/accounts/{account_id}). Whole
+or not at all; a refusal lands on the line its key names. A PDF refused for its account's number
+goes back to the account question, the right account one pick away
+(contract: POST /v1/statements/import, "The numbers the paper prints must fit the account's").
+Details: [tui.md](tui.md) §2.
+
+**Why.** A save of several writes, refused half-way, left part of it saved and needed a report of
+what landed; one write leaves nothing to explain.
+
+**Rejected.** *Openings only on the Edit form* — a new account would take two saves. *A chain of
+writes with a report of the parts saved* — the half-saved state it explains is the problem.
 
 ## A hint says what `⏎` does there, and a note names what the app can't read (2026-10-24)
 
@@ -1316,9 +1356,8 @@ the queued writes for a retry.
 
 ## A save whose ending is not known never says it was not saved, and its list reads again (2026-11-07)
 
-**Decision.** After a server error or no answer, a left save shows the engine's words alone, and the
-account Edit form names only what was clearly refused (status under 500, `open_it_again` in
-[_form.py](../expense/tui/screens/_form.py)). Its Manage list, if shown, reads again as after a save
+**Decision.** After a server error or no answer, a left save shows the engine's words alone
+(`open_it_again` in [_form.py](../expense/tui/screens/_form.py)). Its Manage list, if shown, reads again as after a save
 that landed ([tui.md](tui.md) §1).
 
 **Why.** Such a save may have landed, so "nothing was saved" would be untrue, and the list shows
