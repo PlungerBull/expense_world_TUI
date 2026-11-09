@@ -820,7 +820,7 @@ it is, toasts the engine's words and shows no `⚑` line.
 download does: `CODE — message`, a `!` line per refused key (`! file: …` for a paper the
 engine cannot read, misread or that does not add up, or a period or month another statement
 holds, and for `MONEY_AT_START_NOT_COVERED`, a currency the paper shows at zero while the
-account held money in it; `! account_id: …` for an account archived, a person, with no
+account held money in it; `! account_id: …` for an account archived, a person, the cash account, with no
 statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows money in, or none
 it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
 (`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
@@ -897,12 +897,10 @@ from this app either. Under the list a legend says so: `System categories cannot
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
-banks and people together, under the legend `balances are native currency`. It has
+every kind together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
 in the engine's order everywhere" above). Type reads `person` for a person, `cash` for the cash
-account (by its `kind`) and `bank` for any other account. On the cash row `t` leaves the footer
-and `d` leaves the footer and the `?` card; its Edit form is `EditAccountScreen`'s in
-[create_forms.py](../expense/tui/screens/create_forms.py). The currency columns are the
+account (by its `kind`) and `bank` for any other account. The currency columns are the
 currencies the engine lists, in its order (`GET /currencies`, read in the list's worker with the
 accounts by `fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
 The list screen hands the same codes to the New and Edit forms. Each
@@ -931,7 +929,7 @@ it open: the engine's words show under that line, the cursor goes there and what
 refusal closes it and reads as "When the engine says no" below says, titled `Failed`, or
 `Not made a person` / `Not made a bank account` once the list is left. Written, the list reads again with the cursor on the account in its
 new place, under the name the engine gives it, and the note says `Now a person.` or
-`Now a bank account.`. On an archived row `t` leaves the footer. The Edit form's `type` line
+`Now a bank account.`. On an archived row and on the cash row `t` leaves the footer. The Edit form's `type` line
 stays read-only.
 
 **`c` adds a currency to an account.** On Manage ▸ Accounts the footer reads `c Currency`
@@ -986,8 +984,10 @@ On Accounts the delete acts on the whole account (contract: "What an account is"
 the body's first line is the account, its kind, then each currency it holds with that
 currency's balance: a two-currency account reads
 `Visa Inventada · bank · PEN -2,340.50 · USD -185.20`, a one-currency account
-`Efectivo · bank · PEN 350.00`. `y` sends one
-`DELETE /accounts/{id}`.
+`BCP-5678 · bank · PEN 350.00`. `y` sends one
+`DELETE /accounts/{id}`. The engine never deletes the cash account
+(contract: DELETE /v1/accounts/{account_id}, "Refusals"), so on its row `d` leaves the footer
+and the `?` card and sends nothing.
 
 Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
 and send nothing). The question names the row, then says the part that matters: **no
@@ -1199,16 +1199,14 @@ checks nothing typed on `last 4`, the engine judging its shape.
   Account (unnamed)`, and the cash account `Not created · Account Efectivo`.
 - **`type` offers `cash` too,** only once the list has loaded and holds no account of kind `cash`,
   archived ones included (the Accounts read asks for them); its hint then reads `bank, person or cash`.
-  With `cash` picked the lines are `type`, `name`, `currencies`, `color` and the pairs: `name`
-  reads `Efectivo` and `set by the engine`, read-only, and `bank`, `last 4` and `statement code`
-  return holding what was typed when the type changes back. The save is `kind: "cash"`,
-  `currencies` and `color`, with no name, bank, number or code
-  (contract: POST /v1/accounts, "The name"). A refusal keyed `kind` (`CASH_EXISTS`,
-  `NAME_EXISTS`) lands on `type`.
+  With `cash` picked, `name` reads `Efectivo` and `set by the engine`, read-only; the lines and
+  the body are in `NewAccountScreen`'s docstring. A refusal keyed `kind` (`CASH_EXISTS`, `NAME_EXISTS`) lands on
+  `type`.
 
 **A bank account's Edit form holds its number on three lines,** `bank` (New's line), `last 4`
 and `since`, after `type`, with `cards before`, `new card` and `new card from` for a
-replacement; a person's has none. `EditAccountScreen`'s docstring says when each line is on the
+replacement; a person's and the cash account's have none, the cash account's `name` reading
+its name, read-only. `EditAccountScreen`'s docstring says when each line is on the
 form, what it opens holding and what the save sends of it. The app checks nothing typed on
 them (contract: PUT /v1/accounts/{account_id}, "The numbers").
 
@@ -1223,9 +1221,9 @@ them (contract: PUT /v1/accounts/{account_id}, "The numbers").
 **`statement code`** sits right after `currencies` on New and Edit, on a bank
 account only. The engine lets a person carry a code too
 (contract: "What an account is", "A person carries a code like a bank account"); these forms
-offer it none. On New, TYPE turned to `person` takes the line off the form and the save sends
-no code; turned back to `bank`, the line returns holding what was typed. A person's Edit form
-has no such line.
+offer it none. On New, TYPE turned to `person` or `cash` takes the line off the form and the
+save sends no code; turned back to `bank`, the line returns holding what was typed, as `bank`
+and `last 4` do. A person's Edit form and the cash account's have no such line.
 
 - **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`);
   no other line of any form changes what is typed. The app checks nothing else about the
@@ -1246,8 +1244,7 @@ lines per currency after `color`, in the engine's order of the account's currenc
 (contract: "Bank Accounts", "Per-currency order"), each named by its currency:
 **`PEN opening`**, the amount, and **`PEN as of`**, its day, then **`USD opening`** and
 **`USD as of`**; the bar reads `PEN OPENING`. There is no title line; the engine names the
-row. A person's form has the pairs, as a bank account's does, and its opening balances are
-written the same way. A bank account's form has no `name` line: a `name` sent for it is
+row. Every kind's form has the pairs, and its opening balances are written the same way. A bank account's form has no `name` line: a `name` sent for it is
 refused (contract: PUT /v1/accounts/{account_id}).
 
 - **The amount is signed and taken as typed**, in its line's currency; the app never adds or
@@ -1417,8 +1414,8 @@ and the "no statement" pane, it appends the next 10 rows (§5; [decisions.md](de
 loaded (§5). On Home it walks the month window one month older, `pgup` one newer (§2).
 
 **The Statements browse** opens on the **account list alone**, full height, and reads no
-statements. The list is the bank accounts of one `GET /accounts`, people and cash left out,
-one row each under its own name: `Account · Currencies · Balances`, the currencies as `PEN + USD` and
+statements. The list is the bank accounts of one `GET /accounts`, one row each under its own
+name: `Account · Currencies · Balances`, the currencies as `PEN + USD` and
 a balance in each, `-234.20 PEN   -30.98 USD`, never added together, every account's first
 figure ending in one column (`browse_accounts` and `balances_cells` in
 [statements.py](../expense/tui/screens/statements.py)). An archived account is not
@@ -1867,7 +1864,8 @@ terse footer label (`Archive`). The card lists only bindings in play
 ([help.py](../expense/tui/screens/help.py) `listed_bindings` says which it leaves out): a key in
 `CARD_FOLLOWS_CHECK` follows the footer — the keys that are off in some states on the
 Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A statement's
-screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
+screen" above), the Statements account list's `pgdn` and `pgup` while they page nothing, and
+Manage ▸ Accounts' `d` on the cash row —
 and one in `CARD_NEEDS_A_ROW` waits for a row, as in the footer (§5 "A key with no row to act
 on leaves the footer"): an empty ledger's card holds only `+`, `r` and `esc  Back`, the wording
 `CARD_TEXT_WHILE_EMPTY` gives its `esc` (with rows, `Clear the selection, else go back`), and

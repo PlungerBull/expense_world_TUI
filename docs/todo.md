@@ -21,11 +21,10 @@ loop skips it until it can run.
 1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
    approved 2026-11-08. Its last task waits on the owner ("Task 5 of the catch-up hit four review
    rounds"); its acceptance check, sweep and reply follow it.
-2. [The cash account](specs/the-cash-account.md): approved 2026-11-08.
-3. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
-4. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
+3. [Amounts follow your number format](specs/amounts-follow-your-number-format.md):
    approved 2026-11-08. Tasks 1–3 done; tasks 4 and 5 take the engine's hand-off of 2026-11-08
    (`2fa4967b8eed9c3f` to `9b3b43429d8bd11e`), which also covers `c15201ee50485e56`.
 
@@ -62,8 +61,9 @@ from sending a request the engine refuses.
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
 Found while the catch-up to `1002f105c6bacdf1` ran; sketches come with the next summary.
 1. **`n` on Manage ▸ Accounts while the list shows "Could not load."** It opens a New form whose
-   currencies line has nothing to pick (the currencies come with the list's read). Turn `n` off
-   until the list loads, or keep it?
+   currencies line has nothing to pick (the currencies come with the list's read), and its type
+   line offers `cash` from the last list that loaded (the engine refuses a second one, so nothing
+   wrong is written). Turn `n` off until the list loads, or keep it?
 2. **A flagged line in a currency a one-currency paper does not cover** shows in the preview's
    `⚑` block with no currency (the column shows only on a two-currency paper). Leave it, show the
    currency on such lines, or show the column whenever the paper misses a currency?
@@ -95,6 +95,27 @@ with the next summary.
    for it, or keep asking?
 **Recommended:** 1–4 as built, since each follows the app's existing screens and builds no name
 in the app; 5 ask the engine, since the paper already says which account it is.
+
+### Small screen details from the cash account
+Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
+Found while the cash account was built against
+[expense-world-cash-account.html](mockups/expense-world-cash-account.html); sketches come with the
+next summary.
+1. **The New form's type line** reads `bank, person or cash · enter keeps bank`, the form's own
+   hint shape; the mockup drew `bank · person · cash · ←→ picks`, naming keys the form does not
+   use. Keep it as built?
+2. **The Accounts `?` card lists both `t` lines** (make person, make bank) on every row, the cash
+   and archived rows included, though the footer shows only the one the row takes. Showing only
+   that one changes the card on every row. Keep it, or show only the `t` the row takes?
+3. **Home's ACCOUNTS block for a user with no accounts** shows its heading and no rows; PEOPLE in
+   the same state says `none`. Say `none` there too?
+4. **`⏎ Open` shows in the Manage lists' footer** (Accounts, Categories), though `⏎` does nothing
+   there and the `?` card leaves it out. Drop it from the footer?
+5. **Making the cash account while a person is named `Efectivo`** is refused with the shared
+   `That name is taken: pick another.` on the type line, though cash takes no name: what fixes it
+   is renaming the person. Say that instead?
+**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3, 4 and 5 yes,
+so the screen says what is there, offers only keys that work and names the fix.
 
 [The official import](specs/before-the-official-import.md) is rewritten for built names now that
 the numbers spec is done, and comes for approval with the next summary.
@@ -134,6 +155,9 @@ CLAUDE.md "Specs and tasks".
 - **`scripts/clean_practice_user.py` cannot remove an unnumbered `BCP`** a killed live run leaves
   behind (`owns` matches bank accounts by a number starting 9), so later runs hit `NAME_EXISTS`
   until it is deleted by hand.
+- **`account_line`'s docstring example** (`expense/tui/screens/accounts.py:99`) reads
+  `Efectivo · bank · PEN 350.00`, a bank account named like the cash account; give it a bank
+  account's name.
 - **No list test renders an engine-sent total past the largest amount;** only the formatter and a
   typed opening balance are proven.
 - **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps

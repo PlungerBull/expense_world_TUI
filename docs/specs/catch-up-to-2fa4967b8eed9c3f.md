@@ -4,7 +4,7 @@ Catches up to contract `cd6574eee1dd5ec0` through `2fa4967b8eed9c3f`, everything
 hand-off "A closed day never holds a line in no statement, every request value the engine does not
 accept is refused with its own reason, and an account says its kind, cash included" (2026-11-08)
 but two pieces of screen work: the cash account's screens, which
-[the-cash-account.md](the-cash-account.md) takes, and resolving leftover lines before a close,
+are built, and resolving leftover lines before a close,
 which [closing-with-leftover-lines.md](closing-with-leftover-lines.md) takes. It runs first:
 until it lands, the live contract suite cannot run on the engine.
 
