@@ -926,16 +926,15 @@ note says `Now a person.` or `Now a bank account.`, so a second `t` turns it bac
 account with an opening balance keeps it as a person, the same transaction under `@Opening`,
 so its balance does not change (contract: POST /v1/accounts/{account_id}/make-person). An
 account in two currencies turns on its one row, every currency with it, each balance still in
-its column. On an archived row `t` leaves the footer and does nothing, a person's too; on an
-empty list it is off, as `a` is. A refusal leaves the list as it was and `t` works again
-("When the engine says no" below); a person never has statements, so an account that has ever
+its column. On an archived row `t` leaves the footer and does nothing, a person's too. A
+refusal leaves the list as it was and `t` works again ("When the engine says no" below); a person never has statements, so an account that has ever
 been in one, a deleted one included, is refused. Home shows the account under its new group,
 BANK ACCOUNTS or PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays
 read-only: `t` is how an account's type changes.
 
 **`c` adds a currency to an account.** On Manage ▸ Accounts the footer reads `c Currency`
-after `e Edit`, on every row, a person's and an archived account's too, and is off on an empty
-list. `c` opens the pick `Add a currency · <account>`, naming the account (`PickModal` in
+after `e Edit`, on every row, a person's and an archived account's too. `c` opens the pick
+`Add a currency · <account>`, naming the account (`PickModal` in
 [modals.py](../expense/tui/screens/modals.py)): the account on one line as the delete question
 names it (`Caja Chica · bank · PEN 350.00`), the engine's currencies it does not hold, in the
 engine's order (`currencies_to_add` in
@@ -951,9 +950,8 @@ currency.`, naming the account. A refusal leaves the list as it was; an archived
 the engine's to refuse, not the app's ("When the engine says no" below).
 
 **`x` removes a currency from an account.** The footer reads `x Remove currency` after
-`c Currency`, on every row, a person's and an archived account's too, and is off on an empty
-list. `x` opens the pick `Remove a currency · <account>`: the account on one line as `c`'s
-pick names it, the currencies it holds in the engine's order (`currencies_held` in
+`c Currency`, on every row, a person's and an archived account's too. `x` opens the pick
+`Remove a currency · <account>`: the account on one line as `c`'s pick names it, the currencies it holds in the engine's order (`currencies_held` in
 [accounts.py](../expense/tui/screens/accounts.py)), the highlight on the first, and
 `[enter] pick    [esc] cancel`; the footer is `esc Cancel`, and `esc` leaves the list as it
 was. `⏎` sends nothing yet: it asks first with `ConfirmModal`, as a delete does, the question
@@ -1859,14 +1857,14 @@ terse footer label (`Archive`). The card lists only bindings in play
 `CARD_FOLLOWS_CHECK` follows the footer — the keys that are off in some states on the
 Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A statement's
 screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
-and one in `CARD_NEEDS_A_ROW` waits for a row: the empty ledger, the Statements account list,
-Accounts, Categories and Hashtags list none of their row keys, so an empty ledger's card holds
-only `+`, `r` and `esc Back` (with rows its `esc` reads `Clear the selection, else go back`,
-which `CARD_TEXT_WHILE_EMPTY` swaps while the list is empty; the footer's stays `Back`), and an
-empty Manage list's `n`, `r` and `esc`, with no "Moving around" column. The card covers what is behind it from its top rule to its bottom one
-across the full width, so the gutters beside its frame are blank. A card taller than the room
-between the head and the footer spreads out on a terminal wide enough, and only then: the
-groups three across, no key row wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
+and one in `CARD_NEEDS_A_ROW` waits for a row, as in the footer (§5 "A key with no row to act
+on leaves the footer"): an empty ledger's card holds only `+`, `r` and `esc  Back`, the wording
+`CARD_TEXT_WHILE_EMPTY` gives its `esc` (with rows, `Clear the selection, else go back`), and
+an empty Manage list's `n`, `r` and `esc`, with no "Moving around" column. The card covers
+what is behind it from its top rule to its bottom one across the full width, so the gutters
+beside its frame are blank. A card taller than the room between the head and the footer
+spreads out on a terminal wide enough, and only then: the groups three across, no key row
+wrapped, inset from the terminal's sides. One still too tall scrolls on `↓` / `↑` between
 its two rules, a dim `▲ N lines above` / `▼ N more lines` row saying what is hidden
 ([help.py](../expense/tui/screens/help.py) `scroll_window`). `?` is bound per screen root via `HelpBindingMixin`,
 **never on the App** — letters bubble up from lists, the same reason there is no app-level
@@ -1935,12 +1933,12 @@ footer is the `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)).
 **A key with no row to act on leaves the footer, and returns with the first row.** On an empty
 ledger, Statements account list, Accounts, Categories or Hashtags list the footer is
 `esc Back  r Refresh  ? Keys` and the screen's add key (`+ Add` on the ledger, `n New`
-elsewhere): no `⏎`, no `space`, no key that acts on a row. A list screen's
-`check_action` answers `False`, not `None`, for such a key, because `None` leaves it in the
-footer dimmed. `None` is kept for a key that is off only for a moment (the ledger's `pick`
-while a bulk write runs). `CursorList.check_action` drops the actions its `CARD_NEEDS_A_ROW`
-names, the `?` card's own declaration, while it holds no row
-([cursor_list.py](../expense/tui/widgets/cursor_list.py)).
+elsewhere): no `⏎`, no `space`, no key that acts on a row, and the `?` card leaves out the
+same keys (§4 "App-wide keys are `^q` and `?`"). A list screen's `check_action` answers
+`False`, not `None`, for such a key, because `None` leaves it in the footer dimmed; `None` is
+kept for a key that is off only for a moment (the ledger's `pick` while a bulk write runs). A
+list's own keys follow its `CARD_NEEDS_A_ROW`, the card's declaration (`_needs_a_row` in
+[cursor_list.py](../expense/tui/widgets/cursor_list.py)).
 
 **Minimum terminal size: there is no guard.** The screens are designed at 80×24; the app
 degrades silently below it, columns ellipsised and rows clipped, never reflowed

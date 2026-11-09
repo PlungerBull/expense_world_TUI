@@ -1262,20 +1262,24 @@ tightened.
 **Rejected.** *Tightening alone* — the ledger's `d Delete` is still cut below 144 columns. *Leaving
 keys out without tightening* — it drops keys tighter spacing keeps whole.
 
-## The `?` card shows whole and lists only keys that work (2026-11-07)
+## The `?` card shows whole, and it and the footer list only keys that work (2026-11-08)
 
 **Decision.** A card taller than its room spreads out on a wide terminal, else scrolls; one that
 fits keeps its layout and covers what is behind it to its frame. It lists each key once, and a key
 in `CARD_FOLLOWS_CHECK` only while it works, and one in `CARD_NEEDS_A_ROW` only while its list
-holds a row ([tui.md](tui.md) §4).
+holds a row, worded for the empty list where `CARD_TEXT_WHILE_EMPTY` says so ([tui.md](tui.md) §4).
+The footer reads the same declaration: on an empty list a key needing a row leaves it, and comes
+back with the first row; a key off only for a moment, such as the ledger's while a bulk write
+runs, stays greyed ([tui.md](tui.md) §5).
 
 **Why.** A narrow footer leaves keys for `?` to list, so a cut card left a key shown nowhere. A card
-that fits keeps its familiar look; a row that does nothing lies, on an empty list too; a screen
-peeking beside it looks half-drawn.
+that fits keeps its familiar look; a row that does nothing lies, on an empty list too, and so does
+a footer key; a screen peeking beside it looks half-drawn. One declaration keeps the footer and the
+card from disagreeing.
 
 **Rejected.** *Scrolling at every size* — a wide terminal can show it whole. *Spreading whenever the
 terminal is wide* — a card that fits would change shape. *Off keys listed, dimmed* — rows that do
-nothing.
+nothing. *An empty list's footer kept as with rows* — it offers keys that do nothing.
 
 ## A save you left still says how it ended (2026-11-06)
 

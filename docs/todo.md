@@ -25,8 +25,6 @@ loop skips it until it can run.
    approved 2026-11-08. Waits on the engine finishing its current work; its cash part on
    the engine ask "Every user holds one cash account, named `Efectivo`, with no bank and no
    number".
-3. [Empty lists' footers, and the other lists' `?` cards](specs/empty-lists-footers-and-cards.md):
-   approved 2026-11-08.
 
 The engine's hand-off of 2026-11-08 is planned up to `1002f105c6bacdf1`, the version recorded.
 The engine already serves `b6d2ae85aea48ea2`, thirteen versions later (sealed days, booleans and
@@ -67,7 +65,16 @@ CLAUDE.md "Specs and tasks".
 - **The `?` card's row rule reads a little unevenly in code.** The ledger's list names
   `CARD_NEEDS_A_ROW` on its instance where `_AccountList` names it on its class; `listed_bindings`
   reads the owner's private `_rows`; the `_stub_engine` docstring in test_tui_help.py says every
-  card drops its list keys on an empty list. Nothing you see changes.
+  card drops its list keys on an empty list; a screen's row keys are named twice, in its
+  `CARD_NEEDS_A_ROW` for the card and in its own `check_action` for the footer (`_base.py`,
+  `accounts.py`, the ledger), which agree today. Nothing you see changes.
+- **The empty statements panel keeps `⏎ Open` in its footer** (`_PanelList`,
+  `expense/tui/screens/statements.py`), with no row to open; it follows the footer rule
+  ([decisions.md](decisions.md) "The `?` card shows whole, and it and the footer list only keys
+  that work"), so it needs no new pick.
+- **After a reload that fails, a Manage list's `?` card still lists its row keys** from the
+  records read before, while the footer drops them (`_by_id` in `expense/tui/screens/_base.py`
+  is set only when the list is built).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown.
