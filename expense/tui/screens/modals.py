@@ -280,12 +280,13 @@ class QuestionLine:
     """One line of a `QuestionModal`: `key` is the engine field it carries, `label` the word
     before it. `choices` None makes it a typed line (`note`, dim, after it, as `optional`);
     otherwise it is the engine's list, a fixed line while it holds one and a pick while it
-    holds more."""
+    holds more; `start` is the choice the cursor opens on."""
 
     key: str
     label: str
     choices: tuple[str, ...] | None = None
     note: str = ""
+    start: int = 0
 
 
 class QuestionModal(ModalScreen[None]):
@@ -320,7 +321,7 @@ class QuestionModal(ModalScreen[None]):
         self._footer = footer
         self._send = send
         self._sending = False
-        self._picked = {ln.key: 0 for ln in self._lines if ln.choices}
+        self._picked = {ln.key: ln.start for ln in self._lines if ln.choices}
         # the lines that take input, in order: typed ones and choices holding several
         self._reachable = [
             i for i, ln in enumerate(self._lines) if ln.choices is None or len(ln.choices) > 1

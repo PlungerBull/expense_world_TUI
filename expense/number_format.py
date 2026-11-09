@@ -26,6 +26,12 @@ class NumberFormat(Enum):
     def example(self) -> str:
         return f"1{self.group}234{self.decimal}56"
 
+    @classmethod
+    def from_example(cls, text: object) -> "NumberFormat | None":
+        """The format an example names, as the engine spells its setting
+        (contract: PUT /v1/auth/settings); `None` for `null` or anything else."""
+        return next((f for f in cls if f.example == text), None)
+
 
 #: The format when nothing else decides: the machine's region (expense/region.py)
 #: gives the session's format at launch, and this stands when it cannot be read.

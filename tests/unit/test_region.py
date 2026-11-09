@@ -11,7 +11,12 @@ import pytest
 
 from expense import number_format, region
 from expense.number_format import DEFAULT_FORMAT, NumberFormat, current_format
-from expense.region import apply_launch_format, launch_format, read_region_format
+from expense.region import (
+    apply_launch_format,
+    launch_format,
+    read_region_format,
+    read_region_name,
+)
 
 COMMA = NumberFormat.COMMA_DECIMAL
 DOT = NumberFormat.DOT_DECIMAL
@@ -167,3 +172,28 @@ def test_expense_opens_with_the_regions_format(monkeypatch):
     ctx = types.SimpleNamespace(obj=types.SimpleNamespace(verbose=False))
     app_module.launch(ctx)  # type: ignore[arg-type]
     assert seen == [COMMA]
+
+
+def test_the_macos_region_is_named_as_the_os_spells_it(monkeypatch):
+    calls = _macos(monkeypatch, "English (Peru)\n")
+    assert read_region_name() == "English (Peru)"
+    [(cmd, kwargs)] = calls
+    assert cmd == region._MACOS_NAME_ARGV
+    assert kwargs["check"] is True and not kwargs.get("shell") and 0 < kwargs["timeout"] <= 5
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [subprocess.TimeoutExpired(cmd="osascript", timeout=2), FileNotFoundError("osascript")],
+)
+def test_a_failed_or_empty_name_read_is_no_name(monkeypatch, failure):
+    _macos(monkeypatch, failure=failure)
+    assert read_region_name() is None
+    _macos(monkeypatch, "\n")
+    assert read_region_name() is None
+
+
+def test_elsewhere_the_region_has_no_name(monkeypatch):
+    calls = _locale(monkeypatch, ",")
+    assert read_region_name() is None
+    assert calls == []

@@ -1091,6 +1091,19 @@ and pairing and person holders remain. *Renaming holder to account and account t
 else* — the duplication stays under new names. *One balance mixing currencies* — a total across
 currencies means nothing.
 
+## The number format is the account's, read once before the first screen (2026-11-09)
+
+**Decision.** The session's number format is the account's `number_format`, read from
+`GET /auth/me` once at launch, within 3 seconds, before the first screen draws; with no pick,
+or no answer, the Mac's region stands. A pick on System ▸ Auth & profile changes it at once.
+
+**Why.** The format belongs to the person, so every device follows one pick. Reading it before
+the first screen means no amount is drawn in one format and redrawn in the other; the bound
+keeps an engine that does not answer from holding the app on a blank screen.
+
+**Rejected.** *Reading it after the first screen* — Home would flip formats under the owner.
+*Keeping it in the settings file* — a second copy, stale on every other device.
+
 ## The cash account is a third type, shown among the accounts and kept out of bank-only lists (2026-11-09)
 
 **Decision.** The cash account, `Efectivo`, is made on the New Account form as a third type,

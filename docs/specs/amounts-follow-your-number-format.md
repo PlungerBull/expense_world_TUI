@@ -60,16 +60,6 @@ so it is kept on the account and every client follows it.
 
 Approved. Each reads the live contract on the practice engine before building.
 
-4. **The setting.** `settings.number_format` on `GET /auth/me` wins over the region, and `null`
-   follows it; System ▸ Auth & profile shows the `number format` row and `f` asks which one,
-   saving through `PUT /auth/settings`, *Follow this Mac* sending `null`; `INVALID_FORMAT` in the
-   engine's words; amounts on screen follow the new format at once.
-   *In progress:* round 1 sits in git's stash ("number format task 4 (the setting), round 1
-   rejected: 3 blockers in the spec's task 4 note"). Its review left: the launch read reaches
-   the network in unit tests (pin `reads.fetch_number_format` beside the region pin); no test
-   draws Home in the new format after a save; the launch read needs a short time bound. Also
-   asked: the save's `LeftBehind`, the "Not saved" title against the app's others, `f` shown
-   while not provisioned.
 5. **The live contract tests:** the setting saved, read back on `GET /auth/me`, cleared with
    `null`, an unknown format refused `INVALID_FORMAT` with nothing written, `number_format`
    refused on `POST /auth/bootstrap`, a timezone sent in small letters read back in its listed
@@ -90,3 +80,13 @@ Not built in this spec; sorted when it is done.
 - **After Setup connects, the account's number format waits for the next launch:** a new
   device follows its region for its first session (expense/tui/screens/setup.py reads
   `/auth/me` already).
+- **A format saved after leaving Auth & profile** sets the session format and says `Number
+  format saved.`, but Home, already reloaded in the old format, keeps it until its next load;
+  no left-behind write reloads the screen under it (`_write_finished_after_leaving` in
+  expense/tui/screens/_base.py).
+- **The new wording on Auth & profile:** the toast `Number format saved.`, and the row
+  `1,234.56  · follows this Mac` with no region named when the Mac's region cannot be read.
+- **Small test and code cleanups:** the `follow-this-mac` case of
+  `test_enter_saves_one_put_with_the_exact_body` starts on the format it ends on, so it proves
+  the `null` body but not the switch back; the launch read takes no `verbose`
+  (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the base's answer.

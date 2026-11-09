@@ -185,13 +185,15 @@ def launch(ctx: typer.Context) -> None:
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
     from expense import config as config_module
+    from expense import reads
 
     # The one read of the settings file: the app holds the result, and every
     # screen and read uses it. No usable file → the app opens on Setup.
     cfg = config_module.load_usable()
     config_module.hold(cfg)
     setup = cfg is None
-    apply_launch_format()
+    # The account's pick wins; none, or no read, follows the machine's region.
+    apply_launch_format(reads.fetch_number_format(cfg) if cfg is not None else None)
     # mouse=False: the TUI is keyboard-only. Textual otherwise enables terminal
     # mouse tracking on launch (clicks/scroll act on widgets AND the terminal's
     # native text-selection/copy is suppressed). Disabling it makes the app

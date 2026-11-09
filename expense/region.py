@@ -29,6 +29,17 @@ _MACOS_SEPARATOR_ARGV = [
 ]
 
 
+#: Asks macOS for the current region's name, as System Settings spells it.
+_MACOS_NAME_ARGV = [
+    "osascript",
+    "-l",
+    "JavaScript",
+    "-e",
+    "ObjC.import('Foundation'); var l = $.NSLocale.currentLocale; "
+    "l.localizedStringForLocaleIdentifier(l.localeIdentifier).js",
+]
+
+
 def _format_for_decimal_mark(mark: str) -> NumberFormat | None:
     if mark == ",":
         return NumberFormat.COMMA_DECIMAL
@@ -69,9 +80,28 @@ def read_region_format() -> NumberFormat:
     return found or DEFAULT_FORMAT
 
 
+def read_region_name() -> str | None:
+    """The machine's region as named on macOS (`English (Peru)`); `None` elsewhere or
+    when it cannot be read. Never raises or hangs (2 s)."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        out = subprocess.run(
+            _MACOS_NAME_ARGV,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=_READ_TIMEOUT_SECONDS,
+            check=True,
+        ).stdout
+    except Exception:  # missing binary, timeout, bad exit: the row goes without a name
+        return None
+    return out.strip() or None
+
+
 def launch_format(setting: NumberFormat | None = None) -> NumberFormat:
     """The session's format at launch: the account's setting when there is one, else
-    the machine's region. The setting is the seam for the engine-held format."""
+    the machine's region. The setting is the engine's `number_format`, `None` for no pick."""
     return setting if setting is not None else read_region_format()
 
 

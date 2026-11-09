@@ -37,11 +37,12 @@ class ExpenseClient:
         *,
         verbose: bool = False,
         timeout_read: float = 60.0,
+        timeout_connect: float = 10.0,
     ):
         self._config = config
         self._verbose = verbose
 
-        timeout = httpx.Timeout(connect=10.0, read=timeout_read, write=10.0, pool=5.0)
+        timeout = httpx.Timeout(connect=timeout_connect, read=timeout_read, write=10.0, pool=5.0)
         self._client = httpx.Client(
             base_url=config.engine_url,
             timeout=timeout,

@@ -20,6 +20,7 @@ from expense.config import Config
 from expense.errors import EngineError
 from expense.formatting import currency_label, name_or_unnamed, whole_number
 from expense.http import ExpenseClient
+from expense.number_format import NumberFormat
 
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
 
@@ -621,6 +622,28 @@ def fetch_me(cfg: Config, *, verbose: bool = False, client: "ExpenseClient | Non
             body = opened.get("/auth/me")
     cache_main_currency(cfg, body.get("settings") or {})
     return body
+
+
+#: How long the launch waits on the account's format before the region stands.
+LAUNCH_READ_SECONDS = 3.0
+
+
+def fetch_number_format(cfg: Config, *, verbose: bool = False) -> NumberFormat | None:
+    """The account's `settings.number_format` from the shared `/auth/me` read
+    (contract: GET /v1/auth/me); `None` for no pick and for any failed read, so the
+    machine's region stands."""
+    try:
+        # Bounded: the launch waits on this read before the first screen draws.
+        with ExpenseClient(
+            cfg,
+            verbose=verbose,
+            timeout_connect=LAUNCH_READ_SECONDS,
+            timeout_read=LAUNCH_READ_SECONDS,
+        ) as client:
+            body = fetch_me(cfg, verbose=verbose, client=client)
+    except Exception:  # engine down, not provisioned, no key: nothing to follow
+        return None
+    return NumberFormat.from_example((body.get("settings") or {}).get("number_format"))
 
 
 def _load_rows(path: str, params: dict | None) -> list:

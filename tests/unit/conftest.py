@@ -13,7 +13,7 @@ import pytest
 
 from expense import config as config_module
 from expense import http as http_module
-from expense import number_format, region
+from expense import number_format, reads, region
 from tests.unit import helpers
 
 # Loopback stays reachable so a locally-bound helper never trips the guard;
@@ -112,6 +112,14 @@ def _pinned_region(monkeypatch):
     """No test reads the machine's region: the reader answers the default format.
     test_region.py tests the reader itself with its OS calls faked."""
     monkeypatch.setattr(region, "read_region_format", lambda: number_format.DEFAULT_FORMAT)
+    monkeypatch.setattr(region, "read_region_name", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _pinned_account_format(monkeypatch):
+    """No launch reads the account's format from an engine: it answers no pick.
+    test_number_format_setting.py tests the read itself against a faked engine."""
+    monkeypatch.setattr(reads, "fetch_number_format", lambda cfg, **kw: None)
 
 
 @pytest.fixture

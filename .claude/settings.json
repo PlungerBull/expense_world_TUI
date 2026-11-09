@@ -33,7 +33,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.venv/bin/python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tests_gate.py",
-            "timeout": 300
+            "timeout": 480
           }
         ]
       }
@@ -56,7 +56,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.venv/bin/python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tests_gate.py",
-            "timeout": 300
+            "timeout": 480
           }
         ]
       }

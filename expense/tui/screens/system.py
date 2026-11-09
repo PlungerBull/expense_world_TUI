@@ -15,10 +15,12 @@ from rich.text import Text
 from textual.widget import Widget
 from textual.widgets import Static
 
+from expense import region
 from expense.errors import format_error
 from expense.formatting import redact_token
+from expense.number_format import NumberFormat, set_current_format
 from expense.tui.screens._base import LeftBehind, SectionScreen
-from expense.tui.screens.modals import PromptModal
+from expense.tui.screens.modals import PromptModal, QuestionLine, QuestionModal
 from expense.tui.widgets.refusal import toast
 
 
@@ -120,12 +122,27 @@ class ConfigScreen(SectionScreen):
         self._load()
 
 
+def _format_cell(setting: NumberFormat | None, region_format: NumberFormat, name: str | None):
+    """`1.234,56  · your setting`, or the Mac's format and `· follows this Mac (<region>)`."""
+    if setting is not None:
+        return Text.assemble(setting.example, ("  · your setting", "dim"))
+    follows = "  · follows this Mac" + (f" ({name})" if name else "")
+    return Text.assemble(region_format.example, (follows, "dim"))
+
+
 class AuthScreen(SectionScreen):
     crumb = ("System", "Auth & profile")
     CARD_WIDTH = 76
     BINDINGS = [
         ("b", "bootstrap", "Bootstrap"),
+        ("f", "number_format", "Number format"),
     ]
+    _CHOICE_WIDTH = 21
+
+    def __init__(self) -> None:
+        super().__init__()
+        # (the account's pick, the machine's format): None until provisioned
+        self._format_state: tuple[NumberFormat | None, NumberFormat] | None = None
 
     def fetch(self) -> dict:
         from expense import config as config_module
@@ -148,6 +165,8 @@ class AuthScreen(SectionScreen):
             "provisioned": True,
             "user": body.get("user", {}) or {},
             "settings": body.get("settings", {}) or {},
+            "region_format": region.read_region_format(),
+            "region_name": region.read_region_name(),
         }
 
     def build(self, data: dict) -> list[Widget]:
@@ -161,11 +180,15 @@ class AuthScreen(SectionScreen):
             ]
         user = data["user"]
         settings = data["settings"]
+        setting = NumberFormat.from_example(settings.get("number_format"))
+        self._format_state = (setting, data["region_format"])
+        self.refresh_bindings()
         rows = [
             ("display name", user.get("display_name")),
             ("user id", user.get("id")),
             ("main currency", settings.get("main_currency")),
             ("timezone", settings.get("display_timezone") or user.get("timezone")),
+            ("number format", _format_cell(setting, data["region_format"], data["region_name"])),
         ]
         return [
             Static(Text("Auth & profile — your identity & settings"), classes="section-title"),
@@ -213,6 +236,73 @@ class AuthScreen(SectionScreen):
             on_error=lambda m: toast(self, m, title="Bootstrap failed", severity="error"),
             left_behind=LeftBehind("Not provisioned"),
         )
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action == "number_format" and self._format_state is None:
+            return False  # not provisioned: the key leaves the footer
+        return True
+
+    def action_number_format(self) -> None:
+        """`f`: ask which format, then `PUT /auth/settings` with it, or `null` for Follow
+        this Mac. The engine judges the value (contract: PUT /v1/auth/settings): a refusal
+        shows under the question in its words and nothing changes.
+        Saved, the session format follows at once (`set_current_format`)."""
+        if self._format_state is None:
+            return
+        setting, region_format = self._format_state
+        width = self._CHOICE_WIDTH
+        dot, comma = NumberFormat.DOT_DECIMAL, NumberFormat.COMMA_DECIMAL
+        options: dict[str, NumberFormat | None] = {
+            f"{'Follow this Mac':<{width}}{region_format.example} now": None,
+            f"{dot.example:<{width}}dot for decimals": dot,
+            f"{comma.example:<{width}}comma for decimals": comma,
+        }
+        choices = tuple(options)
+        line = QuestionLine(
+            "number_format",
+            "",
+            choices,
+            start=list(options.values()).index(setting),
+        )
+
+        saved = "Number format saved."
+
+        def apply(chosen: NumberFormat | None) -> None:
+            set_current_format(chosen or region_format)
+
+        def written(chosen: NumberFormat | None) -> None:
+            apply(chosen)
+            if modal.is_attached:
+                modal.dismiss()
+            toast(self, saved)
+            self._load()
+
+        def written_after_leaving(chosen: NumberFormat | None) -> str:
+            apply(chosen)  # the screen is gone: the format still follows, the app says so
+            return saved
+
+        def failed(failure: Exception) -> None:
+            if modal.is_attached:
+                modal.refuse("number_format", format_error(failure))
+            else:
+                toast(self, format_error(failure), title="Failed", severity="error")
+
+        def send(values: dict[str, str]) -> None:
+            chosen = options[values["number_format"]]
+            self.run_write(
+                "PUT",
+                "/auth/settings",
+                json_body={"number_format": chosen.example if chosen else None},
+                on_success=lambda: written(chosen),
+                on_failure=failed,
+                left_behind=LeftBehind(
+                    "Not saved · Number format",
+                    success_from=lambda _body: written_after_leaving(chosen),
+                ),
+            )
+
+        modal = QuestionModal("Number format", [line], "⏎ Save  esc Cancel", send)
+        self.app.push_screen(modal)
 
     def _done(self, message: str) -> None:
         toast(self, message)

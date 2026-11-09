@@ -420,3 +420,10 @@ def test_every_retry_has_a_backoff_to_index():
     from expense import http
 
     assert http._WRITE_ATTEMPTS == len(http._RETRY_BACKOFF_SECONDS) + 1
+
+
+def test_connect_timeout_is_ten_seconds_unless_the_caller_bounds_it(config):
+    with ExpenseClient(config) as default, ExpenseClient(config, timeout_connect=3.0) as bounded:
+        assert default._client.timeout.connect == 10.0
+        assert bounded._client.timeout.connect == 3.0
+        assert bounded._client.timeout.read == 60.0

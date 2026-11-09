@@ -63,9 +63,11 @@ alone uses (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_hom
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
 form, an account's opening balance, a new statement's two balances and the statement's
 `Starting balance first` and `Ending balance first` boxes, in the session's format
-([number_format.py](../expense/number_format.py)); the machine's region gives that format at
-launch, `1,234.56` when it cannot be read ([region.py](../expense/region.py), which also holds
-the seam for a saved setting to win). The
+([number_format.py](../expense/number_format.py)); the account's `number_format` setting
+gives that format at launch (`reads.fetch_number_format`), else the machine's region
+([region.py](../expense/region.py)), `1,234.56` when neither can be read. System ▸ Auth &
+profile shows it and `f` asks which one (`PUT /auth/settings`; *Follow this Mac* sends `null`);
+a save sets the session format at once, and a screen redraws on its next load. The
 docstring of `parse_amount` holds the rule. An amount it cannot read is refused, never guessed, and nothing is
 sent: the Edit form says `can't read this amount: amounts are 1,234.56`, every other field
 ends its note `Amounts are 1,234.56.`, and the cursor stays (the box stays open). On the LOG
@@ -109,7 +111,7 @@ showed it: by kind and name (`Not archived · Account BCP`, `Person` for a perso
 The writes that carry one, each naming its words where it is sent:
 
 - **Manage ▸ Accounts' `a`, `t`, `c` and `x`, every Manage list's `d`, `d` on the ledger, the
-  "no statement" list and the flagged lines, and `b` on Auth & profile.**
+  "no statement" list and the flagged lines, and `b` and `f` on Auth & profile.**
 - **The New and Edit forms of Manage ▸ Hashtags and Categories, New account and the account
   Edit form:** `Not created · Category Ropa`, `Not saved · Hashtag #viaje`, `Not saved ·
   Account BCP-5678` (the name its list showed before the edit; `Person` for a person); a
