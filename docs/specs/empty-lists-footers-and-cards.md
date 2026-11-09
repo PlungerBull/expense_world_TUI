@@ -4,15 +4,16 @@ What the empty lists' `?` cards (done on 2026-11-08) found and did not fix: on a
 footer still names keys with no row to act on, and so do the `?` cards of Manage's three lists
 and one line of the ledger's card.
 
-**Status: drafted 2026-11-08 for the owner's approval; its mockup is drawn with it, at the next
-summary.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: drafted 2026-11-08 for the owner's approval, its question on the mockup
+[expense-world-empty-list-footers.html](../mockups/expense-world-empty-list-footers.html).** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
 ## Why
 
-1. **On an empty ledger the footer still shows `⏎ Open` and `space Select`,** and on the empty
-   Statements account list `⏎ Its statements`; none works there.
+1. **On an empty ledger the footer still shows `⏎ Open` and `space Select`,** on the empty
+   Statements account list `⏎ Its statements`, and on an empty Accounts, Categories or Hashtags
+   list `⏎ Open` and, greyed, the keys that act on a row; none works there.
 2. **On an empty Accounts, Categories or Hashtags list the `?` card still lists `↓`, the page keys,
    and `e`, `c`, `x`, `a`, `t` and `d`,** none of which has a row to act on.
 3. **On an empty ledger the card's `esc` row reads "Clear the selection, else go back",** with no
@@ -28,22 +29,30 @@ nothing else you see changes.
 
 ## How the owner knows it is done
 
-1. On an empty ledger the footer shows no `⏎ Open` or `space Select`, and the card's `esc` row
-   reads only "Go back".
-2. On the empty Statements account list the footer shows no `⏎ Its statements`.
-3. On an empty Accounts, Categories or Hashtags list, the `?` card lists no key that needs a row.
+1. On an empty ledger the card's `esc` row reads `Back`, as on the other lists.
+2. On an empty Accounts, Categories or Hashtags list, the `?` card lists no key that needs a row,
+   the moving keys included.
+3. On every empty list the footer shows the keys question 1 picks.
 
 ## Decided
 
 | # | Question | Answer (owner) |
 |---|---|---|
-| 1 | Does the footer leave out a key with no row to act on, as the card does? | Waiting; asked with the mockup. |
+| 1 | Does the footer leave out a key with no row to act on, as the card does? Mockup pane 1: **A** only the keys that work (recommended) · **B** as today. | Waiting. |
 
 ---
 
 ## Tasks
 
-Drafted with the mockup.
+Drafted on question 1's recommendation, A.
+
+1. **The empty lists' footers** show only the keys that work: no `⏎ Open` or `space Select` on
+   the empty ledger, no `⏎ Its statements` on the empty Statements account list, and no `⏎ Open`
+   or row keys, greyed or not, on an empty Accounts, Categories or Hashtags list; each comes back
+   with the first row. Under B, this task goes.
+2. **Manage's three `?` cards** list no key that needs a row while their list is empty
+   (`CARD_NEEDS_A_ROW`, as the ledger's card does), the moving keys included.
+3. **The ledger's card** reads `esc  Back` while the list is empty.
 
 ## Found along the way
 
