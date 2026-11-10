@@ -19,8 +19,7 @@ when the owner approves it and leaves when it retires; one that is blocked says 
 loop skips it until it can run.
 
 1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
-   approved 2026-11-08. Its last task waits on the owner ("Task 5 of the catch-up hit four review
-   rounds"); its acceptance check, sweep and reply follow it.
+   approved 2026-11-08. Its tasks are done; its acceptance check, sweep and reply follow.
 2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
@@ -40,19 +39,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### Task 5 of the catch-up hit four review rounds: finish it or trim it?
-Asked 2026-11-09 · Blocks: task 5 of [the catch-up](specs/catch-up-to-2fa4967b8eed9c3f.md)
-Task 5 proves every request the app sends fits the engine's stricter rules. The app already does,
-and needed no change. The tests also added a guard that fails any future test sending a malformed
-request; four reviews in a row found one more corner where that guard was stricter or looser
-than the engine (the last: it calls `5.0` malformed, which the engine accepts). The work is kept
-aside, unchanged, in git's stash, named "catch-up task 5 (strict requests), parked after 4 review
-rounds".
-- **A.** A fresh builder finishes it: the two-line fix the last review named, one more review.
-- **B.** Keep only the plain tests (the app's requests checked once) and drop the always-on guard.
-**Recommended:** A, because the fix is named and small, and the guard keeps every later change
-from sending a request the engine refuses.
 
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
@@ -128,6 +114,12 @@ Found while the number format setting was built; drawn as panes 14–16 of
    saved.`, but Home keeps the old format until it next reloads. Redraw Home when it lands?
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
 every amount on screen follows the pick as soon as it is known.
+
+### Trimming the tests: approve it?
+Asked 2026-11-09 · Blocks: [trimming the tests](specs/trimming-the-tests.md)
+The tests are over three times the app's code and every commit waits on them. The spec's one
+question, how far to cut, is in it, with its tasks drafted on the recommended answer. One reply
+answers it and approves the spec.
 
 ### The official import, redrafted for built names: approve it?
 Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)

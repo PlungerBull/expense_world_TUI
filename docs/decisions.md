@@ -1416,3 +1416,16 @@ screen's own test helpers, for what the app finishes a moment later, and fails i
 
 **Rejected.** *Longer pauses* — slower and still a guess. *One general wait in `run_app`* — looser
 than what each test reads.
+
+## Tests prove what the owner would notice, once (2026-11-09)
+
+**Decision.** A test proves a behaviour the owner would notice, in one place; an engine rule is
+the engine's and the live suite's to judge, never re-stated in a unit test; a guard test exists
+only where a broken convention would write or show something wrong ([CLAUDE.md](../CLAUDE.md)
+"Testing conventions").
+
+**Why.** Test code had grown past three times the app's, and the whole unit suite ran past
+four minutes on every commit. A copy of an engine rule in the tests drifts from the engine.
+
+**Rejected.** *An always-on check of every request's shape* — a copy of the engine's rules that
+four reviews never got to match.
