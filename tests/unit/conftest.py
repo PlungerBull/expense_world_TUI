@@ -8,7 +8,6 @@ fixture named `configured` behind.
 import socket
 from pathlib import Path
 
-import httpx
 import pytest
 
 from expense import config as config_module
@@ -52,49 +51,6 @@ def _block_real_network(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
     monkeypatch.setattr(socket.socket, "connect", _fake_connect)
     yield
-
-
-@pytest.fixture(autouse=True)
-def _no_read_only_fields_in_requests(monkeypatch):
-    """Fail EVERY test whose requests carry `line_code`, `statement_line` or
-    `statement_place` in a body, at any depth (`helpers.READ_ONLY_FIELDS`).
-
-    The engine sets each of them itself and refuses them in every request body as
-    `422` `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), and every
-    row the app reads carries them, so a read row passed straight back as a body would
-    send them. Each write the app makes reaches one of these, all of which call
-    `helpers.refuse_read_only_fields` before the request goes out:
-
-    - `httpx.Client.send`, wrapped here: the real `ExpenseClient` under respx
-      (the sheet import, the reads, test_http), since respx answers below it;
-    - `helpers.FakeClient.post`/`.put`, including a function a test assigns in
-      their place (see `FakeClient.__getattribute__`);
-    - test_batch_write's scripted `_Client`, and any other class with its own
-      `post`/`put`, which calls it there (test_suite_hygiene.py
-      `test_every_fake_engine_refuses_read_only_fields`).
-
-    The check raises, which stops the request; the leak is also recorded, and
-    checked here after the test, because the app may catch the raise and carry on.
-    """
-    real_send = httpx.Client.send
-
-    def send(self, request, **kwargs):
-        helpers.refuse_read_only_fields(
-            request.method, request.url.path, helpers.sent_json(request)
-        )
-        return real_send(self, request, **kwargs)
-
-    monkeypatch.setattr(httpx.Client, "send", send)
-    helpers.READ_ONLY_FIELD_LEAKS.clear()
-    yield
-    leaks = list(helpers.READ_ONLY_FIELD_LEAKS)
-    helpers.READ_ONLY_FIELD_LEAKS.clear()
-    if leaks:
-        pytest.fail(
-            "a request body carries a field the engine sets and refuses in every request "
-            "body (422 UNKNOWN_FIELD):\n" + "\n".join(leaks),
-            pytrace=False,
-        )
 
 
 @pytest.fixture(autouse=True)

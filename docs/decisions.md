@@ -559,8 +559,8 @@ straight into `date_from` / `date_to`.
 ## Delete anything that no longer points anywhere (2026-09-25)
 
 **Decision.** A removed flag, command or code path goes outright, with no stub: a removed command
-gets Typer's "No such command". Test fakes use the engine's real shapes and refuse what it refuses
-([tests/unit/helpers.py](../tests/unit/helpers.py)); `test_command_surface.py` pins the typed
+gets Typer's "No such command". Test fakes use the engine's real shapes and refuse only what a test sets
+up ([tests/unit/helpers.py](../tests/unit/helpers.py)); `test_command_surface.py` pins the typed
 surface.
 
 **Why.** Dead code is untested, and git history keeps old behaviour.

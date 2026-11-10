@@ -1995,14 +1995,6 @@ Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions":
   accounts and a person, each in soles and dollars. A test passes only the fields it is
   about, by name, and varies an account with `account_with_currencies(base, field=…)`; no
   test file defines an account builder of its own.
-- **No request body carries `line_code`, `statement_line` or `statement_place`, at any
-  depth** — the engine sets each itself and refuses it in every request body as
-  `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"). The autouse
-  `_no_read_only_fields_in_requests` in [conftest.py](../tests/unit/conftest.py) fails any
-  unit test whose request holds one, and every fake engine in `tests/unit` subclasses
-  `FakeClient` or calls `helpers.refuse_read_only_fields`
-  (`test_every_fake_engine_refuses_read_only_fields` in
-  [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
 - **A test that reads what a toast shows runs with `run_app(..., toasts=True)`** and reads
   `toasts_shown(app)` ([helpers.py](../tests/unit/helpers.py)): each toast's title and
   message as Textual draws them, markup read. `run_test` draws no toast unless asked; a

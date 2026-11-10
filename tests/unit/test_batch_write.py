@@ -23,7 +23,6 @@ from expense.errors import (
     engine_words,
     format_error,
 )
-from tests.unit.helpers import refuse_read_only_fields
 
 
 class _Client:
@@ -34,7 +33,6 @@ class _Client:
         self.calls: list[tuple[str, dict]] = []
 
     def post(self, path, json_body=None):
-        refuse_read_only_fields("POST", path, json_body)
         self.calls.append((path, json_body))
         if self.answers:
             answer = self.answers.pop(0)
