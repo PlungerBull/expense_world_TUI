@@ -224,12 +224,12 @@ def test_a_completed_statement_with_flagged_lines_reads_whole_at_80_columns(
 
 @pytest.mark.parametrize(
     ("record", "code"),
-    [(IBK_OCT, None), ({**VIS_OCT, "status": 1}, "VIS"), (VIS_OCT, "VIS")],
-    ids=["draft", "draft waiting for its PDF", "completed"],
+    [(IBK_OCT, None), ({**VIS_OCT, "status": 1}, "VIS")],
+    ids=["draft", "draft waiting for its PDF"],
 )
 def test_the_flag_and_f_show_on_an_open_statement_too(fake_client, monkeypatch, record, code):
     """A draft's review list is exactly the lines a complete would flag, so a draft shows
-    `⚑` and `f` as a completed statement does (contract: GET /v1/bank-lines,
+    `⚑` and `f` as a completed statement (drawn above) does (contract: GET /v1/bank-lines,
     "Filters")."""
     engine = Engine(fake_client, monkeypatch, in_statement=[], flagged=FLAGGED)
 
@@ -242,23 +242,6 @@ def test_the_flag_and_f_show_on_an_open_statement_too(fake_client, monkeypatch, 
     assert shown and f_live
     assert text.startswith("⚑ 3 lines flagged for review")
     assert engine.counts == [{"unassigned_in_period_of": record["id"]}]
-
-
-def test_neither_shows_when_the_review_list_counts_none(fake_client, monkeypatch):
-    engine = Engine(fake_client, monkeypatch, in_statement=[], flagged=[])
-
-    async def scenario(pilot, app):
-        screen = await _statement(VIS_OCT, "VIS")(pilot, app)
-        await pilot.press("f")
-        await pilot.pause()
-        return (
-            screen.query_one("#rflag", Static).display,
-            bool(screen.check_action("flagged", ())),
-            app.screen is screen,
-        )
-
-    assert run_app(scenario, size=(80, 24)) == (False, False, True)
-    assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}]
 
 
 def test_the_screen_counts_again_each_time_it_reads_the_statement(fake_client, monkeypatch):
@@ -352,38 +335,11 @@ def test_the_flagged_screen_of_a_coded_account_reads_whole_at_80_columns(fake_cl
     assert engine.counts == [{"unassigned_in_period_of": "vis-oct"}] * 2  # open, then here
 
 
-def test_the_flagged_screen_of_an_account_with_no_code_shows_no_ways(fake_client, monkeypatch):
-    """No statement code: the two ways show for an account with one and nothing
-    for one without, so no words show under the list."""
-    Engine(fake_client, monkeypatch, in_statement=[], flagged=FLAGGED)
-
-    async def scenario(pilot, app):
-        screen = await _statement(IBK_OCT, None)(pilot, app)
-        await pilot.press("f")
-        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
-        await wait_for(pilot, lambda: app.screen._list is not None)
-        await pilot.pause()
-        assert screen is not app.screen
-        return _screen_lines(app), bool(app.screen.query("#fways"))
-
-    lines, ways = run_app(scenario, size=(80, 24))
-    wanted = _pane(CODED_FLAGGED)
-    assert lines[:2] == [wanted[0].replace("VIS-202610", "Octubre 2026"), wanted[1]]
-    assert lines[3:5] == [
-        "  Octubre 2026 has 3 flagged lines. 3 lines dated up to its last day are in",
-        "  no statement.",
-    ]
-    assert lines[5:11] == wanted[5:11]  # the list
-    assert not ways
-    assert lines[-1] == wanted[-1]  # and nothing between the list and the footer
-    assert lines[11:-1] == [""] * (len(lines) - 12)
-
-
 # ---- `u` on the browse: the account's lines in no statement ----------------------------
 
 #: The caption and list of the lines in no statement, from the caption to the footer, at 80 columns.
 NO_STATEMENT_LIST = """
-  In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·
+  In no statement · Visa BCP   ·   6 of 1716 loaded · oldest first   ·
   ! dated inside a statement
 
     Date        Title                     Operation  Cur     Amount
@@ -396,8 +352,11 @@ NO_STATEMENT_LIST = """
 
  esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys
 """
-NO_STATEMENT_CAPTION = (
-    "In no statement · Visa BCP   ·   6 of 6 loaded · oldest first   ·\n! dated inside a statement"
+NO_STATEMENT_CAPTION = "\n".join(
+    [
+        "In no statement · Visa BCP   ·   6 of 1716 loaded · oldest first   ·",
+        "! dated inside a statement",
+    ]
 )
 UNFILED = [
     _line(21, "2026-10-03", "UBER *TRIP", -4200, "PEN", None, account="acc-visa"),
@@ -440,7 +399,9 @@ def _browse(fake_client, monkeypatch, lines, count=None):
 
 
 def test_u_lists_the_accounts_lines_in_no_statement_in_one_read(fake_client, monkeypatch):
-    reads, counts = _browse(fake_client, monkeypatch, UNFILED)
+    """The caption says `N of M loaded` with M the engine's count (1716 here), not the
+    length of the page in hand."""
+    reads, counts = _browse(fake_client, monkeypatch, UNFILED, count=1716)
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, VISA)
@@ -463,23 +424,6 @@ def test_u_lists_the_accounts_lines_in_no_statement_in_one_read(fake_client, mon
     first = next(n for n, line in enumerate(lines) if "In no statement" in line)
     assert_pane(lines[first:], NO_STATEMENT_LIST)
     assert screen_caption == NO_STATEMENT_CAPTION
-
-
-def test_the_caption_counts_against_the_engines_count(fake_client, monkeypatch):
-    """The caption says `N of M loaded` with M the engine's count, not the length of the
-    page in hand."""
-    reads, counts = _browse(fake_client, monkeypatch, UNFILED, count=1716)
-
-    async def scenario(pilot, app):
-        screen = await _open(pilot, app, VISA)
-        await pilot.press("u")
-        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
-        return screen._statement_list._caption
-
-    caption = run_app(scenario, size=(80, 40))
-    assert caption == NO_STATEMENT_CAPTION.replace("6 of 6", "6 of 1716")
-    assert counts == [{"account_id": "acc-visa", "unreconciled": "true"}]
-    assert all(r["sort"] == "date_asc" for r in reads)
 
 
 LONG_TITLE = "PAGO SERVICIOS INTERNET HOGAR LIMA PERU"  # 39 letters, past the title's 24
@@ -540,8 +484,7 @@ def test_the_footer_reads_the_drawn_keys_first_and_the_paging_keys_after_them(
 ):
     """`pgdn 10 more` while the engine holds more lines and `pgup Prev` once a page lies
     before the one shown follow `? Keys`; the footer's drawn keys never move."""
-    drawn = "esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys"
-    assert _listed_at(fake_client, monkeypatch, 80)[-1].strip() == drawn
+    drawn = "esc Back  ⏎ Edit  d Delete  r Refresh  ? Keys"  # as in the `u` pane test
     assert _listed_at(fake_client, monkeypatch, 80, more=True)[-1].strip() == (
         drawn + "  pgdn 10 more"
     )

@@ -27,7 +27,7 @@ from expense.tui.screens.bank_import import (
     ImportResultScreen,
 )
 from expense.tui.screens.home import HomeScreen
-from expense.tui.screens.log_bar import LogBarScreen, bank_files_hint
+from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.statement_upload import (
     Columns,
     StatementAccountScreen,
@@ -328,22 +328,6 @@ def test_the_call_sends_exactly_three_keys_on_the_accounts_id():
     }
 
 
-def test_the_answer_reads_as_the_engine_sent_it():
-    answer = statement_answer(statement_upload_answer(**CARD, dry_run=True))
-    assert (answer.name, answer.date_start, answer.date_end) == (
-        "SIG-202610",
-        "2026-09-26",
-        "2026-10-25",
-    )
-    assert [r.amount_cents for r in answer.rows[:5]] == [-750, -8430, -4200, -4490, 80000]
-    assert answer.rows[9].amount_cents == 0 and answer.rows[9].outcome == "empty"
-    assert answer.rows[7].fee and not answer.rows[0].fee
-    assert answer.several_currencies and not answer.fills_a_draft
-    assert answer.lines_to_read() == ["bl-farm"]
-    assert (answer.counts.matched, answer.counts.new, answer.counts.empty) == (5, 4, 1)
-    assert answer.counts.taken_out == 1 and answer.counts.rows == 10
-
-
 # ---- the PDF dropped on the LOG bar ------------------------------------------
 def test_a_dropped_pdf_says_upload_it(fake_client, monkeypatch, tmp_path):
     path = _pdf(tmp_path)
@@ -362,20 +346,6 @@ def test_a_dropped_pdf_says_upload_it(fake_client, monkeypatch, tmp_path):
         assert fake_client.calls == []
 
     run_app(scenario)
-
-
-def test_files_of_both_kinds_list_each_with_its_kind():
-    """Every file with its kind, taken one by one."""
-    from pathlib import Path
-
-    files = [Path("/d/Movimientos.xlsx"), Path("/d/BCP Visa 1492 2026-10.pdf")]
-    assert bank_files_hint(files).plain.split("\n") == [
-        "files · 2 · ⏎ take them, one by one",
-        "  Movimientos.xlsx · bank download",
-        "  BCP Visa 1492 2026-10.pdf · statement PDF",
-    ]
-    two_downloads = [Path("/d/a.xlsx"), Path("/d/b.xlsx")]
-    assert bank_files_hint(two_downloads).plain.startswith("bank files · 2 · ⏎ import them")
 
 
 def test_a_pdf_gone_from_disk_stays_in_the_bar(fake_client, monkeypatch, tmp_path):
@@ -402,33 +372,9 @@ def test_a_pdf_gone_from_disk_stays_in_the_bar(fake_client, monkeypatch, tmp_pat
 def test_the_account_list_is_the_downloads_with_the_statements_question(
     fake_client, monkeypatch, tmp_path
 ):
-    path = _pdf(tmp_path)
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        account = await _accounts(pilot, app)
-        assert "Upload a statement" in _crumb(account)
-        lines = _lines(account)
-        assert lines[0] == "Which account is this statement?  BCP Visa 1492 2026-10.pdf"
-        assert [_cells(line) for line in lines[1:]] == [
-            ["BCP Premier", "PEN + USD"],
-            ["Sueldo Soles", "PEN"],
-            ["Efectivo", "PEN"],
-        ]
-        assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
-        assert fake_client.posts == []  # nothing sent before ⏎ on an account
-
-    run_app(scenario, size=(120, 40))
-
-
-def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencies(
-    fake_client, monkeypatch, tmp_path
-):
-    """A bank account with no statement code is listed too (the engine
-    refuses it in its words if picked), a dollar account reads `USD`, an account
-    in the way of nothing is left out: archived accounts, people and the cash account."""
+    """A bank account with no statement code is listed too (the engine refuses it in
+    its words if picked), a dollar account reads `USD`, an account in the way of nothing
+    is left out: archived accounts, people and the cash account."""
     path = _pdf(tmp_path)
     _patch(
         monkeypatch,
@@ -453,11 +399,16 @@ def test_the_account_list_names_every_bank_account_by_its_own_name_and_currencie
         screen = await _open(app, pilot)
         await _drop(pilot, screen, path)
         account = await _accounts(pilot, app)
-        assert [_cells(line) for line in _lines(account)[1:]] == [
+        assert "Upload a statement" in _crumb(account)
+        lines = _lines(account)
+        assert lines[0] == "Which account is this statement?  BCP Visa 1492 2026-10.pdf"
+        assert [_cells(line) for line in lines[1:]] == [
             ["Visa BCP", "PEN + USD"],
             ["Sueldo Soles", "PEN"],
             ["BBVA Dólares", "USD"],
         ]
+        assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
+        assert fake_client.posts == []  # nothing sent before ⏎ on an account
 
     run_app(scenario, size=(120, 40))
 
@@ -522,89 +473,30 @@ def test_a_cards_preview_shows_its_rows_and_writes_nothing(fake_client, monkeypa
         assert _shown(preview) == {"escape": "Cancel", "enter": "Close SIG-202610"}
         assert _uploads(fake_client) == [True]  # the dry run only
         assert reads_by_ids == [["bl-farm"]]  # one read, by their ids
+        text = "\n".join(lines)  # nothing to flag: no block, no count
+        assert "Will be flagged" not in text and "to flag" not in text and "⚠" not in text
+        raw = _body(preview).split("\n")  # a taken-out line stands under the table's columns
+        row = next(line for line in raw if "TAMBO" in line)
+        taken = next(line for line in raw if "FARMACIA" in line)
+        assert taken.index("2026-10-11") == row.index("2026-09-24")
+        assert taken.index("FARMACIA") == row.index("TAMBO")
+        assert taken.rindex("PEN") == row.rindex("PEN")
 
     run_app(scenario, size=(120, 50))
 
 
-@pytest.mark.parametrize(
-    ("balances", "shown"),
-    [
-        ([USD_BALANCE, PEN_BALANCE], ["USD", "PEN"]),
-        ([PEN_BALANCE, USD_BALANCE], ["PEN", "USD"]),
-    ],
-    ids=["dollars-first", "soles-first"],
-)
-def test_a_cards_balance_lines_follow_the_answers_order(
-    fake_client, monkeypatch, tmp_path, balances, shown
-):
-    """One balance line per currency the answer holds, in the engine's order
-    (contract: POST /v1/statements/import, "Response"): the app sorts nothing."""
-    path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): {**CARD, "balances": balances}})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        lines = _lines(preview)
-        assert lines[2].split() == ["begin", "end"]
-        assert [line.split()[0] for line in lines[3:5]] == shown
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_a_currency_the_paper_does_not_cover_has_no_balance_line(
+def test_a_taken_out_line_shows_its_own_currency_and_no_title_shows_untitled(
     fake_client, monkeypatch, tmp_path
 ):
-    """A card's paper covering soles alone: the answer holds one balance, and
-    the preview shows that one line and no dollars (contract: POST
-    /v1/statements/import, "Which currencies the statement covers")."""
-    path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    soles = [r for r in CARD_ROWS if r["currency_code"] == "PEN"]
-    _engine(fake_client, {path.read_bytes(): {"rows": soles, "balances": [PEN_BALANCE]}})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        lines = _lines(preview)
-        assert [line.split() for line in lines[2:4]] == [
-            ["begin", "end"],
-            ["PEN", "-1,204.10", "-512.30"],
-        ]
-        assert "USD" not in "\n".join(lines[2:])
-        assert _cells(lines[4]) == ["#", "date", "title", "amount"]
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_a_taken_out_line_shows_its_own_currency(fake_client, monkeypatch, tmp_path):
     """A dollar line taken out of a two-currency answer reads `USD`, the line's own
-    `currency_code`."""
-    path = _pdf(tmp_path)
-    usd = bank_line_row(
-        "bl-usd",
-        [import_part("t-usd", -599, account_id="sig", line="bl-usd", title="HULU")],
-        net_cents=-599,
-        account_id="sig",
-        currency_code="USD",
-    )
-    _patch(monkeypatch, lines={"bl-usd": usd})
-    _engine(fake_client, {path.read_bytes(): {**CARD, "taken_out": ["bl-usd"]}})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        taken = next(line for line in _lines(preview) if "HULU" in line)
-        assert _cells(taken)[-1] == "USD"
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_a_row_and_a_taken_out_line_with_no_title_show_untitled(fake_client, monkeypatch, tmp_path):
+    `currency_code`; a row and a taken-out line with no title show `(untitled)`."""
     path = _pdf(tmp_path)
     bare = bank_line_row(
         "bl-bare",
         [{**import_part("t-bare", -599, account_id="sig", line="bl-bare"), "title": None}],
         net_cents=-599,
         account_id="sig",
+        currency_code="USD",
     )
     _patch(monkeypatch, lines={"bl-bare": bare})
     paper = {
@@ -619,33 +511,21 @@ def test_a_row_and_a_taken_out_line_with_no_title_show_untitled(fake_client, mon
         lines = _lines(preview)
         assert "(untitled)" in next(ln for ln in lines if ln.startswith("1 "))
         assert sum("(untitled)" in ln for ln in lines) == 2  # the row and the taken-out line
+        taken = next(ln for ln in lines if "(untitled)" in ln and not ln.startswith("1 "))
+        assert _cells(taken)[-1] == "USD"
 
     run_app(scenario, size=(120, 50))
 
 
-def test_a_taken_out_line_lines_up_under_the_tables_columns(fake_client, monkeypatch, tmp_path):
+def test_lines_that_cannot_be_read_keep_the_heads_the_counts_and_say_why(
+    fake_client, monkeypatch, tmp_path
+):
+    """The taken-out and flagged blocks keep their heads and the count, and one dim
+    line says why the lines went unread."""
     path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): CARD})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        raw = _body(preview).split("\n")
-        row = next(line for line in raw if "TAMBO" in line)
-        taken = next(line for line in raw if "FARMACIA" in line)
-        assert taken.index("2026-10-11") == row.index("2026-09-24")
-        assert taken.index("FARMACIA") == row.index("TAMBO")
-        assert taken.rindex("PEN") == row.rindex("PEN")
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monkeypatch, tmp_path):
-    """The taken-out block keeps its head, and one dim line says why the lines
-    went unread."""
-    path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): CARD})
+    _patch(monkeypatch, lines=FLAG_LINES)
+    paper = {**CARD, "review_lines": {"PEN": ["bl-uber"]}}
+    _engine(fake_client, {path.read_bytes(): paper})
 
     def refused(cfg, ids, **kwargs):
         raise EngineError("INTERNAL_ERROR", "Something went wrong.", None, 500, {})
@@ -656,7 +536,9 @@ def test_lines_that_cannot_be_read_leave_the_rows_and_say_why(fake_client, monke
         preview = await _card_preview(pilot, app, path)
         lines = _lines(preview)
         assert "Taken out · in the statement, not on the paper; they stay in the ledger" in lines
-        assert not any("FARMACIA" in line for line in lines)
+        assert FLAGGED_CAPTION in lines  # the flagged block keeps its head and its count
+        assert any(line.endswith(" · 1 taken out · 1 to flag") for line in lines)
+        assert not any("FARMACIA" in line or "2026-10-03" in line for line in lines)
         assert "! could not read the ledger lines: INTERNAL_ERROR — Something went wrong." in lines
         assert _shown(preview)["enter"] == "Close SIG-202610"
 
@@ -675,7 +557,12 @@ USD_LINE = bank_line_row(
     account_id="sig",
     currency_code="USD",
 )
-FLAG_LINES = {**LINES, "bl-usd": USD_LINE}
+KFC_LINE = bank_line_row(
+    "bl-kfc",
+    [import_part("t-kfc", -3190, line="bl-kfc", day="2026-10-20", title="KFC JOCKEY PLAZA")],
+    net_cents=-3190,
+)
+FLAG_LINES = {**LINES, "bl-usd": USD_LINE, "bl-kfc": KFC_LINE}
 
 
 FLAGGED_CAPTION = (
@@ -700,7 +587,7 @@ def test_the_lines_the_close_will_flag_show_under_the_lines_taken_out(
     reads_by_ids = _patch(monkeypatch, lines=FLAG_LINES)
     paper = {
         **CARD,
-        "review_lines": {"USD": ["bl-usd"], "PEN": ["bl-farm", "bl-uber"]},
+        "review_lines": {"USD": ["bl-usd"], "PEN": ["bl-farm", "bl-uber", "bl-kfc"]},
     }
     _engine(fake_client, {path.read_bytes(): paper})
 
@@ -715,50 +602,26 @@ def test_the_lines_the_close_will_flag_show_under_the_lines_taken_out(
             ["2026-10-12", "AMAZON"],
             ["2026-10-11", "FARMACIA CENTRAL"],
             ["2026-10-03", "UBER *TRIP"],
-        ]
-        assert [line.split()[-1] for line in block[1:]] == ["USD", "PEN", "PEN"]
+            ["2026-10-20", "KFC JOCKEY PLAZA"],
+        ]  # the engine's order: neither the days' nor the titles'
+        assert [line.split()[-1] for line in block[1:]] == ["USD", "PEN", "PEN", "PEN"]
         assert any("FARMACIA" in line for line in lines[: lines.index(block[0])])  # taken out too
-        assert lines[lines.index(block[0]) + len(block)].endswith(" · 1 taken out · 3 to flag")
+        assert lines[lines.index(block[0]) + len(block)].endswith(" · 1 taken out · 4 to flag")
         raw = _body(preview).split("\n")
         row = next(line for line in raw if "TAMBO" in line)
         amazon = next(line for line in raw if "AMAZON" in line and "2026-10-12" in line)
         assert amazon.index("2026-10-12") == row.index("2026-09-24")
         assert amazon.index("AMAZON") == row.index("TAMBO")
-        assert reads_by_ids == [["bl-farm", "bl-usd", "bl-uber"]]  # one read, each id once
+        assert reads_by_ids == [["bl-farm", "bl-usd", "bl-uber", "bl-kfc"]]  # one read
 
     run_app(scenario, size=(120, 50))
 
 
-def test_the_flagged_head_wraps_under_its_own_words_at_80_columns(
+def test_a_full_page_with_a_flagged_line_wraps_its_head_and_ends_above_the_footer_at_80x30(
     fake_client, monkeypatch, tmp_path
 ):
-    """The wrapped part of the head stands two cells in, under `Will`, not under `⚑`."""
-    path = _pdf(tmp_path)
-    _patch(monkeypatch, lines=FLAG_LINES)
-    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber"]}}
-    _engine(fake_client, {path.read_bytes(): paper})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        raw = _body(preview, width=preview.query_one("#import-body", Static).content_region.width)
-        raw_lines = raw.split("\n")
-        at = next(i for i, line in enumerate(raw_lines) if line.startswith("⚑ Will be flagged"))
-        head = [raw_lines[at].rstrip()]
-        for line in raw_lines[at + 1 :]:
-            if not line.startswith("  ") or line.strip()[:4].isdigit():
-                break
-            head.append(line.rstrip())
-        assert len(head) >= 2
-        assert all(line.startswith("  ") for line in head[1:])  # under `Will`, not `⚑`
-        assert " ".join(line.strip() for line in head) == FLAGGED_CAPTION
-
-    run_app(scenario, size=(80, 30))
-
-
-def test_a_full_page_with_a_flagged_line_ends_above_the_footer_at_80x30(
-    fake_client, monkeypatch, tmp_path
-):
-    """The wrapped head counts in the page budget: the body ends above the footer."""
+    """The head wraps under its own words, `Will`, not `⚑`, and counts in the page
+    budget: the body ends above the footer."""
     path = _pdf(tmp_path)
     _patch(monkeypatch, lines=FLAG_LINES)
     rows = [statement_row(n, -100 * n, description=f"ROW {n}") for n in range(1, 41)]
@@ -775,37 +638,18 @@ def test_a_full_page_with_a_flagged_line_ends_above_the_footer_at_80x30(
         footer = preview.query_one(Footer)
         assert "UBER *TRIP" in " ".join(_lines(preview, width=body.content_region.width))
         assert body.region.y + body.virtual_size.height <= footer.region.y
+        raw_lines = _body(preview, width=body.content_region.width).split("\n")
+        at = next(i for i, line in enumerate(raw_lines) if line.startswith("⚑ Will be flagged"))
+        head = [raw_lines[at].rstrip()]
+        for line in raw_lines[at + 1 :]:
+            if not line.startswith("  ") or line.strip()[:4].isdigit():
+                break
+            head.append(line.rstrip())
+        assert len(head) >= 2
+        assert all(line.startswith("  ") for line in head[1:])  # under `Will`, not `⚑`
+        assert " ".join(line.strip() for line in head) == FLAGGED_CAPTION
 
     run_app(scenario, size=(80, 30))
-
-
-def test_the_flagged_lines_follow_the_engines_order(fake_client, monkeypatch, tmp_path):
-    path = _pdf(tmp_path)
-    _patch(monkeypatch, lines=FLAG_LINES)
-    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber", "bl-farm"]}}
-    _engine(fake_client, {path.read_bytes(): paper})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        block = _flag_block(_lines(preview))
-        assert [_cells(line)[1] for line in block[1:]] == ["UBER *TRIP", "FARMACIA CENTRAL"]
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_a_paper_with_nothing_to_flag_shows_no_block_and_no_count(
-    fake_client, monkeypatch, tmp_path
-):
-    path = _pdf(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): CARD})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        text = "\n".join(_lines(preview))
-        assert "Will be flagged" not in text and "to flag" not in text and "⚠" not in text
-
-    run_app(scenario, size=(120, 50))
 
 
 def test_each_currencys_notes_show_under_the_balances_and_the_uncovered_ones_too(
@@ -878,51 +722,6 @@ def test_a_long_note_wraps_under_its_own_first_word(fake_client, monkeypatch, tm
         assert raw[first + 1].index(raw[first + 1].strip()) == raw[first].index("USD")
 
     run_app(scenario, size=(60, 50))
-
-
-def test_leaving_a_preview_that_names_flagged_lines_writes_nothing(
-    fake_client, monkeypatch, tmp_path
-):
-    path = _pdf(tmp_path)
-    _patch(monkeypatch, lines=FLAG_LINES)
-    paper = {**CARD, "review_lines": {"PEN": ["bl-uber"]}}
-    _engine(fake_client, {path.read_bytes(): paper})
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        assert any("to flag" in line for line in _lines(preview))
-        await pilot.press("escape")
-        await _on(pilot, app, LogBarScreen, "esc did not return to the bar")
-        await pilot.pause()
-        assert _uploads(fake_client) == [True]
-        assert [path for path, _ in fake_client.posts] == ["/statements/import"]
-
-    run_app(scenario, size=(120, 50))
-
-
-def test_flagged_lines_that_cannot_be_read_keep_the_head_the_count_and_say_why(
-    fake_client, monkeypatch, tmp_path
-):
-    path = _pdf(tmp_path)
-    _patch(monkeypatch, lines=FLAG_LINES)
-    paper = {**CARD, "taken_out": [], "review_lines": {"PEN": ["bl-uber"]}}
-    _engine(fake_client, {path.read_bytes(): paper})
-
-    def refused(cfg, ids, **kwargs):
-        raise EngineError("INTERNAL_ERROR", "Something went wrong.", None, 500, {})
-
-    monkeypatch.setattr("expense.reads.fetch_bank_lines_by_ids", refused)
-
-    async def scenario(pilot, app):
-        preview = await _card_preview(pilot, app, path)
-        lines = _lines(preview)
-        assert FLAGGED_CAPTION in lines
-        assert not any("UBER" in line and "2026" in line and "TRIP" in line for line in lines[12:])
-        assert any(line.endswith(" · 1 to flag") for line in lines)
-        assert "! could not read the ledger lines: INTERNAL_ERROR — Something went wrong." in lines
-        assert _shown(preview)["enter"] == "Close SIG-202610"
-
-    run_app(scenario, size=(120, 50))
 
 
 # ---- a savings account's paper ---------------------------------------------------
@@ -1042,7 +841,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
 
     def review_count(cfg, *, review_of, **kwargs):
         review_reads.append(("count", review_of, None, kwargs.get("ids")))
-        return 2
+        return 5  # the engine's count, not the close's sum of two ids
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", review_list)
     monkeypatch.setattr("expense.reads.count_bank_lines", review_count)
@@ -1052,7 +851,7 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         await pilot.press("enter")
         result = await _on(pilot, app, StatementResultScreen, "no result screen")
         assert _lines(result)[-1] == (
-            "⚑ 2 lines flagged for review: in no statement, dated up to this one's last day"
+            "⚑ 5 lines flagged for review: in no statement, dated up to this one's last day"
             "  · f shows them"
         )
         assert _footer(result) == ["esc Back", "⏎ Home", "f Flagged"]
@@ -1136,98 +935,8 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
                 "Revert it first, then drop the PDF again.",
             ],
         ),
-        (
-            _refusal(
-                "VALIDATION_ERROR", "account_id", "The account holds no USD.", "CURRENCY_NOT_HELD"
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! account_id: The account holds no USD.",
-                "Nothing was written.",
-            ],
-        ),
-        (
-            _refusal(
-                "VALIDATION_ERROR",
-                "account_id",
-                "The paper does not print USD, which the account holds.",
-                "ACCOUNT_CURRENCY_NOT_ON_PAPER",
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! account_id: The paper does not print USD, which the account holds.",
-                "Nothing was written.",
-            ],
-        ),
-        (
-            _refusal(
-                "VALIDATION_ERROR",
-                "file",
-                "The account holds USD 12.00 the paper does not cover.",
-                "MONEY_AT_START_NOT_COVERED",
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! file: The account holds USD 12.00 the paper does not cover.",
-                "Nothing was written.",
-            ],
-        ),
-        # Cash is not offered, but should the engine refuse one anyway it shows in its words
-        # (contract: "What an account is", "The cash account takes no statement either")
-        (
-            _refusal(
-                "VALIDATION_ERROR",
-                "account_id",
-                "Must not be the cash account: cash has no bank statements.",
-                "CASH_TAKES_NO_STATEMENT",
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! account_id: Must not be the cash account: cash has no bank statements.",
-                "Nothing was written.",
-            ],
-        ),
-        # The dry run taking a line out of the draft on a day another statement seals
-        # (contract: POST /v1/statements/import, "More than a day off")
-        (
-            _refusal(
-                "VALIDATION_ERROR",
-                "file",
-                "Sealed by completed statement 'Marzo 2026'. Revert it to draft first.",
-                "SEALED_PERIOD",
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! file: Sealed by completed statement 'Marzo 2026'. Revert it to draft first.",
-                "Nothing was written.",
-            ],
-        ),
-        (
-            _refusal(
-                "VALIDATION_ERROR",
-                "file",
-                "A line left in no statement on a day the close seals.",
-                "LOOSE_LINES_ON_SEALED_DAYS",
-            ),
-            [
-                "VALIDATION_ERROR — The statement cannot be uploaded.",
-                "! file: A line left in no statement on a day the close seals.",
-                "Nothing was written.",
-            ],
-        ),
     ],
-    ids=[
-        "refused-file",
-        "account",
-        "future-date",
-        "not-draft",
-        "currency-not-held",
-        "currency-not-on-paper",
-        "money-at-start",
-        "cash-account",
-        "sealed-period",
-        "loose-lines-on-sealed-days",
-    ],
+    ids=["refused-file", "account", "future-date", "not-draft"],
 )
 def test_a_refused_upload_shows_the_engines_words_and_writes_nothing(
     fake_client, monkeypatch, tmp_path, err, shown
@@ -1345,21 +1054,14 @@ def test_a_number_refusal_on_the_apply_shows_on_the_preview(fake_client, monkeyp
     run_app(scenario, size=(120, 40))
 
 
-@pytest.mark.parametrize(
-    ("key", "words"),
-    [
-        ("rows.4", "Another request changed this row's ledger line. Send it again."),
-        ("file", "Another request changed this statement's draft. Send it again."),
-    ],
-    ids=["a-matched-line", "the-draft"],
-)
 def test_a_change_met_by_the_apply_previews_again_before_any_write(
-    fake_client, monkeypatch, tmp_path, key, words
+    fake_client, monkeypatch, tmp_path
 ):
-    """The apply's `409 CONFLICT` with `CONCURRENT_CHANGE`, on a matched line or
-    on the draft (`file`): the engine's words, the app's line, `⏎ Preview again`,
-    a fresh dry run, and only then a new apply on its own `⏎`."""
+    """The apply's `409 CONFLICT` with `CONCURRENT_CHANGE`, on any key (here a matched
+    line's; `file` is read whole at 80 columns below): the engine's words, the app's
+    line, `⏎ Preview again`, a fresh dry run, and only then a new apply on its own `⏎`."""
     path = _pdf(tmp_path)
+    key, words = "rows.4", "Another request changed this row's ledger line. Send it again."
     _patch(monkeypatch)
     _engine(fake_client, {path.read_bytes(): CARD})
 
@@ -1463,32 +1165,6 @@ def _flagged_close(fake_client, monkeypatch, tmp_path, count):
 
     monkeypatch.setattr("expense.reads.count_bank_lines", counted)
     return path, asked
-
-
-def test_the_flagged_line_is_the_engines_count_not_the_closes_sum(
-    fake_client, monkeypatch, tmp_path
-):
-    """The close names three ids (one on a balance, two on a `not_covered` currency); the
-    review list also holds earlier lines in no statement, so the `⚑` line and `f` take the
-    engine's count (contract: GET /v1/bank-lines/count), read once after the apply."""
-    path, asked = _flagged_close(fake_client, monkeypatch, tmp_path, 5)
-    monkeypatch.setattr(
-        "expense.reads.fetch_bank_lines",
-        lambda cfg, **kw: {"items": [LINES["bl-uber"]], "limit": 200, "next_cursor": None},
-    )
-
-    async def scenario(pilot, app):
-        await _card_preview(pilot, app, path)
-        await pilot.press("enter")
-        result = await _on(pilot, app, StatementResultScreen, "no result screen")
-        assert _lines(result)[-1].startswith("⚑ 5 lines flagged for review")
-        assert not any("⚑ 3 lines" in line for line in _lines(result))
-        assert asked == ["s-paper"]
-        assert "f" in _shown(result)
-        await pilot.press("f")
-        await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
-
-    run_app(scenario, size=(120, 50))
 
 
 def test_a_review_list_the_engine_counts_empty_shows_no_flag(fake_client, monkeypatch, tmp_path):

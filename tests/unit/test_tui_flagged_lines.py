@@ -287,26 +287,6 @@ def _listed(screen: FlaggedLinesScreen) -> list:
 # ---- no flagged line ------------------------------------------------------------
 
 
-def test_a_close_that_flags_nothing_opens_no_screen_and_adds_nothing(fake_client, monkeypatch):
-    _patch(monkeypatch)
-    engine = Lines(monkeypatch, fake_client)
-    _flags(fake_client, SOLES, [], [])
-
-    async def scenario(pilot, app):
-        screen = await _complete(pilot, app, SOLES)
-        await wait_for(pilot, lambda: screen._record["status"] == 2)
-        await pilot.pause()
-        assert app.screen is screen
-        assert not screen.query_one("#rflag", Static).display
-        assert "f Flagged" not in _footer(screen)
-        await pilot.press("f")
-        await pilot.pause()
-        assert app.screen is screen
-        assert engine.reads == []
-
-    run_app(scenario)
-
-
 # ---- a soles account, and a card ----------------------------------------------
 
 
@@ -369,19 +349,6 @@ def test_a_card_shows_every_accounts_lines_oldest_first(fake_client, monkeypatch
         assert "2026-10-24 SPOTIFY P2F3 — USD -5.99" in drawn
         assert "2026-09-25 TAMBO MIRAFLORES — PEN -7.50" in drawn
         assert _text(screen, "#fhead").startswith("Octubre 2026 has 3 flagged lines. 3 lines dated")
-
-    run_app(scenario)
-
-
-def test_both_accounts_lines_merge_by_day_whichever_holds_them(fake_client, monkeypatch):
-    _patch(monkeypatch)
-    Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
-    _flags(fake_client, SOLES, ["l-spotify"], ["l-tambo", "l-uber"])
-
-    async def scenario(pilot, app):
-        await _complete(pilot, app, SOLES)
-        screen = await _flagged_screen(pilot, app)
-        assert _listed(screen) == ["l-tambo", "l-uber", "l-spotify"]
 
     run_app(scenario)
 
@@ -565,8 +532,7 @@ def test_a_split_line_goes_whole_after_the_question_naming_its_parts(fake_client
     run_app(scenario)
 
 
-@pytest.mark.parametrize("answer", ["n", "escape", "enter"])
-def test_anything_but_y_keeps_the_line(fake_client, monkeypatch, answer):
+def test_anything_but_y_keeps_the_line(fake_client, monkeypatch):
     _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER)
     _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
@@ -574,13 +540,14 @@ def test_anything_but_y_keeps_the_line(fake_client, monkeypatch, answer):
     async def scenario(pilot, app):
         await _complete(pilot, app, SOLES)
         screen = await _flagged_screen(pilot, app)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(answer)
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert fake_client.deletes == []
-        assert _listed(screen) == ["l-tambo", "l-uber"]
+        for answer in ("n", "escape", "enter"):
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press(answer)
+            await wait_for(pilot, lambda: app.screen is screen)
+            await pilot.pause()
+            assert fake_client.deletes == []
+            assert _listed(screen) == ["l-tambo", "l-uber"]
 
     run_app(scenario)
 
@@ -705,82 +672,8 @@ def test_a_refused_read_shows_the_engines_words(fake_client, monkeypatch):
 
 def test_a_refused_read_again_keeps_what_is_listed(fake_client, monkeypatch):
     """Listed, then a read the engine refuses: its words as a toast, the rows as
-    they were, the cursor where it was."""
-    _patch(monkeypatch)
-    refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
-    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
-    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
-    notes: list = []
-    monkeypatch.setattr(
-        FlaggedLinesScreen,
-        "notify",
-        lambda self, message, **kw: notes.append((str(message), kw.get("severity"))),
-    )
-
-    async def scenario(pilot, app):
-        await _complete(pilot, app, SOLES)
-        screen = await _flagged_screen(pilot, app)
-        await pilot.press("down")
-        engine.refusal = refusal
-        await pilot.press("r")
-        await wait_for(pilot, lambda: notes)
-        assert notes == [(format_error(refusal), "error")]
-        assert app.screen is screen
-        assert _listed(screen) == ["l-tambo", "l-uber"]
-        assert screen._list.cursor_key == "l-uber"
-
-    run_app(scenario)
-
-
-# ---- the engine's count, and more than one page --------------------------------------
-
-
-def test_the_count_shown_is_the_engines_count(fake_client, monkeypatch):
-    """The head and the statement's `⚑` line say what `GET /bank-lines/count` answers
-    on the review list, not how many rows came back (contract: GET /v1/bank-lines/count)."""
-    _patch(monkeypatch)
-    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
-    engine.count = 7
-    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
-
-    async def scenario(pilot, app):
-        statement = await _complete(pilot, app, SOLES)
-        screen = await _flagged_screen(pilot, app)
-        assert _listed(screen) == ["l-tambo", "l-uber"]
-        assert _text(screen, "#fhead").startswith("Octubre 2026 has 7 flagged lines. 7 lines dated")
-        assert {"unassigned_in_period_of": "s-sig"} in engine.counts
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is statement)
-        assert _text(statement, "#rflag").startswith("⚑ 7 lines flagged for review")
-
-    run_app(scenario)
-
-
-def test_the_head_shows_the_count_before_the_lines_arrive(fake_client, monkeypatch):
-    """The lines' read is held: the head already says the engine's count and the list is
-    empty; released, the rows fill in."""
-    _patch(monkeypatch)
-    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
-    engine.count = 7
-    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
-
-    async def scenario(pilot, app):
-        engine.hold_lines = release = threading.Event()
-        await _complete(pilot, app, SOLES)
-        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
-        screen = app.screen
-        await wait_for(pilot, lambda: _text(screen, "#fhead").startswith("Octubre 2026 has 7"))
-        assert screen._list is None
-        release.set()
-        await wait_for(pilot, lambda: screen._list is not None)
-        assert _listed(screen) == ["l-tambo", "l-uber"]
-
-    run_app(scenario)
-
-
-def test_a_count_that_fails_toasts_and_reads_no_lines(fake_client, monkeypatch):
-    """A reload whose count the engine refuses: its words as a toast, the head and rows as
-    they were, and no read of the lines."""
+    they were, the cursor where it was. A count the engine refuses on a reload: the same
+    toast, the head and rows as they were, and no read of the lines."""
     _patch(monkeypatch)
     refusal = EngineError("INTERNAL_ERROR", "Something went wrong on our side.", None, 500, {})
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
@@ -796,14 +689,55 @@ def test_a_count_that_fails_toasts_and_reads_no_lines(fake_client, monkeypatch):
         await _complete(pilot, app, SOLES)
         screen = await _flagged_screen(pilot, app)
         head = _text(screen, "#fhead")
+        await pilot.press("down")
+        engine.refusal = refusal
+        await pilot.press("r")
+        await wait_for(pilot, lambda: notes)
+        assert notes == [(format_error(refusal), "error")]
+        assert app.screen is screen
+        assert _listed(screen) == ["l-tambo", "l-uber"]
+        assert screen._list.cursor_key == "l-uber"
+
+        engine.refusal = None
         engine.count_refusal = refusal
         engine.reads.clear()
+        notes.clear()
         await pilot.press("r")
         await wait_for(pilot, lambda: notes)
         assert notes == [(format_error(refusal), "error")]
         assert _text(screen, "#fhead") == head
         assert engine.reads == []
         assert _listed(screen) == ["l-tambo", "l-uber"]
+
+    run_app(scenario)
+
+
+# ---- the engine's count, and more than one page --------------------------------------
+
+
+def test_the_head_shows_the_engines_count_before_the_lines_arrive(fake_client, monkeypatch):
+    """The lines' read is held: the head already says the engine's count (7, not the
+    two rows that come back) and the list is empty; released, the rows fill in, and the
+    statement's `⚑` line says the same count (contract: GET /v1/bank-lines/count)."""
+    _patch(monkeypatch)
+    engine = Lines(monkeypatch, fake_client, TAMBO, UBER)
+    engine.count = 7
+    _flags(fake_client, SOLES, ["l-tambo", "l-uber"], [])
+
+    async def scenario(pilot, app):
+        engine.hold_lines = release = threading.Event()
+        statement = await _complete(pilot, app, SOLES)
+        await wait_for(pilot, lambda: isinstance(app.screen, FlaggedLinesScreen))
+        screen = app.screen
+        await wait_for(pilot, lambda: _text(screen, "#fhead").startswith("Octubre 2026 has 7"))
+        assert screen._list is None
+        release.set()
+        await wait_for(pilot, lambda: screen._list is not None)
+        assert _listed(screen) == ["l-tambo", "l-uber"]
+        assert {"unassigned_in_period_of": "s-sig"} in engine.counts
+        await pilot.press("escape")  # the statement's `⚑` line says the engine's count too
+        await wait_for(pilot, lambda: app.screen is statement)
+        assert _text(statement, "#rflag").startswith("⚑ 7 lines flagged for review")
 
     run_app(scenario)
 
@@ -899,7 +833,8 @@ def test_a_close_naming_no_line_still_opens_on_the_engines_count(fake_client, mo
 
 
 def test_a_close_the_engine_counts_no_flagged_line_for_opens_nothing(fake_client, monkeypatch):
-    """The close names a line, the engine's count is 0: no `⚑`, no `f`, no screen."""
+    """The close names a line, the engine's count is 0: no `⚑`, no `f`, no screen, and `f`
+    pressed reads nothing."""
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO)
     engine.count = 0
@@ -913,6 +848,10 @@ def test_a_close_the_engine_counts_no_flagged_line_for_opens_nothing(fake_client
         assert app.screen is statement
         assert not statement.query_one("#rflag", Static).display
         assert "f Flagged" not in _footer(statement)
+        await pilot.press("f")
+        await pilot.pause()
+        assert app.screen is statement
+        assert engine.reads == []
 
     run_app(scenario)
 

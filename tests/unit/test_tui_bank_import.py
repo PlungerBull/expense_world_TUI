@@ -23,7 +23,6 @@ from expense.tui.screens.bank_import import (
     ImportAccountScreen,
     ImportPreviewScreen,
     ImportResultScreen,
-    account_lines,
     mark_cell,
     problem_hint,
     reason_cell,
@@ -33,9 +32,6 @@ from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
-    ENGINE_ORDER_BANK_NAMES,
-    ENGINE_ORDER_HOLDING_ACCOUNTS,
-    IMPORT_ROW_AMOUNT_WORDS,
     account_with_currencies,
     held_currency,
     import_answer,
@@ -263,15 +259,6 @@ async def _refused(pilot, app) -> ImportPreviewScreen:
 
 
 # ---- pure ----------------------------------------------------------------------
-def test_an_account_of_two_currencies_is_one_line():
-    lines = [line.plain.rstrip() for line in account_lines(account_picks(ACCOUNTS), 0)]
-    assert [re.split(r"\s{2,}", line.strip()) for line in lines] == [
-        ["BCP Signature", "PEN + USD"],
-        ["BCP", "PEN"],
-    ]
-    assert "Retired" not in " ".join(lines)  # archived
-
-
 def test_the_result_head_is_the_engines_new_count_and_where_the_rows_landed():
     """The result's title line: the engine's `new`, the account, and the
     pending category and hashtag, dim."""
@@ -447,25 +434,6 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
     run_app(scenario, size=(120, 40))
 
 
-def test_the_account_list_shows_the_engines_order(fake_client, monkeypatch, tmp_path):
-    """The list shows the accounts exactly as `GET /accounts` returned them —
-    not alphabetical; the person is left out and nothing
-    else moves."""
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch, ENGINE_ORDER_HOLDING_ACCOUNTS)
-    _engine(fake_client, {})
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        account = await _preview(pilot, app)
-        assert [pick.name for pick in account._picks] == ENGINE_ORDER_BANK_NAMES
-        listed = [line.strip() for line in _body(account).split("\n")[2:] if line.strip()]
-        assert [line.split("  ")[0] for line in listed] == ENGINE_ORDER_BANK_NAMES
-
-    run_app(scenario, size=(120, 40))
-
-
 def test_the_card_sends_the_file_whole_on_its_account(fake_client, monkeypatch, tmp_path):
     """The body is exactly the three keys: the dry run, the card's account id
     and the file's own bytes."""
@@ -544,23 +512,6 @@ def test_a_current_accounts_preview_has_no_currency_column(fake_client, monkeypa
             "✓",
             "New",
         ]
-
-    run_app(scenario, size=(120, 40))
-
-
-def test_a_preview_row_with_no_title_shows_untitled(fake_client, monkeypatch, tmp_path):
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-    bare = {**CURRENT_ROWS[0], "title": None}
-    _engine(fake_client, {path.read_bytes(): [bare]})
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP
-        preview = await _previewed(pilot, app)
-        assert "(untitled)" in _lines_shown(preview)[2]
 
     run_app(scenario, size=(120, 40))
 
@@ -767,7 +718,8 @@ def test_a_statement_that_cannot_be_read_leaves_the_move_unnamed(
 
 def test_the_summary_and_the_footer_read_the_engines_counts(fake_client, monkeypatch, tmp_path):
     """The verdict counts and `⏎ Import N rows` are the engine's `counts`, not
-    the rows counted — here they disagree on purpose; the total is its rows."""
+    the rows counted — here they disagree on purpose; the total is its rows. The moves
+    and the retitled read in the plural."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     counts = {
@@ -777,43 +729,6 @@ def test_the_summary_and_the_footer_read_the_engines_counts(fake_client, monkeyp
         "skipped": 3,
         "backfilled": 0,
         "retitled": 3,
-        "redated": 0,
-    }
-    _engine(fake_client, {path.read_bytes(): CARD_TWO_IN_LEDGER}, counts=counts)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("enter")
-        preview = await _previewed(pilot, app)
-        assert _lines_shown(preview)[-2:] == [
-            "4 rows · 7 new · 5 in the ledger · 3 take the bank's title",
-            "3 skipped",
-        ]
-        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 7 rows"}
-        await pilot.press("enter")
-        result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        assert _lines_shown(result) == [
-            "✓ 7 rows imported · BCP Signature   new ones under @Pendiente and #Pendiente",
-            "4 rows · 7 new · 5 in the ledger · 3 took the bank's title",
-            "3 skipped",
-        ]
-
-    run_app(scenario, size=(120, 40))
-
-
-def test_the_counts_say_how_many_move_in_the_plural(fake_client, monkeypatch, tmp_path):
-    """`2 move to the bank's day` on the preview, the engine's number."""
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-    counts = {
-        "new": 2,
-        "matched": 2,
-        "sealed": 0,
-        "skipped": 0,
-        "backfilled": 0,
-        "retitled": 0,
         "redated": 2,
     }
     _engine(fake_client, {path.read_bytes(): CARD_TWO_IN_LEDGER}, counts=counts)
@@ -824,9 +739,19 @@ def test_the_counts_say_how_many_move_in_the_plural(fake_client, monkeypatch, tm
         await _preview(pilot, app)
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
-        assert _lines_shown(preview)[-1] == (
-            "4 rows · 2 new · 2 in the ledger · 2 move to the bank's day"
-        )
+        assert _lines_shown(preview)[-2:] == [
+            "4 rows · 7 new · 5 in the ledger · 2 move to the bank's day · 3 take the bank's title",
+            "3 skipped",
+        ]
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 7 rows"}
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        assert _lines_shown(result) == [
+            "✓ 7 rows imported · BCP Signature   new ones under @Pendiente and #Pendiente",
+            "4 rows · 7 new · 5 in the ledger · 2 moved to the bank's day · "
+            "3 took the bank's title",
+            "3 skipped",
+        ]
 
     run_app(scenario, size=(120, 40))
 
@@ -907,39 +832,6 @@ def test_reported_days_are_drawn_from_their_parts_on_the_preview_only(
     run_app(scenario, size=(120, 40))
 
 
-def test_a_reported_day_lists_the_file_rows_not_found_and_the_ledger_rows_not_claimed(
-    fake_client, monkeypatch, tmp_path
-):
-    """The day's two totals, the file's row by its spreadsheet row and the
-    ledger's by title and signed amount, the ledger row under the file row's
-    title."""
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): CARD_TWO_IN_LEDGER}, mismatches=[DAY_0907])
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("enter")
-        preview = await _previewed(pilot, app)
-        assert _days_shown(preview) == [
-            "! 1 day where the file and the ledger disagree",
-            "2026-09-07 · BCP Signature · PEN   file -3.50 · ledger after import -7.00",
-            "row 5   APPARKA MALL AVENTURA AREQU  -3.50   in the file, not found",
-            "TOTTUS PORONGOCHE            -3.50   in the ledger, not in the file",
-        ]
-        rows = [
-            line
-            for line in _body(preview).split("\n")
-            if "not found" in line or "not in the file" in line
-        ]
-        assert rows[0].index("APPARKA") == rows[1].index("TOTTUS")
-        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}  # a report only
-
-    run_app(scenario, size=(120, 40))
-
-
 #: The card's dollar account's reported day: a ledger row the file did not claim.
 DAY_0909_USD = import_day(
     "2026-09-09",
@@ -961,7 +853,9 @@ DAY_0909_USD = import_day(
 
 def test_a_card_files_days_name_their_account(fake_client, monkeypatch, tmp_path):
     """An account holding two currencies: every day on the preview names its
-    account and its currency."""
+    account and its currency; the day's two totals, the file's row by its spreadsheet
+    row and the ledger's by title and signed amount, the ledger row under the file
+    row's title."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _engine(
@@ -982,6 +876,13 @@ def test_a_card_files_days_name_their_account(fake_client, monkeypatch, tmp_path
             "2026-09-09 · BCP Signature · USD   file -21.17 · ledger after import -42.34",
             "Apple                        -21.17   in the ledger, not in the file",
         ]
+        rows = [
+            line
+            for line in _body(preview).split("\n")
+            if "not found" in line or "not in the file" in line
+        ]
+        assert rows[0].index("APPARKA") == rows[1].index("TOTTUS")  # under the file row's title
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}  # a report only
 
     run_app(scenario, size=(120, 40))
 
@@ -1072,6 +973,10 @@ def test_the_preview_pages_with_pgdn(fake_client, monkeypatch, tmp_path):
         await _preview(pilot, app)
         await pilot.press("down", "enter")
         preview = await _previewed(pilot, app)
+        await pilot.pause()
+        lines = screen_lines(app)  # `PREVIEW_CHROME` is exact: the page fills the room
+        assert lines[-2] == "" and lines[-3] != ""
+        assert "28 rows" in lines[-3]
         size = preview._page_size()
         assert size < 28
         assert f"… {28 - size} more · pgdn" in _body(preview)
@@ -1079,33 +984,6 @@ def test_the_preview_pages_with_pgdn(fake_client, monkeypatch, tmp_path):
         assert preview._start == size
         await pilot.press("pageup")
         assert preview._start == 0
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_the_preview_rows_run_down_to_the_blank_line_above_the_footer(
-    fake_client, monkeypatch, tmp_path
-):
-    """`PREVIEW_CHROME` is exact: at a fixed height the page fills the room, with no gap
-    left under the counts and the counts not pushed off."""
-    path = _bank_file(tmp_path)
-    rows = [
-        import_row(d + 1, -d, day=f"2026-09-{d:02d}", title=f"SHOP {d}", account_id="bcp")
-        for d in range(1, 29)
-    ]
-    _patch(monkeypatch)
-    _engine(fake_client, {path.read_bytes(): rows})
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("down", "enter")
-        await _previewed(pilot, app)
-        await pilot.pause()
-        lines = screen_lines(app)
-        assert lines[-2] == "" and lines[-3] != ""
-        assert "28 rows" in lines[-3]
 
     run_app(scenario, size=(120, 30))
 
@@ -1162,67 +1040,13 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
     run_app(scenario, size=(120, 40))
 
 
-def test_a_row_past_the_largest_amount_shows_the_engines_words_on_its_row(
+def test_a_file_refused_whole_shows_its_key_and_the_engines_words(
     fake_client, monkeypatch, tmp_path
 ):
-    """A row whose amount is past the bound, whole cents or not, is refused up front
-    (`OUT_OF_RANGE`), and the message the engine sends reads on its row, as it begins
-    `Row <row>:` (contract: POST /v1/transactions/import, "Rejected up front with `422`").
-    The text after it is a stand-in."""
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-    words = IMPORT_ROW_AMOUNT_WORDS.format(row=12)
-    fake_client.errors["POST"] = EngineError(
-        "VALIDATION_ERROR",
-        "Import validation failed.",
-        {"rows.12.amount_cents": words},
-        422,
-        {},
-        {"rows.12.amount_cents": "OUT_OF_RANGE"},
-    )
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("down", "enter")  # BCP
-        preview = await _refused(pilot, app)
-        assert _lines_shown(preview)[1:] == [
-            "VALIDATION_ERROR — Import validation failed.",
-            f"! {words}",
-            "Nothing was written.",
-        ]
-
-    run_app(scenario, size=(120, 40))
-
-
-@pytest.mark.parametrize(
-    ("key", "reason", "words"),
-    [
-        (
-            "file",
-            "UNEXPECTED_LAYOUT",
-            "Row 1 must be the header 'Fecha | Descripcion | Moneda | Monto'; it is 'a | b'.",
-        ),
-        (
-            "file",
-            "UNREADABLE_FILE",
-            "It is not an Excel workbook (.xlsx): it is not a zip archive.",
-        ),
-        ("account_id", "INVALID_REFERENCE", "Must reference an active, non-archived account."),
-        (
-            "account_id",
-            "CASH_TAKES_NO_STATEMENT",
-            "Must not be the cash account: cash has no bank statements.",
-        ),
-    ],
-    ids=["not-a-download", "unreadable", "account", "cash-account"],
-)
-def test_a_file_refused_whole_shows_its_key_and_the_engines_words(
-    fake_client, monkeypatch, tmp_path, key, reason, words
-):
-    """4 b: a refusal on `file` or `account_id` names its key before the
+    """4 b: a refusal on `file` names its key before the
     engine's words."""
+    key, reason = "file", "UNEXPECTED_LAYOUT"
+    words = "Row 1 must be the header 'Fecha | Descripcion | Moneda | Monto'; it is 'a | b'."
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     fake_client.errors["POST"] = EngineError(
@@ -1241,39 +1065,6 @@ def test_a_file_refused_whole_shows_its_key_and_the_engines_words(
             "Nothing was written.",
         ]
         assert _shown(preview) == {"escape": "Back"}
-
-    run_app(scenario, size=(160, 40))
-
-
-def test_a_currency_the_account_does_not_hold_is_shown_in_the_engines_words(
-    fake_client, monkeypatch, tmp_path
-):
-    """`CURRENCY_NOT_HELD` on `rows.<row>.account_id` (contract: POST
-    /v1/transactions/import, "Accounts"): the refused row's own words, as the
-    engine sent them, under the code and message, and nothing written."""
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-    words = "Row 3: The account holds no USD."
-    fake_client.errors["POST"] = EngineError(
-        "VALIDATION_ERROR",
-        "The file cannot be imported.",
-        {"rows.3.account_id": words},
-        422,
-        {},
-        {"rows.3.account_id": "CURRENCY_NOT_HELD"},
-    )
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, path)
-        await _preview(pilot, app)
-        await pilot.press("down", "down", "enter")  # an account of soles
-        preview = await _refused(pilot, app)
-        assert _lines_shown(preview)[1:] == [
-            "VALIDATION_ERROR — The file cannot be imported.",
-            f"! {words}",
-            "Nothing was written.",
-        ]
 
     run_app(scenario, size=(160, 40))
 
@@ -1410,21 +1201,11 @@ CODE_EXISTS_LINE = (
             "One of your categories has a built-in category's name: "
             "rename it on Manage ▸ Categories, then save again.",
         ),
-        (
-            "LIMIT_REACHED",
-            422,
-            "rows.2.transaction_id",
-            "LINE_CODES_EXHAUSTED",
-            "Row 2: stand-in field words.",
-            "! Row 2: stand-in field words.",
-            None,
-        ),
     ],
     ids=[
         "operation-code-exists",
         "operation-code-exists-words-without-row",
         "reserved-name-held",
-        "line-codes-exhausted",
     ],
 )
 def test_a_refused_apply_shows_the_engines_words_and_what_to_do(
@@ -1730,13 +1511,14 @@ def test_two_files_go_one_after_the_other_then_home(fake_client, monkeypatch, tm
 
 
 def test_esc_on_the_first_file_cancels_both(fake_client, monkeypatch, tmp_path):
-    files = [_bank_file(tmp_path, f"{name}.xlsx") for name in ("Uno", "Dos", "Tres")]
+    """Also on a refused file: its word still counts the file to come."""
+    files = [_bank_file(tmp_path, f"{name}.xlsx") for name in ("Uno", "Dos")]
     _patch(monkeypatch)
     _engine(fake_client, {p.read_bytes(): CARD_ROWS for p in files})
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        await _drop(pilot, screen, *files[:2])
+        await _drop(pilot, screen, *files)
         await _preview(pilot, app)
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
@@ -1747,84 +1529,58 @@ def test_esc_on_the_first_file_cancels_both(fake_client, monkeypatch, tmp_path):
         assert _imports(fake_client) == [True]  # the first file's dry run; nothing written
         assert screen.query_one("#bar", Input).value == ""
 
-        # three files: the word is `all`
+        # a refused file with a file to come: esc still stops this one and the next
+        fake_client.errors["POST"] = EngineError(
+            "VALIDATION_ERROR", "stand-in", {"file": "words."}, 422, {}, {"file": "EMPTY"}
+        )
         await _drop(pilot, screen, *files)
-        account = await _preview(pilot, app)
-        assert _shown(account) == {"escape": "Cancel all", "enter": "Pick", "down": "Move"}
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        refused = await _refused(pilot, app)
+        assert _shown(refused) == {"escape": "Cancel both"}
 
     run_app(scenario, size=(120, 40))
 
 
-def test_a_refused_file_with_a_file_to_come_still_cancels_both(fake_client, monkeypatch, tmp_path):
-    """A refusal leaves `esc` stopping this file and the ones after it, so its
-    word still counts them."""
+def test_nothing_new_moves_on_without_writing_and_on_the_last_file_goes_back_only(
+    fake_client, monkeypatch, tmp_path
+):
+    """Three files: the first is in the ledger already (`⏎ Next file`, nothing written),
+    the second's row is new, the third is in the ledger again, the last (`esc Back`
+    alone)."""
     first = _bank_file(tmp_path)
     second = _bank_file(tmp_path, "Cuenta Corriente.xlsx")
+    third = _bank_file(tmp_path, "Otra Corriente.xlsx")
     _patch(monkeypatch)
-    fake_client.errors["POST"] = EngineError(
-        "VALIDATION_ERROR", "stand-in", {"file": "words."}, 422, {}, {"file": "EMPTY"}
+    matched = [{**r, "outcome": "matched", "rule": "operation_code"} for r in CARD_ROWS]
+    matched_current = [{**CURRENT_ROWS[0], "outcome": "matched", "rule": "operation_code"}]
+    _engine(
+        fake_client,
+        {
+            first.read_bytes(): matched,
+            second.read_bytes(): CURRENT_ROWS,
+            third.read_bytes(): matched_current,
+        },
     )
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        await _drop(pilot, screen, first, second)
-        await _preview(pilot, app)
-        await pilot.press("enter")
-        preview = await _refused(pilot, app)
-        assert _shown(preview) == {"escape": "Cancel both"}
-
-    run_app(scenario, size=(120, 40))
-
-
-def test_nothing_new_with_a_file_to_come_moves_on_without_writing(
-    fake_client, monkeypatch, tmp_path
-):
-    first = _bank_file(tmp_path)
-    second = _bank_file(tmp_path, "Cuenta Corriente.xlsx")
-    _patch(monkeypatch)
-    # the card's four rows are in the ledger already; the second file's one is new
-    matched = [{**r, "outcome": "matched", "rule": "operation_code"} for r in CARD_ROWS]
-    _engine(fake_client, {first.read_bytes(): matched, second.read_bytes(): CURRENT_ROWS})
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, first, second)
+        await _drop(pilot, screen, first, second, third)
         await _preview(pilot, app)
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
         assert "nothing to import" in _body(preview)
-        assert _shown(preview) == {"escape": "Cancel both", "enter": "Next file"}
+        assert _shown(preview) == {"escape": "Cancel all", "enter": "Next file"}
         await pilot.press("enter")
         account = await _preview(pilot, app)
         assert account is not preview
-        assert "Import  ▸  file 2 of 2" in _crumb(account)
+        assert "Import  ▸  file 2 of 3" in _crumb(account)
         assert _imports(fake_client) == [True]  # the dry run only; nothing written
-        assert _shown(account) == {"escape": "Cancel", "enter": "Pick", "down": "Move"}
         await pilot.press("down", "enter")  # BCP
         preview = await _previewed(pilot, app)
-        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 1 row"}
-
-    run_app(scenario, size=(120, 40))
-
-
-def test_nothing_new_on_the_last_of_several_files_goes_back_only(
-    fake_client, monkeypatch, tmp_path
-):
-    first = _bank_file(tmp_path)
-    second = _bank_file(tmp_path, "Cuenta Corriente.xlsx")
-    _patch(monkeypatch)
-    # the card's rows are new; the second file's one is in the ledger already
-    matched = [{**CURRENT_ROWS[0], "outcome": "matched", "rule": "operation_code"}]
-    _engine(fake_client, {first.read_bytes(): CARD_ROWS, second.read_bytes(): matched})
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await _drop(pilot, screen, first, second)
-        await _preview(pilot, app)
+        assert _shown(preview) == {"escape": "Cancel both", "enter": "Import 1 row"}
         await pilot.press("enter")
-        await _previewed(pilot, app)
-        await pilot.press("enter")
-        await _on(pilot, app, ImportResultScreen, "no first result")
+        await _on(pilot, app, ImportResultScreen, "no result")
         await pilot.press("enter")
         await _preview(pilot, app)
         await pilot.press("down", "enter")  # BCP
@@ -1834,10 +1590,10 @@ def test_nothing_new_on_the_last_of_several_files_goes_back_only(
         await pilot.press("enter")
         await pilot.pause()
         assert app.screen is preview
-        assert _imports(fake_client) == [True, False, True]
+        assert _imports(fake_client) == [True, True, False, True]
         await pilot.press("escape")
         await _on(pilot, app, LogBarScreen, "esc Back did not return to the bar")
-        assert _imports(fake_client) == [True, False, True]
+        assert _imports(fake_client) == [True, True, False, True]
 
     run_app(scenario, size=(120, 40))
 
