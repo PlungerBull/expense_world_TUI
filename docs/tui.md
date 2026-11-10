@@ -1963,38 +1963,22 @@ rows fit that do not. Width has **no** floor of any kind.
 
 ## 6. Test conventions
 
-Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions":
+Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions". The shared builders, fakes and
+waits are in [tests/unit/helpers.py](../tests/unit/helpers.py); each docstring there says
+what it does.
 
-- **A pilot test waits on a condition, never on the clock.** Use `wait_for(pilot,
-  predicate)` / `wait_for_list` / `wait_for_loaded` in
-  [tests/unit/helpers.py](../tests/unit/helpers.py); `section_settled` says when a
-  `SectionScreen` has settled. Wait for the thing the test is about: a save is over when its request was sent *and*
-  `_saving` is false again, since `_saving` is already false before the key reaches the
-  screen. A **bare** `pilot.pause()` is the pump-drain for asserting a *non-event* (an inert
-  key, a confirm that must not fire), where no predicate can be written. A timed
-  `pilot.pause(<n>)` is a guess at the app's speed: avoid it unless the test says why.
-- **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`),
-  not at `expense.reads` — when the test's point is name display. Use the short-id fallback
-  when it isn't.
-- **`fake_client` patches the lazy-import seams only** (its docstring in
-  [conftest.py](../tests/unit/conftest.py) names them). Assert on `client.calls` / `.posts` /
-  `.puts` ordering.
-- **A `FakeClient` write answers in the engine's shape where helpers.py knows it** — the
-  test's own `write_responses[path]`, then the endpoint's entry in `helpers.FAKE_ANSWERS`,
-  otherwise `{}` (the `FakeClient` docstring in [helpers.py](../tests/unit/helpers.py)). Each
-  entry is built by the endpoint's `answer_of` builder, so the drift check covers its shape
-  ([runtime.md](runtime.md) "Fixture drift").
-- **`helpers.account_with_currencies` is the shared account builder** — the engine's account
-  as it reads now, every field present, holding its `currencies`
-  (contract: GET /v1/accounts/{account_id}), marked with `answer_of` so the drift check
-  covers it. `ENGINE_ORDER_HOLDING_ACCOUNTS` lists it in the engine's order: two bank
-  accounts and a person, each in soles and dollars. A test passes only the fields it is
-  about, by name, and varies an account with `account_with_currencies(base, field=…)`; no
-  test file defines an account builder of its own.
+- **A pilot test waits on a condition, never on the clock:** `wait_for`, `wait_for_list`,
+  `wait_for_loaded`. Wait for the thing the test is about: a save is over when its request
+  was sent *and* `_saving` is false again. A **bare** `pilot.pause()` is for asserting a
+  *non-event* (an inert key), where no predicate can be written; a timed `pilot.pause(<n>)`
+  is a guess at the app's speed, so the test says why.
+- **A key press costs about 40 ms;** [helpers.py](../tests/unit/helpers.py) `enter_values` says when to type.
+- **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`), not at
+  `expense.reads`, when the point is name display; otherwise use the short-id fallback.
 - **A test that reads what a toast shows runs with `run_app(..., toasts=True)`** and reads
-  `toasts_shown(app)` ([helpers.py](../tests/unit/helpers.py)): each toast's title and
-  message as Textual draws them, markup read. `run_test` draws no toast unless asked; a
-  test that only needs what was sent patches `notify`.
+  `toasts_shown(app)`; a test that only needs what was sent patches `notify`.
+- **A test varies an account with `account_with_currencies(base, field=…)`**, passing only
+  the fields it is about; no test file defines an account builder of its own.
 
 **Known, accepted:** a screen load may open several short-lived clients (Transactions:
 the page and three name maps; the bulk pick's reference lists load once, on the first

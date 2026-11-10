@@ -25,6 +25,7 @@ from tests.unit.helpers import (
     bank_line_row,
     complete_refusal,
     cursor_page,
+    enter_values,
     import_part,
     money_at_start_refusal,
     run_app,
@@ -144,7 +145,7 @@ async def _press_c(pilot, app) -> None:
 
 
 async def _type_in(pilot, typed: str) -> None:
-    await pilot.press(*typed, "enter")
+    await enter_values(pilot, typed)
 
 
 def _is_box(app) -> bool:
@@ -606,7 +607,7 @@ def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client,
         await _open(pilot, app, OCTUBRE)
         await _press_c(pilot, app)
         assert fake_client.calls == []  # nothing sent by opening it
-        await pilot.press(*"0.00")
+        app.focused.value = "0.00"
         await pilot.pause()
         step1 = _boxes_screen(
             [title, columns, pen, "  USD           —            —"],
@@ -623,7 +624,7 @@ def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client,
         await pilot.press("enter")
         await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
         assert fake_client.puts == []  # nothing is sent between the boxes
-        await pilot.press(*"-24.99")
+        app.focused.value = "-24.99"
         await pilot.pause()
         step2 = _boxes_screen(
             step1[:4],

@@ -1432,6 +1432,20 @@ def styled_stretches(markup: str) -> list[tuple[int, str, str]]:
     ]
 
 
+async def enter_values(pilot, *values: str) -> None:
+    """Put each of `values` on the focused bar and press `⏎`, one value per line.
+
+    Setting the bar's value fires the same `Input.Changed` typing does, without a
+    key press and its idle wait per character (about 40 ms each); a test whose
+    subject is the typing itself (capitals, a hint as you type, a paste) presses
+    its keys. It also skips `FormBar.replace`, so the code line's capitals, the read-only
+    lock and each key's `on_key` hook do not run: a test proving one of those must type.
+    An empty string is an empty `⏎`."""
+    for value in values:
+        pilot.app.focused.value = value
+        await pilot.press("enter")
+
+
 async def wait_for(
     pilot,
     predicate: Callable[[], object],

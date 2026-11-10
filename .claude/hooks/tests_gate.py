@@ -11,7 +11,7 @@ Wired twice in `.claude/settings.json` (CLAUDE.md "Dev loop" and "How work runs"
 It runs `.venv/bin/pytest tests/unit -q -x` from the repo root with `.venv/bin` first on
 PATH. A failing run exits 2 with the last 40 lines of output on stderr, which blocks the
 commit (or keeps the builder working) and shows it why; a passing run exits 0 silently.
-A run that outlasts 450 s (inside the hook's 480 s budget) is killed and blocks too.
+A run that outlasts 300 s (well inside the hook's 480 s budget) is killed and blocks too.
 `EXPENSE_HOOKS_PYTEST` (a shell-quoted command line) and `EXPENSE_HOOKS_PYTEST_TIMEOUT`
 (seconds) replace the pytest command and the time limit for the hook tests.
 
@@ -50,7 +50,7 @@ from pathlib import Path
 from _shell import is_git_commit, read_input, repo_root, venv_env
 
 TAIL_LINES = 40
-TIMEOUT_SECONDS = 450.0
+TIMEOUT_SECONDS = 300.0
 STAMP_NAME = "tests-gate-passed"
 DOC_PATHSPECS = (":(glob)**/*.md", "docs")
 _DROP_DOCS = ("rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", *DOC_PATHSPECS)

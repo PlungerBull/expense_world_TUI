@@ -241,6 +241,7 @@ def test_a_mixed_put_on_an_archived_accounts_transaction_writes_nothing(client, 
         ("title", "filled once", "changed"),
         ("operation_code", f"OP-{uuid4().hex[:8]}", f"OP-{uuid4().hex[:8]}"),
     ],
+    ids=["title", "operation_code"],
 )
 def test_an_archived_accounts_empty_title_or_operation_code_is_filled_once(
     client, scratch, field, first, changed
@@ -270,7 +271,7 @@ def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchive
     """On an archived account, `DELETE /transactions/{id}` is `409` on `transaction_id`
     and `DELETE /bank-lines/{id}` `409` on `bank_line_id`, a split line's part and the
     line included; a whole-line write that changes kept parts' amounts is `422` on each
-    `parts.<i>.amount_cents`, beside every line field sent (a part replaced or left out
+    `parts.<i>.amount_cents`, beside every line field sent (a part added or left out
     is test_bank_line_edit_limits.py's); all `ACCOUNT_ARCHIVED`, and the balance and every
     row stay as they were
     (contract: "Bank Accounts", "An archived account")

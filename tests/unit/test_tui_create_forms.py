@@ -18,6 +18,7 @@ from tests.unit.helpers import (
     ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
+    enter_values,
     no_failed_toast,
     refusal_block,
     render_text,
@@ -730,34 +731,6 @@ def _navigate(steps, start="statement_code"):
     run_app(scenario)
 
 
-def test_a_forms_own_enter_handler_stops_the_ones_under_it():
-    """Textual runs the `on_input_submitted` of every class in a screen's MRO on
-    one `⏎` unless the message's default is prevented. A form whose handler
-    overrides one it inherits calls that one itself, so it must prevent the
-    default, or one `⏎` commits twice and moves two lines."""
-    import inspect
-
-    from expense.tui.screens import create_forms, edit_form, setup, statements
-    from expense.tui.screens._form import FormScreen
-
-    assert create_forms and edit_form and statements and setup  # all loaded
-
-    def every(cls):
-        for sub in cls.__subclasses__():
-            yield sub
-            yield from every(sub)
-
-    overriding = []
-    for form in every(FormScreen):
-        handler = form.__dict__.get("on_input_submitted")
-        if handler is None:
-            continue
-        if any("on_input_submitted" in base.__dict__ for base in form.__mro__[1:]):
-            overriding.append(form.__name__)
-            assert "event.prevent_default()" in inspect.getsource(handler), form.__name__
-    assert "NewAccountScreen" in overriding  # the Edit form inherits it
-
-
 def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     """tab → next editable field, shift+tab → previous; both stop at the ends; the
     ctrl arrows move the same way."""
@@ -892,9 +865,9 @@ def test_new_person_is_one_post_with_kind_person_and_no_code_line(fake_client):
     async def scenario(pilot, app):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press(*"person", "enter")
+        await enter_values(pilot, "person")
         assert screen._sequence() == ["type", "name", "currencies", "color"]
-        await pilot.press(*"Ana Ejemplo", "enter", *"PEN", "enter", "enter")
+        await enter_values(pilot, "Ana Ejemplo", "PEN", "")
         await pilot.pause()
         assert screen._key == "color"  # past CURRENCIES, straight to COLOR
         await pilot.press("enter", "enter", "enter")  # COLOR, then the PEN pair: creates

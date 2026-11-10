@@ -11,7 +11,7 @@ import threading
 from expense.errors import EngineError
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.transactions import TransactionsScreen
-from tests.unit.helpers import app_notes, run_app, styled_stretches, wait_for
+from tests.unit.helpers import app_notes, enter_values, run_app, styled_stretches, wait_for
 from tests.unit.test_tui_bulk_edit import (
     FILTER,
     ITEMS,
@@ -78,7 +78,7 @@ def _left_bulk(
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
+        await enter_values(pilot, "oro")
         await wait_for(pilot, started.is_set)
         touched: list[str] = []
         monkeypatch.setattr(screen, "_reload_fresh", lambda *a, **k: touched.append("reload"))

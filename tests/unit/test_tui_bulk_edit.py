@@ -42,6 +42,7 @@ from tests.unit.helpers import (
     LOCKED_WORDS,
     account_with_currencies,
     archived_refusal,
+    enter_values,
     error_body,
     fake_ledger,
     hashtag_refusal,
@@ -1359,7 +1360,7 @@ def _pick_tags(fake_client, monkeypatch, typed, *, settle):
         modal = app.screen
         for text in typed:
             before = len(modal._picked)
-            await pilot.press(*text, "enter")
+            await enter_values(pilot, text)
             await wait_for(pilot, lambda n=before + 1: len(modal._picked) == n)
         await pilot.press("enter")
         await wait_for(pilot, lambda: settle(toasts))
@@ -1505,7 +1506,7 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
         reads = len(calls)
         seen.update(reads=reads, sent=len(fake_client.calls))
         for text in typed:
-            await pilot.press(*text, "enter")
+            await enter_values(pilot, text)
         await wait_for(pilot, lambda: not isinstance(app.screen, BulkPickScreen))
         # the fresh read recounts: the second count, and its list settled
         await wait_for(pilot, lambda: len(counts) == 2 and not screen._bulk_busy)

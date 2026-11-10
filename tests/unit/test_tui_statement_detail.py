@@ -1677,7 +1677,7 @@ async def _open_box(pilot, app, record=NO_END):
 
 
 async def _type(pilot, text: str) -> None:
-    await pilot.press(*text)
+    pilot.app.focused.value = text
 
 
 def test_c_without_an_ending_balance_opens_the_box_with_its_title_and_keys(

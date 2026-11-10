@@ -60,11 +60,8 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-8. **The speed:** the slowest tests left made fast or merged; helpers no test uses any more
-   (`_cine_line` in test_tui_delete.py, `_enter` in test_tui_new_account.py) and the
-   source-reading `test_a_forms_own_enter_handler_stops_the_ones_under_it` in
-   test_tui_create_forms.py, whose double write real presses already prove, removed; the tests gate's wait in .claude/hooks/tests_gate.py brought down to fit; the doc
-   lines on test conventions (docs/tui.md, docs/runtime.md) cut to the rule.
+Every task is done; the acceptance check waits on the engine's move to `2dc7f6cfcb365f8e`
+(todo.md "The engine moved again: ask for one hand-off file?").
 
 ## Found along the way
 

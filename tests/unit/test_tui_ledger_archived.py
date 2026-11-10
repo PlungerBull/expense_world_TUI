@@ -24,6 +24,7 @@ from tests.unit.helpers import (
     account_with_currencies,
     bank_line_row,
     edit_limits,
+    enter_values,
     fake_ledger,
     held_currency,
     import_part,
@@ -419,7 +420,7 @@ def test_the_bulk_keys_and_enter_still_work_on_an_archived_accounts_row(engine, 
         await _cursor_on(pilot, screen, "t-old")
         await pilot.press(key)
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press(*typed, "enter")
+        await enter_values(pilot, typed)
         if key == "h":
             await pilot.press("enter")  # `enter` on the emptied input applies the marks
         await wait_for(pilot, lambda: engine.puts)

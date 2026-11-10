@@ -41,6 +41,7 @@ from tests.unit.helpers import (
     ENGINE_CURRENCIES,
     account_with_currencies,
     edit_limits,
+    enter_values,
     render_text,
     run_app,
     wait_for,
@@ -282,8 +283,7 @@ def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client):
     first = "signed decimal · the statement's opening balance in PEN · optional"
 
     async def body(pilot, screen):
-        for text in ["Enero 2026", "2026-01-01", "2026-01-31"]:
-            await pilot.press(*text, "enter")
+        await enter_values(pilot, "Enero 2026", "2026-01-01", "2026-01-31")
         assert screen._key == "begin:PEN"
         assert _hint(screen) == f"{first}\n{OPENING_NOTE}"
         hint = screen.query_one("#hint", Static)

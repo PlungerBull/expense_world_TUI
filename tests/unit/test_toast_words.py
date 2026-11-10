@@ -49,7 +49,7 @@ from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.statements import NewStatementScreen
 from expense.tui.screens.system import ConfigScreen
-from tests.unit.helpers import run_app, toasts_shown, wait_for, whole
+from tests.unit.helpers import enter_values, run_app, toasts_shown, wait_for, whole
 from tests.unit.test_tui_edit_form import TXN
 from tests.unit.test_tui_edit_form import _enter_to as _enter_to_edit
 from tests.unit.test_tui_edit_form import _patch as _patch_edit
@@ -168,9 +168,9 @@ def test_an_account_no_name_matches_on_a_new_statement_shows_it_whole(fake_clien
         screen = NewStatementScreen()
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._accounts, message="the accounts never loaded")
-        await pilot.press(*"Octubre", "enter")
+        await enter_values(pilot, "Octubre")
         await wait_for(pilot, lambda: screen._key == "account")
-        await pilot.press(*TYPED, "enter")
+        await enter_values(pilot, TYPED)
         shown = await _toast_holding(pilot, app, TYPED)
         assert shown == f"No account matches “{TYPED}”."
         assert screen._key == "account"
@@ -188,7 +188,7 @@ def test_an_account_no_name_matches_on_the_edit_form_shows_it_whole(fake_client,
         await app.push_screen(screen)
         await _wait_edit_loaded(screen, pilot)
         await _enter_to_edit(screen, pilot, "account")
-        await pilot.press(*TYPED, "enter")
+        await enter_values(pilot, TYPED)
         shown = await _toast_holding(pilot, app, TYPED)
         assert shown == f"No account matches “{TYPED}”."
         assert screen._key == "account"
@@ -212,7 +212,7 @@ def test_a_pick_nothing_matches_shows_it_whole(kind, pool, shown_as):
         modal = BulkPickScreen(kind, 1, pool, rows=Text(""))
         app.push_screen(modal, results.append)
         await wait_for(pilot, lambda: app.screen is modal)
-        await pilot.press(*TYPED)
+        app.focused.value = TYPED
         await wait_for(pilot, lambda: modal._pool == [])
         await pilot.press("enter")
         shown = await _toast_holding(pilot, app, TYPED)
@@ -237,7 +237,7 @@ def test_a_part_s_name_no_name_matches_on_the_edit_form_shows_it_whole(
         await app.push_screen(screen)
         await _wait_edit_loaded(screen, pilot)
         await _enter_to_edit(screen, pilot, key)
-        await pilot.press(*TYPED, "enter")
+        await enter_values(pilot, TYPED)
         shown = await _toast_holding(pilot, app, TYPED)
         assert shown == f"No {field} matches “{TYPED}”."
         assert screen._key == key
@@ -257,7 +257,7 @@ async def _type_engine_url(pilot, app, typed: str) -> None:
     await pilot.press("e")
     await wait_for(pilot, lambda: bool(app.screen.query(Input)))
     app.screen.query_one(Input).value = ""
-    await pilot.press(*typed, "enter")
+    await enter_values(pilot, typed)
 
 
 def test_a_config_that_cannot_be_saved_shows_its_words_whole(tmp_path, monkeypatch):

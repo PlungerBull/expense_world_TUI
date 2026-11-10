@@ -36,12 +36,6 @@ from tests.unit.helpers import (
 PAIRS = ["opening:PEN", "as_of:PEN", "opening:USD", "as_of:USD"]
 
 
-def _enter(screen, text):
-    screen.query_one("#bar", Input).value = text
-    screen._recompute(text)
-    screen.on_input_submitted(None)
-
-
 def _screen(banks=ENGINE_BANKS):
     return NewAccountScreen(ENGINE_CURRENCIES, banks)
 

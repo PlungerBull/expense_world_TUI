@@ -21,6 +21,7 @@ from tests.unit.helpers import (
     ENGINE_BANKS,
     ENGINE_CURRENCIES,
     account_with_currencies,
+    enter_values,
     held_currency,
     no_failed_toast,
     refusal_block,
@@ -73,7 +74,7 @@ async def _to_code(pilot, screen):
     """A new bank account, typed up to its STATEMENT CODE line."""
     await pilot.press("enter")  # TYPE keeps bank
     await pilot.press("enter", "enter")  # BANK takes BCP, LAST 4 skipped
-    await pilot.press(*"PEN", "enter", "enter")  # PEN, then an empty enter goes on
+    await enter_values(pilot, "PEN", "")  # PEN, then an empty enter goes on
     await pilot.pause()
     assert screen._key == "statement_code"
 
@@ -125,9 +126,9 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
         await _to_code(pilot, screen)
-        await pilot.press(*"SIG", "enter")
+        await enter_values(pilot, "SIG")
         _on(screen, "type")
-        await pilot.press(*"person", "enter")
+        await enter_values(pilot, "person")
         await pilot.pause()
         assert screen._sequence() == [
             "type",
@@ -139,13 +140,13 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
         ]
         assert "statement code" not in _summary(screen)
         _on(screen, "type")
-        await pilot.press(*"bank", "enter")
+        await enter_values(pilot, "bank")
         await pilot.pause()
         assert "statement code SIG" in _summary(screen)
         _on(screen, "statement_code")
         assert _bar(screen).value == "SIG"
         _on(screen, "type")
-        await pilot.press(*"person", "enter", *"Eliana", "enter")
+        await enter_values(pilot, "person", "Eliana")
         await pilot.pause()
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: fake_client.posts)

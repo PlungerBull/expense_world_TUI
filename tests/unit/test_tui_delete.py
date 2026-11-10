@@ -696,16 +696,6 @@ def _split_ledger(parts: int, amounts: list[int] | None = None) -> tuple[list[di
     return rows, line
 
 
-def _cine_line() -> dict:
-    """CINE PLAZA's line: one part, never split."""
-    return bank_line_row(
-        "bl-cine",
-        [import_part("t-cine", -2800, account_id="acc1", line="bl-cine", day="2026-10-10")],
-        net_cents=-2800,
-        account_id="acc1",
-    )
-
-
 @pytest.fixture
 def line_engine(fake_client, monkeypatch):
     """`fake_client`, also answering the shared reads, so the bank-line read goes
