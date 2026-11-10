@@ -136,9 +136,6 @@ TURNS = [
     # cursor row, route, the row's kind after, the note, its index after, the label after;
     # a two-currency account is turned on its one row and the cursor stays on it
     ("a-alejo", "make-person", True, "Now a person.", 4, "t Make bank"),
-    # an account with an opening balance turns too, keeping it
-    # (contract: POST /v1/accounts/{account_id}/make-person)
-    ("a-efectivo", "make-person", True, "Now a person.", 4, "t Make bank"),
     ("a-juan", "make-account", False, "Now a bank account.", 3, "t Make person"),
 ]
 
@@ -149,13 +146,9 @@ def test_t_asks_then_turns_the_account_and_the_cursor_follows_it(
 ):
     """`t` asks, then sends the one route with the answer as its body and an idempotency
     key, and the reload keeps the cursor on the turned account in its new
-    place, the note saying what it is now and the footer offering the way back,
-    its opening balance, if any, still on it."""
+    place, the note saying what it is now and the footer offering the way back."""
     ident = row
     rows = _rows()
-    opening = next(r for r in rows if r["id"] == ident)["currencies"][0][
-        "opening_balance_transaction_id"
-    ]
     _stub_list(monkeypatch, rows)
     seen: dict = {}
 
@@ -173,9 +166,6 @@ def test_t_asks_then_turns_the_account_and_the_cursor_follows_it(
         seen["footer"] = _footer(screen)
         seen["cells"] = _cells(screen)
         seen["kind"] = screen.selected_record()["kind"] == "person"
-        seen["opening"] = screen.selected_record()["currencies"][0][
-            "opening_balance_transaction_id"
-        ]
 
     with respx.mock() as engine:
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
@@ -196,7 +186,6 @@ def test_t_asks_then_turns_the_account_and_the_cursor_follows_it(
     assert seen["cells"][1] == ("person" if person else "bank") != seen["cells_before"][1]
     assert seen["cells"][4:6] == seen["cells_before"][4:6]
     assert seen["cells"][0] == seen["cells_before"][0]
-    assert seen["opening"] == opening
     assert label in seen["footer"]
 
 
@@ -328,114 +317,16 @@ _STATEMENT_WORDS = (
 )
 _STATEMENT_FIELD = "Must be an account without reconciliations: a person cannot have one."
 
-REFUSALS = [
-    # cursor row, route, the engine's message, field words, reason, the whole note
-    (
-        "a-alejo",
-        "make-person",
-        _STATEMENT_WORDS,
-        _STATEMENT_FIELD,
-        "HAS_RECONCILIATION",
-        f"CONFLICT — {_STATEMENT_WORDS}\n  account_id: {_STATEMENT_FIELD}",
-    ),
-    (
-        "a-alejo",
-        "make-person",
-        "The account is already a person account.",
-        "Must be a real account: this one is already a person.",
-        "KIND_UNCHANGED",
-        "CONFLICT — The account is already a person account.\n"
-        "  account_id: Must be a real account: this one is already a person.",
-    ),
-    (
-        "a-eliana",
-        "make-account",
-        "The account is already a real account.",
-        "Must be a person account: this one is already a real account.",
-        "KIND_UNCHANGED",
-        "CONFLICT — The account is already a real account.\n"
-        "  account_id: Must be a person account: this one is already a real account.",
-    ),
-    (
-        "a-alejo",
-        "make-person",
-        _ARCHIVED_WORDS,
-        _ARCHIVED_WORDS,
-        "ACCOUNT_ARCHIVED",
-        f"CONFLICT — {_ARCHIVED_WORDS}\n  account_id: {_ARCHIVED_WORDS}",
-    ),
-]
-
-
-@pytest.mark.parametrize(
-    ("ident", "route", "message", "field", "reason", "shown"),
-    REFUSALS,
-    ids=[
-        "reconciliation",
-        "already-person",
-        "already-bank",
-        "archived",
-    ],
-)
-def test_a_refusal_shows_the_engine_words_and_t_works_again(
-    configured, monkeypatch, ident, route, message, field, reason, shown
-):
-    """A refusal keyed `account_id` closes the question; the "Failed" note is the engine's
-    words alone, with no line of the app's, for each of `t`'s refusals:
-    `HAS_RECONCILIATION`, `KIND_UNCHANGED` and `ACCOUNT_ARCHIVED`
-    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
-    Nothing changes: the account keeps its kind (`_by_id` holds `kind`) and the
-    list is not read again. Nothing but the turn is sent, and `t` sends again."""
-    rows = _rows()
-    reads: list[int] = []
-
-    def read(*_a, **_k):
-        reads.append(1)
-        return whole(list(rows))
-
-    monkeypatch.setattr("expense.reads.fetch_accounts", read)
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen, notes = await _open(pilot, app, monkeypatch, ident)
-        listing = screen.query_one(CursorList)
-        before = (listing, listing.cursor_key, dict(screen._by_id))
-        read_before = len(reads)
-        await pilot.press("t")
-        await _answer(pilot, app, route)
-        await wait_for(pilot, lambda: notes)
-        await pilot.pause()
-        seen["closed"] = app.screen is screen
-        listing = screen.query_one(CursorList)
-        seen["same"] = before == (listing, listing.cursor_key, screen._by_id)
-        seen["reread"] = len(reads) - read_before
-        seen["notes"] = list(notes)
-        await pilot.press("t")
-        await _answer(pilot, app, route)
-        await wait_for(pilot, lambda: len(notes) == 2)
-
-    with respx.mock() as engine:
-        sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
-            error_response(409, "CONFLICT", message, {"account_id": field}, {"account_id": reason})
-        )
-        run_app(scenario, size=SIZE)
-    assert seen["notes"] == [("Failed", shown)]
-    assert seen["closed"]
-    assert seen["same"]
-    assert seen["reread"] == 0
-    assert sent.call_count == 2
-
 
 # ---- refused until its statements go ------
 
 
 def test_an_account_with_a_statement_stays_bank_until_they_are_deleted(configured, monkeypatch):
-    """`t Make person`
-    on a bank account with a statement, draft or completed, is refused
-    with the engine's words alone, and the account stays a
-    bank account where it was (contract: POST /v1/accounts/{account_id}/make-person,
-    "Refusals"). Once its statements are deleted the engine no longer
-    refuses, and `t` makes it a person."""
+    """`t Make person` on a bank account with a statement, draft or completed, is refused
+    with the engine's words alone (a refusal on `account_id` closes the question), the list
+    is not read again, and the account stays a bank account where it was (contract: POST
+    /v1/accounts/{account_id}/make-person, "Refusals"). Once its statements are deleted the
+    engine no longer refuses, and `t` makes it a person."""
     rows = _rows()
     _stub_list(monkeypatch, rows)
     turn = _turns(rows, "a-alejo", True)
@@ -567,29 +458,9 @@ def test_home_shows_the_turned_account_in_its_new_group(
 
 
 @pytest.mark.parametrize(("ident", "route"), [("a-alejo", "archive"), ("a-viejo", "unarchive")])
-@pytest.mark.parametrize(
-    ("message", "reason", "shown"),
-    [
-        (
-            "Changed by another request.",
-            "CONCURRENT_CHANGE",
-            "CONFLICT — Changed by another request.\n  account_id: stand-in field words\n\n"
-            "It changed at the same moment: press r, then try again.",
-        ),
-        (
-            _ARCHIVED_WORDS,
-            "ACCOUNT_ARCHIVED",
-            f"CONFLICT — {_ARCHIVED_WORDS}\n  account_id: stand-in field words",
-        ),
-    ],
-    ids=["concurrent-change", "other-refusal"],
-)
-def test_a_refusal_reads_in_the_lists_words(
-    configured, monkeypatch, ident, route, message, reason, shown
-):
-    """`a` (archive and unarchive) is refused in the words `t` is: the list's
-    `press r, then try again` under a `CONCURRENT_CHANGE`, the engine's words alone
-    for any other refusal."""
+def test_a_concurrent_change_refusal_says_to_press_r(configured, monkeypatch, ident, route):
+    """`a` (archive and unarchive) refused with `CONCURRENT_CHANGE` reads in the engine's
+    words and the list's `press r, then try again`."""
     rows = _rows()
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(list(rows)))
     seen: dict = {}
@@ -603,10 +474,22 @@ def test_a_refusal_reads_in_the_lists_words(
     fields = {"account_id": "stand-in field words"}
     with respx.mock() as engine:
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/{ident}/{route}").mock(
-            error_response(409, "CONFLICT", message, fields, {"account_id": reason})
+            error_response(
+                409,
+                "CONFLICT",
+                "Changed by another request.",
+                fields,
+                {"account_id": "CONCURRENT_CHANGE"},
+            )
         )
         run_app(scenario, size=SIZE)
-    assert seen["notes"] == [("Failed", shown)]
+    assert seen["notes"] == [
+        (
+            "Failed",
+            "CONFLICT — Changed by another request.\n  account_id: stand-in field words\n\n"
+            "It changed at the same moment: press r, then try again.",
+        )
+    ]
     assert sent.call_count == 1
 
 

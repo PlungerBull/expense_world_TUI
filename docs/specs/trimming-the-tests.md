@@ -60,10 +60,6 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-6. **The accounts, its second half:** test_tui_account_currencies.py,
-   test_tui_account_currency_removal.py, test_tui_account_kind.py,
-   test_tui_account_numbers_edit.py, test_tui_account_question.py, test_tui_accounts.py,
-   test_tui_cash_account_row.py and test_tui_left_behind_account_form.py.
 7. **The rest of tests/unit,** test_tui_help.py and test_tui_quit_asks.py first (and
    `fake_ledger`'s unprompted `offset` refusal in helpers.py with test_reads_and_formatting.py), then the live
    suite's repeated cases in tests/contract.
@@ -76,3 +72,6 @@ an old flat shape) join the task whose files they touch, done there or dropped b
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **`written()` in `t`'s question repeats `_currency_write`** (expense/tui/screens/accounts.py:317,
+  :382): two copies of one write's body in the app code.

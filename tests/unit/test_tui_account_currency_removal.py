@@ -4,16 +4,13 @@
 currencies it holds and `[enter] pick    [esc] cancel`. `⏎` asks
 `Remove USD from Visa Inventada?` and only `y` sends one
 `DELETE /accounts/{id}/currencies/{code}`; the list then reads again with the
-cursor on the same account. `LAST_CURRENCY`, `HAS_TRANSACTIONS` and `IN_LIVE_STATEMENT` (both on
-`currency_code`, so without the account delete's archive line) and
-`ACCOUNT_ARCHIVED` read in the engine's words alone, nothing written
+cursor on the same account. `LAST_CURRENCY` and `HAS_TRANSACTIONS` (on `currency_code`, so
+without the account delete's archive line) read in the engine's words alone, nothing written
 (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 The write goes through the real HTTP client against a respx-mocked engine, so the
 idempotency key and the error envelope are the client's own; the list's read is
 stubbed.
 """
-
-import threading
 
 import httpx
 import pytest
@@ -114,12 +111,6 @@ async def _ask(pilot, app, *moves: str) -> None:
 # ---- what `x` offers ------------------------------------------------------------
 
 
-def test_the_currencies_held_are_the_account_s_in_the_engine_order():
-    rows = {r["id"]: r for r in _rows()}
-    assert currencies_held(rows["a-visa"]) == ["PEN", "USD"]
-    assert currencies_held(rows["a-prueba"]) == ["PEN"]
-
-
 @pytest.mark.parametrize(
     ("row", "title", "line", "choices"),
     [
@@ -128,12 +119,6 @@ def test_the_currencies_held_are_the_account_s_in_the_engine_order():
             "Remove a currency · Visa Inventada",
             "Visa Inventada · bank · PEN -2,340.50 · USD -185.20",
             ["PEN", "USD"],
-        ),
-        (
-            "a-prueba",
-            "Remove a currency · Cuenta Prueba",
-            "Cuenta Prueba · bank · PEN 0.00",
-            ["PEN"],
         ),
         # a person holds currencies too
         (
@@ -170,27 +155,6 @@ def test_x_lists_the_currencies_the_account_holds(
     assert seen["footer"] == ["escape Cancel"]
 
 
-def test_x_sits_after_c_in_the_footer(configured, monkeypatch):
-    """`c Currency  x Remove currency` before `a Archive`."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen, _ = await _open(pilot, app, monkeypatch, "a-visa")
-        seen["footer"] = _footer(screen)
-
-    run_app(scenario, size=SIZE)
-    assert seen["footer"][-7:] == [
-        "n New",
-        "e Edit",
-        "c Currency",
-        "x Remove currency",
-        "a Archive",
-        "t Make person",
-        "d Delete",
-    ]
-
-
 def test_x_is_off_on_an_empty_list(configured, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
     seen: dict = {}
@@ -215,10 +179,6 @@ def test_x_is_off_on_an_empty_list(configured, monkeypatch):
 def test_the_question_names_the_account_and_the_currency():
     """The question, and its body for an account's only currency."""
     rows = {r["id"]: r for r in _rows()}
-    assert removal_question(rows["a-visa"], "USD") == (
-        "Remove USD from Visa Inventada?",
-        "Visa Inventada · bank · USD -185.20\nVisa Inventada keeps PEN.",
-    )
     assert removal_question(rows["a-prueba"], "PEN") == (
         "Remove PEN from Cuenta Prueba?",
         "Cuenta Prueba · bank · PEN 0.00\nIt is the account's only currency.",
@@ -357,53 +317,12 @@ def test_a_second_x_or_c_while_the_write_is_in_flight_does_nothing(configured, m
     assert seen == {"x": True, "c": True}
 
 
-def test_the_guard_holds_until_the_engine_answers(configured, monkeypatch):
-    """`y` sends; while the engine has not answered, `x` opens nothing; once the
-    reload lands, `x` works again."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
-    release = threading.Event()
-    seen: dict = {}
-
-    def answer(_request):
-        release.wait(timeout=10)
-        return httpx.Response(200, json={})
-
-    async def scenario(pilot, app):
-        screen, notes = await _open(pilot, app, monkeypatch, "a-visa")
-        await _ask(pilot, app, "down")
-        await pilot.press("y")
-        await wait_for(pilot, lambda: screen._toggle_busy)
-        await pilot.press("x")
-        await pilot.pause()
-        seen["blocked"] = app.screen is screen
-        release.set()
-        await wait_for(pilot, lambda: ("", "Currency removed: USD.") in notes)
-        await wait_for(pilot, lambda: not screen._toggle_busy)
-        await wait_for_list(pilot, app)
-        await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
-
-    with respx.mock() as engine:
-        sent = engine.delete(f"{ENGINE_URL}/v1/accounts/a-visa/currencies/USD").mock(
-            side_effect=answer
-        )
-        run_app(scenario, size=SIZE)
-    assert sent.call_count == 1
-    assert seen["blocked"]
-
-
 # ---- refusals: the engine's words alone ------------------------------------------
 
 # the contract's own words for each refusal
 # (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")
 _LAST = "Must not be the account's last currency: delete the account instead."
 _HELD = "Must not be used by any active transaction in USD."
-_LIVE = (
-    "Must be a currency no live statement holds in PEN, draft or completed: "
-    "delete the statement first."
-)
-_ARCHIVED = "The account is archived. Unarchive it first."
-
 REFUSALS = [
     (
         "a-prueba",
@@ -432,63 +351,13 @@ REFUSALS = [
         ),
         f"CONFLICT — {_HELD}\n  currency_code: {_HELD}",
     ),
-    (
-        "a-visa",
-        "PEN",
-        (),
-        error_response(
-            409,
-            "CONFLICT",
-            _LIVE,
-            {"currency_code": _LIVE},
-            {"currency_code": "IN_LIVE_STATEMENT"},
-        ),
-        f"CONFLICT — {_LIVE}\n  currency_code: {_LIVE}",
-    ),
-    # an archived account: offered, and the engine refuses it
-    (
-        "a-viejo",
-        "USD",
-        ("down",),
-        error_response(
-            409,
-            "CONFLICT",
-            _ARCHIVED,
-            {"account_id": _ARCHIVED},
-            {"account_id": "ACCOUNT_ARCHIVED"},
-        ),
-        f"CONFLICT — {_ARCHIVED}\n  account_id: {_ARCHIVED}",
-    ),
-    # the two path refusals come first, `404` with no `fields`
-    # (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")
-    (
-        "a-visa",
-        "PEN",
-        (),
-        error_response(404, "NOT_FOUND", "account not found."),
-        "NOT_FOUND — account not found.",
-    ),
-    (
-        "a-visa",
-        "PEN",
-        (),
-        error_response(404, "NOT_FOUND", "currency PEN not found."),
-        "NOT_FOUND — currency PEN not found.",
-    ),
 ]
 
 
 @pytest.mark.parametrize(
     ("row", "code", "moves", "refusal", "shown"),
     REFUSALS,
-    ids=[
-        "last-currency",
-        "has-transactions",
-        "in-live-statement",
-        "account-archived",
-        "account-not-found",
-        "currency-not-found",
-    ],
+    ids=["last-currency", "has-transactions"],
 )
 def test_a_refusal_shows_the_engine_words_alone_and_the_list_stays(
     configured, monkeypatch, row, code, moves, refusal, shown

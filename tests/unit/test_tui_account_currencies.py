@@ -5,8 +5,8 @@ opens the pick `Add a currency · <account>`, the account on one line, the engin
 it does not hold in the engine's order and `[enter] add    [esc] cancel`.
 `⏎` sends one `POST /accounts/{id}/currencies` naming the picked currency, with no
 question, and the list reads again with the cursor on the same account
-(contract: POST /v1/accounts/{account_id}/currencies). A refusal, the currency
-already held or the account archived, reads in the engine's words alone
+(contract: POST /v1/accounts/{account_id}/currencies). A refusal, the account archived
+for one, reads in the engine's words alone
 (contract: POST /v1/accounts/{account_id}/currencies, "Refusals"). The write goes
 through the real HTTP client against a respx-mocked engine, so the idempotency key
 and the error envelope are the client's own; the list's read is stubbed.
@@ -20,11 +20,10 @@ import httpx
 import pytest
 import respx
 
-from expense.tui.screens.accounts import AccountsScreen, currencies_to_add
+from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import ConfirmModal, PickModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
-    ENGINE_CURRENCIES,
     ENGINE_URL,
     account_with_currencies,
     error_response,
@@ -96,20 +95,10 @@ def _pick_text(app) -> list[str]:
 # ---- what `c` offers ----------------------------------------------------------
 
 
-def test_the_currencies_to_add_are_the_engines_not_held_in_its_order():
-    rows = {r["id"]: r for r in _rows()}
-    assert currencies_to_add(rows["a-caja"], ENGINE_CURRENCIES) == ["USD"]
-    assert currencies_to_add(rows["a-dolares"], ENGINE_CURRENCIES) == ["PEN"]
-    assert currencies_to_add(rows["a-visa"], ENGINE_CURRENCIES) == []
-    # a third currency the engine lists is offered, in the engine's place
-    assert currencies_to_add(rows["a-caja"], ["EUR", "PEN", "USD"]) == ["EUR", "USD"]
-
-
 @pytest.mark.parametrize(
     ("row", "line", "choices"),
     [
         ("a-caja", "Caja Chica · bank · PEN 350.00", ["USD"]),
-        ("a-dolares", "Ahorro Dólares · bank · USD 12.40", ["PEN"]),
         # a person holds currencies too
         ("a-ana", "Ana Ejemplo · person · PEN 0.00", ["USD"]),
     ],
@@ -144,30 +133,6 @@ def test_c_lists_the_currencies_the_account_does_not_hold(
     assert listed.split() == choices
     assert hint == "[enter] add    [esc] cancel"
     assert seen["footer"] == ["escape Cancel"]
-
-
-def test_c_sits_after_e_in_the_footer(configured, monkeypatch):
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(_rows()))
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen, _ = await _open(pilot, app, monkeypatch, "a-caja")
-        seen["footer"] = [
-            f"{a.binding.key} {a.binding.description}"
-            for a in screen.active_bindings.values()
-            if a.binding.show and a.enabled
-        ]
-
-    run_app(scenario, size=SIZE)
-    assert seen["footer"][-7:] == [
-        "n New",
-        "e Edit",
-        "c Currency",
-        "x Remove currency",
-        "a Archive",
-        "t Make person",
-        "d Delete",
-    ]
 
 
 # ---- `⏎` adds it --------------------------------------------------------------
@@ -222,7 +187,8 @@ def test_enter_adds_the_picked_currency_and_the_list_reads_fresh(configured, mon
 
 def test_a_second_c_while_the_add_is_in_flight_offers_nothing(configured, monkeypatch):
     """`⏎` sends and the engine has not answered: `c` opens no pick, so the same
-    currency is not added twice; once the reload lands, `c` works again."""
+    currency is not added twice, nor after a reload (`r`) lands while the POST waits; once the
+    write's own reload lands, `c` works again."""
     rows = _rows()
     monkeypatch.setattr(
         "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
@@ -246,6 +212,12 @@ def test_a_second_c_while_the_add_is_in_flight_offers_nothing(configured, monkey
             await pilot.press("c")
             await pilot.pause()
             seen["blocked"] = app.screen is screen
+            await pilot.press("r")  # a reload landing (stale rows) keeps the guard
+            await wait_for_list(pilot, app)
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            seen["reloaded"] = screen._toggle_busy and app.screen is screen
         finally:
             release.set()
         await wait_for(pilot, lambda: ("", "Currency added: USD.") in notes)
@@ -260,46 +232,7 @@ def test_a_second_c_while_the_add_is_in_flight_offers_nothing(configured, monkey
         sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
         run_app(scenario, size=SIZE)
     assert sent.call_count == 1
-    assert (seen["blocked"], seen["after"], seen["note"]) == (True, True, True)
-
-
-def test_a_reload_while_the_add_is_unanswered_keeps_the_guard(configured, monkeypatch):
-    """`r` lands a reload (stale rows) while the POST waits; `c` still offers
-    nothing, so the same currency is not sent twice."""
-    rows = _rows()
-    monkeypatch.setattr(
-        "expense.reads.fetch_accounts", lambda *a, **k: whole([dict(r) for r in rows])
-    )
-    release = threading.Event()
-    seen: dict = {}
-
-    def answer(_request):
-        release.wait(timeout=10)
-        return httpx.Response(201, json=held_currency("USD"))
-
-    async def scenario(pilot, app):
-        screen, _ = await _open(pilot, app, monkeypatch, "a-caja")
-        try:
-            await pilot.press("c")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickModal))
-            await pilot.press("enter")
-            await wait_for(pilot, lambda: screen._toggle_busy)
-            await pilot.press("r")
-            await wait_for_list(pilot, app)
-            await pilot.pause()
-            seen["busy"] = screen._toggle_busy
-            await pilot.press("c")
-            await pilot.pause()
-            seen["blocked"] = app.screen is screen
-        finally:
-            release.set()
-        await wait_for(pilot, lambda: not screen._toggle_busy)
-
-    with respx.mock() as engine:
-        sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-caja/currencies").mock(side_effect=answer)
-        run_app(scenario, size=SIZE)
-    assert sent.call_count == 1
-    assert (seen["busy"], seen["blocked"]) == (True, True)
+    assert (seen["blocked"], seen["reloaded"], seen["after"], seen["note"]) == (True,) * 4
 
 
 def test_a_refused_queued_delete_does_not_leave_the_guard_set(configured, monkeypatch):
@@ -585,45 +518,26 @@ def test_c_is_off_on_an_empty_list(configured, monkeypatch):
 
 # ---- refusals: the engine's words alone ------------------------------------------
 
-# the contract's own words for each refusal
+# the contract's own words for the refusal
 # (contract: POST /v1/accounts/{account_id}/currencies, "Refusals")
-_DUPLICATE = "Must be a currency the account does not hold."
 _ARCHIVED = "The account is archived. Unarchive it first."
 
-REFUSALS = [
-    # the account got the currency meanwhile
-    (
-        "a-caja",
-        error_response(
-            409,
-            "CONFLICT",
-            _DUPLICATE,
-            {"currency_code": _DUPLICATE},
-            {"currency_code": "DUPLICATE_CURRENCY"},
-        ),
-        f"CONFLICT — {_DUPLICATE}\n  currency_code: {_DUPLICATE}",
-    ),
-    # an archived account: offered, and the engine refuses it
-    (
-        "a-viejo",
-        error_response(
-            422,
-            "VALIDATION_ERROR",
-            _ARCHIVED,
-            {"currency_code": _ARCHIVED},
-            {"currency_code": "ACCOUNT_ARCHIVED"},
-        ),
-        f"VALIDATION_ERROR — {_ARCHIVED}\n  currency_code: {_ARCHIVED}",
-    ),
-]
 
-
-@pytest.mark.parametrize(("row", "refusal", "shown"), REFUSALS, ids=["duplicate", "archived"])
-def test_a_refusal_shows_the_engine_words_and_the_list_stays(
-    configured, monkeypatch, row, refusal, shown
+def test_an_archived_account_is_offered_and_the_refusal_shows_the_engine_words(
+    configured, monkeypatch
 ):
-    """The "Failed" note is the engine's words, with no line of the app's; the
-    list is not read again and `c` works again."""
+    """`c` is offered on an archived account and the engine refuses it: the "Failed"
+    note is the engine's words, with no line of the app's; the list is not read again
+    and `c` works again."""
+    row = "a-viejo"
+    refusal = error_response(
+        422,
+        "VALIDATION_ERROR",
+        _ARCHIVED,
+        {"currency_code": _ARCHIVED},
+        {"currency_code": "ACCOUNT_ARCHIVED"},
+    )
+    shown = f"VALIDATION_ERROR — {_ARCHIVED}\n  currency_code: {_ARCHIVED}"
     rows = _rows()
     reads: list[int] = []
 

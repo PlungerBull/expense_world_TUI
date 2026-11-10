@@ -3,7 +3,7 @@
 from rich.text import Text
 
 from expense.errors import EngineError
-from expense.tui.screens.accounts import AccountsScreen, account_headers, account_rows
+from expense.tui.screens.accounts import AccountsScreen, account_rows
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
@@ -62,12 +62,6 @@ COLUMNS = ["Name", "Type", "Code", "Color", "PEN", "USD", "Status"]
 
 def _dash(cell) -> bool:
     return isinstance(cell, Text) and cell.plain == "—" and cell.style == "dim"
-
-
-def test_the_columns_are_name_type_code_color_a_column_per_currency_and_status():
-    """A balance column per currency the engine lists, in its order; no Cur column,
-    no single Balance column."""
-    assert account_headers(ENGINE_CURRENCIES) == COLUMNS
 
 
 def test_the_screen_takes_its_columns_from_the_engines_currencies(monkeypatch):
@@ -142,29 +136,6 @@ def test_a_two_currency_account_is_one_row_each_balance_in_its_column():
     assert visa[4:] == ["-2,340.50", "-185.20", "active"]
     assert alejo[:2] == ["ALEJO", "person"] and _dash(alejo[2])
     assert alejo[4:] == ["-150.00", "40.00", "active"]
-
-
-def test_a_currency_the_account_does_not_hold_is_a_dim_dash():
-    """A soles-only account: its balance under PEN, a dim `—` under USD."""
-    soles_only = ITEMS[1]
-    rows = {r[0]: r[1] for r in account_rows([ITEMS[0], soles_only], ENGINE_CURRENCIES)}
-    assert rows["a1"][4] == "12,450.00" and _dash(rows["a1"][5])
-
-
-def test_an_archived_account_is_one_row_dimmed_whole():
-    old = account_with_currencies(VISA, id="old", name="Ahorro Viejo", is_archived=True)
-    rows = account_rows([VISA, old], ENGINE_CURRENCIES)
-    assert [(r[0], r[2]) for r in rows] == [("visa", ""), ("old", "dim")]
-    assert rows[1][1][6] == "archived"
-
-
-def test_the_code_column_shows_the_statement_code_or_a_dim_dash():
-    """The account's statement code, or a dim `—` when it
-    has none (a person always)."""
-    items = [account_with_currencies(ITEMS[0], statement_code="SIG"), ITEMS[1]]
-    by_id = {r[0]: r[1] for r in account_rows(items, ENGINE_CURRENCIES)}
-    assert by_id["a1"][2] == "SIG"
-    assert _dash(by_id["a2"][2])
 
 
 def test_the_list_reads_at_its_card_width(monkeypatch):

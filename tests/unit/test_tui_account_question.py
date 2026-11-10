@@ -17,7 +17,6 @@ import httpx
 import pytest
 import respx
 
-from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import QuestionModal
 from tests.unit.helpers import (
     ENGINE_URL,
@@ -177,7 +176,6 @@ _TAKEN = "That name is taken."
 KEYED = [
     # cursor row, route, typed (line → text), engine key, code, status, reason, banks
     ("a-alejo", "make-person", {"name": "Eliana"}, "name", "CONFLICT", 409, "NAME_EXISTS", ["BCP"]),
-    ("a-alejo", "make-person", {"name": ""}, "name", "VALIDATION_ERROR", 422, "EMPTY", ["BCP"]),
     (
         "a-eliana",
         "make-account",
@@ -195,7 +193,7 @@ KEYED = [
 @pytest.mark.parametrize(
     ("ident", "route", "typed", "key", "code", "status", "reason", "banks"),
     KEYED,
-    ids=["name-exists", "empty-name", "last4-name-exists", "bank-code-name-exists"],
+    ids=["name-exists", "last4-name-exists", "bank-code-name-exists"],
 )
 def test_a_refusal_on_a_line_keeps_the_question_open_on_it_with_what_was_typed(
     configured, monkeypatch, ident, route, typed, key, code, status, reason, banks
@@ -221,6 +219,9 @@ def test_a_refusal_on_a_line_keeps_the_question_open_on_it_with_what_was_typed(
         seen["held"] = app.screen.values()
         seen["notes"] = list(notes)
         seen["busy"] = screen._toggle_busy
+        if key != "bank_code":  # typing on the refused line hides its words at once
+            await pilot.press("x")
+            seen["hidden_by_typing"] = _words(app, key) is None
         await pilot.press("enter")  # the question sends again
         await wait_for(pilot, lambda: sent.call_count == 2)
 
@@ -235,6 +236,7 @@ def test_a_refusal_on_a_line_keeps_the_question_open_on_it_with_what_was_typed(
     assert seen["focused"] == (None if key == "bank_code" else f"line-{key}")
     assert {k: v for k, v in seen["held"].items() if k in typed} == typed
     assert seen["notes"] == [] and seen["busy"] is False
+    assert seen.get("hidden_by_typing", True)
     assert sent.call_count == 2
     keys = [c.request.headers["X-Idempotency-Key"] for c in sent.calls]
     assert keys[0] != keys[1]  # a resend after a refusal is a new write
@@ -249,8 +251,6 @@ def test_a_refusal_on_a_line_keeps_the_question_open_on_it_with_what_was_typed(
             "HAS_RECONCILIATION",
             "The account has a reconciliation, which a person account cannot have.",
         ),
-        ("a-alejo", "make-person", "ACCOUNT_ARCHIVED", "The account is archived."),
-        ("a-eliana", "make-account", "CASH_KIND_FIXED", "Its kind never changes."),
     ],
 )
 def test_a_refusal_on_the_account_closes_the_question_and_reads_as_before(
@@ -278,27 +278,6 @@ def test_a_refusal_on_the_account_closes_the_question_and_reads_as_before(
         run_app(scenario, size=SIZE)
     assert seen["closed"] and seen["busy"] is False
     assert seen["notes"] == [("Failed", f"CONFLICT — {message}\n  account_id: {message}")]
-
-
-def test_a_missing_account_closes_the_question_and_shows_the_engine_words(configured, monkeypatch):
-    _stub_list(monkeypatch, _rows())
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen, notes = await _ask(pilot, app, monkeypatch, "a-alejo")
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: notes)
-        await pilot.pause()
-        seen["closed"] = isinstance(app.screen, AccountsScreen)
-        seen["notes"] = list(notes)
-
-    with respx.mock() as engine:
-        engine.post(f"{ENGINE_URL}/v1/accounts/a-alejo/make-person").mock(
-            error_response(404, "NOT_FOUND", "account not found.")
-        )
-        run_app(scenario, size=SIZE)
-    assert seen["closed"]
-    assert seen["notes"][0][0] == "Failed" and "account not found." in seen["notes"][0][1]
 
 
 def test_tab_stops_at_either_end_and_a_new_refusal_hides_the_old(configured, monkeypatch):

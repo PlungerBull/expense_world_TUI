@@ -8,14 +8,12 @@ test_tui_writes.py.
 """
 
 import threading
-from types import SimpleNamespace
 
 import pytest
 from textual.screen import Screen
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError, EngineError, format_error
-from expense.tui.screens._base import LeftBehind
 from expense.tui.screens._form import open_it_again
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
@@ -240,17 +238,6 @@ def test_quitting_mid_save_sends_and_shows_nothing_more(fake_client, monkeypatch
     notes, sent, _ = _left_save(fake_client, monkeypatch, quit_instead=True)
     assert sent == [PUT_ACCOUNT]
     assert notes == []
-
-
-@pytest.mark.parametrize(
-    ("error", "failure", "reads"),
-    [(None, None, True), ("x", NOT_FUTURE, False), ("x", SERVER_ERROR, True)],
-    ids=["landed", "refused", "unknown"],
-)
-def test_the_landing_check_reads_the_list_again_unless_refused_clearly(error, failure, reads):
-    form = EditAccountScreen(VISA, ENGINE_CURRENCIES, ENGINE_BANKS)
-    item = SimpleNamespace(left_behind=LeftBehind("Not saved"))
-    assert form._landed_after_leaving(item, error, failure) is reads
 
 
 def test_the_real_esc_with_the_save_unanswered_reads_the_list_at_esc_and_again_at_the_end(
