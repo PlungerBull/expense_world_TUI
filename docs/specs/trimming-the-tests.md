@@ -60,8 +60,6 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-3. **The LOG bar:** test_tui_log_bar.py and the quick-add parser's tests, one test per
-   behaviour, near-copies merged into one table of cases.
 4. **The statements:** test_tui_statements.py, test_tui_statement_detail.py,
    test_tui_statement_upload.py, test_tui_statement_balances.py, test_tui_flagged_lines.py,
    test_tui_flagged_panes.py and test_tui_bank_import.py.

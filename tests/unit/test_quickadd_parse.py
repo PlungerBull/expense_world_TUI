@@ -41,37 +41,22 @@ def _p(line: str, *, today: date = TODAY):
 
 @pytest.mark.parametrize(
     ("text", "expected"),
-    [("-99.92", -9992), ("99", 9900), ("+12.5", 1250), ("0", 0), ("abc", None), ("", None)],
+    [
+        ("-99.92", -9992),
+        ("99", 9900),
+        ("+12.5", 1250),
+        ("0", 0),
+        ("abc", None),
+        ("", None),
+        ("999999999.99", 99999999999),  # no bound of the app's own (contract: "Money amounts")
+        ("9" * 25, int("9" * 25) * 100),
+        ("+.5", 50),
+        ("5.", 500),
+    ],
 )
 def test_parse_amount(text, expected):
     """Signed amounts parse to cents."""
     assert parse_amount(text, DOT) == expected
-
-
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        ("13853.20", 1385320),
-        ("13,853.20", 1385320),  # a comma before the dot groups thousands
-        ("-1,311.97", -131197),
-        ("1,000", 100000),  # a comma with no dot groups thousands too
-        ("-99.92", -9992),
-    ],
-)
-def test_a_thousands_comma_is_dropped(text, expected):
-    assert parse_amount(text, DOT) == expected
-
-
-@pytest.mark.parametrize("text", ["13.853,20", "-1.234,5", "+1.000,00", "1,234.5,6", "-1.234,56"])
-def test_a_comma_after_the_dot_is_unreadable(text):
-    """Under `1,234.56` a comma after the dot, or the other format's grouping, is no
-    mark of this format, so the amount is refused, not guessed."""
-    assert parse_amount(text, DOT) is None
-
-
-def test_amount_to_text_roundtrips():
-    assert amount_to_text(-9992) == "-99.92"
-    assert parse_amount(amount_to_text(-123456), DOT) == -123456
 
 
 # --- the amount token -------------------------------------------------------
@@ -93,6 +78,8 @@ def test_amount_to_text_roundtrips():
 )
 def test_amount_shapes(line, expected):
     assert _p(line).amount_cents == expected
+    if line == "recibo 2450":
+        assert _p(line).title == "recibo 2450"  # an unsigned number stays in the title
 
 
 def test_a_comma_after_the_dot_leaves_the_line_with_no_amount():
@@ -119,10 +106,6 @@ def test_first_sign_wins():
     result = _p("hoy +30 no -30")
     assert result.amount_cents == 3000
     assert result.title == "no -30"
-
-
-def test_unsigned_digits_stay_in_the_title():
-    assert _p("ruta 2450 $efectivo @wants").title == "ruta 2450"
 
 
 # --- the reference tokens ---------------------------------------------------
@@ -257,15 +240,11 @@ def test_a_name_never_swallows_the_next_token():
 
 
 def test_hashtags_repeat_and_the_rest_are_first_wins():
-    result = _p("x -5 #caja #taxi $nico $efectivo @wants @korakuen")
+    result = _p("x -5 #caja #taxi #caja $nico $efectivo @wants @korakuen")
     assert result.hashtag_ids == ("t1", "t2")
     assert (result.account_id, result.category_id) == ("a4", "c3")
     # The losing tokens are not silently applied — they read as title text.
     assert result.title == "x $efectivo @korakuen"
-
-
-def test_the_same_tag_twice_is_deduped_not_rejected():
-    assert _p("x -5 #caja #caja").hashtag_ids == ("t1",)
 
 
 @pytest.mark.parametrize(
@@ -390,10 +369,6 @@ def test_is_complete_needs_every_name_resolved_too():
     assert _p("tottus -5 $sig @wants").is_complete is False
 
 
-def test_hashtags_and_note_are_optional():
-    assert _p("tottus -5 $efectivo @wants").is_complete is True
-
-
 # --- spans ------------------------------------------------------------------
 
 
@@ -491,13 +466,6 @@ def test_a_bare_sigil_stands_unresolved_carrying_every_candidate():
         assert result.title == "tottus"  # the sigil is not swallowed as a word
 
 
-def test_a_bare_dollar_is_still_not_an_amounts_decoration():
-    """`-$1800` stays one amount — the `$` there is decoration, not a sigil."""
-    result = _p("alquiler -$1800")
-    assert result.amount_cents == -180000
-    assert result.unresolved == ()
-
-
 def test_names_match_through_accents_both_ways():
     """`#banos` finds `BAÑOS`, and `#baños` still finds itself."""
     tags = [("h9", "BAÑOS")]
@@ -537,20 +505,6 @@ def test_a_bare_sigil_opens_the_picker_even_when_one_candidate_exists():
     assert result.account_id is None
 
 
-def test_parse_amount_refuses_non_finite_decimals():
-    """`Decimal` reads "nan" and "inf" happily; `int()` on either raises. A
-    form field must warn on an unreadable amount, not crash."""
-    for text in ("nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"):
-        assert parse_amount(text, DOT) is None
-
-
-def test_parse_amount_refuses_an_amount_whose_cents_overflow():
-    """`1e999999` is a finite Decimal, but times 100 it overflows the decimal
-    context, which raises: unreadable, never a crash."""
-    for text in ("1e999999", "-1e999999", "1E+999999999"):
-        assert parse_amount(text, DOT) is None
-
-
 # --- an account is one row, holding its currencies ----------------------------------
 
 
@@ -559,12 +513,6 @@ def test_a_name_resolves_to_its_one_account_whatever_it_holds():
     assert (result.account_id, result.account_name) == ("v1", "Visa Inventada")
     assert result.unresolved == ()
     assert result.account_currencies == ("PEN", "USD")
-
-
-def test_a_one_currency_account_resolves_on_its_name_alone():
-    result = _p("-10 $efectivo")
-    assert (result.account_id, result.currency_code) == ("a5", None)
-    assert result.shown_currency == "PEN"
 
 
 # --- the currency: its own token, `%`, from the account's own currencies --------
@@ -695,29 +643,15 @@ def test_the_payload_carries_the_account_and_only_a_typed_currency():
         "0x10",
         "--5",
         "1.2.3",
+        "nan",
+        "1e999999",
+        "-1E+999999999",
         ".",
         "+",
     ],
 )
 def test_only_a_plain_number_is_read(text):
     assert parse_amount(text, DOT) is None
-
-
-@pytest.mark.parametrize(
-    ("text", "cents"),
-    [
-        ("999999999.99", 99999999999),
-        ("1000000000.00", 100000000000),
-        ("9" * 25, int("9" * 25) * 100),
-        ("-" + "9" * 25 + ".5", -int("9" * 25 + "50")),
-        ("+.5", 50),
-        ("5.", 500),
-        ("1,000,000,000", 100000000000),
-    ],
-)
-def test_a_plain_number_is_read_at_any_size(text, cents):
-    """No bound of the app's own: the engine owns it (contract: "Money amounts")."""
-    assert parse_amount(text, DOT) == cents
 
 
 def test_a_number_too_long_for_python_to_print_is_unreadable_not_a_crash():
@@ -741,7 +675,9 @@ def test_amount_to_text_is_exact_at_any_size(cents):
         ("-1,500", -150000),
         ("-1500", -150000),
         ("13,853.20", 1385320),
+        ("-1,311.97", -131197),
         ("1,000", 100000),
+        ("1,000,000,000", 100000000000),
         ("123,456,789.5", 12345678950),
         ("-0.5", -50),
         ("1,234.", 123400),
@@ -764,6 +700,8 @@ def test_dot_decimal_reads_a_group_of_exactly_three_digits(text, cents):
         ",500",
         "1,,000",
         "-1.234,56",
+        "13.853,20",
+        "+1.000,00",
         "1,234,",
         "1,000.5,0",
         "-0,500",

@@ -89,6 +89,8 @@ def test_a_number_without_a_sign_is_not_an_amount():
         ("bonus +1.000,00 $BCP Plus", "+1.000,00"),
         ("tottus -$13.853,20 $BCP Plus", "-$13.853,20"),  # named as typed
         ("tottus -1.2.3 -13.853,20 $BCP Plus", "-1.2.3"),  # the first one is named
+        ("tottus -1e5000 $BCP Plus", "-1e5000"),  # amount-shaped, not a plain number
+        ("tottus -inf $BCP Plus", "-inf"),
     ],
 )
 def test_a_signed_number_it_cannot_read_is_named(line, token):

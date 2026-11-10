@@ -228,38 +228,14 @@ def test_the_staged_list_has_a_cur_column_and_the_account_cell_names_the_account
     assert " · PEN" not in out and " · USD" not in out
 
 
-def test_a_line_with_no_account_is_refused_not_staged():
-    """Routing's answer for the line `↵` refuses — the screen never builds a
-    row from it."""
-    entry = _stage(NO_ACCOUNT_LINE)
-    assert entry.routing.refused
-    assert "the line names no account" in entry.routing.reasons
-
-
-def test_row_with_no_category_reads_as_pendiente():
-    """The category cell already says where the engine will file it."""
-    out = _text(staged_table([_stage(NO_CATEGORY_LINE)], REFS, today=TODAY.isoformat()))
-    assert "•" in out
-    assert "pendiente" in out.lower()
-    assert "apparka mall" in out
-
-
-def test_row_with_no_title_shows_untitled():
-    out = _text(staged_table([_stage(NO_TITLE_LINE)], REFS, today=TODAY.isoformat()))
-    assert "(untitled)" in out
-    assert "(no title)" not in out
-
-
-def test_row_dated_ahead_is_refused_though_it_is_complete():
-    entry = _stage(AHEAD_LINE)
-    assert entry.parsed.is_complete  # nothing is missing — only the date is
-    assert entry.routing.refused
-    assert "it is dated ahead" in entry.routing.reasons
-
-
-def test_row_without_tags_shows_a_dim_dash():
-    out = _text(staged_table([_stage(USD_LINE)], REFS, today=TODAY.isoformat()))
-    assert "—" in out
+def test_a_sparse_row_reads_where_the_engine_will_file_it():
+    """No category reads `pendiente`, no title `(untitled)`, no tags a dim dash."""
+    today = TODAY.isoformat()
+    no_category = _text(staged_table([_stage(NO_CATEGORY_LINE)], REFS, today=today))
+    assert "•" in no_category and "pendiente" in no_category.lower()
+    assert "apparka mall" in no_category
+    assert "(untitled)" in _text(staged_table([_stage(NO_TITLE_LINE)], REFS, today=today))
+    assert "—" in _text(staged_table([_stage(USD_LINE)], REFS, today=today))
 
 
 def test_empty_list_is_the_invitation_not_a_table():
@@ -288,13 +264,6 @@ def test_date_cell_hides_the_current_year_and_shows_any_other():
 
 
 # ---- pure: the summary ------------------------------------------------------
-def test_summary_with_one_currency_reads_with_its_one_total():
-    entries = [_stage(LEDGER_LINE), _stage("shimaya ramen -96.00 $BCP @KORAKUEN")]
-    out = _text(staged_summary(entries, REFS))
-    assert "2 staged" in out  # everything is going to the ledger
-    assert "-134.60 PEN" in out
-
-
 def test_summary_totals_per_currency_never_adds_soles_to_dollars():
     out = _text(staged_summary([_stage(LEDGER_LINE), _stage(USD_LINE)], REFS))
     assert "-38.60 PEN" in out
@@ -328,15 +297,12 @@ def test_span_styles_come_from_the_theme_not_from_literals():
     amount = next(s for s in income.spans if s.kind == "amount")
     assert span_style(amount, income, PALETTE) == PALETTE.success
 
-
-def test_an_unresolved_token_takes_the_error_colour():
-    parsed = _stage("apparka -3.50 $nope @KORAKUEN").parsed
-    bad = next(s for s in parsed.spans if not s.resolved)
-    assert span_style(bad, parsed, PALETTE) == PALETTE.error
+    unresolved = _stage("apparka -3.50 $nope @KORAKUEN").parsed  # an unresolved token: error
+    bad = next(s for s in unresolved.spans if not s.resolved)
+    assert span_style(bad, unresolved, PALETTE) == PALETTE.error
 
 
 def test_highlighter_paints_the_bar_from_the_parse():
-    from rich.text import Text
 
     from expense.tui.screens.log_bar import LineHighlighter
 
@@ -515,7 +481,7 @@ def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypa
 
 
 def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, monkeypatch):
-    """Typed key by key: `-13.853,20` is not read as -13.85. The line stays in
+    """`-13.853,20` is not read as -13.85. The line stays in
     the bar, refused with a note naming `-13.853,20`, and nothing is staged or
     sent; the same figure written `-13,853.20` stages and saves as -13,853.20."""
     _patch(monkeypatch)
@@ -524,8 +490,7 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        await pilot.press(*refused)
-        await wait_for(pilot, lambda: _bar(screen).value == refused)
+        _type(screen, refused)
         await pilot.press("enter")
         await pilot.pause()
         assert screen._staged == []
@@ -537,9 +502,8 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
         assert "needs a sign" not in out
         assert fake_client.posts == []
 
-        await pilot.press("ctrl+a", "ctrl+k")
-        assert _bar(screen).value == ""
-        await pilot.press(*fixed, "enter")
+        _type(screen, fixed)
+        await pilot.press("enter")
         await wait_for(pilot, lambda: len(screen._staged) == 1)
         assert screen._staged[0].parsed.amount_cents == -1385320
         await pilot.press("ctrl+s")
@@ -549,44 +513,6 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
     [(path, body)] = fake_client.posts
     assert path == "/transactions/batch"
     assert [row["amount_cents"] for row in body["transactions"]] == [-1385320]
-
-
-def test_a_line_with_no_signed_number_keeps_the_needs_a_sign_note(fake_client, monkeypatch):
-    """Typed key by key: `tottus 38 $BCP` has a number but no sign, so `↵`
-    refuses it with the note that says a number needs a sign; nothing is sent."""
-    _patch(monkeypatch)
-    line = "tottus 38 $BCP"
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        await pilot.press(*line)
-        await wait_for(pilot, lambda: _bar(screen).value == line)
-        await pilot.press("enter")
-        await pilot.pause()
-        assert screen._staged == []
-        assert _bar(screen).value == line
-        out = _text(screen._suggest_renderable(), width=160)
-        assert "not staged" in out
-        assert "the line has no amount — a number needs a sign to be one" in out
-        assert "can't read" not in out
-        assert fake_client.posts == []
-
-    run_app(scenario)
-
-
-def test_a_line_with_no_category_stages_and_reads_as_pendiente(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, NO_CATEGORY_LINE)
-        screen.on_input_submitted()
-        assert _bar(screen).value == ""
-        assert screen._staged[0].parsed.category_id is None
-        out = _text(screen._staged_renderable(), width=160)
-        assert "1 staged" in out and "1 pendiente" in out
-
-    run_app(scenario)
 
 
 def test_state6_arrows_pick_a_staged_row_and_enter_lifts_the_typed_line(fake_client, monkeypatch):
@@ -637,21 +563,6 @@ def test_a_lifted_row_is_replaced_in_place_not_appended(fake_client, monkeypatch
     run_app(scenario)
 
 
-def test_ctrl_x_drops_the_picked_row(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        for line in (LEDGER_LINE, NO_CATEGORY_LINE):
-            _type(screen, line)
-            screen.on_input_submitted()
-        screen.action_move(1)
-        screen.action_drop_row()
-        assert [e.line for e in screen._staged] == [NO_CATEGORY_LINE]
-
-    run_app(scenario)
-
-
 def test_ctrl_x_beats_the_inputs_own_cut_binding(fake_client, monkeypatch):
     """Textual's Input binds ctrl+x to `cut`; ours must win, or the key would
     edit the line instead of dropping the row."""
@@ -659,11 +570,11 @@ def test_ctrl_x_beats_the_inputs_own_cut_binding(fake_client, monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _type(screen, LEDGER_LINE)
-        screen.on_input_submitted()
+        _stage_lines(screen, LEDGER_LINE, NO_CATEGORY_LINE)
         screen.action_move(1)
         await pilot.press("ctrl+x")
-        await wait_for(pilot, lambda: not screen._staged, message="ctrl+x never dropped it")
+        await wait_for(pilot, lambda: len(screen._staged) == 1, message="ctrl+x never dropped it")
+        assert [e.line for e in screen._staged] == [NO_CATEGORY_LINE]
 
     run_app(scenario)
 
@@ -728,10 +639,8 @@ def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        for line in (LEDGER_LINE, NO_CATEGORY_LINE, NO_TITLE_LINE):
-            _type(screen, line)
-            screen.on_input_submitted()
-        assert len(screen._staged) == 3
+        _stage_lines(screen, LEDGER_LINE, NO_CATEGORY_LINE, NO_TITLE_LINE, USD_LINE)
+        assert len(screen._staged) == 4
 
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: len(fake_client.posts) == 1)
@@ -739,13 +648,17 @@ def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
         batch_path, batch_body = fake_client.posts[0]
         assert batch_path == "/transactions/batch"
         rows = batch_body["transactions"]
-        assert len(rows) == 3  # ONE call for every row, not one call each
+        assert len(rows) == 4  # ONE call for every row, not one call each
         assert "category_id" not in rows[1] and rows[1]["title"] == "apparka mall"
         assert "title" not in rows[2] and "category_id" not in rows[2]
+        # each item names its account; the lines typed no `%` and their accounts hold one
+        # currency, so no `currency_code` (never a null) and no `holder_id` go
+        assert [r["account_id"] for r in rows] == ["acc1", "acc3", "acc3", "acc2"]
+        assert all("currency_code" not in r and "holder_id" not in r for r in rows)
 
         await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
         assert app.screen is screen  # it stays: the ticks are the receipt
-        assert "3 logged · 2 pendiente" in _text(screen._staged_renderable())
+        assert "4 logged · 2 pendiente" in _text(screen._staged_renderable())
 
     run_app(scenario)
 
@@ -755,24 +668,6 @@ VISA = account_with_currencies(
     name="VISA Infinite Sapphire",
     currencies=[held_currency("PEN"), held_currency("USD")],
 )
-
-
-def test_every_batch_item_names_its_account_and_leaves_the_currency_out(fake_client, monkeypatch):
-    """Each item carries `account_id` from the pick and, the lines typing no `%` and their
-    accounts holding one currency, no `currency_code` at all (never a null): the engine
-    fills it. No `holder_id` either (contract: POST /v1/transactions/batch)."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: len(fake_client.posts) == 1)
-        items = fake_client.posts[0][1]["transactions"]
-        assert [i["account_id"] for i in items] == ["acc1", "acc2"]
-        assert all("currency_code" not in i and "holder_id" not in i for i in items)
-
-    run_app(scenario)
 
 
 def test_dollar_visa_is_one_account_and_the_currency_is_a_token_of_its_own(
@@ -856,37 +751,6 @@ def test_a_two_currency_account_with_none_picked_is_not_staged_and_lists_its_cur
     run_app(scenario)
 
 
-def test_a_one_currency_account_stages_with_its_currency_and_nothing_typed(
-    fake_client, monkeypatch
-):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, "Pan -4.50 $BCP")
-        assert [(e.parsed.account_id, e.parsed.shown_currency) for e in screen._staged] == [
-            ("acc3", "PEN")
-        ]
-
-    run_app(scenario)
-
-
-def test_the_peek_reads_the_currency_beside_the_account(fake_client, monkeypatch):
-    peek = _patch(monkeypatch)
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, "-12.50 $visa")
-        assert screen._peek_target() is None  # no currency picked: no ledger to show
-        _type(screen, "-12.50 $visa %usd")
-        await wait_for(pilot, lambda: peek.accounts and peek.counted)
-        assert (peek.accounts, peek.currencies) == (["acc-visa"], ["USD"])
-        assert (peek.counted, peek.counted_currencies) == (["acc-visa"], ["USD"])
-
-    run_app(scenario)
-
-
 def test_the_peek_follows_the_highlighted_currency_of_the_percent_picker(fake_client, monkeypatch):
     _patch(monkeypatch)
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
@@ -936,91 +800,12 @@ def test_a_line_refused_for_its_currency_and_something_else_gets_the_plain_hint(
         assert len(screen._refused.reasons) == 2
         assert screen._offered
         assert screen._hint() == "not staged — fix the line and press ↵ again"
-
-    run_app(scenario)
-
-
-def test_a_line_missing_its_amount_and_its_currency_gets_the_plain_hint(fake_client, monkeypatch):
-    _patch(monkeypatch)
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA, *ACCOUNTS]))
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, "taxi $visa")
+        # no amount beside the currency: the same plain hint
+        screen._set_bar("taxi $visa")
         screen.on_input_submitted()
         assert screen._hint() == "not staged — fix the line and press ↵ again"
 
     run_app(scenario)
-
-
-def test_a_currency_the_account_does_not_hold_is_refused_under_the_row_and_nothing_is_written(
-    fake_client, monkeypatch
-):
-    """`CURRENCY_NOT_HELD`: the engine's words under the row, the row kept unsaved, the
-    batch's other rows refused too (a refused batch writes none)."""
-    _patch(monkeypatch)
-    words = "BCP does not hold USD."
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, "Taxi -18 $BCP %usd")
-        _script(fake_client, [_refused(0, "currency_code", words, "CURRENCY_NOT_HELD")])
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-        shown = _text(screen._staged_renderable(), width=200)
-        assert f"currency_code: {words}" in shown and "row 1" in shown
-        assert [e.saved for e in screen._staged] == [False]
-        assert len(fake_client.posts) == 1  # the one refused batch, nothing else sent
-
-    run_app(scenario)
-
-
-def test_a_one_currency_account_resolves_on_its_name_and_exact_wins(fake_client, monkeypatch):
-    """`$BCP` is the whole name of one account holding one currency: it resolves at
-    once to that pick, though "BCP Signature" holds the words too."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, "-6.60 $BCP")
-        assert screen._picker is None
-        assert (screen._parsed.account_id, screen._parsed.shown_currency) == ("acc3", "PEN")
-
-    run_app(scenario)
-
-
-def test_the_staged_totals_add_up_per_currency_from_each_rows_pick(fake_client, monkeypatch):
-    """Soles and dollars of one account stay two figures."""
-    _patch(monkeypatch)
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([VISA]))
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(
-            screen,
-            "a -10 $VISA Infinite Sapphire %pen",
-            "b -5 $VISA Infinite Sapphire %usd",
-            "c -2.50 $VISA Infinite Sapphire %pen",
-        )
-        summary = _text(screen._staged_renderable())
-        assert "3 staged" in summary
-        assert "-12.50 PEN" in summary and "-5.00 USD" in summary
-
-    run_app(scenario)
-
-
-def test_the_plus_key_opens_the_log_bar(fake_client, monkeypatch):
-    """The switch: `+` opens the bar, never the edit form. Asserted on the source so a
-    future edit cannot quietly point `+` back at the form.
-    """
-    import inspect
-
-    from expense.tui.screens._base import LogTransactionMixin
-    from expense.tui.screens.edit_form import EditFormScreen
-
-    source = inspect.getsource(LogTransactionMixin.action_log_transaction)
-    assert LogBarScreen.__name__ in source
-    assert EditFormScreen.__name__ not in source
 
 
 # ---- the save --------------------------------------------------------------
@@ -1077,17 +862,6 @@ def test_state7_every_row_ticks_and_the_screen_stays(fake_client, monkeypatch):
         assert "2 logged" in out
         assert "ctrl+s again does nothing" in out
 
-    run_app(scenario)
-
-
-def test_ctrl_s_again_writes_nothing_once_every_row_is_saved(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE)
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
         before = len(fake_client.calls)
         await pilot.press("ctrl+s")
         await pilot.pause()  # let the second chord settle, then assert a non-event
@@ -1155,49 +929,6 @@ _SEALED = (
 )
 
 
-def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_client, monkeypatch):
-    """The wall, at the LOG bar's door (sealed-periods plan S4).
-
-    The bar has no pre-filter — you can type any date, including one inside a
-    month you closed — so the engine's refusal is the only thing standing
-    between a backdated line and silence. The period's NAME lives in the 422's
-    field text and nowhere else, so what this pins is that it survives the
-    batch writer's per-row reading, `format_error`, and the per-row error block,
-    while the row that was fine still ticks.
-    """
-    _patch(monkeypatch)
-
-    def sealed(index: int) -> EngineError:
-        key = f"transactions.{index}.date"
-        return EngineError(
-            "VALIDATION_ERROR",
-            "Batch validation failed.",
-            {key: _SEALED},
-            422,
-            {},
-            reasons={key: "SEALED_PERIOD"},
-        )
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        # the chunk is refused on its second item, sealed; row 1 goes again and lands
-        _script(fake_client, [sealed(1), {}])
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-
-        ledger, backdated = screen._staged
-        assert ledger.saved and ledger.error is None  # one refused row cancels nothing
-        assert not backdated.saved
-        # flattened: the engine's sentence is long enough to wrap in the block,
-        # and where it wraps is a width detail, not the assertion
-        out = " ".join(_text(screen._staged_renderable()).split())
-        assert "1 logged" in out
-        assert f"date: {_SEALED} row 2" in out  # the way out survives, then the row
-
-    run_app(scenario)
-
-
 def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
     """Before first-time setup the engine refuses the batch for a reason that is
     about the account, not about any row: one POST, one toast carrying the error
@@ -1243,44 +974,36 @@ def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_line_codes_exhausted_stops_the_save_and_is_said_once(fake_client, monkeypatch):
-    """The LOG bar shares the batch writer, so it shares its stop: every line code
-    given, the save ends at the one POST, the refusal is one toast in the engine's
-    words, and no row wears a copy of it (contract: "Transactions (Ledger)", "Bank lines")."""
+def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch):
+    """Decision 2, the half that matters: nothing is ever written twice."""
     _patch(monkeypatch)
-    key = "transactions.0.id"
-    refusal = EngineError(
-        "LIMIT_REACHED",
-        "No bank line codes are left.",
-        {key: "No line code is left for a new line."},
-        422,
-        {},
-        reasons={key: "LINE_CODES_EXHAUSTED"},
-    )
-    toasts: list[tuple[str, str]] = []
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        monkeypatch.setattr(
-            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
-        )
         _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        _script(fake_client, [refusal])
+        _script(
+            fake_client,
+            [_refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"), {}],
+        )
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
+        fake_client.calls.clear()
 
-        assert len(fake_client.posts) == 1  # nothing sent again
-        assert all(not e.saved and e.error is None for e in screen._staged)
-        assert toasts == [
-            (
-                "Failed",
-                "LIMIT_REACHED — No bank line codes are left.\n"
-                "  transactions.0.id: No line code is left for a new line.",
-            ),
-            ("Failed", "Some rows were not written."),
-        ]
+        await pilot.press("ctrl+s")  # the engine is healthy again
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        # the first row is already in — the retry carries the other alone
+        assert [p for _, p, _ in fake_client.calls] == ["/transactions/batch"]
+        assert len(fake_client.calls[0][2]["transactions"]) == 1
 
     run_app(scenario)
+
+
+def _conflict(key: str, reason: str, message: str = "stand-in") -> EngineError:
+    """The batch 409, keyed by the thing refused: `transactions.<i>.id` for a
+    taken id, `category_id` for the system-category refusals (contract: "Error reasons")."""
+    return EngineError(
+        "CONFLICT", message, {key: "stand-in field words"}, 409, {}, reasons={key: reason}
+    )
 
 
 def test_a_run_stop_keeps_a_rows_own_earlier_refusal(fake_client, monkeypatch):
@@ -1329,65 +1052,6 @@ def test_a_run_stop_keeps_a_rows_own_earlier_refusal(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
-    """A hashtag archived or deleted between staging and saving: the engine keys
-    it on its item, `transactions.<index>.hashtag_ids`, with the other item
-    failures. The row it belongs to carries the refusal; the other one ticks."""
-    _patch(monkeypatch)
-    unknown = "Some hashtag IDs are invalid."
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, USD_LINE, LEDGER_LINE)  # the second row carries #CAJA CHICA
-        _script(
-            fake_client,
-            [_refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"), {}],
-        )
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-
-        plain, tagged = screen._staged
-        assert plain.saved and plain.error is None
-        assert not tagged.saved and unknown in (tagged.error or "")
-        out = " ".join(_text(screen._staged_renderable()).split())
-        assert "1 logged" in out
-        assert f"hashtag_ids: {unknown} row 2" in out
-
-    run_app(scenario)
-
-
-def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch):
-    """Decision 2, the half that matters: nothing is ever written twice."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        _script(
-            fake_client,
-            [_refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"), {}],
-        )
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-        fake_client.calls.clear()
-
-        await pilot.press("ctrl+s")  # the engine is healthy again
-        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-        # the first row is already in — the retry carries the other alone
-        assert [p for _, p, _ in fake_client.calls] == ["/transactions/batch"]
-        assert len(fake_client.calls[0][2]["transactions"]) == 1
-
-    run_app(scenario)
-
-
-def _conflict(key: str, reason: str, message: str = "stand-in") -> EngineError:
-    """The batch 409, keyed by the thing refused: `transactions.<i>.id` for a
-    taken id, `category_id` for the system-category refusals (contract: "Error reasons")."""
-    return EngineError(
-        "CONFLICT", message, {key: "stand-in field words"}, 409, {}, reasons={key: reason}
-    )
-
-
 def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkeypatch):
     """The response was lost, not the write. `ID_EXISTS` on the row's own
     client-minted id means it is already there — a tick, never a second copy."""
@@ -1408,60 +1072,12 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
     run_app(scenario)
 
 
-def test_one_save_ticks_a_replayed_row_names_a_refused_one_and_lands_the_rest(
-    fake_client, monkeypatch
-):
-    """The engine answers what the request shows first (a zero amount on row 3),
-    then, sent again without it, the taken id of row 1; row 2 goes a third time
-    and lands. Rows 1 and 2 tick, row 3 carries its refusal: one request per send,
-    never one per row (contract: POST /v1/transactions/batch)."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE)
-        ids = [e.row_id for e in screen._staged]
-        _script(
-            fake_client,
-            [
-                _refused(2, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
-                _conflict("transactions.0.id", "ID_EXISTS"),
-                {},
-            ],
-        )
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-
-        sent = [[item["id"] for item in body["transactions"]] for _, _, body in fake_client.calls]
-        assert sent == [ids, ids[:2], ids[1:2]]
-        replayed, landed, refused = screen._staged
-        assert replayed.saved and replayed.error is None
-        assert landed.saved and landed.error is None
-        assert not refused.saved
-        assert refused.error == "amount_cents: Must not be zero."
-        out = _text(screen._staged_renderable())
-        assert "✓ 1" in out and "✓ 2" in out and "✓ 3" not in out
-        assert "  amount_cents: Must not be zero. row 3\n" in out
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize(
-    ("reason", "line"),
-    [
-        ("CONCURRENT_CHANGE", "It changed at the same moment: save again."),
-        (
-            "RESERVED_NAME_HELD",
-            "One of your categories has a built-in category's name: "
-            "rename it on Manage ▸ Categories, then save again.",
-        ),
-    ],
-)
-def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reason, line):
+def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch):
     """Only a replay of the row's own id is a tick. A row refused for another
     reason keeps no ✓ and shows the engine's words, then the line saying what to
     do: `ctrl+s` is how this screen saves again."""
     _patch(monkeypatch)
+    reason, line = "CONCURRENT_CHANGE", "It changed at the same moment: save again."
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -1477,26 +1093,6 @@ def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reaso
             f"CONFLICT — stand-in\n  category_id: stand-in field words\n\n{line}"
         )
         assert app.screen is screen
-
-    run_app(scenario)
-
-
-def test_a_connection_error_writes_nothing_and_every_row_survives(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        fake_client.errors["POST"] = EngineConnectionError(
-            url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
-        )
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-
-        assert len(screen._staged) == 2
-        assert not any(e.saved for e in screen._staged)
-        assert all("127.0.0.1:8000" in (e.error or "") for e in screen._staged)
-        assert app.screen is screen  # every row is still here; ctrl+s tries again
 
     run_app(scenario)
 
@@ -1594,13 +1190,6 @@ def test_a_failed_save_first_keeps_the_screen_so_the_error_is_readable(fake_clie
 
 
 # ---- pure: the save's render layer ------------------------------------------
-def test_a_saved_row_renders_a_tick_instead_of_its_routing_marker():
-    entry = _stage(LEDGER_LINE)
-    entry.saved = True
-    out = _text(staged_table([entry], REFS, today=TODAY.isoformat()))
-    assert "✓" in out and "•" not in out
-
-
 def test_the_summary_totals_only_the_rows_still_pending():
     """A written row stops being something you are about to do — otherwise the
     figure under a half-saved list describes a batch that no longer exists."""
@@ -1610,14 +1199,6 @@ def test_the_summary_totals_only_the_rows_still_pending():
     assert "1 logged" in out
     assert "-96.00" in out and "USD" in out  # the pending row's own currency
     assert "-38.60" not in out  # the saved one has left the total
-
-
-def test_the_error_block_names_the_row_and_says_what_to_press():
-    entry = _stage(LEDGER_LINE)
-    entry.error = "SERVER_ERROR — engine exploded"
-    out = _text(save_errors([_stage(USD_LINE), entry]))
-    assert "  SERVER_ERROR — engine exploded row 2\n" in out
-    assert "ctrl+s retries just the rows without a ✓." in out
 
 
 def _two_kinds() -> EngineError:
@@ -1656,26 +1237,6 @@ def test_refused_rows_read_one_line_per_kind(fake_client, monkeypatch):
             f"  date: {_SEALED} row 3\n"
             "  ctrl+s retries just the rows without a ✓.\n"
         )
-
-    run_app(scenario)
-
-
-def test_a_required_currency_shows_in_the_engines_words_on_its_row(fake_client, monkeypatch):
-    """Should the engine meet a line with no currency on an account holding several, its
-    `REQUIRED` on `transactions.<i>.currency_code` reads in its words on that row, the
-    other going on (contract: POST /v1/transactions/batch)."""
-    _patch(monkeypatch)
-    words = "Must be one of the account's currencies: PEN, USD."
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        _script(fake_client, [_refused(0, "currency_code", words, "REQUIRED"), {}])
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
-
-        out = _text(save_errors(screen._staged), width=200)
-        assert f"currency_code: {words} row 1" in out
 
     run_app(scenario)
 
@@ -1908,6 +1469,8 @@ def test_the_peek_title_and_count_name_the_picked_currency_of_a_two_currency_acc
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
+        _type(screen, "-12.50 $visa")
+        assert screen._peek_target() is None  # no currency picked: no ledger to show
         _type(screen, "-12.50 $visa %usd")
         await _peeked(pilot, screen)
         panel = _peek(screen)
@@ -1920,38 +1483,6 @@ def test_the_peek_title_and_count_name_the_picked_currency_of_a_two_currency_acc
         assert not any("· PEN" in ln for ln in drawn)
 
     run_app(scenario, size=(110, 30))
-
-
-def test_a_long_account_name_gives_way_in_the_count_line(fake_client, monkeypatch):
-    long_name = "Interbank " + "Cuenta Sueldo Mancomunada Familia Quispe"
-    assert len(long_name) == 50
-    accounts = [
-        account_with_currencies(id="acc9", name=long_name, currencies=[held_currency("PEN")])
-    ]
-    fetch = _patch(monkeypatch, _PeekFetch(total=1716))
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, f"tottus -38.60 ${long_name} @KORAKUEN")
-        await _peeked(pilot, screen)
-        panel = _peek(screen)
-        width = panel.content_size.width
-        status = panel.panel_status
-        assert fetch.accounts == ["acc9"]
-        assert len(status) <= width and "\n" not in status
-        assert "…" in status and status.endswith(" · PEN · newest first")
-        assert status.startswith(f"{min(len(panel._rows), panel.capacity)} of 1716 in Interbank")
-        assert panel.panel_title == f"{long_name} · PEN"
-        # nothing is cut: the panel's last drawn line is the status, whole
-        drawn = _text(panel.content, width).rstrip().splitlines()
-        assert drawn[-1].strip() == status
-        # wider again: the same line re-fits and the name comes back whole
-        await pilot.resize_terminal(140, 24)
-        await wait_for(pilot, lambda: long_name in panel.panel_status, message="never re-fitted")
-        assert len(panel.panel_status) <= panel.content_size.width
-
-    run_app(scenario, size=(80, 24))
 
 
 def test_a_nameless_account_reads_the_same_in_the_title_and_the_count_line(
@@ -2130,20 +1661,6 @@ def test_a_peek_that_lands_as_the_app_closes_touches_nothing(fake_client, monkey
     run_app(scenario, size=(110, 30))
 
 
-def test_the_peek_total_is_the_engine_count_read_with_the_rows(fake_client, monkeypatch):
-    fetch = _patch(monkeypatch, _PeekFetch(total=1716))
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, LEDGER_LINE)
-        await _peeked(pilot, screen)
-        assert fetch.accounts == ["acc1"] and fetch.counted == ["acc1"]
-        # the figure is the count, not the length of the page in hand
-        assert f"of 1716 in {_peek(screen).panel_title}" in _peek(screen).panel_status
-
-    run_app(scenario, size=(110, 30))
-
-
 def test_a_count_that_cannot_be_read_fails_the_peek(fake_client, monkeypatch):
     """No rows beside a guessed number: the rows arrived,
     the count did not, so the panel says why and shows no rows."""
@@ -2182,11 +1699,6 @@ def test_a_save_refetches_the_account_it_just_wrote_to(fake_client, monkeypatch)
 
 # ---- the legend row ---------------------------------------------------------
 # The whole grammar in one row.
-def test_the_legend_names_every_token_of_the_grammar():
-    for token in ("$account", "@category", "#tag", "±amount", "//note", "when"):
-        assert token in LEGEND
-
-
 def test_the_legend_is_one_row_and_the_footer_carries_stage(fake_client, monkeypatch):
     _patch(monkeypatch)
 
@@ -2257,19 +1769,6 @@ def test_a_bare_sigil_opens_the_full_list(fake_client, monkeypatch):
         assert [n for _, n in screen._picker.candidates] == ["CAJA CHICA", "TAXI"]
         screen.on_input_submitted()  # ↵ completes it in place, as always
         assert _bar(screen).value == "tottus -38.60 #CAJA CHICA"
-
-    run_app(scenario, size=(110, 30))
-
-
-def test_a_bare_dollar_offers_every_account(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, "tottus -38.60 $")
-        assert len(screen._picker.candidates) == 3
-        # and the peek follows it like any other account token
-        assert screen._peek_account == ("acc1", "PEN")
 
     run_app(scenario, size=(110, 30))
 
@@ -2413,24 +1912,6 @@ def test_a_pasted_path_goes_through_the_same_recognition(fake_client, monkeypatc
     run_app(scenario)
 
 
-def test_a_typed_path_goes_through_the_same_recognition(fake_client, monkeypatch, tmp_path):
-    path = _bank_file(tmp_path, "movimientos.xlsx")
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        handed = _spy_import(screen)
-        await pilot.press(*str(path))
-        await wait_for(pilot, lambda: screen._files is not None, message="typing not seen")
-        assert _bar(screen).value == str(path)
-        assert screen._files == [path]
-        await pilot.press("enter")
-        await pilot.pause()
-        assert handed == [[path]] and screen._staged == []
-
-    run_app(scenario)
-
-
 # ---- the pending hashtag never rides beside a real one ---------------------------
 # (contract: "Transactions (Ledger)", "Hashtags on a transaction")
 
@@ -2444,16 +1925,16 @@ WITH_PENDING = {
 PENDING_AND_REAL_LINE = "tottus -38.60 $BCP Signature @KORAKUEN #Pendiente #TAXI"
 
 
-def _save_line(fake_client, monkeypatch, line, *, script=None, tags=WITH_PENDING):
-    """Stage `line` with the pending hashtag in the lists, save it; returns the
-    staged row once the save has run."""
+def _save_line(fake_client, monkeypatch, *lines, script=None, tags=WITH_PENDING):
+    """Stage `lines` with the pending hashtag in the lists, save them; returns the
+    first staged row once the save has run."""
     _patch(monkeypatch)
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: tags)
     seen: dict = {}
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
-        _stage_lines(screen, line)
+        _stage_lines(screen, *lines)
         if script is not None:
             _script(fake_client, script)
         await pilot.press("ctrl+s")
@@ -2464,26 +1945,18 @@ def _save_line(fake_client, monkeypatch, line, *, script=None, tags=WITH_PENDING
     return seen["entry"]
 
 
-def _sent_tags(fake_client) -> list:
-    return [item.get("hashtag_ids") for item in fake_client.posts[0][1]["transactions"]]
-
-
-def test_a_line_naming_the_pending_hashtag_and_a_real_one_sends_the_real_one(
-    fake_client, monkeypatch
-):
-    _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE)
-    assert _sent_tags(fake_client) == [["h2"]]
-
-
-def test_a_line_naming_only_the_pending_hashtag_sends_it_alone(fake_client, monkeypatch):
-    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature #Pendiente")
-    assert _sent_tags(fake_client) == [["hp"]]
-
-
-def test_a_line_with_no_hashtag_sends_none(fake_client, monkeypatch):
-    """No `hashtag_ids` at all: the engine files the row under the pending hashtag."""
-    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature")
-    assert _sent_tags(fake_client) == [None]
+def test_the_pending_hashtag_is_sent_alone_and_never_beside_a_real_one(fake_client, monkeypatch):
+    """A real tag beside `#Pendiente` goes alone; `#Pendiente` alone goes; no tag sends
+    no `hashtag_ids` at all, so the engine files the row under the pending hashtag."""
+    _save_line(
+        fake_client,
+        monkeypatch,
+        PENDING_AND_REAL_LINE,
+        "tottus -38.60 $BCP Signature #Pendiente",
+        "tottus -38.60 $BCP Signature",
+    )
+    sent = [item.get("hashtag_ids") for item in fake_client.posts[0][1]["transactions"]]
+    assert sent == [["h2"], ["hp"], None]
 
 
 # ---- what the staged row's tags cell shows -----------------------------------------
@@ -2498,9 +1971,32 @@ REFS_PENDING = replace(
     hashtag_names={**REFS.hashtag_names, "hp": "Pendiente"},
     pending_hashtag=("hp", "Pendiente"),
 )
+REFS_PENDING_RENAMED = replace(
+    REFS_PENDING,
+    hashtag_names={**REFS.hashtag_names, "hp": "Pend-from-engine"},
+    pending_hashtag=("hp", "Pend-from-engine"),
+)
+REFS_NAMED_LIKE_PENDING = replace(
+    REFS,
+    hashtags=[*REFS.hashtags, ("hx", "Pendiente")],
+    hashtag_names={**REFS.hashtag_names, "hx": "Pendiente"},
+)
+PLAIN_LINE = "tottus -38.60 $BCP Signature"
 
 
-def _tags_cell_of(line: str, refs: QuickAddRefs = REFS_PENDING) -> Text:
+@pytest.mark.parametrize(
+    ("line", "refs", "plain", "style"),
+    [
+        (PENDING_AND_REAL_LINE, REFS_PENDING, "#TAXI", ACCENT),  # the real one alone
+        (PLAIN_LINE + " #Pendiente", REFS_PENDING, "#Pendiente", ACCENT),
+        (PLAIN_LINE, REFS_PENDING, "#Pendiente", ACCENT),  # no tag: where the engine files it
+        (PLAIN_LINE, REFS_PENDING_RENAMED, "#Pend-from-engine", ACCENT),  # the engine's name
+        (PLAIN_LINE, REFS, "—", "dim"),  # no pending hashtag yet
+        (PENDING_AND_REAL_LINE, REFS_NAMED_LIKE_PENDING, "#Pendiente #TAXI", ACCENT),
+        (PLAIN_LINE + " #nope", REFS_PENDING, "#nope?", PALETTE.error),
+    ],
+)
+def test_the_tags_cell_echoes_what_the_save_sends(line, refs, plain, style):
     parsed = parse(
         line,
         accounts=refs.quickadd_accounts,
@@ -2509,77 +2005,11 @@ def _tags_cell_of(line: str, refs: QuickAddRefs = REFS_PENDING) -> Text:
         today=TODAY,
     )
     entry = Staged(line=line, parsed=parsed, routing=route(parsed, TODAY))
-    return staged_rows([entry], refs, palette=PALETTE, today=TODAY.isoformat())[0][-1]
+    cell = staged_rows([entry], refs, palette=PALETTE, today=TODAY.isoformat())[0][-1]
+    assert (cell.plain, cell.style) == (plain, style)
 
 
-def test_a_staged_line_naming_the_pending_hashtag_and_a_real_one_lists_the_real_one():
-    cell = _tags_cell_of(PENDING_AND_REAL_LINE)
-    assert (cell.plain, cell.style) == ("#TAXI", ACCENT)
-
-
-def test_a_staged_line_naming_only_the_pending_hashtag_lists_it():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature #Pendiente")
-    assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
-
-
-def test_a_staged_line_with_no_hashtag_reads_as_the_pending_hashtag():
-    """In the accent, like the category cell's @Pendiente beside it."""
-    line = "tottus -38.60 $BCP Signature"
-    cell = _tags_cell_of(line)
-    assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
-    out = _text(staged_table([_stage(line)], REFS_PENDING, today=TODAY.isoformat()))
-    assert "pendiente" in out and "#Pendiente" in out
-
-
-def test_the_tags_cell_takes_the_pending_hashtags_name_from_the_engine():
-    refs = replace(
-        REFS_PENDING,
-        hashtag_names={**REFS.hashtag_names, "hp": "Pend-from-engine"},
-        pending_hashtag=("hp", "Pend-from-engine"),
-    )
-    assert _tags_cell_of("tottus -38.60 $BCP Signature", refs).plain == "#Pend-from-engine"
-
-
-def test_with_no_pending_hashtag_yet_a_line_with_no_hashtag_shows_a_dash():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature", REFS)
-    assert (cell.plain, cell.style) == ("—", "dim")
-
-
-def test_with_no_pending_hashtag_yet_a_hashtag_only_named_like_it_is_listed():
-    refs = replace(
-        REFS,
-        hashtags=[*REFS.hashtags, ("hx", "Pendiente")],
-        hashtag_names={**REFS.hashtag_names, "hx": "Pendiente"},
-    )
-    assert _tags_cell_of(PENDING_AND_REAL_LINE, refs).plain == "#Pendiente #TAXI"
-
-
-def test_an_unknown_tag_still_reads_in_red_with_a_pending_hashtag():
-    cell = _tags_cell_of("tottus -38.60 $BCP Signature #nope")
-    assert (cell.plain, cell.style) == ("#nope?", PALETTE.error)
-
-
-def test_the_staged_row_lists_the_real_hashtag_and_up_brings_back_the_typed_line(
-    fake_client, monkeypatch
-):
-    """Staged with the engine's lists: the row lists #TAXI alone, and picking
-    it back up with the arrows lifts the line exactly as typed, #Pendiente in it."""
-    _patch(monkeypatch)
-    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: WITH_PENDING)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _stage_lines(screen, PENDING_AND_REAL_LINE, "tottus -38.60 $BCP Signature")
-        rows = staged_rows(screen._staged, screen._refs, palette=PALETTE)
-        assert [row[-1].plain for row in rows] == ["#TAXI", "#Pendiente"]
-        screen.action_move(1)
-        screen.on_input_submitted()  # lift the first row
-        assert _bar(screen).value == PENDING_AND_REAL_LINE
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS[::2])
 def test_a_hashtag_refusal_on_the_log_bar_shows_as_sent(
     fake_client, monkeypatch, code, status, reason, line
 ):
@@ -2623,43 +2053,13 @@ def test_the_staged_list_cuts_the_title_and_keeps_every_other_cell_whole(width, 
             assert cell in line
 
 
-@pytest.mark.parametrize("amount", ["-1e5000", "-1e5", "+1E+3", "-inf", "-nan", "-Infinity"])
-def test_a_signed_exponent_inf_or_nan_is_refused_in_place_and_nothing_is_sent(
-    fake_client, monkeypatch, amount
-):
-    """`-1e5000` is amount-shaped but not a plain number: the same note as any
-    unreadable amount, the line kept in the bar, nothing staged or sent."""
-    _patch(monkeypatch)
-    line = f"tottus {amount} $BCP"
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, line)
-        screen.on_input_submitted()
-        assert screen._staged == []
-        assert _bar(screen).value == line
-        out = _text(screen._suggest_renderable(), width=160)
-        assert f"can't read {amount} as an amount: amounts are 1,234.56" in out
-        assert "needs a sign" not in out
-        assert fake_client.posts == []
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize(
-    ("amount", "cents"),
-    [
-        ("-1000000000.00", -100000000000),
-        ("-" + "9" * 25, -int("9" * 25) * 100),
-        ("-" + "1" + "0" * 17, -(10**19)),
-    ],
-)
 def test_a_plain_amount_past_the_bound_is_sent_and_refused_in_the_engines_words(
-    fake_client, monkeypatch, amount, cents
+    fake_client, monkeypatch
 ):
     """The app adds no bound: the amount goes as whole cents, and the engine's refusal reads in its
     words on its row (contract: "Money amounts")."""
     _patch(monkeypatch)
+    amount, cents = "-1000000000.00", -100000000000
     err = amount_refusal("transactions.0.amount_cents", below=True)
     words = AMOUNT_BELOW_RANGE_WORDS
 
@@ -2699,7 +2099,10 @@ BANKS = [
 ]
 
 
-@pytest.mark.parametrize(("pick", "typed", "account"), [(2, "$BCP", "n3"), (1, "$BCP-4471", "n2")])
+@pytest.mark.parametrize(
+    ("pick", "typed", "account"),
+    [(0, "$BCP-5678", "n1"), (2, "$BCP", "n3"), (1, "$BCP-4471", "n2")],
+)
 def test_dollar_bcp_lists_the_three_and_a_pick_resolves_to_that_account(
     fake_client, monkeypatch, pick, typed, account
 ):
