@@ -25,7 +25,7 @@ An **account** is one bank product, one person or the cash account, holding its 
 currencies, so the Visa is one account holding soles and dollars, and each person is one account,
 ALEJO in soles and in dollars on one. A bank account is made from its bank and its card's last 4
 digits and named by the engine (`BCP-5678`); two accounts at one bank with no number would share
-the name `BCP`, which the engine refuses (contract: POST /v1/accounts, "Refusals"). A person is
+the name `BCP`, which the engine refuses (contract: POST /v1/accounts, "Validation"). A person is
 named as typed. An account holds the statement code its PDFs print, and one PDF closes one
 account's month.
 

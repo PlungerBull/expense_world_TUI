@@ -1419,13 +1419,19 @@ than what each test reads.
 
 ## Tests prove what the owner would notice, once (2026-11-09)
 
-**Decision.** A test proves a behaviour the owner would notice, in one place; an engine rule is
-the engine's and the live suite's to judge, never re-stated in a unit test; a guard test exists
-only where a broken convention would write or show something wrong ([CLAUDE.md](../CLAUDE.md)
-"Testing conventions").
+**Decision.** A test proves what the owner would notice, once; engine rules are the engine's
+and the live suite's to judge ([CLAUDE.md](../CLAUDE.md) "Testing conventions").
 
-**Why.** Test code had grown past three times the app's, and the whole unit suite ran past
-four minutes on every commit. A copy of an engine rule in the tests drifts from the engine.
+**Why.** Test code ran past three times the app's, and every commit waited minutes on it. A
+copy of an engine rule in the tests drifts from the engine.
 
-**Rejected.** *An always-on check of every request's shape* — a copy of the engine's rules that
-four reviews never got to match.
+**Rejected.** *An always-on check of every request's shape* — four reviews never got it to
+match the engine.
+
+## An edit sends only what changed (2026-11-09)
+
+**Decision.** An edit sends only the fields the owner changed; a date typed back unchanged is
+left out.
+
+**Why.** The engine judges a sent date against sealed days, so an untouched one could refuse a
+save for something the owner never changed.

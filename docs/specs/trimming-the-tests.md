@@ -51,8 +51,10 @@ Approved. Each task cuts by the rule, keeps `pytest tests/unit` green, and repor
 lines and tests before and after; its reviewer confirms that each behaviour a cut test proved
 is proven by a test that stays, or is nothing the owner would notice. The test items the Backlog held
 (the small test cleanups from the catch-up to `1002f105c6bacdf1`, from the account numbers work
-and from the number format, and "No list test renders an engine-sent total past the largest
-amount") join the task whose files they touch, done there or dropped by the rule.
+and from the number format, "No list test renders an engine-sent total past the largest
+amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_names.py,
+test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
+an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
 1. **The baseline and the engine-rule copies:** record coverage, lines and suite time; drop the
    unit tests' copies of engine rules (the autouse read-only-field refusal in
