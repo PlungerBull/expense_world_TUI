@@ -20,7 +20,8 @@ loop skips it until it can run.
 
 1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
    approved 2026-11-08. Its tasks are done; its acceptance check, sweep and reply follow.
-2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+2. [Trimming the tests](specs/trimming-the-tests.md): approved 2026-11-09.
+3. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
 
@@ -115,23 +116,6 @@ Found while the number format setting was built; drawn as panes 14–16 of
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
 every amount on screen follows the pick as soon as it is known.
 
-### The contract version moved: record it?
-Asked 2026-11-09 · Blocks: the catch-up's acceptance check, and every new task
-The version check says: `saved 1002f105c6bacdf1, engine 9b3b43429d8bd11e`. This client last
-caught up to `1002f105c6bacdf1`. Every version between is in the two hand-offs of 2026-11-08,
-already planned: `cd6574eee1dd5ec0` to `2fa4967b8eed9c3f` in the catch-up and the
-leftover-lines spec, `c15201ee50485e56` to `9b3b43429d8bd11e` in the number format work (its
-reply handed over). Only the record was missed when they were planned.
-- **A.** Record `9b3b43429d8bd11e` and go on: no hand-off is missing.
-- **B.** Ask the engine for one hand-off covering `1002f105c6bacdf1` to `9b3b43429d8bd11e`.
-**Recommended:** A, because each change the log lists is already a task, done or planned.
-
-### Trimming the tests: approve it?
-Asked 2026-11-09 · Blocks: [trimming the tests](specs/trimming-the-tests.md)
-The tests are over three times the app's code and every commit waits on them. The spec's one
-question, how far to cut, is in it, with its tasks drafted on the recommended answer. One reply
-answers it and approves the spec.
-
 ### The official import, redrafted for built names: approve it?
 Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)
 The spec is rewritten now that the engine names bank accounts itself and lists one bank. Its
@@ -150,24 +134,6 @@ CLAUDE.md "Specs and tasks".
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
   (`expense/tui/screens/transactions.py`) reads the rows read before; the Manage lists drop them.
-- **Small test cleanups from the catch-up to `1002f105c6bacdf1`:** test_account_create.py's
-  shape-first docstring names "a person's empty name" though every body there is a bank account;
-  `test_day_of_reads_the_users_zone_whatever_the_machine_zone_is` (test_fake_engine_answers.py)
-  calls `monkeypatch.undo()`, lifting the autouse guards for the rest of that test;
-  `_CLOSE_NOTES`' lists in helpers.py are one object shared by every upload answer; two test names
-  say "the engine's words" (test_cmd_import.py:602, test_tui_bank_import.py:1164) though the row
-  text is a stand-in.
-- **Small test cleanups from the account numbers work:** the Edit form lands no `color` refusal,
-  and a few refusal tests put a raw string in `_values` (test_tui_opening_balance.py:514, :712);
-  no test proves a pick change or typing hides a line's refusal in `t`'s question
-  (test_tui_account_question.py:317), whose `written()` repeats `_currency_write`'s
-  (accounts.py:317, :382); the quit-question test of a number refusal waits on two pauses
-  (test_tui_quit_asks.py:545-548); no screen test covers `↵` on a typed `$bcp` taking the first
-  entry (test_tui_log_bar.py); the live suite pins neither the PDF's group-line number check
-  (`card_paper` prints no group line) nor the edit's `ID_EXISTS` and `CURRENCY_NOT_HELD` on
-  `opening_balances`; two module docstrings overstate their tests (test_statement_numbers.py:15-16,
-  test_account_one_write.py:16-18); `_bank_account` (test_account_numbers.py:41-51) repeats
-  `scratch.account`.
 - **Two comments in expense/errors.py (:71, :328) cite `POST /v1/accounts/{account_id}/opening-balance`,**
   which the account Edit form no longer uses; point them at `PUT /v1/accounts/{account_id}` if
   they describe it.
@@ -177,19 +143,11 @@ CLAUDE.md "Specs and tasks".
 - **`account_line`'s docstring example** (`expense/tui/screens/accounts.py:99`) reads
   `Efectivo · bank · PEN 350.00`, a bank account named like the cash account; give it a bank
   account's name.
-- **Small cleanups from the number format:** the `follow-this-mac` case of
-  `test_enter_saves_one_put_with_the_exact_body` (test_number_format_setting.py) starts on the
-  format it ends on, so it proves the `null` body but not the switch back; the launch read takes
-  no `verbose` (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the
-  base's answer; expense/region.py:3 says the region is read once at launch, though Auth &
-  profile reads it on every load; `DEFAULT_FORMAT`'s comment (expense/number_format.py:36-37)
-  leaves out that the account's pick wins over the region; in
-  tests/contract/test_number_format_setting.py, the comment above `CREATED = 1` cites
-  "Response fields" where the numbering lives in "Activity Log", "Action codes", the cleanup's
-  `except Exception` could catch the expected 404 alone, and "mints nothing" is proven for a
-  live token's id but not a revoked one's.
-- **No list test renders an engine-sent total past the largest amount;** only the formatter and a
-  typed opening balance are proven.
+- **Small code-comment fixes from the number format:** the launch read takes no `verbose`
+  (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the base's answer;
+  expense/region.py:3 says the region is read once at launch, though Auth & profile reads it on
+  every load; `DEFAULT_FORMAT`'s comment (expense/number_format.py:36-37) leaves out that the
+  account's pick wins over the region.
 - **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps
   on a narrow window.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).

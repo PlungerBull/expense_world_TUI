@@ -1,8 +1,7 @@
 # Trimming the tests
 
-**Status: draft for the owner to approve, 2026-11-09. Its questions are below, with its tasks
-drafted on the recommended answers; one reply answers them and approves it.** It runs right
-after the catch-up, while the leftover-lines spec waits on the engine. When done, the why
+**Status: approved on 2026-11-09.** It runs right after the catch-up, while the leftover-lines
+spec waits on the engine. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -37,26 +36,22 @@ brings the tests already written under that rule.
 4. The tester runs the live contract suite green and opens the app: every screen works as
    before.
 
-## Open questions
+## Decided
 
-1. **How far to cut.**
-   - **A.** Lean: test code at most 1.5 times the app's (about 33,000 lines, under half of
-     today's), the unit suite under 60 seconds.
-   - **B.** Moderate: at most 2 times (about 45,000 lines), under 80 seconds.
-   - **C.** No numbers: apply the rule and take whatever it gives.
-   - **Recommended:** A, close to what openGym runs, and a number the reviewer can check.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | How far to cut? | A: test code at most 1.5 times the app's, the unit suite under 60 seconds (2026-11-09). |
 
 ---
 
 ## Tasks
 
-Drafted on answer A. Each task cuts by the rule, keeps `pytest tests/unit` green, and reports
+Approved. Each task cuts by the rule, keeps `pytest tests/unit` green, and reports
 lines and tests before and after; its reviewer confirms that each behaviour a cut test proved
-is proven by a test that stays, or is nothing the owner would notice. The Backlog's test items
+is proven by a test that stays, or is nothing the owner would notice. The test items the Backlog held
 (the small test cleanups from the catch-up to `1002f105c6bacdf1`, from the account numbers work
 and from the number format, and "No list test renders an engine-sent total past the largest
-amount") leave the Backlog when this spec is approved and join the task whose files they
-touch, done there or dropped by the rule.
+amount") join the task whose files they touch, done there or dropped by the rule.
 
 1. **The baseline and the engine-rule copies:** record coverage, lines and suite time; drop the
    unit tests' copies of engine rules (the autouse read-only-field refusal in
