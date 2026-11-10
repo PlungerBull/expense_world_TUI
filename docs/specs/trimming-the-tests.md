@@ -33,7 +33,7 @@ brings the tests already written under that rule.
 1. The summary at the end gives the test code's lines, the number of tests and the whole unit
    suite's time before and after, counted the way this spec's Why counts them, and what a
    further cut would take, for the owner to decide whether to cut more.
-2. The app's code coverage is within 2 points of what task 1 measures before cutting.
+2. The app's code coverage is within 2 points of the baseline below.
 3. The tester runs the live contract suite green and opens the app: every screen works as
    before.
 
@@ -47,6 +47,10 @@ brings the tests already written under that rule.
 
 ## Tasks
 
+**The baseline, 2026-11-09:** the app 22,306 lines; the tests 76,354 lines (tests/unit 59,839,
+tests/contract 16,475), 4,524 unit tests and 416 live ones; the whole unit suite 109 seconds on
+an idle Mac; the app's code coverage 98% (235 of 10,200 statements not run).
+
 Approved. Each task cuts by the rule, keeps `pytest tests/unit` green, and reports
 lines and tests before and after; its reviewer confirms that each behaviour a cut test proved
 is proven by a test that stays, or is nothing the owner would notice. The test items the Backlog held
@@ -56,8 +60,7 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-1. **The baseline and the engine-rule copies:** record coverage, lines and suite time; drop the
-   unit tests' copies of engine rules (the autouse read-only-field refusal in
+1. **The engine-rule copies:** drop the unit tests' copies of engine rules (the autouse read-only-field refusal in
    tests/unit/conftest.py and `helpers.refuse_read_only_fields`, fakes refusing what no test
    asks them to), the tests that check them in test_suite_hygiene.py, and docs/tui.md §6's
    bullet on the request bodies that check guards.
