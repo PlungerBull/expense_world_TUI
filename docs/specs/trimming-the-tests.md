@@ -30,17 +30,18 @@ brings the tests already written under that rule.
 
 ## How the owner knows it is done
 
-1. The test code is at most 1.5 times the app's code, counted the way this spec's Why counts it.
-2. The whole unit suite runs in under 60 seconds on an idle Mac.
-3. The app's code coverage is within 2 points of what task 1 measures before cutting.
-4. The tester runs the live contract suite green and opens the app: every screen works as
+1. The summary at the end gives the test code's lines, the number of tests and the whole unit
+   suite's time before and after, counted the way this spec's Why counts them, and what a
+   further cut would take, for the owner to decide whether to cut more.
+2. The app's code coverage is within 2 points of what task 1 measures before cutting.
+3. The tester runs the live contract suite green and opens the app: every screen works as
    before.
 
 ## Decided
 
 | # | Question | Answer (owner) |
 |---|---|---|
-| 1 | How far to cut? | A: test code at most 1.5 times the app's, the unit suite under 60 seconds (2026-11-09). |
+| 1 | How far to cut? | C: as far as the rule goes, with no target; the numbers are reported at the end, and the owner then decides whether to cut more (2026-11-09). |
 
 ---
 
@@ -71,8 +72,7 @@ amount") join the task whose files they touch, done there or dropped by the rule
    test_tui_delete.py, test_tui_statement_code.py and the account tests.
 7. **The rest of tests/unit,** test_tui_help.py and test_tui_quit_asks.py first, then the live
    suite's repeated cases in tests/contract.
-8. **The speed:** the slowest tests left made fast or merged until the suite is under 60
-   seconds; the tests gate's wait in .claude/hooks/tests_gate.py brought down to fit; the doc
+8. **The speed:** the slowest tests left made fast or merged; the tests gate's wait in .claude/hooks/tests_gate.py brought down to fit; the doc
    lines on test conventions (docs/tui.md, docs/runtime.md) cut to the rule.
 
 ## Found along the way
