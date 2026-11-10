@@ -96,8 +96,7 @@ def call_while_attached(
     dropped, or, when `if_left` is given, `if_left()` runs instead on the UI thread:
     it must not touch `node`'s widgets; only a write's ending uses it, and passes
     `app` too, since a node that has left cannot name it). The TUI's workers hand
-    back only through this, besides the app's own rate check
-    (guard: tests/unit/test_suite_hygiene.py).
+    back only through this, besides the app's own rate check.
 
     A thread worker cannot be interrupted, so a read that was in flight when
     its screen was popped, or when the app quit, still lands. Textual cancels

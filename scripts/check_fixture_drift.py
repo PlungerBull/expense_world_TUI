@@ -81,8 +81,7 @@ ENVELOPE_KEYS = frozenset(
 #
 # An entry here only earns its place while some fixture still writes that key:
 # a dead one silently widens the exemption for whatever key is next to reuse the
-# name. tests/unit/test_suite_hygiene.py::test_known_local_exemptions_still_match
-# is the guard — it needs no engine, so it runs with the hermetic suite.
+# name.
 KNOWN_LOCAL = frozenset(
     {
         "cents",

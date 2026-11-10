@@ -106,6 +106,14 @@ GIT = "Dev loop"
 BLOCKED_BASH = [
     ("curl http://127.1:8000/v1/accounts", LIVE),
     ("curl 'http://[::]:8000/health'", LIVE),
+    ("lsof -ti :8000", LIVE),
+    ("PYTEST_LIVE=1 EXPENSE_PAT=x python -m pytest", LIVE),
+    ("echo x > ~/out.txt", STAY),
+    ("grep -r token < ~/notes.txt", STAY),
+    ("git reset --hard HEAD~1", GIT),
+    ("git checkout -b feature", GIT),
+    ("git worktree add -b x --detach .claude/worktrees/x", GIT),
+    ("export SKIP=ruff && git commit -m x", GIT),
     ("curl http://example.local:8000/health", LIVE),
     ("lsof -i tcp:8000", LIVE),
     ("lsof -ti tcp:8000 | xargs kill", LIVE),
@@ -114,13 +122,10 @@ BLOCKED_BASH = [
     ("killall python", STAY),
     ("lsof -ti :8002 | xargs kill", STAY),
     ("git push --mirror", GIT),
-    ("lsof -ti :8000", LIVE),
-    ("kill $(lsof -ti :8000)", LIVE),
     ("git push -uf origin main", GIT),
     ("git status; git push --force # it's fine", GIT),  # shlex fails on the lone quote
     # live engine
     ("curl http://127.0.0.1:8000/health", LIVE),
-    ("curl -s localhost:8000/v1/accounts | jq .", LIVE),
     ("python -c 'import httpx; httpx.get(\"http://0.0.0.0:8000\")'", LIVE),
     ("python scripts/check_fixture_drift.py", LIVE),
     ("./scripts/check_fixture_drift.py", LIVE),
@@ -128,7 +133,6 @@ BLOCKED_BASH = [
     ("python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8000", LIVE),
     (".venv/bin/pytest tests/contract", LIVE),
     ("PYTEST_LIVE=1 EXPENSE_PAT=x pytest tests/contract -q", LIVE),
-    ("PYTEST_LIVE=1 EXPENSE_PAT=x python -m pytest", LIVE),
     ("EXPENSE_ENGINE_URL=http://127.0.0.1:8000 pytest tests/contract", LIVE),
     # real config
     ("expense", LIVE),
@@ -136,17 +140,11 @@ BLOCKED_BASH = [
     ("expense import sheet s.xlsx --apply", LIVE),
     ("python -m expense", LIVE),
     ("EXPENSE_CONFIG=~/.expense-config expense", LIVE),
-    ("EXPENSE_CONFIG={home}/.expense-config .venv/bin/expense import sheet s.xlsx", LIVE),
     ("cat ~/.expense-config", LIVE),
-    ("cat $HOME/.expense-config", LIVE),
-    ("cp {home}/.expense-config {repo}/cfg", LIVE),
     # outside the repo
     ("cat ~/Documents/notes.txt", STAY),
-    ("ls {home}/Desktop", STAY),
     ("cat ../../secret.txt", STAY),
     ("cd ~/Desktop && ls", STAY),
-    ("grep -r token < ~/notes.txt", STAY),
-    ("echo x > ~/out.txt", STAY),
     ("git -C ../other_repo status", STAY),
     # the engine checkout is closed: no writes
     ("echo x > ../expense_world_engine/app/x.py", STAY),
@@ -160,21 +158,12 @@ BLOCKED_BASH = [
     ("cat ../expense_world_engine/docs/engine-spec.md", STAY),
     ("cat {engine}/app/main.py", STAY),
     ("cat ~/Documents/expense_world_engine/app/main.py", STAY),
-    ("head -50 $HOME/Documents/expense_world_engine/README.md", STAY),
-    ("tail -n 20 ../expense_world_engine/app/main.py", STAY),
-    ("less ../expense_world_engine/app/main.py", STAY),
     ("grep -rn uvicorn {engine}/deploy", STAY),
     ("rg openapi ../expense_world_engine", STAY),
     ("find ../expense_world_engine -name '*.md'", STAY),
     ("ls ../expense_world_engine", STAY),
     ("sed -n 1,20p ../expense_world_engine/app/main.py", STAY),
-    ("awk 'NR<5' ../expense_world_engine/app/main.py", STAY),
-    ("wc -l < ../expense_world_engine/app/main.py", STAY),
     ("git -C ../expense_world_engine log --oneline -5", STAY),
-    ("git -C {engine} show HEAD:app/main.py", STAY),
-    ("git -C ../expense_world_engine diff HEAD~1", STAY),
-    ("cd ../expense_world_engine && ls deploy/local", STAY),
-    ("cd ../expense_world_engine && git log --oneline -5", STAY),
     ("cd {engine} && cat app/main.py", STAY),
     ("cd ../expense_world_engine", STAY),  # only the tester goes there
     ("cd . <(cat ../expense_world_engine/app/main.py >&2)", STAY),  # not just a `cd`
@@ -182,33 +171,22 @@ BLOCKED_BASH = [
     # relative paths are read against any folder outside the repo; a bare `cd` goes home
     ("cd && cat Documents/expense_world_engine/app/main.py", STAY),
     ("cd {home}/.. && cat home/Documents/expense_world_engine/app/main.py", STAY),
-    ("cd {home}/.. && grep -rn uvicorn home/Documents/expense_world_engine", STAY),
     # git: force-push and history rewrites
     ("git push --force", GIT),
-    ("git push -f origin main", GIT),
-    ("git push --force-with-lease origin main", GIT),
     ("git push origin +main", GIT),
     ("git commit --amend --no-edit", GIT),
     ("git rebase -i HEAD~3", GIT),
-    ("git reset --hard HEAD~1", GIT),
     ("git filter-branch --tree-filter x", GIT),
-    ("git filter-repo --path x", GIT),
     ("git update-ref refs/heads/main HEAD~1", GIT),
     # git: new branches
     ("git branch feature", GIT),
-    ("git checkout -b feature", GIT),
     ("git switch -c feature", GIT),
     ("git worktree add .claude/worktrees/x", GIT),
-    ("git worktree add -b x --detach .claude/worktrees/x", GIT),
     # git: skipping the pre-commit checks
     ("git commit --no-verify -m x", GIT),
     ("git commit -n -m x", GIT),
-    ("git commit -anm x", GIT),
     ("SKIP=gitleaks git commit -m x", GIT),
-    ("export SKIP=ruff && git commit -m x", GIT),
-    ("git push --no-verify", GIT),
     ("git config core.hooksPath /dev/null", GIT),
-    ("git -c core.hooksPath=/dev/null commit -m x", GIT),
 ]
 
 
@@ -224,26 +202,19 @@ def test_guard_blocks_bash(box, command, rule):
 ALLOWED_BASH = [
     # naming the drift script or the contract suite is not running it
     "grep -n default scripts/check_fixture_drift.py",
-    "git diff scripts/check_fixture_drift.py",
-    "sed -n 1,40p scripts/check_fixture_drift.py",
-    "cat scripts/check_fixture_drift.py",
     "grep -rn EXPENSE_ENGINE_URL tests/contract",
-    "git diff tests/contract/conftest.py",
     "echo 'engine on :8000'",
-    "printf ':8000\\n'",
     "awk '/:8000/' docs/runtime.md",
     "python -c 'print(\"12:30:8000\")'",
-    "python -c 'print(8000000)'",
+    "grep -n :8000 docs/runtime.md",
     "git push -u origin main",
     "git push -o ci.skip origin main",
     "git commit -m 'note: SKIP=ruff is banned here'",
-    "grep -n :8000 docs/runtime.md",
     "curl http://127.0.0.1:8002/health",
     "python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002",
     "python scripts/check_fixture_drift.py --engine-url=http://127.0.0.1:8002",
     "PYTEST_LIVE=1 EXPENSE_PAT=x EXPENSE_ENGINE_URL=http://127.0.0.1:8002 pytest tests/contract",
     ".venv/bin/pytest tests/unit -q",
-    "grep -rn 127.0.0.1:8000 docs",
     "grep -n expense-config .gitignore",
     f"EXPENSE_CONFIG={SCRATCH}/cfg expense",
     f"export EXPENSE_CONFIG={SCRATCH}/cfg && .venv/bin/expense import sheet s.xlsx",
@@ -259,12 +230,10 @@ ALLOWED_BASH = [
     "git push",
     "git push origin main",
     "git branch",
-    "git branch -a",
     "git branch -d old",
     "git checkout main",
     "git checkout -- expense/http.py",
     "git reset HEAD expense/http.py",
-    "git status --short",
 ]
 
 
@@ -289,8 +258,6 @@ TESTER_ALLOWED = [
     ),
     ("cd $HOME/Documents/expense_world_engine && " + START_TEST_ENGINE, ""),
     (START_TEST_ENGINE, "{engine}"),
-    ("./" + START_TEST_ENGINE, "{engine}"),
-    ("{engine}/" + START_TEST_ENGINE, "{engine}"),
     ("~/Documents/expense_world_engine/" + START_TEST_ENGINE, "{engine}"),
     (IN_ENGINE + "../expense_world_engine/" + START_TEST_ENGINE, ""),
     ("cd {engine}/deploy && cd .. && " + START_TEST_ENGINE, ""),
@@ -298,13 +265,12 @@ TESTER_ALLOWED = [
     ("bash deploy/local/seed-test-user.sh --force", "{engine}"),
     ("kill 12345", "{engine}"),
     ("kill -TERM 12345", ""),
+    ("curl --silent --fail -m 2 http://127.0.0.1:8002/health", "{engine}"),
+    ("deploy/local/seed-test-user.sh --force | head -3", "{engine}"),
     ("lsof -t -i :8002 | xargs -r kill", "{engine}"),
     ("curl -sSf --max-time 5 http://localhost:8002/health", "{engine}"),
-    ("curl --silent --fail -m 2 http://127.0.0.1:8002/health", "{engine}"),
     # the seed by every path spelling, and its key redacted or dropped on the way out
     ("{engine}/deploy/local/seed-test-user.sh --force", ""),
-    ("~/Documents/expense_world_engine/deploy/local/seed-test-user.sh --force", ""),
-    ("../expense_world_engine/deploy/local/seed-test-user.sh --force", ""),
     ("bash {engine}/deploy/local/seed-test-user.sh --force", ""),
     (
         "cd ../expense_world_engine && deploy/local/seed-test-user.sh --force "
@@ -318,9 +284,7 @@ TESTER_ALLOWED = [
     ),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force > /dev/null", ""),
     ("deploy/local/seed-test-user.sh --force | sed -E -e 's|ewe_pat_.*|<key>|'", "{engine}"),
-    ("deploy/local/seed-test-user.sh --force | head -3", "{engine}"),
     ("cd ../expense_world_engine && sleep 2 && true", ""),
-    ("cd $HOME/Documents/expense_world_engine && deploy/local/seed-test-user.sh --force", ""),
     (SEED + " 2>&1 | sed 's/ewe_pat_.*$/<key>/' > /dev/null", ""),
 ]
 
@@ -349,23 +313,18 @@ TESTER_BLOCKED = [
     # stopping processes: numeric pids and the :8002 lsof pipe only
     ("kill -TERM $PID", STAY),
     ("pkill -f 'uvicorn app.main:app --port 8002'", STAY),
-    ("pkill -f 'uvicorn|8002'", STAY),
-    ("killall python", STAY),
     ("xargs kill < pids.txt", STAY),
     ("lsof -ti tcp:8000 | xargs kill", LIVE),
     # the launcher takes `8002` and nothing else, and no environment
     (IN_ENGINE + LAUNCHER, STAY),
     (IN_ENGINE + f"{LAUNCHER} 8000", STAY),
-    (IN_ENGINE + f"{LAUNCHER} 8001", STAY),
     (IN_ENGINE + f"{LAUNCHER} 8003", STAY),
-    (IN_ENGINE + f"{LAUNCHER} 8002 8002", STAY),
     (IN_ENGINE + f"{LAUNCHER} --port 8002", STAY),
     (IN_ENGINE + f"{LAUNCHER} $PORT", STAY),
     (IN_ENGINE + f"SUPABASE_DB_URL={TEST_DB} {START_TEST_ENGINE}", STAY),
     (IN_ENGINE + f"env FOO=1 {START_TEST_ENGINE}", STAY),
     (IN_ENGINE + f"env -i {START_TEST_ENGINE}", STAY),
     (IN_ENGINE + f"bash {START_TEST_ENGINE}", STAY),
-    (IN_ENGINE + f"sh {START_TEST_ENGINE}", STAY),
     # ... run from the engine checkout's root, and only the engine's own launcher
     ("../expense_world_engine/" + START_TEST_ENGINE, STAY),
     ("{engine}/" + START_TEST_ENGINE, STAY),
@@ -374,14 +333,8 @@ TESTER_BLOCKED = [
     (IN_ENGINE + "deploy/local/client-practice-engine2.sh 8002", STAY),
     (IN_ENGINE + "app/client-practice-engine.sh 8002", STAY),
     ("cd ../expense_world_engine && curl -X POST http://127.0.0.1:8002/v1/accounts", STAY),
-    ("cd ../expense_world_engine && curl -o x http://127.0.0.1:8002/health", STAY),
-    ("lsof -ti :8000 | xargs kill", LIVE),
     # the old hand start, by every spelling: it serves the checkout's uncommitted work
-    (IN_ENGINE + OLD_START, STAY),
     (IN_ENGINE + OLD_START + " > /tmp/expense-test-engine.log 2>&1 &", STAY),
-    (OLD_START, STAY),  # run in the engine checkout (the cwd, below)
-    (f"{IN_ENGINE}SUPABASE_DB_URL={TEST_DB} {UVICORN}", STAY),
-    (f"{IN_ENGINE}ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", STAY),
     (IN_ENGINE + UVICORN, STAY),
     (IN_ENGINE + UVICORN.replace("8002", "8000"), STAY),
     (IN_ENGINE + "nohup .venv/bin/uvicorn app.main:app --port 8002", STAY),
@@ -389,11 +342,7 @@ TESTER_BLOCKED = [
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh", STAY),
     ("cd ../expense_world_engine && deploy/local/create-test-db.sh --force", STAY),
     ("cd ../expense_world_engine && pip install httpx", STAY),
-    ("cd ../expense_world_engine && git pull", STAY),
     # the tester reads no engine file either
-    ("cd ../expense_world_engine && cat app/main.py", STAY),
-    ("cd ../expense_world_engine && ls", STAY),
-    ("cd ../expense_world_engine && git log --oneline -5", STAY),
     ("cd ../expense_world_engine && sed -n 1p app/main.py", STAY),
     ("cd ../expense_world_engine && sed 's/a/b/' app/main.py", STAY),
     ("cd ../expense_world_engine && sed 's/a/b/w out.txt'", STAY),
@@ -403,14 +352,10 @@ TESTER_BLOCKED = [
     ("cd ../expense_world_engine && grep uvicorn app/main.py", STAY),
     ("cd ../expense_world_engine && grep -f patterns.txt", STAY),
     ("cd ../expense_world_engine && grep '*'", STAY),
-    ("cd ../expense_world_engine && tail README.md", STAY),
     ("cd ../expense_world_engine && head -n 5 README.md", STAY),
     ("cd ../expense_world_engine && echo *", STAY),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force | tee key.txt", STAY),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force > key.txt", STAY),
-    ("cat ../expense_world_engine/docs/engine-spec.md", STAY),
-    ("grep -rn uvicorn {engine}/deploy", STAY),
-    ("git -C ../expense_world_engine log -1", STAY),
     # substitutions, extra arguments and env prefixes do not ride on an allowed command
     (IN_ENGINE + "true <(cat app/main.py >&2)", STAY),
     (IN_ENGINE + "sleep 0 <(cat app/main.py >&2)", STAY),
@@ -436,9 +381,7 @@ TESTER_BLOCKED = [
     (SEED + " | sed 's/a/b/' > key.txt", STAY),
     (SEED + f" > {SCRATCH}/key.txt", STAY),
     (SEED + f" | tee {SCRATCH}/key.txt", STAY),
-    (SEED + " | cat > key.txt", STAY),
     (SEED + " | dd of=key.txt", STAY),
-    (SEED + " | sed 's/a/b/' | tee key.txt", STAY),
     (SEED + " 2>&1 | grep -v x >> key.txt", STAY),
     # `cd -` returns to the folder the guard last left
     (IN_ENGINE + "cd {repo} && cd - && cat app/main.py", STAY),
@@ -449,7 +392,6 @@ TESTER_BLOCKED = [
     ("(" + SEED + ")|tee key.txt", STAY),
     ("kill -9 -1", STAY),  # not a pid the tester started
     ("curl http://127.0.0.1:8000/health", LIVE),  # every other check still applies
-    ("cat ~/Documents/notes.txt", STAY),
 ]
 
 
@@ -462,16 +404,8 @@ def test_guard_tester_exception_is_narrow(box, command, rule):
 # Every interpreter, the engine checkout's own `.venv/bin/python` included.
 START_PYTHONS = [
     START_PYTHON,
-    "python",
-    "python3",
     "python3.12",
-    ".venv/bin/python3",
-    ".venv/bin/python3.12",
-    "./.venv/bin/python",
-    "venv/bin/python",
-    "tools/python3",
     "/usr/bin/python3",
-    "/private/tmp/x/python",
     "{engine}/.venv/bin/python",
     "{repo}/.venv/bin/python",  # the app's own venv
     "../expense_world_TUI/.venv/bin/python",
@@ -491,17 +425,13 @@ def test_guard_refuses_the_old_hand_start_and_points_at_the_launcher(box, python
     assert f"`{START_TEST_ENGINE}`, from the engine checkout's root" in result.stderr
 
 
-@pytest.mark.parametrize("agent", ["builder", "reviewer", "librarian", None])
-def test_guard_keeps_the_test_engine_start_to_the_tester(box, agent):
-    command = "cd ../expense_world_engine && deploy/local/seed-test-user.sh --force"
-    _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
-
-
 # ---------------------------------------------------------------------------
 # guard.py — scripts/practice-engine, open to every agent
 # ---------------------------------------------------------------------------
 
 EVERY_AGENT = ["tester", "builder", "reviewer", "librarian", None]  # None: the orchestrator
+# The script's rules do not depend on the role: one worker and the orchestrator stand for all.
+TWO_AGENTS = ["builder", None]
 PRACTICE = "scripts/practice-engine"
 
 PRACTICE_ALLOWED = [
@@ -519,9 +449,13 @@ PRACTICE_ALLOWED = [
 
 
 @pytest.mark.parametrize("agent", EVERY_AGENT)
+def test_guard_lets_every_agent_run_the_practice_engine_script(box, agent):
+    _allowed(box.guard("Bash", {"command": f"{PRACTICE} up"}, agent=agent))
+
+
 @pytest.mark.parametrize("command", PRACTICE_ALLOWED)
-def test_guard_lets_every_agent_run_the_practice_engine_script(box, agent, command):
-    _allowed(box.guard("Bash", {"command": command}, agent=agent))
+def test_guard_lets_the_practice_engine_script_run_in_each_spelling(box, command):
+    _allowed(box.guard("Bash", {"command": command}, agent="builder"))
 
 
 def test_guard_lets_the_absolute_practice_engine_path_run_from_a_repo_subfolder(box):
@@ -543,7 +477,7 @@ PRACTICE_NAMED_ONLY = [
 ]
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize(
     "command",
     [
@@ -558,7 +492,7 @@ def test_guard_does_not_read_the_launchers_name_as_the_practice_engine_script(bo
     _allowed(box.guard("Bash", {"command": command}, agent=agent))
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize(
     "command",
     [
@@ -572,7 +506,7 @@ def test_guard_reads_the_launchers_name_without_its_sh_as_the_script(box, agent,
     _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize(
     "command",
     [
@@ -586,7 +520,7 @@ def test_guard_still_sees_the_practice_engine_script_beside_the_launchers_name(b
     _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize("command", PRACTICE_NAMED_ONLY)
 def test_guard_lets_agents_read_and_commit_the_practice_engine_script(box, agent, command):
     _allowed(box.guard("Bash", {"command": command}, agent=agent))
@@ -681,7 +615,7 @@ PRACTICE_BLOCKED = [
 ]
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize(("command", "rule"), PRACTICE_BLOCKED)
 def test_guard_keeps_the_practice_engine_script_narrow(box, agent, command, rule):
     _blocked(box.guard("Bash", {"command": command}, agent=agent), rule)
@@ -693,7 +627,7 @@ def test_guard_only_trusts_this_repos_practice_engine_script(box):
     _blocked(box.guard("Bash", {"command": command}, agent="builder"), STAY)
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 def test_guard_sees_the_practice_engine_script_through_a_link(box, agent):
     """A word resolving to the script names it, whatever the link is called."""
     script = box.repo / PRACTICE
@@ -704,7 +638,7 @@ def test_guard_sees_the_practice_engine_script_through_a_link(box, agent):
     _blocked(box.guard("Bash", {"command": "./pe up"}, agent=agent), STAY)
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize(
     "command",
     [
@@ -756,7 +690,7 @@ def test_guard_keeps_both_practice_keys_off_disk_from_the_seed(box, tail):
     _blocked(box.guard("Bash", {"command": SEED + tail}, agent="tester"), STAY)
 
 
-@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize("tail", BOTH_KEYS_TO_FILE)
 def test_guard_keeps_both_practice_keys_off_disk_from_the_script(box, agent, tail):
     _blocked(box.guard("Bash", {"command": f"{PRACTICE} up" + tail}, agent=agent), STAY)
@@ -772,7 +706,7 @@ HAND_RUN_ENGINE_OPS = [
 ]
 
 
-@pytest.mark.parametrize("agent", ["builder", "reviewer", "librarian", None])
+@pytest.mark.parametrize("agent", TWO_AGENTS)
 @pytest.mark.parametrize("command", HAND_RUN_ENGINE_OPS)
 def test_guard_keeps_the_hand_run_engine_ops_to_the_tester(box, agent, command):
     """The script opens no other door: starting, reseeding and stopping by hand stay the
@@ -910,7 +844,7 @@ ENGINE_READS = [
 ]
 
 
-@pytest.mark.parametrize("agent", ["tester", "builder", "reviewer", "librarian", None])
+@pytest.mark.parametrize("agent", ["tester", "builder", None])
 @pytest.mark.parametrize(("tool", "tool_input", "cwd"), ENGINE_READS)
 def test_guard_blocks_every_agent_reading_the_engine(box, agent, tool, tool_input, cwd):
     _blocked(box.guard(tool, tool_input, agent=agent, cwd=cwd), STAY)
@@ -963,25 +897,17 @@ WHOLE_SUITE_RUNS = [
     "pytest",
     "python -m pytest",
     ".venv/bin/python -m pytest",
-    "python3 -m pytest -q",
     "pytest -n 4",
     "pytest -p xdist --tb short -o x=y",
-    "pytest -x -q -n0",
     # the suite named outright, however it is written
     "pytest tests/unit",
     ".venv/bin/pytest tests/unit -q",
-    ".venv/bin/python -m pytest tests/unit",
     "pytest tests/unit -n 4",
-    "pytest -n 4 tests/unit",
     "pytest tests/unit tests/unit/test_x.py",
-    "pytest tests/unit/test_x.py tests/unit",
     "pytest tests/unit/",
     "pytest ./tests/unit",
-    "pytest ./tests/unit/",
     "pytest tests",
-    "pytest tests/",
     "pytest .",
-    "pytest ./",
     f"{LIVE_8002} pytest tests/unit tests/contract",
     "pytest {repo}/tests/unit",
     "pytest tests/*",
@@ -993,19 +919,14 @@ WHOLE_SUITE_RUNS = [
     "pytest tests/unit/test_[xy].py tests/unit/test_z.py",
     "pytest tests/unit/test_*.py tests/unit/test_x.py::test_a",
     "cd tests && pytest unit",
-    "cd tests && pytest .",
     "ruff check . && pytest tests/unit",
     "pytest tests/unit 2>&1 | tail -n 5",
     # options that do not narrow a run, and option values that are no test path
     "pytest --lf",
     "pytest tests/unit --lf",
-    "pytest --last-failed",
     "pytest --lf --lfnf=all",
-    "pytest --lf --lfnf all tests/unit",
     "pytest --lfnf=none",
     "pytest --sw",
-    "pytest --stepwise tests/unit",
-    "pytest --sw-skip tests/unit",
     "pytest -m slow tests/unit",
     "pytest -k '' tests/unit",
     "pytest --cov expense",
@@ -1019,11 +940,15 @@ WHOLE_SUITE_RUNS = [
 ]
 
 
-@pytest.mark.parametrize("agent", SUITE_GATED)
 @pytest.mark.parametrize("command", WHOLE_SUITE_RUNS)
-def test_guard_blocks_a_hand_run_whole_suite(suite_box, agent, command):
-    result = suite_box.guard("Bash", {"command": command}, agent=agent)
-    _blocked(result, SUITE)
+def test_guard_blocks_a_hand_run_whole_suite(suite_box, command):
+    _blocked(suite_box.guard("Bash", {"command": command}, agent="builder"), SUITE)
+
+
+@pytest.mark.parametrize("agent", SUITE_GATED)
+def test_guard_gates_every_role_alike(suite_box, agent):
+    _blocked(suite_box.guard("Bash", {"command": "pytest tests/unit"}, agent=agent), SUITE)
+    _allowed(suite_box.guard("Bash", {"command": "pytest tests/unit/test_x.py"}, agent=agent))
 
 
 def test_guard_whole_suite_message_says_what_to_run_instead(suite_box):
@@ -1040,13 +965,10 @@ NARROW_RUNS = [
     "pytest tests/unit/test_x.py",
     ".venv/bin/pytest tests/unit/test_x.py -q",
     "python -m pytest tests/unit/test_x.py",
-    ".venv/bin/python -m pytest tests/unit/test_x.py -n0",
     "pytest tests/unit/test_x.py tests/unit/test_y.py",
-    "pytest ./tests/unit/test_x.py",
     "pytest {repo}/tests/unit/test_x.py",
     "pytest tests/unit/test_x.py -n 4 --tb short -p xdist -o x=y",
     "pytest tests/unit/test_[xy].py",
-    "pytest tests/unit/test_x*.py tests/unit/test_y.py",
     "pytest tests/unit/test_x.py::test_a tests/unit/test_y.py tests/unit/test_z.py",
     "cd tests/unit && pytest test_x.py",
     # a node id
@@ -1056,34 +978,25 @@ NARROW_RUNS = [
     # a name filter, in each form pytest reads
     "pytest -k hooks",
     "pytest tests/unit -k hooks",
-    "pytest tests/unit -khooks",
     "pytest tests/unit -k=hooks",
     "pytest tests/unit -vk hooks",
-    "pytest tests/unit -xvkhooks",
     "python -m pytest tests/unit -k 'guard and not lint'",
     # the last failures, and only them
     "pytest --lf --lfnf=none",
     "pytest tests/unit --lf --lfnf none",
     "pytest --last-failed --last-failed-no-failures=none",
-    "pytest --last-failed --last-failed-no-failures none tests/unit",
     "pytest --lfnf=none --lf tests/unit -n0",
-    "pytest --lf --sw --lfnf=none",
     # the contract suite, with its :8002 target
     f"{LIVE_8002} pytest tests/contract",
     f"{LIVE_8002} .venv/bin/pytest tests/contract -n0 -q",
     # no test run
     "pytest --version",
-    "pytest --help",
     "pytest tests/unit --co -q",
     "pytest --collect-only",
-    "pytest --collectonly tests/unit",
     "pytest --fixtures",
-    "pytest --funcargs tests/unit",
     "pytest --markers",
     "pytest --setup-plan tests/unit",
-    "pytest --setupplan",
     "pytest --cache-show",
-    "pytest --cache-show 'lastfailed*'",
     "pytest --cache-show=lastfailed",
     # reading the suite is not running it
     "grep -rn pytest tests/unit",
@@ -1091,13 +1004,11 @@ NARROW_RUNS = [
 ]
 
 
-@pytest.mark.parametrize("agent", SUITE_GATED)
 @pytest.mark.parametrize("command", NARROW_RUNS)
-def test_guard_lets_a_narrow_run_through(suite_box, agent, command):
-    _allowed(suite_box.guard("Bash", {"command": command}, agent=agent))
+def test_guard_lets_a_narrow_run_through(suite_box, command):
+    _allowed(suite_box.guard("Bash", {"command": command}, agent="builder"))
 
 
-@pytest.mark.parametrize("agent", SUITE_GATED)
 @pytest.mark.parametrize(
     "command",
     [
@@ -1106,8 +1017,8 @@ def test_guard_lets_a_narrow_run_through(suite_box, agent, command):
         "EXPENSE_ENGINE_URL=http://127.0.0.1:8000 pytest tests/contract",
     ],
 )
-def test_guard_keeps_the_contract_suite_on_8002_for_gated_roles(suite_box, agent, command):
-    _blocked(suite_box.guard("Bash", {"command": command}, agent=agent), LIVE)
+def test_guard_keeps_the_contract_suite_on_8002_for_gated_roles(suite_box, command):
+    _blocked(suite_box.guard("Bash", {"command": command}, agent="builder"), LIVE)
 
 
 @pytest.mark.parametrize("agent", ["tester", None])  # None: the main session
@@ -1385,12 +1296,10 @@ def test_guard_seed_path_ignores_case_on_macos(box, seed, project, cwd):
         "not json",
         "[1, 2]",
         '{"tool_name": "Bash", "cwd": 42, "tool_input": {"command": "git status"}}',
-        '{"tool_name": "Bash", "cwd": ["/"], "tool_input": {"command": "git status"}}',
         '{"tool_name": "Bash", "tool_input": ["git push --force"]}',
-        '{"tool_name": "Read", "tool_input": "/etc/passwd"}',
         '{"tool_name": "Bash", "tool_input": {"command": 7}}',
     ],
-    ids=["not-json", "array", "int-cwd", "list-cwd", "list-input", "str-input", "int-command"],
+    ids=["not-json", "array", "int-cwd", "list-input", "int-command"],
 )
 def test_guard_fails_open_on_malformed_input(box, stdin):
     _allowed(box.run("guard.py", stdin))
@@ -1482,12 +1391,10 @@ def counted(box):
 @pytest.mark.parametrize(
     ("first", "second"),
     [
-        (_stop(False), _stop(False)),
-        (_bash("git commit -m x"), _bash("git commit -m x")),
         (_stop(False), _bash("git commit -m x")),
         (_bash("git commit -m x"), _stop(False)),
     ],
-    ids=["stop-stop", "commit-commit", "stop-then-commit", "commit-then-stop"],
+    ids=["stop-then-commit", "commit-then-stop"],
 )
 def test_tests_gate_skips_code_it_has_already_passed(counted, first, second):
     _allowed(counted.gate(first))

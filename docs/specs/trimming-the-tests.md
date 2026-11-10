@@ -60,9 +60,6 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-2. **The tests about tests:** test_suite_hygiene.py, test_shared_code_home.py,
-   test_parallel_runs.py and test_doc_hygiene.py keep only what point 3 of "What it must do"
-   keeps; test_claude_hooks.py loses repeated cases, never a rule it trips.
 3. **The LOG bar:** test_tui_log_bar.py and the quick-add parser's tests, one test per
    behaviour, near-copies merged into one table of cases.
 4. **The statements:** test_tui_statements.py, test_tui_statement_detail.py,

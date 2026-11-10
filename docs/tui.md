@@ -57,7 +57,7 @@ expense/tui/
 pure `fetch_*(cfg, …) -> dict` the screens call; a screen never reimplements one. The
 shared homes are listed in [CLAUDE.md](../CLAUDE.md) "One copy of everything shared";
 none of them is under `expense/commands/`, which holds only what `expense import sheet`
-alone uses (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_home.py)).
+alone uses.
 
 **One reader for every typed amount.** `parse_amount` in
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
@@ -93,9 +93,7 @@ lands, and painting it then queries widgets already taken down (`NoMatches`).
 the UI thread only while its node is still in the app, and drops it otherwise; a coroutine
 hand-back asks `still_attached` again after every await
 ([test_tui_leaving_mid_draw.py](../tests/unit/test_tui_leaving_mid_draw.py)). Every thread worker in
-`expense/tui/` hands back this way, but the app's rate check, which has no screen
-(guard: `test_no_worker_hands_back_raw` in
-[test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py)).
+`expense/tui/` hands back this way, but the app's rate check, which has no screen.
 
 **A write answered after its screen has left still says how it ended** when it carries a
 `LeftBehind` ([_base.py](../expense/tui/screens/_base.py)); one without is dropped with its
@@ -1973,10 +1971,8 @@ Beside [CLAUDE.md](../CLAUDE.md) "Testing conventions":
   `SectionScreen` has settled. Wait for the thing the test is about: a save is over when its request was sent *and*
   `_saving` is false again, since `_saving` is already false before the key reaches the
   screen. A **bare** `pilot.pause()` is the pump-drain for asserting a *non-event* (an inert
-  key, a confirm that must not fire), where no predicate can be written. Timed
-  `pilot.pause(<n>)` is rejected by
-  [tests/unit/test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py), whose one
-  exemption is documented there.
+  key, a confirm that must not fire), where no predicate can be written. A timed
+  `pilot.pause(<n>)` is a guess at the app's speed: avoid it unless the test says why.
 - **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`),
   not at `expense.reads` — when the test's point is name display. Use the short-id fallback
   when it isn't.
