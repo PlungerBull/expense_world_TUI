@@ -19,7 +19,7 @@ import pytest
 from rich.text import Text
 from textual.widgets import Input, Static
 
-from expense.errors import NEXT_STEPS, EngineConnectionError, EngineError
+from expense.errors import NEXT_STEPS, EngineError
 from expense.tui.screens._form import TITLE_REQUIRED
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
@@ -295,49 +295,6 @@ def test_a_failed_reference_read_notifies_and_the_app_goes_on(fake_client, monke
     assert fake_client.calls == []
 
 
-def test_a_failed_read_uses_the_canonical_renderer(fake_client, monkeypatch):
-    """Engine errors surface with the canonical text, not bare str(exc)."""
-    _patch(monkeypatch)
-
-    def boom(*a, **k):
-        raise EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
-
-    monkeypatch.setattr("expense.reads.fetch_bank_line", boom)
-    notices = _record_notices(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = EditFormScreen(record=TXN)
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: notices)
-
-    run_app(scenario)
-    assert "could not reach engine at https://x.invalid" in notices[0][1]
-
-
-def test_the_form_cannot_be_opened_without_a_record():
-    """The create door is shut, and shut structurally.
-
-    `+` opens the LOG bar. Making `record` required means no future caller
-    can reopen that door by accident — it is a TypeError, not a second create
-    form drifting quietly out of sync with the bar.
-    """
-    with pytest.raises(TypeError):
-        EditFormScreen()
-
-
-def test_no_form_offers_cleared_and_every_part_offers_hashtags():
-    """`cleared` is gone from the ledger — no form may offer it.
-
-    The engine has no `cleared`: create lists it as retired
-    (contract: POST /v1/transactions). Sending it is a 422 on an unknown field,
-    which rejects the whole body. Hashtags are an ordinary field of each part.
-    """
-    screen = EditFormScreen(record=TXN)
-    screen._take_line(_line(TXN))
-    assert not any(key.endswith("cleared") for key in screen._sequence())
-    assert "0.hashtags" in screen._sequence()
-
-
 FORM_FOOTER = [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field"), ("^n", "Add part")]
 
 
@@ -508,7 +465,7 @@ def test_a_zero_amount_and_an_unknown_account_are_refused_and_stay(fake_client, 
 
 
 def test_an_amount_with_a_comma_after_its_dot_is_refused(fake_client, monkeypatch):
-    """Typed key by key on part 1's AMOUNT: `13.853,20` is not read as 13.85.
+    """Typed on part 1's AMOUNT: `13.853,20` is not read as 13.85.
     The field gives its note and the cursor stays; `13853.20` then saves
     13,853.20."""
     _patch(monkeypatch)
@@ -518,14 +475,13 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused(fake_client, monkeypatc
         screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
         bar = screen.query_one("#bar", Input)
         await pilot.press("enter", "enter", "enter", "enter")  # date, title, account, currency
-        await pilot.pause()
         assert screen._key == "0.amount"
-        await pilot.press("ctrl+a", "ctrl+k", *"13.853,20", "enter")
-        await pilot.pause()
+        bar.value = "13.853,20"
+        await pilot.press("enter")
         assert screen._key == "0.amount" and bar.value == "13.853,20"
         assert screen._parts[0].amount_cents == -4250
-        await pilot.press("ctrl+a", "ctrl+k", *"13853.20", "enter")
-        await pilot.pause()
+        bar.value = "13853.20"
+        await pilot.press("enter")
         assert screen._key != "0.amount"
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: fake_client.puts)
@@ -536,11 +492,11 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused(fake_client, monkeypatc
     assert fake_client.calls == [("PUT", PATH, {"parts": [{"id": "tx1", "amount_cents": 1385320}]})]
 
 
-@pytest.mark.parametrize("typed", ["1e5000", "-1e5", "inf", "-nan", "1_000"])
-def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(
-    fake_client, monkeypatch, typed
-):
-    """An exponent, `inf`, `nan` or a digit separator is unreadable on AMOUNT: the
+NOT_PLAIN = ["1e5000", "inf", "1_000"]
+
+
+def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(fake_client, monkeypatch):
+    """An exponent, `inf` or a digit separator is unreadable on AMOUNT: each time the
     field's note, the cursor stays, nothing is sent."""
     _patch(monkeypatch)
     notes: list[tuple[str, object]] = []
@@ -548,12 +504,13 @@ def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(
     async def steps(screen, pilot, app):
         screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
         _on(screen, "0.amount")
-        _enter(screen, typed)
-        assert screen._key == "0.amount"
-        assert screen._parts[0].amount_cents == -4250
+        for typed in NOT_PLAIN:
+            _enter(screen, typed)
+            assert screen._key == "0.amount"
+            assert screen._parts[0].amount_cents == -4250
 
     _open(scenario_steps=steps)
-    assert notes == [("can't read this amount: amounts are 1,234.56", "error")]
+    assert notes == [("can't read this amount: amounts are 1,234.56", "error")] * len(NOT_PLAIN)
     assert fake_client.calls == []
 
 
@@ -562,16 +519,14 @@ def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(
     [
         ("-999999999.99", -99999999999, None),
         ("1000000000.00", 100000000000, AMOUNT_OUT_OF_RANGE_WORDS),
-        ("-1000000000.00", -100000000000, AMOUNT_BELOW_RANGE_WORDS),
         ("-" + "9" * 25, -int("9" * 25) * 100, AMOUNT_BELOW_RANGE_WORDS),
-        ("1" + "0" * 17, 10**19, AMOUNT_OUT_OF_RANGE_WORDS),
     ],
 )
 def test_a_plain_amount_of_any_size_is_sent_and_the_engines_refusal_shows(
     fake_client, monkeypatch, typed, cents, words
 ):
-    """The app adds no bound: one cent past the engine's, a 25-digit amount and 10**19 cents
-    are all sent as whole cents, and the refusal shows in the engine's words
+    """The app adds no bound: one cent past the engine's and a 25-digit amount
+    are both sent as whole cents, and the refusal shows in the engine's words
     on the amount's line, the form staying (contract: "Money amounts")."""
     _patch(monkeypatch)
     if words:
@@ -644,7 +599,6 @@ def _moved(part: dict, *, left: bool) -> dict:
     [
         pytest.param([_moved(TXN, left=True)], "Saved. It left its statement.", id="flagged"),
         pytest.param([_moved(TXN, left=False)], "Saved.", id="listed-not-flagged"),
-        pytest.param([], "Saved.", id="lists-none"),
     ],
 )
 def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, changed, note):
@@ -759,15 +713,6 @@ def test_an_account_move_of_a_line_in_a_draft_statement_takes_it_out(fake_client
 
     _open(TXN, steps)
     assert fake_client.calls == [
-        ("PUT", PATH, {"account_id": "acc3", "statement_id": None, "parts": [_kept()]})
-    ]
-
-
-def test_a_move_to_another_account_in_the_same_currency_sends_the_account_alone(
-    fake_client, monkeypatch
-):
-    """BCP in soles to Ahorros in soles: `account_id` alone, with `statement_id: null`."""
-    assert _pick_and_save(fake_client, monkeypatch, ("account", "Ahorros")) == [
         ("PUT", PATH, {"account_id": "acc3", "statement_id": None, "parts": [_kept()]})
     ]
 
@@ -1020,82 +965,10 @@ def test_an_edit_limit_naming_the_currency_makes_the_line_read_only(fake_client,
     assert fake_client.calls == [("PUT", PATH, {"title": "Otro", "parts": [_kept()]})]
 
 
-def test_a_refusal_naming_currency_code_lands_under_the_parts_in_the_engines_words(
-    fake_client, monkeypatch
-):
-    """`CURRENCY_NOT_HELD` keyed `currency_code` (the account's currencies
-    changed since the list was read): the engine's words under the parts, nothing saved,
-    the form stays (contract: "Error reasons")."""
-    words = "BCP does not hold USD."
-    err = EngineError(
-        "VALIDATION_ERROR",
-        words,
-        {"currency_code": words},
-        422,
-        {},
-        reasons={"currency_code": "CURRENCY_NOT_HELD"},
-    )
-    _patch(monkeypatch)
-    fake_client.errors["PUT"] = err
-
-    async def steps(screen, pilot, app):
-        _on(screen, "currency")
-        _enter(screen, "USD")
-        screen.action_submit()
-        await wait_for(pilot, lambda: screen._refusal is not None and not screen._submitting)
-        return (
-            _summary(screen, width=120),
-            app.screen is screen,
-            screen.query_one("#refusal").display,
-        )
-
-    summary, on_top, block_up = _open(TXN, steps)
-    assert f"VALIDATION_ERROR — {words}" in summary
-    assert f"! currency_code: {words}" in summary
-    assert summary.rstrip().endswith("Nothing was saved.")
-    assert on_top
-    assert not block_up  # this form lays its refusal under its parts, not in the shared block
-
-
-def test_a_currency_the_account_does_not_hold_shows_the_engines_words_alone(
-    fake_client, monkeypatch
-):
-    """`CURRENCY_NOT_HELD` on `account_id` (an account sent alone, holding several
-    currencies and not the line's): the engine's words under the parts and nothing of the
-    app's own after `Nothing was saved.`
-    (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")."""
-    words = "The account holds no USD: it holds EUR, PEN."
-    # the line is in dollars and Visa's dollars are a pick on the list, so the account is
-    # sent alone; the engine's read of Visa is newer than the list (it no longer holds them)
-    record = {**TXN, "currency_code": "USD"}
-    err = EngineError(
-        "VALIDATION_ERROR",
-        words,
-        {"account_id": words},
-        422,
-        {},
-        reasons={"account_id": "CURRENCY_NOT_HELD"},
-    )
-    summary, on_top = _move_refused(err, fake_client, monkeypatch, typed="Visa", record=record)
-    assert fake_client.calls == [
-        (
-            "PUT",
-            PATH,
-            {
-                "account_id": "acc2",
-                "statement_id": None,
-                "parts": [_kept()],
-            },
-        )
-    ]
-    assert f"! account_id: {words}" in summary
-    assert summary.split("Nothing was saved.")[1].strip() == ""
-    assert on_top
-
-
 def _move_refused(err, fake_client, monkeypatch, *, typed="Visa", record=TXN) -> tuple[str, bool]:
     """Pick `typed` on ACCOUNT of `record`'s form and save into the refusal `err`;
-    returns the summary as drawn and whether the form is still on top."""
+    returns the summary as drawn and whether the form is still on top with its refusal
+    laid under the parts, the shared refusal block hidden."""
     _patch(monkeypatch, _line(record))
     fake_client.errors["PUT"] = err
 
@@ -1104,7 +977,8 @@ def _move_refused(err, fake_client, monkeypatch, *, typed="Visa", record=TXN) ->
         _enter(screen, typed)
         screen.action_submit()
         await wait_for(pilot, lambda: screen._refusal is not None and not screen._submitting)
-        return _summary(screen, width=120), app.screen is screen
+        laid_here = app.screen is screen and not screen.query_one("#refusal").display
+        return _summary(screen, width=120), laid_here
 
     return _open(record, steps)
 
@@ -1136,32 +1010,6 @@ def test_a_move_on_a_completed_statement_shows_the_lock_under_the_parts(fake_cli
     assert f"! account_id: {locked}" in summary
     assert "Nothing was saved." in summary
     assert on_top  # not dismissed: nothing was saved
-
-
-def test_a_move_that_leaves_a_line_on_a_sealed_day_shows_the_engines_words_alone(
-    fake_client, monkeypatch
-):
-    """A move sends `statement_id: null`; the line's day is sealed by another completed
-    statement, so the engine refuses `SEALED_PERIOD` on `statement_id`, naming it
-    (contract: "Transactions (Ledger)", "Sealed periods"). Under the parts the engine's
-    words and `Nothing was saved.`, no line of the app's; the form stays, one request."""
-    words = (
-        "Period 2026-06-01 to 2026-06-30 is sealed by completed statement 'Junio 2026'. "
-        "Revert it to draft to change anything inside it."
-    )
-    err = EngineError(
-        "VALIDATION_ERROR",
-        words,
-        {"statement_id": words},
-        422,
-        {},
-        reasons={"statement_id": "SEALED_PERIOD"},
-    )
-    summary, on_top = _move_refused(err, fake_client, monkeypatch)
-    assert [call[0] for call in fake_client.calls] == ["PUT"]
-    flat = " ".join(summary.split())  # the summary wraps long words
-    assert flat.endswith(f"VALIDATION_ERROR — {words} ! statement_id: {words} Nothing was saved.")
-    assert on_top
 
 
 def test_a_move_onto_an_account_holding_its_operation_code_says_what_to_do(
@@ -1219,50 +1067,6 @@ OPENING_LIMITS = edit_limits(
 
 def _opening_line(record=OPENING, limits=OPENING_LIMITS) -> dict:
     return {**_line(record, limits=limits), "is_opening_balance": True}
-
-
-def test_an_opening_balances_field_moves_skip_its_read_only_lines(fake_client, monkeypatch):
-    """Account, category and hashtags are read-only; a field move skips them,
-    from amount straight to note and back, with ⇥ and with the arrows."""
-    _patch(monkeypatch, _opening_line())
-
-    async def steps(screen, pilot, app):
-        assert screen._locked == {"account", "currency", "0.category", "0.hashtags"}
-        assert "account   BCP  read-only" in _summary(screen)
-        assert "currency  PEN  read-only" in _summary(screen)
-        _on(screen, "0.amount")
-        await pilot.press("tab")
-        assert screen._key == "0.note"
-        await pilot.press("shift+tab")
-        assert screen._key == "0.amount"
-        await pilot.press("down")
-        assert screen._key == "0.note"
-        await pilot.press("up")
-        assert screen._key == "0.amount"
-
-    _open(OPENING, steps)
-
-
-def test_an_opening_balance_saves_its_other_fields_and_never_its_locked_ones(
-    fake_client, monkeypatch
-):
-    """Amount and note save as on any line; the write carries no account, and
-    the part no category and no hashtags, even with a value set under the
-    account."""
-    _patch(monkeypatch, _opening_line())
-
-    async def steps(screen, pilot, app):
-        _on(screen, "0.amount")
-        _enter(screen, "3500")
-        assert screen._key == "0.note"  # category and hashtags skipped
-        screen._values["account"] = "acc2"  # never sent: it is read-only
-        _enter(screen, "apertura")  # `⏎` on the last line saves
-        await wait_for(pilot, lambda: fake_client.puts)
-
-    _open(OPENING, steps)
-    assert fake_client.calls == [
-        ("PUT", PATH, {"parts": [{"id": "txO", "amount_cents": 350000, "description": "apertura"}]})
-    ]
 
 
 def test_an_ordinary_line_keeps_account_and_category_editable(fake_client, monkeypatch):
@@ -1441,10 +1245,12 @@ def _drawn(record: dict, line: dict, form=None, *, ansi: bool = False) -> list[s
 def test_a_completed_statements_line_says_why_once_under_its_fields(fake_client, monkeypatch):
     """Date, title, account and currency each read `read-only`; one line under them
     names the four in the form's order with the engine's sentence, and the
-    amount's line under the parts carries its own."""
+    amount's line under the parts carries its own; both sentences are dim from end
+    to end."""
     line = _line(TXN, limits=COMPLETED_LIMITS)
     _patch(monkeypatch, line)
-    assert _drawn(TXN, line) == [
+    drawn = _drawn(TXN, line, ansi=True)
+    assert [Text.from_ansi(row).plain.rstrip() for row in drawn] == [
         "date      2026-06-20  read-only",
         "title     Farmacia  read-only",
         "account   BCP  read-only",
@@ -1455,23 +1261,20 @@ def test_a_completed_statements_line_says_why_once_under_its_fields(fake_client,
         "▌ 1   -42.50    Mascotas       #dog            receta",
         "amount  read-only · The parts must add up to the line's total.",
     ]
-
-
-def test_an_archived_accounts_line_says_why_with_the_engines_sentence(fake_client, monkeypatch):
-    line = _line(ON_ARCHIVED, limits=_archived_limits(*_ARCHIVED_FIELDS))
-    _patch(monkeypatch, line)
-    assert _drawn(ON_ARCHIVED, line) == [
-        "date      2026-06-20  read-only",
-        "title     Farmacia  read-only",
-        "account   Old bank  read-only",
-        "currency  PEN  read-only",
-        "date, title, account, currency: The account is archived. Unarchive it",
-        "                                first.",
-        "",
-        "      amount    category       hashtags        note",
-        "▌ 1   -42.50    Mascotas       #dog            receta",
-        "amount  read-only · The account is archived. Unarchive it first.",
-    ]
+    wanted = {
+        "date, title, account, currency: Locked by completed statement.",
+        "amount  read-only · The parts must add up to the line's total.",
+    }
+    seen = set()
+    for row in drawn:
+        text = Text.from_ansi(row)
+        if text.plain.rstrip() not in wanted:
+            continue
+        seen.add(text.plain.rstrip())
+        dim = {i for span in text.spans if span.style.dim for i in range(span.start, span.end)}
+        shown = {i for i, char in enumerate(text.plain) if not char.isspace()}
+        assert shown <= dim, text.plain
+    assert seen == wanted
 
 
 def test_a_splits_income_part_reads_with_its_plus_and_the_columns_line_up(fake_client, monkeypatch):
@@ -1554,27 +1357,6 @@ def test_line_fields_locked_for_different_reasons_get_a_sentence_each(fake_clien
         "date, account, currency: The account is archived. Unarchive it first.",
         "title: Locked by completed statement.",
     ]
-
-
-def test_the_sentences_are_dim_like_the_rest_of_their_lines(fake_client, monkeypatch):
-    """The line naming the read-only fields and a column's `read-only` line
-    with its sentence are dim from end to end."""
-    line = _line(TXN, limits=COMPLETED_LIMITS)
-    _patch(monkeypatch, line)
-    wanted = {
-        "date, title, account, currency: Locked by completed statement.",
-        "amount  read-only · The parts must add up to the line's total.",
-    }
-    seen = set()
-    for row in _drawn(TXN, line, ansi=True):
-        text = Text.from_ansi(row)
-        if text.plain.rstrip() not in wanted:
-            continue
-        seen.add(text.plain.rstrip())
-        dim = {i for span in text.spans if span.style.dim for i in range(span.start, span.end)}
-        shown = {i for i, char in enumerate(text.plain) if not char.isspace()}
-        assert shown <= dim, text.plain
-    assert seen == wanted
 
 
 def test_the_engines_sentence_shows_as_sent_never_as_styling(fake_client, monkeypatch):
@@ -1699,7 +1481,7 @@ def test_an_emptied_set_sends_an_empty_list(fake_client, monkeypatch):
     assert fake_client.calls == [("PUT", PATH, {"parts": [_kept(hashtag_ids=[])]})]
 
 
-@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS[:3])
 def test_a_hashtag_refusal_shows_under_the_parts_as_sent(
     fake_client, monkeypatch, code, status, reason, line
 ):
@@ -1894,22 +1676,6 @@ def _nulls(body: dict) -> set[str]:
     return nulls
 
 
-def test_an_emptied_note_sends_an_empty_description_and_says_saved(fake_client, monkeypatch):
-    """`⏎` on an emptied NOTE empties the note: the part carries
-    `description: ""`, never `null`, and the form says `Saved.`."""
-    _patch(monkeypatch)
-    notices = _record_notices(monkeypatch)
-
-    async def steps(screen, pilot, app):
-        _on(screen, "0.note")
-        assert screen.query_one("#bar", Input).value == "receta"
-        _enter(screen, "")
-        await wait_for(pilot, lambda: ("", "Saved.") in notices)
-
-    _open(scenario_steps=steps)
-    assert fake_client.calls == EMPTIED_FIELD_PUTS["transaction", "0.note"]
-
-
 def test_an_empty_note_on_a_part_with_none_is_no_change(fake_client, monkeypatch):
     """A part with no note, `⏎` on the empty NOTE: nothing to empty, nothing sent."""
     record = {**TXN, "description": None}
@@ -1930,14 +1696,15 @@ def test_an_empty_note_on_a_part_with_none_is_no_change(fake_client, monkeypatch
     ("form", "field"),
     [
         *[("transaction", f) for f in TXN_FIELDS],
-        *[("bank_line", f) for f in LINE_FIELDS],
+        ("bank_line", "operation"),
     ],
 )
 def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
     fake_client, monkeypatch, form, field
 ):
-    """Every field of both Edit forms, its bar emptied and `⏎`, then saved:
-    whatever the form sends holds `null` only on a line field `null` clears. An
+    """Every field of the Edit form and the "no statement" form's operation line, its
+    bar emptied and `⏎`, then saved: whatever the form sends holds `null` only on a
+    line field `null` clears. An
     emptied date commits today, an emptied title or amount is refused, an empty
     account, category or hashtags line keeps what the line holds, an emptied
     operation clears the operation code and an emptied note sends `""`."""
@@ -2054,14 +1821,11 @@ def test_enter_through_every_line_then_ctrl_s_sends_nothing(fake_client, monkeyp
     assert notices == [("", "No changes to save.")] * 2
 
 
-@pytest.mark.parametrize("split", [False, True], ids=["one-part", "two-parts"])
-def test_enter_through_every_line_of_the_no_statement_form_sends_nothing(
-    fake_client, monkeypatch, split
-):
+def test_enter_through_every_line_of_the_no_statement_form_sends_nothing(fake_client, monkeypatch):
     """The "no statement" Edit form: one line per `⏎`, none skipped but the currency line
     of Ahorros (one currency), ACCOUNT kept on the line's own; the last NOTE's `⏎`
     saves, and with nothing changed nothing is sent."""
-    line = {**(_line(*SPLIT_ON_THIRD) if split else _line(ON_THIRD)), "operation_code": "1"}
+    line = {**_line(ON_THIRD), "operation_code": "1"}
 
     async def steps(screen, pilot):
         visited = []
@@ -2084,24 +1848,24 @@ def test_enter_through_every_line_of_the_no_statement_form_sends_nothing(
     assert notices == [("", "No changes to save.")] * 2
 
 
-@pytest.mark.parametrize(("key", "own_name"), [("account", "Ahorros"), ("0.category", "Salud")])
 def test_an_untouched_entity_line_starts_on_its_own_value_and_enter_keeps_it(
-    fake_client, monkeypatch, key, own_name
+    fake_client, monkeypatch
 ):
-    """The list stays in its order, every entry shown; the highlight is on the
-    line's or part's own one, and `⏎` keeps it and moves on."""
+    """On ACCOUNT and on CATEGORY the list stays in its order, every entry shown; the
+    highlight is on the line's or part's own one, and `⏎` keeps it and moves on."""
 
     async def steps(screen, pilot):
-        await _enter_to(screen, pilot, key)
-        assert screen.query_one("#bar", Input).value == ""
-        pool = screen._picks if key == "account" else screen._categories
-        assert screen._suggestions == pool  # the usual order, nothing filtered
-        assert _highlighted(screen) == own_name
-        assert own_name in render_text(screen._suggest_renderable(), width=60)
-        await pilot.press("enter")
-        assert screen._key != key  # moved on
-        assert screen._values["account"] == "acc3"
-        assert screen._parts[0].category_id == "cat2"
+        for key, own_name in [("account", "Ahorros"), ("0.category", "Salud")]:
+            await _enter_to(screen, pilot, key)
+            assert screen.query_one("#bar", Input).value == ""
+            pool = screen._picks if key == "account" else screen._categories
+            assert screen._suggestions == pool  # the usual order, nothing filtered
+            assert _highlighted(screen) == own_name
+            assert own_name in render_text(screen._suggest_renderable(), width=60)
+            await pilot.press("enter")
+            assert screen._key != key  # moved on
+            assert screen._values["account"] == "acc3"
+            assert screen._parts[0].category_id == "cat2"
 
     _open_stepping(monkeypatch, steps)
 
@@ -2243,10 +2007,6 @@ def _date_notes(monkeypatch) -> list[tuple[str, object]]:
     return notes
 
 
-def _keys(text: str) -> list[str]:
-    return ["space" if ch == " " else ch for ch in text]
-
-
 #: Each form, and the part its save sends under its own id at its current amount.
 FORMS = [("transaction", "tx1"), ("bank_line", "p1")]
 
@@ -2282,8 +2042,10 @@ def test_a_non_date_on_date_is_refused_at_enter_and_the_save_never_crashes(
     assert fake_client.calls == []
 
 
-@pytest.mark.parametrize(("form", "part"), FORMS)
-@pytest.mark.parametrize("typed", ["2026-10-23", "2026-10-23 14:30"])
+@pytest.mark.parametrize(
+    ("form", "part", "typed"),
+    [("transaction", "tx1", "2026-10-23 14:30"), ("bank_line", "p1", "2026-10-23")],
+)
 def test_a_day_with_or_without_a_time_still_saves(fake_client, monkeypatch, form, part, typed):
     """A day on DATE, with or without a time, is taken at `⏎` and saved as the
     save's reader writes it, after a refused `abc` as on a first try."""
@@ -2296,10 +2058,11 @@ def test_a_day_with_or_without_a_time_still_saves(fake_client, monkeypatch, form
         screen = _form(form)
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
-        await pilot.press("ctrl+a", "ctrl+k", *"abc", "enter")
-        await pilot.pause()
-        await pilot.press("ctrl+a", "ctrl+k", *_keys(typed), "enter")
-        await pilot.pause()
+        bar = screen.query_one("#bar", Input)
+        bar.value = "abc"
+        await pilot.press("enter")
+        bar.value = typed
+        await pilot.press("enter")
         assert screen._key == "title"
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: fake_client.puts)

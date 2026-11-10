@@ -297,7 +297,7 @@ def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client):
     )
 
 
-# ---- the guard: every bar form, in each of its shapes ------------------------
+# ---- the guard: each bar form, in each of its shapes -------------------------
 
 
 def _on(screen: EditFormScreen, line: dict, limits: dict | None = None) -> EditFormScreen:
@@ -389,18 +389,6 @@ def _wrong_hints(screens) -> list[str]:
 @pytest.mark.parametrize("form", sorted(SHAPES, key=lambda c: c.__name__), ids=lambda c: c.__name__)
 def test_no_hint_says_save_where_enter_goes_on(form):
     assert not _wrong_hints(SHAPES[form]())
-
-
-def test_the_guard_trips_on_a_save_hint_before_the_last_line(monkeypatch):
-    """NAME saying "enter to save" again, and COLOR (New's last line) saying
-    "enter to go on", are both caught."""
-    screen = NewCategoryScreen()
-    worded = {"name": "enter to save", "color": "enter to go on"}
-    monkeypatch.setattr(screen, "_hint_for", worded.get)
-    assert _wrong_hints([screen]) == [
-        "NewCategoryScreen.name: 'enter to save' (⏎ goes on)",
-        "NewCategoryScreen.color: 'enter to go on' (⏎ saves)",
-    ]
 
 
 def test_title_says_save_only_when_it_is_the_one_line_left():

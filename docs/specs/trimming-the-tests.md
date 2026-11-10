@@ -60,8 +60,6 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-5. **The edit forms:** test_tui_edit_form.py, test_tui_edit_form_parts.py,
-   test_tui_bulk_edit.py and test_tui_form_hints.py.
 6. **Accounts and the other forms:** test_tui_opening_balance.py, test_tui_create_forms.py,
    test_tui_delete.py, test_tui_statement_code.py and the account tests.
 7. **The rest of tests/unit,** test_tui_help.py and test_tui_quit_asks.py first (and

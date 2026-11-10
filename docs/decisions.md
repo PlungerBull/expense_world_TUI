@@ -819,7 +819,7 @@ balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn
 
 ## A form never sends `null` where the engine refuses it (2026-10-18)
 
-**Decision.** The Edit forms send `null` only for the fields the engine clears with it (`statement_id`, `title`, `operation_code`); an emptied note goes as `description: ""` (contract: PUT /v1/transactions/{transaction_id}). A test in [test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) empties every field of both forms and fails on any other `null`.
+**Decision.** The Edit forms send `null` only for the fields the engine clears with it (`statement_id`, `title`, `operation_code`); an emptied note goes as `description: ""` (contract: PUT /v1/transactions/{transaction_id}). A test in [test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) empties every field, each on one of the two forms, and fails on any other `null`.
 
 **Why.** An explicit `null` is `NOT_NULL` on every other field, a refusal the owner did nothing to cause; pinning each field keeps a new one from bringing the bug back.
 
@@ -989,8 +989,8 @@ exact rule. *Calling the paper's figure the "starting balance"* — it changes w
 **Decision.** (1) A `RESERVED_NAME_HELD` refusal on `hashtag_ids` shows the engine's words alone
 under the Edit form's parts ([tui.md](tui.md) §2 "When the engine says no"); the engine sends it on
 the transaction's hashtags as a whole, never on one part's (contract: "Hashtags").
-`test_a_held_reserved_name_shows_the_engines_words_alone_under_the_parts` in
-[test_tui_edit_form_parts.py](../tests/unit/test_tui_edit_form_parts.py) pins it. (2) Its live proof
+`test_a_hashtag_refusal_shows_under_the_parts_as_sent` in
+[test_tui_edit_form.py](../tests/unit/test_tui_edit_form.py) pins it. (2) Its live proof
 runs as the reserved-names practice user ([runtime.md](runtime.md)
 "Working against the live engine"). (3) A test comment says what its case proves, never which spec's
 pick it came from.

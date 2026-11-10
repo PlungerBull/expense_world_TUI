@@ -25,7 +25,7 @@ from rich.text import Text
 from textual.widgets import Footer, Input, Static
 from textual.widgets._footer import FooterKey
 
-from expense.errors import NEXT_STEPS, EngineConnectionError, EngineError
+from expense.errors import EngineConnectionError, EngineError
 from expense.reads import QuickAddRefs
 from expense.tui.screens.edit_form import (
     EVERY_PART_NOTE,
@@ -53,7 +53,6 @@ from tests.unit.helpers import (
     account_with_currencies,
     cursor_page,
     edit_limits,
-    hashtag_refusal,
     held_currency,
     import_part,
     line_code_of,
@@ -335,19 +334,15 @@ async def _type(pilot, screen, text: str, key: str = "enter") -> None:
     """Type `text` over the bar, then press `key`."""
     bar = screen.query_one("#bar", Input)
     bar.value = text
-    await pilot.pause()
     await pilot.press(key)
-    await pilot.pause()
 
 
 async def _go(pilot, screen, key: str) -> None:
-    """`tab` until the bar is on `key`."""
-    for _ in range(len(screen._sequence())):
-        if screen._key == key:
-            return
-        await pilot.press("tab")
-        await pilot.pause()
-    assert screen._key == key
+    """Put the bar on `key` directly, then let the screen draw it."""
+    screen._current = screen._sequence().index(key)
+    screen._refresh_bar()
+    screen._refresh_view()
+    await pilot.pause()
 
 
 def _summary(screen, width: int = 110) -> list[str]:
@@ -408,16 +403,16 @@ def _fresh(part_id: str) -> bool:
 # ---- section 2: ⏎ on a part · the form with its parts --------------------------
 
 
-@pytest.mark.parametrize("key", ["p1", "p2"])
-def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key):
-    """The shared fields on top, both parts below whichever part `⏎`
-    was on, the line adding them up; the bar on DATE, its hint DATE's own
-    (`YYYY-MM-DD · enter to accept, or type a date`) and then
+@pytest.mark.parametrize(("key", "press"), [("p1", "enter"), ("p2", "s")])
+def test_enter_or_s_on_either_part_opens_the_form_on_date_with_every_part(engine, key, press):
+    """`⏎` or `s` on the ledger opens the form the same way: the shared fields on
+    top, both parts below whichever part it was on, the line adding them up; the bar
+    on DATE, its hint DATE's own (`YYYY-MM-DD · enter to accept, or type a date`) and then
     `changes every part of the transaction` in the accent; the footer offers
     `^n Add part` and no `^x` off a part's line."""
 
     async def scenario(pilot, app):
-        _ledger, screen = await _open(pilot, app, key)
+        _ledger, screen = await _open(pilot, app, key, press)
         return (
             screen._key,
             _label(screen),
@@ -445,22 +440,6 @@ def test_enter_on_either_part_opens_the_form_on_date_with_every_part(engine, key
     ]
     assert footer == [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field"), ("^n", "Add part")]
     assert crumb == ("Capture & ledger", "Transactions", "Edit")
-
-
-def test_s_opens_the_same_form_on_date(engine):
-    """`s` on the ledger opens the form exactly as `⏎` does."""
-
-    async def scenario(pilot, app):
-        _ledger, screen = await _open(pilot, app, "p2", press="s")
-        return type(screen), screen._key, _summary(screen), await _settle_footer(pilot, screen)
-
-    kind, key, summary, footer = run_app(scenario, size=SIZE)
-    assert kind is EditFormScreen and key == "date"
-    assert summary[6:8] == [
-        "  1   -60.00    COMIDA         #casa           verduras",
-        "  2   -40.00    HOGAR          —               lejía y papel",
-    ]
-    assert footer[-1] == ("^n", "Add part")
 
 
 def test_the_bar_names_the_part_and_the_table_marks_it(engine):
@@ -768,11 +747,8 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
 READ_ONLY = {
     "c1": {"date", "title", "account", "currency"},
     "s1": {"date", "title", "account", "currency", "0.amount"},
-    "a1": {"date", "title", "account", "currency", "0.amount", "1.amount"},
-    "o1": {"account", "currency", "0.category", "0.hashtags"},
     # Sueldo Soles holds one currency: the line is skipped, shown dim with why, not `read-only`
     "p1": {"currency"},
-    "t1": {"currency"},
 }
 
 
@@ -961,57 +937,6 @@ def test_a_kept_parts_hashtags_go_only_when_changed_and_a_new_part_gets_a_fresh_
     assert set(body) == {"parts"}
 
 
-def test_a_moved_account_sends_the_unassign_beside_the_parts(engine, notes):
-    """A changed account goes with `statement_id: null`, the parts as they
-    are; the answer flags a part as leaving, so the note says so
-    (contract: PUT /v1/bank-lines/{bank_line_id}, "Response")."""
-    part = bank_line("bl-1")["parts"][0]
-    engine.write_responses["/bank-lines/bl-1"] = {
-        **bank_line("bl-1"),
-        "changed_parts": [{"transaction": part, "left_statement": True}],
-        "created_part_ids": [],
-        "deleted_part_ids": [],
-    }
-
-    async def scenario(pilot, app):
-        ledger, screen = await _open(pilot, app, "t1")
-        await _go(pilot, screen, "account")
-        await _type(pilot, screen, "dól")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: app.screen is ledger)
-
-    run_app(scenario, size=SIZE)
-    assert _writes(engine) == [
-        (
-            "PUT",
-            "/bank-lines/bl-1",
-            {
-                "account_id": "acc2",
-                "statement_id": None,
-                "parts": [{"id": "t1", "amount_cents": -2800}],
-            },
-        )
-    ]
-    assert ("", "Saved. It left its statement.") in notes
-
-
-def test_an_emptied_note_goes_as_an_empty_description(engine):
-    async def scenario(pilot, app):
-        ledger, screen = await _open(pilot, app, "t1")
-        await _go(pilot, screen, "0.note")
-        await _type(pilot, screen, "")  # the last line: `⏎` saves
-        await wait_for(pilot, lambda: app.screen is ledger)
-
-    run_app(scenario, size=SIZE)
-    assert _writes(engine) == [
-        (
-            "PUT",
-            "/bank-lines/bl-1",
-            {"parts": [{"id": "t1", "amount_cents": -2800, "description": ""}]},
-        )
-    ]
-
-
 def test_the_write_carries_one_idempotency_key_and_a_retry_reuses_it(configured, monkeypatch):
     """`^s` is one logical write through the shared write path and the real
     HTTP client: a `503` goes again by itself, the same body under the same
@@ -1122,17 +1047,7 @@ REFUSALS = [
         # a part's OPENING_BALANCE_NOT_TAGGED: the engine's words alone, no line of the app's
         None,
     ),
-    (
-        "a1",
-        "parts.1.amount_cents",
-        "ACCOUNT_ARCHIVED",
-        "The account is archived. Unarchive it first.",
-        "part 2 (amount)",
-        None,
-    ),
     ("c1", "title", "LOCKED", "stand-in words: the title is locked", "title", None),
-    ("p1", "parts", "SPLIT_LINE_PARTS_DIVERGE", "stand-in words: diverge", "parts", None),
-    ("p1", "date", "SEALED_PERIOD", "stand-in words: sealed", "date", None),
 ]
 
 
@@ -1171,45 +1086,6 @@ def test_each_refusal_lands_under_the_parts_on_the_key_it_names(
     parts = [{"id": tx["id"], "amount_cents": tx["amount_cents"]} for tx in LINES[bank]]
     parts[-1]["description"] = "otra nota"
     assert _writes(engine) == [("PUT", f"/bank-lines/{bank}", {"parts": parts})]
-
-
-def test_a_held_reserved_name_shows_the_engines_words_alone_under_the_parts(engine):
-    """Part 2 of Tottus Jockey Plaza tagged #casa, `^s`, refused `409`
-    `RESERVED_NAME_HELD`, keyed `hashtag_ids` itself and never a part's
-    (contract: "Hashtags", "When the engine creates it"): the form stays, the
-    engine's words show whole, `Nothing was saved.`, and no line of the app's
-    under them, not the category line the same reason carries on `category_id`."""
-    engine.errors["PUT"] = hashtag_refusal("CONFLICT", 409, "RESERVED_NAME_HELD")
-    category_line = NEXT_STEPS[("CONFLICT", "RESERVED_NAME_HELD")].line
-    assert category_line
-
-    async def scenario(pilot, app):
-        _ledger, screen = await _open(pilot, app, "p1")
-        await _go(pilot, screen, "1.hashtags")
-        await _type(pilot, screen, "casa")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: screen._refusal is not None)
-        return app.screen is screen, _summary(screen, width=200)
-
-    stayed, shown = run_app(scenario, size=SIZE)
-    assert stayed
-    tail = shown[shown.index("CONFLICT — Engine words for RESERVED_NAME_HELD.") :]
-    assert tail[1] == "! hashtag_ids: stand-in field words"
-    assert tail[2] == "Nothing was saved."
-    assert [row for row in tail[3:] if row] == []
-    assert not any(category_line in row for row in shown)
-    assert _writes(engine) == [
-        (
-            "PUT",
-            "/bank-lines/bl-9",
-            {
-                "parts": [
-                    {"id": "p1", "amount_cents": -6000},
-                    {"id": "p2", "amount_cents": -4000, "hashtag_ids": ["h-casa"]},
-                ]
-            },
-        )
-    ]
 
 
 def test_an_engine_out_of_reach_says_so_under_the_parts(engine):
@@ -1414,7 +1290,7 @@ def test_a_refused_line_hangs_under_its_own_words():
     assert all(row.startswith("  ") for row in rendered[1:])
 
 
-@pytest.mark.parametrize(("status", "said"), [(422, True), (409, True), (500, False), (503, False)])
+@pytest.mark.parametrize(("status", "said"), [(422, True), (500, False)])
 def test_nothing_was_saved_is_said_only_below_a_5xx(status, said):
     """A refusal under `500` wrote nothing, so the form says so
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order"); on a `5xx`

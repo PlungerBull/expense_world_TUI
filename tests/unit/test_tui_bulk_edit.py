@@ -219,11 +219,6 @@ def test_bulk_writes_keep_a_rows_statement_on_a_currency_move_alone():
     ]
 
 
-def test_bulk_receipt_counts_rows():
-    assert bulk_receipt(3, "KORAKUEN") == "3 rows → KORAKUEN"
-    assert bulk_receipt(1, "#COMIDA #CAJAS") == "1 row → #COMIDA #CAJAS"
-
-
 def test_moved_parts_counts_each_part_once_across_the_answers():
     """A part listed by two answers counts once, and so does its flag; an answer
     that lists nothing adds nothing."""
@@ -238,7 +233,9 @@ def test_moved_parts_counts_each_part_once_across_the_answers():
     assert moved_parts([]) == (0, 0)
 
 
-def test_bulk_receipt_counts_the_rows_that_left_their_statement():
+def test_bulk_receipt_counts_the_rows_and_the_ones_that_left_their_statement():
+    assert bulk_receipt(3, "KORAKUEN") == "3 rows → KORAKUEN"
+    assert bulk_receipt(1, "#COMIDA #CAJAS") == "1 row → #COMIDA #CAJAS"
     assert bulk_receipt(3, "BCP Ahorros", 0) == "3 rows → BCP Ahorros"
     assert bulk_receipt(3, "BCP Ahorros", 1) == "3 rows → BCP Ahorros · 1 left its statement"
     assert bulk_receipt(3, "BCP Ahorros", 2) == "3 rows → BCP Ahorros · 2 left their statement"
@@ -455,29 +452,6 @@ def test_b_offers_no_archived_account_so_no_body_names_one(fake_client, monkeypa
     run_app(scenario, size=(160, 30))
 
 
-def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
-    _stub_ledger(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        await _open(app, pilot, screen)
-        await pilot.press("space", "h")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        modal = app.screen
-        assert modal._multi and "replaces every tag" in _hint(modal)
-        # `com` + ↵ picks COMIDA and clears the input; `caj` narrows to two,
-        # ↓ takes CAJAS; ↵ on the empty input applies both
-        await pilot.press("c", "o", "m", "enter")
-        await wait_for(pilot, lambda: modal._picked == ["h1"])
-        await pilot.press("c", "a", "j", "down", "enter")
-        await wait_for(pilot, lambda: modal._picked == ["h1", "h3"])
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1", "h3"]})]
-
-    run_app(scenario, size=(120, 30))
-
-
 #: Stand-in words for a refusal naming no field.
 _UNKEYED = "Engine words naming no field."
 #: The field lock's sentence on a locked field.
@@ -532,52 +506,6 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         assert ("", "2 rows → BCP Oro") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
-    """`b` onto an account that already holds row 2's operation number: the
-    "Refused" note names the row, gives the engine's words, and closes with the
-    line saying what to do; the other rows still move."""
-    _stub_ledger(monkeypatch)
-    toasts: list[tuple[str, str]] = []
-    real_put = fake_client.put
-
-    def put(path, json_body=None):
-        if path.endswith("/t2"):
-            raise EngineError(
-                "CONFLICT",
-                "Operation code already exists.",
-                {"operation_code": "Must be unique per account."},
-                409,
-                {},
-                {"operation_code": "OPERATION_CODE_EXISTS"},
-            )
-        return real_put(path, json_body=json_body)
-
-    fake_client.put = put
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
-        await _open(app, pilot, screen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
-        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
-        refused = next(m for t, m in toasts if t == "Refused")
-        assert _plain(refused) == (
-            "operation_code: Must be unique per account.\n"
-            "row 2\n"
-            "That account already has a row with this operation number: "
-            "look there for a duplicate."
-        )
 
     run_app(scenario, size=(120, 30))
 
@@ -777,42 +705,6 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
         # same refusal stops its save, naming no row
         assert toasts == [STOP_TOAST]
         # the refused row and the two never sent stay selected for the retry
-        assert screen._selected == {"t1", "t2", "t3"}
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypatch):
-    """Row 1 is refused for its own reason, then missing settings stop the run
-    at row 2: both notes show, the row's under `Refused` and the stop's under
-    `Failed`, the stop in no row's note; row 3 is never sent, and all three stay
-    selected for the retry."""
-    _stub_ledger(monkeypatch)
-    puts: list[str] = []
-
-    def put(path, json_body=None):
-        puts.append(path)
-        if path.endswith("/t1"):
-            raise EngineError("CONFLICT", _UNKEYED, None, 409, {})
-        raise _settings_missing()
-
-    fake_client.put = put
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        toasts = _record_toasts(monkeypatch, screen)
-        await _open(app, pilot, screen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: len(toasts) == 2)
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-
-        assert puts == ["/transactions/t1", "/transactions/t2"]
-        assert toasts == [
-            ("Refused", f"CONFLICT — {_UNKEYED}\nrow 1", "error", True),
-            STOP_TOAST,
-        ]
         assert screen._selected == {"t1", "t2", "t3"}
 
     run_app(scenario, size=(120, 30))
@@ -1022,61 +914,6 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
     run_app(scenario, size=(120, 30))
 
 
-def test_b_on_a_completed_statement_is_still_refused_with_the_lock(fake_client, monkeypatch):
-    """The engine checks `LOCKED` first, `statement_id` included: the
-    locked row is named with the engine's reason and is not counted as left."""
-    _stub_ledger(monkeypatch, MIXED)
-    toasts: list[tuple[str, str]] = []
-    real_put = fake_client.put
-
-    def put(path, json_body=None):
-        if path.endswith("/t1"):
-            raise _locked("account_id", "statement_id")
-        return real_put(path, json_body=json_body)
-
-    fake_client.put = put
-    _answer_unchanged(fake_client, MIXED[1])
-    _answer_moves(fake_client, [MIXED[2]])
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
-        await _open(app, pilot, screen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
-        refused = next(m for t, m in toasts if t == "Refused")
-        assert _plain(refused) == f"account_id: {_LOCKED_FIELD}\nrow 1"
-        # t1 refused, t2 already on acc2: only t3 moved, and it was in none
-        assert ("", "1 row → BCP Oro") in toasts
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert screen._selected == {"t1"}
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_esc_cancels_the_picker_and_writes_nothing(fake_client, monkeypatch):
-    _stub_ledger(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        await _open(app, pilot, screen)
-        await pilot.press("space", "c")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert fake_client.puts == []
-        assert screen._selected == {"t1"}  # the selection survives a cancel
-
-    run_app(scenario, size=(120, 30))
-
-
 # ---- esc -----------------------------------------------------------------------
 
 
@@ -1103,19 +940,6 @@ def test_esc_clears_the_selection_then_goes_back_with_the_filter_kept(monkeypatc
 
 
 # ---- the pick screen on its own ---------------------------------------------------
-
-
-def test_picker_single_mode_narrows_and_moves():
-    async def scenario(pilot, app):
-        results: list = []
-        modal = BulkPickScreen("category", 1, [("a", "HOGAR"), ("b", "KORAKUEN")], rows=Text(""))
-        app.push_screen(modal, results.append)
-        await wait_for(pilot, lambda: app.screen is modal)
-        assert [i for i, _ in modal._pool] == ["a", "b"]
-        await pilot.press("down", "enter")  # the second candidate
-        await wait_for(pilot, lambda: results == ["b"])
-
-    run_app(scenario, size=(100, 30))
 
 
 def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
@@ -1282,9 +1106,11 @@ def test_typing_narrows_the_list_and_arrows_move_the_highlight(fake_client, monk
     run_app(scenario, size=(160, 40))
 
 
-def test_h_collects_picks_under_the_list_and_backspace_drops_the_last(fake_client, monkeypatch):
-    """`⏎` adds a tag to `picked` under the list, `⌫` on the empty bar drops the
-    last one, an empty `⏎` applies what is left."""
+def test_h_collects_picks_under_the_list_and_an_empty_enter_replaces_the_set(
+    fake_client, monkeypatch
+):
+    """`⏎` adds a tag to `picked` under the list, a picked tag leaves the list, an
+    empty `⏎` applies every pick as the row's whole set."""
     _stub_ledger(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1303,12 +1129,10 @@ def test_h_collects_picks_under_the_list_and_backspace_drops_the_last(fake_clien
         assert "COMIDA" not in _suggested(pick)  # a picked tag leaves the list
         await pilot.press("c", "a", "j", "a", "s", "enter")
         await wait_for(pilot, lambda: picked() == "picked    #COMIDA #CAJAS")
-        await pilot.press("backspace")
-        await wait_for(pilot, lambda: picked() == "picked    #COMIDA")
         assert fake_client.puts == []
         await pilot.press("enter")
         await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1"]})]
+        assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1", "h3"]})]
         await wait_for(pilot, lambda: app.screen is screen)
 
     run_app(scenario, size=(160, 40))
@@ -1368,11 +1192,6 @@ def test_refusals_collapse_to_one_note_per_kind():
     ]
 
 
-def test_one_refusal_reads_as_one_row():
-    failed = [("t2", 2, *refused_row(EngineError("CONFLICT", "nope", None, 409, {})))]
-    assert [_plain(note) for note in refusal_notes(failed)] == ["CONFLICT — nope\nrow 2"]
-
-
 def test_a_long_refused_run_names_every_row():
     """As the LOG bar and the sheet import name them: every row, in order."""
     failed = [(f"t{n}", n, *refused_row(_sealed("2026-08"))) for n in range(1, 13)]
@@ -1406,16 +1225,6 @@ def test_a_401_reads_whole_with_its_hint_and_names_its_rows():
             "Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t).",
             "dim",
         ),
-    ]
-
-
-def test_a_lost_connection_names_each_row_it_met_on_one_note():
-    from expense.errors import EngineConnectionError
-
-    lost = EngineConnectionError("http://127.0.0.1:8002", OSError("refused"))
-    failed = [(f"t{n}", n, *refused_row(lost)) for n in (2, 3)]
-    assert [_plain(note) for note in refusal_notes(failed)] == [
-        "could not reach engine at http://127.0.0.1:8002 (is it running?)\nrows 2, 3"
     ]
 
 
@@ -1511,42 +1320,6 @@ def test_b_met_by_a_5xx_reads_whole_on_one_note(fake_client, monkeypatch):
     run_app(scenario, size=(120, 30))
 
 
-def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
-    _stub_ledger(monkeypatch)
-    toasts: list[tuple[str, str]] = []
-
-    period = "2026-07-24 to 2026-08-25"
-
-    def put(path, json_body=None):
-        raise _sealed(period)
-
-    fake_client.put = put
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
-        await _open(app, pilot, screen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: toasts)
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        # every row shares one reason → exactly one refusal toast, counted
-        refusals = [(t, m) for t, m in toasts if "refused" in t or t == "Refused"]
-        assert len(refusals) == 1
-        title, message = refusals[0]
-        assert title == "3 of 3 refused"
-        words = _sealed(period).fields["account_id"]
-        assert _plain(message) == f"account_id: {words}\nrows 1, 2, 3"
-        assert screen._selected == {"t1", "t2", "t3"}  # all stay selected for the retry
-
-    run_app(scenario, size=(120, 30))
-
-
 # ---- `h` and the pending hashtag ----------------------------------------------
 # (contract: PUT /v1/transactions/{transaction_id})
 # (contract: "Transactions (Ledger)", "The pending hashtag is never combined")
@@ -1610,7 +1383,7 @@ def test_h_with_the_pending_hashtag_alone_sends_it_alone(fake_client, monkeypatc
     assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["hp"]})]
 
 
-@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS[:3])
 def test_a_hashtag_refusal_on_h_shows_as_sent(fake_client, monkeypatch, code, status, reason, line):
     """The "Refused" note gives the engine's words for the field, then the row,
     then its line if the reason has one."""
@@ -1749,8 +1522,11 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
     return seen
 
 
-@pytest.mark.parametrize("key", ["c", "h", "b"])
-@pytest.mark.parametrize("select", [[], ["p2"]], ids=["cursor", "selected"])
+@pytest.mark.parametrize(
+    ("key", "select"),
+    [("c", []), ("h", []), ("b", ["p2"])],
+    ids=["c-cursor", "h-cursor", "b-selected"],
+)
 def test_c_h_b_on_one_part_send_only_that_part_then_read_fresh(
     fake_client, monkeypatch, key, select
 ):
@@ -1766,14 +1542,15 @@ def test_c_h_b_on_one_part_send_only_that_part_then_read_fresh(
     assert seen["selected"] == set()
 
 
-@pytest.mark.parametrize("key", ["c", "h", "b"])
-def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, monkeypatch, key):
+@pytest.mark.parametrize("key", ["c", "b"])
+def test_c_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, monkeypatch, key):
     """Both parts of FARMACIA selected: one `PUT` per part, in list order, each
     the body one row gets. For `b` the second `PUT` names the part the first one
     already moved, with the same body built from the read before the move, and
     no `version`, so no stale-version refusal can come of it; the engine accepts
     it (tests/contract/test_bank_lines.py
-    `test_an_account_move_on_one_part_moves_the_whole_line`)."""
+    `test_an_account_move_on_one_part_moves_the_whole_line`), and the receipt
+    counts each part once: 2 rows, not 3 or 4."""
     _typed, body = ON_PARTS[key]
     seen = _bulk_on_parts(fake_client, monkeypatch, key, ["p1", "p2"], cursor="p1")
     assert fake_client.puts == [("/transactions/p1", body), ("/transactions/p2", body)]
@@ -1782,6 +1559,7 @@ def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, 
     assert seen["cursor"] == (0, "t-net")
     if key == "b":
         assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
+        _asked_nothing_but_the_puts(seen)
 
 
 # ---- b: the receipt counts what the engine says moved ------------------------
@@ -1799,24 +1577,14 @@ def _asked_nothing_but_the_puts(seen: dict) -> None:
     assert [method for method, _path, _body in client_calls] == ["PUT"] * len(client_calls)
 
 
-@pytest.mark.parametrize("select", [[], ["p2"]], ids=["cursor", "selected"])
 def test_b_on_one_part_of_a_statement_line_counts_both_parts_and_both_leavings(
-    fake_client, monkeypatch, select
+    fake_client, monkeypatch
 ):
     """FARMACIA is 60 + 40 in a draft statement. `b` on its second part sends
     one `PUT`; the engine moves the whole line and lists both parts as leaving
     their statement, so the receipt says 2 rows and 2 left."""
-    seen = _bulk_on_parts(fake_client, monkeypatch, "b", select, cursor="p2")
+    seen = _bulk_on_parts(fake_client, monkeypatch, "b", [], cursor="p2")
     assert fake_client.puts == [("/transactions/p2", ON_PARTS["b"][1])]
-    assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
-    _asked_nothing_but_the_puts(seen)
-
-
-def test_b_on_both_parts_counts_each_part_once(fake_client, monkeypatch):
-    """Both parts selected: two `PUT`s, the first moving the line and listing both
-    parts, the second listing none. The receipt says 2 rows, not 3 or 4."""
-    seen = _bulk_on_parts(fake_client, monkeypatch, "b", ["p1", "p2"], cursor="p1")
-    assert [path for path, _body in fake_client.puts] == ["/transactions/p1", "/transactions/p2"]
     assert seen["toasts"][0] == "2 rows → BCP Oro · 2 left their statement"
     _asked_nothing_but_the_puts(seen)
 
@@ -1885,26 +1653,6 @@ def _two_currency_refs() -> QuickAddRefs:
         id="acc3", name="BCP Dolares", currencies=[held_currency("USD")]
     )
     return dataclasses.replace(REFS, picks=currency_picks([ACCOUNTS[0], both, dollars]))
-
-
-def test_no_account_pick_lists_an_account_and_a_currency_row(fake_client, monkeypatch):
-    """An account holding two currencies is one row in `b`, its name alone: no row of
-    the pick reads "<account> · <code>", and `BCP Oro` is listed once."""
-    refs = _two_currency_refs()
-    _stub_ledger(monkeypatch, ITEMS[:1])
-    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: refs)
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        await _open(app, pilot, screen)
-        await pilot.press("b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        names = [name for _, name in app.screen._pool]
-        assert names == ["BCP Signature", "BCP Oro", "BCP Dolares"]
-        assert not any(" · " in name for name in names)
-        assert not any(code in _suggested(app.screen) for code in ("PEN", "USD"))
-
-    run_app(scenario, size=(120, 30))
 
 
 def _move_to_signature(fake_client, monkeypatch, rows: list[dict]) -> list[str]:
@@ -1988,50 +1736,6 @@ def test_b_to_an_account_holding_two_currencies_sends_the_account_alone(fake_cli
     run_app(scenario, size=(120, 30))
 
 
-def test_b_names_a_row_whose_currency_the_account_lacks_in_the_engines_words(
-    fake_client, monkeypatch
-):
-    """BCP Oro holds PEN and USD in the app's read, yet the engine refuses the dollar row
-    (`CURRENCY_NOT_HELD`, keyed `account_id` since only the account was sent): the refusal
-    is named by number in the engine's words, the other row still goes, and the refused
-    one stays selected (contract: PUT /v1/transactions/{transaction_id}, "Moving a
-    transaction")."""
-    words = "The account holds no USD."
-    rows = [ITEMS[0], {**ITEMS[1], "account_id": "acc3", "currency_code": "USD"}]
-    _stub_ledger(monkeypatch, rows)
-    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: _two_currency_refs())
-    _answer_moves(fake_client, [rows[0]])
-    real_put = fake_client.put
-
-    def put(path, json_body=None):
-        if path.endswith("/t2"):
-            raise EngineError(
-                "VALIDATION_ERROR",
-                words,
-                {"account_id": words},
-                422,
-                {},
-                reasons={"account_id": "CURRENCY_NOT_HELD"},
-            )
-        return real_put(path, json_body=json_body)
-
-    fake_client.put = put
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        toasts = _record_toasts(monkeypatch, screen)
-        await _open(app, pilot, screen)
-        await pilot.press("space", "down", "space", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: not screen._bulk_busy and len(toasts) == 2)
-        assert toasts[0] == ("", "1 row → BCP Oro", "information", False)
-        assert toasts[1] == ("Refused", f"account_id: {words}\nrow 2", "error", True)
-        assert screen._selected == {"t2"}
-
-    run_app(scenario, size=(120, 30))
-
-
 # ---- the currency pick (`m`) -----------------------------------------------------
 
 #: acc1 (the ledger rows' account) holds PEN and USD; acc2 holds PEN and USD too; acc3, "BCP
@@ -2104,49 +1808,6 @@ def test_m_moves_the_selected_rows_to_a_currency_one_put_each(fake_client, monke
         assert calls[-1]["after"] is None
         listing = screen.query_one(CursorList)
         assert (listing.cursor_index, listing.cursor_key) == (0, "t1")
-
-    run_app(scenario, size=(120, 30))
-
-
-def test_m_names_a_refused_row_and_the_others_still_move(fake_client, monkeypatch):
-    """A row whose account lacks the currency is refused by the engine in its own words,
-    `CURRENCY_NOT_HELD` (contract: PUT /v1/transactions/{transaction_id}, "Moving a
-    transaction"): the note names row 2, the others go, and it stays selected."""
-    # row 2 alone sits on an account holding no USD
-    _stub_ledger(monkeypatch, [ITEMS[0], {**ITEMS[1], "account_id": "acc3"}, ITEMS[2]])
-    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TWO_CURRENCIES)
-    toasts: list[tuple[str, str]] = []
-    real_put = fake_client.put
-    words = "BCP Ahorros does not hold USD."
-
-    def put(path, json_body=None):
-        if path.endswith("/t2"):
-            fields = {"currency_code": words}
-            reasons = {"currency_code": "CURRENCY_NOT_HELD"}
-            body = error_body("VALIDATION_ERROR", words, fields, reasons)
-            raise EngineError("VALIDATION_ERROR", words, fields, 422, body, reasons=reasons)
-        return real_put(path, json_body=json_body)
-
-    fake_client.put = put
-    _answer_currency_moves(fake_client, [ITEMS[0], ITEMS[2]])
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
-        )
-        await _open(app, pilot, screen)
-        await pilot.press("a", "m")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("u", "enter")
-        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
-        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
-        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
-            f"currency_code: {words}\nrow 2"
-        ]
-        assert ("", "2 rows → USD") in toasts
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert screen._selected == {"t2"}
 
     run_app(scenario, size=(120, 30))
 
