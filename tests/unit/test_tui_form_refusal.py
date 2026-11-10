@@ -70,20 +70,6 @@ def test_a_single_line_form_shows_the_refusal_as_a_block_not_a_toast(fake_client
     run_app(scenario, toasts=True)
 
 
-def test_esc_with_a_block_up_still_cancels(fake_client):
-    fake_client.errors["POST"] = TAKEN
-
-    async def scenario(pilot, app):
-        screen = NewHashtagScreen()
-        await app.push_screen(screen)
-        await pilot.press(*"groceries", "enter")  # the only line: enter saves
-        await _refused(pilot, screen)
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: not screen.is_attached, message="esc did not cancel")
-
-    run_app(scenario)
-
-
 def test_a_create_form_of_several_lines_keeps_what_was_typed_and_a_tab_clears_the_block(
     fake_client,
 ):

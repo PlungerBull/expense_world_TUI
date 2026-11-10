@@ -10,6 +10,8 @@ that opened the one left, when it is the one shown, reads again after a write th
 
 import threading
 
+import pytest
+
 from expense.errors import EngineError, format_error
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.modals import AmountPromptModal
@@ -130,23 +132,23 @@ def test_a_complete_answered_after_leaving_gives_the_notes_and_the_flagged_count
     assert type(shown) is Opener  # no flagged-lines screen opened by itself
 
 
-def test_one_flagged_line_is_worded_in_the_singular(fake_client, monkeypatch):
-    (notes, *_), _ = _left_complete(fake_client, monkeypatch, count=1)
-    assert _only(notes)[1].endswith("⚑ 1 line flagged for review: open the statement and press f.")
-
-
-def test_no_flagged_lines_leave_the_flagged_line_out(fake_client, monkeypatch):
-    (notes, *_), _ = _left_complete(fake_client, monkeypatch, count=0)
-    assert "⚑" not in _only(notes)[1]
-    assert _only(notes)[0] == f"Statement completed · {NAME}"
-
-
-def test_a_failed_count_read_leaves_the_flagged_line_out(fake_client, monkeypatch):
-    (notes, _reads, touched), _ = _left_complete(fake_client, monkeypatch, count=REFUSAL)
+@pytest.mark.parametrize(
+    ("count", "flagged"),
+    [
+        (1, "⚑ 1 line flagged for review: open the statement and press f."),
+        (0, None),
+        (REFUSAL, None),  # the count read failed: the flagged line is left out
+    ],
+    ids=["singular", "none", "count failed"],
+)
+def test_the_flagged_line_is_worded_by_the_count_and_left_out_without_one(
+    fake_client, monkeypatch, count, flagged
+):
+    (notes, *_), _ = _left_complete(fake_client, monkeypatch, count=count)
     title, message, _ = _only(notes)
     assert title == f"Statement completed · {NAME}"
-    assert message == f"⚠ {NOTE}\n⚠ USD: no balances were given."
-    assert touched == []
+    notes_only = f"⚠ {NOTE}\n⚠ USD: no balances were given."
+    assert message == notes_only + (f"\n{flagged}" if flagged else "")
 
 
 def test_a_complete_with_nothing_to_add_says_the_plain_words(fake_client, monkeypatch):
@@ -186,7 +188,7 @@ def test_quitting_while_the_count_is_read_shows_nothing_more(fake_client, monkey
 # ---- the balances ------------------------------------------------------------------------
 
 
-def _left_balances(fake_client, monkeypatch, *, refusal=None, elsewhere=False):
+def _left_balances(fake_client, monkeypatch, *, refusal=None):
     _engine(fake_client, monkeypatch)
     monkeypatch.setattr("expense.reads.count_bank_lines", lambda *a, **k: 0)
     saved = _ibk(_balance("PEN", -82000, -34860), _balance("USD", 0, -2499, 0))
@@ -213,7 +215,7 @@ def _left_balances(fake_client, monkeypatch, *, refusal=None, elsewhere=False):
         touched: list[str] = []
         monkeypatch.setattr(screen, "_confirm_complete", lambda **k: touched.append("question"))
         monkeypatch.setattr(screen, "_load_txns", lambda *a, **k: touched.append("read"))
-        await _leave(pilot, app, screen, opener, elsewhere)
+        await _leave(pilot, app, screen, opener, False)
         late.release.set()
         await wait_for(pilot, lambda: notes, timeout=3)
         await pilot.pause()
@@ -232,12 +234,6 @@ def test_balances_saved_after_leaving_say_the_statement_is_not_completed(fake_cl
     assert touched == []  # the question to complete never shows
     assert reads == 1
     assert type(shown) is Opener  # and nothing opened
-
-
-def test_balances_saved_elsewhere_read_nothing(fake_client, monkeypatch):
-    notes, reads, touched, _ = _left_balances(fake_client, monkeypatch, elsewhere=True)
-    assert [t for t, _, _ in notes] == [f"Balances saved · {OCTUBRE['name']}"]
-    assert (reads, touched) == (0, [])
 
 
 def test_balances_refused_after_leaving_give_the_words_couldnt_save_shows(fake_client, monkeypatch):

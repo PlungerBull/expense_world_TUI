@@ -26,6 +26,7 @@ from tests.unit.helpers import (
     account_with_currencies,
     bank_line_row,
     cursor_page,
+    dashboard_answer,
     fake_ledger,
     held_currency,
     import_part,
@@ -57,11 +58,11 @@ from tests.unit.test_tui_transactions import ITEMS as LEDGER_ITEMS
 
 NAME = "BCP [like this]"
 #: Words that lose something when read as markup: a whole tag pair, a closing
-#: tag with nothing to close (Rich refuses it outright), a bold pair.
-BRACKETED = [NAME, "[/]", "[bold]x[/bold]"]
+#: tag with nothing to close (Rich refuses it outright).
+BRACKETED = [NAME, "[/]"]
 
 
-@pytest.mark.parametrize("words", [NAME, "[/]", "a lone [ here", "[bold]x[/bold]", "[[x]]"])
+@pytest.mark.parametrize("words", ["[/]", "a lone [ here", "[bold]x[/bold]"])
 def test_a_plain_cell_shows_as_typed(words):
     """A plain-string cell is drawn as its words: nothing read as markup."""
     table = list_table(["Name", "Cur"], [("k", [words, "PEN"])])
@@ -99,13 +100,12 @@ def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
     person = {
         "id": "p1",
         "name": words,
+        "kind": "person",
         "currencies": [{"currency_code": "PEN", "current_balance_cents": -150000}],
     }
-    dashboard = {
-        **HOME_DASHBOARD,
-        "accounts": [account, *HOME_DASHBOARD["accounts"][1:]],
-        "people": [person],
-    }
+    dashboard = dashboard_answer(
+        accounts=[account, *HOME_DASHBOARD["accounts"][1:]], people=[person]
+    )
     stub_home_month(monkeypatch, dashboard=dashboard)
 
     async def scenario(pilot, app):

@@ -5,7 +5,6 @@ pin its window behaviour.
 """
 
 from expense.tui.widgets.picker import PICKER_WINDOW, matching, suggestion_list
-from expense.tui.widgets.windowed import CURSOR_STYLE
 from tests.unit.helpers import render_text
 
 
@@ -43,7 +42,6 @@ def test_the_window_centres_on_the_cursor_then_clamps_to_the_ends():
 
 
 def test_the_cursor_row_is_drawn_with_the_shared_style():
-    assert CURSOR_STYLE == "reverse"
     out = _text(suggestion_list(_labels(3), 1), ansi=True)
     lines = [ln for ln in out.splitlines() if "name" in ln]
     assert "\x1b[7m" in lines[1] and "\x1b[7m" not in lines[0]

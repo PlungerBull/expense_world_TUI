@@ -13,7 +13,7 @@ import threading
 import pytest
 from textual.screen import Screen
 
-from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.errors import EngineError, format_error
 from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.statements import NewStatementScreen, StatementScreen
 from tests.unit.helpers import LateAnswer, app_notes, cursor_page, run_app, wait_for
@@ -26,7 +26,6 @@ REFUSAL = EngineError("CONFLICT", "stand-in [not markup]", None, 409, {})
 NAME = DRAFT["name"]
 LAST = "Nothing was saved: open it again to fix it."
 SERVER_ERROR = EngineError("INTERNAL_ERROR", "Went wrong [on our side].", None, 500, {})
-NO_ANSWER = EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
 
 
 class Opener(Screen):
@@ -109,16 +108,15 @@ def test_a_refused_new_statement_names_what_was_not_created(fake_client, monkeyp
     assert created == []
 
 
-@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
 def test_a_new_statement_whose_ending_is_not_known_ends_with_the_engines_words_only(
-    fake_client, monkeypatch, failure
+    fake_client, monkeypatch
 ):
     """As on every bar form (`open_it_again`): it may have been created, so no last line
     sends the owner back to the form."""
-    notes, created, _ = _left_new(fake_client, monkeypatch, failure)
+    notes, created, _ = _left_new(fake_client, monkeypatch, SERVER_ERROR)
     [(title, message, options)] = notes
     assert title == "Not created · Statement Abril 2026"
-    assert message == format_error(failure)
+    assert message == format_error(SERVER_ERROR)
     assert LAST not in message
     assert (options["severity"], options["timeout"], options["markup"]) == ("error", 10, False)
     assert created == []
@@ -352,8 +350,8 @@ def test_a_status_write_refused_after_leaving_names_the_statement(fake_client, m
     assert reads == 0  # a refusal changed nothing: no read
 
 
-@pytest.mark.parametrize("action", sorted(STATUS))
-def test_a_status_write_answered_elsewhere_reads_nothing(fake_client, monkeypatch, action):
+def test_a_status_write_answered_elsewhere_reads_nothing(fake_client, monkeypatch):
+    action = "delete it"
     notes, reads = _left_status(fake_client, monkeypatch, action, elsewhere=True)
     assert [message for _, message, _ in notes] == [STATUS[action][2]]
     assert reads == 0

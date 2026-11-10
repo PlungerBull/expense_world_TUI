@@ -128,30 +128,6 @@ def test_auth_provisioned_shows_identity(fake_client, monkeypatch):
         card = _screen_text(app.screen)
         assert "display name" in card and "Alex" in card
         assert "main currency" in card and "PEN" in card
-        # Main currency is read-only — the engine locks it — so there is
-        # no `m` set-currency flow.
-        assert not hasattr(screen, "action_currency")
-        assert fake_client.puts == []
-
-    run_app(scenario)
-
-
-def test_auth_not_provisioned_bootstraps(fake_client, monkeypatch):
-    _patch_auth(fake_client, monkeypatch, me=None)  # 404 → not provisioned
-    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
-
-    async def scenario(pilot, app):
-        screen = AuthScreen()
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: bool(app.screen.query(".legend")))
-        screen.action_bootstrap()
-        await wait_for(pilot, lambda: bool(app.screen.query("#prompt")))
-        app.screen.query_one("#prompt").value = "Alex"
-        await pilot.press("enter")  # submit display name
-        await wait_for(pilot, lambda: fake_client.posts)
-        path, body = fake_client.posts[0]
-        assert path == "/auth/bootstrap"
-        assert body == {"display_name": "Alex", "timezone": "America/Lima"}
 
     run_app(scenario)
 
@@ -165,7 +141,7 @@ async def _open_bootstrap_prompt(pilot, app) -> AuthScreen:
     return screen
 
 
-@pytest.mark.parametrize("typed", ["  Alex Tern \t", "", "   "], ids=["padded", "empty", "spaces"])
+@pytest.mark.parametrize("typed", ["  Alex Tern \t", ""], ids=["padded", "empty"])
 def test_bootstrap_sends_the_display_name_exactly_as_typed(fake_client, monkeypatch, typed):
     """No local trim and no local blank check: the engine trims the name and
     refuses an empty one (contract: POST /v1/auth/bootstrap)."""

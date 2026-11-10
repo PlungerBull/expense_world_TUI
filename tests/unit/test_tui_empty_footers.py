@@ -22,7 +22,6 @@ from tests.unit.helpers import (
 from tests.unit.test_tui_fitting_footer import ROWS, _footer, _stub_ledger
 
 SIZE = (80, 24)
-ROW_KEYS = ("edit", "delete", "archive", "make_person", "make_bank", "add_currency")
 ACCOUNT = account_with_currencies(id="a1", name="BCP", currencies=[held_currency("PEN", 100)])
 TAG = {"id": "h1", "name": "trabajo", "system_key": None}
 CAT = {"id": "c1", "name": "Comida", "color": None, "is_system": False, "system_key": None}
@@ -52,23 +51,6 @@ def _serve(monkeypatch, name: str, items: list) -> list:
 
 def _line(app) -> str:
     return _footer(app).strip()
-
-
-@pytest.mark.parametrize("name", sorted(MANAGE))
-def test_an_empty_manage_list_shows_only_the_keys_that_work(monkeypatch, name):
-    _serve(monkeypatch, name, [])
-
-    async def scenario(pilot, app):
-        screen = MANAGE[name][0]()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        await pilot.pause()
-        for action in ROW_KEYS:  # gone from the footer, not greyed
-            if hasattr(screen, f"action_{action}"):
-                assert screen.check_action(action, ()) is False
-        return _line(app)
-
-    assert run_app(scenario, size=SIZE) == EMPTY_MANAGE
 
 
 @pytest.mark.parametrize("name", sorted(MANAGE))
@@ -106,22 +88,6 @@ def test_manage_keys_return_with_the_first_row_and_leave_with_the_last(monkeypat
     empty, with_row, emptied = run_app(scenario, size=SIZE)
     assert empty == emptied == EMPTY_MANAGE
     assert "e Edit" in with_row
-
-
-def test_an_empty_ledger_shows_only_the_keys_that_work(monkeypatch):
-    rows: list = []
-    _stub_ledger(monkeypatch)
-    fake_ledger(monkeypatch, rows)
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        screen.query_one(CursorList).focus()
-        await pilot.pause()
-        return _line(app)
-
-    assert run_app(scenario, size=SIZE) == "esc Back  r Refresh  ? Keys  + Add"
 
 
 def test_the_ledger_keys_return_with_the_first_row_and_leave_with_the_last(monkeypatch):

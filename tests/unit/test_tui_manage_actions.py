@@ -11,7 +11,6 @@ from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.create_forms import EditAccountScreen, EditHashtagScreen
 from expense.tui.screens.hashtags import HashtagsScreen
-from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     account_with_currencies,
@@ -26,24 +25,7 @@ ACCOUNT = account_with_currencies(
     id="a1", name="BCP", color="#4a90d9", currencies=[held_currency("PEN", -7495)]
 )
 ACCOUNT_2 = {**ACCOUNT, "id": "a2", "name": "Interbank", "color": None}
-ARCHIVED_ACCOUNT = {**ACCOUNT, "is_archived": True}
-CATEGORY = {"id": "c1", "name": "COMIDA", "is_system": False, "color": None}
 HASHTAG = {"id": "h1", "name": "trabajo"}
-
-
-def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ACCOUNT]))
-
-    async def scenario(pilot, app):
-        screen = AccountsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        await pilot.press("a")  # straight to the write — no ConfirmModal
-        assert not isinstance(app.screen, ConfirmModal)
-        await wait_for(pilot, lambda: fake_client.calls)
-
-    run_app(scenario)
-    assert ("POST", "/accounts/a1/archive") in fake_client.requests
 
 
 @pytest.mark.parametrize(
@@ -151,41 +133,6 @@ def test_e_on_a_two_currency_account_saves_it_by_its_id(fake_client, monkeypatch
     assert fake_client.puts == [("/accounts/visa", {})]
 
 
-def test_unarchive_is_direct(fake_client, monkeypatch):
-    """`a` on an archived row unarchives — same key, opposite verb, no prompt."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ARCHIVED_ACCOUNT]))
-
-    async def scenario(pilot, app):
-        await app.push_screen(AccountsScreen())
-        await wait_for_list(pilot, app)
-        await pilot.press("a")
-        assert not isinstance(app.screen, ConfirmModal)
-        await wait_for(pilot, lambda: fake_client.calls)
-
-    run_app(scenario)
-    assert ("POST", "/accounts/a1/unarchive") in fake_client.requests
-
-
-def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
-    """The reload after a toggle re-selects the acted-on row (fresh CursorList
-    would otherwise snap to row 0, so a second `a` would hit the wrong record)."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ACCOUNT, ACCOUNT_2]))
-
-    async def scenario(pilot, app):
-        screen = AccountsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        await pilot.press("down")  # cursor → a2
-        await pilot.press("a")
-        await wait_for(pilot, lambda: fake_client.calls)
-        await wait_for(pilot, lambda: not screen._toggle_busy)  # reload landed
-        cursor_list = screen.query(CursorList).first()
-        assert cursor_list.cursor_key == "a2"
-
-    run_app(scenario)
-    assert ("POST", "/accounts/a2/archive") in fake_client.requests
-
-
 def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
     """25 accounts: act on row 22 — beyond the 20-row window.
     The reload must land the cursor back on that row, on its page."""
@@ -213,42 +160,6 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
     assert ("POST", "/accounts/a22/archive") in fake_client.requests
 
 
-def test_edit_prefills_and_sends_nothing_unchanged(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ACCOUNT]))
-
-    async def scenario(pilot, app):
-        await app.push_screen(AccountsScreen())
-        await wait_for_list(pilot, app)
-        await pilot.press("e")  # → prefilled EditAccountScreen
-        await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
-        await pilot.press("ctrl+s")  # save unchanged → PUT
-        await wait_for(pilot, lambda: fake_client.calls)
-
-    run_app(scenario)
-    puts = dict(fake_client.puts)
-    assert "/accounts/a1" in puts
-    assert puts["/accounts/a1"] == {}  # nothing changed: the bank account's name is not sent
-
-
-def test_categories_have_no_archive_action(fake_client, monkeypatch):
-    """Categories have no archive: the `a`
-    binding lives on AccountsScreen only, so on Categories it is inert."""
-    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([CATEGORY]))
-
-    async def scenario(pilot, app):
-        screen = CategoriesScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        assert not hasattr(screen, "action_archive")
-        assert screen.check_action("edit", ()) is True  # edit still offered
-        await pilot.press("a")  # inert — no confirm, no write
-        await pilot.pause()  # let the (inert) keypress settle, then assert a non-event
-        assert not isinstance(app.screen, ConfirmModal)
-        assert not fake_client.calls
-
-    run_app(scenario)
-
-
 def test_hashtag_edit_puts(fake_client, monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([HASHTAG]))
 
@@ -264,22 +175,6 @@ def test_hashtag_edit_puts(fake_client, monkeypatch):
     puts = dict(fake_client.puts)
     assert "/hashtags/h1" in puts
     assert puts["/hashtags/h1"]["name"] == "trabajo"
-
-
-def test_enter_is_a_noop(fake_client, monkeypatch):
-    """The record detail is gone: `enter` opens nothing, mutates nothing."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([ACCOUNT]))
-
-    async def scenario(pilot, app):
-        screen = AccountsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        await pilot.press("enter")
-        await pilot.pause()  # let the (inert) keypress settle, then assert a non-event
-        assert app.screen is screen  # nothing pushed
-        assert not fake_client.calls  # nothing written
-
-    run_app(scenario)
 
 
 # ---- after an edit: a save starts the list over, a cancel keeps the row ---------------

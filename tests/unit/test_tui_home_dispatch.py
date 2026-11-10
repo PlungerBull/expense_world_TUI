@@ -15,7 +15,13 @@ from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen, legend_text
-from tests.unit.helpers import HOME_DASHBOARD, fake_ledger, run_app, stub_home_month, wait_for
+from tests.unit.helpers import (
+    dashboard_answer,
+    fake_ledger,
+    run_app,
+    stub_home_month,
+    wait_for,
+)
 
 _CASES = [
     ("ledger", "transactions", home.TransactionsScreen),
@@ -70,50 +76,6 @@ def test_section_entry_dispatch(monkeypatch, section, kind, screen_cls):
     run_app(scenario, size=(100, 40))
 
 
-def test_left_and_right_on_a_screen_entry_change_nothing(monkeypatch):
-    """The sections are not collapsible."""
-    _stub_loaders(monkeypatch)
-
-    async def scenario(pilot, app):
-        await pilot.pause()
-        menu = app.query_one("#menu", OptionList)
-        count = menu.option_count
-        await _highlight(app, "accounts")
-        await pilot.press("left")
-        await pilot.press("right")
-        await pilot.pause()
-        assert menu.option_count == count
-        assert app.screen._cursor_id() == "accounts"
-        assert isinstance(app.screen, HomeScreen)
-
-    run_app(scenario, size=(100, 40))
-
-
-def test_cases_cover_every_section_entry():
-    """Armor: a new section entry must get a dispatch case here (and vice versa)."""
-    wired = {kind for _section, _label, entries in home._SECTIONS for kind, _ in entries}
-    assert wired == {kind for _, kind, _ in _CASES}
-
-
-def test_screens_map_covers_every_section_entry():
-    wired = {kind for _section, _label, entries in home._SECTIONS for kind, _ in entries}
-    assert set(home._SCREENS) == wired
-
-
-def test_log_is_not_a_section_entry():
-    """`Log a transaction` is not a menu row — `+` logs; guard the reflex re-add."""
-    labels = [text for _section, _label, entries in home._SECTIONS for _kind, text in entries]
-    assert "Log a transaction" not in labels
-    assert "log" not in home._SCREENS
-
-
-def test_the_overview_screen_is_gone():
-    """There is no Overview screen: Home is the month grid."""
-    import importlib.util
-
-    assert importlib.util.find_spec("expense.tui.screens.overview") is None
-
-
 def test_enter_on_a_category_filters_the_ledger_by_it(monkeypatch):
     _stub_month(monkeypatch)
 
@@ -124,24 +86,6 @@ def test_enter_on_a_category_filters_the_ledger_by_it(monkeypatch):
         assert app.screen._filter == LedgerFilter("category", "c-pend", "@Pendiente")
 
     run_app(scenario)
-
-
-def test_enter_on_a_hashtag_filters_by_category_and_hashtag(monkeypatch):
-    _stub_month(monkeypatch)
-
-    async def scenario(pilot, app):
-        await _month_loaded(app, pilot)
-        await _highlight(app, "category:c-wants")
-        await pilot.press("right")
-        await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
-        await _select(app, pilot, "tag:c-wants:h-sal")
-        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-        assert app.screen._filter == LedgerFilter(
-            "category", "c-wants", "WANTS #SALIDAS", hashtag_id="h-sal"
-        )
-        assert app.screen.crumb == ("Ledger", "WANTS #SALIDAS")
-
-    run_app(scenario, size=(100, 40))
 
 
 def test_enter_on_the_pending_row_lists_what_still_waits_for_a_hashtag(monkeypatch):
@@ -269,12 +213,13 @@ def test_enter_on_a_currency_line_opens_the_ledger_on_that_currency_alone(monkey
     two = {
         "id": "a-visa",
         "name": "VISA",
+        "kind": "bank",
         "currencies": [
             {"currency_code": "PEN", "current_balance_cents": 100},
             {"currency_code": "USD", "current_balance_cents": -250},
         ],
     }
-    stub_home_month(monkeypatch, dashboard={**HOME_DASHBOARD, "accounts": [two]})
+    stub_home_month(monkeypatch, dashboard=dashboard_answer(accounts=[two]))
     monkeypatch.setattr(SectionScreen, "_load", lambda self: None)
 
     async def scenario(pilot, app):

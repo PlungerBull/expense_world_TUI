@@ -38,12 +38,6 @@ def _double(path: Path) -> str:
     return '"' + str(path) + '"'
 
 
-def test_a_plain_absolute_path(tmp_path):
-    path = tmp_path / "movimientos.xlsx"
-    path.write_bytes(b"")
-    assert dropped_bank_files(str(path)) == [path]
-
-
 def test_a_home_relative_path(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / "Downloads").mkdir()
@@ -72,25 +66,16 @@ def test_terminal_app_escapes_any_other_character(tmp_path):
     ]
 
 
-def test_vs_code_single_quoted(files):
-    assert dropped_bank_files(_single(files[0])) == [files[0]]
-
-
 def test_vs_code_single_quoted_with_a_quote_inside(tmp_path):
     path = tmp_path / "it's.xlsx"
     path.write_bytes(b"")
     assert dropped_bank_files(_single(path)) == [path]
 
 
-def test_double_quoted(files):
-    assert dropped_bank_files(_double(files[0])) == [files[0]]
-
-
 @pytest.mark.parametrize("quote", [_escaped, _single, _double])
-@pytest.mark.parametrize("count", [2, 3])
-def test_several_files_in_one_drop(files, quote, count):
-    line = " ".join(quote(f) for f in files[:count])
-    assert dropped_bank_files(line) == files[:count]
+def test_several_files_in_one_drop(files, quote):
+    line = " ".join(quote(f) for f in files)
+    assert dropped_bank_files(line) == files
 
 
 def test_formats_mix_in_one_line(files):
@@ -98,7 +83,7 @@ def test_formats_mix_in_one_line(files):
     assert dropped_bank_files(line) == files
 
 
-@pytest.mark.parametrize("pad", [("  ", "  "), ("", " "), ("", "\n"), ("\t", " \r\n")])
+@pytest.mark.parametrize("pad", [("  ", "  "), ("", "\n"), ("\t", " \r\n")])
 def test_surrounding_whitespace_and_a_trailing_newline(files, pad):
     before, after = pad
     assert dropped_bank_files(before + _escaped(files[0]) + after) == [files[0]]

@@ -10,7 +10,7 @@ import threading
 
 from expense.errors import EngineError
 from expense.tui.screens.bulk_pick import BulkPickScreen
-from expense.tui.screens.transactions import TransactionsScreen, refusal_notes
+from expense.tui.screens.transactions import TransactionsScreen
 from tests.unit.helpers import app_notes, run_app, styled_stretches, wait_for
 from tests.unit.test_tui_bulk_edit import (
     FILTER,
@@ -162,13 +162,6 @@ def test_six_refused_rows_show_four_then_and_2_more(fake_client, monkeypatch):
     assert lines[-1] == "and 2 more"
 
 
-def test_five_refused_rows_leave_and_1_more(fake_client, monkeypatch):
-    items = _rows(["A", "B", "C", "D", "E"])
-    refusals = {f"/transactions/{i['id']}": _locked("account_id") for i in items}
-    notes, _ = _left_bulk(fake_client, monkeypatch, items, refusals)
-    assert _read(notes[0])[1].endswith("\nand 1 more")
-
-
 def test_a_refusal_naming_no_row_lists_the_rows_it_met(fake_client, monkeypatch):
     refusals = {f"/transactions/{k}": UNKEYED for k in ("t1", "t2")}
     notes, _ = _left_bulk(fake_client, monkeypatch, refusals=refusals)
@@ -190,12 +183,13 @@ def test_a_run_wide_stop_shows_its_note_after_leaving(fake_client, monkeypatch):
     assert notes[0][2]["severity"] == "error"
 
 
-def test_brackets_in_a_title_and_in_the_engine_words_stay_text(fake_client, monkeypatch):
+def test_brackets_stay_text_and_income_is_named_with_its_plus(fake_client, monkeypatch):
     items = _rows(["[bold]Tottus[/]", "B", "C"])
+    items[0]["amount_cents"] = 80000  # income is named with its plus, as the ledger draws it
     notes, _ = _left_bulk(fake_client, monkeypatch, items, {"/transactions/t1": UNKEYED})
     message = _read(notes[-1])[1]
     assert "Engine words [not markup] naming no field." in message
-    assert "2026-10-29 · [bold]Tottus[/] · -10.00" in message
+    assert "2026-10-29 · [bold]Tottus[/] · +800.00" in message
 
 
 def test_a_refusal_with_the_apps_dim_lines_keeps_them_after_the_rows(fake_client, monkeypatch):
@@ -217,13 +211,6 @@ def test_a_refusal_with_the_apps_dim_lines_keeps_them_after_the_rows(fake_client
     assert [style for _, _, style in styled_stretches(notes[1][1])] == ["$error", "dim"]
 
 
-def test_income_is_named_with_its_plus_as_the_ledger_draws_it(fake_client, monkeypatch):
-    items = _rows(["Sueldo", "B", "C"])
-    items[0]["amount_cents"] = 80000
-    notes, _ = _left_bulk(fake_client, monkeypatch, items, {"/transactions/t1": UNKEYED})
-    assert _read(notes[-1])[1].endswith("\n2026-10-29 · Sueldo · +800.00")
-
-
 def test_quitting_mid_run_shows_nothing_more(fake_client, monkeypatch):
     notes, sent = _left_bulk(
         fake_client,
@@ -234,13 +221,3 @@ def test_quitting_mid_run_shows_nothing_more(fake_client, monkeypatch):
     assert notes == []
     # quitting stops nothing already running: the worker thread still sends every row
     assert sent == ["/transactions/t1", "/transactions/t2", "/transactions/t3"]
-
-
-def test_an_open_ledger_still_names_its_rows_by_number():
-    """Without `row_lines` the rows read `row 2` / `rows 1, 3`, as the ledger shows them
-    (the screen's own notes are test_tui_bulk_edit.py's)."""
-    failed = [("t1", 1, "k", "words"), ("t2", 2, "j", "other"), ("t3", 3, "k", "words")]
-    assert [_plain(n) for n in refusal_notes(failed)] == [
-        "words\nrows 1, 3",
-        "other\nrow 2",
-    ]

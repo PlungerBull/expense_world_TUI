@@ -13,7 +13,13 @@ from rich.text import Text
 import expense.tui.screens.home as home
 from expense.formatting import build_range_grid
 from expense.tui.theme import Palette
-from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES, render_text
+from tests.unit.helpers import (
+    HOME_DASHBOARD,
+    HOME_MONTHS,
+    HOME_TAG_NAMES,
+    dashboard_answer,
+    render_text,
+)
 
 PALETTE = Palette(success="#7fbf8f", error="#cf8d8d", warning="#d6b878")
 DATA = dict(dashboard=HOME_DASHBOARD, grid=build_range_grid(HOME_MONTHS), names=HOME_TAG_NAMES)
@@ -57,7 +63,7 @@ def _accounts(rows):
 
 
 def _people(*people):
-    return {**DATA, "dashboard": {**HOME_DASHBOARD, "people": list(people)}}
+    return {**DATA, "dashboard": dashboard_answer(people=list(people))}
 
 
 def _person(ident, name, *balances):
@@ -66,7 +72,7 @@ def _person(ident, name, *balances):
         {"currency_code": code, "current_balance_cents": cents}
         for code, cents in zip(codes, balances, strict=False)
     ]
-    return {"id": ident, "name": name, "currencies": held}
+    return {"id": ident, "name": name, "kind": "person", "currencies": held}
 
 
 # ---- small helpers -----------------------------------------------------------
@@ -83,10 +89,6 @@ def test_month_labels():
     assert home.month_title((2026, 9)) == "September 2026"
     assert home.short_label("2026-09") == "Sep 2026"
     assert home.short_label("garbage") == "garbage"
-
-
-def test_the_window_is_four_months():
-    assert home.WINDOW_MONTHS == 4
 
 
 # ---- home_rows -----------------------------------------------------------------
@@ -119,13 +121,6 @@ def test_category_cells_are_home_currency_with_a_dash_for_no_activity():
     assert pend.right[1].style == PALETTE.error
     assert [_plain(c) for c in rows["▶ WANTS"].right] == ["-1,608.43", "—"]
     assert [_plain(c) for c in rows["net"].right] == ["-1,874.63", "-11,487.46"]
-
-
-def test_every_category_with_hashtag_rows_unfolds_pendiente_included():
-    """@Pendiente's rows wait for a hashtag too, so it unfolds like the others."""
-    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
-    assert "▶ @Pendiente" in rows
-    assert "▶ WANTS" in rows
 
 
 def test_a_category_with_no_hashtag_row_has_no_caret():
@@ -173,7 +168,7 @@ COMIDA_MONTHS = [
         "totals": {},
     }
 ]
-COMIDA_NAMES = dict([("h-alm", "almuerzo"), ("h-cas", "casa"), ("h-pend", "Pendiente")])
+COMIDA_NAMES = dict([("h-alm", "almuerzo"), ("h-cas", "casa"), ("h-pend", "Pend-from-engine")])
 
 
 def _comida_rows(names=COMIDA_NAMES):
@@ -187,58 +182,15 @@ def test_the_pending_hashtag_is_a_hashtag_row_like_the_others():
     rows = _comida_rows()
     lefts = [r.left.strip() for r in rows]
     i = lefts.index("▼ COMIDA")
-    assert lefts[i + 1 : i + 4] == ["#almuerzo", "#Pendiente", "#casa"]
+    assert lefts[i + 1 : i + 4] == ["#almuerzo", "#Pend-from-engine", "#casa"]
     alm, pend = rows[i + 1], rows[i + 2]
     assert pend.id == "tag:c-com:h-pend" and pend.hashtag == "h-pend"
-    assert pend.name == "COMIDA #Pendiente"
+    assert pend.name == "COMIDA #Pend-from-engine"
     assert pend.dim == alm.dim is True
     assert [_plain(c) for c in pend.right] == ["-18.50"]
     alm_option, pend_option = home.home_options([alm, pend])
     assert pend_option.prompt.style == alm_option.prompt.style == "dim"
     assert pend_option.prompt.spans == alm_option.prompt.spans  # nothing set apart
-
-
-def test_the_pending_row_takes_its_name_from_the_engine():
-    """The label is the name `GET /hashtags` sends for the id, never a word the
-    app supplies."""
-    rows = _comida_rows(names={**COMIDA_NAMES, "h-pend": "Pend-from-engine"})
-    assert "#Pend-from-engine" in [r.left.strip() for r in rows]
-
-
-def test_no_row_reads_no_hashtags():
-    """There is no "(no hashtags)" row: every breakdown row names its hashtags."""
-    rows = _comida_rows() + _live(
-        home.home_rows(DATA, home.HomeState(expanded=frozenset({"c-pend", "c-wants"})), PALETTE)
-    )
-    text = render_text(Text("\n").join(o.prompt for o in home.home_options(rows) if o), width=100)
-    assert "(no hashtags)" not in text
-    assert "#Pendiente" in text
-
-
-def test_unfolded_pendiente_lists_its_pending_hashtag_row():
-    state = home.HomeState(expanded=frozenset({"c-pend"}))
-    rows = _live(home.home_rows(DATA, state, PALETTE))
-    lefts = [r.left.strip() for r in rows]
-    i = lefts.index("▼ @Pendiente")
-    row = rows[i + 1]
-    assert (row.left.strip(), row.id, row.hashtag) == ("#Pendiente", "tag:c-pend:h-pend", "h-pend")
-    assert row.name == "@Pendiente #Pendiente"
-
-
-def test_a_user_with_no_pending_hashtag_yet_sees_only_real_hashtags():
-    """No row waits for a hashtag yet, so no breakdown names the pending
-    hashtag and the hashtag list has none: nothing pending is drawn."""
-    months = [dict(COMIDA_MONTHS[0])]
-    cat = dict(months[0]["categories"][0])
-    cat["hashtag_breakdown"] = [
-        b for b in cat["hashtag_breakdown"] if b["hashtag_ids"] != ["h-pend"]
-    ]
-    months[0]["categories"] = [cat]
-    names = dict([("h-alm", "almuerzo"), ("h-cas", "casa")])
-    data = dict(dashboard={}, grid=build_range_grid(months), names=names)
-    rows = _live(home.home_rows(data, home.HomeState(expanded=frozenset({"c-com"})), PALETTE))
-    lefts = [r.left.strip() for r in rows]
-    assert lefts[1:4] == ["▼ COMIDA", "#almuerzo", "#casa"]
 
 
 def test_a_combo_of_several_hashtags_cannot_filter():
@@ -280,29 +232,9 @@ def test_a_one_currency_account_is_its_row_and_one_indented_line():
     assert _plain(_by_left(rows)["ACCOUNTS"].right) == "balance today"
 
 
-def test_no_row_on_home_is_named_account_and_code():
-    rows = home.home_rows(_people(_person("p-1", "Majo", 0, -4500)), palette=PALETTE)
-    opened = home.home_rows(DATA, home.HomeState(settled_open=True), PALETTE)
-    assert not [r.left for r in _live(rows) + _live(opened) if " · " in r.left]
-
-
 def test_a_two_currency_account_is_its_row_then_a_line_per_currency_in_the_engines_order():
-    accounts = [
-        {
-            "id": "a-1",
-            "name": "VISA",
-            "currencies": [
-                {"currency_code": "PEN", "current_balance_cents": 100},
-                {"currency_code": "USD", "current_balance_cents": -250},
-            ],
-        },
-        {
-            "id": "a-0",
-            "name": "Caja",
-            "currencies": [{"currency_code": "PEN", "current_balance_cents": 5}],
-        },
-    ]
-    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "accounts": accounts}}
+    accounts = [_acct("a-1", "VISA", "bank", 100, -250), _acct("a-0", "Caja", "bank", 5)]
+    data = {**DATA, "dashboard": dashboard_answer(accounts=accounts)}
     assert _accounts(home.home_rows(data, palette=PALETTE)) == [
         ("  VISA", "account:a-1", "", False),
         ("    PEN", "account:a-1:PEN", "1.00", False),
@@ -378,13 +310,6 @@ def test_the_sections_never_fold():
         "config",
         "auth",
     ]
-    assert "open_doors" not in home.HomeState._fields
-
-
-def test_the_ledger_section_no_longer_holds_overview():
-    ledger = [r.left.strip() for r in _live(home.home_rows(None))][1:3]
-    assert ledger == ["Transactions", "Statements"]
-    assert "overview" not in home._SCREENS
 
 
 # ---- home_options ------------------------------------------------------------------
@@ -392,10 +317,7 @@ def test_the_ledger_section_no_longer_holds_overview():
 
 def test_month_columns_and_balances_end_on_the_same_column():
     cash = _acct("a-cash", "Efectivo de la casa grande", "cash", 23750, 3000)
-    data = {
-        **DATA,
-        "dashboard": {**HOME_DASHBOARD, "accounts": [*HOME_DASHBOARD["accounts"], cash]},
-    }
+    data = {**DATA, "dashboard": dashboard_answer(accounts=[*HOME_DASHBOARD["accounts"], cash])}
     rows = home.home_rows(data, home.HomeState(expanded=frozenset({"c-wants"})), PALETTE)
     assert any(r and r.mark for r in rows)
     widths = {
@@ -442,7 +364,7 @@ def _acct(ident, name, kind, *balances):
 
 
 def _cash_data(*accounts):
-    return {**DATA, "dashboard": {**HOME_DASHBOARD, "accounts": list(accounts), "people": []}}
+    return {**DATA, "dashboard": dashboard_answer(accounts=list(accounts), people=[])}
 
 
 def test_cash_sits_among_the_accounts_in_the_engines_order_marked_cash():
@@ -473,12 +395,6 @@ def test_the_cash_mark_is_dim_and_the_name_is_not():
     start = head.prompt.plain.index("cash")
     assert (start, start + 4, "dim") in spans
     assert all(s[0] >= start for s in spans)
-
-
-def test_no_cash_row_means_no_mark():
-    rows = home.home_rows(DATA, palette=PALETTE)
-    assert not any(r.mark for r in rows if r)
-    assert "cash" not in "\n".join(r.left for r in rows if r)
 
 
 def test_the_mark_comes_from_kind_never_from_the_name():

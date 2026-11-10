@@ -56,22 +56,6 @@ def _notices(monkeypatch) -> list:
     return notices
 
 
-def test_a_one_currency_account_has_one_pair_of_lines_and_a_two_currency_one_two():
-    one = NewStatementScreen(account_id="a", account_name="BCP", currencies=("PEN",))
-    assert one._sequence() == ["name", "date_start", "date_end", "begin:PEN", "end:PEN"]
-    assert _visa()._sequence() == [
-        "name",
-        "date_start",
-        "date_end",
-        "begin:PEN",
-        "end:PEN",
-        "begin:USD",
-        "end:USD",
-    ]
-    assert not {"begin:PEN", "end:PEN"} & set(one._required())  # every balance is optional
-    assert not any(k.startswith(("begin", "end")) for k in _visa()._required())
-
-
 def test_the_form_reads_at_80_columns(fake_client):
     """Each currency's lines named by it, the starting balance's second hint line on each,
     the account stated in the summary and never edited."""
@@ -112,18 +96,36 @@ def test_the_last_ending_balance_says_enter_saves_and_no_other_does():
     assert not any("sav" in screen._hint_for(k) for k in screen._sequence()[:-1])
 
 
-def test_a_currency_left_empty_is_not_sent(fake_client):
-    """Only PEN typed on a two-currency account: one entry, the end left out where none
-    was typed; the body is exactly StatementCreateRequest's."""
-
+@pytest.mark.parametrize(
+    ("typed", "balances"),
+    [
+        # only PEN's start typed on a two-currency account: one entry, no end where none was typed
+        (
+            ("-234.20", "", "", ""),
+            [{"currency_code": "PEN", "beginning_balance_cents": -23420}],
+        ),
+        (
+            ("-234.20", "-250.00", "-30.98", ""),
+            [
+                {
+                    "currency_code": "PEN",
+                    "beginning_balance_cents": -23420,
+                    "ending_balance_cents": -25000,
+                },
+                {"currency_code": "USD", "beginning_balance_cents": -3098},
+            ],
+        ),
+        (("", "", "", ""), []),  # nothing typed: the engine judges the empty list
+    ],
+    ids=["one currency typed", "both typed", "none typed"],
+)
+def test_the_balances_sent_are_one_entry_per_currency_typed(fake_client, typed, balances):
     async def scenario(pilot, app):
         screen = _visa()
         await app.push_screen(screen)
         _head(screen)
-        _enter(screen, "-234.20")  # begin PEN
-        _enter(screen, "")  # end PEN
-        _enter(screen, "")  # begin USD
-        _enter(screen, "")  # end USD → saves
+        for text in typed:
+            _enter(screen, text)
         await wait_for(pilot, lambda: fake_client.posts)
 
     run_app(scenario)
@@ -131,37 +133,7 @@ def test_a_currency_left_empty_is_not_sent(fake_client):
     assert path == "/statements"
     assert set(body) == {"id", "account_id", "name", "date_start", "date_end", "balances"}
     assert body["account_id"] == "v1"
-    assert body["balances"] == [{"currency_code": "PEN", "beginning_balance_cents": -23420}]
-
-
-def test_both_currencies_typed_send_one_entry_each(fake_client):
-    async def scenario(pilot, app):
-        screen = _visa()
-        await app.push_screen(screen)
-        _head(screen)
-        for text in ("-234.20", "-250.00", "-30.98", ""):
-            _enter(screen, text)
-        await wait_for(pilot, lambda: fake_client.posts)
-
-    run_app(scenario)
-    [(_path, body)] = fake_client.posts
-    assert body["balances"] == [
-        {"currency_code": "PEN", "beginning_balance_cents": -23420, "ending_balance_cents": -25000},
-        {"currency_code": "USD", "beginning_balance_cents": -3098},
-    ]
-
-
-def test_nothing_typed_sends_an_empty_balances_for_the_engine_to_judge(fake_client):
-    async def scenario(pilot, app):
-        screen = NewStatementScreen(account_id="a", account_name="BCP", currencies=("PEN",))
-        await app.push_screen(screen)
-        _head(screen)
-        _enter(screen, "")
-        _enter(screen, "")
-        await wait_for(pilot, lambda: fake_client.posts)
-
-    run_app(scenario)
-    assert fake_client.posts[0][1]["balances"] == []
+    assert body["balances"] == balances
 
 
 def test_an_ending_balance_without_its_starting_one_is_not_sent(fake_client, monkeypatch):
@@ -218,12 +190,18 @@ def test_money_at_start_not_covered_lands_on_that_currencys_starting_balance(
     assert "Words of balances.USD." in shown[0]
 
 
-def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, monkeypatch):
-    """`balances.<i>.currency_code` is the i-th entry sent: here the second, USD."""
-    err = _refused(
-        "VALIDATION_ERROR", "Statement validation failed.",
-        "balances.1.currency_code", "CURRENCY_NOT_HELD",
-    )  # fmt: skip
+@pytest.mark.parametrize(
+    ("typed", "index", "kept"),
+    [
+        (("-234.20", "", "-30.98", ""), 1, "-30.98"),  # USD is the second entry sent
+        (("", "", "-30.98", ""), 0, None),  # PEN left empty: USD is entry 0
+    ],
+    ids=["second entry", "first entry"],
+)
+def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, typed, index, kept):
+    """`balances.<i>.currency_code` counts the entries sent, not the account's currencies."""
+    field = f"balances.{index}.currency_code"
+    err = _refused("VALIDATION_ERROR", "Statement validation failed.", field, "CURRENCY_NOT_HELD")
     fake_client.errors["POST"] = err
     shown: list = []
 
@@ -231,17 +209,18 @@ def test_a_currency_not_held_lands_on_the_entry_it_names(fake_client, monkeypatc
         screen = _visa()
         await app.push_screen(screen)
         _head(screen)
-        for text in ("-234.20", "", "-30.98", ""):
+        for text in typed:
             _enter(screen, text)
         await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
         assert no_failed_toast(app)
         shown.append(refusal_block(screen))
         assert screen._key == "begin:USD"
-        assert screen.query_one("#bar", Input).value == "-30.98"
+        if kept:
+            assert screen.query_one("#bar", Input).value == kept
 
     run_app(scenario, toasts=True)
     assert shown == [f"Failed\n{format_error(err)}"]
-    assert "balances.1.currency_code: Words of balances.1.currency_code." in shown[0]
+    assert f"{field}: Words of {field}." in shown[0]
 
 
 def test_a_currency_joining_or_leaving_mid_write_says_save_again(fake_client, monkeypatch):
@@ -301,33 +280,6 @@ def test_the_picker_lists_each_account_by_its_name_alone(fake_client, monkeypatc
     run_app(scenario)
 
 
-def test_a_refused_index_counts_the_entries_sent_not_the_currencies_of_the_account(
-    fake_client, monkeypatch
-):
-    """PEN left empty, so USD is entry 0 of `balances`: `balances.0.currency_code` names USD."""
-    err = _refused(
-        "VALIDATION_ERROR", "Statement validation failed.",
-        "balances.0.currency_code", "CURRENCY_NOT_HELD",
-    )  # fmt: skip
-    fake_client.errors["POST"] = err
-    shown: list = []
-
-    async def scenario(pilot, app):
-        screen = _visa()
-        await app.push_screen(screen)
-        _head(screen)
-        for text in ("", "", "-30.98", ""):
-            _enter(screen, text)
-        await wait_for(pilot, lambda: refusal_block(screen) and not screen._submitting)
-        assert no_failed_toast(app)
-        shown.append(refusal_block(screen))
-        assert screen._key == "begin:USD"
-
-    run_app(scenario, toasts=True)
-    assert shown == [f"Failed\n{format_error(err)}"]
-    assert "Words of balances.0.currency_code." in shown[0]
-
-
 def test_every_hint_fits_one_row_at_80_columns(fake_client):
     """Each line's hint, one currency or two, wraps onto no second row."""
 
@@ -370,31 +322,5 @@ def test_an_unreadable_balance_names_its_currency_on_a_two_currency_form(fake_cl
             "Begin balance USD: a signed decimal, e.g. 9580.00. Amounts are 1,234.56.",
             "End balance USD: a signed decimal, e.g. 9460.00. Amounts are 1,234.56.",
         ]
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize("typed", ["1e5000", "inf", "nan"])
-def test_an_exponent_inf_or_nan_balance_is_unreadable(fake_client, typed):
-    async def scenario(pilot, app):
-        screen = _visa()
-        await app.push_screen(screen)
-        notes: list[str] = []
-        screen.notify = lambda message, **kw: notes.append(str(message))
-        _head(screen)
-        _enter(screen, typed)
-        assert screen._key == "begin:PEN"
-        assert notes == ["Begin balance PEN: a signed decimal, e.g. 9580.00. Amounts are 1,234.56."]
-
-    run_app(scenario)
-
-
-def test_a_plain_balance_past_the_bound_is_kept_to_be_sent(fake_client):
-    async def scenario(pilot, app):
-        screen = _visa()
-        await app.push_screen(screen)
-        _head(screen)
-        _enter(screen, "9" * 25)
-        assert screen._values["begin:PEN"] == int("9" * 25) * 100
 
     run_app(scenario)

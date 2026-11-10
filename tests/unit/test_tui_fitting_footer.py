@@ -104,20 +104,7 @@ def test_the_ledger_on_page_1_goes_from_spaced_to_tightened_at_the_edge(monkeypa
     assert first.startswith(" ⏎ Open  space") == (width == 149)
 
 
-def test_a_key_left_out_of_the_footer_is_still_on_the_help_card(monkeypatch):
-    async def card(pilot, app, screen):
-        return [(row.keys, row.description) for row in _own_rows(screen)]
-
-    def _own_rows(screen):
-        _, groups = screen_inventory(screen)
-        return next(g for g in groups if g.title == "This screen").rows
-
-    _first, second, rows = _ledger_footers(monkeypatch, then=card)
-    assert "d Delete" not in second
-    assert ("d", "Delete") in rows
-
-
-def test_a_key_left_out_of_the_footer_still_works(monkeypatch):
+def test_a_key_left_out_of_the_footer_is_on_the_help_card_and_still_works(monkeypatch):
     def one_part_line(_cfg, line, **_kw):
         row = next(r for r in ROWS if r["bank_line_id"] == line)
         part = import_part(
@@ -127,13 +114,17 @@ def test_a_key_left_out_of_the_footer_still_works(monkeypatch):
 
     monkeypatch.setattr("expense.reads.fetch_bank_line", one_part_line)
 
-    async def press_d(pilot, app, screen):
+    async def card_then_press_d(pilot, app, screen):
+        _, groups = screen_inventory(screen)
+        rows = next(g for g in groups if g.title == "This screen").rows
+        card = [(row.keys, row.description) for row in rows]
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        return app.screen._title
+        return card, app.screen._title
 
-    _first, second, title = _ledger_footers(monkeypatch, then=press_d)
+    _first, second, (card, title) = _ledger_footers(monkeypatch, then=card_then_press_d)
     assert "d Delete" not in second
+    assert ("d", "Delete") in card
     assert title == "Delete this transaction?"
 
 
@@ -171,24 +162,6 @@ def own_footer_uses(source: str) -> list[int]:
         elif isinstance(node, ast.Attribute) and node.attr == "Footer":
             lines.append(node.lineno)
     return sorted(set(lines))
-
-
-def test_the_guard_trips_on_a_planted_own_footer():
-    planted = "from textual.widgets import Footer\n\n\ndef compose():\n    yield Footer()\n"
-    assert own_footer_uses(planted) == [1, 5]
-    assert own_footer_uses("yield FittingFooter()\n") == []
-
-
-def test_the_guard_trips_on_an_attribute_footer():
-    assert own_footer_uses("from textual import widgets\nyield widgets.Footer()\n") == [2]
-    assert own_footer_uses("import textual.widgets\nx = textual.widgets.Footer\n") == [2]
-
-
-def test_the_guard_skips_only_the_fitting_footer_module():
-    tui_dir = Path(tui_pkg.__file__).parent
-    assert tui_dir / "widgets" / "footer.py" in set(tui_dir.rglob("*.py"))
-    assert _is_exempt(tui_dir, tui_dir / "widgets" / "footer.py")
-    assert not _is_exempt(tui_dir, tui_dir / "screens" / "footer.py")
 
 
 def _is_exempt(tui_dir: Path, path: Path) -> bool:

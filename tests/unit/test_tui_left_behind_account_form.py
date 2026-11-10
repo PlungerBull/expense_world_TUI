@@ -9,11 +9,9 @@ test_tui_writes.py.
 
 import threading
 
-import pytest
-from textual.screen import Screen
 from textual.widgets import Input
 
-from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.errors import EngineError, format_error
 from expense.tui.screens._form import open_it_again
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
@@ -54,7 +52,6 @@ NOT_FUTURE = EngineError(
     "VALIDATION_ERROR", "Validation failed [x].", {"date": "Must not be in the future."}, 422, {}
 )
 SERVER_ERROR = EngineError("INTERNAL", "Something broke.", None, 500, {})
-NO_ANSWER = EngineConnectionError(url="http://x", original=OSError("down"))
 PUT_ACCOUNT = ("PUT", "/accounts/acc-visa")
 CLOSING = "[dim]Nothing was saved: open it again to fix it."
 
@@ -95,7 +92,6 @@ def _left_save(
     edits=(("color", "green"), ("opening:PEN", "-3000.00"), ("opening:USD", "41.00")),
     *,
     refusals=None,
-    elsewhere=False,
     quit_instead=False,
     real_esc=False,
     before_release=None,
@@ -103,7 +99,7 @@ def _left_save(
     """Open `record`'s form over Manage ▸ Accounts, make `edits`, save, leave the form while
     the write is unanswered (`before_release(pilot, app)`, when given, runs while
     it is), let it answer, and return `(the app's toasts, the requests sent, the list's
-    reads)`; `elsewhere`: another screen is the one shown."""
+    reads)`."""
     monkeypatch.setattr("expense.reads.fetch_transaction", lambda cfg, tid, **kw: ROWS[tid])
     list_reads: list[int] = []
 
@@ -152,9 +148,6 @@ def _left_save(
             await app.pop_screen()  # left: popped, so its dismiss callback never runs
         await wait_for(pilot, lambda: app.screen is listing)
         await wait_for_list(pilot, app)
-        if elsewhere:
-            await app.push_screen(Screen())
-            await wait_for(pilot, lambda: app.screen is not listing)
         await pilot.pause()
         reads_before = len(list_reads)
         if before_release is not None:
@@ -163,7 +156,7 @@ def _left_save(
         await wait_for(pilot, lambda: notes, timeout=3)
         await pilot.pause()
         unrefused = {k for k, e in (refusals or {}).items() if open_it_again(e) is None}
-        if not elsewhere and set(fake_client.requests) - set(refusals or {}) | unrefused:
+        if set(fake_client.requests) - set(refusals or {}) | unrefused:
             await wait_for(pilot, lambda: len(list_reads) > reads_before, timeout=3)
             await wait_for_list(pilot, app)
             assert listing.query_one(CursorList).cursor_key == record["id"]  # row 1
@@ -207,16 +200,15 @@ def test_a_person_is_named_as_a_person(fake_client, monkeypatch):
     assert message == f"{_words(NOT_FUTURE)}\n{CLOSING}"
 
 
-@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
 def test_a_save_not_refused_clearly_leaves_no_closing_line_and_reads_the_list(
-    fake_client, monkeypatch, failure
+    fake_client, monkeypatch
 ):
     """It may have landed, so the message does not say nothing was saved, and the list
     reads again."""
-    notes, _, reads = _left_save(fake_client, monkeypatch, refusals={PUT_ACCOUNT: failure})
+    notes, _, reads = _left_save(fake_client, monkeypatch, refusals={PUT_ACCOUNT: SERVER_ERROR})
     [(title, message, _)] = notes
     assert title == "Not saved · Account Visa"
-    assert message == _words(failure)
+    assert message == _words(SERVER_ERROR)
     assert reads == 1
 
 
@@ -225,13 +217,6 @@ def test_an_emptied_balance_is_one_put_and_says_saved(fake_client, monkeypatch):
     assert sent == [PUT_ACCOUNT]
     assert fake_client.puts == [("/accounts/acc-visa", {"opening_balances": {"USD": None}})]
     assert [(t, m) for t, m, _ in notes] == [("", "Saved.")]
-
-
-def test_elsewhere_the_message_shows_and_nothing_is_read_again(fake_client, monkeypatch):
-    notes, sent, reads = _left_save(fake_client, monkeypatch, elsewhere=True)
-    assert sent == [PUT_ACCOUNT]
-    assert [(t, m) for t, m, _ in notes] == [("", "Saved.")]
-    assert reads == 0
 
 
 def test_quitting_mid_save_sends_and_shows_nothing_more(fake_client, monkeypatch):

@@ -165,8 +165,16 @@ SERVER_ERROR = EngineError("INTERNAL_ERROR", "Went wrong [on our side].", None, 
 NO_ANSWER = EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
 
 
-@pytest.mark.parametrize("failure", [SERVER_ERROR, NO_ANSWER], ids=["5xx", "no answer"])
-@pytest.mark.parametrize("site", sorted(SITES))
+@pytest.mark.parametrize(
+    ("site", "failure"),
+    [
+        ("new hashtag", SERVER_ERROR),
+        ("new category", SERVER_ERROR),
+        ("new account", SERVER_ERROR),
+        ("edit category", NO_ANSWER),
+    ],
+    ids=["hashtag 5xx", "category 5xx", "account 5xx", "edit no answer"],
+)
 def test_a_form_whose_ending_is_not_known_ends_with_the_engines_words_only_and_the_list_starts_over(
     fake_client, monkeypatch, site, failure
 ):

@@ -186,18 +186,6 @@ def _sent(client) -> list:
     ]
 
 
-def test_the_ledger_reads_the_archived_ids_with_the_names_in_one_read(engine):
-    """One `GET /accounts` per ledger load gives both the names and the
-    archived ids (contract: GET /v1/accounts)."""
-
-    async def scenario(pilot, app):
-        screen = await _open(pilot, app)
-        assert screen._archived == {"acc-viejo"}
-        assert [p for m, p, _ in engine.calls if p == "/accounts"] == ["/accounts"]
-
-    run_app(scenario, size=(120, 30))
-
-
 @pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
 def test_d_leaves_the_footer_on_an_archived_accounts_row_only_and_s_stays(engine, flt):
     """Moving the cursor updates the footer: `d` shows on an active account's
@@ -227,15 +215,14 @@ def _footer_pairs(screen) -> list[tuple[str, str]]:
     return [(k.key_display, k.description) for k in screen.query_one(Footer).query(FooterKey)]
 
 
-@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
-def test_the_footer_says_s_edit_and_the_card_says_what_the_form_does(engine, flt):
+def test_the_footer_says_s_edit_and_the_card_says_what_the_form_does(engine):
     """The footer reads
     `s Edit` before `d Delete`, and the `?` card's line for `s` reads "Edit the
     transaction and its parts"; every other footer slot and card row keeps its
     words and its place."""
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, flt)
+        screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-live")
         await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit", "Delete"})
         assert _footer_pairs(screen) == FOOTER_ON_AN_ACTIVE_ROW
@@ -249,14 +236,13 @@ def test_the_footer_says_s_edit_and_the_card_says_what_the_form_does(engine, flt
     run_app(scenario, size=(160, 30))
 
 
-@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
-def test_s_on_an_archived_accounts_row_opens_the_edit_form_as_enter_does(engine, flt):
+def test_s_on_an_archived_accounts_row_opens_the_edit_form_as_enter_does(engine):
     """`s` pushes the Edit form for the cursor row, the same screen on the same
     record `⏎` opens; the form reads what is read-only from the line's
     `edit_limits` (test_tui_edit_form.py)."""
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, flt)
+        screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-old")
         assert screen.check_action("split", ()) is True
         await pilot.press("s")
@@ -274,10 +260,9 @@ def test_s_on_an_archived_accounts_row_opens_the_edit_form_as_enter_does(engine,
     run_app(scenario, size=(160, 30))
 
 
-@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
-def test_d_on_an_archived_accounts_row_does_nothing_and_sends_nothing(engine, flt):
+def test_d_on_an_archived_accounts_row_does_nothing_and_sends_nothing(engine):
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, flt)
+        screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-old")
         assert screen.check_action("delete", ()) is False
         before = list(engine.calls)

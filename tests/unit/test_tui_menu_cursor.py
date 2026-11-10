@@ -14,8 +14,6 @@ asserting on CSS or component styles would have passed throughout the bug
 (`get_component_styles` reported `text_style: reverse` the whole time).
 """
 
-from textual.widgets import OptionList
-
 from expense.tui.widgets.cursor_list import CURSOR_STYLE, CursorOptionList
 from tests.unit.helpers import run_app, stub_home_month, wait_for
 
@@ -45,78 +43,34 @@ async def _loaded(pilot, app):
     await pilot.pause()
 
 
-def _run(scenario):
-    run_app(scenario)
-
-
-def test_home_menu_uses_the_cursor_widget():
-    """A plain OptionList would reintroduce the invisible cursor."""
-    assert issubclass(CursorOptionList, OptionList)
-
-
-def test_highlighted_row_renders_differently_from_its_neighbours(monkeypatch):
-    """The whole point: the cursor row must not look like the rows around it."""
+def test_the_cursor_row_is_reversed_across_its_whole_width_and_follows_the_keyboard(monkeypatch):
+    """The cursor row must not look like the rows around it, its bar covers the row's
+    padding too (or it reads as a ragged blob), section headers (disabled options) never
+    take it, and moving down moves the bar, not just an internal index."""
     _stub_month(monkeypatch)
 
     async def scenario(pilot, app):
         await _loaded(pilot, app)
         menu = app.screen.query_one("#menu", CursorOptionList)
         assert menu.has_focus, "the menu must be focused for the cursor to mean anything"
-        highlighted = menu.highlighted
-        assert highlighted is not None
-
-        cursor_row = _line_style(menu, highlighted)
-        assert CURSOR_STYLE in cursor_row, f"cursor row is {cursor_row!r}"
-        for y in (highlighted - 1, highlighted + 1):
-            assert _line_style(menu, y) != cursor_row
-
-    _run(scenario)
-
-
-def test_cursor_follows_the_keyboard(monkeypatch):
-    """Moving down must move the reverse bar, not just an internal index."""
-    _stub_month(monkeypatch)
-
-    async def scenario(pilot, app):
-        await _loaded(pilot, app)
-        menu = app.screen.query_one("#menu", CursorOptionList)
         first = menu.highlighted
+        assert first is not None
+
+        cursor_row = _line_style(menu, first)
+        assert CURSOR_STYLE in cursor_row, f"cursor row is {cursor_row!r}"
+        for y in (first - 1, first + 1):
+            assert _line_style(menu, y) != cursor_row
+        segments = menu.render_line(_line_of(menu, first))._segments
+        assert segments and all(CURSOR_STYLE in str(s.style) for s in segments)
+        disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
+        assert disabled, "the menu is built from section headers + live rows + screen entries"
+        for index in disabled:
+            assert CURSOR_STYLE not in _line_style(menu, index)
+
         await pilot.press("down")
         await pilot.pause()
         assert menu.highlighted == first + 1
         assert CURSOR_STYLE not in _line_style(menu, first)
         assert CURSOR_STYLE in _line_style(menu, first + 1)
 
-    _run(scenario)
-
-
-def test_group_headers_never_take_the_cursor(monkeypatch):
-    """Disabled options are section labels; reversing one would read as selectable."""
-    _stub_month(monkeypatch)
-
-    async def scenario(pilot, app):
-        await _loaded(pilot, app)
-        menu = app.screen.query_one("#menu", CursorOptionList)
-        disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
-        assert disabled, "the menu is built from section headers + live rows + screen entries"
-        for index in disabled:
-            assert CURSOR_STYLE not in _line_style(menu, index)
-
-    _run(scenario)
-
-
-def test_cursor_bar_spans_the_full_row(monkeypatch):
-    """Reverse video must cover the row's padding too, or it reads as a ragged blob."""
-    _stub_month(monkeypatch)
-
-    async def scenario(pilot, app):
-        await _loaded(pilot, app)
-        menu = app.screen.query_one("#menu", CursorOptionList)
-        segments = menu.render_line(_line_of(menu, menu.highlighted))._segments
-        assert segments
-        assert all(CURSOR_STYLE in str(s.style) for s in segments), (
-            "every segment on the cursor row, including trailing padding, "
-            f"must carry {CURSOR_STYLE}"
-        )
-
-    _run(scenario)
+    run_app(scenario)

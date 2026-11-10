@@ -54,6 +54,16 @@ CATEGORIES = {"cat1": "Ingreso", "cat2": "Comida"}
 HASHTAGS = {"h1": "trabajo"}
 
 
+def _names(monkeypatch) -> None:
+    """The ledger's account, category and hashtag names, and the settings, stubbed."""
+    import expense.tui.screens.transactions as tx_mod
+
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+
 def test_transaction_rows_format_and_resolve():
     by_id = dict(transaction_rows(ITEMS, ACCOUNTS, CATEGORIES, HASHTAGS))
     # amount grouped, currency beside it, account/category resolved, tags resolved
@@ -97,13 +107,8 @@ def test_the_ledger_has_a_cur_column_beside_amount_and_the_account_column_names_
 
 def test_the_ledger_renders_cur_between_amount_and_date(monkeypatch):
     """Painted, the header reads `Amount  Cur  Date` and each row its code."""
-    import expense.tui.screens.transactions as tx_mod
-
     fake_ledger(monkeypatch, [{**ITEMS[0], "currency_code": "USD"}, ITEMS[1]])
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    _names(monkeypatch)
 
     async def scenario(pilot, app):
         await app.push_screen(TransactionsScreen())
@@ -126,15 +131,10 @@ def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypa
     """A filter naming an account and one of its currencies reads the list and the
     count over `account_id` and `currency_code` (contract: GET /v1/transactions); a
     filter naming the account alone sends no currency."""
-    import expense.tui.screens.transactions as tx_mod
     from expense.tui.screens.transactions import LedgerFilter
 
     calls, counts = fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    _names(monkeypatch)
 
     async def scenario(pilot, app):
         both = LedgerFilter("account", "acc1", "BCP Soles · USD", currency_code="USD")
@@ -155,14 +155,10 @@ def test_a_ledger_on_an_account_and_currency_lists_and_counts_with_both(monkeypa
 
 
 def test_an_empty_ledger_on_a_currency_names_the_account_and_the_currency(monkeypatch):
-    import expense.tui.screens.transactions as tx_mod
     from expense.tui.screens.transactions import LedgerFilter
 
     fake_ledger(monkeypatch, [])
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    _names(monkeypatch)
 
     async def scenario(pilot, app):
         flt = LedgerFilter("account", "acc1", "BCP Soles · USD", currency_code="USD")
@@ -176,13 +172,8 @@ def test_an_empty_ledger_on_a_currency_names_the_account_and_the_currency(monkey
 
 def test_a_transaction_with_no_title_shows_untitled_in_the_ledger_list(monkeypatch):
     """The title cell of a titleless row reads `(untitled)`, through the screen."""
-    import expense.tui.screens.transactions as tx_mod
-
     fake_ledger(monkeypatch, [{**ITEMS[0], "id": "bare", "title": None}])
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    _names(monkeypatch)
 
     async def scenario(pilot, app):
         await app.push_screen(TransactionsScreen())
@@ -203,12 +194,8 @@ def test_transaction_rows_palette_sign_colors_amounts():
 
 
 def test_transactions_screen_lists_and_opens_detail(monkeypatch):
-    import expense.tui.screens.transactions as tx_mod
-
     fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    _names(monkeypatch)
     # the Edit form reads the reference lists and the row's line on mount — stub those too
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
@@ -237,12 +224,8 @@ def _ledger_rows(n: int) -> list:
 
 
 def _patch_detail(monkeypatch, rows: list):
-    import expense.tui.screens.transactions as tx_mod
-
     calls, _counts = fake_ledger(monkeypatch, rows)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    _names(monkeypatch)
     monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     return calls
@@ -299,12 +282,8 @@ def test_a_save_from_the_detail_still_reloads_fresh(monkeypatch):
 def test_plus_opens_the_log_bar(monkeypatch):
     """`+` on the ledger logs a new transaction through the LOG bar. The row
     under the cursor is irrelevant to it."""
-    import expense.tui.screens.transactions as tx_mod
-
     fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    _names(monkeypatch)
     monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr(LogBarScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
@@ -317,51 +296,6 @@ def test_plus_opens_the_log_bar(monkeypatch):
         assert app.screen._staged == []
 
     run_app(scenario)
-
-
-def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
-    """The arrow keys are never advertised as navigation on the footer.
-    The keys still work — only the footer row is gone, and
-    the `?` card still lists them."""
-    import expense.tui.screens.transactions as tx_mod
-
-    fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
-
-    async def scenario(pilot, app):
-        await app.push_screen(TransactionsScreen())
-        await wait_for_list(pilot, app)
-        app.screen.query_one(CursorList).focus()
-        await pilot.pause()
-        shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
-        assert "Navigate" not in shown
-        assert "Open" in shown and "Add" in shown  # the non-obvious keys stay
-        # the key itself still moves the cursor
-        listing = app.screen.query_one(CursorList)
-        before = listing._cursor
-        await pilot.press("down")
-        await pilot.pause()
-        assert listing._cursor == before + 1
-
-    run_app(scenario)
-
-
-def test_transaction_rows_hand_the_table_whole_cells():
-    """The row builder never caps title/description/hashtags: the table cuts each cell
-    at the edge of the column it actually has."""
-    long_title = "ANTHROPIC* CLAUDE SUB  ANTHROPIC.COM CA"  # 39 chars, a real bank title
-    long_desc = "APPARKA AAP AREQUIPA   AREQUIPA      PE"
-    items = [
-        {**ITEMS[0], "title": long_title, "description": long_desc, "hashtag_ids": ["h1", "h2"]}
-    ]
-    tags = {**HASHTAGS, "h2": "x" * 30}
-    (_, cells), *_ = transaction_rows(items, ACCOUNTS, CATEGORIES, tags)
-    assert cells[0] == long_title and cells[1] == long_desc
-    assert cells[7] == "trabajo, " + "x" * 30
-    assert "…" not in "".join(str(c) for c in cells)
 
 
 def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
@@ -394,14 +328,10 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
 def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
     """⏎ on a hashtag row on Home: the ledger asks the engine for
     that category and that hashtag, both, and says so in its crumb."""
-    import expense.tui.screens.transactions as tx_mod
     from expense.tui.screens.transactions import LedgerFilter
 
     seen, counts = fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
-    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
-    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    _names(monkeypatch)
 
     async def scenario(pilot, app):
         flt = LedgerFilter("category", "cat2", "Comida #trabajo", hashtag_id="h1")

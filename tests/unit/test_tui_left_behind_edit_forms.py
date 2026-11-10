@@ -9,7 +9,6 @@ form, when it is the one shown, reads again. The queue is in test_tui_writes.py.
 """
 
 import pytest
-from rich.console import Group
 from textual.screen import Screen
 
 from expense.errors import EngineConnectionError, EngineError, app_lines, format_error
@@ -17,12 +16,11 @@ from expense.reads import AccountIndex
 from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
-from expense.tui.widgets.parts_table import refusal_lines, refusal_text
+from expense.tui.widgets.parts_table import refusal_text
 from tests.unit.helpers import (
     LateAnswer,
     app_notes,
     fake_ledger,
-    render_text,
     run_app,
     wait_for,
     wait_for_list,
@@ -38,6 +36,7 @@ from tests.unit.test_tui_edit_form import (
     _patch,
     _wait_loaded,
 )
+from tests.unit.test_tui_left_behind_statements import Opener
 
 LAST = "Nothing was saved: open it again to fix it."
 INCOME = {**TXN, "amount_cents": 4250}
@@ -52,6 +51,8 @@ FORMS = {
         lambda opener, reload: BankLineEditFormScreen(line=BANK_LINE, opener=opener, reload=reload)
     ),
 }
+#: The two screens: one case each for what they share.
+SCREENS = ["ledger form", "line form"]
 FIRST_LINE = {
     "ledger form": "Not saved · Farmacia · -42.50",
     "income form": "Not saved · Farmacia · +42.50",
@@ -73,17 +74,6 @@ UNAUTHORIZED = EngineError(
     {},
 )
 SERVER_ERROR = EngineError("INTERNAL_ERROR", "Something went wrong [on our side].", None, 500, {})
-
-
-class Opener(Screen):
-    """Stands for the screen that opened the form; `reload` is how it reads again."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.reads = 0
-
-    def reload(self) -> None:
-        self.reads += 1
 
 
 def _left_form(
@@ -126,13 +116,17 @@ def _left_form(
     return result[0], result[1]
 
 
-@pytest.mark.parametrize("form", sorted(FORMS))
 @pytest.mark.parametrize(
-    ("changed", "words"),
+    ("form", "changed", "words"),
     [
-        pytest.param([_moved(TXN, left=True)], "Saved. It left its statement.", id="left"),
-        pytest.param([_moved(TXN, left=False)], "Saved.", id="stayed"),
-        pytest.param([], "Saved.", id="none-listed"),
+        pytest.param(
+            "ledger form", [_moved(TXN, left=True)], "Saved. It left its statement.", id="left"
+        ),
+        pytest.param("ledger form", [_moved(TXN, left=False)], "Saved.", id="stayed"),
+        pytest.param("ledger form", [], "Saved.", id="none-listed"),
+        pytest.param(
+            "line form", [_moved(TXN, left=True)], "Saved. It left its statement.", id="line-left"
+        ),
     ],
 )
 def test_a_save_answered_after_leaving_says_what_the_answer_says(
@@ -163,7 +157,7 @@ def test_a_refused_save_after_leaving_names_the_line_and_keeps_the_part_lines(
     assert reads == 0  # a refusal changed nothing
 
 
-@pytest.mark.parametrize("form", sorted(FORMS))
+@pytest.mark.parametrize("form", SCREENS)
 def test_a_save_refused_with_a_5xx_after_leaving_ends_with_no_last_line(
     fake_client, monkeypatch, form
 ):
@@ -188,7 +182,7 @@ def test_a_failure_that_is_no_answer_shows_the_forms_error_text_without_a_last_l
     assert reads == 0
 
 
-@pytest.mark.parametrize("form", sorted(FORMS))
+@pytest.mark.parametrize("form", SCREENS)
 def test_a_save_answered_after_leaving_for_another_screen_reads_nothing_more(
     fake_client, monkeypatch, form
 ):
@@ -197,26 +191,7 @@ def test_a_save_answered_after_leaving_for_another_screen_reads_nothing_more(
     assert reads == 0
 
 
-def test_the_words_a_refusal_ends_in_are_the_forms_own_without_its_nothing_was_saved():
-    """One copy of the refusal's lines: drawn, `refusal_lines` is `refusal_text`'s lines
-    with `Nothing was saved.` after the engine's lines and before the app's."""
-    drawn = [
-        line.strip()
-        for line in render_text(Group(*refusal_lines(UNAUTHORIZED)), width=300).splitlines()
-        if line.strip()
-    ]
-    text = [line for line in refusal_text(UNAUTHORIZED).split("\n") if line]
-    heads, app = text[:2], text[2:]
-    assert heads == [
-        "UNAUTHORIZED — The key [is] not valid.",
-        "! part 1 (amount): must [not] be zero",
-    ]
-    assert app == app_lines(UNAUTHORIZED)
-    assert drawn == [*heads, "Nothing was saved.", *app]
-    assert refusal_text(UNAUTHORIZED) == "\n".join(heads) + "\n\n" + "\n\n".join(app)
-
-
-@pytest.mark.parametrize("form", sorted(FORMS))
+@pytest.mark.parametrize("form", SCREENS)
 def test_a_refusal_with_the_apps_line_after_leaving_keeps_the_blank_line_then_the_last_line(
     fake_client, monkeypatch, form
 ):

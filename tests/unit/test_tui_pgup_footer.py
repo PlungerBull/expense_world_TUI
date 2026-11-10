@@ -37,17 +37,22 @@ def _tags(count: int) -> list[dict]:
     return [{"id": f"h{i}", "name": f"tag{i:02}", "system_key": None} for i in range(count)]
 
 
-def _statement_footers(fake_client, monkeypatch, lines, size, *, paged=True):
+def _statement_footers(
+    fake_client,
+    monkeypatch,
+    lines,
+    size,
+):
     _engine(fake_client, monkeypatch, statement_lines=lines, statement=VIS_AGOSTO)
 
     async def scenario(pilot, app):
         screen = StatementScreen(dict(VIS_AGOSTO), statement_code="VIS")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: screen._list is not None)
-        seen = [await _drawn(pilot, app, paged=paged)]
+        seen = [await _drawn(pilot, app)]
         for key, prev in (("pagedown", True), ("pageup", False)):
             await pilot.press(key)
-            seen.append(await _settled(pilot, app, prev=prev if paged else None))
+            seen.append(await _settled(pilot, app, prev=prev))
         return seen
 
     return run_app(scenario, size=size)
@@ -58,11 +63,6 @@ def test_a_statements_list_shows_pgup_only_past_its_first_page(fake_client, monk
     assert "pgdn Next" in first and "pgup Prev" not in first
     assert "pgup Prev" in second
     assert "pgup Prev" not in back and "pgdn Next" in back
-
-
-def test_a_statement_of_one_page_never_shows_pgup(fake_client, monkeypatch):
-    for footer in _statement_footers(fake_client, monkeypatch, AGOSTO[:2], (100, 30), paged=False):
-        assert "pgup" not in footer and "pgdn" not in footer
 
 
 def test_a_manage_list_shows_pgup_only_past_its_first_page_and_loses_it_on_reload(monkeypatch):

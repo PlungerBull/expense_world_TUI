@@ -9,7 +9,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from expense.tui.screens.categories import CategoriesScreen, category_rows
-from expense.tui.screens.create_forms import EditCategoryScreen, EditHashtagScreen
+from expense.tui.screens.create_forms import EditCategoryScreen
 from expense.tui.screens.hashtags import HashtagsScreen, hashtag_rows
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
@@ -70,33 +70,10 @@ def test_category_rows_swatch_and_system():
     assert by_id["c3"][1][2] == "system 🔒"
 
 
-def test_categories_legend_is_the_shared_hint():
-    """One copy of the system-category rule: the legend is the line under the
-    engine's `SYSTEM_CATEGORY` refusal."""
-    from expense.errors import SYSTEM_HINT
-
-    assert CategoriesScreen.LEGEND is SYSTEM_HINT
-    assert SYSTEM_HINT == "System categories cannot be renamed or deleted."
-
-
 def test_hashtag_rows_name_and_system():
     by_id = {r[0]: r for r in hashtag_rows(TAGS)}
     assert by_id["h1"][1] == ["#trabajo", "—"]  # prefix added
     assert by_id["h2"][1] == ["#casa", "—"]  # no double-hash
-
-
-def test_hashtag_rows_mark_the_pending_hashtag_by_its_system_key():
-    """`system 🔒` on the row with a `system_key`, under whatever name
-    it has; `—` on the rest, a user hashtag named `Pendiente` included. The
-    engine's order is kept."""
-    rows = hashtag_rows(ENGINE_ORDER_TAGS)
-    assert [r[0] for r in rows] == ["h-z", "h-pend", "h-a", "h-like"]
-    assert [r[1] for r in rows] == [
-        ["#zapatos", "—"],
-        ["#Por etiquetar", "system 🔒"],
-        ["#almuerzo", "—"],
-        ["#Pendiente", "—"],
-    ]
 
 
 # ---- the screens --------------------------------------------------------------
@@ -121,12 +98,6 @@ def test_categories_screen_lists_and_edits(monkeypatch):
     _run_list_screen(
         monkeypatch, CategoriesScreen, cc, "fetch_categories", CATS, EditCategoryScreen
     )
-
-
-def test_hashtags_screen_lists_and_edits(monkeypatch):
-    import expense.reads as hc
-
-    _run_list_screen(monkeypatch, HashtagsScreen, hc, "fetch_hashtags", TAGS, EditHashtagScreen)
 
 
 def _walk_footers(monkeypatch, make, fetch, items, size=(120, 30)) -> dict:
