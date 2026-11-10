@@ -56,13 +56,7 @@ values it used to take loosely, and a few writes on closed days.
 
 ## Tasks
 
-Approved. Each reads the live contract on the practice engine before building.
-
-5. **Strict requests, proven** (parked after four review rounds; todo.md "Waiting on you"). Unit tests that every body true/false the app sends is JSON
-   `true`/`false`, every number a JSON number, every query flag exactly `true`/`false`, no body on
-   an operation that takes none (archive, unarchive, every `GET` and `DELETE`), and any
-   `sort_order` within ±1,000,000,000. An edit inside a completed statement sends no locked field,
-   and an unchanged `date` is not sent. Anything found wrong is fixed.
+Every task is done; the acceptance check, the doc sweep and the reply follow.
 
 ## Reply to the engine
 

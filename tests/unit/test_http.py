@@ -427,3 +427,17 @@ def test_connect_timeout_is_ten_seconds_unless_the_caller_bounds_it(config):
         assert default._client.timeout.connect == 10.0
         assert bounded._client.timeout.connect == 3.0
         assert bounded._client.timeout.read == 60.0
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "send", [lambda c: c.post("/accounts/a1/archive"), lambda c: c.get("/accounts/a1")]
+)
+def test_a_bodyless_operation_carries_no_bytes(config, send):
+    """(contract: POST /v1/accounts/{account_id}/archive)"""
+    route = respx.route().mock(return_value=httpx.Response(200, json={}))
+    with ExpenseClient(config) as client:
+        send(client)
+    request = route.calls.last.request
+    assert request.content == b""
+    assert "content-type" not in request.headers

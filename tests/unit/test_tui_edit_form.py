@@ -2337,3 +2337,19 @@ def test_an_empty_date_still_commits_today(fake_client, monkeypatch):
     assert not [n for n in notes if n[1] == "error"]
     today = to_canonical_aware(date.today().isoformat())
     assert fake_client.calls == [("PUT", PATH, {"date": today, "parts": [_kept()]})]
+
+
+def test_an_edit_that_leaves_the_date_unchanged_does_not_send_it(fake_client, monkeypatch):
+    """The date typed back as it is held is no change: it is not sent, beside a changed title."""
+    _patch(monkeypatch)
+
+    async def steps(screen, pilot, app):
+        _on(screen, "date")
+        _enter(screen, "2026-06-20")  # the day the line holds
+        _on(screen, "title")
+        _enter(screen, "Farmacia Inkafarma")
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open(scenario_steps=steps)
+    assert fake_client.calls == [("PUT", PATH, {"title": "Farmacia Inkafarma", "parts": [_kept()]})]
