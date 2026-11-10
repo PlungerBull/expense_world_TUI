@@ -115,6 +115,17 @@ Found while the number format setting was built; drawn as panes 14–16 of
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
 every amount on screen follows the pick as soon as it is known.
 
+### The contract version moved: record it?
+Asked 2026-11-09 · Blocks: the catch-up's acceptance check, and every new task
+The version check says: `saved 1002f105c6bacdf1, engine 9b3b43429d8bd11e`. This client last
+caught up to `1002f105c6bacdf1`. Every version between is in the two hand-offs of 2026-11-08,
+already planned: `cd6574eee1dd5ec0` to `2fa4967b8eed9c3f` in the catch-up and the
+leftover-lines spec, `c15201ee50485e56` to `9b3b43429d8bd11e` in the number format work (its
+reply handed over). Only the record was missed when they were planned.
+- **A.** Record `9b3b43429d8bd11e` and go on: no hand-off is missing.
+- **B.** Ask the engine for one hand-off covering `1002f105c6bacdf1` to `9b3b43429d8bd11e`.
+**Recommended:** A, because each change the log lists is already a task, done or planned.
+
 ### Trimming the tests: approve it?
 Asked 2026-11-09 · Blocks: [trimming the tests](specs/trimming-the-tests.md)
 The tests are over three times the app's code and every commit waits on them. The spec's one
