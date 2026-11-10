@@ -308,7 +308,7 @@ def test_a_blank_balance_is_a_dim_dash_and_its_difference_stays_blank(fake_clien
     assert len(dashes) == 2 and all(Style.parse(str(style)).dim for style in dashes)
 
 
-@pytest.mark.parametrize("height", [30, 24, 22, 21, 17])
+@pytest.mark.parametrize("height", [24, 21, 17])
 def test_every_row_and_the_page_status_show_at_any_height(fake_client, monkeypatch, height):
     """The opening balances' blank line and label cost two lines on a page that shares
     it with numbered rows, and the pages count them: no page is taller than the room
@@ -532,27 +532,6 @@ def test_a_completed_statement_on_an_account_with_no_code_draws_no_number(fake_c
     assert lines == _pane(UNNUMBERED_LIST)
 
 
-def test_only_a_completed_statement_on_an_account_with_a_code_is_numbered(fake_client, monkeypatch):
-    """`#` leads the list of a completed statement with a code and no other."""
-    _engine(fake_client, monkeypatch, statement_lines=SEPTIEMBRE_PAPER)
-    headers = {}
-    for key, statement, code in [
-        ("completed, code", SEPTIEMBRE_DONE, "IBK"),
-        ("completed, no code", SEPTIEMBRE_DONE, None),
-        ("open, code", NOVIEMBRE, "VIS"),
-        ("open, no code", SEPTIEMBRE, None),
-    ]:
-        _, lines, _ = run_app(_open(statement, code), size=(80, 24))
-        headers[key] = next(line for line in lines if "Date " in line and "Title" in line)
-    numbered = {key: line.lstrip().startswith("#") for key, line in headers.items()}
-    assert numbered == {
-        "completed, code": True,
-        "completed, no code": False,
-        "open, code": False,
-        "open, no code": False,
-    }
-
-
 LONG_ACCOUNT = "Cuenta Sueldo Interbank Soles Principal Hogar"
 
 
@@ -621,7 +600,7 @@ def test_a_long_close_note_wraps_under_its_first_word_after_the_warning_sign(
     assert " ".join(" ".join(pair).replace("⚠", "").split()) == f"USD: {usd_note}"
 
 
-@pytest.mark.parametrize("height", [24, 22, 20])
+@pytest.mark.parametrize("height", [24, 20])
 def test_a_wrapped_head_costs_the_checklist_a_row_and_nothing_overflows(
     fake_client, monkeypatch, height
 ):
@@ -861,25 +840,6 @@ def test_the_refusal_lines_cleared_under_a_box_give_the_room_back_after_esc(
     assert last_row(status) > last_row(with_refusal)
 
 
-def test_a_refit_with_the_size_unchanged_sets_nothing(fake_client, monkeypatch):
-    """The refit that follows every layout of the screen is a no-op when the room is the
-    same, so it cannot start a layout of its own."""
-    _engine(fake_client, monkeypatch, statement_lines=_many())
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(VIS_AGOSTO))
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: screen._list is not None and screen._list.page_status)
-        await pilot.pause()
-        calls = []
-        screen._list._refresh = lambda *a, **k: calls.append(1)
-        screen._refit_list()
-        screen._refit_list()
-        return calls
-
-    assert run_app(scenario, size=(80, 24)) == []
-
-
 def _bound(app) -> dict[str, bool]:
     """The footer's keys: each shown binding's description, whether the screen
     lets it act."""
@@ -913,30 +873,6 @@ def test_an_open_statement_on_an_account_with_a_code_waits_for_its_pdf(fake_clie
     assert screen._list._read_only  # no tick box, no toggle
 
 
-def test_the_keys_show_and_act_as_the_statements_state_allows(fake_client, monkeypatch):
-    """A completed statement has `d` and no `c` or toggle; a draft all
-    three; an open statement waiting for its PDF has neither `c` nor a toggle, nor `u`."""
-    _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
-
-    def keys(statement, code):
-        async def scenario(pilot, app):
-            screen = StatementScreen(dict(statement), statement_code=code)
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: screen._list is not None)
-            await pilot.pause()
-            return _bound(app)
-
-        return scenario
-
-    completed = run_app(keys(VIS_AGOSTO, "VIS"), size=(80, 24))
-    draft = run_app(keys(OCTUBRE, None), size=(80, 24))
-    waiting = run_app(keys(NOVIEMBRE, "VIS"), size=(80, 24))
-    assert "Complete" not in completed and "Toggle" not in completed
-    assert "Delete" in completed and "Revert" in completed
-    assert {"Toggle", "Complete", "Revert", "Delete"} <= set(draft)
-    assert not {"Complete", "Toggle", "Revert"} & set(waiting) and "Delete" in waiting
-
-
 def test_the_page_keys_reach_every_page_of_a_completed_statement(fake_client, monkeypatch):
     """The list holds focus on a completed statement as on a draft, so `pgdn` and `pgup`
     page it: the opening balances at the end of Agosto sit on a later page at this height."""
@@ -964,7 +900,8 @@ def test_the_page_keys_reach_every_page_of_a_completed_statement(fake_client, mo
 
 
 def test_c_and_space_do_nothing_on_a_completed_statement(fake_client, monkeypatch):
-    """`check_action` is the only stop: no question, no box, no write."""
+    """`check_action` is the only stop: no question, no box, no write. The footer
+    (COMPLETED_SCREEN) lists neither key."""
     _engine(fake_client, monkeypatch, statement_lines=AGOSTO)
 
     async def scenario(pilot, app):

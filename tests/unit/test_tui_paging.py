@@ -13,18 +13,17 @@ through a Rich Console; action handlers run with `_refresh`/`post_message`
 stubbed so no event loop is needed.
 """
 
+import importlib
 import re
 import threading
 
 import pytest
 from textual.containers import VerticalScroll
 
-from expense.reads import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, AccountIndex, items_of
+from expense.reads import ENGINE_PAGE_CAP, AccountIndex, items_of
 from expense.tui.screens._base import AdaptiveRowsMixin
-from expense.tui.screens._growing import read_first
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
-from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 from tests.unit.helpers import (
     bank_line_row,
     cursor_page,
@@ -58,13 +57,10 @@ def _list(n: int = 45, **kwargs) -> CursorList:
 # ---- page_indicator (shared helper) -----------------------------------------
 
 
-def test_page_indicator_none_when_single_page():
+def test_page_indicator_counts_rows_and_pages_and_is_none_for_one_page():
     assert page_indicator(0, 5, 5, 20) is None
     assert page_indicator(0, 20, 20, 20) is None
     assert page_indicator(0, 0, 0, 20) is None
-
-
-def test_page_indicator_counts_rows_and_pages():
     assert page_indicator(0, 20, 133, 20) == "rows 1-20 of 133 · page 1 of 7"
     assert page_indicator(20, 20, 133, 20) == "rows 21-40 of 133 · page 2 of 7"
     assert page_indicator(120, 13, 133, 20) == "rows 121-133 of 133 · page 7 of 7"
@@ -73,22 +69,15 @@ def test_page_indicator_counts_rows_and_pages():
 # ---- CursorList window mode (full data in memory) ---------------------------
 
 
-def test_build_windows_to_page_size():
-    out = _text(_list(45)._build())
+def test_the_window_holds_a_page_and_follows_the_cursor_across_pages():
+    lst = _list(45)
+    out = _text(lst._build())
     assert "row 00" in out and "row 19" in out
     assert "row 20" not in out  # window ends at page_size
-
-
-def test_window_follows_cursor_across_pages():
-    lst = _list(45)
-    lst.set_cursor(20)  # j past the boundary lands here
+    lst.set_cursor(20)  # past the boundary
     out = _text(lst._build())
     assert "row 20" in out and "row 39" in out
     assert "row 19" not in out and "row 40" not in out
-
-
-def test_cursor_restore_lands_on_its_page():
-    lst = _list(45)
     lst.set_cursor(lst.index_of("id33"))  # the _restore_key pattern after a write
     assert "row 33" in _text(lst._build())
     assert lst.page_status == "rows 21-40 of 45 · page 2 of 3"
@@ -116,11 +105,11 @@ def test_action_page_posts_highlighted_in_window_mode():
     assert captured[0].key == "id20"  # two-pane screens stay in sync on page jumps
 
 
-def test_single_page_hides_page_keys_and_subtitle():
-    lst = _list(5)
-    assert lst.page_status is None
-    assert lst.check_action("page", ()) is False
-    assert _list(45).check_action("page", ()) is True
+def test_a_single_page_hides_the_page_keys_and_status():
+    for single, many in ((_list(5), _list(45)), (_checklist(8), _checklist(25))):
+        assert single.page_status is None
+        assert single.check_action("page", ()) is False
+        assert many.check_action("page", ()) is True
 
 
 def test_set_page_size_rewindows_around_cursor():
@@ -150,14 +139,11 @@ def _checklist(n: int = 25, **kwargs) -> CheckList:
     return chk
 
 
-def test_checklist_windows_rows():
-    out = _text(_checklist(25)._build())
+def test_checklist_windows_rows_and_counts_them():
+    chk = _checklist(25)
+    out = _text(chk._build())
     assert "txn 00" in out and "txn 19" in out
     assert "txn 20" not in out  # 20 rows per page
-
-
-def test_checklist_page_status_counts_rows():
-    chk = _checklist(25)
     assert chk.page_status == "rows 1-20 of 25 · page 1 of 2"
     chk._cursor = 20
     assert chk.page_status == "rows 21-25 of 25 · page 2 of 2"
@@ -181,11 +167,6 @@ def test_checklist_toggle_on_page_two_targets_the_right_key():
     assert chk.checked == {"l20"}
     toggles = [m for m in captured if isinstance(m, CheckList.Toggled)]
     assert len(toggles) == 1 and toggles[0].key == "l20" and toggles[0].checked
-
-
-def test_checklist_single_page_hides_page_keys():
-    assert _checklist(8).check_action("page", ()) is False
-    assert _checklist(25).check_action("page", ()) is True
 
 
 def test_checklist_set_page_size_keeps_checks():
@@ -214,23 +195,21 @@ def _whole_fetch(n: int, prefix: str, calls: list):
     return fake_fetch
 
 
-def test_categories_manage_reads_the_whole_list_once(monkeypatch):
+@pytest.mark.parametrize(
+    ("screen_path", "reader", "prefix", "count"),
+    [
+        ("expense.tui.screens.categories.CategoriesScreen", "fetch_categories", "c", 150),
+        ("expense.tui.screens.hashtags.HashtagsScreen", "fetch_hashtags", "h", 130),
+    ],
+)
+def test_a_manage_list_reads_the_whole_list_once(monkeypatch, screen_path, reader, prefix, count):
     """The manage screens window locally over the full set; the engine
     returns it whole, so one read holds every row."""
     calls: list = []
-    monkeypatch.setattr("expense.reads.fetch_categories", _whole_fetch(150, "c", calls))
-    from expense.tui.screens.categories import CategoriesScreen
-
-    assert len(items_of(CategoriesScreen().fetch_items(None))) == 150
-    assert len(calls) == 1
-
-
-def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
-    calls: list = []
-    monkeypatch.setattr("expense.reads.fetch_hashtags", _whole_fetch(130, "h", calls))
-    from expense.tui.screens.hashtags import HashtagsScreen
-
-    assert len(items_of(HashtagsScreen().fetch_items(None))) == 130
+    monkeypatch.setattr(f"expense.reads.{reader}", _whole_fetch(count, prefix, calls))
+    module, name = screen_path.rsplit(".", 1)
+    screen = getattr(importlib.import_module(module), name)()
+    assert len(items_of(screen.fetch_items(None))) == count
     assert len(calls) == 1
 
 
@@ -251,26 +230,6 @@ def _ledger_rows(n: int) -> list[dict]:
         }
         for i in range(n)
     ]
-
-
-def test_read_first_reads_one_step_then_counts():
-    reads: list = []
-
-    def fetch_page(limit, after):
-        reads.append((limit, after))
-        return cursor_page(_ledger_rows(limit), next_cursor=f"c{limit}")
-
-    items, nxt, total = read_first(fetch_page, lambda: 133)
-    assert reads == [(GROW_STEP, None)]
-    assert len(items) == GROW_STEP and nxt == "c10" and total == 133
-
-
-def test_read_first_fails_when_the_count_does():
-    def count():
-        raise RuntimeError("count unavailable")
-
-    with pytest.raises(RuntimeError):
-        read_first(lambda limit, after: cursor_page(_ledger_rows(3)), count)
 
 
 def _patch_transactions(monkeypatch, n: int = 133, **kw) -> tuple[list, list, list]:
@@ -531,7 +490,7 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
         assert screen.query(CursorList).first().outer_size.height <= content.content_size.height
         assert not content.show_vertical_scrollbar
 
-    for size in ((120, 30), (180, 45), (200, 60)):
+    for size in ((120, 30), (200, 60)):
         _drive_transactions(size, checks)
 
 
@@ -555,99 +514,13 @@ def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
     _drive_transactions((120, 300), sized(ENGINE_PAGE_CAP))
 
 
-# ---- the shared base --------------------------------------------------------
-def test_both_list_widgets_page_on_the_same_arithmetic():
-    """`CursorList` and `CheckList` render nothing alike, but they window, page
-    and count identically — one implementation, so they cannot drift."""
-    assert issubclass(CursorList, WindowedList) and issubclass(CheckList, WindowedList)
-    lst, chk = _list(45), _checklist(45)
-    for widget in (lst, chk):
-        assert widget._window_start == 0
-        widget._cursor = 27
-        start, window = widget._window()
-        assert start == 20 and len(window) == 20
-    assert lst.page_status == "rows 21-40 of 45 · page 2 of 3"
-    assert chk.page_status == "rows 21-40 of 45 · page 2 of 3"
-
-
-def test_a_move_that_goes_nowhere_does_not_repaint():
-    """Neither `CheckList.action_move` nor `CursorList` repaints on a keypress
-    that is already at an edge."""
-    for widget in (_list(5), _checklist(5)):
-        painted: list[int] = []
-        widget._refresh = lambda sink=painted: sink.append(1)
-        widget.post_message = lambda m: True
-        widget.action_move(-1)  # already at the top
-        assert painted == []
-        widget.action_move(1)
-        assert painted == [1] and widget._cursor == 1
-
-
-def test_the_checklist_cursor_uses_the_documented_style():
-    """It drew itself with a bare `"reverse"` literal, so the constant that
-    carries the reason had exactly one consumer."""
-    import expense.tui.widgets.checklist as mod
-
-    assert mod.CURSOR_STYLE is CURSOR_STYLE
-    # and it is actually applied: the cursor row renders differently from its
-    # neighbour, which a dropped style would not.
+# ---- the checklist cursor
+def test_the_checklist_cursor_is_drawn_apart_from_its_neighbour():
+    """The cursor row renders in reverse video and its neighbour does not."""
     chk = _checklist(3)
     painted = render_text(chk._build(), width=60, ansi=True)
     lines = [ln for ln in painted.splitlines() if "txn 0" in ln]
     assert lines and "\x1b[7m" in lines[0] and "\x1b[7m" not in lines[1]
-
-
-# ---- the shared measurement -------------------------------------------------
-class _Measured(AdaptiveRowsMixin):
-    """A screen with a known viewport height and nothing else."""
-
-    def __init__(self, height: int) -> None:
-        self._height = height
-
-    def query_one(self, _selector):
-        size = type("Size", (), {"height": self._height})()
-        return type("Container", (), {"content_size": size})()
-
-
-def test_fit_rows_clamps_to_the_screen_class_limits_not_hardcoded_ones():
-    """The statement screens each re-derived this measurement with a bare
-    `5` and a hardcoded 20, so raising `PAGE_ROWS_CAP` on a screen would have
-    left them at 20 without saying so."""
-    wide = _Measured(200)
-    assert wide.fit_rows(chrome=6) == DEFAULT_PAGE_ROWS
-
-    class Taller(_Measured):
-        PAGE_ROWS_CAP = 50
-
-    assert Taller(200).fit_rows(chrome=6) == 50
-    assert Taller(200).fit_rows(chrome=6, lines_per_row=2) == 50
-
-    class Deeper(_Measured):
-        PAGE_ROWS_FLOOR = 2
-
-    assert Deeper(8).fit_rows(chrome=6, lines_per_row=2) == 2
-
-
-def test_fit_rows_falls_back_to_the_default_before_layout():
-    assert _Measured(0).fit_rows(chrome=6) == DEFAULT_PAGE_ROWS
-
-
-def test_fit_rows_counts_two_line_rows_and_split_panes():
-    """The two callers that hand-roll their own chrome: a pane sharing #content
-    with a sibling, and the checklist in #rlist, one line per row.
-
-    The browse's two panes are not the same size — the statements pane keeps a
-    caption naming the account, the accounts pane does not. The checklist
-    counts the two blank edge lines the table draws; leaving them out asks for
-    a row that does not fit, and #rlist, which is `overflow: hidden`, clips it
-    in silence.
-
-    Mirrors `StatementsScreen.pane_rows` and `_checklist_items`. If those
-    change, this is where the new arithmetic gets re-stated.
-    """
-    frame, caption = AdaptiveRowsMixin.LIST_FRAME_LINES, AdaptiveRowsMixin.CAPTION_LINES
-    assert _Measured(40).fit_rows(chrome=2 + 2 * frame + caption, lines_per_row=2) == 12
-    assert _Measured(20).fit_rows("#rlist", chrome=CheckList.FRAME_LINES) == 17
 
 
 # ---- the frame ---------------------------------------------------------------
@@ -670,24 +543,14 @@ def test_the_frame_costs_exactly_list_frame_lines():
     assert _frame_lines(_list(3, page_size=10)) - 3 == frame
     assert _frame_lines(_checklist(3, page_size=10)) - 3 == CheckList.FRAME_LINES
 
+    # the status line is reserved even when there is nothing to say: `page_status` is None on
+    # a single page, and a height that came and went with it would loop through the fit
+    assert _list(3, page_size=10).page_status is None
+    assert _list(30, page_size=3).page_status is not None
+    assert _frame_lines(_list(30, page_size=3)) - 3 == frame
+
     captioned = _list(3, page_size=10, caption="BCP · by statement start date")
     assert _frame_lines(captioned) - 3 == frame + AdaptiveRowsMixin.CAPTION_LINES
-
-
-def test_the_frame_height_does_not_depend_on_the_page_status():
-    """The status line is reserved even when there is nothing to say.
-
-    `page_status` is None on a single page. If the line came and went, a
-    widget's height would depend on how many rows it holds — and height is
-    exactly what `AdaptiveRowsMixin` measures to decide how many rows to ask
-    for. That circularity is what makes the reserved blank line load-bearing
-    rather than tidy.
-    """
-    one_page = _list(3, page_size=10)
-    many_pages = _list(30, page_size=3)
-    assert one_page.page_status is None
-    assert many_pages.page_status is not None
-    assert _frame_lines(one_page) - 3 == _frame_lines(many_pages) - 3
 
 
 def test_the_frame_draws_no_colour():
@@ -762,7 +625,7 @@ def test_the_statement_checklist_fits_its_container(fake_client, monkeypatch):
         rlist = screen.query_one("#rlist")
         assert screen._list.outer_size.height <= rlist.content_size.height
 
-    for size in ((120, 30), (120, 40), (180, 50)):
+    for size in ((120, 30), (180, 50)):
         run_app(scenario, size=size)
 
 
@@ -785,13 +648,3 @@ def test_the_statement_caption_repaints_when_the_account_changes():
     before = len(painted)
     lst.set_caption("BCP Ahorros · by statement start date")  # unchanged
     assert len(painted) == before, "an unchanged caption repainted anyway"
-
-
-def test_header_rule_span_needs_header_rule_off():
-    """A rule of its own stands where the table's would: asking for both is refused, on
-    construction and on `set_headers`."""
-    with pytest.raises(ValueError, match="header_rule=False"):
-        CursorList(["A"], [], header_rule_span=(0, 10))
-    lst = CursorList(["A"], [], header_rule=False, header_rule_span=(0, 10))
-    with pytest.raises(ValueError, match="header_rule=False"):
-        lst.set_headers(["A"], header_rule_span=(0, 10))

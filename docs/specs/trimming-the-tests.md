@@ -60,8 +60,11 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-7. **The rest of tests/unit,** test_tui_help.py and test_tui_quit_asks.py first (and
-   `fake_ledger`'s unprompted `offset` refusal in helpers.py with test_reads_and_formatting.py), then the live
+7. **The rest,** in four rounds: (a) test_tui_help.py, test_tui_quit_asks.py,
+   test_tui_statement_list.py, test_tui_statement_screen.py, test_tui_engine_words.py,
+   test_tui_paging.py and test_tui_setup.py; (b) every other test_tui_*.py; (c) the tests of
+   code with no screen (reads, formatting, errors, the HTTP client, the writes, the importers,
+   the scripts), with `fake_ledger`'s unprompted `offset` refusal in helpers.py; (d) the live
    suite's repeated cases in tests/contract.
 8. **The speed:** the slowest tests left made fast or merged; helpers no test uses any more
    (`_cine_line` in test_tui_delete.py, `_enter` in test_tui_new_account.py) and the

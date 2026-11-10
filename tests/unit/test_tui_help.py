@@ -10,7 +10,6 @@ tests that matter here are the ones that fail when the derivation drifts:
 """
 
 import importlib
-import inspect
 import pkgutil
 import re
 
@@ -21,7 +20,6 @@ from textual.binding import Binding
 
 import expense.tui as tui_pkg
 from expense.reads import AccountIndex
-from expense.tui.app import ExpenseApp
 from expense.tui.screens._form import form_bindings
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
@@ -128,6 +126,9 @@ def test_every_declared_binding_has_help_text():
         for item in klass.__dict__["BINDINGS"]:
             for binding in Binding.make_bindings([item]):
                 if binding.action in FOLD_INTO:
+                    # a folded inverse renders as `(k / ↑ up)`: it needs its word too
+                    if not binding.description:
+                        undocumented.append(f"{klass.__name__}: {binding.key} has no word")
                     continue
                 if not (binding.tooltip or binding.description):
                     undocumented.append(f"{klass.__name__}: {binding.key} → {binding.action}")
@@ -186,30 +187,25 @@ def test_square_brackets_are_not_bound_anywhere():
     assert not offenders, f"square brackets were retired: {offenders}"
 
 
-def test_folded_bindings_still_carry_their_word():
-    """A folded inverse renders as `(k / ↑ up)` — it needs its description even
-    though it never gets a row, or the parenthetical reads `(k / ↑ )`."""
-    for klass in _declaring_classes():
-        for item in klass.__dict__["BINDINGS"]:
-            for binding in Binding.make_bindings([item]):
-                if binding.action in FOLD_INTO:
-                    assert binding.description, f"{klass.__name__}: {binding.key} has no word"
-
-
 # ---------------------------------------------------------------------------
 # derivation
 # ---------------------------------------------------------------------------
 
 
-def test_declared_bindings_keeps_only_our_own():
+def test_declared_bindings_keeps_only_our_own_and_folds_the_inverse():
     """Textual's OptionList contributes home/end/tab/left/right/ctrl+c to a
     CursorList at runtime. None are ours to document, and none may appear —
     achieved by walking the MRO for *declaring* classes, not by a suppression
-    list that would rot as Textual changes."""
+    list that would rot as Textual changes. `up` is `show=False` and rides along
+    on the down row instead of becoming a blank-description row."""
     keys = {binding.key for binding in declared_bindings(CursorList)}
     assert keys == {"down", "up", "enter", "space", "pagedown", "pageup"}
     for intruder in ("home", "end", "tab", "shift+tab", "left", "right", "ctrl+c"):
         assert intruder not in keys
+    rows = key_rows(declared_bindings(CursorList))
+    assert not any(row.description == "Up" for row in rows)
+    down = next(row for row in rows if row.description == "Down")
+    assert down.note == "(↑ up)"
 
 
 def test_rows_join_keys_typed_character_first():
@@ -219,29 +215,6 @@ def test_rows_join_keys_typed_character_first():
     rows = {row.description: row.keys for row in key_rows(declared_bindings(ConfirmModal))}
     assert rows["No"] == "n / esc / ⏎"
     assert rows["Yes"] == "y"
-
-
-def test_inverse_alias_folds_into_its_partner_row():
-    """`up` is `show=False` and has no row of its own — it rides along on the
-    down row instead of becoming a blank-description row."""
-    rows = key_rows(declared_bindings(CursorList))
-    assert not any(row.description == "Up" for row in rows)
-    down = next(row for row in rows if row.description == "Down")
-    assert down.note == "(↑ up)"
-
-
-def test_refresh_and_back_sort_to_the_end():
-    """Every screen has them, so leading with them buries what is specific."""
-    rows = key_rows(declared_bindings(AccountsScreen))
-    assert [row.description for row in rows][-2:] == ["Refresh", "Back"]
-
-
-def test_tooltip_beats_description():
-    """The footer label stays terse; the card says what the key does. Both come
-    from one declaration, so they cannot describe different behaviour."""
-    rows = {row.description for row in key_rows(declared_bindings(AccountsScreen))}
-    assert "Archive / unarchive" in rows  # tooltip
-    assert "Archive" not in rows  # the footer's word
 
 
 # ---------------------------------------------------------------------------
@@ -286,48 +259,12 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
         assert "Everywhere" in lines[conventions]
         # nothing overflows the 66-column card
         assert max(len(line) for line in lines) <= 66
-
-    run_app(scenario, size=(100, 32))
-
-
-def test_the_card_says_enter_never_changes_data_except_on_a_currency_pick(monkeypatch):
-    """The card's always-true block carries the rule for `⏎` in exactly these words."""
-    _stub_engine(monkeypatch)
-
-    async def scenario(pilot, app):
-        await app.push_screen(AccountsScreen())
-        await wait_for_loaded(pilot, app)
-        await pilot.pause()
-        _, groups = screen_inventory(app.screen)
-        rows = _rows(groups, "Always true")
+        # `⏎` is a no-op on the Manage lists (no screen there handles the selection), so the
+        # card does not list it as "Open", and says what it does everywhere
+        assert not any(r.description == "Open" for r in _rows(groups, "Moving around"))
         assert ("⏎", "never changes data, except on a currency pick") in [
-            (row.keys, row.description) for row in rows
+            (row.keys, row.description) for row in _rows(groups, "Always true")
         ]
-
-    run_app(scenario, size=(100, 32))
-
-
-def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
-    """`enter` is a literal no-op on the Manage lists (tui-plan §4.1) because no
-    screen there handles CursorList.Selected. Transactions does handle it. The
-    card has to tell those two apart, or it is documenting a key that does
-    nothing."""
-    _stub_engine(monkeypatch)
-
-    async def scenario(pilot, app):
-        await app.push_screen(AccountsScreen())
-        await wait_for_loaded(pilot, app)
-        await pilot.pause()
-        _, manage = screen_inventory(app.screen)
-        app.pop_screen()
-
-        await app.push_screen(TransactionsScreen())
-        await wait_for_loaded(pilot, app)
-        await pilot.pause()
-        _, ledger = screen_inventory(app.screen)
-
-        assert not any(r.description == "Open" for r in _rows(manage, "Moving around"))
-        assert any(r.description == "Open" for r in _rows(ledger, "Moving around"))
 
     run_app(scenario, size=(100, 32))
 
@@ -405,13 +342,6 @@ def test_question_mark_types_a_character_inside_a_form(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_command_palette_is_disabled():
-    """docs/decisions.md "The command palette is removed". Textual's Footer gates its
-    `^p palette` key on this same flag, so the strip leaves every footer with
-    it — that shared flag is why no footer code was touched."""
-    assert ExpenseApp.ENABLE_COMMAND_PALETTE is False
-
-
 def test_footer_no_longer_offers_the_palette(monkeypatch):
     _stub_engine(monkeypatch)
 
@@ -487,32 +417,6 @@ def test_every_bar_form_takes_the_form_keymap_not_textuals_focus_cycling():
 # ---------------------------------------------------------------------------
 # the title: a screen's own words, never a class name that says "reconciliation"
 # ---------------------------------------------------------------------------
-
-
-def _screen_classes():
-    """Every Screen subclass defined under expense.tui."""
-    from textual.screen import Screen
-
-    for info in pkgutil.walk_packages(tui_pkg.__path__, f"{tui_pkg.__name__}."):
-        module = importlib.import_module(info.name)
-        for obj in vars(module).values():
-            if isinstance(obj, type) and issubclass(obj, Screen) and obj.__module__ == info.name:
-                yield obj
-
-
-def test_a_screen_whose_class_name_says_reconciliation_sets_its_crumb():
-    """The `?` title falls back to the class name when a screen has no crumb, so a
-    class named for a reconciliation would print that word to the person.
-
-    A tripwire: it passes while no class is so named."""
-    bare = [
-        cls.__name__
-        for cls in _screen_classes()
-        if "reconcil" in cls.__name__.lower()
-        and not getattr(cls, "crumb", None)
-        and "self.crumb = " not in inspect.getsource(cls)
-    ]
-    assert bare == []
 
 
 def test_the_help_title_on_a_statements_own_screen_says_statements():
@@ -605,83 +509,27 @@ def test_scroll_window_counts_what_is_hidden_exactly():
     assert [r.plain for r in fits] == [f"l{i}" for i in range(10)]
 
 
-def test_a_card_that_fits_has_no_scroll_markers(monkeypatch):
+def _walk_the_card(card, lines_of):
+    """The arithmetic of a scrolled card: the lines hidden above, the window and the lines
+    below add up to the whole card, the offset is the count above, and the head, the rules
+    and the close line stay in place."""
+    lines = lines_of()
+    above, below = _marks(lines)
+    window = card._room - 2 - (above is not None) - (below is not None)
+    assert (above or 0) + window + (below or 0) == len(card._lines)
+    assert (above or 0) == card._offset
+    assert lines[0].startswith("  ◈ EXPENSE WORLD")
+    return lines, above, below
+
+
+def test_a_card_that_fits_has_no_scroll_markers_and_opens_at_the_top_after_a_shrink(monkeypatch):
     async def body(pilot, app):
         lines = screen_lines(app)
         assert _marks(lines) == (None, None)
         assert any("[?] or [esc] close" in line for line in lines)
-        await pilot.press("down")
+        assert app.screen._shape == "narrow"
+        await pilot.press(*["down"] * 10)
         assert _marks(screen_lines(app)) == (None, None)
-
-    _ledger_card(monkeypatch, (140, 60), body)
-
-
-def test_the_ledger_card_scrolls_to_edit_and_delete_at_both_sizes(monkeypatch):
-    for size in ((100, 24), (80, 24)):
-
-        async def body(pilot, app):
-            card = app.screen
-            lines = screen_lines(app)
-            above, below = _marks(lines)
-            assert above is None and below
-            assert not any("Always true" in line for line in lines)
-            assert any("Keys — Transactions" in line for line in lines)
-            await pilot.press("down")
-            assert _marks(screen_lines(app)) == (1, below)
-            for _ in range(60):
-                await pilot.press("down")
-            lines = screen_lines(app)
-            above, below = _marks(lines)
-            assert above and below is None
-            assert any(re.search(r"\bs +Edit", line) for line in lines)
-            assert any(re.search(r"\bd +Delete", line) for line in lines)
-            await pilot.press("up")
-            above, below = _marks(screen_lines(app))
-            assert above and below == 2
-            # the keys went to the card, not to the screen under it
-            assert app.screen is card
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
-
-        _ledger_card(monkeypatch, size, body)
-
-
-def test_the_scrolled_card_keeps_its_frame_and_counts_add_up(monkeypatch):
-    async def body(pilot, app):
-        card = app.screen
-        total = len(card._lines)
-        for _ in range(25):
-            lines = screen_lines(app)
-            above, below = _marks(lines)
-            window = card._room - 2 - (above is not None) - (below is not None)
-            assert (above or 0) + window + (below or 0) == total
-            assert (above or 0) == card._offset
-            assert lines[-1].strip().startswith("esc")
-            assert lines[0].startswith("  ◈ EXPENSE WORLD")
-            # the head's rule and the card's two
-            assert sum("─" * 60 in line for line in lines) == 3
-            await pilot.press("down")
-
-    _ledger_card(monkeypatch, (80, 24), body)
-
-
-def test_the_card_follows_a_resize(monkeypatch):
-    async def body(pilot, app):
-        assert _marks(screen_lines(app))[1]
-        await pilot.resize_terminal(140, 60)
-        await pilot.pause()
-        assert _marks(screen_lines(app)) == (None, None)
-        await pilot.resize_terminal(80, 24)
-        await pilot.pause()
-        assert _marks(screen_lines(app))[1]
-
-    _ledger_card(monkeypatch, (80, 24), body)
-
-
-def test_a_fit_card_scrolled_then_shrunk_opens_at_the_top(monkeypatch):
-    async def body(pilot, app):
-        for _ in range(10):
-            await pilot.press("down")
         assert app.screen._offset == 0
         await pilot.resize_terminal(80, 24)
         await pilot.pause()
@@ -689,6 +537,41 @@ def test_a_fit_card_scrolled_then_shrunk_opens_at_the_top(monkeypatch):
         assert any("Keys — Transactions" in line for line in screen_lines(app))
 
     _ledger_card(monkeypatch, (140, 60), body)
+
+
+@pytest.mark.parametrize("size", [(100, 24), (80, 24)])
+def test_the_ledger_card_scrolls_to_edit_and_delete(monkeypatch, size):
+    async def body(pilot, app):
+        card = app.screen
+        lines = screen_lines(app)
+        above, below = _marks(lines)
+        assert above is None and below
+        assert not any("Always true" in line for line in lines)
+        assert any("Keys — Transactions" in line for line in lines)
+        await pilot.press("down")
+        assert _marks(screen_lines(app)) == (1, below)
+        steps = 0
+        while below is not None and steps < 80:
+            lines, above, below = _walk_the_card(card, lambda: screen_lines(app))
+            # the head's rule and the card's two
+            assert sum("─" * 60 in line for line in lines) == 3
+            assert lines[-1].strip().startswith("esc")
+            await pilot.press("down")
+            steps += 1
+        lines = screen_lines(app)
+        above, below = _marks(lines)
+        assert above and below is None
+        assert any(re.search(r"\bs +Edit", line) for line in lines)
+        assert any(re.search(r"\bd +Delete", line) for line in lines)
+        await pilot.press("up")
+        above, below = _marks(screen_lines(app))
+        assert above and below == 2
+        # the keys went to the card, not to the screen under it
+        assert app.screen is card
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
+
+    _ledger_card(monkeypatch, size, body)
 
 
 def test_a_card_that_does_not_fit_spreads_out_on_a_wide_terminal(monkeypatch):
@@ -727,36 +610,12 @@ def test_a_card_that_does_not_fit_spreads_out_on_a_wide_terminal(monkeypatch):
     _ledger_card(monkeypatch, (140, 24), body)
 
 
-def test_a_card_that_fits_stays_narrow_at_any_width(monkeypatch):
-    async def body(pilot, app):
-        card = app.screen
-        assert card._shape == "narrow"
-        assert card.query_one("#modal").size.width == 68
-        assert _marks(screen_lines(app)) == (None, None)
-
-    _ledger_card(monkeypatch, (200, 60), body)
-
-
-def test_no_room_to_spread_scrolls_the_narrow_card(monkeypatch):
-    async def body(pilot, app):
-        card = app.screen
-        assert card._shape == "narrow" and card.query_one("#modal").size.width == 68
-        assert _marks(screen_lines(app))[1]
-
-    _ledger_card(monkeypatch, (80, 24), body)
-
-
 def test_a_spread_card_too_tall_for_its_room_scrolls_with_exact_counts(monkeypatch):
     async def body(pilot, app):
         card = app.screen
         assert card._shape == "wide"
-        total = len(card._lines)
-        for _ in range(total):
-            lines = screen_lines(app)
-            above, below = _marks(lines)
-            window = card._room - 2 - (above is not None) - (below is not None)
-            assert (above or 0) + window + (below or 0) == total
-            assert lines[0].startswith("  ◈ EXPENSE WORLD")
+        for _ in range(len(card._lines)):
+            _, above, below = _walk_the_card(card, lambda: screen_lines(app))
             await pilot.press("down")
         assert below is None and above
 

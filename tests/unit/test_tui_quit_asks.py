@@ -49,6 +49,7 @@ from tests.unit.test_tui_bank_import import _open as _open_import
 from tests.unit.test_tui_bank_import import _patch as _patch_import
 from tests.unit.test_tui_bulk_edit import FILTER, ITEMS, _answer_moves, _open, _stub_ledger
 from tests.unit.test_tui_left_behind_account_form import _left_save
+from tests.unit.test_tui_log_bar import LEDGER_LINE, USD_LINE, _stage_lines
 from tests.unit.test_tui_log_bar import _open as _open_log
 from tests.unit.test_tui_log_bar import _patch as _patch_log
 from tests.unit.test_tui_statement_upload import _card_preview, _pdf
@@ -122,10 +123,6 @@ def _scenario(fake_client, monkeypatch, *, writes, leave, then, expect_toasts=Tr
 
 def _ending(i: int) -> dict:
     return dict(success=f"Done {i}.", left_behind=LeftBehind(f"Not {i}"))
-
-
-def bar_empty(screen) -> bool:
-    return screen.query_one("#bar").value == ""
 
 
 def _asked(app) -> tuple[str, str]:
@@ -222,24 +219,30 @@ def test_a_write_on_an_open_screen_counts(fake_client, monkeypatch):
     )
 
 
-def test_writes_dropped_with_a_left_screen_are_not_counted(fake_client, monkeypatch):
+@pytest.mark.parametrize(
+    ("writes", "counted"),
+    [
+        # the first has no LeftBehind: dropped on leaving, and the one behind it never sent
+        ([dict(), LeftBehind("Not one")], 0),
+        # a queue counts up to the first write that is dropped
+        ([_ending(0), dict(), _ending(2)], 1),
+    ],
+)
+def test_writes_dropped_with_a_left_screen_are_not_counted(
+    fake_client, monkeypatch, writes, counted
+):
+    writes = [w if isinstance(w, dict) else dict(left_behind=w) for w in writes]
     seen = []
 
     async def then(pilot, app, screen):
         seen.append(pending_writes(app))
         await pilot.press("ctrl+q")
         seen.append(app._exit)
+        if not app._exit:
+            await pilot.press("n")
 
-    _scenario(
-        fake_client,
-        monkeypatch,
-        # the first has no LeftBehind: dropped on leaving, and the one behind it never sent
-        writes=[dict(), dict(left_behind=LeftBehind("Not one"))],
-        leave=True,
-        then=then,
-        expect_toasts=False,
-    )
-    assert seen == [0, True]
+    _scenario(fake_client, monkeypatch, writes=writes, leave=True, then=then, expect_toasts=False)
+    assert seen == [counted, counted == 0]
 
 
 def test_the_account_edit_forms_save_with_opening_balances_counts_once(fake_client, monkeypatch):
@@ -256,25 +259,9 @@ def test_the_account_edit_forms_save_with_opening_balances_counts_once(fake_clie
     assert seen == [1, ONE]
 
 
-def test_a_left_queue_counts_up_to_the_first_write_that_is_dropped(fake_client, monkeypatch):
-    seen = []
-
-    async def then(pilot, app, screen):
-        seen.append(pending_writes(app))
-
-    _scenario(
-        fake_client,
-        monkeypatch,
-        writes=[_ending(0), dict(), _ending(2)],
-        leave=True,
-        then=then,
-        expect_toasts=False,
-    )
-    assert seen == [1]
-
-
+@pytest.mark.parametrize("answer", ["n", "y"])
 def test_a_form_saved_under_the_question_leaves_it_up_and_closes_after_the_answer(
-    fake_client, monkeypatch
+    fake_client, monkeypatch, answer
 ):
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
     late = LateAnswer(fake_client, "post")
@@ -303,7 +290,10 @@ def test_a_form_saved_under_the_question_leaves_it_up_and_closes_after_the_answe
         await wait_for(pilot, lambda: notes, timeout=3)  # the save is answered
         await pilot.pause()
         seen.append(app.screen is question)  # the question was not popped by the form
-        await pilot.press("n")
+        await pilot.press(answer)
+        if answer == "y":
+            seen.append(app._exit)
+            return
         await wait_for(pilot, lambda: app.screen is listing)  # the form closed after it
         await wait_for(pilot, lambda: edited)
         await pilot.pause()
@@ -315,44 +305,33 @@ def test_a_form_saved_under_the_question_leaves_it_up_and_closes_after_the_answe
     assert seen == [True, True]
 
 
-def test_after_a_form_closes_under_the_question_y_still_quits(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
-    late = LateAnswer(fake_client, "post")
-    seen = []
-
-    async def scenario(pilot, app):
-        notes = app_notes(monkeypatch, app)
-        await app.push_screen(HashtagsScreen())
-        await wait_for_list(pilot, app)
-        await pilot.press("n")
-        form = app.screen
-        await wait_for(pilot, lambda: bool(form.query("#bar")))
-        form.query_one("#bar").value = "#nuevo"
-        form._recompute("#nuevo")
-        form.on_input_submitted(None)
-        await wait_for(pilot, late.started.is_set)
-        await pilot.press("ctrl+q")
-        late.release.set()
-        await wait_for(pilot, lambda: notes, timeout=3)
-        await pilot.press("y")
-        seen.append(app._exit)
-
-    run_app(scenario)
-    assert seen == [True]
-
-
 # ---- writes that do not go through run_write -----------------------------------------
-def test_the_log_bars_batch_counts_as_one_save(fake_client, monkeypatch):
-    """Two staged rows sent by one `ctrl+s` are one save while the batch is unanswered."""
+def _recording(monkeypatch, target, name, app_of, into):
+    """Wrap `target.name` so the count at the moment it runs (the UI thread) is noted."""
+    real = getattr(target, name)
+
+    def wrapper(*args, **kwargs):
+        into.append(pending_writes(app_of()))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(target, name, wrapper)
+
+
+def test_the_log_bars_batch_counts_as_one_save_until_its_ending_is_handed_back(
+    fake_client, monkeypatch
+):
+    """Two staged rows sent by one `ctrl+s` are one save while the batch is unanswered, and
+    still one when its ending (the outcome, then the finish) is handed back."""
     _patch_log(monkeypatch)
     late = LateAnswer(fake_client, "post")
     seen = []
+    ending: list[int] = []
 
     async def scenario(pilot, app):
         screen = await _open_log(app, pilot)
-        for line in ("tottus -13.50 $BCP", "wong -9.00 $BCP"):
-            await pilot.press(*line, "enter")
-            await wait_for(pilot, lambda: bar_empty(screen))
+        _recording(monkeypatch, screen, "_apply_outcome", lambda: app, ending)
+        _recording(monkeypatch, screen, "_save_finished", lambda: app, ending)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
         assert len(screen._staged) == 2
         await pilot.press("ctrl+s")
         await wait_for(pilot, late.started.is_set)
@@ -371,6 +350,7 @@ def test_the_log_bars_batch_counts_as_one_save(fake_client, monkeypatch):
 
     run_app(scenario)
     assert seen == [1, ONE, 0]
+    assert ending == [1, 1]
 
 
 def test_a_ledger_bulk_run_counts_as_one_save_after_the_ledger_is_left(fake_client, monkeypatch):
@@ -401,6 +381,24 @@ def test_a_ledger_bulk_run_counts_as_one_save_after_the_ledger_is_left(fake_clie
 
     run_app(scenario, size=(120, 30))
     assert seen == [1, 1, ONE]
+
+
+def test_a_bulk_run_is_counted_when_its_ending_is_handed_back(fake_client, monkeypatch):
+    _stub_ledger(monkeypatch)
+    _answer_moves(fake_client, ITEMS)
+    seen: list[int] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        _recording(monkeypatch, screen, "_bulk_finished", lambda: app, seen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: seen)
+
+    run_app(scenario, size=(120, 30))
+    assert seen == [1]
 
 
 def _import_apply(fake_client, monkeypatch, tmp_path, check):
@@ -440,8 +438,12 @@ def test_an_import_apply_counts_and_its_answer_leaves_the_question_up(
     fake_client, monkeypatch, tmp_path
 ):
     seen = []
+    ending: list[int] = []
+    _recording(monkeypatch, ImportPreviewScreen, "_applied", lambda: app_box[0], ending)
+    app_box: list = []
 
     async def check(pilot, app, release):
+        app_box.append(app)
         seen.append(pending_writes(app))
         await pilot.press("ctrl+q")
         question = app.screen
@@ -455,6 +457,7 @@ def test_an_import_apply_counts_and_its_answer_leaves_the_question_up(
 
     _import_apply(fake_client, monkeypatch, tmp_path, check)
     assert seen == [1, ONE, True, True]
+    assert ending == [1]  # still counted when its result is handed back
 
 
 def test_an_import_apply_answered_under_the_question_shows_its_result_after_n(
@@ -490,8 +493,18 @@ def test_a_statement_upload_apply_counts_as_one_save(fake_client, monkeypatch, t
 
     fake_client.post = post
     seen = []
+    ending: list[int] = []
+
+    def counted(cfg, *, review_of, **kwargs):
+        ending.append(pending_writes(app_box[0]))  # in the worker thread, after the apply
+        return 0
+
+    app_box: list = []
+    monkeypatch.setattr("expense.reads.count_bank_lines", counted)
+    _recording(monkeypatch, StatementPreviewScreen, "_applied", lambda: app_box[0], ending)
 
     async def scenario(pilot, app):
+        app_box.append(app)
         await _card_preview(pilot, app, path)
         await pilot.press("enter")
         await wait_for(pilot, applying.is_set)
@@ -511,6 +524,7 @@ def test_a_statement_upload_apply_counts_as_one_save(fake_client, monkeypatch, t
 
     run_app(scenario, size=(120, 50))
     assert seen == [1, ONE, True]
+    assert ending == [1, 1]  # counted through its count read and its hand back
 
 
 def test_a_number_refusal_waits_for_the_quit_question_then_shows_the_account_question(
@@ -554,96 +568,6 @@ def test_a_number_refusal_waits_for_the_quit_question_then_shows_the_account_que
     run_app(scenario, size=(120, 50))
 
 
-# ---- the save is counted until its ending has been handed back -------------------------
-def _recording(monkeypatch, target, name, app_of, into):
-    """Wrap `target.name` so the count at the moment it runs (the UI thread) is noted."""
-    real = getattr(target, name)
-
-    def wrapper(*args, **kwargs):
-        into.append(pending_writes(app_of()))
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(target, name, wrapper)
-
-
-def test_the_log_bars_batch_is_counted_when_its_ending_is_handed_back(fake_client, monkeypatch):
-    _patch_log(monkeypatch)
-    seen: list[int] = []
-
-    async def scenario(pilot, app):
-        screen = await _open_log(app, pilot)
-        _recording(monkeypatch, screen, "_apply_outcome", lambda: app, seen)
-        _recording(monkeypatch, screen, "_save_finished", lambda: app, seen)
-        await pilot.press(*"tottus -13.50 $BCP", "enter")
-        await wait_for(pilot, lambda: bar_empty(screen))
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving and len(seen) == 2)
-        await wait_for(pilot, lambda: pending_writes(app) == 0)
-
-    run_app(scenario)
-    assert seen == [1, 1]
-
-
-def test_a_bulk_run_is_counted_when_its_ending_is_handed_back(fake_client, monkeypatch):
-    _stub_ledger(monkeypatch)
-    _answer_moves(fake_client, ITEMS)
-    seen: list[int] = []
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen(filter=FILTER)
-        await _open(app, pilot, screen)
-        _recording(monkeypatch, screen, "_bulk_finished", lambda: app, seen)
-        await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: seen)
-
-    run_app(scenario, size=(120, 30))
-    assert seen == [1]
-
-
-def test_an_import_apply_is_counted_when_its_result_is_handed_back(
-    fake_client, monkeypatch, tmp_path
-):
-    seen: list[int] = []
-    seen_app: list = []
-    _recording(monkeypatch, ImportPreviewScreen, "_applied", lambda: seen_app[0], seen)
-
-    async def check(pilot, app, release):
-        seen_app.append(app)
-        release.set()
-        await wait_for(pilot, lambda: seen)
-
-    _import_apply(fake_client, monkeypatch, tmp_path, check)
-    assert seen == [1]
-
-
-def test_a_statement_apply_is_counted_through_its_count_read_and_hand_back(
-    fake_client, monkeypatch, tmp_path
-):
-    path = _pdf(tmp_path)
-    _patch_upload(monkeypatch)
-    _upload_engine(fake_client, {path.read_bytes(): {"rows": [], "balances": []}})
-    seen: list[int] = []
-    app_box: list = []
-
-    def counted(cfg, *, review_of, **kwargs):
-        seen.append(pending_writes(app_box[0]))  # in the worker thread, after the apply
-        return 0
-
-    monkeypatch.setattr("expense.reads.count_bank_lines", counted)
-    _recording(monkeypatch, StatementPreviewScreen, "_applied", lambda: app_box[0], seen)
-
-    async def scenario(pilot, app):
-        app_box.append(app)
-        await _card_preview(pilot, app, path)
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, StatementResultScreen))
-
-    run_app(scenario, size=(120, 50))
-    assert seen == [1, 1]
-
-
 # ---- screens that close themselves under the question ------------------------------------
 def _log_bar_save_first(fake_client, monkeypatch, after):
     """Stage a row, `esc`, `ctrl+s save first` with the batch held, `ctrl+q`, let the batch
@@ -654,8 +578,7 @@ def _log_bar_save_first(fake_client, monkeypatch, after):
     async def scenario(pilot, app):
         shown = app.screen
         bar = await _open_log(app, pilot)
-        await pilot.press(*"tottus -13.50 $BCP", "enter")
-        await wait_for(pilot, lambda: bar_empty(bar))
+        _stage_lines(bar, LEDGER_LINE)
         await pilot.press("escape")
         await pilot.press("ctrl+s")
         await wait_for(pilot, late.started.is_set)
@@ -671,40 +594,32 @@ def _log_bar_save_first(fake_client, monkeypatch, after):
     run_app(scenario)
 
 
-def test_the_log_bar_closes_after_n_when_it_finished_under_the_question(fake_client, monkeypatch):
-    seen = []
-
-    async def after(pilot, app, bar, shown):
-        await pilot.press("n")
-        await wait_for(pilot, lambda: bar not in app.screen_stack)
-        seen.append((app.screen is shown, app._exit))
-
-    _log_bar_save_first(fake_client, monkeypatch, after)
-    assert seen == [(True, False)]
-
-
-def test_y_quits_when_the_log_bar_finished_under_the_question(fake_client, monkeypatch):
-    seen = []
-
-    async def after(pilot, app, bar, shown):
-        await pilot.press("y")
-        seen.append((app._exit, bar in app.screen_stack))
-
-    _log_bar_save_first(fake_client, monkeypatch, after)
-    assert seen == [(True, True)]  # the bar did not close first: the app left with it open
-
-
-def test_a_second_ctrl_q_quits_at_once_when_every_save_ended_under_the_question(
-    fake_client, monkeypatch
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        # the bar closes after `n`, back on the screen under it
+        ("n", {"exited": False, "bar_open": False, "on_screen_under": True}),
+        # the app leaves with the bar still open
+        ("y", {"exited": True, "bar_open": True}),
+        # nothing is pending now: a second quit leaves at once
+        ("ctrl+q", {"exited": True}),
+    ],
+)
+def test_the_log_bar_that_finished_under_the_question_closes_after_n_or_the_app_quits(
+    fake_client, monkeypatch, answer, expected
 ):
-    seen = []
+    seen = {}
 
     async def after(pilot, app, bar, shown):
-        await pilot.press("ctrl+q")  # the question is up, nothing is pending now
-        seen.append(app._exit)
+        await pilot.press(answer)
+        if answer == "n":
+            await wait_for(pilot, lambda: bar not in app.screen_stack)
+        seen.update(
+            exited=app._exit, bar_open=bar in app.screen_stack, on_screen_under=app.screen is shown
+        )
 
     _log_bar_save_first(fake_client, monkeypatch, after)
-    assert seen == [True]
+    assert {key: seen[key] for key in expected} == expected
 
 
 def _setup_created_under_the_question(monkeypatch, answer):
@@ -755,14 +670,17 @@ def _setup_created_under_the_question(monkeypatch, answer):
     return out
 
 
-def test_setup_closes_and_says_connected_after_n(monkeypatch):
-    out = _setup_created_under_the_question(monkeypatch, "n")
-    assert out == {"toasts said": ["Connected."], "app exited": False}
-
-
-def test_y_quits_when_setup_finished_under_the_question(monkeypatch):
-    out = _setup_created_under_the_question(monkeypatch, "y")
-    assert out == {"toasts said": [], "app exited": True}
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("n", {"toasts said": ["Connected."], "app exited": False}),
+        ("y", {"toasts said": [], "app exited": True}),
+    ],
+)
+def test_setup_that_finished_under_the_question_closes_after_n_and_quits_on_y(
+    monkeypatch, answer, expected
+):
+    assert _setup_created_under_the_question(monkeypatch, answer) == expected
 
 
 # ---- a screen gone before its save's thread starts ----------------------------------------

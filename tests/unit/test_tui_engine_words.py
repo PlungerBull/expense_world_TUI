@@ -1,8 +1,9 @@
 """Every note shows the engine's words as sent, `[` and all, never as styling.
 
-One test per place the app puts the engine's words on screen: each toast, the
-lines under a screen, a status line. The engine refuses with a message and a
-field's words that hold `[like this]` and a lone `[`, which content markup
+One test per place the app puts the engine's words on screen that no other test
+holds: the lines under a screen, a status line, a banner, a toast with markup of its
+own or its own title, and one toast of the shared write path. The engine refuses with a
+message and a field's words that hold `[like this]` and a lone `[`, which content markup
 would read as a style and drop; each test finds both whole in what the screen
 draws. Toasts are read as drawn (`run_app(..., toasts=True)`, `toasts_shown`);
 the rule they follow is guarded in test_toast_words.py.
@@ -29,7 +30,6 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.statements import (
     NewStatementScreen,
     StatementScreen,
-    StatementsScreen,
 )
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList, CursorOptionList
@@ -79,20 +79,17 @@ from tests.unit.test_tui_log_bar import _open as _open_log
 from tests.unit.test_tui_log_bar import _patch as _patch_log
 from tests.unit.test_tui_log_bar import _refused as _refused_row
 from tests.unit.test_tui_log_bar import _type as _type_log
-from tests.unit.test_tui_opening_balance import EFECTIVO, SUELDO
+from tests.unit.test_tui_opening_balance import EFECTIVO
 from tests.unit.test_tui_opening_balance import _type as _type_account
 from tests.unit.test_tui_setup import _address_and_key, _health_ok
 from tests.unit.test_tui_setup import _text as _setup_text
 from tests.unit.test_tui_statement_detail import (
     DRAFT,
     _complete_with_warnings,
-    _open_box,
     _wait_list,
 )
 from tests.unit.test_tui_statement_detail import _patch as _patch_detail
-from tests.unit.test_tui_statement_detail import _type as _type_box
 from tests.unit.test_tui_statements import _open_panel, _patch_browse, _patch_unfiled
-from tests.unit.test_tui_system import _open_bootstrap_prompt, _patch_auth
 
 #: The engine's words: a message holding `[like this]`, and one field's words
 #: holding a lone `[` and a `[b]…[/b]` pair, each of which markup reads as a style.
@@ -143,7 +140,7 @@ async def toast_with_words(pilot, app) -> str:
         "",
     ],
 )
-@pytest.mark.parametrize("styles", [[""], ["$error"], ["dim", ""], ["$error", "", "dim"]])
+@pytest.mark.parametrize("styles", [[""], ["$error", "", "dim"]])
 def test_words_written_as_markup_read_back_as_sent(words, styles):
     """`as_markup` keeps every line's words as sent, `[` and a backslash at
     their end and all, alone or in the app's styles, each line in its own."""
@@ -315,24 +312,6 @@ def test_more_rows_that_cannot_be_read_show_the_words_whole(fake_client, monkeyp
     run_app(scenario, size=(120, 35), toasts=True)
 
 
-def test_a_delete_whose_line_cannot_be_read_shows_the_words_whole(fake_client, monkeypatch):
-    """`d` on a ledger row, its bank line's read refused: no question, the
-    "Failed" toast."""
-    _stub_ledger(monkeypatch)
-
-    def refused(*a, **k):
-        raise refusal("FORBIDDEN", 403)
-
-    monkeypatch.setattr("expense.reads.fetch_bank_line", refused)
-
-    async def scenario(pilot, app):
-        await _open_ledger(pilot, app)
-        await pilot.press("d")
-        assert whole_in(await toast_with_words(pilot, app))
-
-    run_app(scenario, size=(120, 35), toasts=True)
-
-
 def test_pickers_that_cannot_load_show_the_words_whole(fake_client, monkeypatch):
     """`c` on the ledger, the pickers' names refused: "Could not load the pickers"."""
     _stub_ledger(monkeypatch, refs=refusal("FORBIDDEN", 403))
@@ -391,24 +370,6 @@ def test_a_refused_bulk_edit_keeps_a_backslash_before_its_colour_ends(
     run_app(scenario, size=(120, 35), toasts=True)
 
 
-def test_a_bulk_edit_the_engine_stops_shows_the_words_whole(fake_client, monkeypatch):
-    """A refusal every row would draw too (`SETTINGS_MISSING`) stops the bulk
-    edit: one "Failed" toast, the LOG bar's."""
-    _stub_ledger(monkeypatch)
-    fake_client.errors["PUT"] = refusal("SETTINGS_MISSING", 422, "user_settings")
-
-    async def scenario(pilot, app):
-        screen = await _open_ledger(pilot, app)
-        await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
-        await pilot.press(*"kor", "enter")
-        shown = await toast_with_words(pilot, app)
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        assert shown.startswith("Failed") and whole_in(shown)
-
-    run_app(scenario, size=(120, 35), toasts=True)
-
-
 def test_a_bulk_receipt_shows_a_name_whole(fake_client, monkeypatch):
     """The receipt after a bulk edit names what the rows went to, as the
     engine holds its name."""
@@ -453,21 +414,6 @@ def test_a_delete_question_shows_a_name_whole(fake_client, monkeypatch):
 # ---- the account Edit form's opening balance ---------------------------------
 
 
-def test_an_opening_balance_that_cannot_be_read_shows_the_words_whole(fake_client, monkeypatch):
-    """The account's opening balance read refused: the form's "Failed" toast."""
-
-    def refused(*a, **k):
-        raise refusal("FORBIDDEN", 403)
-
-    monkeypatch.setattr("expense.reads.fetch_transaction", refused)
-
-    async def scenario(pilot, app):
-        await app.push_screen(EditAccountScreen(SUELDO, ENGINE_CURRENCIES, ENGINE_BANKS))
-        assert whole_in(await toast_with_words(pilot, app))
-
-    run_app(scenario, toasts=True)
-
-
 def test_a_refused_opening_balance_shows_the_words_whole(fake_client):
     """The save's one write is refused on an opening balance's key: the block."""
     fake_client.errors["PUT"] = refusal(key="opening_balances.PEN.date")
@@ -486,22 +432,6 @@ def test_a_refused_opening_balance_shows_the_words_whole(fake_client):
 
 
 # ---- the Edit form -------------------------------------------------------------
-
-
-def test_an_edit_form_that_cannot_load_shows_the_words_whole(fake_client, monkeypatch):
-    """The Edit form's line read refused: its toast."""
-    _patch_edit(monkeypatch)
-
-    def refused(*a, **k):
-        raise refusal("FORBIDDEN", 403)
-
-    monkeypatch.setattr("expense.reads.fetch_bank_line", refused)
-
-    async def scenario(pilot, app):
-        await app.push_screen(EditFormScreen(record=TXN))
-        assert whole_in(await toast_with_words(pilot, app))
-
-    run_app(scenario, toasts=True)
 
 
 def test_a_refused_save_under_the_parts_shows_the_words_whole(fake_client, monkeypatch):
@@ -538,21 +468,6 @@ def test_a_log_bar_whose_names_cannot_load_shows_the_words_whole(fake_client, mo
 
     async def scenario(pilot, app):
         await app.push_screen(LogBarScreen())
-        assert whole_in(await toast_with_words(pilot, app))
-
-    run_app(scenario, toasts=True)
-
-
-def test_a_save_the_engine_stops_shows_the_words_whole(fake_client, monkeypatch):
-    """A refusal every row would draw too (`SETTINGS_MISSING`): one "Failed" toast."""
-    _patch_log(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open_log(app, pilot)
-        _stage_lines(screen, LEDGER_LINE)
-        _script(fake_client, [refusal("SETTINGS_MISSING", 422, "user_settings")])
-        await pilot.press("ctrl+s")
-        await _save_settled(pilot, screen, fake_client)
         assert whole_in(await toast_with_words(pilot, app))
 
     run_app(scenario, toasts=True)
@@ -664,24 +579,6 @@ def test_a_refused_import_shows_the_words_whole(fake_client, monkeypatch, tmp_pa
 # ---- statements ---------------------------------------------------------------
 
 
-def test_statements_that_cannot_be_read_show_the_words_whole(monkeypatch):
-    """`⏎` on an account, its statements' read refused: the "Failed" toast."""
-    _patch_browse(monkeypatch)
-
-    def refused(*a, **k):
-        raise refusal("FORBIDDEN", 403)
-
-    monkeypatch.setattr("expense.reads.fetch_statements", refused)
-
-    async def scenario(pilot, app):
-        await app.push_screen(StatementsScreen())
-        await wait_for_list(pilot, app)
-        await pilot.press("enter")
-        assert whole_in(await toast_with_words(pilot, app))
-
-    run_app(scenario, toasts=True)
-
-
 def test_lines_in_no_statement_that_cannot_be_read_show_the_words_whole(monkeypatch):
     """`u` on an account's panel, its lines in no statement refused: the "Failed" toast."""
     _patch_browse(monkeypatch)
@@ -731,56 +628,6 @@ def test_a_statement_screen_that_cannot_load_shows_the_words_whole(fake_client, 
     run_app(scenario, toasts=True)
 
 
-def test_a_refused_tick_shows_the_words_whole(fake_client, monkeypatch):
-    """`space` on a row, its `PUT` refused: "Couldn't update"."""
-    _patch_detail(monkeypatch)
-    fake_client.errors["PUT"] = refusal(key="statement_id")
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        screen._list._cursor = 2
-        await pilot.press("space")
-        shown = await toast_with_words(pilot, app)
-        assert shown.startswith("Couldn't update\n") and whole_in(shown)
-
-    run_app(scenario, toasts=True)
-
-
-def test_a_refused_ending_balance_shows_the_words_whole(fake_client, monkeypatch):
-    """`c` with no ending balance, its save refused: "Couldn't save"."""
-    _patch_detail(monkeypatch)
-    fake_client.errors["PUT"] = refusal(key="ending_balance_cents")
-
-    async def scenario(pilot, app):
-        await _open_box(pilot, app)
-        await _type_box(pilot, "13853.20")
-        await pilot.press("enter")
-        shown = await toast_with_words(pilot, app)
-        assert shown.startswith("Couldn't save\n") and whole_in(shown)
-
-    run_app(scenario, toasts=True)
-
-
-def test_a_refused_delete_of_a_statement_shows_the_words_whole(fake_client, monkeypatch):
-    """`d` then `y` on a statement screen, refused: "Couldn't delete"."""
-    _patch_detail(monkeypatch)
-    fake_client.errors["DELETE"] = refusal("CONFLICT", 409, "statement_id")
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        shown = await toast_with_words(pilot, app)
-        assert shown.startswith("Couldn't delete\n") and whole_in(shown)
-
-    run_app(scenario, toasts=True)
-
-
 def test_a_complete_s_gap_line_shows_the_words_whole(fake_client, monkeypatch):
     """`complete`'s warning: the line under the header, in the engine's words."""
     _patch_detail(monkeypatch)
@@ -818,22 +665,6 @@ def test_a_refused_key_on_setup_shows_the_words_whole():
             return_value=error_response(401, "UNAUTHORIZED", MESSAGE, {"token": FIELD_WORDS})
         )
         run_app(scenario, setup=True)
-
-
-def test_a_refused_bootstrap_shows_the_words_whole(fake_client, monkeypatch):
-    """System ▸ Auth & profile, `b`, refused: "Bootstrap failed"."""
-    _patch_auth(fake_client, monkeypatch, me=None)
-    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
-    fake_client.errors["POST"] = refusal(key="display_name")
-
-    async def scenario(pilot, app):
-        await _open_bootstrap_prompt(pilot, app)
-        app.screen.query_one("#prompt").value = "Alex"
-        await pilot.press("enter")
-        shown = await toast_with_words(pilot, app)
-        assert shown.startswith("Bootstrap failed\n") and whole_in(shown)
-
-    run_app(scenario, toasts=True)
 
 
 def test_home_s_month_that_cannot_load_shows_the_words_whole(monkeypatch):

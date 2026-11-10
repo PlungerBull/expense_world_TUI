@@ -36,6 +36,7 @@ from tests.unit.helpers import (
     screen_lines,
     statement_list,
     statement_record,
+    toasts_shown,
     wait_for,
     wait_for_list,
     whole,
@@ -416,8 +417,11 @@ def test_a_failed_read_leaves_the_panel_closed(monkeypatch):
         await pilot.pause()
         assert screen._mode == "accts" and screen._statement_list is None
         assert _crumb(screen) == ("Capture & ledger", "Statements")
+        assert any(
+            t.startswith("Failed") and "statements unavailable" in t for t in toasts_shown(app)
+        )
 
-    run_app(scenario)
+    run_app(scenario, toasts=True)
 
 
 def test_u_works_only_with_a_panel_open(monkeypatch):

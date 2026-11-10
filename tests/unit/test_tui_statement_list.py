@@ -20,10 +20,7 @@ import re
 import threading
 from typing import NamedTuple
 
-import httpx
 import pytest
-import respx
-from rich.style import Style
 from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
@@ -33,11 +30,9 @@ from expense.tui.screens.statements import (
     StatementsScreen,
     browse_accounts,
     order_cell,
-    statement_headers,
     statement_rows,
 )
 from tests.unit.helpers import (
-    ENGINE_URL,
     FakeClient,
     account_with_currencies,
     cursor_page,
@@ -46,10 +41,7 @@ from tests.unit.helpers import (
     run_app,
     screen_lines,
     shown,
-    statement_complete_answer,
-    statement_delete_answer,
     statement_record,
-    statement_revert_answer,
     stub_home_month,
     wait_for,
     wait_for_list,
@@ -358,20 +350,6 @@ def test_an_account_with_a_code_lists_its_statements_from_one_read_by_account(mo
         assert word in seen["shown"]
 
 
-def test_a_currency_the_statement_does_not_cover_shows_nothing(monkeypatch):
-    """VIS-202609 had no dollar line and no dollars owed, so it holds no
-    dollar balances and its Diff USD is simply empty, not a row or a figure."""
-    _engine(monkeypatch)
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        seen["panel"] = _panel(await _open(pilot, app, VISA))
-
-    run_app(scenario, size=(140, 50))
-    september = seen["panel"].cells[1]
-    assert (september[2], september[3]) == ("—", "")
-
-
 def test_an_account_without_a_code_has_no_order_column_and_a_blank_balance_a_blank_diff(
     monkeypatch,
 ):
@@ -410,18 +388,6 @@ def test_an_account_of_one_currency_has_one_diff_column(monkeypatch):
     assert seen["panel"].cells == [["Octubre 2026", "2026-09-26 → 2026-10-25", "—", "draft"]]
 
 
-def test_the_headers_follow_the_accounts_currencies_and_code():
-    assert statement_headers(("PEN", "USD"), with_order=True) == (
-        VISA_HEADERS,
-        {2, 3},
-    )
-    assert statement_headers(("USD",), with_order=False) == (
-        ["Name", "Period", "Diff", "Status"],
-        {2},
-    )
-    assert statement_headers((), with_order=False) == (["Name", "Period", "Status"], set())
-
-
 # ---- opening a statement ------------------------------------------------------------
 
 
@@ -446,32 +412,6 @@ def test_enter_on_a_statement_opens_the_whole_statement(monkeypatch):
         (item["id"], "acc-visa", item["balances"], "VIS")  # the account's own statement code
         for item in (VISA_STATEMENTS[i] for i in (0, 2))
     ]
-
-
-def test_a_blank_balance_reads_as_a_dim_dash_on_the_statements_head(monkeypatch):
-    """A blank beginning balance is a dim `—`, as an empty ending balance
-    reads, and its difference stays blank."""
-    _engine(monkeypatch)
-    statement = IBK_STATEMENTS[2]
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(statement)
-        await app.push_screen(screen)
-        head = screen.query_one("#rhead", Static)
-        seen["head"] = shown(head)
-        seen["dim"] = [
-            span.style
-            for part in head.content.renderables[1:]  # the balance lines, each a Text
-            for span in part.spans
-            if "—" in part.plain[span.start : span.end]
-        ]
-
-    run_app(scenario, size=(140, 50))
-    lines = seen["head"].splitlines()
-    assert lines[0].endswith("status draft")
-    assert [ln.split() for ln in lines[2:]] == [["PEN", "0.00", "0.00", "—"], ["USD", "—", "—"]]
-    assert seen["dim"] and all(Style.parse(str(style)).dim for style in seen["dim"])
 
 
 def test_coming_back_and_r_read_the_account_again_and_nothing_else(monkeypatch):
@@ -507,6 +447,7 @@ def test_the_footer_and_u_stay_as_today(monkeypatch):
             for key in ("enter", "escape", "r", "n", "u")
             if key in active and active[key].enabled
         }
+        seen["tooltip"] = active["u"].binding.tooltip
 
     run_app(scenario, size=(140, 50))
     assert seen["footer"] == {
@@ -516,15 +457,17 @@ def test_the_footer_and_u_stay_as_today(monkeypatch):
         "n": "New",
         "u": "No statement",
     }
+    assert seen["tooltip"] == "This account's rows that are in no statement"
 
 
-def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypatch):
+def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_brings_the_statements_back(monkeypatch):
     """`u` lays the panel out as the lines in no statement (no side edge, columns two
     apart, the `!` mark packed to the date); `esc` gives the statements list their own back:
-    no side edge, and on an account with a statement code the Order column's gap of one."""
+    no side edge, and on an account with a statement code the Order column's gap of one, and
+    the statements' columns and title with them."""
     from expense.tui.screens.statements import BROWSE_GAP, ORDER_GAP
 
-    _engine(monkeypatch)
+    client = _engine(monkeypatch)
     seen: dict = {}
 
     async def scenario(pilot, app):
@@ -541,26 +484,6 @@ def test_u_sets_the_unfiled_lists_edge_and_gap_and_esc_takes_them_away(monkeypat
         await pilot.press("escape")
         await wait_for(pilot, lambda: screen._mode == "statements")
         seen["after"] = layout()
-
-    run_app(scenario, size=(140, 50))
-    assert ORDER_GAP != BROWSE_GAP
-    assert seen["before"] == (False, ORDER_GAP, False)
-    assert seen["unfiled"] == (False, BROWSE_GAP, True)
-    assert seen["after"] == seen["before"]
-
-
-def test_u_then_esc_brings_the_statements_back(monkeypatch):
-    """`u` swaps the panel to the open account's rows in no statement; `esc` swaps the
-    statements back, their columns and title with them."""
-    client = _engine(monkeypatch)
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        screen = await _open(pilot, app, VISA)
-        await pilot.press("u")
-        await wait_for(pilot, lambda: screen._mode == "unfiled" and not screen._unfiled_busy)
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: screen._mode == "statements")
         seen["panel"] = _panel(screen)
 
     run_app(scenario, size=(140, 50))
@@ -570,19 +493,13 @@ def test_u_then_esc_brings_the_statements_back(monkeypatch):
     assert seen["panel"].headers == VISA_HEADERS
     assert seen["panel"].cells == VISA_ROWS
     assert _statement_reads(client) == [{"account_id": "acc-visa"}]
+    assert ORDER_GAP != BROWSE_GAP
+    assert seen["before"] == (False, ORDER_GAP, False)
+    assert seen["unfiled"] == (False, BROWSE_GAP, True)
+    assert seen["after"] == seen["before"]
 
 
 # ---- status, each currency's difference and order, row by row -------------------------
-
-
-@pytest.mark.parametrize("status, word", [(2, "completed"), (1, "draft")])
-def test_a_statements_status_is_its_own(status, word):
-    """One status for the whole statement (contract: "Statements"); a completed one dims."""
-    [(key, cells, style)] = statement_rows(
-        [{**VISA_STATEMENTS[2], "status": status}], ("PEN", "USD"), with_order=True
-    )
-    assert (key, cells[4]) == ("vis-oct", word)
-    assert style == ("dim" if status == 2 else "")
 
 
 def test_each_diff_is_its_own_currencys_entry_whatever_the_order_of_balances():
@@ -609,11 +526,6 @@ def test_a_difference_not_checked_yet_is_blank():
 def test_the_order_is_the_engines_two_counts(unplaced, shared, word):
     item = {**VISA_STATEMENTS[2], "unplaced_count": unplaced, "shared_place_count": shared}
     assert str(order_cell(item)) == word
-
-
-def test_no_counts_show_no_order():
-    """On an account with no code the engine reads null counts: there is no order."""
-    assert order_cell(IBK_STATEMENTS[0]) == ""
 
 
 # ---- a refused read ----------------------------------------------------------------
@@ -753,11 +665,11 @@ def test_c_u_and_d_send_one_write_and_the_list_shows_it(monkeypatch, key):
 
 @pytest.mark.parametrize(
     ("answer", "writes"),
-    [("y", [("POST", "/statements/vis-ago/revert")]), ("n", []), ("escape", []), ("enter", [])],
+    [("n", []), ("escape", []), ("enter", [])],
 )
 def test_reverting_asks_first_and_only_y_sends_it(monkeypatch, answer, writes):
-    """`u` on a completed statement asks in these words; `y` sends the revert, `n`, `esc`
-    and `⏎` send nothing."""
+    """`u` on a completed statement asks in these words; `n`, `esc` and `⏎` send nothing
+    (`y` sends the revert: `test_c_u_and_d_send_one_write_and_the_list_shows_it`)."""
     client = _writing_engine(monkeypatch)
     seen: dict = {}
 
@@ -774,11 +686,8 @@ def test_reverting_asks_first_and_only_y_sends_it(monkeypatch, answer, writes):
         assert not [c for c in client.calls if c[0] != "GET"]
         await pilot.press(answer)
         await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmModal))
-        if writes:
-            await wait_for(pilot, lambda: any(c[0] != "GET" for c in client.calls))
-        else:
-            await pilot.pause()  # a wrong confirm sets `_busy` on the UI thread at once
-            assert not detail._busy
+        await pilot.pause()  # a wrong confirm sets `_busy` on the UI thread at once
+        assert not detail._busy
 
     run_app(scenario, size=(140, 50))
     assert seen["asked"] == (
@@ -786,20 +695,6 @@ def test_reverting_asks_first_and_only_y_sends_it(monkeypatch, answer, writes):
         "Unlocks the assigned transactions and this statement's balances.",
     )
     assert [(m, p) for m, p, _ in client.calls if m != "GET"] == writes
-
-
-def test_u_on_the_browse_says_it_lists_the_rows_in_no_statement(monkeypatch):
-    """`u`'s footer label is `No statement` and its tooltip names what it lists."""
-    _engine(monkeypatch)
-    seen: dict = {}
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, VISA)
-        seen["binding"] = app.screen.active_bindings["u"].binding
-
-    run_app(scenario, size=(140, 50))
-    assert seen["binding"].description == "No statement"
-    assert seen["binding"].tooltip == "This account's rows that are in no statement"
 
 
 def test_the_no_statement_list_says_loading_until_its_rows_arrive(monkeypatch):
@@ -835,49 +730,6 @@ def test_the_no_statement_list_says_loading_until_its_rows_arrive(monkeypatch):
     assert seen["loaded"].startswith("In no statement · Visa BCP")
 
 
-@pytest.mark.parametrize("key", list(STATUS_KEYS))
-def test_a_status_key_is_one_request_under_one_key(configured, monkeypatch, key):
-    """Through the shared write path and the real HTTP client, each key's write on a
-    statement opened from an account is one request carrying one `X-Idempotency-Key`."""
-    _row, opened, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
-    statement = next(item for item in STATEMENTS if item["id"] == opened)
-    record = statement
-    answers = {
-        "c": statement_complete_answer({**statement, "status": 2}),
-        "u": statement_revert_answer({**statement, "status": 1}),
-        "d": statement_delete_answer(statement),
-    }
-    monkeypatch.setattr(
-        "expense.tui.screens.statements.load_account_name_map",
-        lambda: {VISA["id"]: VISA["name"]},
-    )
-    notes: list = []
-    monkeypatch.setattr(
-        StatementScreen, "notify", lambda self, message, **kw: notes.append(message)
-    )
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(record))
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: screen._list is not None)
-        await pilot.press(key)
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notes)
-
-    with respx.mock() as mock:
-        mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(httpx.Response(200, json=cursor_page([])))
-        route = mock.request(method, f"{ENGINE_URL}/v1{path}").mock(
-            httpx.Response(200, json=answers[key])
-        )
-        run_app(scenario)
-        writes = [call.request for call in mock.calls if call.request.method != "GET"]
-    assert notes == [toast]
-    assert route.call_count == 1
-    assert writes == [route.calls.last.request]
-    assert writes[0].headers["X-Idempotency-Key"]
-
-
 # ---- the screen at 80 columns ----------------------------------------------------
 
 
@@ -890,9 +742,7 @@ VISA_BCP_STATEMENTS_80 = [
 ]
 
 
-def _at_80(
-    monkeypatch, account: dict, items: list[dict], *, open_panel: bool = True, width: int = 80
-) -> list[str]:
+def _at_80(monkeypatch, account: dict, items: list[dict], *, open_panel: bool = True) -> list[str]:
     _engine(monkeypatch, items=items)
     seen: list[str] = []
 
@@ -905,7 +755,7 @@ def _at_80(
         await pilot.pause()
         seen.extend(screen_lines(app))
 
-    run_app(scenario, size=(width, 30))
+    run_app(scenario, size=(80, 30))
     return seen
 
 
@@ -948,25 +798,6 @@ def test_the_open_accounts_marker_stands_in_a_gutter_and_no_name_moves(monkeypat
     assert not any("▸" in _row(opened, name) for name in ("IBK Visa", "Sueldo", "BBVA"))
 
 
-def test_visa_bcps_statements_at_80_columns_show_every_cell_whole(monkeypatch):
-    """Visa BCP, which has a statement code and so its columns one space apart:
-    every cell whole at 80 columns, the Diff headers telling PEN from USD, the
-    statement that does not cover dollars empty under Diff USD."""
-    lines = _at_80(monkeypatch, VISA, VISA_BCP_STATEMENTS_80)
-    assert "  Statements — pick an account" in lines
-    assert "  Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest" in lines
-    ours = ("  Name", "  [VIS]", "  VIS-")
-    assert [line for line in lines if line.startswith(ours)] == [
-        "  Name         Period                  Diff PEN Diff USD Status    Order",
-        "  [VIS] Agosto 2026-07-26 → 2026-08-25        —        — completed in order",
-        "  VIS-202609   2026-08-26 → 2026-09-25        —          completed in order",
-        "  VIS-202610   2026-09-26 → 2026-10-25        —        — completed in order",
-    ]
-    assert "  ▸ Visa BCP          PEN + USD     -234.20 PEN   -30.98 USD" in lines
-    assert "    IBK Visa          PEN + USD     -512.90 PEN   -24.99 USD" in lines
-    assert "…" not in "".join(lines)
-
-
 def test_ibk_visas_statements_at_80_columns_show_every_cell_whole(monkeypatch):
     """IBK Visa: no statement code, so no Order column; Octubre's blank dollar
     balances leave its Diff USD empty."""
@@ -995,16 +826,6 @@ def test_a_list_keeps_three_cells_between_columns_unless_it_asks_for_fewer():
     assert (gap(None), gap(2), gap(1)) == (3, 2, 1)
 
 
-def test_a_not_in_order_row_shows_whole_when_the_terminal_is_wide_enough(monkeypatch):
-    """`not in order` is a whole word in the Order column at 90 columns, the columns one
-    space apart on an account with a statement code."""
-    stray = _statement("p-nov", "acc-visa", "VIS-202611", OCT, {"PEN": 0, "USD": 0}, status=2)
-    stray["unplaced_count"] = 2
-    lines = _at_80(monkeypatch, VISA, [*VISA_BCP_STATEMENTS_80, stray], width=90)
-    row = next(line for line in lines if line.startswith("  VIS-202611"))
-    assert row.endswith("completed not in order")
-
-
 NOV = ("2026-10-26", "2026-11-25")
 NOT_IN_ORDER_ITEMS = [
     _statement("n-sep", "acc-visa", "VIS-202609", SEP, {"PEN": 0}, status=2),
@@ -1016,15 +837,21 @@ def _visa_statement_lines(lines: list[str]) -> list[str]:
     return [line for line in lines if line.startswith(("  Name", "  [VIS]", "  VIS-", "  Nov"))]
 
 
-def test_a_statement_not_in_order_shows_whole_at_80_columns_with_the_columns_one_space_apart(
+def test_visa_bcps_statements_show_every_cell_whole_at_80_columns_one_space_apart(
     monkeypatch,
 ):
     """On an account with a statement code the columns sit one space apart, so `not in
-    order` and every name show whole at 80 columns."""
+    order` and every cell show whole at 80 columns, the Diff headers telling PEN from USD and
+    the statement that does not cover dollars empty under Diff USD."""
     draft = _statement("n-ago", "acc-visa", "VIS-202610", OCT, {"PEN": -1240, "USD": 0}, status=1)
     draft["unplaced_count"] = 2
     items = [VISA_BCP_STATEMENTS_80[0], NOT_IN_ORDER_ITEMS[0], draft]
-    lines = _visa_statement_lines(_at_80(monkeypatch, VISA, items))
+    every = _at_80(monkeypatch, VISA, items)
+    assert "  Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest" in every
+    assert "  ▸ Visa BCP          PEN + USD     -234.20 PEN   -30.98 USD" in every
+    assert "    IBK Visa          PEN + USD     -512.90 PEN   -24.99 USD" in every
+    assert "…" not in "".join(every)
+    lines = _visa_statement_lines(every)
     assert lines == [
         "  Name         Period                  Diff PEN Diff USD Status    Order",
         "  [VIS] Agosto 2026-07-26 → 2026-08-25        —        — completed in order",
@@ -1046,10 +873,3 @@ def test_a_long_statement_name_is_the_one_that_cuts_at_80_columns(monkeypatch):
         "  VIS-202610    2026-09-26 → 2026-10-25        —        — completed in order",
         "  Noviembre 20… 2026-10-26 → 2026-11-25   -12.40        — draft     not in order",
     ]
-
-
-def test_an_account_without_a_statement_code_keeps_two_spaces_between_columns(monkeypatch):
-    """The gap of one is the Order column's; a list without one keeps `BROWSE_GAP`."""
-    lines = _at_80(monkeypatch, IBK, IBK_STATEMENTS)
-    row = next(line for line in lines if line.startswith("  Agosto 2026"))
-    assert row == "  Agosto 2026      2026-07-26 → 2026-08-25         —         —  completed"

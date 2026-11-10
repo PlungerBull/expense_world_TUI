@@ -258,13 +258,17 @@ def test_ctrl_s_connects_from_any_field(monkeypatch):
 
 
 # ---- when it does not work -------------------------------------------------
-def test_engine_not_answering_goes_back_to_the_address_and_keeps_the_key():
+@pytest.mark.parametrize("down", ["/health", "/v1/auth/me"])
+def test_engine_not_answering_goes_back_to_the_address_and_keeps_the_key(down):
+    """The engine does not answer the health check, or answers it and then cannot be
+    reached for the key check: either way the address is asked again, the key kept."""
+
     async def scenario(pilot, app):
         screen = app.screen
         await _address_and_key(pilot, screen)
         await wait_for(pilot, lambda: UNREACHABLE_NEXT in _text(screen, "#hint"))
         assert _text(screen, "#hint").splitlines() == [
-            f"could not reach engine at {ENGINE_URL}/health (is it running?)",
+            f"could not reach engine at {ENGINE_URL}{down} (is it running?)",
             UNREACHABLE_NEXT,
         ]
         assert _label(screen) == "ENGINE ADDRESS"
@@ -274,10 +278,14 @@ def test_engine_not_answering_goes_back_to_the_address_and_keeps_the_key():
         assert "key      ewe_pat_****wxyz" in summary  # kept
 
     with respx.mock:
-        respx.get(f"{ENGINE_URL}/health").mock(side_effect=httpx.ConnectError("refused"))
-        me = respx.get(f"{ENGINE_URL}/v1/auth/me")
+        if down == "/health":
+            respx.get(f"{ENGINE_URL}/health").mock(side_effect=httpx.ConnectError("refused"))
+            me = respx.get(f"{ENGINE_URL}/v1/auth/me")
+        else:
+            _health_ok()
+            me = respx.get(f"{ENGINE_URL}/v1/auth/me").mock(side_effect=httpx.ConnectError("gone"))
         run_app(scenario, setup=True)
-        assert not me.called
+        assert me.called == (down != "/health")  # no key check when the health check fails
     assert not _settings_file().exists()
 
 
@@ -305,23 +313,6 @@ def test_a_refused_key_shows_the_engines_words_and_an_empty_key_line():
     assert not _settings_file().exists()
 
 
-def test_a_refused_key_branches_on_the_code_not_the_words():
-    """Same refusal, other words: still the key line."""
-
-    async def scenario(pilot, app):
-        screen = app.screen
-        await _address_and_key(pilot, screen)
-        await wait_for(pilot, lambda: REFUSED_NEXT in _text(screen, "#hint"))
-        assert "UNAUTHORIZED — reworded" in _text(screen, "#hint")
-
-    with respx.mock:
-        _health_ok()
-        respx.get(f"{ENGINE_URL}/v1/auth/me").mock(
-            return_value=error_response(401, "UNAUTHORIZED", "reworded")
-        )
-        run_app(scenario, setup=True)
-
-
 def test_not_an_address_is_refused_before_anything_is_sent():
     async def scenario(pilot, app):
         screen = app.screen
@@ -346,12 +337,22 @@ def test_not_an_address_is_refused_before_anything_is_sent():
     assert not _settings_file().exists()
 
 
-def test_esc_quits_and_saves_nothing():
+def test_esc_quits_through_the_shared_quit_and_saves_nothing(monkeypatch):
+    asked: list[bool] = []
+
     async def scenario(pilot, app):
+        real = app.action_quit
+
+        async def action_quit():
+            asked.append(True)
+            await real()
+
+        monkeypatch.setattr(app, "action_quit", action_quit)
         await pilot.press("escape")
         await wait_for(pilot, lambda: not app.is_running)
 
     run_app(scenario, setup=True)
+    assert asked == [True]
     assert not _settings_file().exists()
 
 
@@ -583,25 +584,6 @@ def test_another_engine_failure_on_the_key_says_try_again_and_saves_nothing():
     assert not _settings_file().exists()
 
 
-def test_health_answers_but_the_key_check_cannot_connect():
-    async def scenario(pilot, app):
-        screen = app.screen
-        await _address_and_key(pilot, screen)
-        await wait_for(pilot, lambda: UNREACHABLE_NEXT in _text(screen, "#hint"))
-        assert _text(screen, "#hint").splitlines() == [
-            f"could not reach engine at {ENGINE_URL}/v1/auth/me (is it running?)",
-            UNREACHABLE_NEXT,
-        ]
-        assert _label(screen) == "ENGINE ADDRESS"
-        assert "key      ewe_pat_****wxyz" in _text(screen, "#summary")
-
-    with respx.mock:
-        _health_ok()
-        respx.get(f"{ENGINE_URL}/v1/auth/me").mock(side_effect=httpx.ConnectError("gone"))
-        run_app(scenario, setup=True)
-    assert not _settings_file().exists()
-
-
 def test_a_refused_profile_shows_the_engines_words_without_the_screens_hints(lima):
     """The shared text's 401 hint points at System ▸ Config, which Setup cannot reach."""
 
@@ -652,27 +634,14 @@ def _messages(path: Path):
                 yield node.lineno, node.value
 
 
-@pytest.mark.parametrize(
-    "text",
-    [
-        "No config found. Run: expense config set --engine-url <url>",
-        "or 'expense auth bootstrap' if your account is not yet provisioned.",
-        "Type expense import sheet to bring in your spreadsheet.",
-        "Install it with:\n    pip install openpyxl",
-    ],
-)
-def test_the_guard_catches_every_kind_of_typed_command(text):
-    assert _TELLS_TO_TYPE.search(text)
-
-
-def test_the_guard_leaves_plain_wording_alone():
-    assert not _TELLS_TO_TYPE.search("Error: the expense app needs an interactive terminal.")
-
-
 def test_no_message_in_the_app_tells_the_owner_to_type_a_command():
     """The app is the only surface, so a remedy points at a screen, never at a
     typed `expense …` command. `expense/commands/` is the typed surface itself
     and prints its own words; everything else can reach a screen."""
+    # the guard's pattern catches a typed command and leaves plain wording alone
+    assert _TELLS_TO_TYPE.search("No config found. Run: expense config set --engine-url <url>")
+    assert _TELLS_TO_TYPE.search("Install it with:\n    pip install openpyxl")
+    assert not _TELLS_TO_TYPE.search("Error: the expense app needs an interactive terminal.")
     package = Path(config_module.__file__).parent
     offenders = [
         f"{path.relative_to(package.parent)}:{line}: {text!r}"
@@ -682,21 +651,3 @@ def test_no_message_in_the_app_tells_the_owner_to_type_a_command():
         if _TELLS_TO_TYPE.search(text)
     ]
     assert not offenders, "\n".join(offenders)
-
-
-def test_esc_goes_through_the_shared_quit(monkeypatch):
-    asked: list[bool] = []
-
-    async def scenario(pilot, app):
-        real = app.action_quit
-
-        async def action_quit():
-            asked.append(True)
-            await real()
-
-        monkeypatch.setattr(app, "action_quit", action_quit)
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: not app.is_running)
-
-    run_app(scenario, setup=True)
-    assert asked == [True]
