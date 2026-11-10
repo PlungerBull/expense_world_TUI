@@ -60,12 +60,17 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-6. **Accounts and the other forms:** test_tui_opening_balance.py, test_tui_create_forms.py,
-   test_tui_delete.py, test_tui_statement_code.py and the account tests.
+6. **The accounts, its second half:** test_tui_account_currencies.py,
+   test_tui_account_currency_removal.py, test_tui_account_kind.py,
+   test_tui_account_numbers_edit.py, test_tui_account_question.py, test_tui_accounts.py,
+   test_tui_cash_account_row.py and test_tui_left_behind_account_form.py.
 7. **The rest of tests/unit,** test_tui_help.py and test_tui_quit_asks.py first (and
    `fake_ledger`'s unprompted `offset` refusal in helpers.py with test_reads_and_formatting.py), then the live
    suite's repeated cases in tests/contract.
-8. **The speed:** the slowest tests left made fast or merged; the tests gate's wait in .claude/hooks/tests_gate.py brought down to fit; the doc
+8. **The speed:** the slowest tests left made fast or merged; helpers no test uses any more
+   (`_cine_line` in test_tui_delete.py, `_enter` in test_tui_new_account.py) and the
+   source-reading `test_a_forms_own_enter_handler_stops_the_ones_under_it` in
+   test_tui_create_forms.py, whose double write real presses already prove, removed; the tests gate's wait in .claude/hooks/tests_gate.py brought down to fit; the doc
    lines on test conventions (docs/tui.md, docs/runtime.md) cut to the rule.
 
 ## Found along the way

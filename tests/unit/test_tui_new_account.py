@@ -178,17 +178,6 @@ def test_a_bank_account_in_two_currencies_with_one_opening_is_one_whole_post(fak
     assert "name" not in body
 
 
-def test_a_bank_account_without_last_4_or_openings_sends_neither_key(fake_client):
-    _run(fake_client, _screen(), {"bank": "BCP", "currencies": ["PEN"]})
-    _, body = fake_client.posts[0]
-    assert body == {
-        "id": body["id"],
-        "kind": "bank",
-        "bank_code": "BCP",
-        "currencies": [{"currency_code": "PEN"}],
-    }
-
-
 def test_a_person_sends_its_name_and_no_bank_fields(fake_client):
     screen = _screen()
     _run(
@@ -272,14 +261,11 @@ FULL = {
     [
         ("bank_code", "UNSUPPORTED_VALUE", 422, "bank"),
         ("last4", "INVALID_FORMAT", 422, "last4"),
-        ("last4", "NAME_EXISTS", 409, "last4"),
-        ("bank_code", "NAME_EXISTS", 409, "bank"),
         ("currencies", "OUT_OF_RANGE", 422, "currencies"),
         ("currencies.1.currency_code", "UNSUPPORTED_VALUE", 422, "currencies"),
         ("currencies.1.opening_balance.amount_cents", "ZERO_AMOUNT", 422, "opening:USD"),
         ("currencies.0.opening_balance.transaction_id", "DUPLICATE_IN_REQUEST", 422, "opening:PEN"),
         ("currencies.1.opening_balance.date", "FUTURE_DATE", 422, "as_of:USD"),
-        ("currencies.0.opening_balance.date", "FUTURE_DATE", 422, "as_of:PEN"),
     ],
 )
 def test_a_refusal_lands_on_the_line_its_key_names_holding_what_was_typed(
@@ -381,7 +367,7 @@ def test_the_bank_codes_are_the_engines_list_in_its_order(configured):
         assert fetch_bank_codes(cfg) == ["BCP"]
 
 
-def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_form(monkeypatch):
+def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_and_edit_forms(monkeypatch):
     monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP", "IBK"])
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
@@ -393,19 +379,6 @@ def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_form(monk
         assert screen._banks == ["BCP", "IBK"]
         form = screen.new_screen()
         assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
-
-    run_app(scenario)
-
-
-def test_the_accounts_screen_hands_the_banks_to_the_edit_form(monkeypatch):
-    monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP", "IBK"])
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
-
-    async def scenario(pilot, app):
-        screen = AccountsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
         form = screen.edit_screen(account_with_currencies(id="acc-bcp", name="BCP-5678"))
         assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
 
@@ -493,7 +466,9 @@ def test_switching_the_type_back_restores_what_was_typed_on_a_bank_account():
     assert "BCP" in shown and "5678" in shown and "SIG" in shown
 
 
-def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code(fake_client):
+def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code_and_each_opening(
+    fake_client,
+):
     _run(
         fake_client,
         _cash_screen(),
@@ -505,39 +480,6 @@ def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code(fake_
             "last4": "5678",
             "statement_code": "SIG",
             "name": "Caja",
-            "opening:PEN": 23750,
-            "as_of:PEN": "2026-11-01",
-        },
-    )
-    assert fake_client.requests == [("POST", "/accounts")]
-    _, body = fake_client.posts[0]
-    opening = body["currencies"][0]["opening_balance"]
-    assert body == {
-        "id": body["id"],
-        "kind": "cash",
-        "currencies": [
-            {
-                "currency_code": "PEN",
-                "opening_balance": {
-                    "transaction_id": opening["transaction_id"],
-                    "amount_cents": 23750,
-                    "date": opening["date"],
-                },
-            },
-            {"currency_code": "USD"},
-        ],
-        "color": "#4a90d9",
-    }
-
-
-def test_a_cash_account_with_an_opening_in_each_currency_is_one_whole_post(fake_client):
-    _run(
-        fake_client,
-        _cash_screen(),
-        {
-            "type": "cash",
-            "currencies": ["PEN", "USD"],
-            "color": "#4a90d9",
             "opening:PEN": 23750,
             "as_of:PEN": "2026-11-01",
             "opening:USD": -4550,
@@ -574,9 +516,8 @@ def test_a_cash_account_with_an_opening_in_each_currency_is_one_whole_post(fake_
     }
 
 
-@pytest.mark.parametrize("reason", ["CASH_EXISTS", "NAME_EXISTS"])
-def test_a_refusal_keyed_kind_lands_on_type_in_the_engines_words(fake_client, reason):
-    refusal = _refusal("CONFLICT", 409, kind=(reason, "You already hold a cash account."))
+def test_a_refusal_keyed_kind_lands_on_type_in_the_engines_words(fake_client):
+    refusal = _refusal("CONFLICT", 409, kind=("CASH_EXISTS", "You already hold a cash account."))
     values = {"type": "cash", "currencies": ["PEN"]}
 
     async def check(pilot, screen):

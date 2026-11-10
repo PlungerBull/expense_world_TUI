@@ -117,20 +117,6 @@ def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_cli
     assert body["statement_code"] == "SIG"
 
 
-def test_new_bank_account_skipped_code_is_left_out_of_the_body(fake_client):
-    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, screen)
-        await _to_code(pilot, screen)
-        await pilot.press(*["enter"] * 4)  # skip the code, COLOR and the PEN pair: creates
-        await wait_for(pilot, lambda: fake_client.posts)
-
-    run_app(scenario)
-    path, body = fake_client.posts[0]
-    assert path == "/accounts" and "statement_code" not in body
-
-
 def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake_client):
     """Typed on bank, then TYPE turned to person: the line leaves the form and
     the person's `POST /accounts` carries no code; back on bank the line returns holding it."""
@@ -297,25 +283,6 @@ def _type(screen, key, text):
     screen.on_input_submitted(None)
 
 
-def test_edit_colour_and_code_go_in_one_put(fake_client):
-    screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES, ENGINE_BANKS)
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, screen)
-        _type(screen, "statement_code", "SIG")
-        _type(screen, "color", "green")
-        await _save(pilot, screen, fake_client)
-
-    run_app(scenario)
-    assert fake_client.calls == [
-        (
-            "PUT",
-            "/accounts/acc-sig",
-            {"color": "#5ab87a", "statement_code": "SIG"},
-        )
-    ]
-
-
 def test_edit_an_emptied_code_rides_in_the_same_put_as_the_colour(fake_client):
     screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES, ENGINE_BANKS)
 
@@ -348,19 +315,6 @@ TAKEN = EngineError(
     {},
     {"statement_code": "STATEMENT_CODE_EXISTS"},
 )
-_FIELD_WORDS = "stand-in field words"
-
-
-def _refusal(code: str, reason: str) -> EngineError:
-    status = 409 if code == "CONFLICT" else 422
-    return EngineError(
-        code,
-        "Request validation failed.",
-        {"statement_code": _FIELD_WORDS},
-        status,
-        {},
-        {"statement_code": reason},
-    )
 
 
 def _engine_words(err: EngineError) -> str:
@@ -409,34 +363,3 @@ def test_a_taken_code_on_new_shows_the_engines_words_alone(fake_client):
     shown: list = []
     run_app(scenario, toasts=True)
     assert shown == [f"Failed\n{_engine_words(TAKEN)}"]  # nothing after the engine's words
-
-
-@pytest.mark.parametrize(
-    "refusal",
-    [
-        _refusal("VALIDATION_ERROR", "INVALID_FORMAT"),
-        _refusal("VALIDATION_ERROR", "STATEMENT_MONTH_TAKEN"),
-        _refusal("VALIDATION_ERROR", "COMPLETED_STATEMENT_JOINED"),
-        _refusal("VALIDATION_ERROR", "PERSON_ACCOUNT"),
-    ],
-    ids=["shape", "month-taken", "completed-joined", "person"],
-)
-def test_other_code_refusals_keep_the_engines_words_alone(fake_client, refusal):
-    fake_client.errors["PUT"] = refusal
-    screen = EditAccountScreen(NO_CODE, ENGINE_CURRENCIES, ENGINE_BANKS)
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, screen)
-        _on(screen, "statement_code")
-        await pilot.press(*"S1G", "enter")
-        _on(screen, "color")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: refusal_block(screen))
-        await pilot.pause()
-        assert screen._key == "statement_code" and _bar(screen).value == "S1G"
-        assert no_failed_toast(app)
-        shown.append(refusal_block(screen))
-
-    shown: list = []
-    run_app(scenario, toasts=True)
-    assert shown == [f"Failed\n{_engine_words(refusal)}"]

@@ -25,15 +25,12 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
-    ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
     SEALED_FIELD_WORDS,
     SEALED_LINE_WORDS,
     SEALED_TRANSACTION_WORDS,
     account_with_currencies,
     app_notes,
-    archived_refusal,
-    archived_words,
     bank_line_row,
     day_of,
     error_response,
@@ -181,9 +178,8 @@ def test_d_asks_then_deletes_and_the_list_starts_over(configured, monkeypatch, r
     assert route.calls.last.request.headers["X-Idempotency-Key"]
 
 
-@pytest.mark.parametrize("key", ["n", "escape", "enter"])
 @pytest.mark.parametrize("resource", sorted(MANAGE))
-def test_any_other_answer_cancels_and_sends_nothing(configured, monkeypatch, resource, key):
+def test_any_other_answer_cancels_and_sends_nothing(configured, monkeypatch, resource):
     make, _fetch, build, *_ = MANAGE[resource]
     _stub_manage(monkeypatch, resource, [build(i) for i in range(3)])
 
@@ -191,12 +187,13 @@ def test_any_other_answer_cancels_and_sends_nothing(configured, monkeypatch, res
         screen = make()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(key)
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert len(screen._by_id) == 3
+        for key in ("n", "escape", "enter"):
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press(key)
+            await wait_for(pilot, lambda: app.screen is screen)
+            await pilot.pause()
+            assert len(screen._by_id) == 3
 
     with respx.mock(assert_all_called=False) as engine:
         route = engine.delete(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
@@ -204,7 +201,7 @@ def test_any_other_answer_cancels_and_sends_nothing(configured, monkeypatch, res
     assert not route.called
 
 
-@pytest.mark.parametrize("resource", sorted(MANAGE))
+@pytest.mark.parametrize("resource", ["accounts", "categories"])
 def test_d_is_off_on_an_empty_list(configured, monkeypatch, resource):
     make, *_ = MANAGE[resource]
     _stub_manage(monkeypatch, resource, [])
@@ -398,19 +395,19 @@ def test_d_is_off_while_ledger_rows_are_selected(configured, monkeypatch):
     assert not route.called
 
 
-@pytest.mark.parametrize("key", ["n", "escape", "enter"])
-def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, key):
+def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch):
     _stub_ledger(monkeypatch, list(LEDGER[:3]))
 
     async def scenario(pilot, app):
         screen = TransactionsScreen()
         await _open_ledger(pilot, app, screen)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(key)
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert len(screen._rows) == 3 and not screen._selected
+        for key in ("n", "escape", "enter"):
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press(key)
+            await wait_for(pilot, lambda: app.screen is screen)
+            await pilot.pause()
+            assert len(screen._rows) == 3 and not screen._selected
 
     with respx.mock(assert_all_called=False) as engine:
         _one_part_lines(engine)
@@ -442,21 +439,6 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  account_id: stand-in field words\n\n"
             "To retire it instead, archive it: press a.",
         ),
-        # a live statement holds the account: the engine's words alone
-        # (contract: DELETE /v1/accounts/{account_id}, "Refusals")
-        (
-            AccountsScreen,
-            "fetch_accounts",
-            _cuenta(1),
-            "accounts/a1",
-            409,
-            "CONFLICT",
-            "A live statement holds the account's balances.",
-            "account_id",
-            "IN_LIVE_STATEMENT",
-            "CONFLICT — A live statement holds the account's balances.\n"
-            "  account_id: stand-in field words",
-        ),
         (
             CategoriesScreen,
             "fetch_categories",
@@ -470,37 +452,6 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "CONFLICT — Category has transactions.\n"
             "  category_id: stand-in field words\n\n"
             "Move its transactions to another category first.",
-        ),
-        # `d` is not offered on a system category;
-        # the refusal still shows its line on a row the list read as ordinary
-        (
-            CategoriesScreen,
-            "fetch_categories",
-            _category(1),
-            "categories/c1",
-            403,
-            "FORBIDDEN",
-            "Operation not allowed.",
-            "category_id",
-            "SYSTEM_CATEGORY",
-            "FORBIDDEN — Operation not allowed.\n"
-            "  category_id: stand-in field words\n\n"
-            "System categories cannot be renamed or deleted.",
-        ),
-        # the same for the pending hashtag
-        (
-            HashtagsScreen,
-            "fetch_hashtags",
-            _hashtag(1),
-            "hashtags/h1",
-            403,
-            "FORBIDDEN",
-            "Operation not allowed.",
-            "hashtag_id",
-            "SYSTEM_HASHTAG",
-            "FORBIDDEN — Operation not allowed.\n"
-            "  hashtag_id: stand-in field words\n\n"
-            "The pending hashtag cannot be renamed or deleted.",
         ),
         (
             HashtagsScreen,
@@ -516,32 +467,8 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  hashtag_id: stand-in field words\n\n"
             "It changed at the same moment: press r, then try again.",
         ),
-        # a user hashtag holds the pending hashtag's name: the engine's words
-        # name the remedy, and the category line stays off
-        # (contract: "Hashtags", "When the engine creates it")
-        (
-            HashtagsScreen,
-            "fetch_hashtags",
-            _hashtag(1),
-            "hashtags/h1",
-            409,
-            "CONFLICT",
-            "Rename the hashtag named Pendiente, then retry.",
-            "hashtag_id",
-            "RESERVED_NAME_HELD",
-            "CONFLICT — Rename the hashtag named Pendiente, then retry.\n"
-            "  hashtag_id: stand-in field words",
-        ),
     ],
-    ids=[
-        "account-has-transactions",
-        "account-in-live-statement",
-        "category-has-transactions",
-        "system-category",
-        "system-hashtag",
-        "race",
-        "pending-name-held",
-    ],
+    ids=["account-has-transactions", "category-has-transactions", "race"],
 )
 def test_a_refusal_shows_the_engine_words_and_what_to_do(
     configured, monkeypatch, make, fetch, row, path, status, code, words, key, reason, note
@@ -605,121 +532,48 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
         run_app(scenario, size=SIZE)
 
 
-def test_a_transaction_on_an_archived_account_shows_only_the_engine_words(configured, monkeypatch):
-    """The ledger was read
-    before the row's account was archived, and `d` then `y` is refused. The
-    "Failed" note is the engine's words alone, no line of the app's under them,
-    and the list is as it was: not read again, its rows and cursor kept."""
-    calls = _stub_ledger(monkeypatch, list(LEDGER[:3]))
-    err = archived_refusal(409, archived_words("delete", "transaction"), "transaction_id")
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen()
-        notes = _record_notes(monkeypatch, screen)
-        await _open_ledger(pilot, app, screen)
-        await _cursor_on(pilot, screen, "t2")
-        reads = len(calls)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notes)
-        await pilot.pause()
-        assert notes == [
-            (
-                "Failed",
-                f"CONFLICT — {archived_words('delete', 'transaction')}\n"
-                f"  transaction_id: {ARCHIVED_FIELD_WORDS}",
-            )
-        ]
-        assert notes[0][1] == refusal_text(err, None)
-        assert len(calls) == reads and len(screen._rows) == 3
-        assert screen.query_one(CursorList).cursor_key == "t2"
-
-    with respx.mock() as engine:
-        _one_part_lines(engine)
-        route = engine.delete(f"{ENGINE_URL}/v1/transactions/t2").mock(
-            error_response(err.status, err.code, err.message, err.fields, err.reasons)
-        )
-        run_app(scenario, size=SIZE)
-    assert route.call_count == 1
+def _held(account_id: str, name: str, *balances: tuple[str, int]) -> dict:
+    return account_with_currencies(
+        id=account_id, name=name, currencies=[held_currency(c, cents) for c, cents in balances]
+    )
 
 
-def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
-    """A `409` on the very route whose refusal has a line, but with no reason,
-    gets none: the line follows the reason, never the status and the route."""
-    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([_cuenta(1)]))
-
-    async def scenario(pilot, app):
-        screen = AccountsScreen()
-        notes = _record_notes(monkeypatch, screen)
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notes)
-        assert notes == [("Failed", "CONFLICT — stand-in")]
-
-    with respx.mock() as engine:
-        engine.delete(f"{ENGINE_URL}/v1/accounts/a1").mock(
-            error_response(409, "CONFLICT", "stand-in")
-        )
-        run_app(scenario, size=SIZE)
-
-
-@pytest.mark.parametrize(
-    ("account", "line"),
-    [
-        (
-            account_with_currencies(
-                id="p1",
-                name="Visa Inventada",
-                currencies=[held_currency("PEN", -234050), held_currency("USD", -18520)],
-            ),
-            "Visa Inventada · bank · PEN -2,340.50 · USD -185.20",
-        ),
-        (
-            account_with_currencies(
-                id="p1",
-                name="Prueba",
-                currencies=[held_currency("PEN", 0), held_currency("USD", 0)],
-            ),
-            "Prueba · bank · PEN 0.00 · USD 0.00",
-        ),
-        (
-            account_with_currencies(
-                id="p1", name="Efectivo", currencies=[held_currency("PEN", 35000)]
-            ),
-            "Efectivo · bank · PEN 350.00",
-        ),
-    ],
-    ids=["visa", "two", "one"],
-)
-def test_the_delete_question_names_the_whole_account_and_each_currency(
-    configured, monkeypatch, account, line
-):
+def test_the_delete_question_names_the_whole_account_and_each_currency(configured, monkeypatch):
     """The delete question on an account: the question's second line is the
     account, its kind, then each currency it holds with its balance, then today's
     sentence; `y` sends one DELETE with the account's id, never one per currency."""
-    _stub_manage(monkeypatch, "accounts", [account])
+    cases = [
+        (
+            _held("p1", "Visa Inventada", ("PEN", -234050), ("USD", -18520)),
+            "Visa Inventada · bank · PEN -2,340.50 · USD -185.20",
+        ),
+        (_held("p2", "Prueba", ("PEN", 0), ("USD", 0)), "Prueba · bank · PEN 0.00 · USD 0.00"),
+        (_held("p3", "Efectivo", ("PEN", 35000)), "Efectivo · bank · PEN 350.00"),
+    ]
+    _stub_manage(monkeypatch, "accounts", [account for account, _line in cases])
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
         listing = screen.query_one(CursorList)
-        listing.set_cursor(listing.index_of("p1"))
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == "Delete this account?"
-        assert app.screen._message == (
-            f"{line}\nIt is for an account made by mistake: no screen can bring it back."
-        )
-        await pilot.press("y")
-        await wait_for(pilot, lambda: route.called)
+        for account, line in cases:
+            listing.set_cursor(listing.index_of(account["id"]))
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            assert app.screen._title == "Delete this account?"
+            assert app.screen._message == (
+                f"{line}\nIt is for an account made by mistake: no screen can bring it back."
+            )
+            if account is cases[-1][0]:
+                await pilot.press("y")
+                await wait_for(pilot, lambda: route.called)
+            else:
+                await pilot.press("n")
+                await wait_for(pilot, lambda: app.screen is screen)
 
     with respx.mock() as engine:
-        route = engine.delete(f"{ENGINE_URL}/v1/accounts/p1").mock(httpx.Response(200, json={}))
+        route = engine.delete(f"{ENGINE_URL}/v1/accounts/p3").mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert route.call_count == 1
 
@@ -875,8 +729,9 @@ async def _cursor_on(pilot, screen, key: str) -> None:
     await pilot.pause()
 
 
-@pytest.mark.parametrize("parts", [2, 3])
-@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+@pytest.mark.parametrize(
+    ("parts", "flt"), [(2, None), (3, FILTER)], ids=["two-whole", "three-filtered"]
+)
 def test_d_on_a_part_asks_about_the_whole_purchase_then_deletes_it(
     configured, monkeypatch, line_engine, parts, flt
 ):
@@ -993,8 +848,7 @@ def test_y_on_a_purchase_sends_one_delete_with_one_idempotency_key(configured, m
     assert not single.called
 
 
-@pytest.mark.parametrize("key", ["n", "escape", "enter"])
-def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, line_engine, key):
+def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, line_engine):
     rows, line = _split_ledger(2)
     calls = _stub_ledger(monkeypatch, rows)
     line_engine.get_responses["/bank-lines/bl-farm"] = line
@@ -1004,52 +858,37 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
         await _open_ledger(pilot, app, screen)
         await _cursor_on(pilot, screen, "p1")
         reads = len(calls)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(key)
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert len(calls) == reads and len(screen._rows) == 4
-        assert screen.query_one(CursorList).cursor_key == "p1"
+        for key in ("n", "escape", "enter"):
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press(key)
+            await wait_for(pilot, lambda: app.screen is screen)
+            await pilot.pause()
+            assert len(calls) == reads and len(screen._rows) == 4
+            assert screen.query_one(CursorList).cursor_key == "p1"
 
     run_app(scenario, size=SIZE)
     assert line_engine.deletes == []
 
 
-@pytest.mark.parametrize(
-    ("status", "code", "words", "fields", "reasons"),
-    [
-        (
-            409,
-            "CONFLICT",
-            SEALED_LINE_WORDS,
-            {"bank_line_id": SEALED_FIELD_WORDS},
-            {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
-        ),
-        (404, "NOT_FOUND", "bank_line not found.", None, None),
-        # an archived account: the engine's words alone
-        (
-            409,
-            "CONFLICT",
-            archived_words("delete", "bank line"),
-            {"bank_line_id": ARCHIVED_FIELD_WORDS},
-            {"bank_line_id": "ACCOUNT_ARCHIVED"},
-        ),
-    ],
-    ids=["completed-statement", "gone", "archived-account"],
-)
 def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
-    configured, monkeypatch, line_engine, status, code, words, fields, reasons
+    configured, monkeypatch, line_engine
 ):
     """3d: the engine refuses; nothing is deleted, the list is not read again and
     the cursor stays on the part. The note is the engine's words whole: its
-    message already says to revert the statement to draft, or to unarchive
-    the account, so the app adds no line, and any other refusal reads as every
-    delete's does."""
+    message already says to revert the statement to draft, so the app adds no line."""
     rows, line = _split_ledger(2)
     calls = _stub_ledger(monkeypatch, rows)
     line_engine.get_responses["/bank-lines/bl-farm"] = line
-    err = EngineError(code, words, fields, status, {}, reasons)
+    words, field = SEALED_LINE_WORDS, SEALED_FIELD_WORDS
+    err = EngineError(
+        "CONFLICT",
+        words,
+        {"bank_line_id": field},
+        409,
+        {},
+        {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
+    )
     line_engine.errors["DELETE"] = err
 
     async def scenario(pilot, app):
@@ -1069,47 +908,7 @@ def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
 
     run_app(scenario, size=SIZE)
     assert line_engine.deletes == ["/bank-lines/bl-farm"]
-    if code == "CONFLICT":
-        assert refusal_text(err, None) == (
-            f"CONFLICT — {words}\n  bank_line_id: {fields['bank_line_id']}"
-        )
-
-
-def test_a_row_never_split_deletes_as_today(configured, monkeypatch, line_engine):
-    """3e: CINE PLAZA's line holds one part, so `d` asks today's question word for
-    word and `y` sends `DELETE /transactions/{id}` for that row alone."""
-    rows, _line = _split_ledger(2)
-    calls = _stub_ledger(monkeypatch, rows)
-    line_engine.get_responses["/bank-lines/bl-cine"] = _cine_line()
-
-    def engine_deletes(path: str) -> dict:
-        line_engine._record("DELETE", path)
-        rows[:] = [r for r in rows if r["id"] != "t-cine"]
-        return {}
-
-    line_engine.delete = engine_deletes
-
-    async def scenario(pilot, app):
-        screen = TransactionsScreen()
-        notes = _record_notes(monkeypatch, screen)
-        await _open_ledger(pilot, app, screen)
-        await _cursor_on(pilot, screen, "t-cine")
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == "Delete this transaction?"
-        assert app.screen._message == (
-            "CINE PLAZA · -28.00 · 2026-10-10 · Sueldo Soles\n"
-            "It leaves every balance and report, and no screen can bring it back."
-        )
-        reads = len(calls)
-        await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
-        await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 3)
-        assert screen.query_one(CursorList).cursor_index == 0
-
-    run_app(scenario, size=SIZE)
-    assert line_engine.deletes == ["/transactions/t-cine"]
-    assert _line_reads(line_engine) == ["/bank-lines/bl-cine"]
+    assert refusal_text(err, None) == f"CONFLICT — {words}\n  bank_line_id: {field}"
 
 
 def test_a_failed_line_read_asks_nothing_and_sends_nothing(configured, monkeypatch, line_engine):

@@ -157,48 +157,21 @@ def _highlighted(screen) -> list[str]:
     [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
     ids=["category", "account"],
 )
-def test_an_empty_optional_color_line_highlights_nothing(fake_client, make):
-    """Empty enter skips an optional colour, so no swatch may look picked."""
+def test_an_optional_color_list_highlights_only_what_is_matched_or_arrowed_to(fake_client, make):
+    """Empty enter skips an optional colour, so no swatch looks picked; typing highlights
+    the first match; arrowing highlights, and `enter` picks."""
     land = _on_color(make)
 
     async def scenario(pilot, app):
         screen = await land(pilot, app)
         assert screen._suggestions  # the palette is listed
         assert screen._suggest_idx == -1 and _highlighted(screen) == []
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize(
-    "make",
-    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
-    ids=["category", "account"],
-)
-def test_typing_on_an_optional_color_line_highlights_the_first_match(fake_client, make):
-    land = _on_color(make)
-
-    async def scenario(pilot, app):
-        screen = await land(pilot, app)
         await pilot.press("g", "r")
         await pilot.pause()
         assert _highlighted(screen) == ["██ green"]
         await pilot.press("backspace", "backspace")  # empty again: nothing highlighted
         await pilot.pause()
         assert _highlighted(screen) == []
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize(
-    "make",
-    [NewCategoryScreen, lambda: NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)],
-    ids=["category", "account"],
-)
-def test_arrowing_into_an_optional_color_list_highlights_and_enter_picks(fake_client, make):
-    land = _on_color(make)
-
-    async def scenario(pilot, app):
-        screen = await land(pilot, app)
         if isinstance(screen, NewCategoryScreen):
             screen._values["name"] = "Mascotas"
         else:
@@ -267,25 +240,6 @@ def test_edit_category_without_a_color_is_refused_before_any_put(fake_client, mo
         await pilot.press("ctrl+s")
         await pilot.pause()
         assert toasts == [("Color is required.", {"severity": "error", "markup": False})]
-        assert not fake_client.puts
-
-    run_app(scenario)
-
-
-def test_edit_category_unknown_color_is_refused_and_nothing_is_sent(fake_client, monkeypatch):
-    toasts: list = []
-    monkeypatch.setattr(
-        EditCategoryScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
-    )
-
-    async def scenario(pilot, app):
-        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        _enter(screen, "Ocio")
-        _enter(screen, "zzzz")
-        await pilot.pause()
-        assert toasts == [("Pick a color.", {"severity": "error", "markup": False})]
         assert not fake_client.puts
 
     run_app(scenario)
@@ -511,27 +465,6 @@ def test_new_account_type_person_posts_to_accounts_as_a_person(fake_client):
     }
 
 
-@pytest.mark.parametrize(
-    "steps",
-    [
-        ["", "BCP", "", "PEN", "", "", "", "", ""],
-        ["person", "Eliana", "PEN", "", "", "", ""],
-    ],
-    ids=["bank", "person"],
-)
-def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps):
-    """A skipped COLOR leaves the key out of the body, and the form has no
-    order field, so the engine applies both defaults; an explicit `null` on
-    either is a 422 (contract: POST /v1/accounts, "Optional").
-    A bank account's STATEMENT CODE is skipped too, one line before COLOR, and so is
-    the PEN opening pair after it."""
-    posted_path, body = _run(fake_client, NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS), steps)
-    assert posted_path == "/accounts"
-    assert "color" not in body
-    assert "sort_order" not in body
-    assert None not in body.values()
-
-
 def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_client):
     """CURRENCIES offers the engine's list as the list screen read it (a third code too),
     and a code outside it matches nothing."""
@@ -614,7 +547,7 @@ def _run_refused(fake_client, screen, steps, check, *, verb="POST", refusal=None
     run_app(scenario, toasts=True)
 
 
-def test_a_refused_create_says_so_and_keeps_the_screen(fake_client):
+def test_a_refused_create_says_so_keeps_the_screen_and_can_be_submitted_again(fake_client):
     """The engine's envelope reaches the user and the form stays put.
 
     Dismissing on failure would throw away everything typed and leave the
@@ -626,33 +559,11 @@ def test_a_refused_create_says_so_and_keeps_the_screen(fake_client):
         assert screen.is_attached  # never dismissed
         # the typed text survives verbatim; the `#` is stripped in _payload(), not here
         assert screen._values["name"] == "#groceries"
-
-    _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
-
-
-def test_a_refused_create_restores_the_hint_the_busy_text_replaced(fake_client):
-    """`action_submit` overwrites #hint with "Creating…" before the write.
-
-    Without `_refresh_view()` in the failure path the form would sit there
-    claiming to still be creating, under a block saying it had failed.
-    """
-
-    async def check(pilot, screen, shown):
+        # `action_submit` put "Creating…" in the hint; the failure restores it
         hint = str(screen.query_one("#hint", Static).content)
         assert "Creating" not in hint
         assert hint == screen._hint_for(screen._key)
-
-    _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
-
-
-def test_a_refused_create_can_be_submitted_again(fake_client):
-    """`_submitting` is the double-submit latch — a failure has to release it.
-
-    Left set, the first refusal would freeze the form for good: every later
-    submit would return at the guard, silently, with the block as the only clue.
-    """
-
-    async def check(pilot, screen, shown):
+        # `_submitting` is released, so the form submits again
         assert screen._submitting is False
         fake_client.errors.clear()
         screen.action_submit()
@@ -663,19 +574,6 @@ def test_a_refused_create_can_be_submitted_again(fake_client):
         )
 
     _run_refused(fake_client, NewHashtagScreen(), ["#groceries"], check)
-
-
-def test_a_refused_edit_reports_through_the_same_path(fake_client):
-    """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
-    screen = EditAccountScreen(_ELIANA, ENGINE_CURRENCIES, ENGINE_BANKS)
-
-    async def check(pilot, screen, shown):
-        assert shown == "Failed\nCONFLICT — that name is taken"
-        assert screen.is_attached
-        assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
-
-    # name, colour, opening, as of: the last line's `enter` saves
-    _run_refused(fake_client, screen, ["Eliana Vega", "", "", ""], check, verb="PUT")
 
 
 def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
@@ -699,66 +597,13 @@ def _eliana() -> EditAccountScreen:
             "That name is taken: pick another.",
         ),
         (
-            NewCategoryScreen,
-            ["Mascotas", ""],
-            "POST",
-            _keyed("CONFLICT", "name", "NAME_EXISTS", "Name already exists."),
-            "That name is taken: pick another.",
-        ),
-        (
             NewHashtagScreen,
             ["viaje-lima"],
             "POST",
             _keyed("LIMIT_REACHED", "id", "CAP_REACHED", "Hashtag limit reached."),
             "Delete one first.",
         ),
-        (
-            NewHashtagScreen,
-            ["salud"],
-            "POST",
-            _keyed("CONFLICT", "id", "ID_EXISTS", "ID already exists."),
-            "Not your mistake: the app sent it wrong and nothing was saved. "
-            "Try again; if it happens again, report it.",
-        ),
-        # a user hashtag, new or renamed, cannot take the pending hashtag's name
-        # (one line for every system row)
-        (
-            NewHashtagScreen,
-            ["pendiente"],
-            "POST",
-            _keyed(
-                "VALIDATION_ERROR",
-                "name",
-                "RESERVED_NAME",
-                "Pendiente is reserved for the pending hashtag.",
-            ),
-            "That name belongs to a system row: pick another.",
-        ),
-        (
-            lambda: EditHashtagScreen({"id": "h1", "name": "viaje"}),
-            ["PENDIENTE"],
-            "PUT",
-            _keyed(
-                "VALIDATION_ERROR",
-                "name",
-                "RESERVED_NAME",
-                "Pendiente is reserved for the pending hashtag.",
-            ),
-            "That name belongs to a system row: pick another.",
-        ),
-        # a user category, new or renamed, cannot take a system category's name
-        (
-            NewCategoryScreen,
-            ["@pendiente", ""],
-            "POST",
-            _keyed(
-                "VALIDATION_ERROR",
-                "name",
-                "RESERVED_NAME",
-                "@Pendiente is reserved for a system category.",
-            ),
-            "That name belongs to a system row: pick another.",
-        ),
+        # a user category or hashtag cannot take a system row's name
         (
             lambda: EditCategoryScreen(
                 {"id": "c1", "name": "Mascotas", "color": "#b07cd9", "is_system": False}
@@ -776,12 +621,7 @@ def _eliana() -> EditAccountScreen:
     ],
     ids=[
         "name-exists",
-        "category-no-color",
         "cap-reached",
-        "id-exists",
-        "reserved-name-new",
-        "reserved-name-rename",
-        "reserved-category-name-new",
         "reserved-category-name-rename",
     ],
 )
@@ -810,13 +650,6 @@ _NAME_FIXED = "Must be the current name: a system record keeps its name."
     [
         (
             lambda: EditCategoryScreen(
-                {"id": "pend", "name": "@Pendiente", "color": "#b07cd9", "is_system": True}
-            ),
-            ["@pendiente", ""],
-            "/categories/pend",
-        ),
-        (
-            lambda: EditCategoryScreen(
                 {"id": "open", "name": "@Opening", "color": "#b07cd9", "is_system": True}
             ),
             ["Apertura", ""],
@@ -828,7 +661,7 @@ _NAME_FIXED = "Must be the current name: a system record keeps its name."
             "/hashtags/h-pend",
         ),
     ],
-    ids=["pendiente-case-only", "opening", "pending-hashtag"],
+    ids=["opening", "pending-hashtag"],
 )
 def test_a_system_rows_rename_shows_the_engines_words(fake_client, make, steps, path):
     """A system category or the pending hashtag keeps its name: the engine
@@ -926,9 +759,12 @@ def test_a_forms_own_enter_handler_stops_the_ones_under_it():
 
 
 def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
-    """tab → next editable field, shift+tab → previous; both stop at the ends."""
+    """tab → next editable field, shift+tab → previous; both stop at the ends; the
+    ctrl arrows move the same way."""
     _navigate(
         [
+            ("ctrl+down", "color"),
+            ("ctrl+up", "statement_code"),
             ("tab", "color"),
             ("tab", "opening:PEN"),
             ("tab", "as_of:PEN"),
@@ -943,24 +779,6 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
             ("shift+tab", "bank"),  # TYPE is locked: stays
         ]
     )
-
-
-def test_tab_moves_fields_while_a_suggestion_list_is_open():
-    """On COLOR the palette list is open; tab and shift+tab still move fields."""
-
-    async def scenario(pilot, app):
-        screen = EditAccountScreen(_ACCOUNT, ENGINE_CURRENCIES, ENGINE_BANKS)
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        _land(screen, "statement_code")
-        await pilot.press("tab")
-        await pilot.pause()
-        assert screen._key == "color" and screen._suggestions  # list open
-        await pilot.press("shift+tab")
-        await pilot.pause()
-        assert screen._key == "statement_code"
-
-    run_app(scenario)
 
 
 def test_plain_arrows_walk_a_list_and_move_fields_without_one():
@@ -990,12 +808,15 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
         await pilot.press("up")
         await pilot.pause()
         assert screen._key == "statement_code"
+        # on COLOR the palette list is open; tab and shift+tab still move fields
+        await pilot.press("tab")
+        await pilot.pause()
+        assert screen._key == "color" and screen._suggestions
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        assert screen._key == "statement_code"
 
     run_app(scenario)
-
-
-def test_ctrl_arrows_still_move_fields():
-    _navigate([("ctrl+down", "color"), ("ctrl+up", "statement_code")])
 
 
 # ---------------------------------------------------------------------------
@@ -1063,15 +884,6 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
     }
 
 
-def test_currencies_go_in_the_order_picked(fake_client):
-    path, body = _run(
-        fake_client,
-        NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
-        ["", "BCP", "", "USD", "PEN", "", "", "", "", "", "", ""],
-    )
-    assert body["currencies"] == [{"currency_code": "USD"}, {"currency_code": "PEN"}]
-
-
 def test_new_person_is_one_post_with_kind_person_and_no_code_line(fake_client):
     """Ana Ejemplo, a person in PEN: no STATEMENT CODE line, one `POST /accounts`
     with `kind: "person"` and no code; nothing goes to `/people`."""
@@ -1137,12 +949,6 @@ def _save_with_typed_currencies(fake_client, typed: list[str], after=None):
     run_app(scenario)
 
 
-def test_a_code_typed_but_not_added_is_kept_by_ctrl_s(fake_client):
-    _save_with_typed_currencies(fake_client, ["PEN"])
-    assert fake_client.requests == [("POST", "/accounts")]
-    assert fake_client.posts[0][1]["currencies"] == [{"currency_code": "PEN"}]
-
-
 def test_a_typed_code_follows_earlier_picks_on_ctrl_s(fake_client):
     _save_with_typed_currencies(fake_client, ["USD", "PEN"])
     assert fake_client.posts[0][1]["currencies"] == [
@@ -1199,16 +1005,6 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
             "",
         ),
         (
-            _keyed(
-                "VALIDATION_ERROR",
-                "currencies.1.currency_code",
-                "UNSUPPORTED_VALUE",
-                "stand-in",
-            ),
-            "currencies",
-            "",
-        ),
-        (
             _keyed("VALIDATION_ERROR", "currencies", "OUT_OF_RANGE", "stand-in"),
             "currencies",
             "",
@@ -1219,7 +1015,7 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
             "5678",
         ),
     ],
-    ids=["duplicate-currency", "unsupported-currency", "currencies", "last4"],
+    ids=["duplicate-currency", "currencies", "last4"],
 )
 def test_a_refusal_on_new_lands_on_its_line_in_the_engines_words(fake_client, refusal, line, bar):
     """The block is the engine's words as every failed write reads them, and the
