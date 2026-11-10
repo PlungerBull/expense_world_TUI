@@ -17,56 +17,34 @@ def pin_local_tz(monkeypatch):
     monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/New_York")
 
 
-def test_aware_utc_passthrough():
-    assert to_canonical_aware("2026-04-25T16:30:00Z") == "2026-04-25T16:30:00Z"
+@pytest.mark.parametrize(
+    "stamp",
+    ["2026-04-25T16:30:00Z", "2026-04-25T16:30:00-05:00", "2026-04-25T16:30:00+02:00"],
+)
+def test_an_aware_datetime_passes_through(stamp):
+    assert to_canonical_aware(stamp) == stamp
 
 
-def test_aware_offset_passthrough():
-    assert to_canonical_aware("2026-04-25T16:30:00-05:00") == "2026-04-25T16:30:00-05:00"
-
-
-def test_aware_plus_offset_passthrough():
-    assert to_canonical_aware("2026-04-25T16:30:00+02:00") == "2026-04-25T16:30:00+02:00"
-
-
-def test_naive_datetime_t_separator_attaches_local_tz():
-    result = to_canonical_aware("2026-04-25T16:30:00")
-    parsed = datetime.fromisoformat(result)
+@pytest.mark.parametrize(
+    ("text", "clock"),
+    [
+        ("2026-04-25T16:30:00", (16, 30, 0)),
+        ("2026-04-25 16:30:00", (16, 30, 0)),
+        ("2026-04-25T16:30", (16, 30, 0)),
+        ("2026-04-25", (0, 0, 0)),  # a day alone is midnight local
+    ],
+)
+def test_a_naive_datetime_gets_the_local_timezone(text, clock):
+    parsed = datetime.fromisoformat(to_canonical_aware(text))
     assert parsed.tzinfo is not None
-    assert parsed.year == 2026 and parsed.month == 4 and parsed.day == 25
-    assert parsed.hour == 16 and parsed.minute == 30 and parsed.second == 0
+    assert (parsed.year, parsed.month, parsed.day) == (2026, 4, 25)
+    assert (parsed.hour, parsed.minute, parsed.second) == clock
 
 
-def test_naive_datetime_space_separator_attaches_local_tz():
-    result = to_canonical_aware("2026-04-25 16:30:00")
-    parsed = datetime.fromisoformat(result)
-    assert parsed.tzinfo is not None
-    assert parsed.hour == 16 and parsed.minute == 30
-
-
-def test_naive_datetime_no_seconds():
-    result = to_canonical_aware("2026-04-25T16:30")
-    parsed = datetime.fromisoformat(result)
-    assert parsed.tzinfo is not None
-    assert parsed.hour == 16 and parsed.minute == 30
-
-
-def test_date_only_midnight_local():
-    result = to_canonical_aware("2026-04-25")
-    parsed = datetime.fromisoformat(result)
-    assert parsed.tzinfo is not None
-    assert parsed.year == 2026 and parsed.month == 4 and parsed.day == 25
-    assert parsed.hour == 0 and parsed.minute == 0
-
-
-def test_garbage_raises_bad_parameter():
+@pytest.mark.parametrize("text", ["not-a-date", "2026-04-25T25:99:00"])
+def test_an_unreadable_date_raises_bad_parameter(text):
     with pytest.raises(typer.BadParameter):
-        to_canonical_aware("not-a-date")
-
-
-def test_invalid_time_raises_bad_parameter():
-    with pytest.raises(typer.BadParameter):
-        to_canonical_aware("2026-04-25T25:99:00")
+        to_canonical_aware(text)
 
 
 def test_detect_timezone_from_tz_env(monkeypatch, tmp_path):

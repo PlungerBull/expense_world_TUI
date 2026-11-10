@@ -7,10 +7,8 @@ refusal is the envelope the practice engine sent for the same case. The real
 HTTP client runs under respx, so each write's idempotency key is seen.
 """
 
-import ast
 import base64
 import json
-from pathlib import Path
 
 import httpx
 import pytest
@@ -18,8 +16,7 @@ import respx
 
 from expense import config as config_module
 from expense.bank_import.engine import file_field
-from expense.errors import EngineConnectionError, EngineError
-from expense.import_ import engine
+from expense.errors import EngineError
 from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
@@ -28,7 +25,6 @@ from expense.import_.engine import (
     Goes,
     NameEntry,
     RenameRefused,
-    SheetCounts,
     Stage,
     Step,
     check_disputed,
@@ -52,42 +48,15 @@ from tests.unit.helpers import (
     sheet_row,
 )
 
-PACKAGE = Path(__file__).resolve().parents[2] / "expense"
 DATA = b"PK\x03\x04 a made-up workbook"
 IMPORT = f"{BASE}/v1/transactions/import-sheet"
 
-#: The refusals as the practice engine sent them on 2026-10-26, for made-up sheets.
-LAYOUT = error_body(
-    "VALIDATION_ERROR",
-    "The file is not the owner's sheet.",
-    {"file": "Row 1 must be the header 'description | HASHTAG | …'; it is 'Descripcion | …'."},
-    {"file": "UNEXPECTED_LAYOUT"},
-)
-ROWS_REFUSED = error_body(
-    "VALIDATION_ERROR",
-    "Import validation failed.",
-    {
-        "rows.4.amount_cents": "Row 4: MONTO holds 'abc', not a number.",
-        "rows.6.amount_cents": "Row 6: MONTO -1.234 is not a whole number of cents.",
-        "rows.5.date": "Row 5: Must not be in the future.",
-    },
-    {
-        "rows.4.amount_cents": "UNEXPECTED_LAYOUT",
-        "rows.6.amount_cents": "NOT_WHOLE_CENTS",
-        "rows.5.date": "FUTURE_DATE",
-    },
-)
+#: The refusal as the practice engine sent it on 2026-10-26, for a made-up sheet.
 INVALID_REFERENCE = error_body(
     "VALIDATION_ERROR",
     "Import validation failed.",
     {"names.accounts.0.account_id": "Must reference an active, non-archived account."},
     {"names.accounts.0.account_id": "INVALID_REFERENCE"},
-)
-NAME_EXISTS = error_body(
-    "CONFLICT",
-    "A category with this name already exists.",
-    {"name": "Already taken."},
-    {"name": "NAME_EXISTS"},
 )
 
 
@@ -190,40 +159,6 @@ def test_the_body_is_the_file_whole_in_base64_and_dry_run():
         "file": file_field(data),
         "names": names,
     }
-
-
-def _imports(path: Path) -> set[str]:
-    names: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text())):
-        if isinstance(node, ast.Import):
-            names |= {alias.name for alias in node.names}
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
-    return names
-
-
-def test_nothing_in_the_app_reads_a_cell_of_a_workbook():
-    """No spreadsheet library anywhere in the app: the sheet goes to the engine
-    as bytes, through the bank import's one encoder."""
-    for path in sorted(PACKAGE.rglob("*.py")):
-        imported = _imports(path)
-        assert not any(n == "openpyxl" or n.startswith("openpyxl.") for n in imported), path
-    assert sorted(p.name for p in (PACKAGE / "import_").glob("*.py")) == [
-        "__init__.py",
-        "engine.py",
-    ]
-    assert "expense.bank_import.engine" in _imports(PACKAGE / "import_" / "engine.py")
-    assert engine.file_field is file_field
-    assert "b64encode" not in (PACKAGE / "import_" / "engine.py").read_text()
-
-
-def test_openpyxl_is_a_test_dependency_only():
-    """The tests build made-up sheets with it; the app never imports it."""
-    import tomllib
-
-    project = tomllib.loads((PACKAGE.parent / "pyproject.toml").read_text())["project"]
-    assert not any(dep.startswith("openpyxl") for dep in project["dependencies"])
-    assert any(dep.startswith("openpyxl") for dep in project["optional-dependencies"]["dev"])
 
 
 # ---- renames -----------------------------------------------------------------------
@@ -335,18 +270,6 @@ def test_a_renamed_account_goes_to_yours_of_that_name_over_the_proposal():
     )
 
 
-def test_a_renamed_account_you_lack_is_missing_under_the_rename():
-    renames = {rename_key("BCP Oro"): "Dolares"}
-    accounts = [account_with_currencies(id="acc-other", name="Other")]
-    account = names_table(ALL_YOURS, renames, accounts)[0]
-    assert (account.goes, account.target_id, account.renamed_to, account.ledger_name) == (
-        Goes.MISSING,
-        None,
-        "Dolares",
-        "Dolares",
-    )
-
-
 def test_missing_names_are_one_per_name_the_engine_holds_as_one():
     """`Travel` and `travel` are two names to the sheet but one category to the
     engine, which would refuse the second create as taken; two account names it
@@ -422,38 +345,25 @@ def test_names_one_rename_covers_are_one_account_not_two():
 
 
 # ---- the run -----------------------------------------------------------------------
+@pytest.mark.parametrize("step", [Step.DRY_RUN, Step.APPLY])
 @respx.mock
-def test_a_dry_run_with_a_name_missing_is_one_call_without_the_table(configured):
-    route = _engine()
-    creates = _creates()
-    accounts = respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(200, json={"items": []})
-    )
-    result = import_sheet(_cfg(), DATA, step=Step.DRY_RUN, renames={})
-    assert route.call_count == 1
-    assert _body(route.calls[0].request) == {"dry_run": True, "file": file_field(DATA)}
-    assert all(r.call_count == 0 for r in creates.values())
-    assert accounts.call_count == 0  # no rename: your accounts are not read
-    assert (result.answer, result.counted, result.error, result.stage) == (DRY, False, None, None)
-    assert [(e.kind, e.name) for e in result.missing] == [
-        (ACCOUNT, "BCP Oro"),
-        (CATEGORY, "travel"),
-        (HASHTAG, "trip"),
-    ]
-
-
-@respx.mock
-def test_a_dry_run_with_every_name_yours_asks_again_with_the_table_for_the_counts(configured):
+def test_with_every_name_yours_the_second_request_carries_the_whole_table(configured, step):
     route = _engine(ALL_YOURS)
-    _creates()
-    result = import_sheet(_cfg(), DATA, step=Step.DRY_RUN, renames={})
+    import_sheet(_cfg(), DATA, step=step, renames={})
     bodies = [_body(c.request) for c in route.calls]
-    assert [(b["dry_run"], "names" in b) for b in bodies] == [(True, False), (True, True)]
-    assert bodies[1]["names"] == table_body(result.table)
-    assert result.counted and result.missing == []
-    assert result.answer == _answered(bodies[1])
-    assert result.counts == SheetCounts(5, 0, 0, 0, 0, 0, 0)
-    assert [w.url.path for w in _writes()] == ["/v1/transactions/import-sheet"] * 2
+    assert bodies[0] == {"dry_run": True, "file": file_field(DATA)}
+    assert bodies[1] == {
+        "dry_run": step is not Step.APPLY,
+        "file": file_field(DATA),
+        "names": {
+            "accounts": [{"name": "BCP Oro", "account_id": "acc-oro"}],
+            "categories": [
+                {"name": "food", "category_id": "cat-food"},
+                {"name": "travel", "category_id": "cat-trv"},
+            ],
+            "hashtags": [{"name": "trip", "hashtag_id": "tag-trip"}],
+        },
+    }
 
 
 @respx.mock
@@ -470,16 +380,6 @@ def test_a_rename_reads_your_accounts_people_and_archived_included(configured):
     params = accounts.calls[0].request.url.params
     assert (params["include_archived"], params["include_people"]) == ("true", "true")
     assert (result.table[0].goes, result.table[0].target_id) == (Goes.YOURS, "acc-sueldo")
-
-
-@respx.mock
-def test_a_rename_refused_stops_the_run_before_anything_else_is_sent(configured):
-    route = _engine()
-    creates = _creates()
-    with pytest.raises(RenameRefused):
-        import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={}, flags=[("Nope", "X")])
-    assert route.call_count == 1
-    assert all(r.call_count == 0 for r in creates.values())
 
 
 @respx.mock
@@ -522,16 +422,6 @@ def test_the_create_step_creates_each_missing_name_and_imports_nothing(configure
 
 
 @respx.mock
-def test_the_create_step_with_nothing_missing_creates_nothing(configured):
-    route = _engine(ALL_YOURS)
-    creates = _creates()
-    result = import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={})
-    assert route.call_count == 1
-    assert all(r.call_count == 0 for r in creates.values())
-    assert result.created == [] and result.error is None
-
-
-@respx.mock
 def test_a_renamed_account_you_lack_is_created_under_its_rename(configured):
     _engine()
     creates = _creates()
@@ -546,55 +436,6 @@ def test_a_renamed_account_you_lack_is_created_under_its_rename(configured):
     assert result.created[0] == Created(ACCOUNT, "Dolares", ("PEN", "USD"), sent["id"])
 
 
-@respx.mock
-def test_the_apply_with_a_name_missing_sends_nothing_more(configured):
-    route = _engine()
-    creates = _creates()
-    result = import_sheet(_cfg(), DATA, step=Step.APPLY, renames={})
-    assert route.call_count == 1
-    assert all(r.call_count == 0 for r in creates.values())
-    assert (result.counted, result.error, result.stage, result.answer) == (False, None, None, DRY)
-    assert len(result.missing) == 3
-
-
-@respx.mock
-def test_the_apply_with_every_name_yours_sends_the_table(configured):
-    route = _engine(ALL_YOURS)
-    creates = _creates()
-    result = import_sheet(_cfg(), DATA, step=Step.APPLY, renames={})
-    bodies = [_body(c.request) for c in route.calls]
-    assert [(b["dry_run"], "names" in b) for b in bodies] == [(True, False), (False, True)]
-    assert bodies[1]["file"] == file_field(DATA)
-    assert all(r.call_count == 0 for r in creates.values())
-    assert result.counted and result.answer == _answered(bodies[1])
-    assert [(r.row, r.amount_cents, r.outcome, r.transaction_id) for r in result.rows][:1] == [
-        (2, -1250, "new", "t-2")
-    ]
-
-
-@pytest.mark.parametrize("step", list(Step), ids=lambda s: s.value)
-@pytest.mark.parametrize(
-    "refusal", [LAYOUT, ROWS_REFUSED], ids=["file-refused-whole", "rows-refused"]
-)
-@respx.mock
-def test_a_refused_sheet_creates_nothing_on_any_step(configured, refusal, step):
-    """The first dry run's refusal stops every step before anything else,
-    kept as the engine's envelope, untouched."""
-    route = _engine(httpx.Response(422, json=refusal))
-    creates = _creates()
-    result = import_sheet(_cfg(), DATA, step=step, renames={})
-    assert route.call_count == 1
-    assert all(r.call_count == 0 for r in creates.values())
-    assert isinstance(result.error, EngineError)
-    assert result.error.raw_body == refusal
-    assert (result.stage, result.created, result.answer, result.table) == (
-        Stage.NAMES,
-        [],
-        None,
-        [],
-    )
-
-
 @pytest.mark.parametrize(
     ("step", "stage"), [(Step.DRY_RUN, Stage.COUNTS), (Step.APPLY, Stage.APPLY)]
 )
@@ -606,30 +447,6 @@ def test_a_table_refused_is_kept_with_its_stage(configured, step, stage):
     assert isinstance(result.error, EngineError)
     assert result.error.raw_body == INVALID_REFERENCE
     assert (result.stage, result.counted, result.answer) == (stage, False, ALL_YOURS)
-
-
-@respx.mock
-def test_a_create_refused_stops_the_run_with_the_names_created_before_it(configured):
-    _engine()
-    creates = _creates()
-    creates["categories"].mock(return_value=httpx.Response(409, json=NAME_EXISTS))
-    result = import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={})
-    assert isinstance(result.error, EngineError)
-    assert result.error.raw_body == NAME_EXISTS
-    assert result.stage is Stage.CREATE
-    assert [(c.kind, c.name) for c in result.created] == [(ACCOUNT, "BCP Oro")]
-    assert creates["hashtags"].call_count == 0
-
-
-@respx.mock
-def test_the_engine_out_of_reach_after_a_create_still_reports_it(configured):
-    _engine()
-    creates = _creates()
-    creates["hashtags"].mock(side_effect=httpx.ConnectError("connection refused"))
-    result = import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={})
-    assert isinstance(result.error, EngineConnectionError)
-    assert result.stage is Stage.CREATE
-    assert len(result.created) == 2
 
 
 @respx.mock

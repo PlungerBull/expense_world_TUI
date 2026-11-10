@@ -15,6 +15,7 @@ connection, and one that cries wolf gets ignored on the day it is right.
 """
 
 import httpx
+import pytest
 import respx
 from textual.widgets import Static
 
@@ -46,85 +47,84 @@ def _painted(widget) -> str:
 # ---- rate_is_stale -------------------------------------------------------
 
 
-def test_carried_forward_rate_is_stale():
-    """The engine answered with an older day's row than the one asked for."""
-    assert rate_is_stale({"date": "2026-08-13", "rate_date": "2026-08-11"}) is True
-
-
-def test_rate_of_the_day_itself_is_fresh():
-    assert rate_is_stale({"date": "2026-08-13", "rate_date": "2026-08-13"}) is False
-
-
-def test_a_rate_date_ahead_of_the_asked_date_is_not_stale():
-    """Asking about a past date returns that date's own row or earlier, never a
-    later one — but if it ever did, "ahead" is not staleness."""
-    assert rate_is_stale({"date": "2026-08-01", "rate_date": "2026-08-13"}) is False
-
-
-def test_missing_or_wrong_typed_dates_are_unknown_not_stale():
-    """A shape change must go quiet rather than light the header permanently."""
-    assert rate_is_stale({"date": "2026-08-13"}) is None
-    assert rate_is_stale({"rate_date": "2026-08-13"}) is None
-    assert rate_is_stale({}) is None
-    assert rate_is_stale({"date": "2026-08-13", "rate_date": None}) is None
+@pytest.mark.parametrize(
+    ("row", "stale"),
+    [
+        ({"date": "2026-08-13", "rate_date": "2026-08-11"}, True),  # an older day's row
+        ({"date": "2026-08-13", "rate_date": "2026-08-13"}, False),  # the day itself
+        ({"date": "2026-08-01", "rate_date": "2026-08-13"}, False),  # ahead is not staleness
+        # a shape change must go quiet rather than light the header permanently
+        ({"date": "2026-08-13"}, None),
+        ({"rate_date": "2026-08-13"}, None),
+        ({}, None),
+        ({"date": "2026-08-13", "rate_date": None}, None),
+    ],
+)
+def test_a_rate_is_stale_only_when_an_older_days_row_answered(row, stale):
+    assert rate_is_stale(row) is stale
 
 
 # ---- fetch_rate_staleness ------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("answer", "stale"),
+    [
+        (httpx.Response(200, json={"date": "2026-08-13", "rate_date": "2026-08-11"}), True),
+        # 404 is the same condition at its extreme: nothing on or before today
+        (error_response(404, "NOT_FOUND", "no rate", None), True),
+        # a 422 is a question about the request, not an answer about the rate
+        (
+            error_response(
+                422,
+                "VALIDATION_ERROR",
+                "bad",
+                {"target": "'XXX' is not a valid currency code."},
+                {"target": "UNSUPPORTED_VALUE"},
+            ),
+            None,
+        ),
+    ],
+    ids=["carried-forward", "no-rate", "other-refusal"],
+)
 @respx.mock
-def test_fetch_reports_stale_from_a_carried_forward_response(configured):
+def test_fetch_reads_staleness_off_the_engines_answer(configured, answer, stale):
     from expense import config as config_module
 
-    respx.get(f"{BASE}/v1/exchange-rates").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "base": "USD",
-                "target": "PEN",
-                "date": "2026-08-13",
-                "rate_date": "2026-08-11",
-                "rate_e8": 337000000,
-            },
-        )
-    )
-    assert fetch_rate_staleness(config_module.ensure_loaded(), target="PEN") is True
-
-
-@respx.mock
-def test_no_rate_at_all_counts_as_stale(configured):
-    """404 is the same condition at its extreme — nothing on or before today."""
-    from expense import config as config_module
-
-    respx.get(f"{BASE}/v1/exchange-rates").mock(
-        return_value=error_response(404, "NOT_FOUND", "no rate", None)
-    )
-    assert fetch_rate_staleness(config_module.ensure_loaded(), target="PEN") is True
-
-
-@respx.mock
-def test_other_engine_errors_are_unknown_not_stale(configured):
-    """A 422 is a question about the request, not an answer about the rate."""
-    from expense import config as config_module
-
-    respx.get(f"{BASE}/v1/exchange-rates").mock(
-        return_value=error_response(
-            422,
-            "VALIDATION_ERROR",
-            "bad",
-            {"target": "'XXX' is not a valid currency code."},
-            {"target": "UNSUPPORTED_VALUE"},
-        )
-    )
-    assert fetch_rate_staleness(config_module.ensure_loaded(), target="XXX") is None
+    respx.get(f"{BASE}/v1/exchange-rates").mock(return_value=answer)
+    assert fetch_rate_staleness(config_module.ensure_loaded(), target="PEN") is stale
 
 
 # ---- rate_alert ----------------------------------------------------------
 
 
-def test_alert_renders_the_mark_when_stale():
-    text = rate_alert(True, PALETTE)
-    assert text.plain == RATE_ALERT_MARK
+@pytest.mark.parametrize(
+    ("state", "palette", "mark"),
+    [
+        (True, PALETTE, RATE_ALERT_MARK),
+        (True, None, RATE_ALERT_MARK),
+        (False, PALETTE, ""),
+        (None, PALETTE, ""),
+    ],
+)
+def test_alert_is_the_mark_only_when_stale(state, palette, mark):
+    """No palette is the Breadcrumb outside a running app."""
+    assert rate_alert(state, palette).plain == mark
+
+
+@pytest.mark.parametrize(
+    ("month", "state", "marked"),
+    [
+        ("September 2026", True, True),
+        ("September 2026", False, False),
+        ("September 2026", None, False),
+        (None, True, True),  # the two fetches race: no month yet
+    ],
+)
+def test_home_header_shows_the_mark_beside_the_month(month, state, marked):
+    out = _render(home._build_header(month, PALETTE, state))
+    assert (RATE_ALERT_MARK in out) is marked
+    assert month is None or month in out, "the alert must not displace the month"
 
 
 def test_alert_takes_the_pending_style_from_the_palette():
@@ -143,34 +143,7 @@ def test_alert_takes_the_pending_style_from_the_palette():
     assert str(rate_alert(True, PALETTE).style) == "bold"  # ...and it is emphasis
 
 
-def test_alert_is_empty_when_fresh_or_unknown():
-    assert rate_alert(False, PALETTE).plain == ""
-    assert rate_alert(None, PALETTE).plain == ""
-
-
-def test_alert_renders_without_a_palette():
-    """Breadcrumb falls back to no palette outside a running app."""
-    assert rate_alert(True, None).plain == RATE_ALERT_MARK
-
-
 # ---- the two header hosts ------------------------------------------------
-
-
-def test_home_header_shows_the_mark_beside_the_month():
-    out = _render(home._build_header("September 2026", PALETTE, True))
-    assert RATE_ALERT_MARK in out
-    assert "September 2026" in out, "the alert must not displace the month"
-
-
-def test_home_header_is_unmarked_when_fresh_or_unknown():
-    for state in (False, None):
-        out = _render(home._build_header("September 2026", PALETTE, state))
-        assert RATE_ALERT_MARK not in out, state
-
-
-def test_home_header_shows_the_mark_with_no_month_yet():
-    """The two fetches race; the alert must not need the dashboard to have landed."""
-    assert RATE_ALERT_MARK in _render(home._build_header(None, PALETTE, True))
 
 
 def test_breadcrumb_outside_an_app_renders_the_trail_and_no_mark():
@@ -221,17 +194,6 @@ def test_home_header_repaints_when_the_rate_status_lands():
         app._set_rate_stale(True)
         await pilot.pause()
         assert RATE_ALERT_MARK in _painted(brand)
-
-    run_app(scenario)
-
-
-def test_startup_fetch_is_silent_without_config():
-    """The TUI must stay usable offline / unconfigured — the indicator is not
-    allowed to be the thing that makes launching fail or hang."""
-
-    async def scenario(pilot, app):
-        await pilot.pause()
-        assert app.rate_stale is None
 
     run_app(scenario)
 

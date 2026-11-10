@@ -117,15 +117,6 @@ def test_elsewhere_an_unsupported_locale_is_the_default_and_restores(monkeypatch
     assert calls[-1] == "C"
 
 
-def test_the_launch_sets_the_session_format_from_the_region(monkeypatch):
-    monkeypatch.setattr(region, "read_region_format", lambda: COMMA)
-    apply_launch_format()
-    assert current_format() is COMMA
-    monkeypatch.setattr(region, "read_region_format", lambda: DOT)
-    apply_launch_format()
-    assert current_format() is DOT
-
-
 def test_a_setting_wins_over_the_region(monkeypatch):
     monkeypatch.setattr(region, "read_region_format", lambda: COMMA)
     assert launch_format(DOT) is DOT

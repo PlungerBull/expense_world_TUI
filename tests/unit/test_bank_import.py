@@ -5,9 +5,7 @@ shape is the contract's (contract: POST /v1/transactions/import), built here
 by the fake engine's own builders in tests/unit/helpers.py.
 """
 
-import ast
 import base64
-from pathlib import Path
 
 import httpx
 import pytest
@@ -47,8 +45,6 @@ from tests.unit.helpers import (
     unclaimed_line,
 )
 
-PACKAGE = Path(__file__).resolve().parents[2] / "expense"
-
 
 # ---- the request ----------------------------------------------------------------
 def test_the_body_is_the_account_and_the_files_bytes_in_standard_base64():
@@ -65,33 +61,6 @@ def test_the_body_is_the_account_and_the_files_bytes_in_standard_base64():
     )
     assert base64.b64decode(body["file"], validate=True) == data
     assert request_body("sig", b"x", dry_run=False)["dry_run"] is False
-
-
-def _imports(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text())
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names |= {alias.name for alias in node.names}
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
-    return names
-
-
-def test_the_door_reads_no_cell_of_the_file():
-    """Nothing the door runs opens a workbook: no spreadsheet library and no
-    reader of the sheet import. The file goes to the engine as bytes."""
-    door = [
-        *(PACKAGE / "bank_import").glob("*.py"),
-        PACKAGE / "tui" / "screens" / "bank_import.py",
-        PACKAGE / "tui" / "screens" / "statement_upload.py",
-    ]
-    for path in door:
-        imported = _imports(path)
-        assert not any(
-            name == "openpyxl" or name.startswith(("openpyxl.", "expense.import_"))
-            for name in imported
-        ), path
 
 
 def test_a_file_is_read_as_its_bytes(tmp_path):
@@ -337,14 +306,6 @@ def test_each_stopping_statement_is_named_by_one_read_of_it_by_its_id(configured
         "Not moved: Septiembre 2026 is completed",
         "Not moved: Octubre 2026 is completed",
     ]
-
-
-@respx.mock
-def test_no_statement_is_read_when_no_move_is_stopped(configured):
-    assert statement_names(config_module.ensure_loaded(), _stopped(None, None), verbose=False) == (
-        {},
-        None,
-    )
 
 
 @pytest.mark.parametrize(

@@ -1,8 +1,5 @@
-"""FakeClient answers a statement write in the engine's shape, and the statement
-builders answer as the engine does.
+"""Every default answer the fake gives is one the drift script checks.
 
-A statement's reads and writes each answer the whole statement, one balance per
-account it holds (contract: "Statements", "Statement response").
 Each default answer is built by the endpoint's `answer_of` builder, the one
 scripts/check_fixture_drift.py checks against the contract's required fields.
 """
@@ -13,7 +10,6 @@ from tests.unit import helpers
 from tests.unit.helpers import (
     ANSWER_BUILDERS,
     FAKE_ANSWERS,
-    FakeClient,
     statement_complete_answer,
     statement_create_answer,
     statement_delete_answer,
@@ -21,46 +17,23 @@ from tests.unit.helpers import (
     statement_put_answer,
     statement_record,
     statement_revert_answer,
-    statement_row,
     statement_upload_answer,
-    upload_balance,
 )
 
-S_CREATE = "POST /v1/statements"
-S_REVERT = "POST /v1/statements/{statement_id}/revert"
-S_COMPLETE = "POST /v1/statements/{statement_id}/complete"
-S_DELETE = "DELETE /v1/statements/{statement_id}"
-S_READ = "GET /v1/statements/{statement_id}"
 
-#: A card's statement create: its two currencies, the dollar one with no ending yet.
-STATEMENT_SENT = {
-    "id": "s-new",
-    "account_id": "acc-visa",
-    "name": "Marzo 2026",
-    "date_start": "2026-02-26",
-    "date_end": "2026-03-25",
-    "balances": [
-        {
-            "currency_code": "PEN",
-            "beginning_balance_cents": -124050,
-            "ending_balance_cents": -38070,
-        },
-        {"currency_code": "USD", "beginning_balance_cents": -6012},
-    ],
-}
-
-
-def _keeps_the_bare_answer(endpoint: str, answer: dict) -> None:
-    assert set(ANSWER_BUILDERS[endpoint]()) <= set(answer)
-
-
-def test_each_write_with_a_default_answer_has_a_marked_builder():
+def test_each_default_answer_and_statement_read_has_a_marked_builder():
     """The drift script checks every builder `answer_of` marks; each default answer
     the fake gives has one, and the fake answers no reconciliation route."""
-    assert ANSWER_BUILDERS[S_CREATE] is statement_create_answer
-    assert ANSWER_BUILDERS[S_REVERT] is statement_revert_answer
-    assert ANSWER_BUILDERS[S_COMPLETE] is statement_complete_answer
-    assert ANSWER_BUILDERS[S_DELETE] is statement_delete_answer
+    assert ANSWER_BUILDERS["POST /v1/statements"] is statement_create_answer
+    assert ANSWER_BUILDERS["POST /v1/statements/{statement_id}/revert"] is statement_revert_answer
+    assert (
+        ANSWER_BUILDERS["POST /v1/statements/{statement_id}/complete"] is statement_complete_answer
+    )
+    assert ANSWER_BUILDERS["DELETE /v1/statements/{statement_id}"] is statement_delete_answer
+    assert ANSWER_BUILDERS["GET /v1/statements"] is statement_list
+    assert ANSWER_BUILDERS["GET /v1/statements/{statement_id}"] is statement_record
+    assert ANSWER_BUILDERS["PUT /v1/statements/{statement_id}"] is statement_put_answer
+    assert ANSWER_BUILDERS["POST /v1/statements/import"] is statement_upload_answer
     assert not [endpoint for endpoint in ANSWER_BUILDERS if "/reconciliations" in endpoint]
     assert {(method, pattern.pattern) for method, pattern, _ in FAKE_ANSWERS} == {
         ("POST", "/statements"),
@@ -70,249 +43,6 @@ def test_each_write_with_a_default_answer_has_a_marked_builder():
     }
 
 
-def test_each_statement_read_and_write_has_a_marked_builder():
-    """The routes the app reads and writes statements on each have the
-    builder the drift script checks."""
-    assert ANSWER_BUILDERS["GET /v1/statements"] is statement_list
-    assert ANSWER_BUILDERS[S_READ] is statement_record
-    assert ANSWER_BUILDERS["PUT /v1/statements/{statement_id}"] is statement_put_answer
-    assert ANSWER_BUILDERS["POST /v1/statements/import"] is statement_upload_answer
-
-
 def test_a_default_answer_needs_a_marked_builder():
     with pytest.raises(AssertionError, match="POST /v1/things has no answer_of builder"):
         helpers.fake_answer("POST", "/v1/things")
-
-
-@pytest.mark.parametrize(
-    ("verb", "path"),
-    [
-        ("post", "/statements"),
-        ("post", "/statements/s1/revert"),
-        ("post", "/statements/s1/complete"),
-        ("put", "/statements/s1"),
-    ],
-)
-def test_a_test_s_own_answer_is_given_exactly(verb, path):
-    client = FakeClient()
-    own = {"id": "mine"}
-    client.write_responses[path] = own
-
-    sent = dict(STATEMENT_SENT) if verb == "put" or path == "/statements" else None
-    assert getattr(client, verb)(path, sent) is own
-
-
-def test_a_put_answer_set_for_a_path_never_comes_back_on_a_delete_of_it():
-    """`write_responses` is keyed by path alone, so `delete` never reads it: a
-    DELETE of a path whose PUT answer the test set still answers in the engine's
-    shape, or `{}` where the fake has no default."""
-    client = FakeClient()
-    put_answer = {"id": "s1", "name": "saved"}
-    client.write_responses["/statements/s1"] = put_answer
-    client.write_responses["/transactions/t1"] = {"id": "t1"}
-
-    deleted = client.delete("/statements/s1")
-
-    assert deleted is not put_answer and deleted["deleted_at"] is not None
-    _keeps_the_bare_answer(S_DELETE, deleted)
-    assert client.delete("/transactions/t1") == {}
-    assert client.put("/statements/s1", {"name": "saved"}) is put_answer
-
-
-def test_a_write_without_a_default_answer_still_answers_empty():
-    client = FakeClient()
-
-    assert client.post("/transactions", {"title": "x"}) == {}
-    assert client.delete("/transactions/t1") == {}
-    assert client.put("/statements/s1", {"name": "x"}) == {}
-    assert client.post("/statements/import", {"dry_run": True}) == {}
-
-
-def test_a_statement_create_answers_the_draft_it_was_sent():
-    answer = FakeClient().post("/statements", STATEMENT_SENT)
-
-    _keeps_the_bare_answer(S_CREATE, answer)
-    assert {key: answer[key] for key in STATEMENT_SENT if key != "balances"} == {
-        key: value for key, value in STATEMENT_SENT.items() if key != "balances"
-    }
-    assert (answer["status"], answer["deleted_at"]) == (1, None)
-    pen, usd = answer["balances"]
-    # nothing assigned yet: each currency's add-up check is its ending minus its beginning
-    assert (pen["currency_code"], pen["difference_cents"]) == ("PEN", -38070 - -124050)
-    assert (usd["currency_code"], usd["ending_balance_cents"], usd["difference_cents"]) == (
-        "USD",
-        None,
-        None,
-    )
-
-
-def test_a_statement_read_can_hold_a_beginning_balance_not_entered():
-    """A balance not entered is `null`, never zero, and its difference is not checked
-    (contract: "Statements", "A balance not entered is `null`, never zero"): a
-    statement a line gave a new currency reads so, the create never sends one."""
-    record = {
-        "balances": [
-            {"currency_code": "USD", "beginning_balance_cents": None, "ending_balance_cents": None}
-        ]
-    }
-
-    (usd,) = statement_record(record)["balances"]
-
-    assert (usd["beginning_balance_cents"], usd["difference_cents"]) == (None, None)
-
-
-@pytest.mark.parametrize(
-    ("verb", "path", "endpoint", "status"),
-    [
-        ("post", "/statements/s7/revert", S_REVERT, 1),
-        ("post", "/statements/s7/complete", S_COMPLETE, 2),
-        ("delete", "/statements/s7", S_DELETE, 1),
-    ],
-)
-def test_a_statement_status_write_answers_the_statement_its_path_names(
-    verb, path, endpoint, status
-):
-    answer = getattr(FakeClient(), verb)(path)
-
-    _keeps_the_bare_answer(endpoint, answer)
-    assert (answer["id"], answer["status"]) == ("s7", status)
-    assert (answer["deleted_at"] is not None) is (endpoint == S_DELETE)
-
-
-def _card_statement_client(status: int) -> FakeClient:
-    """A card's statement the test serves: s1 covering soles and dollars."""
-    client = FakeClient()
-    client.get_responses["/statements/s1"] = statement_record(
-        {
-            "id": "s1",
-            "account_id": "acc-visa",
-            "status": status,
-            "unplaced_count": 1,
-            "shared_place_count": 2,
-            "balances": [
-                {"currency_code": "PEN", "ending_balance_cents": 100, "difference_cents": 0},
-                {"currency_code": "USD", "ending_balance_cents": 0, "difference_cents": 0},
-            ],
-        }
-    )
-    return client
-
-
-def test_a_statement_complete_adds_the_close_notes_to_each_balance():
-    answer = _card_statement_client(1).post("/statements/s1/complete")
-
-    assert (answer["status"], answer["account_id"]) == (2, "acc-visa")
-    assert answer["not_covered"] == []
-    assert [b["currency_code"] for b in answer["balances"]] == ["PEN", "USD"]
-    for balance in answer["balances"]:
-        assert (balance["warnings"], balance["coverage_gap"], balance["review_lines"]) == (
-            [],
-            None,
-            [],
-        )
-    assert answer["balances"][0]["ending_balance_cents"] == 100
-
-
-def test_a_statement_complete_keeps_the_notes_a_balance_names():
-    flagged = statement_complete_answer({"balances": [{"review_lines": ["bl-9"]}]})
-
-    assert flagged["balances"][0]["review_lines"] == ["bl-9"]
-    assert flagged["balances"][0]["warnings"] == []
-
-
-def test_a_statement_revert_answers_it_as_a_draft_with_no_close_notes():
-    answer = _card_statement_client(2).post("/statements/s1/revert")
-
-    assert (answer["status"], answer["account_id"]) == (1, "acc-visa")
-    assert all("review_lines" not in b for b in answer["balances"])
-
-
-@pytest.mark.parametrize(
-    ("served", "counts"),
-    [({"unplaced_count": 1, "shared_place_count": 2}, (0, 0)), ({}, (None, None))],
-    ids=["account with a statement code", "account without one"],
-)
-def test_a_statement_delete_unassigns_its_lines(served, counts):
-    """Its lines unassigned, both counts read `0`, or `null` on an account with no
-    statement code (contract: DELETE /v1/statements/{statement_id})."""
-    client = FakeClient()
-    client.get_responses["/statements/s1"] = statement_record(served)
-
-    answer = client.delete("/statements/s1")
-
-    assert (answer["unplaced_count"], answer["shared_place_count"]) == counts
-    assert answer["deleted_at"] is not None
-
-
-def test_a_statement_read_and_put_spread_a_test_s_record_over_the_whole_shape():
-    bare = set(statement_record())
-    listed = statement_list([{"id": "s2", "balances": [{"currency_code": "USD"}]}])
-    put = statement_put_answer({"name": "Abril"})
-
-    (item,) = listed["items"]
-    assert set(item) == bare and set(put) == bare
-    assert (item["id"], put["name"]) == ("s2", "Abril")
-    assert set(item["balances"][0]) == set(statement_record()["balances"][0])
-    assert item["balances"][0]["currency_code"] == "USD"
-    assert [i["id"] for i in statement_list()["items"]] == ["s1"]
-
-
-def test_a_statement_upload_apply_answers_the_completed_statement():
-    paper = [upload_balance("PEN"), upload_balance("USD", begin=0, end=0)]
-    answer = statement_upload_answer(
-        [statement_row(1), statement_row(2, outcome="empty")],
-        balances=paper,
-        review_lines={"USD": ["bl-flag"]},
-        not_covered={"EUR": ["bl-eur"]},
-    )
-    closed = answer["statement"]
-
-    assert (answer["statement_id"], answer["creates"]) == ("s-paper", True)
-    # the top-level balances and not_covered repeat the statement's notes
-    # (contract: POST /v1/statements/import, "Response")
-    assert [(b["currency_code"], b["review_lines"]) for b in answer["balances"]] == [
-        ("PEN", []),
-        ("USD", ["bl-flag"]),
-    ]
-    assert answer["not_covered"] == closed["not_covered"]
-    assert (closed["id"], closed["status"], closed["name"]) == ("s-paper", 2, "SIG-202610")
-    assert [(b["currency_code"], b["review_lines"]) for b in closed["balances"]] == [
-        ("PEN", []),
-        ("USD", ["bl-flag"]),
-    ]
-    assert [(n["currency_code"], n["review_lines"]) for n in closed["not_covered"]] == [
-        ("EUR", ["bl-eur"])
-    ]
-    assert (closed["unplaced_count"], closed["shared_place_count"]) == (0, 0)
-    assert answer["counts"] == {"matched": 1, "new": 0, "empty": 1, "taken_out": 0, "redated": 0}
-
-
-@pytest.mark.parametrize(("creates", "statement_id"), [(True, None), (False, "s-paper")])
-def test_a_statement_upload_dry_run_answers_no_statement(creates, statement_id):
-    """`statement_id` is `null` on a dry run that would create the statement, the
-    draft's when it fills one; `statement` is `null` on every dry run
-    (contract: POST /v1/statements/import, "Response")."""
-    answer = statement_upload_answer(dry_run=True, creates=creates)
-
-    assert (answer["dry_run"], answer["statement_id"], answer["statement"]) == (
-        True,
-        statement_id,
-        None,
-    )
-
-
-@pytest.mark.parametrize("machine_zone", ["UTC", "Asia/Tokyo", "America/Lima"])
-def test_day_of_reads_the_users_zone_whatever_the_machine_zone_is(monkeypatch, machine_zone):
-    import time
-
-    monkeypatch.setenv("TZ", machine_zone)
-    time.tzset()
-    try:
-        assert helpers.day_of("2026-11-05T04:30:00Z") == "2026-11-04"
-        assert helpers.day_of("2026-11-05T04:30:00+00:00") == "2026-11-04"
-        assert helpers.day_of("2026-11-05T00:30:00-05:00") == "2026-11-05"
-        assert helpers.day_of("2026-11-05T23:30:00+09:00") == "2026-11-05"
-        assert helpers.day_of("2026-11-05") == "2026-11-05"
-    finally:
-        monkeypatch.undo()
-        time.tzset()

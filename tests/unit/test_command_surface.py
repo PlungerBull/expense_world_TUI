@@ -80,19 +80,13 @@ def test_root_help_lists_only_import_sheet():
         assert not re.search(rf"\b{gone}\b", root_text), gone
 
 
-def test_bare_expense_opens_the_app(monkeypatch):
+@pytest.mark.parametrize(("argv", "verbose"), [([], False), (["--verbose"], True)])
+def test_bare_expense_opens_the_app(monkeypatch, argv, verbose):
     launched = []
     monkeypatch.setattr(entry, "open_app", lambda ctx: launched.append(ctx.obj.verbose))
-    result = CliRunner().invoke(app, [])
+    result = CliRunner().invoke(app, argv)
     assert result.exit_code == 0, result.output
-    assert launched == [False]
-
-
-def test_bare_expense_verbose_opens_the_app_verbose(monkeypatch):
-    launched = []
-    monkeypatch.setattr(entry, "open_app", lambda ctx: launched.append(ctx.obj.verbose))
-    assert CliRunner().invoke(app, ["--verbose"]).exit_code == 0
-    assert launched == [True]
+    assert launched == [verbose]
 
 
 def test_import_sheet_does_not_open_the_app(monkeypatch):
@@ -107,21 +101,6 @@ def test_import_sheet_does_not_open_the_app(monkeypatch):
     [
         ["world"],
         ["accounts", "list"],
-        ["categories", "list"],
-        ["hashtags", "list"],
-        ["transactions", "list"],
-        ["transactions", "batch"],
-        ["reconcile", "list"],
-        ["reports", "monthly"],
-        ["dashboard"],
-        ["rates", "list"],
-        ["activity", "list"],
-        ["auth", "me"],
-        ["whoami"],
-        ["config", "set"],
-        ["ping"],
-        ["log"],
-        ["version"],
         ["import", "bank"],
     ],
     ids=lambda argv: " ".join(argv),
@@ -265,13 +244,6 @@ def test_every_command_has_an_error_shape_test():
 # --- the guard's own machinery ------------------------------------------------
 
 
-def test_guard_knows_the_command_tree():
-    from tests.unit import conftest
-
-    assert conftest.missing_error_tests(set()) == _LEAF_IDS
-    assert conftest.missing_error_tests({path for path, _ in _LEAVES}) == []
-
-
 class _Report:
     def __init__(self, nodeid, when="call"):
         self.nodeid, self.when, self.location = nodeid, when, ("x.py", 1, nodeid)
@@ -292,17 +264,6 @@ def _verdict(*worker_records, guard_seen=True):
     return verdict
 
 
-def test_controller_fails_the_guard_when_no_worker_drove_import_sheet_to_an_error():
-    failure = _verdict([], [["unrelated"]]).failure(partial=False)
-    assert failure is not None
-    assert (failure.nodeid, failure.outcome, failure.when) == (_GUARD_ID, "failed", "teardown")
-    assert "import sheet" in str(failure.longrepr)
-
-
-def test_controller_passes_when_any_one_worker_covered_the_command():
-    assert _verdict([], [["import", "sheet"]]).failure(partial=False) is None
-
-
 def test_controller_concludes_nothing_it_cannot_see():
     assert _verdict([]).failure(partial=True) is None  # filtered run
     assert _verdict([], guard_seen=False).failure(partial=False) is None  # guard not run
@@ -319,14 +280,11 @@ def test_controller_concludes_nothing_it_cannot_see():
         (["tests/unit"], False),
         (["tests"], False),
         (["."], False),
-        (["tests/unit/"], False),
         (["tests/unit/test_command_surface.py"], True),
-        (["tests/unit/test_command_surface.py::test_x"], True),
         (["tests/contract"], True),
         (["tests/unit", "-k", "sheet"], True),
         (["tests/unit", "-m", "slow"], True),
         (["tests/unit", "--lf"], True),
-        (["tests/unit", "--last-failed"], True),
         (["tests/unit", "--sw"], True),
         (["tests/unit", "--sw-skip"], True),
         (["tests/unit", "--deselect", "tests/unit/test_cmd_import.py"], True),

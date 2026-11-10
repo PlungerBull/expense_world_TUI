@@ -18,7 +18,6 @@ from typer.testing import CliRunner
 from expense import config as config_module
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
-    IMPORT_ROW_AMOUNT_WORDS,
     account_with_currencies,
     error_body,
     real_cli_app,
@@ -323,7 +322,7 @@ def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(
     answer = sheet_import_answer(
         accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("@Opening", 2)],
-        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+        hashtags=[sheet_name_use("Casa", 2)],
     )
     _engine(answer)
     creates = _creates()
@@ -344,6 +343,7 @@ def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(
     assert result.stderr == (
         "Error: VALIDATION_ERROR — Invalid input.\n  name: This name is reserved.\n"
     )
+    assert creates["hashtags"].call_count == 0  # the run stops at the refusal
 
 
 # ---- the dry run once every name exists ----------------------------------
@@ -405,33 +405,6 @@ def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
 
 
 @respx.mock
-def test_rows_on_a_closed_statements_day_are_listed_under_the_zero_rows(sheet):
-    counts = {**COUNTS, "new": 1952, "sealed": 2}
-    rows = _counted_rows(sealed=(40, 41))
-    _engine(_answer(yours=True), _answer(yours=True, rows=rows, counts=counts))
-    result = _run()
-    assert result.exit_code == 0, _out(result)
-    assert (
-        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
-        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
-        "Sealed, on a closed statement's day: rows 40, 41\n\n"
-        "Dry run — nothing written. Run again with --apply to import.\n"
-    ) in result.stdout
-
-
-@respx.mock
-def test_a_dry_run_with_no_zero_or_closed_rows_lists_none(sheet):
-    rows = [sheet_row(2, outcome="new", account_id="acc-ib")]
-    _engine(_answer(yours=True), _answer(yours=True, rows=rows))
-    result = _run()
-    assert result.stdout.endswith(
-        "Rows: 1 · new 1 · matched 0 · sealed 0 · skipped 0\n"
-        "Opening balances 0 · split transactions 0 (0 rows)\n\n"
-        "Dry run — nothing written. Run again with --apply to import.\n"
-    )
-
-
-@respx.mock
 def test_a_table_the_engine_refuses_prints_as_every_engine_error(sheet):
     """An archived account the engine proposed is refused in the table."""
     refusal = error_body(
@@ -447,26 +420,6 @@ def test_a_table_the_engine_refuses_prints_as_every_engine_error(sheet):
     assert result.stderr == (
         "Error: VALIDATION_ERROR — Import validation failed.\n"
         "  names.accounts.0.account_id: Must reference an active, non-archived account.\n"
-    )
-
-
-@respx.mock
-def test_a_currency_the_account_does_not_hold_prints_in_the_engines_words(sheet):
-    """`CURRENCY_NOT_HELD` on the table entry (contract: POST /v1/transactions/import-sheet,
-    "Names"): the account a name goes to lacks a currency its rows are in."""
-    refusal = error_body(
-        "VALIDATION_ERROR",
-        "Import validation failed.",
-        {"names.accounts.0.account_id": "The account holds no USD."},
-        {"names.accounts.0.account_id": "CURRENCY_NOT_HELD"},
-    )
-    _engine(_answer(yours=True), httpx.Response(422, json=refusal))
-    result = _run()
-    assert result.exit_code == 1
-    assert result.stdout == ""
-    assert result.stderr == (
-        "Error: VALIDATION_ERROR — Import validation failed.\n"
-        "  names.accounts.0.account_id: The account holds no USD.\n"
     )
 
 
@@ -598,26 +551,6 @@ Fix the sheet and run it again.
 """
 
 
-@respx.mock
-def test_a_row_past_the_largest_amount_is_listed_in_the_engines_words(sheet):
-    """A row past the largest amount is a row refusal like any other: `OUT_OF_RANGE` on its
-    key, the message beginning `Row <row>:` (contract: POST /v1/transactions/import-sheet,
-    "Rejected up front with `422`"). The text after it is a stand-in."""
-    words = IMPORT_ROW_AMOUNT_WORDS.format(row=31)
-    refusal = error_body(
-        "VALIDATION_ERROR",
-        "Import validation failed.",
-        {"rows.31.amount_cents": words},
-        {"rows.31.amount_cents": "OUT_OF_RANGE"},
-    )
-    _engine(httpx.Response(422, json=refusal))
-    result = _run()
-    assert result.exit_code == 1
-    assert result.stdout == (
-        f"Refused — nothing written. 1 row:\n  {words}\n\nFix the sheet and run it again.\n"
-    )
-
-
 @pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
 @respx.mock
 def test_a_bad_row_stops_every_step_and_lists_each_refusal_by_row(sheet, step):
@@ -743,30 +676,29 @@ def test_the_engine_out_of_reach_exits_6(sheet):
 
 
 # ---- --json ------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("args", "first", "then"),
+    [
+        ((), _answer(yours=False), None),
+        (
+            (),
+            _answer(yours=True),
+            _answer(yours=True, rows=_counted_rows(), counts=COUNTS),
+        ),
+        (
+            ("--apply",),
+            _answer(yours=True),
+            _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS),
+        ),
+    ],
+    ids=["names missing", "counted", "apply"],
+)
 @respx.mock
-def test_json_prints_the_engines_answer_on_the_dry_run(sheet):
-    first = _answer(yours=False)
-    _engine(first)
-    result = _run("--json")
+def test_json_prints_the_engines_answer(sheet, args, first, then):
+    _engine(first, then)
+    result = _run(*args, "--json")
     assert result.exit_code == 0, _out(result)
-    assert json.loads(result.stdout) == first
-
-
-@respx.mock
-def test_json_prints_the_counted_answer_once_every_name_exists(sheet):
-    counted = _answer(yours=True, rows=_counted_rows(), counts=COUNTS)
-    _engine(_answer(yours=True), counted)
-    result = _run("--json")
-    assert json.loads(result.stdout) == counted
-
-
-@respx.mock
-def test_json_prints_the_apply_answer(sheet):
-    applied = _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS)
-    _engine(_answer(yours=True), applied)
-    result = _run("--apply", "--json")
-    assert result.exit_code == 0, _out(result)
-    assert json.loads(result.stdout) == applied
+    assert json.loads(result.stdout) == (then or first)
 
 
 @respx.mock

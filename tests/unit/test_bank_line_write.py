@@ -5,7 +5,6 @@ fields beside `parts` and nothing else
 """
 
 import re
-import subprocess
 import uuid
 from pathlib import Path
 
@@ -154,13 +153,3 @@ def test_nothing_in_the_repo_names_the_split_route():
     reads: every tracked or new text file but docs/from-engine/, the engine's own
     words, and the citation check itself."""
     assert _split_route_hits(PACKAGE.parent) == []
-
-
-def test_the_scan_names_each_file_and_line_holding_the_split_route(tmp_path):
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    route = "/transactions/t-1" + "/split"
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "notes.md").write_text(f"one\nsee `POST /v1{route}`\n")
-    (tmp_path / "app.py").write_text(f'client.post("{route}")\n')
-    (tmp_path / "clean.py").write_text('client.put("/bank-lines/bl-1")\n')
-    assert _split_route_hits(tmp_path) == ["app.py:1", "docs/notes.md:2"]

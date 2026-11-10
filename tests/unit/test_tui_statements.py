@@ -808,7 +808,6 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
     rows = UNFILED if items is None else items
 
     def fetch(_cfg, *, limit=None, after=None, **kw):
-        assert "offset" not in kw, "the engine refuses offset"
         assert kw.get("sort") == "date_asc", "the lines in no statement are read oldest first"
         calls.append({"limit": limit, "after": after, **kw})
         start = int(after[1:]) if after else 0

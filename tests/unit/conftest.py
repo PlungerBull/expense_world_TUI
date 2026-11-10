@@ -202,9 +202,7 @@ def _no_retry_backoff(monkeypatch):
     for real, and a test that forgot to opt out of the waits would be the
     slowest in the suite for no reason.
 
-    The replacement keeps the table's *length*, so
-    `test_every_retry_has_a_backoff_to_index` still measures the real retry
-    count rather than a stub's shape.
+    The replacement keeps the table's *length*, so the retry count stays the real one.
     """
     monkeypatch.setattr(
         "expense.http._RETRY_BACKOFF_SECONDS",

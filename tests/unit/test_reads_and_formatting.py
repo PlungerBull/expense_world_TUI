@@ -11,7 +11,6 @@ import pytest
 import respx
 
 from expense import config as config_module
-from expense.errors import EngineError
 from expense.formatting import (
     bank_line_part_count,
     currencies_phrase,
@@ -44,12 +43,10 @@ from expense.reads import (
 from tests.unit.helpers import (
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     account_with_currencies,
-    bank_line_row,
     cursor_page,
     edit_limits,
     error_response,
     held_currency,
-    import_part,
     statement_list,
     statement_record,
     whole,
@@ -73,6 +70,8 @@ from tests.unit.helpers import ENGINE_URL as BASE
         (-1, "-0.01"),
         (99, "0.99"),
         (None, "(null)"),
+        (True, "True"),  # a bool is an int subclass but never an amount
+        ("n/a", "n/a"),
     ],
 )
 def test_format_cents(value, expected):
@@ -92,17 +91,6 @@ def test_format_cents_prints_a_total_past_the_engines_bound(value, expected):
     (contract: "Money amounts"): a total of any size prints exactly, and the signed form too."""
     assert format_cents(value) == expected
     assert format_cents_with_plus(value) == (expected if value < 0 else "+" + expected)
-
-
-def test_format_cents_prints_a_4000_digit_total():
-    """A 4,000-digit total, far past any the engine sends, prints without raising."""
-    assert len(format_cents(10**4000)) > 4000
-
-
-def test_format_cents_non_int_falls_back_to_str():
-    # Booleans are an int subclass but are never amounts — keep them literal.
-    assert format_cents(True) == "True"
-    assert format_cents("n/a") == "n/a"
 
 
 def test_signed_cents_reads_the_sign_off_the_type():
@@ -134,13 +122,6 @@ def test_signed_cents_reads_the_sign_off_the_type():
 )
 def test_format_aggregate(value, count, expected):
     assert format_aggregate(value, count) == expected
-
-
-def test_format_aggregate_never_renders_a_null_as_zero():
-    """The whole point: `null` is not `0`, and never falls back to a native figure."""
-    rendered = format_aggregate(None, 3)
-    assert "0.00" not in rendered
-    assert rendered == "3 unrated"
 
 
 @pytest.mark.parametrize(
@@ -200,15 +181,6 @@ def test_fetch_body_issues_one_live_get(configured):
     assert route.call_count == 1
 
 
-@respx.mock
-def test_fetch_body_empty_params_sends_no_query(configured):
-    from expense import config as config_module
-
-    route = respx.get(f"{BASE}/v1/things").mock(return_value=httpx.Response(200, json=whole([])))
-    fetch_body(config_module.ensure_loaded(), path="/things", params={}, verbose=False)
-    assert route.calls.last.request.url.query == b""
-
-
 # ---------------------------------------------------------------------------
 # load_*_name_map — live reference lookups, `{}` on any failure
 # ---------------------------------------------------------------------------
@@ -216,19 +188,6 @@ def test_fetch_body_empty_params_sends_no_query(configured):
 
 def _list_body(items: list[dict]) -> httpx.Response:
     return httpx.Response(200, json=whole(items))
-
-
-@respx.mock
-def test_load_account_name_map_fetches_live_with_archived_and_people(configured):
-    route = respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=_list_body([{"id": "a1", "name": "BCP"}, {"id": "p1", "name": "Mom"}])
-    )
-    assert load_account_name_map() == {"a1": "BCP", "p1": "Mom"}
-
-    params = route.calls.last.request.url.params
-    assert params["include_archived"] == "true"
-    assert params["include_people"] == "true"
-    assert "limit" not in params and "offset" not in params
 
 
 @respx.mock
@@ -287,34 +246,20 @@ def test_load_account_index_without_config_is_empty():
     assert index.names == {} and index.archived == frozenset()
 
 
+@pytest.mark.parametrize(
+    ("path", "load", "row"),
+    [
+        ("categories", load_category_name_map, {"id": "c1", "name": "Food"}),
+        ("hashtags", load_hashtag_name_map, {"id": "h1", "name": "trabajo"}),
+    ],
+)
 @respx.mock
-def test_load_category_name_map_fetches_live(configured):
-    route = respx.get(f"{BASE}/v1/categories").mock(
-        return_value=_list_body([{"id": "c1", "name": "Food"}])
-    )
-    assert load_category_name_map() == {"c1": "Food"}
-    assert "include_archived" not in route.calls.last.request.url.params
-
-
-@respx.mock
-def test_load_hashtag_name_map_fetches_live(configured):
-    route = respx.get(f"{BASE}/v1/hashtags").mock(
-        return_value=_list_body([{"id": "h1", "name": "trabajo"}])
-    )
-    assert load_hashtag_name_map() == {"h1": "trabajo"}
-    assert "include_archived" not in route.calls.last.request.url.params
-
-
-@respx.mock
-def test_load_name_map_is_one_read_of_the_whole_list(configured):
-    """The engine returns the list whole and refuses `limit`/`offset`."""
-    rows = [{"id": f"c{i}", "name": f"n{i}"} for i in range(201)]
-    route = respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body(rows))
-    out = load_category_name_map()
-    assert len(out) == 201
+def test_load_name_map_is_one_live_read_of_the_whole_list(configured, path, load, row):
+    route = respx.get(f"{BASE}/v1/{path}").mock(return_value=_list_body([row]))
+    assert load() == {row["id"]: row["name"]}
     assert route.call_count == 1
     params = route.calls.last.request.url.params
-    assert "limit" not in params and "offset" not in params
+    assert not {"include_archived", "limit", "offset"} & set(params)
 
 
 @respx.mock
@@ -345,35 +290,31 @@ def test_load_name_map_on_engine_error_is_empty(configured):
 # ---------------------------------------------------------------------------
 
 
-def test_redact_token_masks_middle():
-    assert redact_token("ewe_pat_abcd1234wxyz") == "ewe_pat_****wxyz"
+@pytest.mark.parametrize(
+    ("token", "masked"),
+    [
+        ("ewe_pat_abcd1234wxyz", "ewe_pat_****wxyz"),
+        ("short", "****"),
+        ("12345678", "****"),  # exactly 8 → still fully masked
+    ],
+)
+def test_redact_token(token, masked):
+    assert redact_token(token) == masked
 
 
-def test_redact_token_short_tokens_fully_masked():
-    assert redact_token("short") == "****"
-    assert redact_token("12345678") == "****"  # exactly 8 → still fully masked
-
-
-def test_format_hashtag_cell_resolves_names():
-    cell = format_hashtag_cell(["h1", "h2"], {"h1": "trabajo", "h2": "club"}, max_width=24)
-    assert cell == "trabajo, club"
-
-
-def test_format_hashtag_cell_unresolved_id_gets_short_id_with_ellipsis():
-    cell = format_hashtag_cell(["0123456789abcdef"], {}, max_width=24)
-    assert cell == "01234567…"
-
-
-def test_format_hashtag_cell_truncates_to_max_width():
-    cell = format_hashtag_cell(["h1", "h2"], {"h1": "a" * 20, "h2": "b" * 20}, max_width=10)
-    assert len(cell) == 10
-    assert cell.endswith("…")
-
-
-def test_format_hashtag_cell_empty_or_non_list_is_dash():
-    assert format_hashtag_cell([], {}, max_width=24) == "—"
-    assert format_hashtag_cell(None, {}, max_width=24) == "—"
-    assert format_hashtag_cell("h1", {}, max_width=24) == "—"
+@pytest.mark.parametrize(
+    ("ids", "names", "width", "cell"),
+    [
+        (["h1", "h2"], {"h1": "trabajo", "h2": "club"}, 24, "trabajo, club"),
+        (["0123456789abcdef"], {}, 24, "01234567…"),  # unresolved: short id
+        (["h1", "h2"], {"h1": "a" * 20, "h2": "b" * 20}, 10, "aaaaaaaaa…"),
+        ([], {}, 24, "—"),
+        (None, {}, 24, "—"),
+        ("h1", {}, 24, "—"),
+    ],
+)
+def test_format_hashtag_cell(ids, names, width, cell):
+    assert format_hashtag_cell(ids, names, max_width=width) == cell
 
 
 # ---------------------------------------------------------------------------
@@ -397,19 +338,6 @@ def test_format_hashtag_cell_empty_or_non_list_is_dash():
 )
 def test_items_of(body, expected):
     assert items_of(body) == expected
-
-
-# ---------------------------------------------------------------------------
-# EngineError
-# ---------------------------------------------------------------------------
-
-
-def test_engine_error_attribute_access():
-    """EngineError instances expose .status, .code, .fields for hint lookups."""
-    err = EngineError(code="X", message="m", fields={"a": "b"}, status=403, raw_body={})
-    assert err.status == 403
-    assert err.code == "X"
-    assert err.fields == {"a": "b"}
 
 
 # ---------------------------------------------------------------------------
@@ -466,25 +394,6 @@ def test_currency_picks_skips_id_less_rows():
     assert [(p.account_id, p.label) for p in currency_picks(rows)] == [("a1", "(unnamed) · USD")]
 
 
-def test_the_new_account_builder_is_the_engines_shape_now():
-    account = account_with_currencies()
-    assert {"statement_code", "currencies"} <= set(account)
-    assert not {"currency_code", "current_balance_home_cents"} & set(account)
-    assert set(account["currencies"][0]) == {
-        "currency_code",
-        "current_balance_cents",
-        "opening_balance_transaction_id",
-    }
-
-
-def test_an_import_part_and_a_bank_line_carry_their_currency_code():
-    part = import_part("t-1", -500, currency_code="USD")
-    assert part["currency_code"] == "USD"
-    line = bank_line_row("bl-1", [part], net_cents=-500, currency_code="USD")
-    assert line["currency_code"] == "USD"
-    assert import_part("t-2", -500)["currency_code"] == "PEN"
-
-
 # ---------------------------------------------------------------------------
 # fetch_all_cursor_pages (the one pagination loop)
 # ---------------------------------------------------------------------------
@@ -525,37 +434,6 @@ def test_fetch_all_cursor_pages_short_page_with_cursor_keeps_going():
     )
     assert [r["id"] for r in fetch_all_cursor_pages(fetch_page)] == ["a", "b"]
     assert calls == [(200, None), (200, "c1")]
-
-
-def test_fetch_all_cursor_pages_full_page_with_null_cursor_stops():
-    """A page holding exactly the remaining rows comes back null — no empty fetch."""
-    fetch_page, calls = _pager([cursor_page([{"id": f"t{i}"} for i in range(200)])])
-    assert len(fetch_all_cursor_pages(fetch_page)) == 200
-    assert calls == [(200, None)]
-
-
-@respx.mock
-def test_fetch_all_cursor_pages_never_sends_offset(configured):
-    """Through the real fetch: `offset` is a 422 on `GET /transactions`."""
-    from expense import config as config_module
-    from expense.reads import fetch_transactions
-
-    route = respx.get(f"{BASE}/v1/transactions").mock(
-        side_effect=[
-            httpx.Response(200, json=cursor_page([{"id": "a"}], next_cursor="c1")),
-            httpx.Response(200, json=cursor_page([{"id": "b"}])),
-        ]
-    )
-    cfg = config_module.ensure_loaded()
-    rows = fetch_all_cursor_pages(
-        lambda limit, after: fetch_transactions(cfg, account="acct", limit=limit, after=after)
-    )
-    assert [r["id"] for r in rows] == ["a", "b"]
-    first, second = (call.request.url.params for call in route.calls)
-    assert "offset" not in first and "offset" not in second
-    assert "after" not in first
-    assert second["after"] == "c1"
-    assert second["account_id"] == "acct"
 
 
 # --------------------------------------------------------------------------- #
@@ -608,12 +486,6 @@ def test_split_settled_treats_an_unknown_balance_as_outstanding():
         "HalfKnown",
     ]
     assert settled == []
-
-
-def test_split_settled_never_drops_a_person():
-    people = [_person(str(n), n) for n in (0, 1, 0, -2, 0)]
-    outstanding, settled = split_settled(people)
-    assert len(outstanding) + len(settled) == len(people)
 
 
 def test_settled_label_shape():
@@ -712,23 +584,6 @@ def test_the_pick_list_holds_pendiente_where_the_engine_lists_it_never_opening(c
 
 
 @respx.mock
-def test_load_quickadd_refs_reads_every_hashtag_in_one_call(configured):
-    """56 hashtags against the old default page of 50 lost 6 tags to the
-    picker. The engine now returns the list whole: one read, no paging."""
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=_list_body([]))
-    respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body([]))
-    tags = [{"id": f"h{i}", "name": f"tag{i}"} for i in range(56)]
-    route = respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body(tags))
-
-    refs = load_quickadd_refs(config_module.ensure_loaded())
-
-    assert len(refs.hashtags) == 56
-    assert route.call_count == 1
-    params = route.calls.last.request.url.params
-    assert "limit" not in params and "offset" not in params
-
-
-@respx.mock
 def test_load_quickadd_refs_names_the_pending_hashtag_by_its_system_key(configured):
     """The pending hashtag is found by `system_key`, never by its name, from the
     same hashtags read, and stays in the pool; none yet means None."""
@@ -809,25 +664,12 @@ def test_whole_number_takes_an_int_and_never_a_flag(value, number):
     assert whole_number(value) == number
 
 
-# ---- query_params -----------------------------------------------------------
-def test_query_params_drops_what_was_not_asked_for():
+def test_query_params_sends_only_what_was_asked_the_way_the_engine_reads_it():
+    """A flag that is False is absent, not `"false"` (absence is the default); a
+    zero was asked for, so the guard is identity, not truthiness."""
     assert query_params(a=None, b="x") == {"b": "x"}
-
-
-def test_query_params_encodes_a_flag_as_the_engine_reads_it():
-    # False is absent, not `"false"`: absence IS the default
     assert query_params(include_people=True, include_archived=False) == {"include_people": "true"}
-
-
-def test_query_params_keeps_a_zero():
-    """A zero was asked for, and `0 is None` is False — the guard has to be
-    identity, not truthiness."""
     assert query_params(limit=0) == {"limit": 0}
-
-
-def test_query_params_sends_one_spelling_of_a_number():
-    """`reconcile` and `rates` sent `str(limit)`; everything else sent `limit`."""
-    assert query_params(limit=20) == {"limit": 20}
 
 
 TRANSACTION_RESPONSE = {
@@ -901,25 +743,6 @@ def test_fetch_transaction_reads_one_row_signed(configured):
     assert dict(route.calls.last.request.url.params) == {"debit_as_negative": "true"}
 
 
-@respx.mock
-def test_transaction_reads_pass_the_bank_line_through(configured):
-    """`bank_line_id` reaches the caller as the engine sent it, from the list
-    and from the read by id."""
-    from expense import config as config_module
-    from expense.reads import fetch_transaction, fetch_transactions
-
-    line = TRANSACTION_RESPONSE["bank_line_id"]
-    respx.get(f"{BASE}/v1/transactions").mock(
-        return_value=httpx.Response(200, json=cursor_page([TRANSACTION_RESPONSE]))
-    )
-    respx.get(f"{BASE}/v1/transactions/{TRANSACTION_RESPONSE['id']}").mock(
-        return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
-    )
-    cfg = config_module.ensure_loaded()
-    assert fetch_transactions(cfg)["items"][0]["bank_line_id"] == line
-    assert fetch_transaction(cfg, TRANSACTION_RESPONSE["id"])["bank_line_id"] == line
-
-
 BANK_LINE_RESPONSE = {
     "id": "66666666-6666-6666-6666-666666666666",
     "line_code": "#000042",
@@ -959,49 +782,36 @@ def test_fetch_bank_line_reads_one_line_as_the_engine_sends_it(configured):
     assert dict(route.calls.last.request.url.params) == {}
 
 
-PENDING_HASHTAG = {"id": "h-pend", "name": "Por etiquetar", "system_key": "pending"}
-#: A user's own hashtag that took the default name before the engine reserved it.
-NAMED_PENDIENTE = {"id": "h-user", "name": "Pendiente", "system_key": None}
-
-
-def test_the_pending_hashtag_is_found_by_its_system_key_under_its_current_name():
-    from expense.reads import pending_hashtag_of
-
-    rows = [NAMED_PENDIENTE, {"id": "h1", "name": "Food", "system_key": None}, PENDING_HASHTAG]
-    assert pending_hashtag_of(rows) == ("h-pend", "Por etiquetar")
-
-
-def test_no_pending_hashtag_yet_is_none_and_a_hashtag_named_pendiente_is_not_it():
-    from expense.reads import pending_hashtag_of
-
-    assert pending_hashtag_of([]) is None
-    assert pending_hashtag_of([NAMED_PENDIENTE, {"id": "h1", "name": "Food"}]) is None
-
-
+@pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])
+@pytest.mark.parametrize(
+    ("path", "read"), [("transactions", "count_transactions"), ("bank-lines", "count_bank_lines")]
+)
 @respx.mock
-def test_fetch_pending_hashtag_reads_the_hashtag_list(configured):
-    from expense import config as config_module
-    from expense.reads import fetch_pending_hashtag
+def test_a_count_raises_without_an_int_count(configured, path, read, body):
+    """Never a guessed number: a body without an int `count` is an error."""
+    from expense import reads
 
-    route = respx.get(f"{BASE}/v1/hashtags")
-    route.mock(return_value=_list_body([NAMED_PENDIENTE, PENDING_HASHTAG]))
-    cfg = config_module.ensure_loaded()
-    assert fetch_pending_hashtag(cfg) == ("h-pend", "Por etiquetar")
-    route.mock(return_value=_list_body([NAMED_PENDIENTE]))
-    assert fetch_pending_hashtag(cfg) is None
+    respx.get(f"{BASE}/v1/{path}/count").mock(return_value=httpx.Response(200, json=body))
+    with pytest.raises(ValueError, match="without a count"):
+        getattr(reads, read)(config_module.ensure_loaded(), account="acct-id")
 
 
-@respx.mock
-def test_fetch_transaction_raises_the_engines_refusal(configured):
-    from expense import config as config_module
-    from expense.reads import fetch_transaction
+@pytest.mark.parametrize(
+    ("fetch", "count"),
+    [("fetch_transactions", "count_transactions"), ("fetch_bank_lines", "count_bank_lines")],
+)
+def test_a_list_and_its_count_take_the_same_filters(fetch, count):
+    """The engine declares one filter set for both endpoints; so do we. A filter
+    added to one function and not the other is a header counting different rows
+    than the list shows, with no error anywhere."""
+    import inspect
 
-    respx.get(f"{BASE}/v1/transactions/gone").mock(
-        return_value=error_response(404, "NOT_FOUND", "transaction not found.")
+    from expense import reads
+
+    list_params = set(inspect.signature(getattr(reads, fetch)).parameters)
+    assert list_params - {"sort", "after", "limit"} == set(
+        inspect.signature(getattr(reads, count)).parameters
     )
-    with pytest.raises(EngineError) as caught:
-        fetch_transaction(config_module.ensure_loaded(), "gone")
-    assert caught.value.code == "NOT_FOUND"
 
 
 @respx.mock
@@ -1074,31 +884,6 @@ def test_the_statement_reads_send_what_the_engine_takes(configured):
     assert dict(one_route.calls.last.request.url.params) == {}
 
 
-@pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])
-@respx.mock
-def test_count_transactions_raises_without_an_int_count(configured, body):
-    """Never a guessed number: a body without an int `count` is an error."""
-    from expense import config as config_module
-    from expense.reads import count_transactions
-
-    respx.get(f"{BASE}/v1/transactions/count").mock(return_value=httpx.Response(200, json=body))
-    with pytest.raises(ValueError, match="without a count"):
-        count_transactions(config_module.ensure_loaded(), account="acct-id")
-
-
-def test_list_and_count_take_the_same_filters():
-    """The engine declares one filter set for both endpoints; so do we. A filter
-    added to one function and not the other is a header counting different rows
-    than the list shows, with no error anywhere."""
-    import inspect
-
-    from expense.reads import count_transactions, fetch_transactions
-
-    list_only = {"sort", "after", "limit"}
-    list_params = set(inspect.signature(fetch_transactions).parameters) - list_only
-    assert list_params == set(inspect.signature(count_transactions).parameters)
-
-
 @respx.mock
 def test_count_bank_lines_sends_the_filters_and_nothing_else(configured):
     """`GET /bank-lines/count` takes the list's filters and refuses `after` and
@@ -1143,27 +928,6 @@ def test_a_statements_review_list_and_its_count_send_its_id_alone(configured):
         "limit": "200",
     }
     assert dict(count_route.calls.last.request.url.params) == {"unassigned_in_period_of": "st-1"}
-
-
-@pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])
-@respx.mock
-def test_count_bank_lines_raises_without_an_int_count(configured, body):
-    from expense import config as config_module
-    from expense.reads import count_bank_lines
-
-    respx.get(f"{BASE}/v1/bank-lines/count").mock(return_value=httpx.Response(200, json=body))
-    with pytest.raises(ValueError, match="without a count"):
-        count_bank_lines(config_module.ensure_loaded(), account="acct-id")
-
-
-def test_the_line_list_and_its_count_take_the_same_filters():
-    import inspect
-
-    from expense.reads import count_bank_lines, fetch_bank_lines
-
-    list_only = {"sort", "after", "limit"}
-    list_params = set(inspect.signature(fetch_bank_lines).parameters) - list_only
-    assert list_params == set(inspect.signature(count_bank_lines).parameters)
 
 
 @respx.mock

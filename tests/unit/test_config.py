@@ -77,35 +77,33 @@ def test_ensure_loaded_raises_if_missing(tmp_config):
     assert "setup screen" in str(exc.value)
 
 
-def test_ensure_loaded_returns_loaded_config(tmp_config):
-    cfg = config.Config(engine_url="https://example.com")
-    config.save(cfg)
-
-    loaded = config.ensure_loaded()
-    assert loaded.engine_url == "https://example.com"
-
-
-def test_legacy_client_id_config_still_loads(tmp_config):
-    """Older configs carry a client_id.
-    It is ignored on load, not a validation error, and does not survive a save."""
+@pytest.mark.parametrize("key", ["client_id", "bank_files", "future_field"])
+def test_a_key_the_app_does_not_know_loads_and_is_dropped_on_save(tmp_config, key):
+    """Older configs carry `client_id` or `bank_files`: neither is a validation
+    error, none is read, and the next save leaves it out."""
     tmp_config.write_text(
         json.dumps(
             {
                 "engine_url": "https://a.com",
                 "token": "ewe_pat_old",
-                "client_id": str(uuid4()),
+                key: {"Sueldo Soles": "BCP"} if key == "bank_files" else str(uuid4()),
             }
         )
     )
 
     loaded = config.load()
     assert loaded is not None
-    assert loaded.engine_url == "https://a.com"
-    assert loaded.token == "ewe_pat_old"
-    assert not hasattr(loaded, "client_id")
+    assert (loaded.engine_url, loaded.token) == ("https://a.com", "ewe_pat_old")
+    assert not hasattr(loaded, key)
 
     config.save(loaded)
-    assert "client_id" not in json.loads(tmp_config.read_text())
+    saved = json.loads(tmp_config.read_text())
+    assert key not in saved and saved["token"] == "ewe_pat_old"
+
+
+def test_the_hermetic_fixture_points_the_config_away_from_the_real_file():
+    """The autouse fixture in conftest.py: no test reads or writes `~/.expense-config`."""
+    assert config.config_path().name == "hermetic-config"
 
 
 def test_expense_config_env_var_honored(tmp_path, monkeypatch):
@@ -117,21 +115,6 @@ def test_expense_config_env_var_honored(tmp_path, monkeypatch):
 
     assert custom.exists()
     assert not (tmp_path / ".expense-config").exists()
-
-
-def test_extra_fields_ignored(tmp_config):
-    tmp_config.write_text(
-        json.dumps(
-            {
-                "engine_url": "https://x.com",
-                "future_field": "not-a-thing",
-            }
-        )
-    )
-    loaded = config.load()
-    assert loaded is not None
-    assert loaded.engine_url == "https://x.com"
-    assert not hasattr(loaded, "future_field")
 
 
 def test_corrupt_config_renders_clean_cli_error(tmp_config):
@@ -155,33 +138,6 @@ def test_corrupt_config_renders_clean_cli_error(tmp_config):
     assert result.exit_code == 3
     envelope = json.loads(result.output)
     assert envelope["error"]["code"] == "CONFIG_INVALID"
-
-
-def test_a_stale_bank_files_key_loads_and_is_dropped_on_save():
-    """A config written while the account was remembered per file name still
-    carries `bank_files`: it loads, and the next save leaves the key out.
-    Runs on the autouse hermetic EXPENSE_CONFIG path, never the real file."""
-    path = config.config_path()
-    assert "hermetic-config" in str(path)
-    path.write_text(
-        json.dumps(
-            {
-                "engine_url": "https://example.com",
-                "token": "ewe_pat_abc123",
-                "bank_files": {"Sueldo Soles": "BCP", "Sueldo Soles (1)": "BCP"},
-            }
-        )
-    )
-
-    cfg = config.load()
-    assert cfg is not None
-    assert cfg.token == "ewe_pat_abc123"
-    assert not hasattr(cfg, "bank_files")
-
-    config.save(cfg)
-    saved = json.loads(path.read_text())
-    assert "bank_files" not in saved
-    assert saved["token"] == "ewe_pat_abc123"
 
 
 def _settings(**over):

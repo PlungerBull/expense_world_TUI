@@ -86,25 +86,32 @@ def _home_text() -> str:
     )
 
 
-def test_home_shows_its_balances_as_today_in_the_default_format():
-    assert "5,145.82" in _home_text()
-
-
-def test_home_shows_its_balances_in_the_comma_format(comma_format):
+@pytest.mark.parametrize(
+    ("number_format", "balance", "other"),
+    [(DOT, "5,145.82", "5.145,82"), (COMMA, "5.145,82", "5,145.82")],
+)
+def test_home_shows_its_balances_in_the_session_format(number_format, balance, other):
+    set_current_format(number_format)
     out = _home_text()
-    assert "5.145,82" in out and "5,145.82" not in out
+    assert balance in out and other not in out
 
 
-def test_every_note_example_follows_the_format(comma_format):
-    assert example_line() == "e.g.  tottus -38,60 $signature @korakuen #caja hoy"
-    assert "e.g. 9580,00." in unreadable_note("begin", "PEN")
-    assert "e.g. 9460,00." in unreadable_note("end", "PEN")
-    assert "Amounts are 1.234,56." in unreadable_note("end", "PEN")
-
-
-def test_every_note_example_is_as_today_in_the_default_format():
-    assert example_line() == "e.g.  tottus -38.60 $signature @korakuen #caja hoy"
-    assert "e.g. 9580.00." in unreadable_note("begin", "PEN")
+@pytest.mark.parametrize(
+    ("number_format", "example", "begin", "end"),
+    [
+        (DOT, "-38.60", "9580.00", "9460.00"),
+        (COMMA, "-38,60", "9580,00", "9460,00"),
+    ],
+)
+def test_every_note_example_follows_the_format(number_format, example, begin, end):
+    set_current_format(number_format)
+    assert example_line() == f"e.g.  tottus {example} $signature @korakuen #caja hoy"
+    assert f"e.g. {begin}." in unreadable_note("begin", "PEN")
+    assert f"e.g. {end}." in unreadable_note("end", "PEN")
+    assert (
+        f"Amounts are {'1.234,56' if number_format is COMMA else '1,234.56'}."
+        in unreadable_note("end", "PEN")
+    )
 
 
 _AMOUNT_LITERAL = re.compile(r"(?<![\d.,])\d{1,3}(?:[.,]\d{3})*[.,]\d{2}(?![\d.])")

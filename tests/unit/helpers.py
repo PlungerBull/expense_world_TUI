@@ -181,12 +181,6 @@ ARCHIVED_PUT_WORDS = (
 )
 
 
-def archived_words(verb: str, thing: str) -> str:
-    """The engine's message on a refused delete of a transaction or a bank line:
-    `Cannot <verb> a <thing> on an archived account. Unarchive the account first.`"""
-    return f"Cannot {verb} a {thing} on an archived account. Unarchive the account first."
-
-
 #: The engine's words on a delete of a bank line (contract: DELETE /v1/bank-lines/{bank_line_id})
 #: or a transaction (contract: DELETE /v1/transactions/{transaction_id}) in a completed
 #: statement (`IN_COMPLETED_RECONCILIATION`), as the practice engine sends them; the
@@ -222,10 +216,6 @@ def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
 #: prefix is read from the upper one.
 AMOUNT_OUT_OF_RANGE_WORDS = "Input should be less than or equal to 99999999999"
 AMOUNT_BELOW_RANGE_WORDS = "Input should be greater than or equal to -99999999999"
-#: A stand-in message for an import row whose amount is past the bound: it keeps the
-#: contract's `Row <row>:` start (contract: POST /v1/transactions/import-sheet, "Rejected up
-#: front with `422`"); only POST /v1/statements/import states the text after it.
-IMPORT_ROW_AMOUNT_WORDS = "Row {row}: The amount is past the largest amount, 99,999,999,999 cents."
 
 
 def amount_refusal(key: str, *, below: bool = False) -> EngineError:
@@ -1199,7 +1189,7 @@ def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50)
 
 def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[list, list]:
     """`fetch_transactions` + `count_transactions` over `rows`, the engine's way:
-    it refuses `offset`, serves slices of the requested `limit`, and hands back
+    it serves slices of the requested `limit`, and hands back
     `c<next index>` as the cursor. `rows` is read on every call, so a test can
     shrink it to play a write the engine applied. Returns the (reads, counts)
     call logs."""
@@ -1207,7 +1197,6 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
     counts: list = []
 
     def fetch(_cfg=None, *, limit=None, after=None, **kw):
-        assert "offset" not in kw, "the engine refuses offset"
         calls.append({"limit": limit, "after": after, **kw})
         start = int(after[1:]) if after else 0
         end = start + (limit or 50)

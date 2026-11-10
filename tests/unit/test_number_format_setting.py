@@ -124,49 +124,45 @@ def test_no_settings_file_leaves_the_region(monkeypatch, capsys):
 
 
 # ---- the row -----------------------------------------------------------------
-def test_the_row_follows_this_mac_and_names_its_region(fake_client, monkeypatch):
-    _auth(fake_client, monkeypatch, None)
-    monkeypatch.setattr(region_module, "read_region_name", lambda: "English (Peru)")
+@pytest.mark.parametrize(
+    ("setting", "region_format", "region_name", "shown", "hidden"),
+    [
+        (
+            None,
+            DOT,
+            "English (Peru)",
+            "number format 1,234.56 · follows this Mac (English (Peru))",
+            None,
+        ),
+        (
+            None,
+            COMMA,
+            "Spanish (Spain)",
+            "number format 1.234,56 · follows this Mac (Spanish (Spain))",
+            None,
+        ),
+        (None, DOT, None, "number format 1,234.56 · follows this Mac", "follows this Mac ("),
+        (
+            "1.234,56",
+            DOT,
+            "English (Peru)",
+            "number format 1.234,56 · your setting",
+            "follows this Mac",
+        ),
+    ],
+    ids=["follows-the-region", "in-its-own-format", "region-with-no-name", "setting"],
+)
+def test_the_row_shows_the_format_and_where_it_comes_from(
+    fake_client, monkeypatch, setting, region_format, region_name, shown, hidden
+):
+    _auth(fake_client, monkeypatch, setting)
+    monkeypatch.setattr(region_module, "read_region_format", lambda: region_format)
+    monkeypatch.setattr(region_module, "read_region_name", lambda: region_name)
 
     async def scenario(pilot, app):
         await _open_auth(pilot, app)
-        assert "number format 1,234.56 · follows this Mac (English (Peru))" in _text(app)
-
-    run_app(scenario)
-
-
-def test_the_row_follows_this_mac_in_its_own_format(fake_client, monkeypatch):
-    _auth(fake_client, monkeypatch, None)
-    monkeypatch.setattr(region_module, "read_region_format", lambda: COMMA)
-    monkeypatch.setattr(region_module, "read_region_name", lambda: "Spanish (Spain)")
-
-    async def scenario(pilot, app):
-        await _open_auth(pilot, app)
-        assert "number format 1.234,56 · follows this Mac (Spanish (Spain))" in _text(app)
-
-    run_app(scenario)
-
-
-def test_a_region_with_no_name_is_not_named(fake_client, monkeypatch):
-    _auth(fake_client, monkeypatch, None)
-
-    async def scenario(pilot, app):
-        await _open_auth(pilot, app)
-        assert "number format 1,234.56 · follows this Mac" in _text(app)
-        assert "follows this Mac (" not in _text(app)
-
-    run_app(scenario)
-
-
-def test_the_row_with_a_setting(fake_client, monkeypatch):
-    _auth(fake_client, monkeypatch, "1.234,56")
-    monkeypatch.setattr(region_module, "read_region_name", lambda: "English (Peru)")
-
-    async def scenario(pilot, app):
-        await _open_auth(pilot, app)
-        text = _text(app)
-        assert "number format 1.234,56 · your setting" in text
-        assert "follows this Mac" not in text
+        assert shown in _text(app)
+        assert hidden is None or hidden not in _text(app)
 
     run_app(scenario)
 
@@ -280,20 +276,6 @@ def test_esc_sends_nothing_and_changes_nothing(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_f_before_the_account_exists_asks_nothing(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: CFG)  # /auth/me 404s
-
-    async def scenario(pilot, app):
-        screen = AuthScreen()
-        await app.push_screen(screen)
-        await wait_for(pilot, lambda: bool(app.screen.query(".legend")))
-        await pilot.press("f")
-        await pilot.pause()
-        assert app.screen is screen and fake_client.puts == []
-
-    run_app(scenario)
-
-
 # ---- the effect --------------------------------------------------------------
 def test_home_draws_its_amounts_in_the_saved_format(fake_client, monkeypatch):
     stub_home_month(monkeypatch)
@@ -370,13 +352,19 @@ def test_a_save_refused_after_leaving_says_not_saved_in_the_engines_words(fake_c
 
 
 # ---- not provisioned -----------------------------------------------------------
-def test_f_is_not_in_the_footer_before_the_account_exists(fake_client, monkeypatch):
+def test_f_asks_nothing_and_is_not_in_the_footer_before_the_account_exists(
+    fake_client, monkeypatch
+):
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: CFG)  # /auth/me 404s
 
     async def scenario(pilot, app):
-        await app.push_screen(AuthScreen())
+        screen = AuthScreen()
+        await app.push_screen(screen)
         await wait_for(pilot, lambda: "Bootstrap" in screen_lines(app)[-1])
         assert "Number format" not in screen_lines(app)[-1]
+        await pilot.press("f")
+        await pilot.pause()
+        assert app.screen is screen and fake_client.puts == []
 
     run_app(scenario, size=(100, 32))
 

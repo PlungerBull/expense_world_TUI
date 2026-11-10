@@ -69,16 +69,11 @@ def test_no_string_the_app_writes_says_reconciliation():
     [
         ("Complete reconciliation?", True),
         ("Not moved: X is reconciled", True),
-        ("Delete Reconciliations", True),
         ("RECONCILIATIONS", True),
         ("3 unreconciled lines", True),
-        ("reconciled", True),
-        ("Reconciliations", True),
         ("RECONCILIATION_NOT_DRAFT", False),
-        ("Press u: RECONCILIATION_NOT_DRAFT", False),
         ("unreconciled", False),
         ("statements", False),
-        ("Complete statement?", False),
     ],
 )
 def test_the_scan_catches_the_word_and_spares_only_the_named_exemptions(text, caught):

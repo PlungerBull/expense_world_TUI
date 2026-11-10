@@ -196,21 +196,28 @@ def test_an_account_no_name_matches_on_the_edit_form_shows_it_whole(fake_client,
     run_app(scenario, toasts=True)
 
 
-def test_a_pick_nothing_matches_shows_it_whole():
-    """The bulk edit's pick screen, one pick, `[like this]` typed and matching
-    nothing: `Nothing matches “[like this]”.`, and the screen stays."""
+@pytest.mark.parametrize(
+    ("kind", "pool", "shown_as"),
+    [
+        ("category", [("a", "HOGAR"), ("b", "KORAKUEN")], "Nothing matches “{}”."),
+        ("hashtags", [("h1", "COMIDA")], "No hashtag matches “{}”."),
+    ],
+)
+def test_a_pick_nothing_matches_shows_it_whole(kind, pool, shown_as):
+    """The bulk edit's pick screen, `[like this]` typed and matching nothing:
+    nothing picked, and the screen stays."""
 
     async def scenario(pilot, app):
         results: list = []
-        modal = BulkPickScreen("category", 1, [("a", "HOGAR"), ("b", "KORAKUEN")], rows=Text(""))
+        modal = BulkPickScreen(kind, 1, pool, rows=Text(""))
         app.push_screen(modal, results.append)
         await wait_for(pilot, lambda: app.screen is modal)
         await pilot.press(*TYPED)
         await wait_for(pilot, lambda: modal._pool == [])
         await pilot.press("enter")
         shown = await _toast_holding(pilot, app, TYPED)
-        assert shown == f"Nothing matches “{TYPED}”."
-        assert app.screen is modal and results == []
+        assert shown == shown_as.format(TYPED)
+        assert app.screen is modal and results == [] and modal._picked == []
 
     run_app(scenario, toasts=True)
 
@@ -234,26 +241,6 @@ def test_a_part_s_name_no_name_matches_on_the_edit_form_shows_it_whole(
         shown = await _toast_holding(pilot, app, TYPED)
         assert shown == f"No {field} matches “{TYPED}”."
         assert screen._key == key
-
-    run_app(scenario, toasts=True)
-
-
-def test_a_hashtag_no_name_matches_on_the_pick_screen_shows_it_whole():
-    """The bulk edit's pick screen for hashtags, `[like this]` typed and
-    matching none: `No hashtag matches “[like this]”.`, nothing picked, and
-    the screen stays."""
-
-    async def scenario(pilot, app):
-        results: list = []
-        modal = BulkPickScreen("hashtags", 2, [("h1", "COMIDA")], rows=Text(""))
-        app.push_screen(modal, results.append)
-        await wait_for(pilot, lambda: app.screen is modal)
-        await pilot.press(*TYPED)
-        await wait_for(pilot, lambda: modal._pool == [])
-        await pilot.press("enter")
-        shown = await _toast_holding(pilot, app, TYPED)
-        assert shown == f"No hashtag matches “{TYPED}”."
-        assert app.screen is modal and results == [] and modal._picked == []
 
     run_app(scenario, toasts=True)
 

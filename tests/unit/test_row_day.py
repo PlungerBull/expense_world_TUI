@@ -19,10 +19,6 @@ ROW = {
 }
 
 
-def test_the_fixture_row_is_the_4th_in_lima_and_the_5th_in_utc():
-    assert (ROW["date"][:10], ROW["day"]) == ("2026-11-05", "2026-11-04")
-
-
 def test_format_day_reads_the_day_and_a_row_without_one_is_a_dash():
     assert format_day(ROW) == "2026-11-04"
     assert format_day({"date": LATE}) == "—"

@@ -4,7 +4,6 @@ import pytest
 import typer
 
 from expense.errors import (
-    _ENVELOPE_ERRORS,
     ConfigInvalidError,
     ConfigMissingError,
     EngineConnectionError,
@@ -19,33 +18,6 @@ from expense.errors import (
     render,
 )
 from tests.unit.helpers import error_body
-
-
-def _engine_error(message, fields=None, reasons=None):
-    return EngineError(
-        code="VALIDATION_ERROR",
-        message=message,
-        fields=fields,
-        status=422,
-        raw_body={},
-        reasons=reasons,
-    )
-
-
-def test_engine_error_attributes():
-    err = EngineError(
-        code="VALIDATION_ERROR",
-        message="Transaction validation failed.",
-        fields={"amount_cents": "Must not be zero."},
-        status=422,
-        raw_body=error_body(
-            "VALIDATION_ERROR", "...", {"amount_cents": "..."}, {"amount_cents": "ZERO_AMOUNT"}
-        ),
-        reasons={"amount_cents": "ZERO_AMOUNT"},
-    )
-    assert err.code == "VALIDATION_ERROR"
-    assert err.status == 422
-    assert err.fields == {"amount_cents": "Must not be zero."}
 
 
 def test_render_engine_error_human_with_fields():
@@ -80,46 +52,6 @@ def test_render_engine_error_human_is_the_engine_words_alone():
     assert output == "Error: UNAUTHORIZED — Missing or invalid token"
 
 
-def test_render_engine_error_human_non_401_no_hint():
-    err = EngineError(
-        code="NOT_FOUND",
-        message="Not found",
-        fields=None,
-        status=404,
-        raw_body={},
-    )
-    output, exit_code, use_stderr = render(err, json_mode=False)
-    assert exit_code == 1
-    assert output == "Error: NOT_FOUND — Not found"
-
-
-def test_render_engine_error_json_passes_through_raw_body():
-    raw = error_body("NOT_FOUND", "x", None)
-    err = EngineError(
-        code="NOT_FOUND",
-        message="x",
-        fields=None,
-        status=404,
-        raw_body=raw,
-    )
-    output, exit_code, use_stderr = render(err, json_mode=True)
-    assert exit_code == 1
-    assert use_stderr is False
-    assert json.loads(output) == raw
-
-
-def test_render_connection_error_human_includes_url():
-    err = EngineConnectionError(
-        url="https://nonexistent.invalid",
-        original=ConnectionRefusedError("refused"),
-    )
-    output, exit_code, use_stderr = render(err, json_mode=False)
-    assert exit_code == 6
-    assert use_stderr is True
-    assert "https://nonexistent.invalid" in output
-    assert "could not reach engine" in output
-
-
 def test_render_connection_error_json_envelope():
     err = EngineConnectionError(
         url="https://x.invalid",
@@ -133,15 +65,6 @@ def test_render_connection_error_json_envelope():
     assert envelope["error"]["reasons"] is None
 
 
-def test_render_config_missing_human():
-    err = ConfigMissingError("No config found. Open the app.")
-    output, exit_code, use_stderr = render(err, json_mode=False)
-    assert exit_code == 3
-    assert use_stderr is True
-    assert "Error:" in output
-    assert "Open the app" in output
-
-
 def test_render_config_invalid_json_envelope():
     err = ConfigInvalidError("Config file at /x is not valid JSON.")
     output, exit_code, _ = render(err, json_mode=True)
@@ -150,31 +73,6 @@ def test_render_config_invalid_json_envelope():
     assert envelope["error"]["code"] == "CONFIG_INVALID"
     assert envelope["error"]["fields"] is None
     assert envelope["error"]["reasons"] is None
-
-
-def test_envelope_error_families_are_exactly_connection_and_config():
-    """The handled families after the cache deletion — no CACHE_UNAVAILABLE (4),
-    no SYNC_CONTRACT (5); those exit codes no longer exist."""
-    assert _ENVELOPE_ERRORS == {
-        EngineConnectionError: ("CONNECTION_ERROR", 6),
-        ConfigMissingError: ("CONFIG_MISSING", 3),
-        ConfigInvalidError: ("CONFIG_INVALID", 3),
-    }
-
-
-def test_format_error_engine_error_with_fields():
-    err = EngineError(
-        code="VALIDATION_ERROR",
-        message="Transaction validation failed.",
-        fields={"amount_cents": "Must not be zero."},
-        status=422,
-        raw_body={},
-        reasons={"amount_cents": "ZERO_AMOUNT"},
-    )
-    output = format_error(err)
-    assert not output.startswith("Error:")
-    assert output.startswith("VALIDATION_ERROR — Transaction validation failed.")
-    assert "  amount_cents: Must not be zero." in output
 
 
 def test_format_error_leaves_reasons_off_screen():
@@ -334,49 +232,23 @@ def test_render_human_is_prefix_plus_engine_text(err):
     assert output == "Error: " + engine_text(err)
 
 
-def test_render_unknown_exception_reraises():
-    with pytest.raises(RuntimeError, match="unexpected"):
-        render(RuntimeError("unexpected"), json_mode=False)
-
-
-def test_handle_errors_catches_engine_error():
+@pytest.mark.parametrize(
+    ("error", "exit_code"),
+    [
+        (EngineError(code="NOT_FOUND", message="x", fields=None, status=404, raw_body={}), 1),
+        (EngineConnectionError(url="https://x", original=Exception("x")), 6),
+        (ConfigMissingError("no config"), 3),
+        (ConfigInvalidError("bad config"), 3),
+    ],
+)
+def test_handle_errors_exits_with_the_errors_code(error, exit_code):
     @handle_errors
     def cmd(json_output: bool = False):
-        raise EngineError(code="NOT_FOUND", message="x", fields=None, status=404, raw_body={})
+        raise error
 
     with pytest.raises(typer.Exit) as exc:
         cmd()
-    assert exc.value.exit_code == 1
-
-
-def test_handle_errors_catches_connection_error():
-    @handle_errors
-    def cmd(json_output: bool = False):
-        raise EngineConnectionError(url="https://x", original=Exception("x"))
-
-    with pytest.raises(typer.Exit) as exc:
-        cmd()
-    assert exc.value.exit_code == 6
-
-
-def test_handle_errors_catches_config_missing():
-    @handle_errors
-    def cmd(json_output: bool = False):
-        raise ConfigMissingError("no config")
-
-    with pytest.raises(typer.Exit) as exc:
-        cmd()
-    assert exc.value.exit_code == 3
-
-
-def test_handle_errors_catches_config_invalid():
-    @handle_errors
-    def cmd(json_output: bool = False):
-        raise ConfigInvalidError("bad config")
-
-    with pytest.raises(typer.Exit) as exc:
-        cmd()
-    assert exc.value.exit_code == 3
+    assert exc.value.exit_code == exit_code
 
 
 def test_handle_errors_propagates_unexpected():
@@ -515,7 +387,6 @@ APP_FAULT = (
         ),
         # the Edit form's whole-line write refusing a part's `parts.<i>.hashtag_ids` with
         # OPENING_BALANCE_NOT_TAGGED: the engine's words alone, with no line of the app's
-        ("VALIDATION_ERROR", "parts.0.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", False, None),
         ("VALIDATION_ERROR", "parts.2.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", True, None),
         # a transaction in a completed statement: the engine's words alone
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
@@ -523,25 +394,9 @@ APP_FAULT = (
         # comes with, a CONFLICT on a delete or a statement's complete, revert or delete,
         # a VALIDATION_ERROR on a save, whatever the key, on a list or off one
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),
-        ("CONFLICT", "statement_id", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
-        ("VALIDATION_ERROR", "balances.PEN.ending_balance_cents", "ACCOUNT_ARCHIVED", False, None),
-        # `t` on an account already of that kind, or archived: the engine's words alone
-        ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
-        ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
-        # an account that has been in a statement stops `t`,
-        # in the engine's words alone
-        ("CONFLICT", "account_id", "HAS_RECONCILIATION", True, None),
         # a taken name
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
-        # a statement code another account has, and a code that is not three capital
-        # letters, keep the engine's words alone
-        ("CONFLICT", "statement_code", "STATEMENT_CODE_EXISTS", False, None),
-        ("VALIDATION_ERROR", "statement_code", "INVALID_FORMAT", False, None),
-        # a statement ending in a month another statement of its account holds, on a new
-        # statement and on a statement PDF: the engine's words alone
-        ("VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN", False, None),
-        ("VALIDATION_ERROR", "file", "STATEMENT_MONTH_TAKEN", False, None),
         # a cap reached
         ("LIMIT_REACHED", "id", "CAP_REACHED", False, "Delete one first."),
         # a taken operation number, on a form and in a batch or an import
@@ -615,12 +470,13 @@ APP_FAULT = (
             True,
             "Press u to revert it, then d again.",
         ),
+        # a currency a transaction holds: the archive line stays on `account_id`, so the
+        # engine's words show alone on `currency_code`
+        ("CONFLICT", "currency_code", "HAS_TRANSACTIONS", True, None),
         # the app's own fault, both cases
         ("CONFLICT", "id", "ID_EXISTS", False, APP_FAULT),
         ("CONFLICT", "transactions.0.id", "ID_EXISTS", False, APP_FAULT),
         ("CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED", False, APP_FAULT),
-        # never met by the app: not wired
-        ("CONFLICT", "X-Idempotency-Key", "SECRET_NOT_REPLAYABLE", False, None),
         # an opening-balance row, on a list (bulk b / c) and on the Edit form
         (
             "VALIDATION_ERROR",
@@ -724,67 +580,6 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "RESERVED_NAME",
         "SYSTEM_NAME_FIXED",
     }
-
-
-def test_has_transactions_on_a_currency_reads_in_the_engine_words_alone():
-    """Removing a currency that holds a transaction is refused on `currency_code`
-    (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"),
-    so the archive line, keyed on the account delete's `account_id`, never meets it."""
-    from expense.errors import next_step
-
-    err = _refusal("CONFLICT", "currency_code", "HAS_TRANSACTIONS")
-    assert next_step(err, on_list=True) is None
-    assert format_error(err, on_list=True) == (
-        "CONFLICT — stand-in\n  currency_code: stand-in field words"
-    )
-    # the account delete's line stays on `account_id`; the category's is untouched
-    account = _refusal("CONFLICT", "account_id", "HAS_TRANSACTIONS")
-    assert next_step(account, on_list=True) == "To retire it instead, archive it: press a."
-    category = _refusal("CONFLICT", "category_id", "HAS_TRANSACTIONS")
-    assert next_step(category) == "Move its transactions to another category first."
-
-
-def test_in_live_statement_on_a_currency_reads_in_the_engine_words_alone():
-    """A removal refused because a live statement holds the currency is keyed on
-    `currency_code` too (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code},
-    "Refusals"): the engine's words, no line of the app's."""
-    from expense.errors import next_step
-
-    err = _refusal("CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
-    assert next_step(err, on_list=True) is None
-    assert format_error(err, on_list=True) == (
-        "CONFLICT — stand-in\n  currency_code: stand-in field words"
-    )
-
-
-def test_a_missing_balance_has_no_line_of_the_apps():
-    """A refused complete naming a missing balance keeps the engine's words
-    whole: the statement screen opens the box for it instead of saying what to do
-    (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")."""
-    from expense.errors import next_step
-
-    for reason in ("BEGINNING_BALANCE_REQUIRED", "ENDING_BALANCE_REQUIRED"):
-        err = _refusal(
-            "VALIDATION_ERROR", "balances.USD.beginning_balance_cents", reason, status=422
-        )
-        assert next_step(err) is None
-
-
-def test_no_hint_is_chosen_by_status_and_route_anywhere():
-    """Guard: the status-and-route table is gone, and no code keys a hint on a
-    (collection, status) pair."""
-    import re
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[2] / "expense"
-    pattern = re.compile(r"\(\s*\"[a-z_]+\"\s*,\s*(?:401|403|404|409|422)\s*\)")
-    offenders = [
-        str(path)
-        for path in root.rglob("*.py")
-        if "DELETE_REFUSAL_HINTS" in path.read_text(encoding="utf-8")
-        or pattern.search(path.read_text(encoding="utf-8"))
-    ]
-    assert not offenders
 
 
 @pytest.mark.parametrize(

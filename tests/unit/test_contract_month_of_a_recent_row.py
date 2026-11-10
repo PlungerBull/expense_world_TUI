@@ -5,25 +5,28 @@ the first minute after a daylight-saving jump gives a minute that exists."""
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from tests.contract.conftest import minute_before, month_of
 
 LIMA = ZoneInfo("America/Lima")  # UTC-5, no daylight saving
 AUCKLAND = ZoneInfo("Pacific/Auckland")
 
 
-def test_the_first_minute_of_a_month_reads_the_month_before_it():
-    now = datetime(2026, 3, 1, 0, 0, 30, tzinfo=LIMA)
+@pytest.mark.parametrize(
+    ("now", "moment", "month"),
+    [
+        # the first minute of a month reads the month before it
+        (datetime(2026, 3, 1, 0, 0, 30, tzinfo=LIMA), "2026-02-28T23:59:30-05:00", ("2026", "2")),
+        (datetime(2027, 1, 1, 0, 0, 30, tzinfo=LIMA), "2026-12-31T23:59:30-05:00", ("2026", "12")),
+        (datetime(2026, 3, 1, 0, 1, 30, tzinfo=LIMA), "2026-03-01T00:00:30-05:00", ("2026", "3")),
+    ],
+)
+def test_a_minute_back_is_read_in_the_month_it_is_dated_in(now, moment, month):
+    got = minute_before(now, LIMA)
 
-    moment = minute_before(now, LIMA)
-
-    assert moment.isoformat() == "2026-02-28T23:59:30-05:00"
-    assert month_of(moment) == {"year": "2026", "month": "2"}
-
-
-def test_the_year_turns_with_the_month():
-    moment = minute_before(datetime(2027, 1, 1, 0, 0, 30, tzinfo=LIMA), LIMA)
-
-    assert month_of(moment) == {"year": "2026", "month": "12"}
+    assert got.isoformat() == moment
+    assert month_of(got) == {"year": month[0], "month": month[1]}
 
 
 def test_a_zone_that_disagrees_with_utc_is_read_in_its_own_zone():
@@ -34,12 +37,6 @@ def test_a_zone_that_disagrees_with_utc_is_read_in_its_own_zone():
 
     assert (moment.astimezone(UTC).month, month_of(moment)["month"]) == (3, "2")
     assert month_of(minute_before(now, AUCKLAND)) == {"year": "2026", "month": "3"}
-
-
-def test_a_minute_that_stays_in_the_month_reads_that_month():
-    moment = minute_before(datetime(2026, 3, 1, 0, 1, 30, tzinfo=LIMA), LIMA)
-
-    assert month_of(moment) == {"year": "2026", "month": "3"}
 
 
 def test_the_first_minute_after_a_daylight_saving_jump_gives_a_minute_that_exists():

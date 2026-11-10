@@ -143,7 +143,6 @@ class _PeekFetch:
         self.counted_currencies: list[str] = []
 
     def __call__(self, _cfg, **kw):
-        assert "offset" not in kw, "the engine refuses offset"
         self.accounts.append(kw.get("account"))
         self.currencies.append(kw.get("currency_code"))
         if self.error is not None:

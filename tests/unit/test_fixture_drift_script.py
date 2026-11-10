@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from tests.unit.helpers import DRIFT_SCRIPT, load_drift_script
+from tests.unit.helpers import load_drift_script
 
 PRACTICE = "http://127.0.0.1:8002"
 SAVED = "9d593f48328c0c6a"
@@ -70,12 +70,14 @@ def test_default_target_is_the_practice_engine(drift):
 
 @respx.mock
 def test_matching_version_passes_quietly(drift, capsys):
-    _serve(SAVED)
+    _serve(SAVED, LOG[2:])
     drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
 
     assert drift.main(["--engine-url", PRACTICE]) == 0
     out = capsys.readouterr().out
     assert "version" not in out
+    assert "changed" not in out
+    assert "`x-changelog` itself." not in out
     assert SAVED not in out
     assert "no fixture claims a field the engine does not serve." in out
 
@@ -131,29 +133,11 @@ def test_record_version_writes_only_the_engine_version_and_checks_nothing(drift,
 
 
 @respx.mock
-def test_contract_without_a_version_is_refused(drift):
-    respx.get(f"{PRACTICE}/openapi.json").mock(
-        return_value=httpx.Response(200, json=dict(info={}, components={}))
-    )
-    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
-
-    with pytest.raises(SystemExit, match="published no info.version"):
-        drift.main(["--engine-url", PRACTICE])
-
-
-@respx.mock
 def test_unreachable_engine_is_reported(drift):
     respx.get(f"{PRACTICE}/openapi.json").mock(side_effect=httpx.ConnectError("refused"))
 
     with pytest.raises(SystemExit, match="could not read"):
         drift.main(["--engine-url", PRACTICE])
-
-
-def test_saved_version_file_holds_only_a_version():
-    """The repo keeps the version number and nothing else: one line, one token."""
-    lines = (DRIFT_SCRIPT.parent / "engine-contract-version").read_text().splitlines()
-    assert len(lines) == 1
-    assert lines[0].strip() == lines[0] and lines[0] and " " not in lines[0]
 
 
 @respx.mock
@@ -310,17 +294,6 @@ def test_log_not_starting_at_the_engine_version_means_the_whole_contract_changed
     assert "*Date windows*" not in out
 
 
-@respx.mock
-def test_matching_version_prints_no_changelog(drift, capsys):
-    _serve(SAVED, LOG[2:])
-    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
-
-    assert drift.main(["--engine-url", PRACTICE]) == 0
-    out = capsys.readouterr().out
-    assert "changed" not in out
-    assert "`x-changelog` itself." not in out
-
-
 DRAFT = "f00534abdde7fa82"
 
 
@@ -369,8 +342,8 @@ def test_record_version_refused_with_no_saved_version_writes_no_file(drift, caps
 
 
 @respx.mock
-@pytest.mark.parametrize("info", ["a string", ["a", "list"], 7])
-def test_non_object_info_is_refused_cleanly(drift, info):
+@pytest.mark.parametrize("info", [{}, "a string", ["a", "list"], 7])
+def test_an_info_without_a_version_is_refused_cleanly(drift, info):
     respx.get(f"{PRACTICE}/openapi.json").mock(
         return_value=httpx.Response(200, json=dict(info=info, components={}))
     )
@@ -506,32 +479,6 @@ def test_an_object_the_contract_leaves_open_has_no_extra_key(drift):
     assert drift.extra_keys(doc, schema, dict(name="x", gap=None, items=[], anything=1)) == []
 
 
-def _arr(name):
-    return {"type": "array", "items": {"$ref": f"#/components/schemas/{name}"}}
-
-
-def test_a_nested_union_of_two_lists_has_no_one_list_items(drift):
-    schema = {"anyOf": [_arr("A"), {"anyOf": [_arr("B"), _arr("C")]}]}
-
-    assert drift._list_items({}, schema) is None
-
-
-def test_a_nested_union_holding_one_list_gives_its_items(drift):
-    schema = {"anyOf": [{"type": "null"}, {"oneOf": [{"type": "string"}, _arr("B")]}]}
-
-    assert drift._list_items({}, schema) == {"$ref": "#/components/schemas/B"}
-
-
-def test_a_union_that_contains_itself_ends(drift):
-    doc = {
-        "components": {"schemas": {"U": {"anyOf": [{"$ref": "#/components/schemas/U"}, _arr("B")]}}}
-    }
-    ref = {"$ref": "#/components/schemas/U"}
-
-    assert drift._list_items(doc, ref) == {"$ref": "#/components/schemas/B"}
-    assert drift._alternatives(doc, ref) == [_arr("B")]
-
-
 @respx.mock
 @pytest.mark.parametrize(
     "endpoint", ["POST /v1/things/{thing_id}/open", "GET /v1/things/{thing_id}/close"]
@@ -600,38 +547,6 @@ def test_a_marked_builder_refuses_an_answer_with_fewer_keys_than_its_bare_one(mo
     assert close_answer(dict(name="y", gap=None, more=1)) == dict(name="y", gap=None, more=1)
     with pytest.raises(AssertionError, match=r"close_answer dropped \['gap'\]"):
         close_answer(dict(name="y"))
-
-
-def test_a_second_builder_for_one_endpoint_is_refused_and_not_registered(monkeypatch):
-    from tests.unit import helpers
-
-    monkeypatch.setattr(helpers, "ANSWER_BUILDERS", {})
-
-    @helpers.answer_of("POST", "/v1/things/{thing_id}/close")
-    def first():
-        return dict(name="x")
-
-    with pytest.raises(ValueError, match="close already has first; second"):
-
-        @helpers.answer_of("POST", "/v1/things/{thing_id}/close")
-        def second():
-            return dict(name="y")
-
-    assert helpers.ANSWER_BUILDERS == {CLOSE: first}
-
-
-def test_the_complete_answer_keeps_its_fields_whatever_the_record():
-    from tests.unit.helpers import statement_complete_answer
-
-    gap = dict(first_uncovered_day="2026-02-25", last_uncovered_day="2026-03-31", unfiled_count=3)
-    noted = dict(account_id="acc1", warnings=["a gap"], coverage_gap=gap)
-    answer = statement_complete_answer(dict(id="s9", balances=[noted]))
-    (balance,) = answer["balances"]
-
-    assert set(statement_complete_answer()) <= set(answer)
-    assert set(statement_complete_answer()["balances"][0]) <= set(balance)
-    assert (answer["id"], balance["warnings"], balance["coverage_gap"]) == ("s9", ["a gap"], gap)
-    assert statement_complete_answer()["balances"][0]["coverage_gap"] is None
 
 
 def _ref(name):

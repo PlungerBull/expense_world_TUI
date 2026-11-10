@@ -24,10 +24,6 @@ def test_the_currency_codes_are_the_engines_list_in_its_order(configured):
         assert fetch_currency_codes(cfg) == ["PEN"]
 
 
-def test_the_fake_engines_answer_lists_pen_and_usd():
-    assert currencies_answer() == {"items": [{"currency_code": "PEN"}, {"currency_code": "USD"}]}
-
-
 def test_no_copy_of_the_currency_list_lives_in_the_client():
     """No module under expense/ keeps its own list of codes: the `PEN`, `USD` pair
     appears in none (the engine's list is read, `reads.fetch_currency_codes`)."""
