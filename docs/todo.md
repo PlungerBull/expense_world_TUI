@@ -18,10 +18,8 @@ Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A
 when the owner approves it and leaves when it retires; one that is blocked says on what, and the
 loop skips it until it can run.
 
-1. [The app on contract `2fa4967b8eed9c3f`: an account's kind, strict requests and the closed-day refusals](specs/catch-up-to-2fa4967b8eed9c3f.md):
-   approved 2026-11-08. Its tasks are done; its acceptance check, sweep and reply follow.
-2. [Trimming the tests](specs/trimming-the-tests.md): approved 2026-11-09.
-3. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+1. [Trimming the tests](specs/trimming-the-tests.md): approved 2026-11-09.
+2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
 

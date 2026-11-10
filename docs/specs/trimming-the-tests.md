@@ -59,7 +59,8 @@ an old flat shape) join the task whose files they touch, done there or dropped b
 1. **The baseline and the engine-rule copies:** record coverage, lines and suite time; drop the
    unit tests' copies of engine rules (the autouse read-only-field refusal in
    tests/unit/conftest.py and `helpers.refuse_read_only_fields`, fakes refusing what no test
-   asks them to) and the tests that check them in test_suite_hygiene.py.
+   asks them to), the tests that check them in test_suite_hygiene.py, and docs/tui.md §6's
+   bullet on the request bodies that check guards.
 2. **The tests about tests:** test_suite_hygiene.py, test_shared_code_home.py,
    test_parallel_runs.py and test_doc_hygiene.py keep only what point 3 of "What it must do"
    keeps; test_claude_hooks.py loses repeated cases, never a rule it trips.

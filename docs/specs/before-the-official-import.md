@@ -137,7 +137,7 @@ engine before building.
 2. **The create step makes no account** (pane 17 A): `--create-names` makes the missing
    categories and hashtags; a sheet account with no account is listed in the dry run as one to
    make in the app, naming `--account-name` for a bank account; `--apply` while one is missing
-   is refused as today.
+   is refused as today; docs/commands.md's `--create-names` lines say so.
 3. **`--account-name` puts a sheet name on an account that exists,** found by its name as the
    engine holds it (`BCP-5678`, a person's name); a name no account holds is a usage error
    naming it; `docs/commands.md` "Renaming an account" says so.

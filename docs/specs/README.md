@@ -9,9 +9,8 @@ and how the owner will know it is done, in plain language; it does not say how t
   the owner's, and agents change it only when the owner asks. A finished task is deleted from
   the section in the commit that finishes it.
 - A **Found along the way** section follows "Tasks": the orchestrator lists there any new work
-  found while the spec runs, which the loop does not build; when the spec is done, what the
-  owner would see in the app, or a money or business rule, becomes a new spec, and the rest
-  goes to [todo.md](../todo.md)'s Backlog ([CLAUDE.md](../../CLAUDE.md) "Specs and tasks").
+  found while the spec runs, which the loop does not build; when the spec is done, the finds
+  are sorted as [CLAUDE.md](../../CLAUDE.md) "Per spec" says.
 - Work that belongs to no spec stays in [todo.md](../todo.md).
 - When the spec's work ships, its why moves to [decisions.md](../decisions.md) and the spec is
   deleted.
