@@ -60,9 +60,8 @@ amount", and dashboard rows built by hand without `kind` in test_tui_bracketed_n
 test_tui_home_dispatch.py and test_tui_home_header.py, with test_tui_smoke.py's sample rows in
 an old flat shape) join the task whose files they touch, done there or dropped by the rule.
 
-4. **The statements:** test_tui_statements.py, test_tui_statement_detail.py,
-   test_tui_statement_upload.py, test_tui_statement_balances.py, test_tui_flagged_lines.py,
-   test_tui_flagged_panes.py and test_tui_bank_import.py.
+4. **The statements, its second half:** test_tui_statement_upload.py,
+   test_tui_flagged_lines.py, test_tui_flagged_panes.py and test_tui_bank_import.py.
 5. **The edit forms:** test_tui_edit_form.py, test_tui_edit_form_parts.py,
    test_tui_bulk_edit.py and test_tui_form_hints.py.
 6. **Accounts and the other forms:** test_tui_opening_balance.py, test_tui_create_forms.py,

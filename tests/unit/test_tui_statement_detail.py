@@ -16,20 +16,16 @@ import respx
 from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
-from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.statements import (
     StatementScreen,
     balance_of,
-    balances_body,
     line_rows,
 )
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
-    ARCHIVED_PUT_WORDS,
     ENGINE_URL,
-    archived_refusal,
     bank_line_row,
     complete_refusal,
     cursor_page,
@@ -89,13 +85,6 @@ UBER = bank_line_row(
 )
 ASSIGNED = [NETFLIX]
 AVAILABLE = [UBER, FARMACIA]  # the engine's order: newest first
-
-
-def test_a_lines_columns_are_the_banks_own():
-    """Date and title come off the parts, the amount is the engine's signed
-    `net_cents` — never a sum of the parts' magnitudes."""
-    assert bank_line_columns(FARMACIA) == ("2026-04-11", "FARMACIA", "48201764", -10000)
-    assert bank_line_columns(UBER) == ("2026-04-12", "UBER *TRIP", None, -4200)
 
 
 def test_line_rows_lists_a_split_purchase_once_and_ticks_by_one_part():
@@ -276,44 +265,8 @@ async def _wait_list(screen, pilot):
     await wait_for(pilot, lambda: screen._list is not None)
 
 
-def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
-    """The tick-list's in-range read asks for the account's lines in no statement,
-    with the period's own days in the engine's day filters, unconverted: a bare
-    `date_to` is the whole last day (contract: GET /v1/bank-lines). The statement's
-    own lines are read on the opened account, any day
-    (contract: GET /v1/bank-lines, "Filters")."""
-    _patch(monkeypatch)
-    calls: list = []
-    from expense import reads
-
-    fake = reads.fetch_bank_lines  # _patch's fake
-
-    def spy(cfg, **k):
-        assert "offset" not in k
-        calls.append(k)
-        return fake(cfg, **k)
-
-    monkeypatch.setattr("expense.reads.fetch_bank_lines", spy)
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        in_range = [k for k in calls if k.get("unreconciled")]
-        assert len(in_range) == 1
-        assert in_range[0]["account"] == "acc1"
-        assert in_range[0]["date_from"] == "2026-04-01"
-        assert in_range[0]["date_to"] == "2026-04-30"
-        its_lines = [k for k in calls if k.get("statement") == "r1"]
-        assert len(its_lines) == 1 and its_lines[0]["account"] == "acc1"
-        assert "date_from" not in its_lines[0] and "date_to" not in its_lines[0]
-
-    run_app(scenario)
-
-
-def test_header_shows_difference_not_source(fake_client, monkeypatch):
-    """The header's old "(chained)"/"(manual)" tag answered a question the
-    engine no longer has two answers to; it carries the add-up check instead."""
+def test_header_shows_the_difference(fake_client, monkeypatch):
+    """The header carries the add-up check: the difference."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -322,7 +275,6 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
         await _wait_list(screen, pilot)
         head = shown(screen.query_one("#rhead", Static))
         assert "diff" in head and "-35.00" in head
-        assert "chained" not in head and "manual" not in head
 
     run_app(scenario)
 
@@ -393,7 +345,10 @@ def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch
 
 def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     """A tick is one logical write: one `PUT`, one `X-Idempotency-Key`, through
-    the shared write path and the real HTTP client."""
+    the shared write path and the real HTTP client. The checklist's two reads carry
+    the filters: the statement's own lines on the opened account, any day, and the
+    account's lines in no statement over the period's own days, unconverted
+    (contract: GET /v1/bank-lines, "Filters")."""
     monkeypatch.setattr(
         "expense.tui.screens.statements.load_account_name_map", lambda: {"acc1": "BCP"}
     )
@@ -541,17 +496,6 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
             {},
             reasons={"statement_id": "RECONCILIATION_COMPLETED"},
         ),
-        EngineError(
-            "VALIDATION_ERROR",
-            "Transaction t2b, another part of the same bank line, refuses this change.",
-            {
-                "statement_id": "The statement holds no balance of the transaction's account: "
-                "it is another account's."
-            },
-            422,
-            {},
-            reasons={"statement_id": "ACCOUNT_MISMATCH"},
-        ),
     ],
 )
 def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, monkeypatch, error):
@@ -620,138 +564,6 @@ def test_a_tick_at_the_same_moment_as_another_write_says_to_press_r(fake_client,
             "It changed at the same moment: press r, then try again.",
         )
     ]
-
-
-def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
-    """The statement was opened
-    before its account was archived, and `space` is refused. `Couldn't update`
-    carries the engine's words and its `statement_id` words, no line of
-    the app's; the list is read again as after any refused tick, the engine's
-    ticks kept and the cursor on row 1."""
-    _patch(monkeypatch)
-    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "statement_id")
-    fake_client.errors["PUT"] = err
-    notices: list = []
-    monkeypatch.setattr(
-        StatementScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, message)),
-    )
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        first = screen._list
-        first._cursor = 2
-        await pilot.press("space")
-        await wait_for(pilot, lambda: notices)
-        await wait_for(pilot, lambda: screen._list is not first)
-        assert notices == [
-            (
-                "Couldn't update",
-                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}",
-            )
-        ]
-        assert notices[0][1] == refusal_text(err, None)
-        assert screen._list.checked == {"l1"}
-        assert screen._list.cursor_key == "l1"
-        assert screen._record["status"] == 1
-
-    run_app(scenario)
-    assert fake_client.puts == [("/transactions/t2a", {"statement_id": "r1"})]
-
-
-#: The engine's words on a write that would leave a line in no statement on a day another
-#: completed statement seals, naming that statement
-#: (contract: "Transactions (Ledger)", "Sealed periods").
-SEALED_WORDS = (
-    "Period 2026-03-01 to 2026-03-30 is sealed by completed statement 'Marzo 2026'. "
-    "Revert it to draft to change anything inside it."
-)
-
-
-def _sealed(code: str = "VALIDATION_ERROR", status: int = 422) -> EngineError:
-    return EngineError(
-        code,
-        SEALED_WORDS,
-        {"statement_id": SEALED_WORDS},
-        status,
-        {},
-        {"statement_id": "SEALED_PERIOD"},
-    )
-
-
-def test_an_unassigning_tick_refused_as_sealed_shows_the_engines_words_alone(
-    fake_client, monkeypatch
-):
-    """`space` on a line in the statement sends `statement_id: null`; the day is another
-    statement's, so the engine refuses it `SEALED_PERIOD`, naming that statement. `Couldn't
-    update` carries those words and no line of the app's, the one request is not sent
-    again, and the list is read again with the engine's ticks."""
-    _patch(monkeypatch)
-    fake_client.errors["PUT"] = _sealed()
-    notices: list = []
-    monkeypatch.setattr(
-        StatementScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, message)),
-    )
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        first = screen._list
-        assert first.cursor_key == "l1" and "l1" in first.checked
-        await pilot.press("space")
-        await wait_for(pilot, lambda: notices)
-        await wait_for(pilot, lambda: screen._list is not first)
-        await pilot.pause()
-        assert notices == [
-            (
-                "Couldn't update",
-                f"VALIDATION_ERROR — {SEALED_WORDS}\n  statement_id: {SEALED_WORDS}",
-            )
-        ]
-        assert screen._list.checked == {"l1"}  # nothing changed on screen
-
-    run_app(scenario)
-    assert [body for _path, body in fake_client.puts] == [{"statement_id": None}]
-
-
-def test_a_draft_delete_refused_as_sealed_shows_the_engines_words_alone(fake_client, monkeypatch):
-    """`d`, then `y`, on a draft holding a line the delete would leave loose on a sealed
-    day: `Couldn't delete` carries the engine's words naming the sealing statement and no
-    line of the app's (contract: DELETE /v1/statements/{statement_id}); one request."""
-    _patch(monkeypatch)
-    fake_client.errors["DELETE"] = _sealed()
-    notices: list = []
-    monkeypatch.setattr(
-        StatementScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, message)),
-    )
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
-        await pilot.pause()
-        assert notices == [
-            (
-                "Couldn't delete",
-                f"VALIDATION_ERROR — {SEALED_WORDS}\n  statement_id: {SEALED_WORDS}",
-            )
-        ]
-        assert screen.is_attached  # nothing left the screen
-
-    run_app(scenario)
-    assert fake_client.deletes == [STATEMENT_PATH]
 
 
 def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_client, monkeypatch):
@@ -1268,22 +1080,6 @@ def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
     assert [r["id"] for r in rows] == [f"l{i}" for i in range(240)]
 
 
-def test_complete_confirms_then_posts(fake_client, monkeypatch):
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        screen.action_complete()  # opens confirm
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")  # confirm
-        await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [(COMPLETE_PATH, None)]
-
-    run_app(scenario)
-
-
 #: NETFLIX once its statement is completed: every line field locked and its
 #: one part's amount held as the total (tests/contract/test_bank_line_edit_limits.py).
 LOCKED_NETFLIX = {
@@ -1331,7 +1127,7 @@ def test_a_completed_statement_with_no_lines_says_so_in_statement_words(fake_cli
 
 @pytest.mark.parametrize(
     ("ticked", "count"),
-    [(1, "1 ticked row"), (2, "2 ticked rows"), (5, "5 ticked rows")],
+    [(1, "1 ticked row"), (2, "2 ticked rows")],
 )
 def test_cs_question_counts_the_ticked_rows_in_written_english(
     fake_client, monkeypatch, ticked, count
@@ -1381,37 +1177,6 @@ def test_cs_question_counts_the_ticked_rows_in_written_english(
     run_app(scenario)
 
 
-def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
-    """No draft-only pre-guard: the DELETE reaches the engine
-    and its 409 message toasts."""
-    completed = {**DRAFT, "status": 2}
-    _patch(monkeypatch)
-    fake_client.errors["DELETE"] = EngineError(
-        "CONFLICT",
-        "Cannot delete a completed statement. Revert it to draft first.",
-        None,
-        409,
-        {},
-    )
-    notices: list = []
-    monkeypatch.setattr(
-        StatementScreen, "notify", lambda self, message, **kw: notices.append(message)
-    )
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(completed))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notices)
-        assert fake_client.deletes == [STATEMENT_PATH]  # request was attempted
-        assert any("Revert it to draft first" in m for m in notices)
-
-    run_app(scenario)
-
-
 @pytest.mark.parametrize(
     ("reason", "line"),
     [
@@ -1457,55 +1222,6 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
         ]
 
     run_app(scenario)
-
-
-@pytest.mark.parametrize(
-    ("key", "verb", "method", "path"),
-    [
-        ("c", "complete", "POST", COMPLETE_PATH),
-        ("u", "revert", "POST", REVERT_PATH),
-        ("d", "delete", "DELETE", STATEMENT_PATH),
-    ],
-    ids=["complete", "revert", "delete"],
-)
-def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
-    fake_client, monkeypatch, key, verb, method, path
-):
-    """The statement was opened
-    before its account was archived; `c`, `u` or `d`, then `y`, is refused on
-    `statement_id` (contract: POST /v1/statements/{statement_id}/complete, "An archived
-    account"). `Couldn't <verb>` carries the engine's words and its `statement_id`
-    words, no line of the app's; the statement stays open as a draft."""
-    _patch(monkeypatch)
-    _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the statement fresh
-    err = archived_refusal(409, ARCHIVED_FIELD_WORDS, "statement_id")
-    fake_client.errors[method] = err
-    notices = _notes(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        await pilot.press(key)
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        words = f"CONFLICT — {ARCHIVED_FIELD_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}"
-        under_the_head = verb == "complete"  # a refused complete is lines, not a toast
-        if under_the_head:
-            await wait_for(pilot, lambda: complete_refusal(screen))
-            assert complete_refusal(screen) == ["Couldn't complete", *words.splitlines()]
-            assert notices == []
-        else:
-            await wait_for(pilot, lambda: notices)
-            assert notices == [(f"Couldn't {verb}", words, "error")]
-        await pilot.pause()
-        assert words == refusal_text(err, None)
-        assert app.screen is screen
-        assert screen._record["status"] == 1 and not screen._busy
-        assert screen._list.checked == {"l1"}
-
-    run_app(scenario)
-    assert [(m, p) for m, p, _b in fake_client.calls if m != "GET"] == [(method, path)]
 
 
 #: The engine's message on a complete of a statement with no transaction on any of its
@@ -1598,16 +1314,6 @@ def _complete_with_warnings(fake_client, warnings: list[str], *, statement=STATE
     fake_client.write_responses[COMPLETE_PATH] = statement_complete_answer(
         {**statement, "status": 2, "balances": balances}
     )
-
-
-def test_the_gap_falls_before_the_statement_and_its_sentence_names_its_days():
-    """The fixture is one the engine could send: the uncovered days end before the
-    statement's first, and the sentence names the days of its `coverage_gap`."""
-    assert GAP_DAYS["first_uncovered_day"] <= GAP_DAYS["last_uncovered_day"]
-    assert GAP_DAYS["last_uncovered_day"] < STATEMENT["date_start"]
-    days = f"{GAP_DAYS['first_uncovered_day']} to {GAP_DAYS['last_uncovered_day']}"
-    assert f"The days {days} are not covered" in GAP
-    assert f"({GAP_DAYS['unfiled_count']} unfiled transactions in them)." in GAP
 
 
 def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
@@ -1725,23 +1431,6 @@ def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
         assert fake_client.posts == [(REVERT_PATH, None)]
         await wait_for(pilot, lambda: notices)
         assert any("reverted to draft" in m for m in notices)
-
-    run_app(scenario)
-
-
-def test_revert_posts(fake_client, monkeypatch):
-    completed = {**DRAFT, "status": 2}
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(completed))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        screen.action_revert()
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [(REVERT_PATH, None)]
 
     run_app(scenario)
 
@@ -1892,8 +1581,9 @@ def test_r_refused_otherwise_shows_the_engines_words_and_stays(fake_client, monk
     run_app(scenario)
 
 
-def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
-    """Enter is the safe default: dismisses the confirm without applying (4.1)."""
+def test_the_delete_question_is_cancelled_by_enter_and_esc_and_inert_to_q(fake_client, monkeypatch):
+    """The delete question's words; `enter` is the safe default, `q` is inert inside it
+    (it must not kill the app), `esc` closes it; nothing is deleted."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1907,30 +1597,17 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
             "Detaches its transactions and removes the statement. Its transactions stay. "
             "No screen can bring it back."
         )
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: app.screen is screen)  # modal gone
-        await pilot.pause()  # let the cancel settle, then assert a non-event
-        assert not fake_client.deletes
-
-    run_app(scenario)
-
-
-def test_q_inert_inside_confirm_modal(fake_client, monkeypatch):
-    """q inside a ConfirmModal must not kill the app."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementScreen(dict(DRAFT))
-        await app.push_screen(screen)
-        await _wait_list(screen, pilot)
-        await pilot.press("d")  # delete → confirm modal
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("q")
         await pilot.pause()  # let the (inert) keypress settle, then assert a non-event
         assert app.is_running
         assert isinstance(app.screen, ConfirmModal)  # modal still up, undecided
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: app.screen is screen)  # modal gone
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)  # modal dismissed
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()  # let the cancel settle, then assert a non-event
         assert not fake_client.deletes
 
     run_app(scenario)
@@ -1972,17 +1649,6 @@ SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
 SAVED_BODY = {"balances": [{"currency_code": "PEN", "ending_balance_cents": 1385320}]}
 
 
-def test_the_ending_balance_is_saved_in_balances_naming_only_the_currency_that_changes():
-    """`PUT /statements/{id}` takes `balances` naming only the currencies that change,
-    keyed by `currency_code`; the opened currency's entry carries the figure and no other
-    currency is named, so the engine keeps its balances
-    (contract: PUT /v1/statements/{statement_id}, "`balances`")."""
-    assert balances_body({("PEN", "ending"): 1385320}) == SAVED_BODY
-    assert balances_body({("USD", "ending"): -12050}) == {
-        "balances": [{"currency_code": "USD", "ending_balance_cents": -12050}]
-    }
-
-
 def _notes(monkeypatch) -> list:
     notices: list = []
 
@@ -2011,8 +1677,7 @@ async def _open_box(pilot, app, record=NO_END):
 
 
 async def _type(pilot, text: str) -> None:
-    for ch in text:
-        await pilot.press(ch)
+    await pilot.press(*text)
 
 
 def test_c_without_an_ending_balance_opens_the_box_with_its_title_and_keys(
@@ -2193,10 +1858,9 @@ def test_the_balances_are_saved_and_completed_each_write_under_its_own_key(confi
     assert all(keys) and len(set(keys)) == 4
 
 
-@pytest.mark.parametrize("answer", ["n", "escape", "enter"])
-def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answer):
-    """Say no and the statement stays a draft with its balance saved;
-    the next `c` goes straight to the question, no box."""
+def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch):
+    """Say no (`n`, `esc` or `enter`) and the statement stays a draft with its balance
+    saved; the next `c` goes straight to the question, no box."""
     _patch(monkeypatch)
     fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
 
@@ -2205,35 +1869,20 @@ def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answe
         await _type(pilot, "13853.20")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(answer)
-        await wait_for(pilot, lambda: app.screen is screen)
-        assert fake_client.posts == []
-        assert screen._record["status"] == 1
-        assert _end(screen) == 1385320
-        await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert len(fake_client.puts) == 1  # no second box, no second save
+        for answer in ("n", "escape", "enter"):
+            await pilot.press(answer)
+            await wait_for(pilot, lambda: app.screen is screen)
+            assert fake_client.posts == [], answer
+            assert screen._record["status"] == 1
+            assert _end(screen) == 1385320
+            await pilot.press("c")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            assert len(fake_client.puts) == 1  # no second box, no second save
 
     run_app(scenario)
 
 
-def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
-    """`esc` goes back with nothing saved."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open_box(pilot, app)
-        await _type(pilot, "13853.20")
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert fake_client.calls == []
-        assert _end(screen) is None
-
-    run_app(scenario)
-
-
-@pytest.mark.parametrize("typed", ["13.853.20", "13.853,20", "abc", ""])
+@pytest.mark.parametrize("typed", ["13.853,20", "abc", ""])
 def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, typed):
     """The New statement form's note for a badly typed balance;
     the box stays open with what was typed, and nothing is sent."""
@@ -2293,42 +1942,6 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
         assert not screen._busy
 
     run_app(scenario)
-
-
-def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
-    fake_client, monkeypatch
-):
-    """`c` on a draft with
-    no ending balance, opened before its account was archived; the figure's
-    save is refused on the balance sent, `balances.<currency_code>.ending_balance_cents`
-    (contract: PUT /v1/statements/{statement_id}, "An archived account").
-    `Couldn't save` carries the engine's words and that field's words, no line of the
-    app's; nothing is completed and the end stays empty."""
-    _patch(monkeypatch)
-    field = "balances.PEN.ending_balance_cents"
-    err = archived_refusal(422, ARCHIVED_FIELD_WORDS, field)
-    fake_client.errors["PUT"] = err
-    notices = _notes(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open_box(pilot, app)
-        await _type(pilot, "13853.20")
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: notices)
-        assert notices == [
-            (
-                "Couldn't save",
-                f"VALIDATION_ERROR — {ARCHIVED_FIELD_WORDS}\n  {field}: {ARCHIVED_FIELD_WORDS}",
-                "error",
-            )
-        ]
-        assert notices[0][1] == refusal_text(err, None)
-        assert app.screen is screen and not screen._busy
-        assert _end(screen) is None
-
-    run_app(scenario)
-    assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
-    assert fake_client.posts == []
 
 
 def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_is_not(

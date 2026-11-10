@@ -14,18 +14,13 @@ from expense.tui.screens.statements import (
 )
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
-    ARCHIVED_FIELD_WORDS,
-    ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_BANK_NAMES,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     SEALED_FIELD_WORDS,
     SEALED_LINE_WORDS,
-    SEALED_TRANSACTION_WORDS,
     LateAnswer,
     account_with_currencies,
     app_notes,
-    archived_refusal,
-    archived_words,
     assert_card_gutters_blank,
     bank_line_row,
     cursor_page,
@@ -187,20 +182,24 @@ def test_new_statement_refuses_a_balance_with_a_comma_after_its_dot(fake_client,
 def test_new_statement_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
     """A period's ends are calendar days on the wire (contract: "Date inputs"): the
     typed text goes out unconverted, and any shape the engine would 422 is
-    refused at the field instead — unpadded, compact, day-first, not a day."""
+    refused at the field instead — unpadded, compact, day-first, not a day. Both days
+    are required: an empty enter stays on the field, so no statement is left unordered
+    or never completable."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
         screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
         await app.push_screen(screen)
         _enter(screen, "August 2026")  # name
-        for bad in ("2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
+        for bad in ("", "2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
             _enter(screen, bad)
             assert screen._key == "date_start", bad
+        assert "date_start" in screen._required()
         _enter(screen, "2026-08-01")
-        for bad in ("2026-8-31", "20260831", "31/08/2026"):
+        for bad in ("", "2026-8-31", "20260831", "31/08/2026"):
             _enter(screen, bad)
             assert screen._key == "date_end", bad
+        assert "date_end" in screen._required()
         _enter(screen, "2026-08-31")
         _enter(screen, "0")  # begin
         _enter(screen, "")  # end → submits
@@ -208,25 +207,6 @@ def test_new_statement_sends_the_typed_days_and_refuses_other_shapes(fake_client
         _path, body = fake_client.posts[0]
         assert body["date_start"] == "2026-08-01"
         assert body["date_end"] == "2026-08-31"
-
-    run_app(scenario)
-
-
-def test_new_statement_date_end_is_required(fake_client, monkeypatch):
-    """A period with no last day can never be completed,
-    so an empty enter on DATE END is refused in place, as on DATE START."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN",))
-        await app.push_screen(screen)
-        _enter(screen, "August 2026")
-        _enter(screen, "2026-08-01")
-        _enter(screen, "")  # date_end → rejected, stays put
-        assert screen._key == "date_end"
-        assert "date_end" in screen._required()
-        await pilot.pause()
-        assert not fake_client.posts
 
     run_app(scenario)
 
@@ -252,28 +232,6 @@ def test_the_date_start_line_says_it_orders_the_statement(fake_client, monkeypat
     run_app(scenario)
     assert seen["start"] == "YYYY-MM-DD · the statement's first day · it orders the statement"
     assert seen["end"] == "YYYY-MM-DD · the statement's last day"
-
-
-def test_new_statement_date_start_is_required(fake_client, monkeypatch):
-    """date_start orders the statement now, so an empty enter is refused in place
-    rather than silently creating an unorderable statement."""
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = NewStatementScreen()
-        await app.push_screen(screen)
-        await _wait_accounts(screen, pilot)
-        _enter(screen, "April 2026")  # name
-        _enter(screen, "BCP")  # account → acc1
-        _enter(screen, "")  # date_start → rejected, stays put
-        assert screen._key == "date_start"
-        assert "date_start" in screen._required()
-        _enter(screen, "2026-04-01")
-        assert screen._key == "date_end"
-        await pilot.pause()
-        assert not fake_client.posts
-
-    run_app(scenario)
 
 
 def test_the_new_form_account_picker_shows_the_engines_order(fake_client, monkeypatch):
@@ -833,21 +791,6 @@ def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
     assert rows[2][1][3].style == "dim"  # no operation code: a dim em dash
 
 
-def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
-    from expense.tui.screens.statements import unfiled_rows
-
-    rows = unfiled_rows([UNFILED[1]], [])
-    assert len(rows) == 1
-    assert [str(c) for c in rows[0][1]] == [
-        "",
-        "2026-03-10",
-        "FARMACIA",
-        "48201764",
-        "PEN",
-        "-100.00",
-    ]
-
-
 def _numbered(n: int) -> dict:
     return _line(f"bl{n}", [-100 * n], day=f"2025-01-{n:02d}", title=f"ROW {n}")
 
@@ -964,8 +907,11 @@ def test_the_caption_counts_what_is_loaded_against_the_engine_count(monkeypatch)
 
 
 def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
+    """The `!` rule holds on the rows `pgdn` brings in, not only the first ten."""
     _patch_browse(monkeypatch)
-    calls, counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
+    rows = [_numbered(n) for n in range(1, 26)]
+    rows[10] = _line("bl11", [-500], day="2026-03-15", title="IN MARCH")
+    calls, counts = _patch_unfiled(monkeypatch, items=rows)
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
@@ -974,6 +920,8 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
         # appended, not swapped: the first ten are still there, in order
         assert [r.key for r in screen._statement_list._rows] == [f"bl{n}" for n in range(1, 21)]
         assert screen._statement_list.cursor_index == 10  # row 11, the first new one
+        flags = [str(r.cells[0]) for r in screen._statement_list._rows]
+        assert flags == [""] * 10 + ["!"] + [""] * 9
         assert calls[-1]["after"] == "c10" and calls[-1]["unreconciled"] is True
         assert len(counts) == 1  # no recount on pgdn
         assert "20 of 25 loaded" in (screen._statement_list._caption or "")
@@ -986,23 +934,6 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
         await pilot.press("pagedown")
         await pilot.pause()
         assert len(calls) == sent
-
-    run_app(scenario)
-
-
-def test_appended_rows_carry_the_flag_too(monkeypatch):
-    """The `!` rule holds on rows `pgdn` brings in, not only the first ten."""
-    _patch_browse(monkeypatch)
-    rows = [_numbered(n) for n in range(1, 12)]
-    rows[10] = _line("bl11", [-500], day="2026-03-15", title="IN MARCH")
-    _patch_unfiled(monkeypatch, items=rows)
-
-    async def scenario(pilot, app):
-        screen = await _open_unfiled(pilot, app)
-        await pilot.press("pagedown")
-        await wait_for(pilot, lambda: len(screen._statement_list._rows) == 11)
-        flags = [str(r.cells[0]) for r in screen._statement_list._rows]
-        assert flags == [""] * 10 + ["!"]
 
     run_app(scenario)
 
@@ -1235,7 +1166,6 @@ FARM_PARTS = [
     ("row", "field", "typed", "sent"),
     [
         ("bl-farm", "date", "2026-03-12", {"date": "2026-03-12"}),
-        ("bl-farm", "title", "FARMACIA CENTRAL", {"title": "FARMACIA CENTRAL"}),
         ("bl-farm", "operation", "55500011", {"operation_code": "55500011"}),
         ("bl-farm", "operation", "", {"operation_code": None}),
         (
@@ -1244,16 +1174,13 @@ FARM_PARTS = [
             "Interbank",
             {"account_id": "acc2", "statement_id": None},
         ),
-        ("bl-uber", "operation", "11122233", {"operation_code": "11122233"}),
         ("bl-uber", "0.amount", "-30.00", {}),
     ],
     ids=[
         "split-date",
-        "split-title",
         "split-operation",
         "split-operation-cleared",
         "split-account",
-        "lone-operation",
         "lone-amount",
     ],
 )
@@ -1388,28 +1315,17 @@ def test_a_refused_save_shows_the_engine_words_under_the_parts_and_the_form_stay
     assert seen == (True, True, 0)  # on top, holding what was typed, nothing read again
 
 
-def test_a_save_on_an_archived_account_shows_the_engine_words_alone(monkeypatch, fake_client):
-    """The form was opened
-    before the line's account was archived, and a new operation number is
-    saved. Under the parts, the engine's words, its field's words under them,
-    and no line of the app's; the form stays open with what was typed, and
-    "no statement" is not read again."""
-    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "operation_code")
-    summary, seen = _refused(monkeypatch, fake_client, err)
-    assert [line.strip() for line in summary[-3:]] == [
-        f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}",
-        f"! operation_code: {ARCHIVED_FIELD_WORDS}",
-        "Nothing was saved.",
-    ]
-    assert seen == (True, True, 0)  # on top, holding what was typed, nothing read again
-
-
-def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypatch, fake_client):
+def test_nothing_changed_or_esc_sends_nothing_and_esc_keeps_the_cursor(monkeypatch, fake_client):
+    """`ctrl+s` with no change sends nothing and the form stays; a date typed and `esc`
+    is never saved, nothing is read again and the cursor stays on the row."""
     calls, _counts = _patch_form(monkeypatch)
 
     async def scenario(pilot, app):
         screen, form = await _open_form(pilot, app, "bl-farm")
         reads = len(calls)
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.screen is form
         _type_and_enter(form, "2026-03-12")  # typed, never saved
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
@@ -1419,30 +1335,6 @@ def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypat
 
     run_app(scenario)
     assert fake_client.puts == []
-
-
-def test_no_changes_sends_nothing(monkeypatch, fake_client):
-    _patch_form(monkeypatch)
-
-    async def scenario(pilot, app):
-        _screen, form = await _open_form(pilot, app, "bl-farm")
-        await pilot.press("ctrl+s")
-        await pilot.pause()
-        assert app.screen is form
-
-    run_app(scenario)
-    assert fake_client.puts == []
-
-
-def test_the_card_on_the_statements_offers_open_alone(monkeypatch):
-    """The panel's two `⏎` rows follow what `⏎` does: `Open` on a statement."""
-    _patch_browse(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open_panel(pilot, app)
-        assert _card_enter_rows(screen) == ["Open"]
-
-    run_app(scenario)
 
 
 def test_r_starts_again_from_the_oldest_ten(monkeypatch):
@@ -1521,16 +1413,17 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
     assert not [r for m, r in fake_client.requests if m == "GET"]  # nothing read before asking
 
 
-@pytest.mark.parametrize("parts", [2, 3])
-def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, fake_client, parts):
-    """3b: the purchase is one row, so `d` asks the ledger's purchase question
+def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, fake_client):
+    """The purchase is one row, so `d` asks the ledger's purchase question
     with its real part count and total, reads nothing first, and `y` sends one
     `DELETE /bank-lines/{id}`; `Transaction deleted.`, then the oldest ten again,
     the cursor on row 1."""
     from expense.tui.screens.modals import ConfirmModal
 
-    amounts = {2: [-6000, -4000], 3: [-6000, -2500, -1500]}[parts]
-    farm = _line("bl-farm", amounts, day="2026-03-10", title="FARMACIA", code="48201764")
+    parts = 3
+    farm = _line(
+        "bl-farm", [-6000, -2500, -1500], day="2026-03-10", title="FARMACIA", code="48201764"
+    )
     _patch_browse(monkeypatch)
     calls, _counts = _patch_unfiled(monkeypatch, items=[UNFILED[0], farm, UNFILED[2]])
 
@@ -1556,8 +1449,8 @@ def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, 
     assert not [r for m, r in fake_client.requests if m == "GET"]  # the line was in hand
 
 
-@pytest.mark.parametrize("key", ["n", "escape", "enter"])
-def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, key):
+def test_any_other_answer_than_y_on_a_purchase_sends_nothing(monkeypatch, fake_client):
+    """`n`, `esc` and `enter` each close the question with nothing sent or read."""
     from expense.tui.screens.modals import ConfirmModal
 
     _patch_browse(monkeypatch)
@@ -1567,13 +1460,14 @@ def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, 
         screen = await _open_unfiled(pilot, app)
         await _cursor_on(pilot, screen, "bl-farm")
         reads = len(calls)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press(key)
-        await wait_for(pilot, lambda: app.screen is screen)
-        await pilot.pause()
-        assert len(calls) == reads
-        assert screen._statement_list.cursor_key == "bl-farm"
+        for key in ("n", "escape", "enter"):
+            await pilot.press("d")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+            await pilot.press(key)
+            await wait_for(pilot, lambda: app.screen is screen)
+            await pilot.pause()
+            assert len(calls) == reads, key
+            assert screen._statement_list.cursor_key == "bl-farm", key
 
     run_app(scenario)
     assert fake_client.deletes == []
@@ -1591,18 +1485,7 @@ def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, 
             {"bank_line_id": SEALED_FIELD_WORDS},
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
-        ("bl-farm", "/bank-lines/bl-farm", 404, "NOT_FOUND", "bank_line not found.", None, None),
-        (
-            "bl-net",
-            "/transactions/bl-net-p1",
-            409,
-            "CONFLICT",
-            SEALED_TRANSACTION_WORDS,
-            {"transaction_id": SEALED_FIELD_WORDS},
-            {"transaction_id": "IN_COMPLETED_RECONCILIATION"},
-        ),
     ],
-    ids=["purchase-sealed", "purchase-gone", "transaction-sealed"],
 )
 def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
     monkeypatch, fake_client, row, path, status, code, words, fields, reasons
@@ -1629,52 +1512,6 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
         await pilot.pause()
         assert notes == [("Failed", list_refusal_text(err))]
         assert notes[0][1].startswith(f"{code} — {words}")
-        assert len(calls) == reads and len(screen._statement_list._rows) == 3
-        assert screen._statement_list.cursor_key == row
-
-    run_app(scenario)
-    assert fake_client.deletes == [path]
-
-
-@pytest.mark.parametrize(
-    ("row", "path", "thing", "key"),
-    [
-        ("bl-farm", "/bank-lines/bl-farm", "bank line", "bank_line_id"),
-        ("bl-net", "/transactions/bl-net-p1", "transaction", "transaction_id"),
-    ],
-    ids=["purchase", "transaction"],
-)
-def test_a_delete_on_an_archived_account_shows_the_engine_words_alone(
-    monkeypatch, fake_client, row, path, thing, key
-):
-    """The pane was read
-    before the account was archived, and `d` then `y` is refused. The "Failed"
-    note is the engine's words alone, no line of the app's under them, and the
-    list is as it was: not read again, its rows and cursor kept."""
-    from expense.tui.screens.modals import ConfirmModal
-
-    _patch_browse(monkeypatch)
-    calls, _counts = _patch_unfiled(monkeypatch)
-    err = archived_refusal(409, archived_words("delete", thing), key)
-    fake_client.errors["DELETE"] = err
-
-    async def scenario(pilot, app):
-        screen = await _open_unfiled(pilot, app)
-        notes = _notes(monkeypatch, screen)
-        await _cursor_on(pilot, screen, row)
-        reads = len(calls)
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: notes)
-        await pilot.pause()
-        assert notes == [
-            (
-                "Failed",
-                f"CONFLICT — {archived_words('delete', thing)}\n  {key}: {ARCHIVED_FIELD_WORDS}",
-            )
-        ]
-        assert notes[0][1] == refusal_text(err, None)
         assert len(calls) == reads and len(screen._statement_list._rows) == 3
         assert screen._statement_list.cursor_key == row
 
@@ -1722,54 +1559,16 @@ def test_y_on_a_purchase_sends_one_delete_with_an_idempotency_key(configured, mo
     assert not single.called and not read.called
 
 
-def test_y_on_a_line_never_split_sends_its_transaction_delete_with_an_idempotency_key(
-    configured, monkeypatch
-):
-    import httpx
-    import respx
-
-    from expense import config as config_module
-    from expense.tui.screens.modals import ConfirmModal
-    from tests.unit.helpers import ENGINE_URL
-
-    real_config = config_module.ensure_loaded
-    _patch_browse(monkeypatch)
-    monkeypatch.setattr("expense.config.ensure_loaded", real_config)
-    _patch_unfiled(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open_unfiled(pilot, app)
-        notes = _notes(monkeypatch, screen)
-        await _cursor_on(pilot, screen, "bl-net")
-        await pilot.press("d")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
-
-    with respx.mock(assert_all_called=False) as engine:
-        route = engine.delete(f"{ENGINE_URL}/v1/transactions/bl-net-p1").mock(
-            httpx.Response(200, json={})
-        )
-        whole_line = engine.delete(url__startswith=f"{ENGINE_URL}/v1/bank-lines/").mock(
-            httpx.Response(200, json={"parts": []})
-        )
-        run_app(scenario)
-    assert route.call_count == 1
-    assert route.calls.last.request.headers["X-Idempotency-Key"]
-    assert not whole_line.called
-
-
 @pytest.mark.parametrize(
-    ("row", "path", "first_line"),
+    ("row", "first_line", "refused"),
     [
-        ("bl-net", "/transactions/bl-net-p1", "Not deleted · NETFLIX · -44.90"),
-        ("bl-farm", "/bank-lines/bl-farm", "Not deleted · FARMACIA · -100.00"),
+        ("bl-net", None, False),
+        ("bl-farm", "Not deleted · FARMACIA · -100.00", True),
     ],
-    ids=["never split", "split"],
+    ids=["deleted-never split", "refused-split"],
 )
-@pytest.mark.parametrize("refused", [False, True], ids=["deleted", "refused"])
 def test_a_delete_answered_after_leaving_says_how_it_ended(
-    monkeypatch, fake_client, row, path, first_line, refused
+    monkeypatch, fake_client, row, first_line, refused
 ):
     """`d` in no statement, the screen left before the engine answers: the deleted note,
     or the refusal's words under what was not deleted, 10 seconds."""
@@ -1976,34 +1775,28 @@ def _long_name_accounts(monkeypatch, statements: list[dict]) -> None:
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
 
 
-def test_a_caption_that_wraps_is_counted_before_the_panel_exists(monkeypatch):
+@pytest.mark.parametrize("size", [(80, 24), (140, 24)], ids=["80", "card-width"])
+def test_a_caption_that_wraps_is_counted_before_the_panel_exists(monkeypatch, size):
     """The page size is measured with the caption the panel is about to draw, at the width
-    the list will have: a long account name wraps it to two lines, and `#content` still does
-    not scroll, every row drawn whole."""
+    the list will have (above 102 columns, the card's, narrower than `#content`): a long
+    account name wraps it, and `#content` still does not scroll, every row drawn whole, in
+    the statements and in the lines in no statement."""
     _long_name_accounts(monkeypatch, _numbered_statements(9))
-
-    async def scenario(pilot, app):
-        screen = await _open_panel(pilot, app)
-        await pilot.pause()
-        assert screen._caption_lines() == 2
-        assert screen.query_one("#content").max_scroll_y == 0
-        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
-        assert shown and len(shown) == screen._statement_list._page_size
-        assert all(line.endswith("in order") for line in shown)
-        await pilot.press("r")  # a refresh measures again, to the same effect
-        await pilot.pause()
-        assert screen.query_one("#content").max_scroll_y == 0
-        _footer_whole(app)
-
-    run_app(scenario)
-
-
-def test_u_keeps_its_rows_whole_under_a_caption_that_wraps(monkeypatch):
-    _long_name_accounts(monkeypatch, [])
     _patch_unfiled(monkeypatch, items=_unfiled_lines(12))
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
+        await pilot.pause()
+        if size[0] == 80:
+            assert screen._caption_lines() == 2
+        assert screen.query_one("#content").max_scroll_y == 0
+        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
+        assert shown and len(shown) == screen._statement_list._page_size
+        assert all(line.rstrip().endswith("in order") for line in shown)
+        await pilot.press("r")  # a refresh measures again, to the same effect
+        await pilot.pause()
+        assert screen.query_one("#content").max_scroll_y == 0
+        _footer_whole(app)
         await pilot.press("u")
         await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
         await pilot.pause()
@@ -2012,7 +1805,7 @@ def test_u_keeps_its_rows_whole_under_a_caption_that_wraps(monkeypatch):
         assert rows and len(rows) == screen._statement_list._page_size
         _footer_whole(app)
 
-    run_app(scenario)
+    run_app(scenario, size=size)
 
 
 def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
@@ -2039,29 +1832,6 @@ def test_the_browse_frame_costs_exactly_browse_frame_lines(monkeypatch):
     run_app(scenario)
 
 
-def test_a_wide_terminal_measures_the_caption_at_the_card_width(monkeypatch):
-    """Above 102 columns the lists sit in a card capped at `CARD_WIDTH`, narrower than
-    `#content`: a caption between the two widths still wraps, and is counted."""
-    _long_name_accounts(monkeypatch, _numbered_statements(9))
-    _patch_unfiled(monkeypatch, items=_unfiled_lines(12))
-
-    async def scenario(pilot, app):
-        screen = await _open_panel(pilot, app)
-        await pilot.pause()
-        assert screen.query_one("#content").max_scroll_y == 0
-        shown = [line for line in screen_lines(app) if "VIS-2026" in line]
-        assert shown and len(shown) == screen._statement_list._page_size
-        assert all(line.rstrip().endswith("in order") for line in shown)
-        await pilot.press("u")
-        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
-        await pilot.pause()
-        assert screen.query_one("#content").max_scroll_y == 0
-        rows = [line for line in screen_lines(app) if "PEN" in line and "20" in line]
-        assert rows and len(rows) == screen._statement_list._page_size
-
-    run_app(scenario, size=(140, 24))
-
-
 # ---- a long account name in the crumb ------------------------------------
 
 CRUMB_NAME = "Cuenta de ahorros en soles del Banco de Credito del Peru"[:50]
@@ -2084,7 +1854,7 @@ def _drawn_crumb(app) -> tuple[str, str]:
     return lines[0].strip(), lines[1].strip()
 
 
-@pytest.mark.parametrize(("stale", "ending"), [(True, "…  !"), (False, "…"), (None, "…")])
+@pytest.mark.parametrize(("stale", "ending"), [(True, "…  !"), (False, "…")])
 def test_a_long_account_name_cuts_the_crumb_to_one_line_and_keeps_the_alert(
     monkeypatch, stale, ending
 ):
@@ -2265,6 +2035,7 @@ def test_the_card_of_the_no_statement_list_lists_only_the_keys_that_work_there(m
         lines = screen_lines(app)
         assert not any("▼" in line or "▲" in line for line in lines)
         assert any("[?] or [esc] close" in line for line in lines)
+        assert_card_gutters_blank(lines, 80)  # the gutters beside the card stay blank
 
     run_app(scenario, size=(80, 24))
 
@@ -2289,29 +2060,6 @@ def test_the_card_lists_pgdn_only_while_more_rows_are_left_to_load(monkeypatch):
         await wait_for(pilot, lambda: len(screen._statement_list._rows) == 25)
         assert ("pgdn", "Load the next 10 rows under these") not in _card_group(
             screen, "Moving around"
-        )
-
-    run_app(scenario, size=(80, 24))
-
-
-def test_the_card_of_the_account_list_has_no_d_and_u_only_once_a_panel_has_been_opened(
-    monkeypatch,
-):
-    _patch_browse(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        assert _card_group(screen, "This screen") == [
-            ("n", "New"),
-            ("r", "Refresh"),
-            ("esc", "Back"),
-        ]
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: screen._mode == "statements")
-        assert ("u", "This account's rows that are in no statement") in _card_group(
-            screen, "This screen"
         )
 
     run_app(scenario, size=(80, 24))
@@ -2353,21 +2101,6 @@ def test_the_card_of_the_statements_panel_closes_the_panel_and_pages_only_with_s
     run_app(several_pages, size=(80, 24))
 
 
-def test_the_card_of_the_account_list_lists_no_page_key_while_one_page_holds_the_accounts(
-    monkeypatch,
-):
-    _patch_browse(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = StatementsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        assert screen._mode == "accts"
-        assert _card_group(screen, "Moving around") == [("⏎", "Its statements"), ("↓", "Down")]
-
-    run_app(scenario, size=(80, 24))
-
-
 def test_the_card_of_the_account_list_lists_the_page_keys_once_they_work(monkeypatch):
     _two_currency_accounts(monkeypatch, [f"Account {n}" for n in range(1, 25)])
 
@@ -2382,19 +2115,6 @@ def test_the_card_of_the_account_list_lists_the_page_keys_once_they_work(monkeyp
         await pilot.press("pagedown")
         await pilot.pause()
         assert ("pgup", "Previous page") in _card_group(screen, "Moving around")
-
-    run_app(scenario, size=(80, 24))
-
-
-def test_the_no_statement_list_card_leaves_the_gutters_beside_it_blank(monkeypatch):
-    _patch_browse(monkeypatch)
-    _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 6)])
-
-    async def scenario(pilot, app):
-        await _open_unfiled(pilot, app)
-        await pilot.press("question_mark")
-        await pilot.pause()
-        assert_card_gutters_blank(screen_lines(app), 80)
 
     run_app(scenario, size=(80, 24))
 

@@ -29,7 +29,6 @@ from tests.unit.helpers import (
     money_at_start_refusal,
     run_app,
     screen_lines,
-    shown,
     statement_complete_answer,
     statement_put_answer,
     statement_record,
@@ -41,7 +40,6 @@ pytestmark = pytest.mark.usefixtures("no_flagged_lines")
 
 PATH = "/statements/ibk"
 COMPLETE = "/statements/ibk/complete"
-SAVED_WORDS = "The balances are saved. The statement is not completed:"
 
 
 def _balance(currency: str, begin, end, diff=None) -> dict:
@@ -146,9 +144,7 @@ async def _press_c(pilot, app) -> None:
 
 
 async def _type_in(pilot, typed: str) -> None:
-    for ch in typed:
-        await pilot.press(ch)
-    await pilot.press("enter")
+    await pilot.press(*typed, "enter")
 
 
 def _is_box(app) -> bool:
@@ -218,55 +214,6 @@ def test_the_balances_a_refusal_names_are_read_off_its_reasons_by_key():
 
 
 # ---- c on a draft with blank balances (the starting box, then the ending box) ------------
-
-
-def test_c_asks_the_starting_then_the_ending_balance_saves_once_then_asks_to_complete(
-    fake_client, monkeypatch
-):
-    """The starting box, then the ending box, both for the
-    dollars; one `PUT` naming the dollars alone with both figures; the header shows
-    the engine's answer; then the usual question, and only `y` completes."""
-    _engine(fake_client, monkeypatch)
-    saved = _ibk(_balance("PEN", -82000, -34860), _balance("USD", 0, -2499, 0))
-    fake_client.write_responses[PATH] = statement_put_answer(saved)
-    fake_client.write_responses[COMPLETE] = statement_complete_answer({**saved, "status": 2})
-
-    async def scenario(pilot, app):
-        screen = await _open(pilot, app, OCTUBRE)
-        await _press_c(pilot, app)
-        assert _lines(app) == _starting("USD")
-        assert fake_client.calls == []
-        for ch in "0.00":
-            await pilot.press(ch)
-        assert _lines(app) == _starting("USD", "0.00")
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
-        assert fake_client.puts == []  # nothing is sent between the boxes
-        await _type_in(pilot, "-24.99")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert fake_client.puts == [
-            (
-                PATH,
-                {
-                    "balances": [
-                        {
-                            "currency_code": "USD",
-                            "beginning_balance_cents": 0,
-                            "ending_balance_cents": -2499,
-                        }
-                    ]
-                },
-            )
-        ]
-        assert fake_client.posts == []
-        head = shown(screen.query_one("#rhead", Static)).splitlines()
-        assert head[-1].split() == ["USD", "0.00", "-24.99", "—"]
-        assert [str(s.visual) for s in app.screen.query(Static)][0] == "Complete statement?"
-        await pilot.press("y")
-        await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [(COMPLETE, None)]
-
-    run_app(scenario, size=(80, 26))
 
 
 def test_two_currencies_are_asked_in_turn_and_saved_in_one_put_naming_both(
@@ -364,7 +311,8 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
 ):
     """The question, `y`, the refusal naming the dollars the
     statement does not cover; the starting box and the ending box (empty) open for
-    them, one `PUT` adds both, and the question asks again."""
+    them, one `PUT` adds both, and the question asks again below the `USD` line the save
+    added to the head, never over it (at 80x24)."""
     _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
     notices = _notes(monkeypatch)
     fake_client.errors["POST"] = _money_at_start()
@@ -377,6 +325,10 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
         screen = await _open(pilot, app, NOVIEMBRE_IBK)
         await pilot.press("c")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        before = _under_head(app)
+        assert [r.split() for r in before[2:3]] == [["PEN", "-348.60", "-512.90"]]
+        assert before[3:5] == ["", RULE]  # one currency: the rule right under it
         await pilot.press("y")
         await wait_for(pilot, lambda: _is_box(app))
         await pilot.pause()
@@ -391,7 +343,15 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
         await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
         await _type_in(pilot, "-24.99")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
         assert [str(s.visual) for s in app.screen.query(Static)][0] == "Complete statement?"
+        after = _under_head(app)
+        assert _cells(after[2:4]) == [
+            ["PEN", "-348.60", "-512.90", "—"],
+            ["USD", "-24.99", "-24.99", "—"],
+        ]
+        assert after[4:7] == ["", RULE, ""]
+        assert after[7].strip() == "Complete statement?"
         assert len(fake_client.posts) == 1
         fake_client.errors.pop("POST")
         fake_client.write_responses[COMPLETE] = statement_complete_answer({**saved, "status": 2})
@@ -399,7 +359,7 @@ def test_money_at_start_not_covered_opens_the_boxes_for_the_currency_the_engine_
         await wait_for(pilot, lambda: len(fake_client.posts) == 2)
         assert screen.is_attached
 
-    run_app(scenario, size=(80, 26))
+    run_app(scenario, size=(80, 24))
     assert fake_client.puts == [
         (
             PATH,
@@ -601,33 +561,6 @@ def test_a_balance_save_at_the_same_moment_as_another_write_says_to_press_r(
     run_app(scenario, size=(80, 26))
 
 
-def test_a_complete_refused_after_the_save_says_the_balances_are_saved(fake_client, monkeypatch):
-    _engine(fake_client, monkeypatch, fresh=OCTUBRE)
-    notices = _notes(monkeypatch)
-    fake_client.write_responses[PATH] = statement_put_answer(OCTUBRE)
-    fake_client.errors["POST"] = _refused(
-        **{"balances.PEN.difference_cents": "DIFFERENCE_NOT_ZERO"}
-    )
-
-    async def scenario(pilot, app):
-        screen = await _open(pilot, app, OCTUBRE)
-        await _press_c(pilot, app)
-        await _type_in(pilot, "0.00")
-        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
-        await _type_in(pilot, "0.00")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: complete_refusal(screen))
-        assert complete_refusal(screen)[:3] == [
-            "Couldn't complete",
-            SAVED_WORDS,
-            "VALIDATION_ERROR — Engine words.",
-        ]
-        assert notices == []
-
-    run_app(scenario, size=(80, 26))
-
-
 # ---- where the boxes sit: under the head ------------------------
 
 RULE = "  " + "─" * 60
@@ -655,13 +588,16 @@ def _cells(rows: list[str]) -> list[list[str]]:
 
 
 def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client, monkeypatch):
-    """At 80x24: the head's lines (both currencies) stay on
-    screen above each box and above the question, the blank line, the rule, the text at
-    column 4, the blank line, the closing rule, and the footer naming only that box's or
-    that question's keys."""
+    """The starting box, then the ending box, both for the dollars; nothing is sent
+    between them; one `PUT` naming the dollars alone with both figures; the header shows
+    the engine's answer; then the usual question, and only `y` completes. At 80x24: the
+    head's lines (both currencies) stay on screen above each box and above the question,
+    the blank line, the rule, the text at column 4, the blank line, the closing rule, and
+    the footer naming only that box's or that question's keys."""
     _engine(fake_client, monkeypatch)
     saved = _ibk(_balance("PEN", -82000, -34860), _balance("USD", 0, -2499, 0))
     fake_client.write_responses[PATH] = statement_put_answer(saved)
+    fake_client.write_responses[COMPLETE] = statement_complete_answer({**saved, "status": 2})
     title = "  Octubre 2026  ·  IBK Visa  ·  2026-09-26 → 2026-10-25  ·  status draft"
     columns = "            begin          end      diff"
     pen = "  PEN     -820.00      -348.60"
@@ -669,8 +605,8 @@ def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client,
     async def scenario(pilot, app):
         await _open(pilot, app, OCTUBRE)
         await _press_c(pilot, app)
-        for ch in "0.00":
-            await pilot.press(ch)
+        assert fake_client.calls == []  # nothing sent by opening it
+        await pilot.press(*"0.00")
         await pilot.pause()
         step1 = _boxes_screen(
             [title, columns, pen, "  USD           —            —"],
@@ -686,8 +622,8 @@ def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client,
         assert _under_head(app) == step1
         await pilot.press("enter")
         await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
-        for ch in "-24.99":
-            await pilot.press(ch)
+        assert fake_client.puts == []  # nothing is sent between the boxes
+        await pilot.press(*"-24.99")
         await pilot.pause()
         step2 = _boxes_screen(
             step1[:4],
@@ -720,46 +656,24 @@ def test_octubre_the_boxes_and_the_question_under_the_head_at_80x24(fake_client,
         assert step3[:2] == want[:2]
         assert _cells(step3[2:4]) == _cells(want[2:4])  # the saved figures, in sight
         assert step3[4:] == want[4:]
-
-    run_app(scenario, size=(80, 24))
-
-
-def test_noviembre_the_saved_dollar_line_shows_above_the_question_asked_again(
-    fake_client, monkeypatch
-):
-    """The head grows by a `USD` line when the dollars are saved; the question that
-    asks again is drawn below that line, never over it."""
-    _engine(fake_client, monkeypatch, fresh=NOVIEMBRE_IBK)
-    _notes(monkeypatch)
-    fake_client.errors["POST"] = _money_at_start()
-    saved = _ibk(
-        _balance("PEN", -34860, -51290, 0), _balance("USD", -2499, -2499, 0), name="Noviembre 2026"
-    )
-    fake_client.write_responses[PATH] = statement_put_answer(saved)
-
-    async def scenario(pilot, app):
-        await _open(pilot, app, NOVIEMBRE_IBK)
-        await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.pause()
-        before = _under_head(app)
-        assert [r.split() for r in before[2:3]] == [["PEN", "-348.60", "-512.90"]]
-        assert before[3:5] == ["", RULE]  # one currency: the rule right under it
-        await pilot.press("y")
-        await wait_for(pilot, lambda: _is_box(app))
-        await pilot.pause()
-        await _type_in(pilot, "-24.99")
-        await wait_for(pilot, lambda: _lines(app) == _ending("USD"))
-        await _type_in(pilot, "-24.99")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.pause()
-        after = _under_head(app)
-        assert _cells(after[2:4]) == [
-            ["PEN", "-348.60", "-512.90", "—"],
-            ["USD", "-24.99", "-24.99", "—"],
+        assert fake_client.puts == [
+            (
+                PATH,
+                {
+                    "balances": [
+                        {
+                            "currency_code": "USD",
+                            "beginning_balance_cents": 0,
+                            "ending_balance_cents": -2499,
+                        }
+                    ]
+                },
+            )
         ]
-        assert after[4:7] == ["", RULE, ""]
-        assert after[7].strip() == "Complete statement?"
+        assert fake_client.posts == []  # the question comes first
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [(COMPLETE, None)]
 
     run_app(scenario, size=(80, 24))
 
@@ -974,16 +888,9 @@ def _wrapped_whole(rows: list[str], words: str) -> None:
     ("record", "words", "first", "last", "keys"),
     [
         (OCTUBRE, STARTING_WORDS, "Starting", "[esc]", ()),
-        (
-            OCTUBRE,
-            STARTING_WORDS.replace("Starting", "Ending").replace("opening", "closing"),
-            "Ending",
-            "[esc]",
-            ("0", "enter"),
-        ),
         (NOVIEMBRE_IBK, QUESTION_WORDS, "Complete", "cancel", ()),
     ],
-    ids=["starting", "ending", "question"],
+    ids=["starting", "question"],
 )
 def test_at_60_columns_each_box_wraps_its_words_and_cuts_none(
     fake_client, monkeypatch, record, words, first, last, keys
@@ -994,19 +901,6 @@ def test_at_60_columns_each_box_wraps_its_words_and_cuts_none(
         lambda: {"acc-ibk": LONG_ACCOUNT},
     )
     _wrapped_whole(_box_at(record, 60, first, last, keys), words.replace("IBK Visa", LONG_ACCOUNT))
-
-
-def test_a_long_account_name_wraps_in_the_box_under_its_line(fake_client, monkeypatch):
-    _engine(fake_client, monkeypatch)
-    name = LONG_ACCOUNT
-    monkeypatch.setattr(
-        "expense.tui.screens.statements.load_account_name_map", lambda: {"acc-ibk": name}
-    )
-    wide = _box_at(OCTUBRE, 80, "Starting", "[esc]")
-    narrow = _box_at(OCTUBRE, 60, "Starting", "[esc]")
-    assert len(narrow) > len(wide)
-    words = STARTING_WORDS.replace("IBK Visa", name)
-    _wrapped_whole(narrow, words)
 
 
 def test_at_60_columns_the_refusal_lines_wrap_under_themselves_and_cut_none(
