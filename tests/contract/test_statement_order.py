@@ -505,20 +505,16 @@ def test_an_account_without_a_code_completes_without_an_order(client, scratch):
     assert _numbered(client, row["bank_line_id"]) == (None, None)
 
 
-def test_no_statement_write_sets_a_place(client, scratch):
-    """No route writes the order, so a body naming `places` or `statement_place` on a
-    statement's `PUT` is `422` `UNKNOWN_FIELD` under its own key, nothing written: the
+def test_no_statement_write_sets_the_order(client, scratch):
+    """No route writes the order, so a body naming `places` on a
+    statement's `PUT` is `422` `UNKNOWN_FIELD` under its own key, nothing written (a
+    `statement_place` is test_line_codes_and_statement_lines.py's): the
     statement and its order read the same after
     (contract: PUT /v1/statements/{statement_id}, "Nullable here")."""
     _account, _code, statement, _paper, lines = _march_on_a_savings_account(client, scratch)
     client.post(f"/statements/{statement}/revert")
     before = client.get(f"/statements/{statement}"), _order(client, statement)
-    for key, value in (("places", lines), ("statement_place", 1)):
-        err = refused(
-            lambda key=key, value=value: client.put(
-                f"/statements/{statement}", json_body={key: value}
-            )
-        )
-        assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNKNOWN_FIELD")
+    err = refused(lambda: client.put(f"/statements/{statement}", json_body={"places": lines}))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "places", "UNKNOWN_FIELD")
     assert (client.get(f"/statements/{statement}"), _order(client, statement)) == before
     assert _places(before[1]) == list(enumerate(lines, start=1))

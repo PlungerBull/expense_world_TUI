@@ -10,21 +10,19 @@ A person is an account with `kind: "person"`, held in one or more currencies and
 `POST /accounts` (contract: POST /v1/accounts, "Optional"). What it pins, in the order the
 client meets it:
 
-1. A person made with two currencies in one write reads `kind` `person`, a balance of `0`
-   and no opening balance in each.
-2. `kind` is required (`422` `REQUIRED`), and `is_person`, the field it replaced, is
+1. `kind` is required (`422` `REQUIRED`), and `is_person`, the field it replaced, is
    `422` `UNKNOWN_FIELD` whatever its value.
-3. The name is **shared** with bank accounts, case-insensitively, in both directions (`409`
+2. The name is **shared** with bank accounts, case-insensitively, in both directions (`409`
    `NAME_EXISTS` on `name`), not scoped per kind.
-4. A person takes an opening balance in each of its currencies like any account; a second one
-   in the same currency is `OPENING_BALANCE_EXISTS`
-   (contract: POST /v1/accounts/{account_id}/opening-balance).
-5. Everything after creation is an *account* route: `GET`, `PUT`, `/archive`, `/unarchive`,
+3. Everything after creation is an *account* route: `GET`, `PUT`, `/archive`, `/unarchive`,
    `DELETE` all accept the person. No route is named for people.
-6. She is listed by `GET /accounts?include_people=true`, appears in the dashboard's `people`
+4. She is listed by `GET /accounts?include_people=true`, appears in the dashboard's `people`
    panel with a row holding every currency, and moves to `archived_people` — a panel distinct
    from `archived_accounts` — when archived.
-7. That list has every bank account before every person.
+
+Elsewhere: a person made with two currencies in one write is test_account_create.py's, an
+opening balance in each of her currencies test_opening_balance.py's, and the list with every
+bank account before every person test_account_reads.py's.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -47,20 +45,6 @@ def _currencies(account: dict) -> dict[str, tuple[int, str | None]]:
         c["currency_code"]: (c["current_balance_cents"], c["opening_balance_transaction_id"])
         for c in account["currencies"]
     }
-
-
-def test_a_person_is_made_in_one_write_with_two_currencies(client, scratch, statuses):
-    body = account_body("PEN", "USD", person=True)
-    person_id = body["id"]
-    scratch.accounts.append(person_id)
-    created = client.post("/accounts", json_body=body)
-
-    assert statuses[-1] == 201
-    assert created["id"] == person_id
-    assert created["kind"] == "person"
-    assert created["is_archived"] is False
-    assert _currencies(created) == {"PEN": (0, None), "USD": (0, None)}
-    assert client.get(f"/accounts/{person_id}") == created
 
 
 def test_kind_is_required_on_create(client, scratch):
@@ -98,28 +82,6 @@ def test_a_persons_name_is_shared_with_people_and_bank_accounts(client, scratch)
         client, lambda: client.put(f"/accounts/{person_id}", json_body={"name": account_name})
     )
     assert_refusal(err, 409, "CONFLICT", "name", "NAME_EXISTS")
-
-
-def test_a_person_takes_an_opening_balance_in_each_currency(client, scratch):
-    """A person is judged by every rule a bank account is: each currency takes one opening
-    balance, a second in the same currency is refused and the other currency still takes its
-    own (contract: POST /v1/accounts/{account_id}/opening-balance, "Validation")."""
-    person_id = scratch.account("PEN", "USD", person=True)
-    scratch.opening_balance(person_id, "2026-01-01", "PEN", -10000)
-    held = client.get(f"/accounts/{person_id}")
-    pen = next(c for c in held["currencies"] if c["currency_code"] == "PEN")
-    assert pen["current_balance_cents"] == -10000
-    assert pen["opening_balance_transaction_id"] is not None
-
-    err = refused_writing_nothing(
-        client, lambda: scratch.opening_balance(person_id, "2026-01-02", "PEN", 500)
-    )
-    assert_refusal(err, 409, "CONFLICT", "account_id", "OPENING_BALANCE_EXISTS")
-
-    scratch.opening_balance(person_id, "2026-01-01", "USD", 2500)
-    both = _currencies(client.get(f"/accounts/{person_id}"))
-    assert both["PEN"] == (-10000, pen["opening_balance_transaction_id"])
-    assert both["USD"][0] == 2500 and both["USD"][1] is not None
 
 
 def test_people_lifecycle(client, scratch):
@@ -191,25 +153,3 @@ def test_settled_person_is_returned_not_hidden(client, scratch):
         {"currency_code": "PEN", "current_balance_cents": 0},
         {"currency_code": "USD", "current_balance_cents": 0},
     ]
-
-
-def test_the_list_with_people_has_every_account_before_every_person(client, scratch):
-    """`GET /accounts?include_people=true` lists every bank account first, then every
-    person, each group by `sort_order` ascending, then oldest first
-    (contract: GET /v1/accounts, "Ordering"); the app shows that order as it comes.
-
-    The person is created first and with `sort_order` 0, the account after it with a high
-    `sort_order`, so a list ordered by either alone would put the person ahead of the
-    account.
-    """
-    person_id = scratch.account("PEN", "USD", person=True, sort_order=0)
-    account_id = scratch.account("PEN", "USD", sort_order=9999)
-    rows = client.get("/accounts", params={"include_people": "true"})["items"]
-    flags = [row["kind"] == "person" for row in rows]
-    assert {row["id"] for row in rows} >= {person_id, account_id}
-    assert True in flags and False in flags
-    assert next(r for r in rows if r["id"] == person_id)["sort_order"] == 0
-    assert next(r for r in rows if r["id"] == account_id)["sort_order"] == 9999
-    last_account = max(i for i, is_person in enumerate(flags) if not is_person)
-    first_person = min(i for i, is_person in enumerate(flags) if is_person)
-    assert last_account < first_person

@@ -39,6 +39,27 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine moved again: ask for one hand-off file?
+Asked 2026-11-10 · Blocks: the trimming spec's acceptance check, every new catch-up, and
+[closing with leftover lines](specs/closing-with-leftover-lines.md)
+The practice engine serves contract `2dc7f6cfcb365f8e`; this client last caught up to
+`9b3b43429d8bd11e`. The version check lists eleven changes from 2026-11-09. Among them:
+- a user may hold several cash accounts, each named by the engine (`CASH-0001`), and the
+  `Efectivo` account is renamed `CASH-0001`;
+- a cash account can be deleted;
+- every error carries a `details` object, and a refused close names its leftover lines by id
+  in it, which looks like the ask "A loose-lines refusal names its lines by id, in a field a
+  client reads";
+- one message for an amount past the largest;
+- the soles-only sample statement prints the number `0001`.
+On this version, 16 live tests fail, in the money bound, the cash account and the citations.
+The trimming spec's unit work goes on; its acceptance check waits for the catch-up.
+- **A.** Ask the engine for one hand-off file covering `9b3b43429d8bd11e` to `2dc7f6cfcb365f8e`;
+  it becomes a catch-up spec, run before the leftover-lines spec.
+- **B.** Wait: the engine is still working, and the hand-off comes once it is done.
+**Recommended:** A once the engine's current work is done (B until then), since several cash
+accounts change what Home, the New form and the LOG bar show.
+
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
 Found while the catch-up to `1002f105c6bacdf1` ran; drawn as panes 1–3 of

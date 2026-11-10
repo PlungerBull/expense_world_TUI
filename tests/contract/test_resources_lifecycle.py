@@ -235,57 +235,44 @@ def test_a_mixed_put_on_an_archived_accounts_transaction_writes_nothing(client, 
     assert read_signed(client, tx_id) == before
 
 
-def test_an_archived_accounts_empty_title_is_filled_once(client, scratch):
-    """A title that is still `null` may be filled on an archived account's transaction;
-    once set, changing or clearing it is `422` `ACCOUNT_ARCHIVED` on `title`
-    (contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled")."""
+@pytest.mark.parametrize(
+    ("field", "first", "changed"),
+    [
+        ("title", "filled once", "changed"),
+        ("operation_code", f"OP-{uuid4().hex[:8]}", f"OP-{uuid4().hex[:8]}"),
+    ],
+)
+def test_an_archived_accounts_empty_title_or_operation_code_is_filled_once(
+    client, scratch, field, first, changed
+):
+    """A `title` or `operation_code` that is still `null` may be filled on an archived
+    account's transaction; once set, changing or clearing it is `422` `ACCOUNT_ARCHIVED` on
+    that key (contract: PUT /v1/transactions/{transaction_id}, "An empty field may be
+    filled")."""
     account_id = scratch.account()
-    tx_id = scratch.row(account_id, DAY)["id"]
+    extra = {"title": "archived-row"} if field == "operation_code" else {}
+    tx_id = scratch.row(account_id, DAY, **extra)["id"]
     _archive(client, scratch, account_id)
-    assert client.get(f"/transactions/{tx_id}")["title"] is None
+    assert client.get(f"/transactions/{tx_id}")[field] is None
 
-    filled = client.put(f"/transactions/{tx_id}", json_body={"title": "filled once"})
-    assert filled["title"] == "filled once"
+    filled = client.put(f"/transactions/{tx_id}", json_body={field: first})
+    assert filled[field] == first
     before = read_signed(client, tx_id)
-    for value in ("changed", None):
+    for value in (changed, None):
         err = refused(
-            lambda value=value: client.put(f"/transactions/{tx_id}", json_body={"title": value})
+            lambda value=value: client.put(f"/transactions/{tx_id}", json_body={field: value})
         )
-        assert_refusal(err, 422, "VALIDATION_ERROR", "title", "ACCOUNT_ARCHIVED")
-    assert read_signed(client, tx_id) == before
-
-
-def test_an_archived_accounts_empty_operation_code_is_filled_once(client, scratch):
-    """An `operation_code` that is still `null` may be filled on an archived account's
-    transaction; once set, changing or clearing it is `422` `ACCOUNT_ARCHIVED` on
-    `operation_code`
-    (contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled")."""
-    account_id = scratch.account()
-    tx_id = scratch.row(account_id, DAY, title="archived-row")["id"]
-    _archive(client, scratch, account_id)
-    assert client.get(f"/transactions/{tx_id}")["operation_code"] is None
-
-    code = f"OP-{uuid4().hex[:8]}"
-    filled = client.put(f"/transactions/{tx_id}", json_body={"operation_code": code})
-    assert filled["operation_code"] == code
-    before = read_signed(client, tx_id)
-    for value in (f"OP-{uuid4().hex[:8]}", None):
-        err = refused(
-            lambda value=value: client.put(
-                f"/transactions/{tx_id}", json_body={"operation_code": value}
-            )
-        )
-        assert_refusal(err, 422, "VALIDATION_ERROR", "operation_code", "ACCOUNT_ARCHIVED")
+        assert_refusal(err, 422, "VALIDATION_ERROR", field, "ACCOUNT_ARCHIVED")
     assert read_signed(client, tx_id) == before
 
 
 def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchived(client, scratch):
     """On an archived account, `DELETE /transactions/{id}` is `409` on `transaction_id`
     and `DELETE /bank-lines/{id}` `409` on `bank_line_id`, a split line's part and the
-    line included; a whole-line write that replaces a line's part is `422` on `parts`,
-    and one that changes kept parts' amounts on each `parts.<i>.amount_cents`, beside
-    every line field sent; all `ACCOUNT_ARCHIVED`, and the balance and every row stay as
-    they were
+    line included; a whole-line write that changes kept parts' amounts is `422` on each
+    `parts.<i>.amount_cents`, beside every line field sent (a part replaced or left out
+    is test_bank_line_edit_limits.py's); all `ACCOUNT_ARCHIVED`, and the balance and every
+    row stay as they were
     (contract: "Bank Accounts", "An archived account")
     (contract: PUT /v1/bank-lines/{bank_line_id},
     "A line with a part on an archived account keeps its parts and their amounts").
@@ -320,16 +307,11 @@ def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchive
     kept = [{"id": p["id"], "amount_cents": -500} for p in parts]
     today = scratch.recent_moment().isoformat(timespec="seconds")
     amounts = {"parts.0.amount_cents", "parts.1.amount_cents"}
-    for line_id, body, keys in (
-        (single_line, {"parts": [{"id": str(uuid4()), "amount_cents": -1000}]}, {"parts"}),
-        (split_line, {"parts": kept}, amounts),
-        (split_line, {"parts": kept, "date": today}, {*amounts, "date"}),
-    ):
-        scratch.transactions.extend(p["id"] for p in body["parts"])
-        err = refused(
-            lambda line_id=line_id, body=body: client.put(f"/bank-lines/{line_id}", json_body=body)
-        )
-        assert_refusals(err, 422, "VALIDATION_ERROR", dict.fromkeys(keys, "ACCOUNT_ARCHIVED"))
+    body = {"parts": kept, "date": today}
+    err = refused(lambda: client.put(f"/bank-lines/{split_line}", json_body=body))
+    assert_refusals(
+        err, 422, "VALIDATION_ERROR", dict.fromkeys({*amounts, "date"}, "ACCOUNT_ARCHIVED")
+    )
 
     assert ledger() == before
 

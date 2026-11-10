@@ -241,16 +241,20 @@ def test_write_4xx_is_not_retried(config):
 
 
 @pytest.mark.parametrize(
-    ("mock", "raises"),
+    ("outcome", "raises"),
     [
-        ({"side_effect": httpx.TimeoutException("timed out")}, EngineConnectionError),
-        ({"return_value": _envelope(500, "INTERNAL")}, EngineError),
+        (httpx.TimeoutException("timed out"), EngineConnectionError),
+        (_envelope(500, "INTERNAL"), EngineError),
     ],
     ids=["timeout", "5xx"],
 )
 @respx.mock
-def test_a_read_is_never_retried(config, mock, raises):
-    route = respx.get(f"{BASE}/v1/auth/me").mock(**mock)
+def test_a_read_is_never_retried(config, outcome, raises):
+    route = respx.get(f"{BASE}/v1/auth/me")
+    if isinstance(outcome, Exception):
+        route.side_effect = outcome
+    else:
+        route.return_value = outcome
     with ExpenseClient(config) as client, pytest.raises(raises):
         client.get("/auth/me")
 

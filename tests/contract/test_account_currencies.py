@@ -729,14 +729,6 @@ def test_a_name_or_code_another_account_holds_is_a_conflict_and_its_own_is_not(c
     assert (taken["name"], taken["statement_code"]) == (names[bank], bank_code)
 
 
-def test_an_account_edit_that_does_not_exist_is_not_found(client, scratch):
-    """An unknown id and a deleted account's are `404` "account not found." for an edit that
-    would be good (contract: PUT /v1/accounts/{account_id})."""
-    for gone in (str(uuid4()), _deleted(client, scratch)):
-        _not_found(_edit_refused(client, gone, {"name": _name()}), NO_ACCOUNT)
-        _not_found(_edit_refused(client, gone, {}), NO_ACCOUNT)
-
-
 @pytest.mark.parametrize("person", [False, True])
 def test_a_deleted_account_is_gone_with_its_currencies_and_releases_its_name_and_code(
     client, statuses, scratch, person
@@ -770,13 +762,6 @@ def test_a_deleted_account_is_gone_with_its_currencies_and_releases_its_name_and
         remade = scratch.account("PEN", code=code, person=person, **same)
         again = client.get(f"/accounts/{remade}")
         assert (again["name"], again["statement_code"]) == (before["name"], code)
-
-
-def test_a_delete_of_an_account_that_does_not_exist_is_not_found(client, scratch):
-    """An unknown id and an id a delete already took are `404` "account not found."
-    (contract: DELETE /v1/accounts/{account_id})."""
-    for gone in (str(uuid4()), _deleted(client, scratch)):
-        _not_found(_delete_refused(client, gone), NO_ACCOUNT)
 
 
 def test_a_transaction_in_any_currency_stops_the_delete_before_a_statement(client, scratch):

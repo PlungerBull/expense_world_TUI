@@ -595,18 +595,18 @@ def _log_bar_save_first(fake_client, monkeypatch, after):
 
 
 @pytest.mark.parametrize(
-    ("answer", "expected"),
+    ("answer", "exited", "bar_open", "back_on_screen_under"),
     [
-        # the bar closes after `n`, back on the screen under it
-        ("n", {"exited": False, "bar_open": False, "on_screen_under": True}),
+        # the bar closes after `n`, back on the screen under it; None is not checked
+        ("n", False, False, True),
         # the app leaves with the bar still open
-        ("y", {"exited": True, "bar_open": True}),
+        ("y", True, True, None),
         # nothing is pending now: a second quit leaves at once
-        ("ctrl+q", {"exited": True}),
+        ("ctrl+q", True, None, None),
     ],
 )
 def test_the_log_bar_that_finished_under_the_question_closes_after_n_or_the_app_quits(
-    fake_client, monkeypatch, answer, expected
+    fake_client, monkeypatch, answer, exited, bar_open, back_on_screen_under
 ):
     seen = {}
 
@@ -614,12 +614,14 @@ def test_the_log_bar_that_finished_under_the_question_closes_after_n_or_the_app_
         await pilot.press(answer)
         if answer == "n":
             await wait_for(pilot, lambda: bar not in app.screen_stack)
-        seen.update(
-            exited=app._exit, bar_open=bar in app.screen_stack, on_screen_under=app.screen is shown
-        )
+        seen.update(exited=app._exit, bar_open=bar in app.screen_stack, back=app.screen is shown)
 
     _log_bar_save_first(fake_client, monkeypatch, after)
-    assert {key: seen[key] for key in expected} == expected
+    assert seen["exited"] is exited
+    if bar_open is not None:
+        assert seen["bar_open"] is bar_open
+    if back_on_screen_under is not None:
+        assert seen["back"] is back_on_screen_under
 
 
 def _setup_created_under_the_question(monkeypatch, answer):
