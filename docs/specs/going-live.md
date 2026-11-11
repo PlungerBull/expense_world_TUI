@@ -91,12 +91,10 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
 
 Each task leaves `pytest tests/unit` green.
 
-1. **One version and a changelog:** the app's version in one place, CHANGELOG.md with an
-   "Unreleased" section, README's owner install lines; the leftover `expense_cli_menu` build
-   folders gone.
 2. **The exact pins:** every dependency CI installs, pinned, from one file CI and the release
    both install from.
-3. **The release and going back:** the command the owner runs in the live folder. Its
+3. **The release and going back:** the command the owner runs in the live folder, and
+   README's owner install lines, written once the pinned install they name exists. Its
    first-time setup goes in todo.md's "Waiting on you" for the owner:
    1. create the `develop` branch;
    2. clone the repo into the live folder, on `main`;
@@ -105,7 +103,8 @@ Each task leaves `pytest tests/unit` green.
    tests trip each; CLAUDE.md's "Dev loop" lines say so.
 5. **The launch check** and its screen. It waits on the engine's going-live release and the
    picked mockup.
-6. **REAL/PRACTICE and the backup's age** on Home. It waits on the engine's going-live release
+6. **REAL/PRACTICE and the backup's age** on Home, with the app's version read at runtime from
+   the installed package's metadata. It waits on the engine's going-live release
    and the picked mockup.
 7. **The fix in every engine-down and unhealthy message.** The unhealthy half waits on the
    engine's going-live release.
