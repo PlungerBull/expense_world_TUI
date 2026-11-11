@@ -47,6 +47,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Two branches: push the last `main` commit, create `develop`, set up the live folder
+Asked 2026-11-11 · Blocks: every push of the loop, and the first release
+The guard now keeps agents off `main`, so the loop's work waits unpushed on local `main` until
+`develop` exists. In the work folder, in this order:
+1. `git push origin main` (the guard blocks agents from it).
+2. In `.claude/settings.json`, change `Bash(git push origin main)` to
+   `Bash(git push origin develop)` (agents never edit permission settings).
+3. `git branch develop main` then `git push -u origin develop`; tell the loop, which then runs
+   `git fetch && git checkout develop` and works there.
+4. `git clone https://github.com/PlungerBull/expense_world_TUI.git "$HOME/Library/Application Support/expense_world/tui"`.
+5. Remove the old install: `pipx uninstall expense-cli-menu`, if it is a pipx install (is it?).
+The first install, `python3 scripts/release.py` in the live folder (needs `gh` logged in and
+`pipx`), waits for the loop to prepare v1.0.0 on `develop` and CI to pass it.
+**Recommended:** none, steps only you can do.
+
 ### The reply for 2fa4967b8eed9c3f left the outbox: handed over?
 Asked 2026-11-11 · Blocks: nothing
 `docs/to-engine/caught-up-with-2fa4967b8eed9c3f.md` was deleted from the working copy on

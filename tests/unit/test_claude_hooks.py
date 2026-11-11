@@ -182,6 +182,33 @@ BLOCKED_BASH = [
     ("git branch feature", GIT),
     ("git switch -c feature", GIT),
     ("git worktree add .claude/worktrees/x", GIT),
+    # the owner's side: main, the tags, the live folder, the release command
+    ("git push origin main", GIT),
+    ("git push -u origin main", GIT),
+    ("git push origin HEAD:main", GIT),
+    ("git push origin develop:refs/heads/main", GIT),
+    ("git push origin :main", GIT),
+    ("git push --all", GIT),
+    ("git push origin v1.0.0:refs/tags/v1.0.0", GIT),
+    ("git push --tags", GIT),
+    ("git push origin --follow-tags", GIT),
+    ("git push origin tag v1.0.0", GIT),
+    ("git push origin --delete develop", GIT),
+    ("git tag v1.0.0", GIT),
+    ("git tag -a v1.0.0 -m x", GIT),
+    ("git tag -d v1.0.0", GIT),
+    ("git branch develop", GIT),  # the owner creates develop
+    ("gh release create v1.0.0", GIT),
+    ("gh release delete v1.0.0 --yes", GIT),
+    ("gh api -X DELETE repos/o/r/git/refs/tags/v1.0.0", GIT),
+    ("gh api repos/o/r/git/refs -f ref=refs/tags/v1.0.0 -f sha=abc", GIT),
+    ("gh api repos/o/r/releases --method POST", GIT),
+    ("python scripts/release.py", GIT),
+    ("./scripts/release.py back", GIT),
+    ("python3 {repo}/scripts/release.py latest", GIT),
+    ("bash scripts/release.py", GIT),
+    ('cd "{home}/Library/Application Support/expense_world/tui"', GIT),
+    ('ls "{home}/Library/Application Support/expense_world/tui/scripts"', GIT),
     # git: skipping the pre-commit checks
     ("git commit --no-verify -m x", GIT),
     ("git commit -n -m x", GIT),
@@ -207,8 +234,9 @@ ALLOWED_BASH = [
     "awk '/:8000/' docs/runtime.md",
     "python -c 'print(\"12:30:8000\")'",
     "grep -n :8000 docs/runtime.md",
-    "git push -u origin main",
-    "git push -o ci.skip origin main",
+    "git push -u origin develop",
+    "git push -o ci.skip origin develop",
+    "git push origin HEAD:develop",
     "git commit -m 'note: SKIP=ruff is banned here'",
     "curl http://127.0.0.1:8002/health",
     "python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002",
@@ -227,8 +255,18 @@ ALLOWED_BASH = [
     "git commit -am 'fix -n handling'",
     "git commit -m \"$(cat <<'EOF'\nsubject\n\ngit rebase and 127.0.0.1:8000 in prose\nEOF\n)\"",
     "PATH=$PWD/.venv/bin:$PATH git commit -m x",
-    "git push",
-    "git push origin main",
+    "gh release list",
+    "gh release view v1.0.0",
+    "gh api repos/o/r/releases",
+    "gh api -X GET repos/o/r/git/refs",
+    "gh run list --commit abc --json status,conclusion",
+    "git checkout develop",
+    "git switch develop",
+    "git tag",
+    "git tag -l 'v*'",
+    "git tag --points-at HEAD",
+    "python scripts/prepare_release.py 1.0.0",
+    "grep -n refs scripts/release.py",
     "git branch",
     "git branch -d old",
     "git checkout main",
@@ -240,6 +278,49 @@ ALLOWED_BASH = [
 @pytest.mark.parametrize("command", ALLOWED_BASH)
 def test_guard_allows_bash(box, command):
     _allowed(box.guard("Bash", {"command": command}))
+
+
+PUSHES_HEAD = ["git push", "git push origin", "git push -u origin HEAD", "git push origin @"]
+
+
+def _repo_on(box, branch: str, *, detached: bool = False) -> None:
+    _git(box.repo, "init", "-q", "-b", branch)
+    if detached:
+        _git(box.repo, "commit", "-q", "--allow-empty", "-m", "x")
+        _git(box.repo, "checkout", "-q", "--detach")
+
+
+@pytest.mark.parametrize("command", PUSHES_HEAD)
+def test_guard_allows_a_push_of_the_current_branch_on_develop(box, command):
+    _repo_on(box, "develop")
+    _allowed(box.guard("Bash", {"command": command}))
+
+
+@pytest.mark.parametrize("command", PUSHES_HEAD)
+def test_guard_blocks_a_push_of_the_current_branch_on_main(box, command):
+    _repo_on(box, "main")
+    _blocked(box.guard("Bash", {"command": command}), GIT)
+
+
+def test_guard_blocks_a_push_from_a_detached_head_or_outside_a_repo(box):
+    _blocked(box.guard("Bash", {"command": "git push"}), GIT)  # no repo, no branch
+    _repo_on(box, "develop", detached=True)
+    _blocked(box.guard("Bash", {"command": "git push"}), GIT)
+
+
+def test_guard_blocks_a_push_after_a_checkout_in_the_same_command(box):
+    _repo_on(box, "develop")
+    _blocked(box.guard("Bash", {"command": "git checkout main && git push"}), GIT)
+    _blocked(box.guard("Bash", {"command": "git switch main; git push origin"}), GIT)
+    _allowed(box.guard("Bash", {"command": "git checkout develop && git push origin develop"}))
+
+
+def test_guard_reads_the_branch_of_the_dash_c_folder(box):
+    _repo_on(box, "develop")
+    other = box.repo / "other"
+    other.mkdir()
+    _git(other, "init", "-q", "-b", "main")
+    _blocked(box.guard("Bash", {"command": "git -C other push"}), GIT)
 
 
 # ---------------------------------------------------------------------------
@@ -762,6 +843,12 @@ BLOCKED_TOOLS = [
     ("Edit", {"file_path": "{home}/.expense-config"}, LIVE),
     ("Grep", {"path": "{home}/.expense-config", "pattern": "token"}, LIVE),
     ("Read", {"file_path": "{home}/Desktop/notes.txt"}, STAY),
+    ("Read", {"file_path": "{home}/Library/Application Support/expense_world/tui/x.md"}, GIT),
+    (
+        "Write",
+        {"file_path": "{home}/Library/Application Support/expense_world/tui/x.py", "content": "x"},
+        GIT,
+    ),
     ("Write", {"file_path": "{home}/Desktop/notes.txt"}, STAY),
     ("MultiEdit", {"file_path": "{home}/other/x.py"}, STAY),
     ("NotebookEdit", {"notebook_path": "{home}/x.ipynb"}, STAY),

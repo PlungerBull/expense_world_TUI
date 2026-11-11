@@ -1105,6 +1105,14 @@ keeps an engine that does not answer from holding the app on a blank screen.
 **Rejected.** *Reading it after the first screen* — Home would flip formats under the owner.
 *Keeping it in the settings file* — a second copy, stale on every other device.
 
+## Agents work on `develop`; the owner releases `main` from a folder of its own (2026-11-11)
+
+**Decision.** Agents push `develop`; `main` holds releases, which the owner's
+`scripts/release.py` makes from a clone of its own once CI passes the commit the loop prepared.
+
+**Why.** What runs on the real ledger is always a commit CI passed, never a builder's
+half-written work, and going back is a tag away.
+
 ## A cash account is a type of account, shown among the accounts and kept out of bank-only lists (2026-11-11)
 
 **Decision.** A cash account is a type on the New Account form, always offered, with no

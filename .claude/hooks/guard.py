@@ -89,7 +89,25 @@ What it blocks:
   the practice engine with `scripts/practice-engine down`, which stops whatever listens on
   `:8002` when its command line is the launcher's engine start and its working folder the
   launcher's export of a commit, whoever started it.
-- **Git** (single branch, never `--no-verify`): `push` with `--force`/`-f` (alone or in a
+- **The live folder and the release** (CLAUDE.md "Dev loop"): the owner's live folder
+  (`~/Library/Application Support/expense_world/tui`) is closed to every file tool and Bash
+  path, and to a `cd` into it; `scripts/release.py` is the owner's command and is not run
+  (directly, by a python or by a shell) by any agent; naming it, and running
+  `scripts/prepare_release.py`, pass. `main` and the tags are the owner's: `push` of `main`
+  (`origin main`, `HEAD:main`, `x:refs/heads/main`, `--all`, `--mirror`), of a tag
+  (`refs/tags/…`, `tag <name>`, `--tags`, `--follow-tags`) or with `--delete`/`-d`/`--prune`,
+  and `git tag` that creates or deletes one; `gh release` but `list`, `view` and `download`,
+  and `gh api` with a method other than GET or with `-f`/`-F`/`--input` fields on a path
+  naming `git/refs`, `git/tags` or `releases`. A push with no refspec, or `HEAD`/`@` as one,
+  is read against the branch the command's folder is on (`-C` honoured): `main` is blocked,
+  and so is a detached HEAD, a folder with no branch, or a command that
+  first runs `git checkout`/`git switch`, which have no clear target.
+  Pushing `develop` passes. `develop` is created by the owner (README.md "Install (the
+  owner's app)"), so `git branch develop` is a new branch and is blocked;
+  `git checkout develop` and `git switch develop` are not (with only `origin/develop` they
+  make the local tracking branch), and nothing blocks checking out `main`: its push is
+  what is closed.
+- **Git** (two branches, never `--no-verify`): `push` with `--force`/`-f` (alone or in a
   short-flag cluster such as `-uf`)/`--force-with-lease`/`--mirror`/a `+refspec`; `commit --amend`;
   `rebase`, `reset --hard`, `filter-branch`, `filter-repo`, `update-ref`; new branches
   (`branch <name>`, `checkout -b/-B/--orphan`, `switch -c/-C/--orphan`, `worktree add`
@@ -131,6 +149,9 @@ describes. What passes:
 - what the engine's launcher itself does: the guard reads the command line, so the launcher
   (the engine's own) is what serves the last commit over the test database;
 - a WebFetch `file://` URL;
+- a push of a tag by a bare name (`git push origin v1.0.0`), a push whose target git config
+  redirects (`push.default`, `branch.<name>.merge`, an alias, an `@{push}` refspec), and a
+  GraphQL mutation through `gh api graphql` that deletes a ref;
 - a whole-suite run whose arguments the guard does not see: `PYTEST_ADDOPTS`, an `@file`
   of arguments, or `python` options before `-m pytest`;
 - a whole-suite run started through a wrapper `_shell.py` does not step over (`timeout`,
@@ -166,7 +187,9 @@ from __future__ import annotations
 import glob
 import os
 import re
+import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -183,7 +206,8 @@ from _shell import (
 
 LIVE = 'CLAUDE.md "Careful running live"'
 STAY = 'CLAUDE.md "Stay inside this repo"'
-BRANCH = 'CLAUDE.md "Dev loop" (single branch, never --no-verify)'
+BRANCH = 'CLAUDE.md "Dev loop" (two branches, never --no-verify)'
+RELEASE = 'CLAUDE.md "Dev loop" (the owner releases from the live folder)'
 SUITE = 'CLAUDE.md "Dev loop" (the tests gate runs the whole unit suite)'
 
 # `:8000` after a host-like word (not itself after a `:`, so `12:30:8000` is a time),
@@ -264,6 +288,7 @@ class Context:
         self.repo = repo_root()
         self.home = home_dir()
         self.engine = self.repo.parent / "expense_world_engine"
+        self.live = self.home / "Library" / "Application Support" / "expense_world" / "tui"
         cwd = data.get("cwd")
         self.cwd = Path(cwd) if isinstance(cwd, str) and cwd else self.repo
         agent = data.get("agent_type")
@@ -303,6 +328,10 @@ class Context:
         """Why touching `path` is blocked, or None."""
         if path.name == ".expense-config" and is_within(path, self.home):
             return f"{LIVE}: never touch the real config {path}"
+        if is_within(path, self.live):
+            return (
+                f"{RELEASE}: the live folder ({path}) is the owner's; no agent reads or writes it"
+            )
         if not is_within(path, self.home) or is_within(path, self.repo):
             return None
         if is_within(path, self.home / ".claude"):
@@ -593,7 +622,7 @@ def _pushes_force(args: list[str]) -> bool:
     return False
 
 
-def _git_reason(seg: Segment, all_segments: list[Segment]) -> str | None:
+def _git_reason(seg: Segment, all_segments: list[Segment], cwd: Path) -> str | None:
     ga = git_args(seg)
     if ga is None:
         return None
@@ -604,6 +633,12 @@ def _git_reason(seg: Segment, all_segments: list[Segment]) -> str | None:
         return f"{BRANCH}: --no-verify skips pre-commit and its gitleaks secret scan"
     if sub == "push" and _pushes_force(args):
         return f"{BRANCH}: no force-push"
+    if sub == "push":
+        owned = _push_owned_ref(args, lambda: _branch_before(seg, all_segments, cwd))
+        if owned:
+            return f"{RELEASE}: no agent pushes {owned}; only the owner's scripts/release.py does"
+    if sub == "tag" and _tag_writes(args):
+        return f"{RELEASE}: no agent creates or deletes a tag; only scripts/release.py makes one"
     if sub == "commit":
         if "--amend" in args:
             return f"{BRANCH}: no history rewrites (commit --amend)"
@@ -620,18 +655,108 @@ def _git_reason(seg: Segment, all_segments: list[Segment]) -> str | None:
     if sub == "reset" and "--hard" in args:
         return f"{BRANCH}: no history rewrites (reset --hard)"
     if sub == "branch" and _branch_creates(args):
-        return f"{BRANCH}: main is the only branch; no new branches"
+        return f"{BRANCH}: `develop` and `main` are the only branches; no new branches"
     if sub == "checkout" and any(w in {"-b", "-B", "--orphan"} for w in args):
-        return f"{BRANCH}: main is the only branch; no new branches"
+        return f"{BRANCH}: `develop` and `main` are the only branches; no new branches"
     if sub == "switch" and any(
         w in {"-c", "-C", "--create", "--force-create", "--orphan"} for w in args
     ):
-        return f"{BRANCH}: main is the only branch; no new branches"
+        return f"{BRANCH}: `develop` and `main` are the only branches; no new branches"
     if sub == "worktree" and args[:1] == ["add"]:
         rest = args[1:]
         if any(w in {"-b", "-B"} for w in rest) or not ({"--detach", "-d"} & set(rest)):
             return f"{BRANCH}: a worktree must be `git worktree add --detach`, not a new branch"
     return None
+
+
+def _branch_before(seg: Segment, all_segments: list[Segment], cwd: Path) -> str | None:
+    """`_current_branch`, unknown (None) when an earlier part of the command moves HEAD."""
+    for earlier in all_segments:
+        if earlier is seg:
+            break
+        ga = git_args(earlier)
+        if ga is not None and ga[0] in {"checkout", "switch"}:
+            return None
+    return _current_branch(seg, cwd)
+
+
+def _current_branch(seg: Segment, cwd: Path) -> str | None:
+    """The branch HEAD is on where the git command runs (`-C <dir>` honoured); None if none."""
+    words = seg.words
+    folder = cwd
+    if "-C" in words[:-1]:
+        folder = (cwd / words[words.index("-C") + 1]).resolve()
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(folder), "symbolic-ref", "-q", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    return done.stdout.strip() or None if done.returncode == 0 else None
+
+
+def _push_owned_ref(args: list[str], current_branch: Callable[[], str | None]) -> str | None:
+    """What a push names that is the owner's (`main`, a tag, a delete), or None.
+
+    A push with no refspec, or `HEAD`/`@` as one, sends the current branch: `main` is refused,
+    and so is a detached HEAD or an unreadable branch, which have no clear target.
+    """
+    positional: list[str] = []
+    skip = False
+    for w in args:
+        if skip:
+            skip = False
+        elif w in {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}:
+            skip = True
+        elif w in {"--all", "--branches"}:
+            return "every branch (`main` among them)"
+        elif w in {"--tags", "--follow-tags"}:
+            return "tags"
+        elif w in {"--delete", "--prune"} or (
+            w.startswith("-") and not w.startswith("--") and "d" in w
+        ):
+            return "a deletion"
+        elif not w.startswith("-"):
+            positional.append(w)
+    if positional[1:2] == ["tag"]:
+        return "tags"
+    if not positional[1:] or any(spec.lstrip("+") in {"HEAD", "@"} for spec in positional[1:]):
+        branch = current_branch()
+        if branch is None:
+            return "a detached HEAD (no clear target; name the branch: `git push origin develop`)"
+        if branch == "main":
+            return "`main` (the folder is on it; check out `develop`)"
+    for spec in positional[1:]:
+        src, _, dst = spec.lstrip("+").partition(":")
+        for ref in (dst or src, src):
+            ref = ref.removeprefix("refs/heads/")
+            if ref == "main":
+                return "`main`"
+            if ref.startswith("refs/tags/"):
+                return "tags"
+    return None
+
+
+def _tag_writes(args: list[str]) -> bool:
+    """`git tag` that makes or deletes a tag; listing passes."""
+    writers = {"--annotate", "--sign", "--local-user", "--force", "--delete", "--message", "--file"}
+    shorts = [w[1:] for w in args if w.startswith("-") and not w.startswith("--")]
+    if writers & set(args) or any(set(c) & set("dasufmF") for c in shorts):
+        return True
+    listing = {
+        "-l",
+        "--list",
+        "--contains",
+        "--no-contains",
+        "--points-at",
+        "--merged",
+        "--no-merged",
+    }
+    return not (listing & set(args)) and any(not w.startswith("-") for w in args)
 
 
 def _commit_has_short_n(args: list[str]) -> bool:
@@ -692,6 +817,44 @@ def _runs_drift_script(seg: Segment) -> bool:
         return False
     script = next((w for w in seg.words[1:] if not w.startswith("-")), "")
     return script.endswith("check_fixture_drift.py")
+
+
+def _gh_tag_write(seg: Segment) -> str | None:
+    """A `gh release` write, or a `gh api` write to refs, tags or releases; else None."""
+    words = seg.words
+    if seg.name != "gh":
+        return None
+    if words[1:2] == ["release"]:
+        return None if words[2:3] in (["list"], ["view"], ["download"]) else "`gh release`"
+    if words[1:2] != ["api"]:
+        return None
+    method = ""
+    writes = False
+    for i, w in enumerate(words[2:], start=2):
+        if w in {"-X", "--method"} and i + 1 < len(words):
+            method = words[i + 1].upper()
+        elif w.startswith("--method="):
+            method = w.split("=", 1)[1].upper()
+        elif w.startswith("-X") and len(w) > 2:
+            method = w[2:].upper()
+        elif w in {"-f", "-F", "--field", "--raw-field", "--input"} or w.startswith(
+            ("--field=", "--raw-field=", "--input=")
+        ):
+            writes = True
+    named = any(t in w for w in words[2:] for t in ("git/refs", "git/tags", "releases"))
+    if named and (writes or method not in {"", "GET"}):
+        return "`gh api`"
+    return None
+
+
+def _runs_release_script(seg: Segment) -> bool:
+    """`scripts/release.py` run directly or by a python or a shell, not merely named."""
+    if seg.name == "release.py":
+        return True
+    if not (_PYTHON.fullmatch(seg.name) or seg.name in {"bash", "sh", "zsh"}):
+        return False
+    script = next((w for w in seg.words[1:] if not w.startswith("-")), "")
+    return script.rsplit("/", 1)[-1] == "release.py"
 
 
 def _runs_pytest(seg: Segment) -> bool:
@@ -963,9 +1126,14 @@ def check_bash(ctx: Context, command: str) -> str | None:
             reason = ctx.outside_reason(path)
             if reason:
                 return reason
-        reason = _git_reason(seg, all_segments)
+        reason = _git_reason(seg, all_segments, cwd)
         if reason:
             return reason
+        gh = _gh_tag_write(seg)
+        if gh:
+            return f"{RELEASE}: {gh} makes or deletes a remote tag; only scripts/release.py does"
+        if _runs_release_script(seg):
+            return f"{RELEASE}: scripts/release.py is the owner's command; no agent runs it"
         stops = _stops_processes(seg)
         if stops:
             previous = all_segments[index - 1] if index else None

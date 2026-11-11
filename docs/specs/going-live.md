@@ -97,13 +97,6 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
 
 Each task leaves `pytest tests/unit` green.
 
-4. **Two branches:** the guard keeps agents out of the live folder, off `main` and the tags, and
-   off `scripts/release.py` (`scripts/prepare_release.py` stays theirs); its tests trip each;
-   CI runs on `develop`, which the first release's CI check needs; CLAUDE.md's "Dev loop" lines
-   say so, and "This repo's loop" says a finished spec ends with `scripts/prepare_release.py` on
-   `develop`, pushed on its own so CI runs on that commit, and the stop's summary naming the
-   version and the command (answer 6). The
-   first-time setup goes to todo.md's "Waiting on you" once this task lands.
 5. **The launch check** and its screen. It waits on the engine's going-live release and the
    picked mockup.
 6. **REAL/PRACTICE and the backup's age** on Home, with the app's version read at runtime from
