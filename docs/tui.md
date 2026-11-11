@@ -1071,7 +1071,7 @@ show alone.
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone, and `b` on ledger rows, onto an account holding several currencies, none of them the line's (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no statement" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `a`, `t` and `d` on an account, `d` on a category, a hashtag or a statement; `c` and `x` on an account's currencies; a tick, or the balances saved at `c`, on a statement (contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write") | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, on a list | `a`, `t` and `d` on an account, `d` on a category, a hashtag or a statement; `c` and `x` on an account's currencies; a tick, or the balances saved at `c`, on a statement (contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write") | `It changed at the same moment: press r, then try again.` (`try again.` alone on the leftover lines' screen of a close, which has no `r`) |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, a new statement, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
 | `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
@@ -1570,6 +1570,10 @@ statement has a place in its order
 ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
 A complete with no transaction in any currency is refused as `NO_TRANSACTIONS_ASSIGNED` on
 each currency's `balances.<currency>.transactions`.
+A complete refused for lines in no statement on days it seals (`LOOSE_LINES_ON_SEALED_DAYS` on
+`statement_id`) is not shown as `Couldn't complete`: it opens the screen in
+[leftover_lines.py](../expense/tui/screens/leftover_lines.py) over the statement, and `c` there
+asks `Complete statement?` again.
 
 **`c` needs every balance**: the engine completes no statement with a balance blank
 (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered").

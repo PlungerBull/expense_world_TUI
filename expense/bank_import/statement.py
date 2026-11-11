@@ -201,8 +201,9 @@ def statement_answer(response: dict) -> StatementAnswer:
     )
 
 
-#: The reason, on `file`, of an upload refused while a bank line in no statement sits on a
-#: day the close would seal (contract: POST /v1/statements/import, "Response").
+#: The reason, on `file` for an upload and on `statement_id` for a close, of a refusal while
+#: a bank line in no statement sits on a day the close would seal
+#: (contract: POST /v1/statements/import, "Response").
 LOOSE_LINES = "LOOSE_LINES_ON_SEALED_DAYS"
 
 
@@ -216,13 +217,15 @@ class LooseLines:
     count: int
 
 
-def loose_lines(err: Exception) -> LooseLines | None:
-    """The lines an upload's `422` refuses for, matched by the reason on `file` and never by
-    the engine's words; None for any other error, or a refusal whose `details` name no line
-    (it is shown in the engine's words like any other)."""
+def loose_lines(err: Exception, *, on: str = "file") -> LooseLines | None:
+    """The lines a `422` refuses for, matched by the reason on `on` (`file` for an upload,
+    `statement_id` for a close) and never by the engine's words; None for any other error,
+    or a refusal whose `details` name no line (it is shown in the engine's words like any
+    other). A close carries the same `details` as an upload
+    (contract: POST /v1/statements/{statement_id}/complete, "Validation")."""
     if not isinstance(err, EngineError) or err.status != 422:
         return None
-    if (err.reasons or {}).get("file") != LOOSE_LINES:
+    if (err.reasons or {}).get(on) != LOOSE_LINES:
         return None
     details = err.details or {}
     ids = tuple(str(i) for i in details.get("bank_line_ids") or [])

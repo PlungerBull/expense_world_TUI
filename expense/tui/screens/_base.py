@@ -487,6 +487,7 @@ class EngineWriteMixin:
         done: str,
         after: Callable[[], None] | None = None,
         left_behind: LeftBehind | None = None,
+        error_text: Callable[[Exception], str] | None = None,
     ) -> None:
         """`d` on a row: ask with `ConfirmModal` (only `y` deletes), then send
         `DELETE /{resource}/{id}` through `run_write` — the client's idempotency
@@ -495,7 +496,8 @@ class EngineWriteMixin:
         Deleted, the screen notifies `done` and reloads: through `_after_write`
         by default, or `after` for a list that reloads its own way. Refused, the
         "Failed" note carries the engine's words and, for the refusals that have
-        one, the line saying what to do instead (`list_refusal_text`). With
+        one, the line saying what to do instead (`list_refusal_text`, or the screen's own
+        `error_text`). With
         `left_behind`, the delete is finished and shown even if the screen has
         been left before the engine answers (`EngineWriteMixin`)."""
 
@@ -514,7 +516,7 @@ class EngineWriteMixin:
                 f"/{resource}/{record_id}",
                 success=done,
                 on_success=on_success,
-                error_text=list_refusal_text,
+                error_text=error_text or list_refusal_text,
                 left_behind=left_behind,
             )
 
@@ -526,6 +528,12 @@ def list_refusal_text(exc: Exception) -> str:
     shared `format_error`, with the line for a list where a refusal's line
     depends on the screen (`errors.NextStep.on_list`: `r` reads the list again)."""
     return format_error(exc, on_list=True)
+
+
+def self_reading_refusal_text(exc: Exception) -> str:
+    """`list_refusal_text` for a list that reads itself again after every write and has no
+    `r` (`errors.NextStep.on_self_reading`): the leftover lines' screen on a close."""
+    return format_error(exc, on_list=True, self_reading=True)
 
 
 def delete_row_line(title: object, amount_cents: object, day: str, account_name: str) -> str:

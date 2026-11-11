@@ -354,17 +354,21 @@ FlaggedLinesScreen #fways {
 
 /* The leftover lines' words stand two cells in and wrap at 75 columns, a blank line under
    the crumb, the list and the ways under it. */
-LeftoverLinesScreen #import-body {
+LeftoverLinesScreen #import-body,
+StatementLeftoverScreen #import-body {
     padding: 1 2 0 2;
     max-width: 75;
 }
-LeftoverLinesScreen #llist {
+LeftoverLinesScreen #llist,
+StatementLeftoverScreen #llist {
     padding: 1 0 0 0;
 }
-LeftoverLinesScreen #llist > * {
+LeftoverLinesScreen #llist > *,
+StatementLeftoverScreen #llist > * {
     padding: 0 2;
 }
-LeftoverLinesScreen #lways {
+LeftoverLinesScreen #lways,
+StatementLeftoverScreen #lways {
     max-width: 79;
 }
 

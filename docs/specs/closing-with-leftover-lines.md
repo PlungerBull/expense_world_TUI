@@ -64,6 +64,10 @@ moves it, puts it in a statement, or deletes it.
 | 11 | `space` on the screen from `c`? | The line leaves the list on its fresh read, which says the statement each line is in (2026-11-11). |
 | 12 | A line fixed with `⏎` on the screen from `c`? | It stays listed until `c`; once the engine ask "A close can be checked before it is sent" lands, a fix checks the close at once, as on the upload's screen (2026-11-11). |
 | 13 | Every line dealt with on the screen from `c`? | `Nothing is left over: c closes <statement>.`; `⏎`, `space` and `d` leave the footer (2026-11-11). |
+| 14 | `c` on the screen from `c`: where does "Complete statement?" show? | On the checklist: the leftover screen closes, the checklist reads again and asks its own question; `n` leaves the owner on the checklist (2026-11-11). |
+| 15 | `space` or `d` refused "changed at the same moment" on the screen from `c`? | `It changed at the same moment: try again.`, since the list reads itself fresh; no `r` on that screen (2026-11-11). |
+| 16 | Past 200 lines on the screen from `c`? | `The first 200 are listed; c closes <statement> again for the rest.` (2026-11-11). |
+| 17 | `space` refused after leaving the screen from `c`? | The line left behind reads `Not put in <statement>` (2026-11-11). |
 
 ---
 
@@ -72,11 +76,6 @@ moves it, puts it in a statement, or deletes it.
 Approved; question 4 on 2026-11-11. Each reads the live contract on
 the practice engine before building.
 
-2. **The same screen from `c`** (questions 2, 11–13, and 6, 7 and 10 as on the upload's screen;
-   stopped part-built on 2026-11-11, its code uncommitted in the working copy, unreviewed):
-   opened by the refusal on `POST /statements/{id}/complete`, its lines from `details` as in
-   task 1, its head naming the statement; `space` puts the line in the statement, `c` asks
-   "Complete statement?" again.
 3. **The month in the head** (question 8; waits on the engine ask "A loose-lines refusal names
    the statement it would close"): the head reads `Can't close <the statement's name> yet` from
    `details`, on the upload's screen.
@@ -120,7 +119,5 @@ Not built in this spec; sorted when it is done.
   (expense/tui/screens/leftover_lines.py:312-315): `saves_pending()` counts only the screen's own
   writes, so the dry run can read the line before the save lands, and the save's own dry run
   (question 9) then does not follow, the preview being on top; `r` again recovers.
-- **`test_r_waits_for_a_delete_still_being_sent` reads `app._notifications`**
-  (tests/unit/test_tui_leftover_lines.py:369), where docs/tui.md §6 asks for a patched `notify`.
 - **Two lines of docs/tui.md's "`d` is the TUI's one destructive key" passage run past the wrap
   width** (about :978-980).

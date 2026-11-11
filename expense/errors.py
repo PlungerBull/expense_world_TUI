@@ -157,7 +157,8 @@ class NextStep:
 
     `line` is the line on every screen. `on_list` replaces it on a list, where
     `r` reads the list again; elsewhere (a form, the LOG bar, the bank import)
-    saving again is the retry. `by_key` picks the line by the reason's key, for
+    saving again is the retry. `on_self_reading` replaces `on_list` on a list that reads
+    itself again after every write and has no `r`. `by_key` picks the line by the reason's key, for
     a reason two resources share (contract: "Error reasons") or a line that suits
     one key alone; with no `line`, every other key draws none. A key in
     `no_line_on` draws no line at all.
@@ -165,14 +166,17 @@ class NextStep:
 
     line: str | None = None
     on_list: str | None = None
+    on_self_reading: str | None = None
     by_key: Mapping[str, str] = field(default_factory=dict)
     no_line_on: frozenset[str] = frozenset()
 
-    def pick(self, key: str, *, on_list: bool) -> str | None:
+    def pick(self, key: str, *, on_list: bool, self_reading: bool = False) -> str | None:
         if key in self.no_line_on:
             return None
         if key in self.by_key:
             return self.by_key[key]
+        if on_list and self_reading and self.on_self_reading is not None:
+            return self.on_self_reading
         if on_list and self.on_list is not None:
             return self.on_list
         return self.line
@@ -239,6 +243,7 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "CONCURRENT_CHANGE"): NextStep(
         "It changed at the same moment: save again.",
         on_list="It changed at the same moment: press r, then try again.",
+        on_self_reading="It changed at the same moment: try again.",
     ),
     # On `hashtag_ids` (a transaction write) and `hashtag_id` (a hashtag
     # delete) a user hashtag holds the pending hashtag's name, and the engine's
@@ -302,19 +307,20 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
 }
 
 
-def next_step(err: Exception, *, on_list: bool = False) -> str | None:
+def next_step(err: Exception, *, on_list: bool = False, self_reading: bool = False) -> str | None:
     """The line saying what to do after `err`, or None when it has none.
 
     Chosen by the error's `code` and `reasons` alone, as a pair: the same
     reason under another code has no line. The first refused key with a line
-    wins. `on_list` is for a refusal met on a list screen.
+    wins. `on_list` is for a refusal met on a list screen, `self_reading` (with it) on a list
+    that reads itself again after a write and has no `r`.
     """
     if not isinstance(err, EngineError):
         return None
     for key, reason in (err.reasons or {}).items():
         step = NEXT_STEPS.get((err.code, str(reason)))
         if step is not None:
-            line = step.pick(str(key), on_list=on_list)
+            line = step.pick(str(key), on_list=on_list, self_reading=self_reading)
             if line is not None:
                 return line
     return None
@@ -350,14 +356,14 @@ def engine_text(err: Exception) -> str:
     return format_error(err)
 
 
-def app_lines(err: EngineError, *, on_list: bool = False) -> list[str]:
+def app_lines(err: EngineError, *, on_list: bool = False, self_reading: bool = False) -> list[str]:
     """The app's lines `format_error` puts under the engine's words, each after
     a blank line: `next_step`'s line (`on_list` on a list screen), then a hint
     chosen by the status or the error code. Empty when the refusal has none. A
     screen that lays the engine's words out itself (the Edit form, under its
     parts) adds these under them."""
     lines: list[str] = []
-    step = next_step(err, on_list=on_list)
+    step = next_step(err, on_list=on_list, self_reading=self_reading)
     if step is not None:
         lines.append(step)
     if err.status == 401:
@@ -406,16 +412,19 @@ def key_field(key: object, collection: str) -> str | None:
     return bits[2] if len(bits) == 3 else None
 
 
-def format_error(err: Exception, *, on_list: bool = False) -> str:
+def format_error(err: Exception, *, on_list: bool = False, self_reading: bool = False) -> str:
     """Human-readable error text for the app's toasts, notes and banners.
 
     The engine's words, then, after a blank line, the app's line saying what to
-    do: `next_step`'s for a refusal (`on_list` on a list screen), or a hint
+    do: `next_step`'s for a refusal (`on_list` on a list screen, `self_reading` on one with
+    no `r`), or a hint
     chosen by the status or the error code, never by `message` or the `fields`
     texts. The sheet import prints `engine_text` instead.
     """
     if isinstance(err, EngineError):
-        return "\n\n".join([engine_words(err), *app_lines(err, on_list=on_list)])
+        return "\n\n".join(
+            [engine_words(err), *app_lines(err, on_list=on_list, self_reading=self_reading)]
+        )
     if isinstance(err, EngineConnectionError):
         return f"could not reach engine at {err.url} (is it running?)"
     # ConfigMissing/ConfigInvalid render as their message, same as any other

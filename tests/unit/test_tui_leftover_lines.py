@@ -21,6 +21,7 @@ from expense.tui.screens.leftover_lines import LeftoverLinesScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.statement_upload import StatementPreviewScreen
 from tests.unit.helpers import (
+    app_notes,
     bank_line_row,
     import_part,
     render_text,
@@ -168,6 +169,7 @@ def test_a_refused_upload_reads_its_lines_and_mends_to_the_preview(fake_client, 
             "Nothing was written.",
         ]
         assert _footer(screen) == ["esc Cancel", "⏎ Edit", "d Delete", "r Read again"]
+        await wait_for(pilot, lambda: "Almuerzo" in "\n".join(screen_lines(app)))
         text = "\n".join(screen_lines(app))
         for shown in ("2026-03-12", "Amazon", "-19.99", "USD", "2026-03-15", "Almuerzo", "-11.11"):
             assert shown in text
@@ -356,6 +358,7 @@ def test_r_waits_for_a_delete_still_being_sent(fake_client, monkeypatch, owner):
     fake_client.delete = slow_delete
 
     async def scenario(pilot, app):
+        notes = app_notes(monkeypatch, app)
         await _preview(pilot, app, owner)
         screen = await _leftover(pilot, app)
         await pilot.press("d")
@@ -366,7 +369,7 @@ def test_r_waits_for_a_delete_still_being_sent(fake_client, monkeypatch, owner):
         await pilot.pause()
         assert app.screen is screen
         assert engine.uploads == [True]  # no second dry run while the delete is on its way
-        assert "Writing — one moment." in [n.message for n in app._notifications]
+        assert "Writing — one moment." in [message for _, message, _ in notes]
         release.set()
 
     run_app(scenario)

@@ -77,6 +77,7 @@ from textual.widgets import Input, Static
 from textual.worker import get_current_worker
 
 from expense import formatting, reads
+from expense.bank_import.statement import LooseLines, loose_lines
 from expense.dates import is_calendar_day
 from expense.errors import EngineError, format_error
 from expense.formatting import (
@@ -130,6 +131,10 @@ from expense.tui.widgets.refusal import as_markup, toast, under_itself, warning_
 # Status labels + period formatting are owned by expense/formatting.py
 # (format_status / format_period) — one copy, per the §5 rule.
 _period = formatting.format_period
+
+#: What the leftover lines' screen hands back when `c` was pressed: the statement asks
+#: "Complete statement?" again.
+CLOSE_AGAIN = "close"
 
 #: The blank cells between two columns of the browse's lists (accounts, statements, lines in
 #: no statement): two, where the shared table has three.
@@ -267,7 +272,12 @@ def lone_transaction(line: dict) -> dict | None:
 
 
 def ask_line_delete(
-    screen: EngineWriteMixin, line: dict, account_name: str, *, after: Callable[[], None]
+    screen: EngineWriteMixin,
+    line: dict,
+    account_name: str,
+    *,
+    after: Callable[[], None],
+    error_text: Callable[[Exception], str] | None = None,
 ) -> None:
     """`d` on a bank line a list holds: the question, then the delete, through
     `confirm_delete` (only `y` deletes). A split transaction (`part_count` above 1)
@@ -276,7 +286,8 @@ def ask_line_delete(
     part count; a line never split goes as its one transaction, in
     `DELETE /transactions/{id}`, after the ledger's question. Each question says no
     screen can bring it back. The line in hand is the list's own read, so nothing is
-    read before asking. Deleted, `after` reads the list again. Shared by the "no
+    read before asking. Deleted, `after` reads the list again; a refusal reads as
+    `error_text` says (`list_refusal_text` unless the screen has no `r`). Shared by the "no
     statement" pane, the flagged lines' screen and the leftover lines' screen."""
     if is_split_line(line):
         _day, line_title, _operation, line_net = bank_line_columns(line)
@@ -288,6 +299,7 @@ def ask_line_delete(
             done="Transaction deleted.",
             after=after,
             left_behind=LeftBehind(not_deleted_line(line_title, line_net)),
+            error_text=error_text,
         )
         return
     record = lone_transaction(line)
@@ -301,6 +313,7 @@ def ask_line_delete(
         done="Transaction deleted.",
         after=after,
         left_behind=LeftBehind(not_deleted_line(record.get("title"), record.get("amount_cents"))),
+        error_text=error_text,
     )
 
 
@@ -325,6 +338,37 @@ def open_edit_form(
     )
     form.crumb = (*crumb, "Edit")
     screen.app.push_screen(form, lambda saved: saved and reload())
+
+
+def run_assignment(
+    screen: EngineWriteMixin,
+    part_id: object,
+    statement_id: object | None,
+    *,
+    not_done: str,
+    words: tuple[object, object],
+    on_success: Callable[[], None],
+    on_error: Callable[[str], None],
+    error_text: Callable[[Exception], str] = list_refusal_text,
+) -> None:
+    """`space` on a line: one `PUT` of `statement_id` on one part of the line, which puts
+    every part in the statement, or (`None`) takes every part out
+    (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). `not_done` and `words`
+    (the line's title and amount as its list shows them) are the first line of the note of
+    a refusal that arrives after the screen has left; `error_text` says how a refusal reads.
+    Shared by the statement's checklist and the leftover lines' screen."""
+    screen.run_write(
+        "PUT",
+        f"/transactions/{part_id}",
+        json_body={"statement_id": statement_id},
+        on_success=on_success,
+        on_error=on_error,
+        error_text=error_text,
+        left_behind=LeftBehind(
+            not_done_transaction_line(not_done, *words),
+            success_from=lambda _body: None,  # a tick that lands shows nothing
+        ),
+    )
 
 
 def first_part(line: dict) -> dict | None:
@@ -1782,6 +1826,7 @@ class StatementScreen(
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _read_txns
         self._open_when_counted = False  # a complete waits for the review list's count
+        self._close_when_loaded = False  # `c` on the leftover lines waits for the list to read
         # how many bank lines the statement's review list counts: the engine's
         # count each time the statement is read, the flagged lines' screen's last
         # count on the way back
@@ -1978,6 +2023,7 @@ class StatementScreen(
         """A read of the lines or their count failed: a complete waiting on the count
         opens nothing."""
         self._open_when_counted = False
+        self._close_when_loaded = False
 
     async def _populate(self, rows: list, checked: list, part_of: dict, generation: int) -> None:
         """Paint a read. Not while a tick is unanswered: the read may predate
@@ -2015,6 +2061,9 @@ class StatementScreen(
             if not still_attached(self):
                 return
             self._list.focus()  # the page keys reach a completed statement's list too
+        if self._close_when_loaded:  # the list is read: its ticked rows are the ones counted
+            self._close_when_loaded = False
+            self.action_complete()
 
     # ---- assign / unassign ----------------------------------------------
     def on_check_list_toggled(self, event: CheckList.Toggled) -> None:
@@ -2028,20 +2077,14 @@ class StatementScreen(
         if part is None:
             return
         self._land_on = event.key
-        self.run_write(
-            "PUT",
-            f"/transactions/{part}",
-            json_body={"statement_id": self._id if event.checked else None},
+        run_assignment(
+            self,
+            part,
+            self._id if event.checked else None,
+            not_done="Not ticked" if event.checked else "Not unticked",
+            words=self._line_words.get(event.key, (None, None)),
             on_success=self._assigned,
             on_error=self._assign_failed,
-            error_text=list_refusal_text,  # CONCURRENT_CHANGE: `r`, then try again
-            left_behind=LeftBehind(
-                not_done_transaction_line(
-                    "Not ticked" if event.checked else "Not unticked",
-                    *self._line_words.get(event.key, (None, None)),
-                ),
-                success_from=lambda _body: None,  # a tick that lands shows nothing
-            ),
         )
 
     def _write_finished_after_leaving(self, app, item, error, *answer) -> None:
@@ -2402,6 +2445,28 @@ class StatementScreen(
             self._flagged_back,
         )
 
+    def _open_leftover(self, loose: LooseLines) -> None:
+        """A complete refused for lines in no statement on days it seals: their screen
+        (leftover_lines.py), which hands back `CLOSE_AGAIN` for `c`."""
+        from expense.tui.screens.leftover_lines import StatementLeftoverScreen
+
+        self.app.push_screen(
+            StatementLeftoverScreen(
+                self._id,
+                name=self._record.get("name") or "—",
+                account=self._acct_name or resolve_name(self._account_id, {}),
+                crumb=self.crumb,
+                loose=loose,
+            ),
+            self._leftover_back,
+        )
+
+    def _leftover_back(self, result: str | None) -> None:
+        """Back from the leftover lines: the statement is read again (lines may be in it
+        now), and after `c` it asks "Complete statement?" once that read has landed."""
+        self._close_when_loaded = result == CLOSE_AGAIN
+        self._load_txns(refresh_record=True)
+
     def _flagged_back(self, count: int | None) -> None:
         """Back from the flagged lines: the engine's count of them; None when
         no read landed, which leaves the `⚑` line as it was."""
@@ -2415,6 +2480,11 @@ class StatementScreen(
         if verb != "completed":
             toast(self, message, title=title, severity="error")
         else:
+            loose = loose_lines(failure, on="statement_id") if failure is not None else None
+            if loose is not None and self.app.screen is self:
+                self._load_txns(refresh_record=True)
+                self._open_leftover(loose)
+                return
             self._show_refusal(title, message)
             # Read the statement fresh: a refusal can say what the screen
             # last read is out of date (an ending balance cleared elsewhere),
