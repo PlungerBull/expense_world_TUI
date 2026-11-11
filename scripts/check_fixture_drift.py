@@ -103,6 +103,11 @@ KNOWN_LOCAL = frozenset(
         # the key `STATEMENT_NOT_ORDERED` is refused on, printed in the complete
         # route's text as an error example, not as a response field of any schema
         "statement_order",
+        # a key of `error.details` on `LOOSE_LINES_ON_SEALED_DAYS`, which the contract
+        # states in the prose of POST /v1/statements/{statement_id}/complete and
+        # POST /v1/statements/import but no schema publishes; it goes once the engine
+        # ask "An error's `details` has a published shape for each refusal that carries one" lands
+        "bank_line_ids",
         # Textual widget geometry, faked by the adaptive-rows tests so
         # `fit_rows` can be measured without an event loop
         "content_size",
