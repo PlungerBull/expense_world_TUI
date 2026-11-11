@@ -58,13 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-6. **The two refusals for writes at the same moment.** A bank download refused
-   `PERSON_TAKES_NO_STATEMENT` on `account_id` shows in the engine's words on its account
-   question, as any refusal there; nothing in the app reads `PERIOD_OVERLAPS` or
-   `STATEMENT_MONTH_TAKEN` on an upload as another upload running (expense/errors.py's comment on
-   `STATEMENT_MONTH_TAKEN` checked against the contract). A unit test only where the app shows
-   something other than the shared way.
-
 ## Reply to the engine
 
 Part 1 of the reply to the hand-off of 2026-11-11 ("A loose-lines refusal names its lines by id
