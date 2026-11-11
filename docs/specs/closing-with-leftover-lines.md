@@ -61,6 +61,9 @@ moves it, puts it in a statement, or deletes it.
 | 8 | The month in the head, which the refusal does not name? | Ship `Can't close the statement yet` now; the month comes with the engine ask "A loose-lines refusal names the statement it would close" (2026-11-11). |
 | 9 | A line fixed with `⏎` and saved? | The screen sends the paper again as a dry run at once, as `r` does: a fixed line leaves, and with nothing left the preview opens (2026-11-11). A deleted line leaves on the list's fresh read. |
 | 10 | `Nothing was written.` after a delete on the screen? | Kept: it speaks of the paper (2026-11-11). |
+| 11 | `space` on the screen from `c`? | The line leaves the list on its fresh read, which says the statement each line is in (2026-11-11). |
+| 12 | A line fixed with `⏎` on the screen from `c`? | It stays listed until `c`; once the engine ask "A close can be checked before it is sent" lands, a fix checks the close at once, as on the upload's screen (2026-11-11). |
+| 13 | Every line dealt with on the screen from `c`? | `Nothing is left over: c closes <statement>.`; `⏎`, `space` and `d` leave the footer (2026-11-11). |
 
 ---
 
@@ -69,18 +72,23 @@ moves it, puts it in a statement, or deletes it.
 Approved; question 4 on 2026-11-11. Each reads the live contract on
 the practice engine before building.
 
-2. **The same screen from `c`** (question 2): opened by the refusal on
-   `POST /statements/{id}/complete`, its lines from `details` as in task 1, with `space` putting the line in the statement and `c`
-   asking "Complete statement?" again.
+2. **The same screen from `c`** (questions 2, 11–13, and 6, 7 and 10 as on the upload's screen;
+   stopped part-built on 2026-11-11, its code uncommitted in the working copy, unreviewed):
+   opened by the refusal on `POST /statements/{id}/complete`, its lines from `details` as in
+   task 1, its head naming the statement; `space` puts the line in the statement, `c` asks
+   "Complete statement?" again.
 3. **The month in the head** (question 8; waits on the engine ask "A loose-lines refusal names
    the statement it would close"): the head reads `Can't close <the statement's name> yet` from
-   `details`, on the upload's screen and on `c`'s.
+   `details`, on the upload's screen.
 4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
    run and apply, nothing written; the refusal's `details` ids in the order
    `?unassigned_in_period_of=<id>&sort=statement` lists them; the line taken out of the draft
    counted; 201 loose lines answering 200 ids and `"count": 201`;
    the request the message names answering `200` (a flagged line on the open last day letting the
    close through is proven in tests/contract/test_sealed_periods.py); the previous statement's last day sealed once it is completed.
+5. **A fix checks the close at once** (question 12; waits on the engine ask "A close can be
+   checked before it is sent"): on the screen from `c`, a save from `⏎` sends the close as a dry
+   run, as a save on the upload's screen sends the paper.
 
 ## Reply to the engine
 
