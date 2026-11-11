@@ -1,24 +1,58 @@
-# Pins for the direct deps CI installs (backlog 4.4) — pyproject.toml keeps
-# open lower bounds; this file makes CI and dev installs reproducible instead
-# of floating on latest (click 8.2 silently removing CliRunner's mix_stderr
-# was the bite that motivated it). Use with:
-#     pip install -e ".[dev]" -c constraints.txt
-# To refresh: bump a pin, reinstall, and merge only on green CI.
-
-# runtime
-typer==0.24.1
+# Every package CI and the release install, at one version each, valid on Python 3.11-3.13.
+# It is a constraints file: it fixes versions and adds nothing to install, so
+# tests/unit/test_constraints_complete.py fails when a package pyproject reaches is missing here.
+# Regenerate (existing pins are kept) with uv, which the dev extra does not install:
+#   uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --no-header --no-annotate -o constraints.txt
+# Bump one: add --upgrade-package NAME. Merge only on green CI.
+annotated-doc==0.0.6
+annotated-types==0.8.0
+anyio==4.16.0
+ast-serialize==0.13.1
+certifi==2026.10.23
+cfgv==3.5.0
 click==8.3.2
+colorama==0.4.6 ; sys_platform == 'win32'
+coverage==7.17.2
+distlib==0.4.4
+et-xmlfile==2.0.0
+execnet==2.1.2
+filelock==4.2.10
+h11==0.16.0
+httpcore==1.0.9
 httpx==0.28.1
-pydantic==2.13.3
-tzlocal==5.3.1
-textual==8.2.7
-
-# dev
+identify==2.6.20
+idna==3.20
+iniconfig==2.3.1
+librt==0.16.0 ; platform_python_implementation != 'PyPy'
+linkify-it-py==2.2.0
+markdown-it-py==4.3.0
+mdit-py-plugins==0.7.0
+mdurl==0.1.2
+mypy-extensions==1.2.0
+mypy==2.1.0
+nodeenv==1.12.0
 openpyxl==3.1.5
-pytest==9.0.3
+packaging==26.3
+pathspec==1.1.1
+platformdirs==4.14.5
+pluggy==1.7.0
+pre-commit==4.5.1
+pydantic-core==2.46.3
+pydantic==2.13.3
+pygments==2.21.0
 pytest-cov==7.1.0
 pytest-xdist==3.8.0
+pytest==9.0.3
+python-discovery==1.9.5
+pyyaml==6.0.3
 respx==0.23.1
+rich==15.0.0
 ruff==0.15.11
-pre-commit==4.5.1
-mypy==2.1.0
+shellingham==1.5.4
+textual==8.2.7
+typer==0.24.1
+typing-extensions==4.16.0
+typing-inspection==0.4.5
+tzdata==2026.6 ; sys_platform == 'win32'
+tzlocal==5.3.1
+virtualenv==21.15.6

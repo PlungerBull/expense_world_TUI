@@ -91,8 +91,6 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
 
 Each task leaves `pytest tests/unit` green.
 
-2. **The exact pins:** every dependency CI installs, pinned, from one file CI and the release
-   both install from.
 3. **The release and going back:** the command the owner runs in the live folder, and
    README's owner install lines, written once the pinned install they name exists. Its
    first-time setup goes in todo.md's "Waiting on you" for the owner:
