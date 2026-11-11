@@ -95,7 +95,7 @@ Not built in this spec; sorted when it is done.
   out the body's 4 cells of padding, where `_columns` takes them off; the dry run's answer comes
   after layout, so it has not been seen.
 - **The 80-column wrap test's `startswith("  ")` check is true by construction**
-  (test_tui_statement_upload.py, `test_the_flagged_head_wraps_under_its_own_words_at_80_columns`);
+  (test_tui_statement_upload.py, `test_a_full_page_with_a_flagged_line_wraps_its_head_and_ends_above_the_footer_at_80x30`);
   it would also take a three-cell indent.
 - **docs/mockups/expense-world-moves-and-preview.html still draws the old note** `on the paper's
   days` (:134, :163).

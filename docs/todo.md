@@ -18,8 +18,7 @@ Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A
 when the owner approves it and leaves when it retires; one that is blocked says on what, and the
 loop skips it until it can run.
 
-1. [Trimming the tests](specs/trimming-the-tests.md): approved 2026-11-09.
-2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
 
@@ -40,7 +39,7 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### The engine moved again: ask for one hand-off file?
-Asked 2026-11-10 · Blocks: the trimming spec's acceptance check, every new catch-up, and
+Asked 2026-11-10 · Blocks: every new catch-up, and
 [closing with leftover lines](specs/closing-with-leftover-lines.md)
 The practice engine serves contract `2dc7f6cfcb365f8e`; this client last caught up to
 `9b3b43429d8bd11e`. The version check lists eleven changes from 2026-11-09. Among them:
@@ -52,8 +51,10 @@ The practice engine serves contract `2dc7f6cfcb365f8e`; this client last caught 
   client reads";
 - one message for an amount past the largest;
 - the soles-only sample statement prints the number `0001`.
-On this version, 16 live tests fail, in the money bound, the cash account and the citations.
-The trimming spec's unit work goes on; its acceptance check waits for the catch-up.
+On this version, 16 live tests fail, in the money bound, the cash account and the citations,
+all from these changes. Each live run now leaves one more cash account on the practice user
+(it holds `CASH-0001` to `CASH-0004`), and the seed prints a second account,
+`EXPENSE_PRACTICE_SOLES_ACCOUNT_ID`; the catch-up handles both.
 - **A.** Ask the engine for one hand-off file covering `9b3b43429d8bd11e` to `2dc7f6cfcb365f8e`;
   it becomes a catch-up spec, run before the leftover-lines spec.
 - **B.** Wait: the engine is still working, and the hand-off comes once it is done.
@@ -167,6 +168,8 @@ CLAUDE.md "Specs and tasks".
   expense/region.py:3 says the region is read once at launch, though Auth & profile reads it on
   every load; `DEFAULT_FORMAT`'s comment (expense/number_format.py:36-37) leaves out that the
   account's pick wins over the region.
+- **`written()` in `t`'s question repeats `_currency_write`** (expense/tui/screens/accounts.py:317,
+  :382): two copies of one write's body.
 - **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps
   on a narrow window.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).

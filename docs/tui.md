@@ -93,7 +93,7 @@ lands, and painting it then queries widgets already taken down (`NoMatches`).
 the UI thread only while its node is still in the app, and drops it otherwise; a coroutine
 hand-back asks `still_attached` again after every await
 ([test_tui_leaving_mid_draw.py](../tests/unit/test_tui_leaving_mid_draw.py)). Every thread worker in
-`expense/tui/` hands back this way, but the app's rate check, which has no screen.
+`expense/tui/` hands back this way except the app's rate check, which has no screen.
 
 **A write answered after its screen has left still says how it ended** when it carries a
 `LeftBehind` ([_base.py](../expense/tui/screens/_base.py)); one without is dropped with its
@@ -250,8 +250,7 @@ LEDGER, MANAGE and SYSTEM never fold. The screen rows are there before the
 reads land and after they fail — a failure is one dim row with the reason, and `r`
 re-reads. The first month to land moves the cursor to the first category; later re-reads
 leave it where it was. The wordmark line carries the window's newest month on the right.
-`_SCREENS` in [home.py](../expense/tui/screens/home.py) maps entry id → screen, kept in
-lockstep by `test_screens_map_covers_every_section_entry`. Logging a transaction is
+`_SCREENS` in [home.py](../expense/tui/screens/home.py) maps entry id → screen. Logging a transaction is
 **`+`**, not a menu row — see §4. Past the terminal's height the list scrolls.
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
 rather than a partial total; opening balances are excluded engine-side. Home's grid
@@ -1793,8 +1792,7 @@ and Setup; the Edit form adds the keys "The Edit form's own keys" above names):
 ahead can change (on the last field, or with only read-only fields after it) it saves the form
 as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class
 in a screen's MRO on one `⏎`, so a form whose handler overrides an inherited one calls it
-itself and prevents the message's default (guarded by
-`test_a_forms_own_enter_handler_stops_the_ones_under_it`). `ctrl+s` first keeps what was
+itself and prevents the message's default. `ctrl+s` first keeps what was
 typed in the bar on the current line exactly as `⏎` does (same reading, same note), without
 moving on, then saves the form (`FormScreen._keep_bar`). A value `⏎` would refuse stops the
 save the same way: its note shows, the cursor stays and nothing is sent. A line nobody typed
@@ -1972,7 +1970,7 @@ what it does.
   was sent *and* `_saving` is false again. A **bare** `pilot.pause()` is for asserting a
   *non-event* (an inert key), where no predicate can be written; a timed `pilot.pause(<n>)`
   is a guess at the app's speed, so the test says why.
-- **A key press costs about 40 ms;** [helpers.py](../tests/unit/helpers.py) `enter_values` says when to type.
+- **A bar's value goes in through `enter_values`** unless typing is what the test proves (its docstring).
 - **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`), not at
   `expense.reads`, when the point is name display; otherwise use the short-id fallback.
 - **A test that reads what a toast shows runs with `run_app(..., toasts=True)`** and reads

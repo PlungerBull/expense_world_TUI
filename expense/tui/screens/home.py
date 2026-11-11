@@ -97,8 +97,7 @@ _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     ),
 ]
 
-# kind → screen to push. The `test_screens_map_covers_every_section_entry` guard
-# keeps it in lockstep with the section entries, so a new row can't be left dead.
+# kind → screen to push.
 _SCREENS: dict[str, type[Screen]] = {
     "transactions": TransactionsScreen,
     "statements": StatementsScreen,
