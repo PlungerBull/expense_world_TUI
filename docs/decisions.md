@@ -598,7 +598,7 @@ holding. *Checking in with the owner after every task* — technical questions h
 ## Review per task, test and align once per spec (2026-09-27)
 
 **Decision.** Builder → reviewer → commit and push per task; tester and librarian once per spec
-([CLAUDE.md](../CLAUDE.md) "Per task", "Per spec").
+(the shared loop, `../agent-loop.md` "Per task", "Per spec").
 
 **Why.** The commit hook already runs the unit tests; the tester's value is the real engine and the
 criteria. Docs drift slowly. Reading is cheaper than testing, so the reviewer goes first.
@@ -1237,8 +1237,8 @@ next read.
 ## What a spec finds becomes a spec only if the owner would see it (2026-11-02)
 
 **Decision.** A find becomes a spec only if the owner would see it in the app or it is a money or
-business rule; the rest goes to [todo.md](todo.md)'s Backlog ([CLAUDE.md](../CLAUDE.md)
-"Specs and tasks", "Per spec").
+business rule; the rest goes to [todo.md](todo.md)'s Backlog (the shared loop,
+`../agent-loop.md` "Specs and tasks", "Per spec").
 
 **Why.** Otherwise every finished spec leaves a smaller leftovers spec, and leftovers leave
 leftovers. Each spec costs an approval, a tester and a librarian run, which internal tidy-ups do not
@@ -1251,8 +1251,8 @@ leftovers* — the owner still approves work they cannot see, and it keeps growi
 
 **Decision.** The owner approves a spec, its answers and its tasks in one reply; approved specs
 wait in [todo.md](todo.md)'s Queue and the loop runs them in order without stopping between
-them; a spec of fewer than about 4 tasks merges into another ([CLAUDE.md](../CLAUDE.md)
-"Specs and tasks", "Task size", "Per task" step 6).
+them; a spec of fewer than about 4 tasks merges into another (the shared loop,
+`../agent-loop.md` "Specs and tasks", "Per task" step 6).
 
 **Why.** The owner felt the loop was slow. The session logs from 2026-10-28 to 2026-11-08 put
 38% of this repo's loop time on waiting for the owner, more than the builders' 30%; the

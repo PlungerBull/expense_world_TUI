@@ -10,7 +10,7 @@ and how the owner will know it is done, in plain language; it does not say how t
   the section in the commit that finishes it.
 - A **Found along the way** section follows "Tasks": the orchestrator lists there any new work
   found while the spec runs, which the loop does not build; when the spec is done, the finds
-  are sorted as [CLAUDE.md](../../CLAUDE.md) "Per spec" says.
+  are sorted as the shared loop (`../agent-loop.md`) "Per spec" says.
 - Work that belongs to no spec stays in [todo.md](../todo.md).
 - When the spec's work ships, its why moves to [decisions.md](../decisions.md) and the spec is
   deleted.

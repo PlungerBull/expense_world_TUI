@@ -14,13 +14,21 @@ handed over.
 
 ## Queue
 
-Approved specs, in the order the loop runs them (CLAUDE.md "Specs and tasks"). A spec joins
+Approved specs, in the order the loop runs them (the shared loop, `../agent-loop.md` "Specs and tasks"). A spec joins
 when the owner approves it and leaves when it retires; one that is blocked says on what, and the
 loop skips it until it can run.
+
+A catch-up spec built from the engine's hand-off goes first once that file is in
+[from-engine/](from-engine/): the live suite fails until it lands.
 
 1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
    in a field a client reads".
+2. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
+   engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
+3. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
+4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
+5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
@@ -149,7 +157,7 @@ them and approves the spec and its tasks.
 
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
-CLAUDE.md "Specs and tasks".
+the shared loop, `../agent-loop.md` "Specs and tasks".
 
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`
