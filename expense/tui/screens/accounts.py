@@ -179,7 +179,6 @@ class AccountsScreen(ResourceListScreen):
         Binding("t", "make_bank", "Make bank"),
         DELETE_KEY,
     ]
-    CARD_FOLLOWS_CHECK = frozenset({"delete"})
     CARD_NEEDS_A_ROW = ResourceListScreen.CARD_NEEDS_A_ROW | {
         "add_currency",
         "remove_currency",
@@ -220,8 +219,6 @@ class AccountsScreen(ResourceListScreen):
         return _who("Not deleted", item)
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action == "delete" and self._on_cash():
-            return False  # `d` leaves the footer and the card on the cash row
         if action not in ("make_person", "make_bank", "add_currency", "remove_currency"):
             return super().check_action(action, parameters)
         if waits_for_a_row(self, action):
@@ -232,16 +229,6 @@ class AccountsScreen(ResourceListScreen):
         if item.get("is_archived") or item.get("kind") == "cash":
             return False  # an archived or cash account keeps its kind: `t` leaves the footer
         return (item.get("kind") == "person") == (action == "make_bank")
-
-    def _on_cash(self) -> bool:
-        """Whether the cursor row is the cash account (its `kind` alone says so)."""
-        item = self.selected_record()
-        return item is not None and item.get("kind") == "cash"
-
-    def action_delete(self) -> None:
-        if self._on_cash():
-            return  # the engine never deletes it (contract: DELETE /v1/accounts/{account_id})
-        super().action_delete()
 
     def action_archive(self) -> None:
         item = self.selected_record()

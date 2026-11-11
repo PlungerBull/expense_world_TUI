@@ -57,9 +57,6 @@ keeps `d` off a cash row.
 Approved 2026-11-11 on the answers 1A and 2B. Each reads the live contract on the
 practice engine before building.
 
-2. **Delete on a cash row** (pane 3): `d` on a cash account's row asks and deletes as on any
-   account's row (the `_on_cash` guards on `delete` in expense/tui/screens/accounts.py go), and
-   the `?` card lists it; `HAS_TRANSACTIONS` shows the shared way.
 3. **Home** (question 2): each cash account in `/dashboard`'s order under its engine name,
    with no mark after it (`CASH_MARK` in expense/tui/screens/home.py goes). A unit test with two
    cash accounts.

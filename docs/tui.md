@@ -989,9 +989,8 @@ the body's first line is the account, its kind, then each currency it holds with
 currency's balance: a two-currency account reads
 `Visa Inventada · bank · PEN -2,340.50 · USD -185.20`, a one-currency account
 `BCP-5678 · bank · PEN 350.00`. `y` sends one
-`DELETE /accounts/{id}`. The engine never deletes the cash account
-(contract: DELETE /v1/accounts/{account_id}, "Refusals"), so on its row `d` leaves the footer
-and the `?` card and sends nothing.
+`DELETE /accounts/{id}`, on a cash account's row too; the engine's refusals
+(contract: DELETE /v1/accounts/{account_id}, "Refusals") show the shared way.
 
 Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
 and send nothing). The question names the row, then says the part that matters: **no
@@ -1869,8 +1868,7 @@ terse footer label (`Archive`). The card lists only bindings in play
 ([help.py](../expense/tui/screens/help.py) `listed_bindings` says which it leaves out): a key in
 `CARD_FOLLOWS_CHECK` follows the footer — the keys that are off in some states on the
 Statements screen and its panel, a statement's `space`, `c`, `u` and `f` ("A statement's
-screen" above), the Statements account list's `pgdn` and `pgup` while they page nothing, and
-Manage ▸ Accounts' `d` on the cash row —
+screen" above), and the Statements account list's `pgdn` and `pgup` while they page nothing —
 and one in `CARD_NEEDS_A_ROW` waits for a row, as in the footer (§5 "A key with no row to act
 on leaves the footer"): an empty ledger's card holds only `+`, `r` and `esc  Back`, the wording
 `CARD_TEXT_WHILE_EMPTY` gives its `esc` (with rows, `Clear the selection, else go back`), and

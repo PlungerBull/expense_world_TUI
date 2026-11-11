@@ -1,10 +1,10 @@
 """The cash account on Manage ▸ Accounts: its row and its Edit form.
 
-An account of `kind: "cash"` reads `cash` in the Type column, has no `t` and no `d`, and
-keeps `a`, `e`, `c` and `x`; its Edit form holds `type`, `name` and `currencies` read-only,
+An account of `kind: "cash"` reads `cash` in the Type column, has no `t`, and
+keeps `a`, `d`, `e`, `c` and `x`; its Edit form holds `type`, `name` and `currencies` read-only,
 then `color` and the openings, and saves only what changed
 (contract: PUT /v1/accounts/{account_id}). The engine's refusals of the fields it takes
-none of, and of its delete, read in its own words.
+none of read in its own words.
 """
 
 import httpx
@@ -13,9 +13,11 @@ import respx
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.help import listed_bindings
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_CURRENCIES,
+    ENGINE_URL,
     account_with_currencies,
     held_currency,
     render_text,
@@ -58,7 +60,7 @@ async def _open(pilot, app, monkeypatch, cursor: str) -> AccountsScreen:
     return screen
 
 
-def test_t_and_d_leave_the_footer_on_the_cash_row_the_other_keys_stay(configured, monkeypatch):
+def test_t_leaves_the_footer_on_the_cash_row_and_d_stays(configured, monkeypatch):
     seen: dict = {}
 
     async def scenario(pilot, app):
@@ -68,38 +70,53 @@ def test_t_and_d_leave_the_footer_on_the_cash_row_the_other_keys_stay(configured
             a: screen.check_action(a, ())
             for a in ("make_person", "make_bank", "delete", "archive", "edit")
         }
-        listing = screen.query_one(CursorList)
-        listing.set_cursor(listing.index_of("a-bank"))
-        screen.refresh_bindings()
-        seen["bank"] = _footer(screen)
-        seen["bank_card"] = [b.key for b in listed_bindings(screen)]
-        listing.set_cursor(listing.index_of("a-cash"))
-        screen.refresh_bindings()
         seen["cash_card"] = [b.key for b in listed_bindings(screen)]
 
     run_app(scenario, size=SIZE)
-    assert "t" not in seen["cash"] and "d" not in seen["cash"]
-    assert {"a", "e", "n"} <= set(seen["cash"])
+    assert "t" not in seen["cash"] and {"a", "e", "n", "d"} <= set(seen["cash"])
     assert seen["actions"] == dict(
-        make_person=False, make_bank=False, delete=False, archive=True, edit=True
+        make_person=False, make_bank=False, delete=True, archive=True, edit=True
     )
-    assert "t" in seen["bank"] and "d" in seen["bank"]
-    assert "d" not in seen["cash_card"] and "d" in seen["bank_card"]
-    assert "t" in seen["cash_card"]  # the card lists `t` on every row
+    assert "d" in seen["cash_card"] and "t" in seen["cash_card"]
 
 
-def test_pressing_t_or_d_on_the_cash_row_sends_nothing(configured, monkeypatch):
+def test_pressing_t_on_the_cash_row_sends_nothing(configured, monkeypatch):
     async def scenario(pilot, app):
         screen = await _open(pilot, app, monkeypatch, "a-cash")
         await pilot.press("t")
-        await pilot.press("d")
         await pilot.pause()
-        assert app.screen is screen  # no question opened
+        assert app.screen is screen
 
     with respx.mock(assert_all_called=False) as engine:
         sent = engine.route().mock(return_value=httpx.Response(500))
         run_app(scenario, size=SIZE)
     assert [c.request.method for c in sent.calls if c.request.method != "GET"] == []
+
+
+def test_d_on_a_cash_row_asks_then_sends_one_delete_and_the_list_starts_over(
+    configured, monkeypatch
+):
+    rows = list(ROWS)
+
+    def engine_deletes(request):
+        rows[:] = [r for r in rows if r["id"] != "a-cash"]
+        return httpx.Response(200, json={})
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, monkeypatch, "a-cash")
+        monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(list(rows)))
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this account?"
+        assert app.screen._message.startswith("Efectivo Casa · cash")
+        await pilot.press("y")
+        await wait_for(pilot, lambda: "a-cash" not in screen._by_id)
+        assert screen.query_one(CursorList).cursor_index == 0
+
+    with respx.mock() as engine:
+        route = engine.delete(f"{ENGINE_URL}/v1/accounts/a-cash").mock(side_effect=engine_deletes)
+        run_app(scenario, size=SIZE)
+    assert route.call_count == 1
 
 
 # ---- the Edit form -------------------------------------------------------------------
