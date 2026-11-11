@@ -230,17 +230,15 @@ def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
     return EngineError(code, message, fields, status, body, reasons=reasons)
 
 
-#: The field message on an amount past its bound, above and below (contract: "Money amounts").
-#: The words are as the contract's changelog gives them; the lower bound's "Input should be "
-#: prefix is read from the upper one.
-AMOUNT_OUT_OF_RANGE_WORDS = "Input should be less than or equal to 99999999999"
-AMOUNT_BELOW_RANGE_WORDS = "Input should be greater than or equal to -99999999999"
+#: The field message on an amount past its bound, the same above and below
+#: (contract: "Money amounts").
+AMOUNT_OUT_OF_RANGE_WORDS = "The amount is past the largest amount, 99,999,999,999 cents."
 
 
-def amount_refusal(key: str, *, below: bool = False) -> EngineError:
+def amount_refusal(key: str) -> EngineError:
     """The `422 VALIDATION_ERROR` the engine answers a whole-cents amount past its bound
     with, keyed `key`: `OUT_OF_RANGE`, whatever the size (contract: "Money amounts")."""
-    words = AMOUNT_BELOW_RANGE_WORDS if below else AMOUNT_OUT_OF_RANGE_WORDS
+    words = AMOUNT_OUT_OF_RANGE_WORDS
     body = error_body("VALIDATION_ERROR", words, {key: words}, {key: "OUT_OF_RANGE"})
     return EngineError(
         "VALIDATION_ERROR", words, {key: words}, 422, body, reasons={key: "OUT_OF_RANGE"}

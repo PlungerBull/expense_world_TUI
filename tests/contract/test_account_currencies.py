@@ -28,9 +28,9 @@ What it pins:
    balance (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code},
    "Response").
 4. The remove's refusals in the engine's order, each step proven against the next by one
-   request breaking both, every refusal leaving every account as it was: `404` "account not
-   found." (unknown or deleted account), `404` "currency <code> not found." (`EUR`, `usd`, one
-   removed before, the code as sent), `409 ACCOUNT_ARCHIVED` on `account_id`, `409
+   request breaking both, every refusal leaving every account as it was: `404` naming the
+   account (unknown or deleted account), `404` naming the currency (`EUR`, `usd`, one
+   removed before), `409 ACCOUNT_ARCHIVED` on `account_id`, `409
    LAST_CURRENCY` on `currency_code`, `409 HAS_TRANSACTIONS` on `currency_code` while the opening
    balance stands, then `409 IN_LIVE_STATEMENT` on `currency_code` while a draft or a completed
    statement (reverted, still a draft) holds the currency's balances, and `200` once each is
@@ -56,7 +56,7 @@ What it pins:
    an archived account and a person included; the account is then `404` to a read, an edit,
    a second delete and an add, off the list, and a new account takes its name and code at
    once (contract: DELETE /v1/accounts/{account_id}). Its refusals, each `409` on
-   `account_id` with the engine's words and every account as it was: `HAS_TRANSACTIONS` for
+   `account_id` and every account as it was: `HAS_TRANSACTIONS` for
    an opening balance in either currency or a row, also beside a draft holding balances
    (the earlier rule answers), then `IN_LIVE_STATEMENT` for an account whose only hold is a
    draft with dollar balances and no transaction, archived too, or for a completed statement
@@ -98,30 +98,6 @@ from tests.contract.conftest import (
     refused_writing_nothing,
     send_statement,
 )
-
-NO_ACCOUNT = "account not found."
-#: The words the engine gives each refusal on its key, quoted by the contract's refusal lists.
-WORDS = {
-    "DUPLICATE_CURRENCY": "Must be a currency the account does not hold.",
-    "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
-    "LAST_CURRENCY": "Must not be the account's last currency: delete the account instead.",
-    "HAS_TRANSACTIONS": "Must not be used by any active transaction.",
-    "IN_LIVE_STATEMENT": (
-        "Must be an account no live statement holds, draft or completed: "
-        "delete the statement first."
-    ),
-}
-
-
-#: The same two reasons on a currency's removal, keyed on `currency_code` and naming the code
-#: (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
-REMOVAL_WORDS = {
-    "HAS_TRANSACTIONS": "Must not be used by any active transaction in {code}.",
-    "IN_LIVE_STATEMENT": (
-        "Must be a currency no live statement holds in {code}, draft or completed: "
-        "delete the statement first."
-    ),
-}
 
 
 def _add(client, account_id: str, code, **fields) -> dict:
@@ -167,15 +143,11 @@ def _deleted(client, scratch) -> str:
     return gone
 
 
-def _says(err, reason: str, code: str | None = None) -> None:
-    """The refusal's one message is the contract's sentence for `reason`; with `code`, the
-    one a removal of that currency gives."""
-    words = REMOVAL_WORDS[reason].format(code=code) if code else WORDS[reason]
-    assert list(err.fields.values()) == [words]
-
-
-def _not_found(err, message: str) -> None:
-    assert (err.status, err.code, err.message) == (404, "NOT_FOUND", message)
+def _not_found(err, resource: str) -> None:
+    """`404` `NOT_FOUND` whose message names `resource` (`account` or `currency`) first: the
+    two 404s are told apart by the resource they name."""
+    assert (err.status, err.code) == (404, "NOT_FOUND")
+    assert err.message.startswith(resource), err.message
 
 
 @pytest.mark.parametrize("person", [False, True])
@@ -264,12 +236,10 @@ def test_a_held_currency_is_a_duplicate_before_the_archive_and_a_removed_one_is_
     for code in ("PEN", "USD"):
         err = _add_refused(client, account_id, {"currency_code": code})
         assert_refusal(err, 409, "CONFLICT", "currency_code", "DUPLICATE_CURRENCY")
-        _says(err, "DUPLICATE_CURRENCY")
 
     scratch.archive(account_id)
     err = _add_refused(client, account_id, {"currency_code": "USD"})
     assert_refusal(err, 409, "CONFLICT", "currency_code", "DUPLICATE_CURRENCY")
-    _says(err, "DUPLICATE_CURRENCY")
 
     client.post(f"/accounts/{account_id}/unarchive")
     _remove(client, account_id, "USD")
@@ -287,7 +257,6 @@ def test_an_archived_account_takes_no_new_currency_until_it_is_unarchived(client
 
         err = _add_refused(client, account_id, {"currency_code": "USD"})
         assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "ACCOUNT_ARCHIVED")
-        _says(err, "ACCOUNT_ARCHIVED")
 
         client.post(f"/accounts/{account_id}/unarchive")
         made = _add(client, account_id, "USD")
@@ -325,22 +294,22 @@ def test_a_currency_is_removed_with_the_account_unwritten_and_its_code_released(
 def test_a_remove_for_an_account_or_currency_not_found_is_404_with_the_codes_as_sent(
     client, scratch
 ):
-    """An unknown and a deleted account are `404` "account not found." whatever the code,
-    one that is unsupported included; an account lacking the currency is `404` "currency
-    <code> not found.": `EUR`, a lower-case `usd`, and `USD` once removed, each as sent; the
+    """An unknown and a deleted account are `404` naming the account whatever the code,
+    one that is unsupported included; an account lacking the currency is `404` naming the
+    currency: `EUR`, a lower-case `usd`, and `USD` once removed; the
     account's own check comes first (contract: DELETE
     /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals")."""
     account_id = scratch.account("PEN", "USD")
 
     for gone in (str(uuid4()), _deleted(client, scratch)):
         for code in ("USD", "EUR", "usd"):
-            _not_found(_remove_refused(client, gone, code), NO_ACCOUNT)
+            _not_found(_remove_refused(client, gone, code), "account")
 
     for code in ("EUR", "usd", "Pen", "GBP"):
-        _not_found(_remove_refused(client, account_id, code), f"currency {code} not found.")
+        _not_found(_remove_refused(client, account_id, code), "currency")
 
     _remove(client, account_id, "USD")
-    _not_found(_remove_refused(client, account_id, "USD"), "currency USD not found.")
+    _not_found(_remove_refused(client, account_id, "USD"), "currency")
 
 
 def test_a_currency_not_found_is_answered_before_the_archive(client, scratch):
@@ -352,10 +321,9 @@ def test_a_currency_not_found_is_answered_before_the_archive(client, scratch):
     scratch.archive(account_id)
 
     for code in ("USD", "EUR", "usd"):
-        _not_found(_remove_refused(client, account_id, code), f"currency {code} not found.")
+        _not_found(_remove_refused(client, account_id, code), "currency")
     err = _remove_refused(client, account_id, "PEN")
     assert_refusal(err, 409, "CONFLICT", "account_id", "ACCOUNT_ARCHIVED")
-    _says(err, "ACCOUNT_ARCHIVED")
 
 
 def test_an_archived_account_keeps_its_currencies_before_the_last_one_is_judged(client, scratch):
@@ -371,7 +339,6 @@ def test_an_archived_account_keeps_its_currencies_before_the_last_one_is_judged(
     for account_id, code in ((both, "PEN"), (both, "USD"), (only, "PEN")):
         err = _remove_refused(client, account_id, code)
         assert_refusal(err, 409, "CONFLICT", "account_id", "ACCOUNT_ARCHIVED")
-        _says(err, "ACCOUNT_ARCHIVED")
 
     client.post(f"/accounts/{both}/unarchive")
     assert _codes(_remove(client, both, "USD")) == ["PEN"]
@@ -389,18 +356,15 @@ def test_the_last_currency_is_refused_before_what_is_booked_in_it_and_its_accoun
     for account_id, code in ((only, "USD"), (person, "PEN")):
         err = _remove_refused(client, account_id, code)
         assert_refusal(err, 409, "CONFLICT", "currency_code", "LAST_CURRENCY")
-        _says(err, "LAST_CURRENCY")
 
     scratch.opening_balance(only, "2026-01-02", "USD")
     err = _remove_refused(client, only, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "LAST_CURRENCY")
-    _says(err, "LAST_CURRENCY")
 
     pair = scratch.account("PEN", "USD")
     _remove(client, pair, "PEN")
     err = _remove_refused(client, pair, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "LAST_CURRENCY")
-    _says(err, "LAST_CURRENCY")
 
     client.delete(f"/accounts/{person}")
     assert person not in {a["id"] for a in all_accounts(client)}
@@ -424,12 +388,10 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
 
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "HAS_TRANSACTIONS")
-    _says(err, "HAS_TRANSACTIONS", "USD")
 
     draft = scratch.statement(account_id, "2026-02-01", "2026-02-28", "USD")["id"]
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "HAS_TRANSACTIONS")
-    _says(err, "HAS_TRANSACTIONS", "USD")
 
     client.delete(f"/transactions/{seed}")
     assert (
@@ -438,7 +400,6 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
     )
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.delete(f"/statements/{draft}")
     row = scratch.row(account_id, "2026-02-10", -1000, "PEN")["id"]
@@ -451,12 +412,10 @@ def test_an_opening_balance_stops_the_removal_before_a_draft_and_goes_with_its_d
     client.post(f"/statements/{draft}/complete")
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.post(f"/statements/{draft}/revert")
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT", "USD")
 
     client.delete(f"/statements/{draft}")
     assert _codes(_remove(client, account_id, "USD")) == ["PEN"]
@@ -477,15 +436,13 @@ def test_a_removal_judged_by_every_refusal_is_answered_by_the_first(client, scra
     scratch.statement(account_id, "2026-02-01", "2026-02-28", "USD")
     scratch.archive(account_id)
 
-    _not_found(_remove_refused(client, account_id, "PEN"), "currency PEN not found.")
+    _not_found(_remove_refused(client, account_id, "PEN"), "currency")
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "account_id", "ACCOUNT_ARCHIVED")
-    _says(err, "ACCOUNT_ARCHIVED")
 
     client.post(f"/accounts/{account_id}/unarchive")
     err = _remove_refused(client, account_id, "USD")
     assert_refusal(err, 409, "CONFLICT", "currency_code", "LAST_CURRENCY")
-    _says(err, "LAST_CURRENCY")
 
 
 def _put(client, account_id: str, body: dict) -> dict:
@@ -688,7 +645,7 @@ def test_an_edit_is_refused_in_the_engines_order_each_step_before_the_next(clien
     for body, key, reason, target in cases:
         err = _edit_refused(client, target, body)
         if key is None:
-            assert (err.status, err.code, err.message) == (404, reason, NO_ACCOUNT)
+            assert (err.status, err.code) == (404, reason)
             continue
         status = 409 if reason == "NAME_EXISTS" else 422
         code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
@@ -753,10 +710,10 @@ def test_a_deleted_account_is_gone_with_its_currencies_and_releases_its_name_and
         assert [c["current_balance_cents"] for c in gone["currencies"]] == [0, 0]
         assert (gone["name"], gone["kind"]) == (before["name"], "person" if person else "bank")
         assert account_id not in {a["id"] for a in all_accounts(client)}
-        _not_found(refused(partial(client.get, f"/accounts/{account_id}")), NO_ACCOUNT)
-        _not_found(refused(partial(_put, client, account_id, {})), NO_ACCOUNT)
-        _not_found(refused(partial(client.delete, f"/accounts/{account_id}")), NO_ACCOUNT)
-        _not_found(_add_refused(client, account_id, {"currency_code": "EUR"}), NO_ACCOUNT)
+        _not_found(refused(partial(client.get, f"/accounts/{account_id}")), "account")
+        _not_found(refused(partial(_put, client, account_id, {})), "account")
+        _not_found(refused(partial(client.delete, f"/accounts/{account_id}")), "account")
+        _not_found(_add_refused(client, account_id, {"currency_code": "EUR"}), "account")
 
         same = {"name": before["name"]} if person else {"last4": before["numbers"][0]["last4"]}
         remade = scratch.account("PEN", code=code, person=person, **same)
@@ -774,18 +731,15 @@ def test_a_transaction_in_any_currency_stops_the_delete_before_a_statement(clien
         scratch.opening_balance(account_id, "2026-01-02", code)
         err = _delete_refused(client, account_id)
         assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-        _says(err, "HAS_TRANSACTIONS")
 
         scratch.statement(account_id, "2026-02-01", "2026-02-28", "PEN", "USD")
         err = _delete_refused(client, account_id)
         assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-        _says(err, "HAS_TRANSACTIONS")
 
     account_id = scratch.account("PEN", "USD")
     row = scratch.row(account_id, "2026-01-05", -1000, "USD")["id"]
     err = _delete_refused(client, account_id)
     assert_refusal(err, 409, "CONFLICT", "account_id", "HAS_TRANSACTIONS")
-    _says(err, "HAS_TRANSACTIONS")
 
     client.delete(f"/transactions/{row}")
     assert client.delete(f"/accounts/{account_id}")["deleted_at"] is not None
@@ -799,7 +753,6 @@ def test_a_statement_alone_stops_the_delete_until_it_is_deleted(client, scratch)
     draft = scratch.statement(account_id, "2026-02-01", "2026-02-28", "USD")["id"]
     err = _delete_refused(client, account_id)
     assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT")
 
     scratch.archive(account_id)
     err = _delete_refused(client, account_id)
@@ -827,7 +780,6 @@ def test_a_completed_statement_with_no_transaction_stops_the_delete(client, scra
 
     err = _delete_refused(client, account_id)
     assert_refusal(err, 409, "CONFLICT", "account_id", "IN_LIVE_STATEMENT")
-    _says(err, "IN_LIVE_STATEMENT")
 
     client.post(f"/statements/{statement}/revert")
     err = _delete_refused(client, account_id)

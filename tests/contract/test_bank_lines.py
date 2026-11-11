@@ -822,7 +822,7 @@ def test_the_review_list_is_taken_alone(client, scratch, param, value):
 def test_the_review_list_is_read_with_sort_statement_only(client, scratch):
     """The review list takes `sort=statement` and no other order: `date_desc`, `date_asc`
     and no `sort` (which reads as `date_desc`) are `422` on `sort`
-    (`CONFLICTING_PARAMETERS`, "Must be statement with unassigned_in_period_of."), judged
+    (`CONFLICTING_PARAMETERS`), judged
     before the statement is looked up. `sort=statement` with neither a `statement_id` nor
     an `unassigned_in_period_of` is `422` on `statement_id` (`REQUIRED`); an id naming no
     live statement is `INVALID_REFERENCE` and one that is not a UUID `INVALID_FORMAT`, on
@@ -835,7 +835,6 @@ def test_the_review_list_is_read_with_sort_statement_only(client, scratch):
             params = {"unassigned_in_period_of": known, **({"sort": sort} if sort else {})}
             err = refused(lambda params=params: client.get("/bank-lines", params=params))
             assert_refusal(err, 422, "VALIDATION_ERROR", "sort", "CONFLICTING_PARAMETERS")
-            assert err.fields["sort"] == "Must be statement with unassigned_in_period_of."
     err = refused(lambda: client.get("/bank-lines", params={"sort": "statement"}))
     assert_refusal(err, 422, "VALIDATION_ERROR", "statement_id", "REQUIRED")
     gone = scratch.statement(account, "2026-04-01", "2026-04-30", "PEN")["id"]

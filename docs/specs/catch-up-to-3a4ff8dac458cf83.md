@@ -58,13 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-2. **No test leans on a message's words.** The unit fake's bound message
-   (tests/unit/helpers.py, `Input should be …`) becomes the engine's
-   `The amount is past the largest amount, 99,999,999,999 cents.`; `bank_line not found.` in
-   tests/unit/test_tui_flagged_lines.py becomes `bank line not found.`; any test matching a
-   message's text matches the code and reason instead; any handling of a `404` from
-   `GET /statements/samples/{sample}` goes; a test comparing a replayed answer with the first
-   compares parsed JSON.
 3. **The soles-only close on `BCP-0001`.** The live suite reads
    `EXPENSE_PRACTICE_SOLES_ACCOUNT_ID` from the seed's output beside
    `EXPENSE_PRACTICE_ACCOUNT_ID`; the `card-soles-only` test sets a statement code on that account

@@ -16,7 +16,7 @@ What it pins:
    `null` `INVALID_FORMAT` (on a one-currency account a left-out code is that currency);
    a code the engine does not support (`EUR`, a lower-case `usd`) is `UNSUPPORTED_VALUE`, and
    a supported one the account does not hold (`USD` on a soles-only account, or on one whose
-   dollars were removed) is `CURRENCY_NOT_HELD` with the engine's words
+   dollars were removed) is `CURRENCY_NOT_HELD`
    (contract: POST /v1/transactions, "Validation").
 3. The order of those refusals, each pair proven by one body breaking both: a taken `id` is
    `409 ID_EXISTS` before the account and currency, even once the account is archived; an
@@ -102,10 +102,6 @@ from tests.contract.conftest import (
 )
 
 DAY = "2026-01-05"
-WORDS = {
-    "CURRENCY_NOT_HELD": "Must be a currency the account holds.",
-    "INVALID_REFERENCE": "Must reference an active, non-archived account.",
-}
 
 
 def _post(client, body: dict) -> dict:
@@ -196,11 +192,10 @@ def test_a_currency_left_out_is_the_only_one_the_account_holds(client, scratch):
 
 def test_a_currency_left_out_of_an_account_of_several_names_the_ones_held(client, scratch):
     """On an account holding soles and dollars, a create without `currency_code` is `REQUIRED`
-    with the message `Must be one of the account's currencies: PEN, USD.`, an item's on
+    its message naming `PEN, USD`, an item's on
     `transactions.<i>.currency_code`; an explicit `null` is not an omission but `INVALID_FORMAT`
     on the same key; nothing is written (contract: POST /v1/transactions, "Fields")."""
     account_id = scratch.account("PEN", "USD")
-    words = "Must be one of the account's currencies: PEN, USD."
     omitted = scratch.body(account_id)
     del omitted["currency_code"]
     nulled = scratch.body(account_id, currency=None)
@@ -216,7 +211,7 @@ def test_a_currency_left_out_of_an_account_of_several_names_the_ones_held(client
         err = _refused_writing_nothing(client, [account_id], call)
         assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
         if reason == "REQUIRED":
-            assert err.fields[key] == words
+            assert "PEN, USD" in err.fields[key]
 
 
 def test_a_currency_the_engine_does_not_support_is_unsupported_not_unheld(client, scratch):
@@ -239,14 +234,13 @@ def test_a_currency_the_engine_does_not_support_is_unsupported_not_unheld(client
 def test_a_currency_the_account_does_not_hold_is_refused_and_a_removed_one_is_not_held(
     client, scratch
 ):
-    """Dollars on a soles-only account are `422` `CURRENCY_NOT_HELD` on `currency_code`, with
-    the engine's words; so are dollars on an account whose dollars were removed, and the row
-    lands once they are added back (contract: POST /v1/transactions, "Validation")."""
+    """Dollars on a soles-only account are `422` `CURRENCY_NOT_HELD` on `currency_code`; so are
+    dollars on an account whose dollars were removed, and the row lands once they are added back
+    (contract: POST /v1/transactions, "Validation")."""
     soles = scratch.account("PEN")
     body = scratch.body(soles, currency="USD")
     err = _refused_writing_nothing(client, [soles], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
-    assert list(err.fields.values()) == [WORDS["CURRENCY_NOT_HELD"]]
 
     both = scratch.account("PEN", "USD")
     client.delete(f"/accounts/{both}/currencies/USD")
@@ -345,7 +339,6 @@ def test_a_batch_with_one_bad_item_is_refused_whole_and_names_every_bad_item(cli
             "transactions.2.currency_code": "UNSUPPORTED_VALUE",
         },
     )
-    assert err.fields["transactions.1.currency_code"] == WORDS["CURRENCY_NOT_HELD"]
 
     only_bad = [items[1]]
     err = _refused_writing_nothing(client, [account_id], partial(_batch, client, only_bad))
@@ -382,7 +375,7 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
     client, scratch
 ):
     """Two items of one `line_group`, one in soles and one in dollars, are `422`
-    `LINE_GROUP_FIELDS_DIFFER` on each item's `currency_code` with the engine's words and
+    `LINE_GROUP_FIELDS_DIFFER` on each item's `currency_code`, the message naming the group, and
     nothing written; that step answers alone, before an item of another account in dollars
     that account lacks; the same group in one currency is created as one line
     (contract: POST /v1/transactions/batch, "Line groups")."""
@@ -390,7 +383,6 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
     soles = scratch.account("PEN")
     pen = scratch.body(both, currency="PEN", line_group="g")
     usd = scratch.body(both, currency="USD", line_group="g")
-    words = "Must be the same on every item of line group 'g'."
 
     err = _refused_writing_nothing(client, [both], partial(_batch, client, [pen, usd]))
     assert_refusals(
@@ -402,7 +394,7 @@ def test_a_line_group_whose_items_differ_in_currency_is_refused_and_one_in_a_cur
             "transactions.1.currency_code": "LINE_GROUP_FIELDS_DIFFER",
         },
     )
-    assert set(err.fields.values()) == {words}
+    assert all("'g'" in message for message in err.fields.values())
 
     unheld = scratch.body(soles, currency="USD")
     err = _refused_writing_nothing(
@@ -590,11 +582,8 @@ def test_a_cursor_is_bound_to_the_currency_it_was_issued_under(client, scratch):
     assert {row["currency_code"] for row in second["items"]} == {"PEN"}
 
 
-OLD_FOUND = "account not found."
-
-
 def test_an_unknown_account_id_is_refused_as_not_found_on_the_account_routes(client, scratch):
-    """An id that names no live account is `404` `NOT_FOUND` "account not found." on `GET`,
+    """An id that names no live account is `404` `NOT_FOUND` on `GET`,
     `PUT` and `DELETE /accounts/{id}`, with no `fields`, and every account the caller has is as
     it was after each (contract: GET /v1/accounts/{account_id}) (contract: PUT
     /v1/accounts/{account_id}, "Refusals") (contract: DELETE /v1/accounts/{account_id},
@@ -609,19 +598,18 @@ def test_an_unknown_account_id_is_refused_as_not_found_on_the_account_routes(cli
     }
     for method, call in calls.items():
         err = _refused_writing_nothing(client, [live], call)
-        assert (err.status, err.code, err.message) == (404, "NOT_FOUND", OLD_FOUND), method
+        assert (err.status, err.code) == (404, "NOT_FOUND"), method
         assert err.fields is None and err.reasons is None, method
 
 
 def test_an_unknown_account_id_is_refused_as_the_account_of_a_create(client, scratch):
     """A create naming it as `account_id` is `422` `INVALID_REFERENCE` on `account_id` alone,
-    with the engine's words, nothing written (contract: POST /v1/transactions,
+    nothing written (contract: POST /v1/transactions,
     "Validation")."""
     live = scratch.account("PEN")
     body = scratch.body(str(uuid4()))
     err = _refused_writing_nothing(client, [live], partial(_post, client, body))
     assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "INVALID_REFERENCE")
-    assert err.fields["account_id"] == WORDS["INVALID_REFERENCE"]
 
 
 def test_an_unknown_account_id_lists_nothing_where_a_real_account_lists_its_rows(client, scratch):
@@ -681,14 +669,12 @@ def test_the_holder_routes_the_move_and_the_people_route_answer_as_an_unknown_ro
 )
 def test_holder_id_is_an_unknown_parameter_on_the_lists(client, scratch, path):
     """`?holder_id=` on `GET /statements`, `/transactions`, `/bank-lines` and
-    `/bank-lines/count` is `422` `UNKNOWN_PARAMETER` on `holder_id` alone, with the contract's
-    words, whether it names a real account or nothing, and also beside a filter the route does
-    take; the refused read writes nothing (contract: "Base Conventions", "Unknown query
-    parameters")."""
+    `/bank-lines/count` is `422` `UNKNOWN_PARAMETER` on `holder_id` alone,
+    whether it names a real account or nothing, and also beside a filter the route does take;
+    the refused read writes nothing (contract: "Base Conventions", "Unknown query parameters")."""
     live = scratch.account("PEN")
     for value in (live, str(uuid4())):
         for extra in ({}, {"account_id": live}):
             call = partial(client.get, path, params={"holder_id": value, **extra})
             err = _refused_writing_nothing(client, [live], call)
             assert_refusal(err, 422, "VALIDATION_ERROR", "holder_id", "UNKNOWN_PARAMETER")
-            assert err.fields["holder_id"] == "Not a parameter of this endpoint."

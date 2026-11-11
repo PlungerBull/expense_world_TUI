@@ -36,11 +36,6 @@ from tests.contract.conftest import (
 
 APRIL = ("2026-04-01", "2026-04-30")
 MAY = ("2026-05-01", "2026-05-31")
-ARCHIVED = "The account is archived. Unarchive it first."
-NOT_ZERO = (
-    "Must be 0: the account's transactions in the statement must add up to its ending balance "
-    "minus its beginning balance."
-)
 NOTES = {"warnings", "coverage_gap", "review_lines"}
 
 
@@ -127,7 +122,7 @@ def test_difference_not_zero_is_keyed_on_each_currency_that_fails_and_writes_not
     client, scratch
 ):
     """Every currency's `difference_cents` must be 0 to complete. One that is not is `422`
-    keyed `balances.<code>.difference_cents` (`DIFFERENCE_NOT_ZERO`, "Must be 0: ..."), the
+    keyed `balances.<code>.difference_cents` (`DIFFERENCE_NOT_ZERO`), the
     currencies that add up left out of the answer, and every currency that fails named in
     the same one. Each refusal leaves the statement a draft, as it was
     (contract: POST /v1/statements/{statement_id}/complete, "Every currency adds up")."""
@@ -146,8 +141,6 @@ def test_difference_not_zero_is_keyed_on_each_currency_that_fails_and_writes_not
     assert_refusal(
         err, 422, "VALIDATION_ERROR", "balances.USD.difference_cents", "DIFFERENCE_NOT_ZERO"
     )
-    assert err.fields == {"balances.USD.difference_cents": NOT_ZERO}
-    assert err.message == "Cannot complete the statement until every currency adds up."
     assert client.get(f"/statements/{sid}") == before
 
     client.put(
@@ -164,7 +157,6 @@ def test_difference_not_zero_is_keyed_on_each_currency_that_fails_and_writes_not
             "balances.USD.difference_cents": "DIFFERENCE_NOT_ZERO",
         },
     )
-    assert set(err.fields.values()) == {NOT_ZERO}
     assert client.get(f"/statements/{sid}")["status"] == 1
 
     client.put(
@@ -302,8 +294,8 @@ def test_a_balances_list_names_each_currency_once_and_only_the_accounts(client, 
 def test_an_archived_accounts_statements_are_frozen_in_each_currency(client, scratch):
     """On an archived account a `PUT` is `422` `ACCOUNT_ARCHIVED` on each key it sends, a
     balance on `balances.<code>.<field>` of its own currency, an entry sending no balance on
-    `balances.<code>`, draft and completed alike, every message "The account is archived.
-    Unarchive it first."; a request naming one currency leaves the other untouched. The
+    `balances.<code>`, draft and completed alike; a request naming one currency
+    leaves the other untouched. The
     refusal names the currencies sent, no more, and both statements read as before. After
     `POST /accounts/{id}/unarchive` the draft takes a dollar balance again and keeps its
     soles (contract: PUT /v1/statements/{statement_id}, "An archived account")."""
@@ -331,7 +323,6 @@ def test_an_archived_accounts_statements_are_frozen_in_each_currency(client, scr
         assert_refusal(
             err, 422, "VALIDATION_ERROR", "balances.USD.ending_balance_cents", "ACCOUNT_ARCHIVED"
         )
-        assert err.fields == {"balances.USD.ending_balance_cents": ARCHIVED}
 
         err = refused(
             lambda sid=sid: client.put(
@@ -353,7 +344,6 @@ def test_an_archived_accounts_statements_are_frozen_in_each_currency(client, scr
                 "balances.USD": "ACCOUNT_ARCHIVED",
             },
         )
-        assert set(err.fields.values()) == {ARCHIVED}
     assert {sid: client.get(f"/statements/{sid}") for sid in before} == before
 
     client.post(f"/accounts/{account}/unarchive")
@@ -363,14 +353,6 @@ def test_an_archived_accounts_statements_are_frozen_in_each_currency(client, scr
     )
     assert balance_of(put, "USD")["ending_balance_cents"] == 5000
     assert balance_of(put, "PEN") == balance_of(before[draft], "PEN")
-
-
-MISSING = "Must be entered before completing."
-LOCKED = "Locked while the statement is completed."
-MONEY_AT_START = (
-    "Holds 30000 USD cents at the start of the statement "
-    "(its balance at the end of 2026-03-31), so the statement needs its USD balances."
-)
 
 
 def test_a_create_leaving_out_a_currency_with_money_at_the_start_is_refused(client, scratch):
@@ -386,7 +368,8 @@ def test_a_create_leaving_out_a_currency_with_money_at_the_start_is_refused(clie
 
     err = refused(lambda: scratch.statement(account, *APRIL, balances=[_entry("PEN", 0, 0)]))
     assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "MONEY_AT_START_NOT_COVERED")
-    assert err.fields == {"balances.USD": MONEY_AT_START}
+    for named in ("USD", "30000", "2026-03-31"):
+        assert named in err.fields["balances.USD"]
     assert client.get("/statements", params={"account_id": account}) == before
 
     created = scratch.statement(
@@ -414,7 +397,8 @@ def test_a_close_refuses_a_currency_with_money_at_the_start_until_its_balances_a
 
     err = refused(lambda: client.post(f"/statements/{sid}/complete"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "MONEY_AT_START_NOT_COVERED")
-    assert err.fields == {"balances.USD": MONEY_AT_START}
+    for named in ("USD", "30000", "2026-03-31"):
+        assert named in err.fields["balances.USD"]
     assert client.get(f"/statements/{sid}") == before
 
     put = client.put(f"/statements/{sid}", json_body={"balances": [_entry("USD", 30000, 30000)]})
@@ -463,8 +447,6 @@ def test_a_line_placed_in_a_draft_lacking_its_currency_gives_it_that_currencys_b
             "balances.USD.ending_balance_cents": "ENDING_BALANCE_REQUIRED",
         },
     )
-    assert set(err.fields.values()) == {MISSING}
-    assert err.message == "Cannot complete the statement without every currency's balances."
     assert client.get(f"/statements/{sid}") == placed
 
     put = client.put(f"/statements/{sid}", json_body={"balances": [_entry("USD", 5000, 4700)]})
@@ -491,6 +473,5 @@ def test_a_completed_statement_gains_no_currency(client, scratch):
             lambda entry=entry: client.put(f"/statements/{sid}", json_body={"balances": [entry]})
         )
         assert_refusal(err, 422, "VALIDATION_ERROR", "balances.USD", "LOCKED")
-        assert err.fields == {"balances.USD": LOCKED}
         assert client.get(f"/statements/{sid}") == before
     assert statement_codes(before) == ["PEN"]

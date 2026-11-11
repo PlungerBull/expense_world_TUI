@@ -42,7 +42,7 @@ from expense.tui.screens.log_bar import (
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
 from tests.unit.helpers import (
-    AMOUNT_BELOW_RANGE_WORDS,
+    AMOUNT_OUT_OF_RANGE_WORDS,
     ENGINE_ORDER_HOLDING_ACCOUNTS,
     HASHTAG_REFUSALS,
     account_with_currencies,
@@ -2059,8 +2059,8 @@ def test_a_plain_amount_past_the_bound_is_sent_and_refused_in_the_engines_words(
     words on its row (contract: "Money amounts")."""
     _patch(monkeypatch)
     amount, cents = "-1000000000.00", -100000000000
-    err = amount_refusal("transactions.0.amount_cents", below=True)
-    words = AMOUNT_BELOW_RANGE_WORDS
+    err = amount_refusal("transactions.0.amount_cents")
+    words = AMOUNT_OUT_OF_RANGE_WORDS
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)

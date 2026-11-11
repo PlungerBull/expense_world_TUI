@@ -168,7 +168,6 @@ def test_a_seed_names_a_currency_the_account_holds(client, scratch):
 
     err = refused(lambda: _post_new_seed(client, scratch, account_id, "USD"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
-    assert err.fields["currency_code"] == "Must be a currency the account holds."
 
     assert _ids(client, account_id) == {"PEN": None}
     assert client.get("/transactions/count", params={"account_id": account_id}) == {"count": 0}
@@ -244,7 +243,6 @@ def test_an_archived_account_takes_no_opening_balance(client, scratch):
 
 
 def _archived_refusals_then_unarchived(client, scratch, account_id: str) -> None:
-    words = "The account is archived. Unarchive it first."
     held = transaction_count(client, account_id)
     path = f"/accounts/{account_id}"
 
@@ -253,7 +251,6 @@ def _archived_refusals_then_unarchived(client, scratch, account_id: str) -> None
         scratch.transactions.append(body["transaction_id"])
         err = refused_writing_nothing(client, lambda b=body: _post_seed(client, account_id, b))
         assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "ACCOUNT_ARCHIVED")
-        assert err.fields["currency_code"] == words
 
     new_seed = scratch.opening_balance_body(DAY, "USD", 3000)
     del new_seed["currency_code"]
@@ -267,7 +264,6 @@ def _archived_refusals_then_unarchived(client, scratch, account_id: str) -> None
             lambda sent=sent: client.put(path, json_body=sent),
         )
         assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-        assert set(err.fields.values()) == {words}
     assert transaction_count(client, account_id) == held
 
     client.post(f"{path}/unarchive")

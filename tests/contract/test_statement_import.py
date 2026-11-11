@@ -42,8 +42,8 @@ repo is public. Pinned here:
     the bank download too, `CURRENCY_NOT_HELD` for a paper in a currency the account lacks,
     `ACCOUNT_CURRENCY_NOT_ON_PAPER` for a currency of the account holding something the
     paper does not print: money at the start, a line in the draft, or its balances alone),
-    a row dated after today (`FUTURE_DATE` on `rows.<place>.date`,
-    "Row <place>: Must not be in the future."), and the statement's (`PERIOD_OVERLAPS`, and
+    a row dated after today (`FUTURE_DATE` on `rows.<place>.date`), and the
+    statement's (`PERIOD_OVERLAPS`, and
     `NO_TRANSACTIONS_ASSIGNED` for a paper of `0.00` rows only).
 
 The dry run's close notes and `not_covered` are pinned beside the apply's, the paper's last day
@@ -105,8 +105,6 @@ SAMPLE_LAST4 = "0000"
 
 #: The numbers of a test's second and third account that each takes a made-up paper.
 OTHER_LAST4, THIRD_LAST4 = "9101", "9102"
-
-NOT_A_PERSON = "Must not be a person: a person sends no bank statement."
 
 
 def _statements(client, account_id: str) -> list[dict]:
@@ -594,12 +592,10 @@ def test_a_person_takes_no_statement_on_either_upload(client, scratch):
     for dry_run in (True, False):
         err = refused(_upload(client, person, paper, dry_run=dry_run))
         assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "PERSON_TAKES_NO_STATEMENT")
-        assert err.fields["account_id"] == NOT_A_PERSON
         assert _ledger(client, person) == before
 
         err = refused(lambda dry_run=dry_run: send_download(client, person, rows, dry_run=dry_run))
         assert_refusal(err, 422, "VALIDATION_ERROR", "account_id", "PERSON_TAKES_NO_STATEMENT")
-        assert err.fields["account_id"] == NOT_A_PERSON
         assert _ledger(client, person) == before
 
 
@@ -615,7 +611,7 @@ def test_a_paper_in_a_currency_the_account_lacks_is_refused(client, scratch):
         err = _refused_writing_nothing(
             client, account, paper, 422, "VALIDATION_ERROR", "account_id", "CURRENCY_NOT_HELD"
         )
-        assert err.fields["account_id"] == f"The account holds no {currency}."
+        assert currency in err.fields["account_id"]
 
 
 def test_an_account_currency_the_paper_does_not_print_is_left_out_or_refused(client, scratch):
@@ -670,10 +666,6 @@ def test_a_row_dated_after_today_refuses_the_whole_paper(client, scratch):
         err = refused(_upload(client, account, paper, dry_run=dry_run))
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert err.reasons == {"rows.1.date": "FUTURE_DATE", "rows.2.date": "FUTURE_DATE"}
-        assert err.fields == {
-            "rows.1.date": "Row 1: Must not be in the future.",
-            "rows.2.date": "Row 2: Must not be in the future.",
-        }
         assert _ledger(client, account) == before
 
 
@@ -806,7 +798,7 @@ def test_a_card_paper_with_dollar_rows_sent_to_a_soles_only_account_is_refused(c
     err = _refused_writing_nothing(
         client, account, paper, 422, "VALIDATION_ERROR", "account_id", "CURRENCY_NOT_HELD"
     )
-    assert err.fields["account_id"] == "The account holds no USD."
+    assert "USD" in err.fields["account_id"]
 
 
 def test_the_drawn_savings_paper_answers_as_the_savings_sample_does(

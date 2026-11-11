@@ -17,7 +17,7 @@ engine answers every client (contract: "Base Conventions", "Money amounts"):
    direction. A refusal writes nothing.
 3. A cell past the bound in the statement PDF's rows and printed balance, in the sheet import
    (`rows.<row>.amount_cents`) and in the bank import is refused up front, every such row in
-   one answer, each message beginning `Row <row>:`, on the dry run (with and without the
+   one answer, each message naming the bound, on the dry run (with and without the
    sheet's table) and the apply, nothing written. A cell of a
    workbook is a number a spreadsheet can hold, so `1e5000` cannot be put in one: the files
    carry a cell one cent past the bound and a far larger one
@@ -54,9 +54,8 @@ from tests.contract.conftest import (
 
 #: The largest amount, in cents (contract: "Base Conventions", "Money amounts").
 BOUND = 99_999_999_999
-#: How a request field's message names the bound, and how a file row's does.
-BOUND_TEXT = "99999999999"
-FILE_BOUND_TEXT = "99,999,999,999"
+#: How the engine's message writes the bound, on a request field and on a file row.
+BOUND_TEXT = "99,999,999,999"
 
 
 def test_the_currencies_listed_are_the_ones_an_account_may_hold(client, reserved_client, scratch):
@@ -184,7 +183,7 @@ PAST = [(1_000_000_000.0, "positive"), (-1_000_000_000.0, "negative"), (1e30, "h
 def test_a_sheet_cell_past_the_bound_refuses_the_whole_sheet_up_front(client, scratch):
     """Rows holding `MONTO` one cent past the bound, its negative and `1e30` are each `422`
     `OUT_OF_RANGE` on `rows.<row>.amount_cents` beside a good row that is not named, every row
-    in one answer, its message beginning `Row <row>:`, on the dry run with or without the table
+    in one answer, each message naming the bound, on the dry run with or without the table
     and on the apply, nothing written (contract: POST /v1/transactions/import-sheet,
     "Rejected up front with `422`")."""
     run = uuid4().hex[:10]
@@ -225,14 +224,13 @@ def test_a_sheet_cell_past_the_bound_refuses_the_whole_sheet_up_front(client, sc
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert err.reasons == {f"rows.{row}.amount_cents": "OUT_OF_RANGE" for row in (3, 4, 5)}
         for row in (3, 4, 5):
-            message = err.fields[f"rows.{row}.amount_cents"]
-            assert message.startswith(f"Row {row}:") and FILE_BOUND_TEXT in message
+            assert BOUND_TEXT in err.fields[f"rows.{row}.amount_cents"]
         assert (CLEANER.holdings(client), transaction_count(client, person)) == held
 
 
 def test_a_bank_download_cell_past_the_bound_refuses_the_whole_file_up_front(client, scratch):
     """The same cells in a current account's download are `OUT_OF_RANGE` on
-    `rows.<row>.amount_cents` beside a good row, each message beginning `Row <row>:`, on the dry
+    `rows.<row>.amount_cents` beside a good row, each message naming the bound, on the dry
     run and the apply, nothing written (contract: POST /v1/transactions/import, "Rejected up
     front with `422`")."""
     account = scratch.account()
@@ -246,8 +244,7 @@ def test_a_bank_download_cell_past_the_bound_refuses_the_whole_file_up_front(cli
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert err.reasons == {f"rows.{row}.amount_cents": "OUT_OF_RANGE" for row in (3, 4, 5)}
         for row in (3, 4, 5):
-            message = err.fields[f"rows.{row}.amount_cents"]
-            assert message.startswith(f"Row {row}:") and FILE_BOUND_TEXT in message
+            assert BOUND_TEXT in err.fields[f"rows.{row}.amount_cents"]
         assert transaction_count(client, account) == 0
         assert client.get("/bank-lines", params={"account_id": account})["items"] == []
         assert CLEANER.holdings(client) == held
@@ -256,9 +253,8 @@ def test_a_bank_download_cell_past_the_bound_refuses_the_whole_file_up_front(cli
 def test_a_statement_paper_past_the_bound_refuses_the_whole_paper_up_front(client, scratch):
     """A row of a savings paper one cent past the bound, its negative and a far larger one are
     each `OUT_OF_RANGE` on `rows.<place>.amount_cents` beside a good row, every such row in one
-    answer, each message `Row <place>: The amount is past the largest amount,
-    99,999,999,999 cents.`; a previous balance printed past it is `OUT_OF_RANGE` on `file`
-    alone, naming the balance; dry run and apply alike, nothing written
+    answer, each message naming the bound; a previous balance printed past it is
+    `OUT_OF_RANGE` on `file` alone, naming it; dry run and apply alike, nothing written
     (contract: POST /v1/statements/import, "Rejected up front with `422`")."""
     code = free_statement_codes(client, 1)[0]
     account = scratch.account(code=code, last4=DRAWN_LAST4)
@@ -279,16 +275,13 @@ def test_a_statement_paper_past_the_bound_refuses_the_whole_paper_up_front(clien
             assert (err.status, err.code) == (422, "VALIDATION_ERROR")
             if where == "file":
                 assert_refusal(err, 422, "VALIDATION_ERROR", "file", "OUT_OF_RANGE")
-                assert FILE_BOUND_TEXT in err.fields["file"] or BOUND_TEXT in err.fields["file"]
+                assert BOUND_TEXT in err.fields["file"]
             else:
                 assert err.reasons == {
                     f"rows.{p}.amount_cents": "OUT_OF_RANGE" for p in (2, 3, 4, 5)
                 }
                 for place in (2, 3, 4, 5):
-                    assert err.fields[f"rows.{place}.amount_cents"] == (
-                        f"Row {place}: The amount is past the largest amount, "
-                        f"{FILE_BOUND_TEXT} cents."
-                    )
+                    assert BOUND_TEXT in err.fields[f"rows.{place}.amount_cents"]
             assert (CLEANER.holdings(client), _held_on(client, account)) == held
 
 

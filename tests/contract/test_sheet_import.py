@@ -11,8 +11,8 @@ An account is one name whatever currencies its rows are in: the table holds one
 entry for it, `{name, account_id}` with no currency, the create step makes one
 account holding every currency its rows use, each row lands on its own currency
 of it (`MONEDA`), and an account lacking one is `CURRENCY_NOT_HELD` on its entry.
-A bad row refuses the whole sheet on every step, keyed by its row, its message
-naming the row, a day after today's included, before any name is created
+A bad row refuses the whole sheet on every step, keyed by its row,
+a day after today's included, before any name is created
 (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
 The counts hold `split_lines` (the `COD_EECC` values shared by rows) and `split_rows` (the
 rows holding them), on the dry run and on the apply
@@ -192,11 +192,6 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
                 "rows.10.date": "FUTURE_DATE",
             },
         )
-        assert stopped.error.fields["rows.8.currency"].startswith("Row 8:")
-        assert stopped.error.fields["rows.9.amount_cents"].startswith("Row 9:")
-        # A day after today names its row in the engine's words
-        # (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
-        assert stopped.error.fields["rows.10.date"] == "Row 10: Must not be in the future."
     assert CLEANER.holdings(client) == before
 
     # The create step creates every name, one account holding both currencies under the
@@ -296,7 +291,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     assert live_ids(client, account) == written
 
     # One bad row beside a new one, a new name included: refused whole on every step,
-    # naming the row, and with a full table alike; nothing created or written.
+    # and with a full table alike; nothing created or written.
     new_name = f"{n.food}-new"
     one_bad = sheet_file(
         [
@@ -355,7 +350,6 @@ def test_an_account_lacking_a_currency_of_its_rows_is_refused_on_its_entry(clien
             "names.accounts.1.account_id",
             "CURRENCY_NOT_HELD",
         )
-        assert stopped.error.fields["names.accounts.1.account_id"] == "The account holds no USD."
         assert CLEANER.holdings(client) == held
         assert transaction_count(client, soles_only) == 0
         assert account_balance(client, soles_only) == 0

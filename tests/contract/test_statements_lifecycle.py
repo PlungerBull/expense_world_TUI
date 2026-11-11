@@ -46,9 +46,6 @@ BALANCE_KEYS = {
     "ending_balance_cents",
     "difference_cents",
 }
-BLANK = "Must be entered before completing."
-NO_TRANSACTION = "At least one transaction must be assigned."
-ARCHIVED = "The account is archived. Unarchive it first."
 
 
 APRIL = ("2026-04-01", "2026-04-30")
@@ -219,11 +216,8 @@ def test_a_period_is_two_calendar_days_that_clash_with_no_other_statement(client
 
     overlaps = refusal("2026-03-20", "2026-04-05")
     assert_refusal(overlaps, 422, "VALIDATION_ERROR", "date_start", "PERIOD_OVERLAPS")
-    assert overlaps.fields == {
-        "date_start": (
-            "Overlaps 'April 2026' (2026-04-01 to 2026-04-30). A day belongs to one statement."
-        )
-    }
+    for named in ("April 2026", "2026-04-01", "2026-04-30"):
+        assert named in overlaps.fields["date_start"]
     # a month holds one statement even when its days do not clash
     client.put(
         f"/statements/{held}", json_body={"date_start": "2026-04-01", "date_end": "2026-04-10"}
@@ -312,7 +306,7 @@ def test_the_balances_are_required_and_typed_not_derived(client, scratch):
 def test_completing_with_nothing_assigned_is_refused_in_every_currency(client, scratch):
     """A statement with no transaction in any currency is `422` on
     `balances.<code>.transactions` for every currency of the statement, each
-    `NO_TRANSACTIONS_ASSIGNED` reading "At least one transaction must be assigned.". One
+    `NO_TRANSACTIONS_ASSIGNED`. One
     transaction in any currency clears it: the quiet currency is not refused here, it
     completes once its two balances are equal (contract: POST
     /v1/statements/{statement_id}/complete, "The statement holds a transaction in at least
@@ -331,10 +325,6 @@ def test_completing_with_nothing_assigned_is_refused_in_every_currency(client, s
             "balances.USD.transactions": "NO_TRANSACTIONS_ASSIGNED",
         },
     )
-    assert err.fields == {
-        "balances.PEN.transactions": NO_TRANSACTION,
-        "balances.USD.transactions": NO_TRANSACTION,
-    }
     assert client.get(f"/statements/{sid}")["status"] == 1
 
     scratch.assign(usd_tx, sid)
@@ -357,8 +347,8 @@ def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(clie
 
     The draft has a row assigned, so the ending balance is the only thing missing.
     Completing it is a `422` `VALIDATION_ERROR` keyed `balances.PEN.ending_balance_cents`
-    with reason `ENDING_BALANCE_REQUIRED` and the message "Must be entered before
-    completing."; the draft stays a draft at the same version. Entering the balance with
+    with reason `ENDING_BALANCE_REQUIRED`; the draft stays a draft at the same
+    version. Entering the balance with
     `PUT` and completing again succeeds."""
     account = scratch.account()
     tx = scratch.row(account, "2026-04-15", -1200)["id"]
@@ -376,7 +366,6 @@ def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(clie
         "balances.PEN.ending_balance_cents",
         "ENDING_BALANCE_REQUIRED",
     )
-    assert err.fields == {"balances.PEN.ending_balance_cents": BLANK}
     assert client.get(f"/statements/{sid}") == before
     assert (before["status"], balance_of(before, "PEN")["ending_balance_cents"]) == (1, None)
 
@@ -429,8 +418,8 @@ def test_complete_locks_the_assigned_transaction_and_revert_unlocks_it(client, s
 def test_deleting_a_statement_unassigns_its_transactions_and_keeps_them(client, scratch):
     """Cascade-unassign: deleting a draft takes its rows out of it. The row is the user's
     data and the statement is bookkeeping over it; deleting the bookkeeping must never take
-    the row with it. A completed statement is not deleted (`409` `RECONCILIATION_NOT_DRAFT`,
-    "Must be a draft statement.") until it is reverted
+    the row with it. A completed statement is not deleted (`409` `RECONCILIATION_NOT_DRAFT`)
+    until it is reverted
     (contract: DELETE /v1/statements/{statement_id})."""
     account = scratch.account()
     tx = scratch.row(account, "2026-04-15", -1200)["id"]
@@ -441,7 +430,6 @@ def test_deleting_a_statement_unassigns_its_transactions_and_keeps_them(client, 
     client.post(f"/statements/{sid}/complete")
     err = refused(lambda: client.delete(f"/statements/{sid}"))
     assert_refusal(err, 409, "CONFLICT", "statement_id", "RECONCILIATION_NOT_DRAFT")
-    assert err.fields == {"statement_id": "Must be a draft statement."}
     assert client.get(f"/transactions/{tx}")["statement_id"] == sid
 
     client.post(f"/statements/{sid}/revert")
@@ -573,7 +561,6 @@ def test_an_archived_accounts_statements_are_frozen_until_unarchived(client, scr
                 "balances.PEN.ending_balance_cents": "ACCOUNT_ARCHIVED",
             },
         )
-        assert set(err.fields.values()) == {ARCHIVED}
         assert_refusal(
             refused(
                 lambda path=path, name=current["name"]: client.put(
@@ -592,7 +579,6 @@ def test_an_archived_accounts_statements_are_frozen_until_unarchived(client, scr
         ):
             err = refused(lambda call=call, route=route: call(route))
             assert_refusal(err, 409, "CONFLICT", "statement_id", "ACCOUNT_ARCHIVED")
-            assert err.fields == {"statement_id": ARCHIVED}
     assert {sid: client.get(f"/statements/{sid}") for sid in before} == before
 
     client.post(f"/accounts/{account}/unarchive")

@@ -79,14 +79,13 @@ def test_a_create_leaves_out_an_only_currency_and_names_one_of_several(client, s
     del missing["currency_code"]
     err = refused(lambda: client.post("/transactions", json_body=missing))
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "REQUIRED")
-    assert err.fields["currency_code"] == "Must be one of the account's currencies: PEN, USD."
+    assert "PEN, USD" in err.fields["currency_code"]
 
     err = scratch.refused_row(pair, _recent(scratch), None, category_id=category_id)
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "INVALID_FORMAT")
 
     err = scratch.refused_row(soles, _recent(scratch), "USD", category_id=category_id)
     assert_refusal(err, 422, "VALIDATION_ERROR", "currency_code", "CURRENCY_NOT_HELD")
-    assert err.fields["currency_code"] == "Must be a currency the account holds."
     assert client.get("/transactions/count", params={"account_id": soles}) == {"count": 1}
     assert client.get("/transactions/count", params={"account_id": pair}) == {"count": 0}
 

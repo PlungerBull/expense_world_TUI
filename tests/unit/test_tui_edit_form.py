@@ -39,7 +39,6 @@ from expense.tui.screens.edit_form import (
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
-    AMOUNT_BELOW_RANGE_WORDS,
     AMOUNT_OUT_OF_RANGE_WORDS,
     ENGINE_BANKS,
     ENGINE_CURRENCIES,
@@ -519,7 +518,7 @@ def test_an_amount_that_is_not_a_plain_number_is_refused_before_sending(fake_cli
     [
         ("-999999999.99", -99999999999, None),
         ("1000000000.00", 100000000000, AMOUNT_OUT_OF_RANGE_WORDS),
-        ("-" + "9" * 25, -int("9" * 25) * 100, AMOUNT_BELOW_RANGE_WORDS),
+        ("-" + "9" * 25, -int("9" * 25) * 100, AMOUNT_OUT_OF_RANGE_WORDS),
     ],
 )
 def test_a_plain_amount_of_any_size_is_sent_and_the_engines_refusal_shows(
@@ -530,7 +529,7 @@ def test_a_plain_amount_of_any_size_is_sent_and_the_engines_refusal_shows(
     on the amount's line, the form staying (contract: "Money amounts")."""
     _patch(monkeypatch)
     if words:
-        fake_client.errors["PUT"] = amount_refusal("parts.0.amount_cents", below=cents < 0)
+        fake_client.errors["PUT"] = amount_refusal("parts.0.amount_cents")
 
     async def steps(screen, pilot, app):
         _on(screen, "0.amount")
