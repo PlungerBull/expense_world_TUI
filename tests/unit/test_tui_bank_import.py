@@ -398,11 +398,11 @@ def test_the_account_list_names_the_file_and_holds_an_account_of_two_currencies_
 ):
     """The question and the file's name, dim, nothing read from the file; an
     account holding soles and dollars is one line, every other live account
-    one line, a person, the cash account and an archived account none."""
+    one line, a person, a cash account and an archived account none."""
     path = _bank_file(tmp_path)
     accounts = [
         *ACCOUNTS,
-        account_with_currencies(id="efe", name="Efectivo", kind="cash"),
+        account_with_currencies(id="cash-1", name="CASH-0001", kind="cash"),
         account_with_currencies(
             id="ia", name="Interbank Ahorros", currencies=[held_currency("USD")]
         ),

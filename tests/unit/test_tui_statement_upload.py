@@ -63,7 +63,7 @@ ACCOUNTS = [
         statement_code="SIG",
     ),
     account_with_currencies(id="aho", name="Sueldo Soles"),
-    account_with_currencies(id="cash", name="Efectivo"),
+    account_with_currencies(id="caja", name="Caja"),
 ]
 
 #: A card's paper: both currencies, matched, new and empty
@@ -374,7 +374,7 @@ def test_the_account_list_is_the_downloads_with_the_statements_question(
 ):
     """A bank account with no statement code is listed too (the engine refuses it in
     its words if picked), a dollar account reads `USD`, an account in the way of nothing
-    is left out: archived accounts, people and the cash account."""
+    is left out: archived accounts, people and cash accounts."""
     path = _pdf(tmp_path)
     _patch(
         monkeypatch,
@@ -391,7 +391,7 @@ def test_the_account_list_is_the_downloads_with_the_statements_question(
             ),
             account_with_currencies(id="old", name="Cerrada", is_archived=True),
             account_with_currencies(id="ana", name="Ana", kind="person"),
-            account_with_currencies(id="efe", name="Efectivo", kind="cash"),
+            account_with_currencies(id="cash-1", name="CASH-0001", kind="cash"),
         ],
     )
 

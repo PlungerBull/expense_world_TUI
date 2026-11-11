@@ -79,7 +79,7 @@ from tests.unit.test_tui_log_bar import _open as _open_log
 from tests.unit.test_tui_log_bar import _patch as _patch_log
 from tests.unit.test_tui_log_bar import _refused as _refused_row
 from tests.unit.test_tui_log_bar import _type as _type_log
-from tests.unit.test_tui_opening_balance import EFECTIVO
+from tests.unit.test_tui_opening_balance import CAJA
 from tests.unit.test_tui_opening_balance import _type as _type_account
 from tests.unit.test_tui_setup import _address_and_key, _health_ok
 from tests.unit.test_tui_setup import _text as _setup_text
@@ -419,7 +419,7 @@ def test_a_refused_opening_balance_shows_the_words_whole(fake_client):
     fake_client.errors["PUT"] = refusal(key="opening_balances.PEN.date")
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(EFECTIVO, ENGINE_CURRENCIES, ENGINE_BANKS)
+        screen = EditAccountScreen(CAJA, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         _type_account(screen, "color", "green")

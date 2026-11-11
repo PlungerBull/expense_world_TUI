@@ -37,17 +37,17 @@ from tests.unit.helpers import (
     whole,
 )
 
-EFECTIVO = account_with_currencies(
-    id="acc-efe", name="Efectivo", color=None, currencies=[held_currency("PEN")]
+CAJA = account_with_currencies(
+    id="acc-caja", name="Caja", color=None, currencies=[held_currency("PEN")]
 )
 SUELDO = account_with_currencies(
-    EFECTIVO,
+    CAJA,
     id="acc-sue",
     name="Sueldo Soles",
     color="#4a90d9",
     currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")],
 )
-ELIANA = account_with_currencies(EFECTIVO, id="acc-eli", name="Eliana", kind="person")
+ELIANA = account_with_currencies(CAJA, id="acc-eli", name="Eliana", kind="person")
 #: A person who has an opening balance, and that row as the engine returns it.
 ELIANA_OPENED = account_with_currencies(
     ELIANA, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-eli")]
@@ -200,7 +200,7 @@ def test_two_empty_lines_after_colour_and_no_read(fake_client):
         assert "PEN as of — (optional)" in text
         assert screen._key == "bank"  # a bank account has no NAME line
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
     assert fake_client.calls == []  # null id: nothing to read
 
 
@@ -209,8 +209,8 @@ def test_nothing_changed_sends_one_put_with_an_empty_body(fake_client, notes):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(EFECTIVO, body)
-    assert _only_put(fake_client, "acc-efe") == {}
+    _form(CAJA, body)
+    assert _only_put(fake_client, "acc-caja") == {}
     assert ("Saved.", {}) in notes
 
 
@@ -229,7 +229,7 @@ def test_no_hint_under_the_amount_and_the_star_once_there_is_one(fake_client):
         assert "PEN opening 350.00" in text
         assert "PEN as of — *" in text
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
 
 
 def test_the_amount_is_taken_as_typed_in_its_currency(fake_client):
@@ -240,7 +240,7 @@ def test_the_amount_is_taken_as_typed_in_its_currency(fake_client):
         _type(screen, "opening:USD", "350")
         assert screen._values["opening:USD"] == 35000  # never flipped either way
 
-    _form(account_with_currencies(EFECTIVO, currencies=[held_currency("USD")]), body)
+    _form(account_with_currencies(CAJA, currencies=[held_currency("USD")]), body)
 
 
 def test_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
@@ -255,7 +255,7 @@ def test_an_unreadable_amount_or_day_stays_on_its_line(fake_client, notes):
         _type(screen, "as_of:PEN", "")  # an amount needs its day
         assert "as_of:PEN" not in screen._values
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
     assert [m for m, _ in notes] == [
         "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56.",
         "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56.",
@@ -292,7 +292,7 @@ def test_the_word_on_the_right_follows_the_sign_as_typed(fake_client, record):
             _on(screen, "color")
             assert _word(screen) == ""  # no other line has a word
 
-    _form(ELIANA if record == "person" else EFECTIVO, body)
+    _form(ELIANA if record == "person" else CAJA, body)
 
 
 def test_the_word_shows_on_landing_on_a_filled_amount(fake_client, reads_log):
@@ -594,7 +594,7 @@ def test_missing_settings_shows_as_a_note_with_the_cursor_where_it_was(
     seen = _refused_save(
         fake_client,
         error,
-        EFECTIVO,
+        CAJA,
         [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")],
         then_on="color",
     )
@@ -621,7 +621,7 @@ def test_a_name_refusal_on_a_bank_account_lands_on_no_line(fake_client, notes):
     """The form never sends a bank account's `name`; were one refused (`NAME_BUILT`),
     the form has no line for it and the cursor stays."""
     error = _keyed("name", "NAME_BUILT", "A bank account's name is the engine's.")
-    seen = _refused_save(fake_client, error, EFECTIVO, [("color", "green")])
+    seen = _refused_save(fake_client, error, CAJA, [("color", "green")])
     assert seen["key"] == "color"
     assert "  name: A bank account's name is the engine's." in seen["block"]
 
@@ -650,8 +650,8 @@ def test_a_refusal_keeps_everything_typed_and_the_next_save_sends_it_all_again(
         _type(screen, "as_of:PEN", "2026-01-01")
         await wait_for(pilot, lambda: not screen.is_attached)
 
-    _form(EFECTIVO, body)
-    assert fake_client.requests == [("PUT", "/accounts/acc-efe")] * 2
+    _form(CAJA, body)
+    assert fake_client.requests == [("PUT", "/accounts/acc-caja")] * 2
     second = fake_client.puts[1][1]
     assert second["color"] == "#5ab87a"
     _set_entry(second["opening_balances"]["PEN"], 35000, "2026-01-01")
@@ -672,7 +672,7 @@ def test_a_second_refusal_after_a_fix_is_shown_again(fake_client, notes):
         await pilot.pause()
         assert screen._key == "as_of:PEN"
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
 
 
 def test_a_failed_read_locks_its_currency_and_the_other_pair_stays_editable(
@@ -1039,7 +1039,7 @@ def test_a_refusal_with_a_next_step_ends_with_its_line(fake_client, notes):
     key = "opening_balances.PEN.category_id"
     error = _keyed(key, "CONCURRENT_CHANGE", status=409)
     seen = _refused_save(
-        fake_client, error, EFECTIVO, [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")]
+        fake_client, error, CAJA, [("opening:PEN", "350.00"), ("as_of:PEN", "2026-01-01")]
     )
     assert seen["key"] == "opening:PEN"
     words = f"{error.code} — stand-in\n  {key}: stand-in field words"
@@ -1052,7 +1052,7 @@ def test_a_refusal_with_a_next_step_ends_with_its_line(fake_client, notes):
 
 def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
     # the list reads an account holding its currencies; the form is opened on the row's account
-    accounts = [SUELDO, EFECTIVO]
+    accounts = [SUELDO, CAJA]
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
     seen: dict = {}
 
@@ -1060,7 +1060,7 @@ def _list_then_edit(fake_client, monkeypatch, steps, *, save: bool):
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        await pilot.press("down")  # cursor → Efectivo
+        await pilot.press("down")  # cursor → Caja
         await pilot.press("e")
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
         form = app.screen
@@ -1084,12 +1084,12 @@ def test_a_save_reloads_the_list_from_row_1_with_the_note(fake_client, notes, mo
     seen = _list_then_edit(fake_client, monkeypatch, steps, save=True)
     assert seen["cursor"] == "acc-sue"  # first page, cursor on row 1
     assert ("Saved.", {}) in notes
-    assert fake_client.requests == [("PUT", "/accounts/acc-efe")]
+    assert fake_client.requests == [("PUT", "/accounts/acc-caja")]
 
 
 def test_leaving_without_a_save_keeps_the_row(fake_client, notes, monkeypatch):
     seen = _list_then_edit(fake_client, monkeypatch, [], save=False)
-    assert seen["cursor"] == "acc-efe"
+    assert seen["cursor"] == "acc-caja"
     assert fake_client.requests == []
 
 
@@ -1127,7 +1127,7 @@ def test_a_refusal_saved_from_another_line_lands_on_the_line_it_names(
         for field, words in error.fields.items():
             assert f"  {field}: {words}" in block
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
     _no_failed_toast(notes)
 
 
@@ -1139,7 +1139,7 @@ def test_an_exponent_inf_or_nan_is_unreadable_and_sends_nothing(fake_client, not
             _type(screen, "opening:PEN", text)
             assert screen._key == "opening:PEN" and "opening:PEN" not in screen._values
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
     assert [m for m, _ in notes] == [
         "PEN opening: a signed decimal, e.g. -350.00. Amounts are 1,234.56."
     ] * len(typed)
@@ -1159,5 +1159,5 @@ def test_a_plain_amount_past_the_bound_is_kept_to_be_sent_and_shown(fake_client,
         _type(screen, "opening:PEN", "-" + "9" * 25)
         assert "-9,999,999,999,999,999,999,999,999.00" in _summary(screen)
 
-    _form(EFECTIVO, body)
+    _form(CAJA, body)
     assert notes == []

@@ -548,7 +548,7 @@ def test_the_delete_question_names_the_whole_account_and_each_currency(configure
             "Visa Inventada · bank · PEN -2,340.50 · USD -185.20",
         ),
         (_held("p2", "Prueba", ("PEN", 0), ("USD", 0)), "Prueba · bank · PEN 0.00 · USD 0.00"),
-        (_held("p3", "Efectivo", ("PEN", 35000)), "Efectivo · bank · PEN 350.00"),
+        (_held("p3", "Caja", ("PEN", 35000)), "Caja · bank · PEN 350.00"),
     ]
     _stub_manage(monkeypatch, "accounts", [account for account, _line in cases])
 

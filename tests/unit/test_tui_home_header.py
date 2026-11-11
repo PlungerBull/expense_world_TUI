@@ -316,7 +316,7 @@ def test_the_sections_never_fold():
 
 
 def test_month_columns_and_balances_end_on_the_same_column():
-    cash = _acct("a-cash", "Efectivo de la casa grande", "cash", 23750, 3000)
+    cash = _acct("a-long", "Caja de la casa grande", "bank", 23750, 3000)
     data = {**DATA, "dashboard": dashboard_answer(accounts=[*HOME_DASHBOARD["accounts"], cash])}
     rows = home.home_rows(data, home.HomeState(expanded=frozenset({"c-wants"})), PALETTE)
     widths = {

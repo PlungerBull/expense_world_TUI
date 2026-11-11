@@ -47,9 +47,7 @@ def _rows() -> list[dict]:
 
     return [
         account_with_currencies(id="a-sueldo", name="Sueldo Soles", currencies=held("PEN")),
-        account_with_currencies(
-            id="a-efectivo", name="Efectivo", currencies=held("PEN", opening="t-open")
-        ),
+        account_with_currencies(id="a-caja", name="Caja", currencies=held("PEN", opening="t-open")),
         account_with_currencies(id="a-alejo", name="ALEJO", currencies=held("PEN", "USD")),
         account_with_currencies(
             id="a-eliana", name="Eliana", kind="person", currencies=held("PEN")
@@ -501,11 +499,11 @@ def test_kind_alone_tells_a_person_from_a_bank_or_cash_account():
 
     person = account_with_currencies(id="p", name="Ana", kind="person")
     bank = account_with_currencies(id="b", name="BCP", kind="bank")
-    cash = account_with_currencies(id="c", name="Efectivo", kind="cash")
+    cash = account_with_currencies(id="c", name="CASH-0001", kind="cash")
     assert " · person · " in account_line(person)
     assert " · bank · " in account_line(bank) and " · cash · " in account_line(cash)
     kinds = [cells[1] for _, cells, *_ in account_rows([person, bank, cash], ["PEN"])]
     assert kinds == ["person", "bank", "cash"]
     names = [n for _, n, _ in reads.held_currencies([person, bank, cash], include_people=False)]
-    assert names == ["BCP", "Efectivo"]
+    assert names == ["BCP", "CASH-0001"]
     assert len(reads.held_currencies([person, bank, cash])) == 3

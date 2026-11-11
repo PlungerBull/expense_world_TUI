@@ -166,12 +166,12 @@ def test_a_refused_opening_balance_shows_the_engines_words_alone_in_the_block(fa
         {"opening_balances.PEN.date": "FUTURE_DATE"},
     )
     fake_client.errors["PUT"] = future
-    efectivo = account_with_currencies(
-        id="acc-efe", name="Efectivo", color=None, currencies=[held_currency("PEN")]
+    caja = account_with_currencies(
+        id="acc-caja", name="Caja", color=None, currencies=[held_currency("PEN")]
     )
 
     async def scenario(pilot, app):
-        screen = EditAccountScreen(efectivo, ENGINE_CURRENCIES, ENGINE_BANKS)
+        screen = EditAccountScreen(caja, ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")) and not screen._openings_loading)
         for key, text in (

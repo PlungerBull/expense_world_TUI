@@ -1,4 +1,4 @@
-"""The cash account on Manage ▸ Accounts: its row and its Edit form.
+"""A cash account on Manage ▸ Accounts: its row and its Edit form.
 
 An account of `kind: "cash"` reads `cash` in the Type column, has no `t`, and
 keeps `a`, `d`, `e`, `c` and `x`; its Edit form holds `type`, `name` and `currencies` read-only,
@@ -30,7 +30,7 @@ from tests.unit.helpers import (
 SIZE = (120, 40)
 CASH = account_with_currencies(
     id="a-cash",
-    name="Efectivo Casa",
+    name="CASH-0001",
     kind="cash",
     bank_code=None,
     numbers=[],
@@ -108,7 +108,7 @@ def test_d_on_a_cash_row_asks_then_sends_one_delete_and_the_list_starts_over(
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert app.screen._title == "Delete this account?"
-        assert app.screen._message.startswith("Efectivo Casa · cash")
+        assert app.screen._message.startswith("CASH-0001 · cash")
         await pilot.press("y")
         await wait_for(pilot, lambda: "a-cash" not in screen._by_id)
         assert screen.query_one(CursorList).cursor_index == 0
@@ -143,7 +143,7 @@ def test_the_cash_edit_form_holds_type_name_and_currencies_read_only():
         summary = _summary(screen)
         assert summary[:3] == [
             "type cash read-only",
-            "name Efectivo Casa read-only",
+            "name CASH-0001 read-only",
             "currencies PEN · USD read-only",
         ]
         assert summary[3].startswith("color")

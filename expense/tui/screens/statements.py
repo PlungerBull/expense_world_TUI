@@ -403,7 +403,7 @@ class BrowseAccount(NamedTuple):
 
 def browse_accounts(items: list[dict]) -> list[BrowseAccount]:
     """The browse's rows from one accounts read, in the order given: every bank
-    account once under its own name, people and the cash account left out
+    account once under its own name, people and cash accounts left out
     (`reads.takes_statements`). The currencies are the
     account's `currencies` as sent (`reads.held_currencies`, the one walk over
     them), and the statement code is the account's

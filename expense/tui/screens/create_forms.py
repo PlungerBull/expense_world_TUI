@@ -818,7 +818,7 @@ class EditAccountScreen(NewAccountScreen):
     zero or while empty, the same on a bank account and a person.
 
     A bank account has no NAME line: its name is the engine's, and a `name` sent
-    for it is refused (contract: PUT /v1/accounts/{account_id}). The cash account's NAME
+    for it is refused (contract: PUT /v1/accounts/{account_id}). A cash account's NAME
     reads its name as read, `read-only`, and it has no BANK, LAST 4, STATEMENT CODE or card
     lines: its body holds only the `color` and `opening_balances` that changed
     (contract: PUT /v1/accounts/{account_id}). A person's NAME
@@ -989,7 +989,7 @@ class EditAccountScreen(NewAccountScreen):
         return super()._locked_word(key)
 
     def _fixed_text(self, key: str) -> str | None:
-        """The cash account's NAME reads the name the engine gave it."""
+        """A cash account's NAME reads the name the engine gave it."""
         return self._was if key == "name" and self._is_cash else None
 
     def _value_cell(self, key: str, value: object) -> Text:

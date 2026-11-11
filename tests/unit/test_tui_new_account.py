@@ -377,7 +377,7 @@ def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_and_edit_
     run_app(scenario)
 
 
-# ---- the cash account -------------------------------------------------------------------
+# ---- a cash account -------------------------------------------------------------------
 
 
 def _cash_screen():

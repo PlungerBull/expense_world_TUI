@@ -96,7 +96,7 @@ def _kind_word(account: dict) -> str:
 
 def account_line(account: dict, *, only: str | None = None) -> str:
     """The account on one line: its name, its kind, then each currency it holds
-    with that currency's balance — `Efectivo · bank · PEN 350.00`; with `only`,
+    with that currency's balance — `BCP-5678 · bank · PEN 350.00`; with `only`,
     that one currency alone. The line a delete question and the currency picks
     name the account by, and a currency's removal names the currency by."""
     kind = _kind_word(account)

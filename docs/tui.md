@@ -820,7 +820,7 @@ download does: `CODE — message`, a `!` line per refused key (`! file: …` for
 engine cannot read, misread or that does not add up, or a period sharing a day with another
 statement (`PERIOD_OVERLAPS`), or a statement written into the paper's month while the upload
 ran (`STATEMENT_MONTH_TAKEN`), and for `MONEY_AT_START_NOT_COVERED`, a currency the paper
-shows at zero while the account held money in it; `! account_id: …` for an account archived, a person, the cash account, with no
+shows at zero while the account held money in it; `! account_id: …` for an account archived, a person, a cash account, with no
 statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows money in, or none
 it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
 (`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
@@ -903,7 +903,7 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
 every kind together, under the legend `balances are native currency`. It has
 one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). Type reads `person` for a person, `cash` for the cash
+in the engine's order everywhere" above). Type reads `person` for a person, `cash` for a cash
 account (by its `kind`) and `bank` for any other account. The currency columns are the
 currencies the engine lists, in its order (`GET /currencies`, read in the list's worker with the
 accounts by `fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
@@ -933,7 +933,7 @@ it open: the engine's words show under that line, the cursor goes there and what
 refusal closes it and reads as "When the engine says no" below says, titled `Failed`, or
 `Not made a person` / `Not made a bank account` once the list is left. Written, the list reads again with the cursor on the account in its
 new place, under the name the engine gives it, and the note says `Now a person.` or
-`Now a bank account.`. On an archived row and on the cash row `t` leaves the footer. The Edit form's `type` line
+`Now a bank account.`. On an archived row and on a cash row `t` leaves the footer. The Edit form's `type` line
 stays read-only.
 
 **`c` adds a currency to an account.** On Manage ▸ Accounts the footer reads `c Currency`
@@ -1206,7 +1206,7 @@ checks nothing typed on `last 4`, the engine judging its shape.
 
 **A bank account's Edit form holds its number on three lines,** `bank` (New's line), `last 4`
 and `since`, after `type`, with `cards before`, `new card` and `new card from` for a
-replacement; a person's and the cash account's have none, the cash account's `name` reading
+replacement; a person's and a cash account's have none, a cash account's `name` reading
 its name, read-only. `EditAccountScreen`'s docstring says when each line is on the
 form, what it opens holding and what the save sends of it. The app checks nothing typed on
 them (contract: PUT /v1/accounts/{account_id}, "The numbers").
@@ -1224,7 +1224,7 @@ account only. The engine lets a person carry a code too
 (contract: "What an account is", "A person carries a code like a bank account"); these forms
 offer it none. On New, TYPE turned to `person` or `cash` takes the line off the form and the
 save sends no code; turned back to `bank`, the line returns holding what was typed, as `bank`
-and `last 4` do. A person's Edit form and the cash account's have no such line.
+and `last 4` do. A person's Edit form and a cash account's have no such line.
 
 - **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`);
   no other line of any form changes what is typed. The app checks nothing else about the

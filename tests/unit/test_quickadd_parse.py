@@ -26,7 +26,7 @@ ACCOUNTS = [
     ("a2", "BCP Plus", ("PEN",)),
     ("a3", "Mi Signature", ("PEN",)),
     ("a4", "Nico", ("PEN",)),
-    ("a5", "Efectivo", ("PEN",)),
+    ("a5", "CASH-0001", ("PEN",)),
 ]
 CATEGORIES = [("c1", "KORAKUEN"), ("c2", "TRANSPORTE"), ("c3", "WANTS")]
 HASHTAGS = [("t1", "CAJA"), ("t2", "TAXI"), ("t3", "CAJA CHICA"), ("t4", "Viajes")]
@@ -112,7 +112,7 @@ def test_first_sign_wins():
 
 
 def test_sigils_resolve_to_ids():
-    result = _p("tottus -38.60 $efectivo @korakuen #caja")
+    result = _p("tottus -38.60 $cash-0001 @korakuen #caja")
     assert (result.account_id, result.category_id, result.hashtag_ids) == (
         "a5",
         "c1",
@@ -240,11 +240,11 @@ def test_a_name_never_swallows_the_next_token():
 
 
 def test_hashtags_repeat_and_the_rest_are_first_wins():
-    result = _p("x -5 #caja #taxi #caja $nico $efectivo @wants @korakuen")
+    result = _p("x -5 #caja #taxi #caja $nico $cash-0001 @wants @korakuen")
     assert result.hashtag_ids == ("t1", "t2")
     assert (result.account_id, result.category_id) == ("a4", "c3")
     # The losing tokens are not silently applied — they read as title text.
-    assert result.title == "x $efectivo @korakuen"
+    assert result.title == "x $cash-0001 @korakuen"
 
 
 @pytest.mark.parametrize(
@@ -266,7 +266,7 @@ def test_unresolved_names_are_reported_with_their_candidates(line, kind, text, c
 def test_matching_is_contains_anywhere_and_case_insensitive():
     """Contains-anywhere, not whole-name or starts-with, matching every
     existing TUI picker."""
-    assert _p("x -5 $ECTIV").account_id == "a5"
+    assert _p("x -5 $ash-00").account_id == "a5"
 
 
 # --- the note ---------------------------------------------------------------
@@ -351,21 +351,21 @@ def test_an_impossible_date_is_reported_not_swallowed():
 
 
 def test_the_rest_is_the_title_in_order():
-    assert _p("tottus porongoche -5 $efectivo hoy").title == "tottus porongoche"
+    assert _p("tottus porongoche -5 $cash-0001 hoy").title == "tottus porongoche"
 
 
 def test_missing_lists_only_the_required_fields():
     # amount and account are all a row needs; title and
     # category are optional (docs/decisions.md "A sparse line is a ledger row")
     assert _p("").missing == ("amount", "account")
-    assert _p("-5 $efectivo").missing == ()
-    assert _p("tottus -5 $efectivo @wants").missing == ()
+    assert _p("-5 $cash-0001").missing == ()
+    assert _p("tottus -5 $cash-0001 @wants").missing == ()
 
 
 def test_is_complete_needs_every_name_resolved_too():
     """A row with all four fields but an ambiguous account is not complete —
     routing is still the screen's call."""
-    assert _p("tottus -5 $efectivo @wants").is_complete is True
+    assert _p("tottus -5 $cash-0001 @wants").is_complete is True
     assert _p("tottus -5 $sig @wants").is_complete is False
 
 
@@ -777,6 +777,6 @@ def test_the_current_format_is_one_session_value():
     try:
         assert nf.current_format() is COMMA
         assert nf.amounts_are() == "amounts are 1.234,56"
-        assert _p("tottus -1.500 $efectivo").amount_cents == -150000
+        assert _p("tottus -1.500 $cash-0001").amount_cents == -150000
     finally:
         nf.set_current_format(DOT)

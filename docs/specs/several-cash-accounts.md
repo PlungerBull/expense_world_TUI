@@ -57,14 +57,6 @@ keeps `d` off a cash row.
 Approved 2026-11-11 on the answers 1A and 2B. Each reads the live contract on the
 practice engine before building.
 
-4. **No `Efectivo` left:** the comments, docstrings and unit fakes that name a cash account
-   `Efectivo` (expense/tui/screens/create_forms.py, the `account_line` docstring in
-   expense/tui/screens/accounts.py, the tests listed by `grep -rl Efectivo tests/unit`) use
-   `CASH-0001`; the unit tests proving `CASH_EXISTS` and a cash row with no `d` go. The docs
-   that describe one cash account named `Efectivo` say what the screens now do: docs/tui.md's
-   cash row with no `d` (about :988-990), the New form's cash type, name and `CASH_EXISTS`
-   (about :1198-1208) and the cash Edit form (about :1226); the orchestrator rewrites
-   docs/decisions.md's "The cash account is a third type…" when this spec retires.
 
 ## Reply to the engine
 
