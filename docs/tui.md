@@ -819,8 +819,8 @@ it is, toasts the engine's words and shows no `⚑` line.
 download does: `CODE — message`, a `!` line per refused key (`! file: …` for a paper the
 engine cannot read, misread or that does not add up, or a period sharing a day with another
 statement (`PERIOD_OVERLAPS`), or a statement written into the paper's month while the upload
-ran (`STATEMENT_MONTH_TAKEN`, sent again), and for `MONEY_AT_START_NOT_COVERED`, a currency the paper shows at zero while the
-account held money in it; `! account_id: …` for an account archived, a person, the cash account, with no
+ran (`STATEMENT_MONTH_TAKEN`), and for `MONEY_AT_START_NOT_COVERED`, a currency the paper
+shows at zero while the account held money in it; `! account_id: …` for an account archived, a person, the cash account, with no
 statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows money in, or none
 it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
 (`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
@@ -1063,7 +1063,7 @@ show alone.
 | `REQUIRED` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save of a line with no `%` on an account holding several, which routing stops before sending (contract: POST /v1/transactions, "Fields") | none: the engine's words list the codes held, and the staged row stays |
 | `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
-| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF, when a `POST /statements` or `PUT /statements/{id}` writes a statement into the paper's month while the upload runs; sent again, it fills that statement (contract: POST /v1/statements/import, "Concurrency") | none: the engine's words name the statement holding that month |
+| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF, when a statement is written into the paper's month while the upload runs (contract: POST /v1/statements/import, "Concurrency") | none: the engine's words name the statement holding that month |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone, and `b` on ledger rows, onto an account holding several currencies, none of them the line's (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no statement" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |

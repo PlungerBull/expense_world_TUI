@@ -5,9 +5,7 @@ part A, 1 to 3): resolving lines in no statement before a close.
 
 **Status: approved on 2026-11-08, its questions answered on the mockup
 [expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html); question 4
-answered on 2026-11-11. It runs after
-[catch-up-to-3a4ff8dac458cf83.md](catch-up-to-3a4ff8dac458cf83.md), which reads the refusal's
-`details`.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+answered on 2026-11-11. The app reads the refusal's `details` (`EngineError.details`).** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 

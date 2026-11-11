@@ -21,16 +21,14 @@ loop skips it until it can run.
 A catch-up spec built from the engine's hand-off goes first once that file is in
 [from-engine/](from-engine/): the live suite fails until it lands.
 
-1. [The app on contract 3a4ff8dac458cf83](specs/catch-up-to-3a4ff8dac458cf83.md): approved
-   2026-11-11.
-2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
-   2026-11-08, its question 4 answered 2026-11-11; runs once the catch-up reads `details`.
-3. [Several cash accounts](specs/several-cash-accounts.md): approved 2026-11-11.
-4. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
+1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+   2026-11-08, its question 4 answered 2026-11-11.
+2. [Several cash accounts](specs/several-cash-accounts.md): approved 2026-11-11.
+3. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
    engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
-5. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
-6. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
-7. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+4. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
+5. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
+6. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
@@ -160,6 +158,10 @@ the shared loop, `../agent-loop.md` "Specs and tasks".
   :382): two copies of one write's body.
 - **The upload preview's page budget counts each `⚠` note as one line,** though a long one wraps
   on a narrow window.
+- **Two docstrings in tests/contract/test_sealed_periods.py read wider than their test:** :165
+  says a draft is "the only place such a row can be" (a row on a sealed day can also sit in the
+  completed statement, where a new currency is `LOCKED`); :14-17 says `currency_code` alone is
+  `SEALED_PERIOD` "on each of those sent", though the body also sends `statement_id`.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and

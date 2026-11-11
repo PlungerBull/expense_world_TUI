@@ -1436,3 +1436,14 @@ left out.
 
 **Why.** The engine judges a sent date against sealed days, so an untouched one could refuse a
 save for something the owner never changed.
+
+## A live test checks the data a message carries, never its words (2026-11-11)
+
+**Decision.** A live test asserts a refusal by its status, code and reasons; it reads a message
+only for data nothing else carries (a statement's name and days, an amount, a currency), as an
+`in` check.
+
+**Why.** The engine rewords messages without moving a code or reason, and a word match then fails
+the suite for nothing the owner would notice. The data in a message is what the screen shows.
+
+**Rejected.** *No message checks at all* — a refusal naming the wrong statement would pass.
