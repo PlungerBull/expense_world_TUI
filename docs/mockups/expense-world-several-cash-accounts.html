@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Several cash accounts</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:1100px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Several cash accounts</h1>
+  <p>Cash is no longer one account named <code>Efectivo</code>. You can make as many as you like (your wallet, a jar at home, dollars kept apart), and the engine names each one in order: <code>CASH-0001</code>, <code>CASH-0002</code>, … Your <code>Efectivo</code> is already <code>CASH-0001</code>, with the same balances and transactions. A number is never reused, and a cash account with no transactions can now be deleted.</p>
+  <p>Accounts and amounts are invented. Drawn at 80 columns.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · Making a cash account <span>— pick A or B</span></div>
+<p class="blurb"><code>n</code> on Manage ▸ Accounts. <code>cash</code> is now always offered on the type line, however many you hold. Until the engine answers, the app can't know which number the new one gets, so the form can no longer show a name.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>no name line, as for a bank account</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n on Manage ▸ Accounts</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+   type            cash
+   <span class="b">CURRENCIES      </span>PEN<span class="a">▍</span>
+   <span class="d">PEN or USD · several with commas</span>
+   color           —  <span class="d">(optional)</span>
+   PEN opening     —  <span class="d">(optional)</span>
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">A bank account's form shows no name either, since the engine builds it from the bank and the card. After <code>^s</code> the new account shows on the list as <code>CASH-0002</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>the name line kept, with no name</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n on Manage ▸ Accounts</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+<span class="d">──────────────────────────────────────────────────</span>
+   type            cash
+   name            <span class="d">set by the engine</span>
+   <span class="b">CURRENCIES      </span>PEN<span class="a">▍</span>
+   <span class="d">PEN or USD · several with commas</span>
+   color           —  <span class="d">(optional)</span>
+   PEN opening     —  <span class="d">(optional)</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">As today, minus the name <code>Efectivo</code>: a line you can't type in, saying the engine picks it.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · Cash on Home <span>— pick A or B</span></div>
+<p class="blurb">Each cash account sits among the accounts in their order, each currency on its own line, as cash does today. Now that the engine's name starts with <code>CASH</code>, the <code>cash</code> mark after it says the same thing twice.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the mark kept</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div>
+<div class="app"><pre>  <span class="d">ACCOUNTS                       balance today</span>
+    BCP-5678
+      PEN                          <span class="n">-2,340.50</span>
+      USD                            <span class="n">-185.20</span>
+    CASH-0001  <span class="d">cash</span>
+      PEN                             <span class="p">237.50</span>
+      USD                              <span class="p">30.00</span>
+    CASH-0002  <span class="d">cash</span>
+      USD                             <span class="p">400.00</span>
+  <span class="d">PEOPLE</span>
+    Eliana
+      PEN                            <span class="n">-150.00</span></pre></div></div>
+<p class="cap">No change. The mark comes from the account's type, not its name, so it stays right whatever the engine names cash accounts later.</p></div>
+
+<div class="var"><div class="oh">B · <span>the mark dropped</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Home</span></div>
+<div class="app"><pre>  <span class="d">ACCOUNTS                       balance today</span>
+    BCP-5678
+      PEN                          <span class="n">-2,340.50</span>
+      USD                            <span class="n">-185.20</span>
+    CASH-0001
+      PEN                             <span class="p">237.50</span>
+      USD                              <span class="p">30.00</span>
+    CASH-0002
+      USD                             <span class="p">400.00</span>
+  <span class="d">PEOPLE</span>
+    Eliana
+      PEN                            <span class="n">-150.00</span></pre></div></div>
+<p class="cap">Every account row reads as a plain name. The name alone tells you it's cash.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 3 -->
+<div class="pane">
+<div class="lbl">3 · Deleting a cash account <span>— no pick: what the engine now allows</span></div>
+<p class="blurb"><code>d</code> comes back on a cash row and works as on any account's. The engine deletes a cash account only while it holds no transaction (its opening balance counts as one). Otherwise it refuses, and the app shows its words. Archive stays the way to put away one that holds history.</p>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · d on CASH-0003, which holds nothing</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">──────────────────────────────────────────────────</span>
+    <span class="d">Name          Type    Code       PEN       USD</span>
+    BCP-5678      bank    SIG  -2,340.50   -185.20
+    CASH-0001     cash    —       237.50     30.00
+    CASH-0002     cash    —            —    400.00
+  <span class="rev">  CASH-0003     cash    —         0.00         — </span>
+
+  <span class="b">Delete CASH-0003?</span>
+  No screen can bring it back.
+  <span class="d">[y] confirm  [enter / n / esc] cancel</span>
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · y on CASH-0001, which holds transactions</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<span class="d">──────────────────────────────────────────────────</span>
+    <span class="d">Name          Type    Code       PEN       USD</span>
+    BCP-5678      bank    SIG  -2,340.50   -185.20
+  <span class="rev">  CASH-0001     cash    —       237.50     30.00 </span>
+    CASH-0002     cash    —            —    400.00
+
+  <span class="n">▌ Not deleted · CONFLICT — the engine's own</span>
+  <span class="n">▌ words: the account holds transactions.</span>
+  <span class="d">  Archive it instead, or delete its</span>
+  <span class="d">  transactions first.</span>
+
+ <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+</div>
+<p class="cap">The question and the refusal are drawn the way every account's delete already shows them; the refusal's words here are invented, the engine supplies the real ones. The 0.00 balance is invented too: the app never decides from a balance whether to offer <code>d</code>, the engine judges.</p>
+</div>
+
+<!-- ================================================================== 4 -->
+<div class="pane">
+<div class="lbl">4 · Cash on the LOG bar <span>— no pick: no change in the app, but you'll notice it</span></div>
+<p class="blurb"><code>$</code> finds a cash account by its name, as any account. With one cash account, <code>$cash</code> lands on it. With two or more it matches all of them and asks you to be precise, as <code>$bcp</code> does with two BCP cards. <code>$efectivo</code> no longer finds anything: that name is gone.</p>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · + on Home, two cash accounts</span></div>
+<div class="app"><pre>  <span class="b">LOG</span>  -25 almuerzo $cash<span class="a">▍</span>
+  <span class="w">"$cash" matches 2 accounts</span>
+
+  <span class="b">LOG</span>  -25 almuerzo $cash-0002<span class="a">▍</span>
+  <span class="d">-25.00 · almuerzo · CASH-0002 · today</span>
+
+  <span class="b">LOG</span>  -25 almuerzo $efectivo<span class="a">▍</span>
+  <span class="w">"$efectivo" matches no account</span></pre></div></div>
+</div>
+<p class="cap">The LOG bar's other lines are left out. A shorter way to name one cash account (say <code>$c2</code>) would be a new rule in the app's grammar: say so if you want it, and it becomes its own question.</p>
+</div>
+
+<div class="pick">
+<b>To pick:</b> one letter per pane with a question, e.g. <code>1A 2A</code>. Panes 3 and 4 are drawn for you to object to, not to pick.
+<ol>
+<li>Making a cash account: <b>A</b> no name line · <b>B</b> the name line kept, with no name.</li>
+<li>Cash on Home: <b>A</b> the <code>cash</code> mark kept · <b>B</b> the mark dropped.</li>
+</ol>
+</div>
+
+</body>
+</html>

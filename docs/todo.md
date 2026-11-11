@@ -21,14 +21,16 @@ loop skips it until it can run.
 A catch-up spec built from the engine's hand-off goes first once that file is in
 [from-engine/](from-engine/): the live suite fails until it lands.
 
-1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
-   2026-11-08. Tasks 1 and 2 wait on the engine ask "A loose-lines refusal names its lines by id,
-   in a field a client reads".
-2. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
+1. [The app on contract 3a4ff8dac458cf83](specs/catch-up-to-3a4ff8dac458cf83.md): approved
+   2026-11-11.
+2. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+   2026-11-08, its question 4 answered 2026-11-11; runs once the catch-up reads `details`.
+3. [Several cash accounts](specs/several-cash-accounts.md): approved 2026-11-11.
+4. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
    engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
-3. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
-4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
-5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+5. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
+6. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
+7. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
@@ -46,37 +48,13 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine moved again: ask for one hand-off file?
-Asked 2026-11-10 · Blocks: every new catch-up, and
-[closing with leftover lines](specs/closing-with-leftover-lines.md)
-The practice engine serves contract `2dc7f6cfcb365f8e`; this client last caught up to
-`9b3b43429d8bd11e`. The version check lists eleven changes from 2026-11-09. Among them:
-- a user may hold several cash accounts, each named by the engine (`CASH-0001`), and the
-  `Efectivo` account is renamed `CASH-0001`;
-- a cash account can be deleted;
-- every error carries a `details` object, and a refused close names its leftover lines by id
-  in it, which looks like the ask "A loose-lines refusal names its lines by id, in a field a
-  client reads";
-- one message for an amount past the largest;
-- the soles-only sample statement prints the number `0001`.
-On this version, 16 live tests fail, in the money bound, the cash account and the citations,
-all from these changes. Each live run now leaves one more cash account on the practice user
-(it holds `CASH-0001` to `CASH-0004`), and the seed prints a second account,
-`EXPENSE_PRACTICE_SOLES_ACCOUNT_ID`; the catch-up handles both.
-- **A.** Ask the engine for one hand-off file covering `9b3b43429d8bd11e` to `2dc7f6cfcb365f8e`;
-  it becomes a catch-up spec, run before the leftover-lines spec.
-- **B.** Wait: the engine is still working, and the hand-off comes once it is done.
-**Recommended:** A once the engine's current work is done (B until then), since several cash
-accounts change what Home, the New form and the LOG bar show.
-
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
 Found while the catch-up to `1002f105c6bacdf1` ran; drawn as panes 1–3 of
 [expense-world-open-questions.html](mockups/expense-world-open-questions.html).
 1. **`n` on Manage ▸ Accounts while the list shows "Could not load."** It opens a New form whose
-   currencies line has nothing to pick (the currencies come with the list's read), and its type
-   line offers `cash` from the last list that loaded (the engine refuses a second one, so nothing
-   wrong is written). Turn `n` off until the list loads, or keep it?
+   currencies line has nothing to pick (the currencies come with the list's read). Turn `n` off
+   until the list loads, or keep it?
 2. **A flagged line in a currency a one-currency paper does not cover** shows in the preview's
    `⚑` block with no currency (the column shows only on a two-currency paper). Leave it, show the
    currency on such lines, or show the column whenever the paper misses a currency?
@@ -122,11 +100,8 @@ Found while the cash account was built; drawn as panes 9–13 of
    the same state says `none`. Say `none` there too?
 4. **`⏎ Open` shows in the Manage lists' footer** (Accounts, Categories), though `⏎` does nothing
    there and the `?` card leaves it out. Drop it from the footer?
-5. **Making the cash account while a person is named `Efectivo`** is refused with the shared
-   `That name is taken: pick another.` on the type line, though cash takes no name: what fixes it
-   is renaming the person. Say that instead?
-**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3, 4 and 5 yes,
-so the screen says what is there, offers only keys that work and names the fix.
+**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
+the screen says what is there and offers only keys that work.
 
 ### Small screen details from the number format
 Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
@@ -168,9 +143,6 @@ the shared loop, `../agent-loop.md` "Specs and tasks".
 - **`scripts/clean_practice_user.py` cannot remove an unnumbered `BCP`** a killed live run leaves
   behind (`owns` matches bank accounts by a number starting 9), so later runs hit `NAME_EXISTS`
   until it is deleted by hand.
-- **`account_line`'s docstring example** (`expense/tui/screens/accounts.py:99`) reads
-  `Efectivo · bank · PEN 350.00`, a bank account named like the cash account; give it a bank
-  account's name.
 - **Small code-comment fixes from the number format:** the launch read takes no `verbose`
   (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the base's answer;
   expense/region.py:3 says the region is read once at launch, though Auth & profile reads it on

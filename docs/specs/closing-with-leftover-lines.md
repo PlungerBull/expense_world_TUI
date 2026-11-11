@@ -4,9 +4,10 @@ Part of the catch-up to contract `2fa4967b8eed9c3f` (the engine's hand-off of 20
 part A, 1 to 3): resolving lines in no statement before a close.
 
 **Status: approved on 2026-11-08, its questions answered on the mockup
-[expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html). Tasks 1 and 2
-wait on the engine ask "A loose-lines refusal names its lines by id, in a field a client
-reads".** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+[expense-world-leftover-lines.html](../mockups/expense-world-leftover-lines.html); question 4
+answered on 2026-11-11. It runs after
+[catch-up-to-3a4ff8dac458cf83.md](catch-up-to-3a4ff8dac458cf83.md), which reads the refusal's
+`details`.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -55,24 +56,29 @@ moves it, puts it in a statement, or deletes it.
 | 1 | A PDF refused for leftover lines? Mockup pane 1. | A: a screen listing them, `⏎` edits, `d` deletes, `r` reads the paper again (2026-11-08). |
 | 2 | `c` refused on a statement closed by hand? Mockup pane 2. | A: the same screen, plus `space` to put a line in the statement and `c` to close again (2026-11-08). |
 | 3 | The preview's "⚑ Will be flagged" block? Mockup pane 3. | A: kept, reworded for the last day (2026-11-08). |
+| 4 | A refusal naming more than 200 lines? Mockup pane 4. | A: the screen's head gives the full count and says the first 200 are listed (2026-11-11). |
 
 ---
 
 ## Tasks
 
-Approved. Each reads the live contract on the
-practice engine before building.
+Approved; question 4 on 2026-11-11. Each reads the live contract on
+the practice engine before building.
 
-1. **The leftover-lines screen from an upload** (question 1; waits on the engine ask):
+1. **The leftover-lines screen from an upload** (questions 1 and 4):
    `LOOSE_LINES_ON_SEALED_DAYS` on the preview opens it, its lines read with
-   `GET /bank-lines?ids=` from the refusal's ids; `⏎` opens a line in the ledger's Edit form and
+   `reads.fetch_bank_lines_by_ids` from `details.bank_line_ids`; when `details.count` is more
+   than the ids named, the screen's head gives the full count and says the first 200 are listed
+   and `r` reads the paper again for the rest (pane 4); `⏎` opens a line in the ledger's Edit form and
    comes back, `d` deletes after the delete question, `r` sends the same PDF again as a dry run,
    opening the preview once nothing is left over. Each refusal on it in the engine's words.
-2. **The same screen from `c`** (question 2; waits on the engine ask): opened by the refusal on
-   `POST /statements/{id}/complete`, with `space` putting the line in the statement and `c`
+2. **The same screen from `c`** (question 2): opened by the refusal on
+   `POST /statements/{id}/complete`, its lines from `details` as in task 1, with `space` putting the line in the statement and `c`
    asking "Complete statement?" again.
 4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
-   run and apply, nothing written; the refusal's ids; the line taken out of the draft counted;
+   run and apply, nothing written; the refusal's `details` ids in the order
+   `?unassigned_in_period_of=<id>&sort=statement` lists them; the line taken out of the draft
+   counted; 201 loose lines answering 200 ids and `"count": 201`;
    the request the message names answering `200`; a flagged line on the open last day letting the
    close through; the previous statement's last day sealed once it is completed.
 
@@ -82,7 +88,10 @@ Part 3 of the reply to the hand-off of 2026-11-08 ("A closed day never holds a l
 statement…"): part A, 1 to 3. It reports on the hand-off's "Done when" checks for a refused close
 or upload showing the loose lines and no screen cleaning up after the close, and any contract
 problem found, and names the ask "A loose-lines refusal names its lines by id, in a field a client
-reads" as what it was built on.
+reads" as what it was built on. It is also part 3 of the reply to the hand-off of 2026-11-11 ("A
+loose-lines refusal names its lines by id in `error.details`…"), items 1 and 2, reporting on its
+"Done when" checks for a close refused for one loose line, an upload's dry run refused for two
+(one taken out of the draft) and a refusal for 201 lines, and closes that ask.
 
 ## Found along the way
 
