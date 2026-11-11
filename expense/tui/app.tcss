@@ -352,6 +352,22 @@ FlaggedLinesScreen #fways {
     max-width: 75;
 }
 
+/* The leftover lines' words stand two cells in and wrap at 75 columns, a blank line under
+   the crumb, the list and the ways under it. */
+LeftoverLinesScreen #import-body {
+    padding: 1 2 0 2;
+    max-width: 75;
+}
+LeftoverLinesScreen #llist {
+    padding: 1 0 0 0;
+}
+LeftoverLinesScreen #llist > * {
+    padding: 0 2;
+}
+LeftoverLinesScreen #lways {
+    max-width: 79;
+}
+
 /* a form's refused save (FormScreen._show_refusal): a bar down the left in the
    error colour, the words as plain text, under the form until the next key */
 #refusal {

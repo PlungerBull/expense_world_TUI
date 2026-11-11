@@ -277,7 +277,7 @@ def ask_line_delete(
     `DELETE /transactions/{id}`, after the ledger's question. Each question says no
     screen can bring it back. The line in hand is the list's own read, so nothing is
     read before asking. Deleted, `after` reads the list again. Shared by the "no
-    statement" pane and the flagged lines' screen."""
+    statement" pane, the flagged lines' screen and the leftover lines' screen."""
     if is_split_line(line):
         _day, line_title, _operation, line_net = bank_line_columns(line)
         screen.confirm_delete(
@@ -302,6 +302,29 @@ def ask_line_delete(
         after=after,
         left_behind=LeftBehind(not_deleted_line(record.get("title"), record.get("amount_cents"))),
     )
+
+
+def open_edit_form(
+    screen: Screen, line: dict, *, crumb: tuple[str, ...], reload: Callable[[], None]
+) -> None:
+    """`⏎` on a bank line a list holds: the ledger's Edit form on its first part,
+    which reads the line fresh by its id, its breadcrumb the list's own then `Edit`.
+    A save reads the list again (`reload`), also when it is answered after the form
+    is left. Shared by the flagged lines' screen and the leftover lines' screen."""
+    from expense.tui.screens.edit_form import EditFormScreen
+
+    part = first_part(line)
+    if part is None:
+        return
+    _day, title, _operation, net_cents = bank_line_columns(line)
+    form = EditFormScreen(
+        record={**part, "bank_line_id": line.get("id")},
+        opener=screen,
+        reload=reload,
+        shown=(title, net_cents),
+    )
+    form.crumb = (*crumb, "Edit")
+    screen.app.push_screen(form, lambda saved: saved and reload())
 
 
 def first_part(line: dict) -> dict | None:
@@ -2698,19 +2721,9 @@ class FlaggedLinesScreen(
     def action_open(self) -> None:
         """`⏎` — the line in the ledger's Edit form, which reads it fresh by
         its id; a save reads the flagged lines again."""
-        from expense.tui.screens.edit_form import EditFormScreen
-
         line = self._cursor_line()
-        part = first_part(line) if line is not None else None
-        if line is None or part is None:
-            return
-        record = {**part, "bank_line_id": line.get("id")}
-        _day, title, _operation, net_cents = bank_line_columns(line)
-        form = EditFormScreen(
-            record=record, opener=self, reload=self._load, shown=(title, net_cents)
-        )
-        form.crumb = (*self.crumb, "Edit")
-        self.app.push_screen(form, lambda saved: saved and self._load())
+        if line is not None:
+            open_edit_form(self, line, crumb=self.crumb, reload=self._load)
 
     def action_delete_line(self) -> None:
         """`d` — the line under the cursor, after the delete question; deleted,

@@ -359,7 +359,8 @@ def fetch_bank_lines_by_ids(cfg, ids: Iterable[str], *, verbose: bool = False) -
     `ids` gives, and their answers are joined in that order.
 
     Read by the statement upload's preview (`flow.statement_lines`), whose
-    answer names lines by id alone.
+    answer names lines by id alone, and by the leftover lines' screen, whose
+    refusal names its lines the same way.
     """
     ids = list(ids)
     lines: list[dict] = []

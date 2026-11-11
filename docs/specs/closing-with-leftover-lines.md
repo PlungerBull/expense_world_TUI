@@ -55,6 +55,12 @@ moves it, puts it in a statement, or deletes it.
 | 2 | `c` refused on a statement closed by hand? Mockup pane 2. | A: the same screen, plus `space` to put a line in the statement and `c` to close again (2026-11-08). |
 | 3 | The preview's "⚑ Will be flagged" block? Mockup pane 3. | A: kept, reworded for the last day (2026-11-08). |
 | 4 | A refusal naming more than 200 lines? Mockup pane 4. | A: the screen's head gives the full count and says the first 200 are listed (2026-11-11). |
+| 5 | Every leftover line dealt with? Mockup pane 5. | A: `Nothing is left over: r reads the paper again.`, `⏎` and `d` leave the footer (2026-11-11). |
+| 6 | The head's count after a fix or delete? Mockup pane 6. | A: it counts what is listed; past 200 it keeps the engine's full count until `r` (2026-11-11). |
+| 7 | The line under the head? Mockup pane 7. | A: `Nothing was written.`, as every refused file (2026-11-11). |
+| 8 | The month in the head, which the refusal does not name? | Ship `Can't close the statement yet` now; the month comes with the engine ask "A loose-lines refusal names the statement it would close" (2026-11-11). |
+| 9 | A line fixed with `⏎` and saved? | The screen sends the paper again as a dry run at once, as `r` does: a fixed line leaves, and with nothing left the preview opens (2026-11-11). A deleted line leaves on the list's fresh read. |
+| 10 | `Nothing was written.` after a delete on the screen? | Kept: it speaks of the paper (2026-11-11). |
 
 ---
 
@@ -63,16 +69,12 @@ moves it, puts it in a statement, or deletes it.
 Approved; question 4 on 2026-11-11. Each reads the live contract on
 the practice engine before building.
 
-1. **The leftover-lines screen from an upload** (questions 1 and 4):
-   `LOOSE_LINES_ON_SEALED_DAYS` on the preview opens it, its lines read with
-   `reads.fetch_bank_lines_by_ids` from `details.bank_line_ids`; when `details.count` is more
-   than the ids named, the screen's head gives the full count and says the first 200 are listed
-   and `r` reads the paper again for the rest (pane 4); `⏎` opens a line in the ledger's Edit form and
-   comes back, `d` deletes after the delete question, `r` sends the same PDF again as a dry run,
-   opening the preview once nothing is left over. Each refusal on it in the engine's words.
 2. **The same screen from `c`** (question 2): opened by the refusal on
    `POST /statements/{id}/complete`, its lines from `details` as in task 1, with `space` putting the line in the statement and `c`
    asking "Complete statement?" again.
+3. **The month in the head** (question 8; waits on the engine ask "A loose-lines refusal names
+   the statement it would close"): the head reads `Can't close <the statement's name> yet` from
+   `details`, on the upload's screen and on `c`'s.
 4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
    run and apply, nothing written; the refusal's `details` ids in the order
    `?unassigned_in_period_of=<id>&sort=statement` lists them; the line taken out of the draft
@@ -106,3 +108,11 @@ Not built in this spec; sorted when it is done.
   it would also take a three-cell indent.
 - **docs/mockups/expense-world-moves-and-preview.html still draws the old note** `on the paper's
   days` (:134, :163).
+- **`r` pressed while the Edit form's save is still being sent goes out at once**
+  (expense/tui/screens/leftover_lines.py:312-315): `saves_pending()` counts only the screen's own
+  writes, so the dry run can read the line before the save lands, and the save's own dry run
+  (question 9) then does not follow, the preview being on top; `r` again recovers.
+- **`test_r_waits_for_a_delete_still_being_sent` reads `app._notifications`**
+  (tests/unit/test_tui_leftover_lines.py:369), where docs/tui.md §6 asks for a patched `notify`.
+- **Two lines of docs/tui.md's "`d` is the TUI's one destructive key" passage run past the wrap
+  width** (about :978-980).

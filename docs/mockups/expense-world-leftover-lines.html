@@ -241,6 +241,112 @@
 </div>
 </div>
 
+<!-- ================================================================== 5 -->
+<div class="pane">
+<div class="lbl">5 · Every leftover line dealt with <span>— pick A or B</span></div>
+<p class="blurb">You fixed one line and deleted the other. Nothing is listed any more, but the screen can't know the paper would now go through until <code>r</code> reads it again (another line may sit on those days by now).</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>a line saying what to do next</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="d">Nothing written.</span>
+
+  <span class="p">Nothing is left over: r reads the paper again.</span>
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">r</span> Read again</pre></div></div>
+<p class="cap"><code>⏎</code> and <code>d</code> leave the footer, since there is no line to act on. One key, named on screen.</p></div>
+<div class="var"><div class="oh">B · <span>an empty list, as built</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="d">Nothing written.</span>
+
+   <span class="d">date        title            amount  cur</span>
+   <span class="d">(empty)</span>
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">r</span> Read again</pre></div></div>
+<p class="cap">The list's own empty mark, as other empty lists show it. You work out that <code>r</code> is next from the footer.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 6 -->
+<div class="pane">
+<div class="lbl">6 · The count after you fix or delete a line <span>— pick A or B</span></div>
+<p class="blurb">The paper was refused for 2 lines. You deleted one; the list reads again and shows the one left.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the count follows the list</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="w">1 line in no statement sits on its days.</span>
+  <span class="d">Nothing written.</span>
+
+   <span class="d">date        title            amount  cur</span>
+ <span class="rev"> 2026-03-15  Almuerzo         -11.11  PEN </span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Edit  <span class="a">d</span> Delete  <span class="a">r</span> Read again</pre></div></div>
+<p class="cap">The head counts what is listed. When the engine named more than 200 (pane 4), the head keeps its full count until <code>r</code>, since the app can't know how many of the rest remain.</p></div>
+<div class="var"><div class="oh">B · <span>the engine's count until r</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="w">2 lines in no statement sit on its days.</span>
+  <span class="d">Nothing written.</span>
+
+   <span class="d">date        title            amount  cur</span>
+ <span class="rev"> 2026-03-15  Almuerzo         -11.11  PEN </span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Edit  <span class="a">d</span> Delete  <span class="a">r</span> Read again</pre></div></div>
+<p class="cap">The head says what the engine said when it refused, and changes only when <code>r</code> asks again.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 7 -->
+<div class="pane">
+<div class="lbl">7 · "Nothing written." <span>— pick A or B</span></div>
+<p class="blurb">Pane 1 drew <code>Nothing written.</code> under the head. Every other refused upload and download says <code>Nothing was written.</code></p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>Nothing was written.</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="w">2 lines in no statement sit on its days.</span>
+  <span class="d">Nothing was written.</span></pre></div></div>
+<p class="cap">The same words as every other refused file.</p></div>
+<div class="var"><div class="oh">B · <span>Nothing written.</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Upload  ▸  EECC_2026-03.pdf  ▸  <span class="b">Leftover</span>
+<span class="d">──────────────────────────────────────────────────</span>
+  <span class="b">Can't close the statement yet</span> · BCP-5678
+  <span class="w">2 lines in no statement sit on its days.</span>
+  <span class="d">Nothing written.</span></pre></div></div>
+<p class="cap">As pane 1 drew it, a word shorter.</p></div>
+</div>
+<p class="cap">The heads on panes 5–7 read <code>Can't close the statement yet</code>: the engine's refusal does not yet say which month it would close. An engine ask is filed; once it lands, the head reads <code>Can't close March 2026 yet</code>, as pane 1 drew it.</p>
+</div>
+
 <div class="pick">
 <b>To pick:</b> one letter per pane, e.g. <code>1A 2A 3A</code>.
 <ol>
@@ -248,6 +354,9 @@
 <li><code>c</code> refused on a statement closed by hand: <b>A</b> the same screen, plus space · <b>B</b> stay on the checklist.</li>
 <li>The preview's "⚑ Will be flagged" block: <b>A</b> keep it, reworded · <b>B</b> drop it.</li>
 <li>More than 200 leftover lines: <b>A</b> said at the top · <b>B</b> said at the end of the list.</li>
+<li>Every leftover line dealt with: <b>A</b> a line saying what to do next · <b>B</b> an empty list.</li>
+<li>The count after a fix or delete: <b>A</b> follows the list · <b>B</b> the engine's count until r.</li>
+<li>"Nothing written.": <b>A</b> Nothing was written. · <b>B</b> Nothing written.</li>
 </ol>
 </div>
 

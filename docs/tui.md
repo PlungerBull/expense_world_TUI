@@ -109,7 +109,7 @@ showed it: by kind and name (`Not archived · Account BCP`, `Person` for a perso
 The writes that carry one, each naming its words where it is sent:
 
 - **Manage ▸ Accounts' `a`, `t`, `c` and `x`, every Manage list's `d`, `d` on the ledger, the
-  "no statement" list and the flagged lines, and `b` and `f` on Auth & profile.**
+  "no statement" list, the flagged lines and the leftover lines, and `b` and `f` on Auth & profile.**
 - **The New and Edit forms of Manage ▸ Hashtags and Categories, New account and the account
   Edit form:** `Not created · Category Ropa`, `Not saved · Hashtag #viaje`, `Not saved ·
   Account BCP-5678` (the name its list showed before the edit; `Person` for a person); a
@@ -837,6 +837,10 @@ created row files under was deleted while it was being created (`category_id` or
 failed upload, refused or not (a `5xx`, the engine unreachable), shows its words once, on the
 screen: no `Failed` toast repeats them.
 
+**An upload refused for leftover lines** (`LOOSE_LINES_ON_SEALED_DAYS` on `file`, dry run or
+apply) is not shown on the preview: the lines the refusal names open the screen in
+[leftover_lines.py](../expense/tui/screens/leftover_lines.py) in its place.
+
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
 picker, the Edit form's account field, the ledger's `b` pick, the Statements
 browse, the new-statement form and the bank import's "Which account is this file?"
@@ -971,9 +975,9 @@ refusal, neither lift nor hold the guard (`run_guarded_write` in
 
 **`d` is the TUI's one destructive key.** It deletes the row under the cursor on Manage ▸
 Accounts, Categories and Hashtags (a built-in row aside, above), on the ledger (whole or
-filtered from Home), in the statement's "no statement" list and on a statement's flagged lines,
-always the last of the screen's own footer keys but on the flagged lines, whose footer
-ends `d Delete  ↑↓ Move`; a footer too wide for the screen leaves it out (§5). Cursor row
+filtered from Home), in the statement's "no statement" list, on a statement's flagged lines and on an upload's
+leftover lines, always the last of the screen's own footer keys but on the flagged lines, whose
+footer ends `d Delete  ↑↓ Move`, and the leftover lines, whose footer ends `d Delete  r Read again`; a footer too wide for the screen leaves it out (§5). Cursor row
 only, never a selection; when the ledger turns it off: §4 "The ledger's selection keys". On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
 away and can be undone, delete is for something made by mistake.

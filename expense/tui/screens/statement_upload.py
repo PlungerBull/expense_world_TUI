@@ -8,7 +8,9 @@ LOG bar.
 
     StatementAccountScreen   which account is this statement?
     StatementPreviewScreen   the engine's dry run, nothing written yet, or a
-                             refused upload in the engine's words
+                             refused upload in the engine's words; one refused
+                             for lines in no statement opens LeftoverLinesScreen
+                             (leftover_lines.py) in its place
     StatementResultScreen    the month closed, and `f` for the lines the close
                              flagged
 
@@ -42,6 +44,7 @@ from expense.bank_import.statement import (
     StatementAnswer,
     StatementCounts,
     StatementRow,
+    loose_lines,
     statement_answer,
 )
 from expense.errors import EngineError, format_error
@@ -405,11 +408,21 @@ class StatementPreviewScreen(PreviewScreen):
 
     def _failed(self, err: Exception) -> None:
         """A dry run refused on the account's number writes nothing and goes
-        back to the account question, on the account picked; every other
-        refusal, and the apply's, shows here."""
+        back to the account question, on the account picked; a dry run or an
+        apply refused for lines in no statement on days the close seals opens the
+        leftover lines' screen in this one's place; every other refusal, and the
+        apply's, shows here."""
         if not self._writing and refused_on_number(err):
             question = StatementAccountScreen(self._run, self._owner, (self._pick, err))
             self.app.after_quit_question(lambda: self.app.switch_screen(question))
+            return
+        loose = loose_lines(err)
+        if loose is not None:
+            from expense.tui.screens.leftover_lines import LeftoverLinesScreen
+
+            self._writing = False
+            leftover = LeftoverLinesScreen(self._run, self._owner, self._pick, loose)
+            self.app.after_quit_question(lambda: self.app.switch_screen(leftover))
             return
         super()._failed(err)
 

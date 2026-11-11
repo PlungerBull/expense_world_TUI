@@ -11,6 +11,7 @@ engine's word. Nothing here matches, adds up or picks an account or a currency.
 
 from dataclasses import dataclass
 
+from expense.errors import EngineError
 from expense.formatting import close_notes, signed_cents
 
 #: A row's outcomes (contract: POST /v1/statements/import, "Response").
@@ -198,3 +199,34 @@ def statement_answer(response: dict) -> StatementAnswer:
         not_covered=tuple(statement_not_covered(response)),
         notes=tuple(close_notes(response, covered_led_by_code=True)),
     )
+
+
+#: The reason, on `file`, of an upload refused while a bank line in no statement sits on a
+#: day the close would seal (contract: POST /v1/statements/import, "Response").
+LOOSE_LINES = "LOOSE_LINES_ON_SEALED_DAYS"
+
+
+@dataclass(frozen=True)
+class LooseLines:
+    """A refusal's lines in no statement, as `error.details` names them: the ids of the
+    lines that refuse, in the engine's order and at most 200 of them, and how many
+    refuse in all (contract: POST /v1/statements/import, "Response")."""
+
+    ids: tuple[str, ...]
+    count: int
+
+
+def loose_lines(err: Exception) -> LooseLines | None:
+    """The lines an upload's `422` refuses for, matched by the reason on `file` and never by
+    the engine's words; None for any other error, or a refusal whose `details` name no line
+    (it is shown in the engine's words like any other)."""
+    if not isinstance(err, EngineError) or err.status != 422:
+        return None
+    if (err.reasons or {}).get("file") != LOOSE_LINES:
+        return None
+    details = err.details or {}
+    ids = tuple(str(i) for i in details.get("bank_line_ids") or [])
+    if not ids:
+        return None
+    count = details.get("count")
+    return LooseLines(ids, count if isinstance(count, int) else len(ids))
