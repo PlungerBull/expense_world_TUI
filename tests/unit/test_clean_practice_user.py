@@ -40,10 +40,10 @@ def _person(ident, name, **fields):
     )
 
 
-def _cash(ident, **fields):
-    """The cash account as the engine reads it: named `Efectivo`, at no bank, with no numbers."""
+def _cash(ident, number=1, **fields):
+    """A cash account as the engine reads it: named `CASH-<number>`, at no bank, with no numbers."""
     return account_with_currencies(
-        id=ident, name="Efectivo", kind="cash", bank_code=None, numbers=[], **fields
+        id=ident, name=f"CASH-{number:04d}", kind="cash", bank_code=None, numbers=[], **fields
     )
 
 
@@ -389,16 +389,24 @@ def test_a_page_holding_only_refused_deletes_does_not_hide_the_rows_behind_it(sc
 
 
 @respx.mock
-def test_the_cash_account_is_never_matched_or_deleted_and_is_no_leftover(script, capsys):
-    """The engine never deletes the cash account (`CASH_NOT_DELETABLE`): the cleaner leaves it
-    whatever prefix it is asked to match, and the leak check never counts it."""
-    engine = FakeEngine(accounts=[_cash("a1"), _person("a2", "contract-x")])
+def test_a_default_run_deletes_every_cash_account_with_its_transactions_and_a_prefix_run_none(
+    script, capsys
+):
+    """The practice user holds no cash of its own, so each cash account is the suite's; one holding
+    a transaction is emptied first, and the leak check counts a cash account."""
+    cash = _cash("a1", is_archived=True)
+    engine = FakeEngine(
+        accounts=[cash, _cash("a3", 2), _person("a2", "contract-x")],
+        txs=[dict(id="t1", account_id="a1", hashtag_ids=[])],
+    )
     _serve(engine)
 
-    assert script.main([*TARGET, "--prefix", "Efectivo", "--apply"]) == 0
+    assert script.main([*TARGET, "--prefix", "CASH-", "--apply"]) == 0
+    assert engine.calls == []
+    with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
+        assert set(script.holdings(client)) == {"a1", "a2", "a3"}
+
     assert script.main([*TARGET, "--apply"]) == 0
 
-    assert engine.calls == ["DELETE /accounts/a2"]
-    assert "a1" in engine.accounts
-    with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
-        assert script.holdings(client) == {}
+    assert engine.accounts == {}
+    assert engine.calls.index("DELETE /transactions/t1") < engine.calls.index("DELETE /accounts/a1")

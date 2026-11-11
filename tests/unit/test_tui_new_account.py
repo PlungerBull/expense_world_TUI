@@ -511,12 +511,14 @@ def test_a_cash_account_is_one_whole_post_with_no_name_bank_number_or_code_and_e
 
 
 def test_a_refusal_keyed_kind_lands_on_type_in_the_engines_words(fake_client):
-    refusal = _refusal("CONFLICT", 409, kind=("CASH_EXISTS", "You already hold a cash account."))
+    refusal = _refusal(
+        "LIMIT_REACHED", 422, kind=("CASH_NUMBERS_EXHAUSTED", "No cash number is left.")
+    )
     values = {"type": "cash", "currencies": ["PEN"]}
 
     async def check(pilot, screen):
         assert refusal_block(screen) == f"Failed\n{format_error(refusal)}"
-        assert "You already hold a cash account." in refusal_block(screen)
+        assert "No cash number is left." in refusal_block(screen)
         assert screen._key == "type"
         assert screen._values == {"type": "cash", "currencies": ["PEN"]}
 

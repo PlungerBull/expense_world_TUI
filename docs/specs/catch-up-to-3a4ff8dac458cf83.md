@@ -58,13 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-4. **The live suite on several cash accounts.** tests/contract/test_cash_account.py proves three
-   creates named `CASH-<n>` in rising order, no `CASH_EXISTS`, an empty cash account deleted, one
-   holding a transaction refused `HAS_TRANSACTIONS`, a person named `Efectivo` created, and a
-   `null` `bank_code` or `new_number` sent to a cash account refused `CASH_TAKES_NO_FIELD` on
-   `PUT /accounts/{id}`; the tests of a bank account's or person's `null` follow the new order
-   (`404` first, `NOT_NULL` alone). `scripts/clean_practice_user.py` deletes the cash accounts a
-   run makes, and its unit test no longer expects `CASH_NOT_DELETABLE`.
 5. **The loose-lines marks go.** Every live test marked `LOOSE_LINES_ON_SEALED_DAYS`
    (tests/contract/conftest.py) is rewritten so its close or upload leaves no line in no
    statement on a day it seals, and the mark is deleted.

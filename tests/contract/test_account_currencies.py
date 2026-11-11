@@ -92,6 +92,7 @@ from tests.contract.conftest import (
     DRAWN_LAST4,
     all_accounts,
     assert_refusal,
+    assert_refusals,
     card_paper,
     free_statement_codes,
     refused,
@@ -610,9 +611,11 @@ def test_a_null_is_refused_on_every_field_but_the_statement_code(client, scratch
 
 def test_an_edit_is_refused_in_the_engines_order_each_step_before_the_next(client, scratch):
     """Each pair is one body breaking both rules: the request's shape (an unknown field, a
-    `null`, a malformed `statement_code`) before a malformed `color`, a malformed `color`
+    `null` but a `bank_code`'s or `new_number`'s, a malformed `statement_code`) before a
+    malformed `color`, a malformed `color`
     before `currency_code`, `currency_code` before the `404` of an account that does not
-    exist, that `404` before an empty `name`, `NAME_EXISTS` before `STATEMENT_CODE_EXISTS`;
+    exist, that `404` before an empty `name` and before a `null` `bank_code` or `new_number`, which
+    is `NOT_NULL` alone once the account is found, `NAME_EXISTS` before `STATEMENT_CODE_EXISTS`;
     `EMPTY` and `NAME_EXISTS` are not paired, as no empty name is held by an account
     (contract: PUT /v1/accounts/{account_id}, "Refusals")."""
     held_code = free_statement_codes(client, 1)[0]
@@ -620,12 +623,20 @@ def test_an_edit_is_refused_in_the_engines_order_each_step_before_the_next(clien
     other = scratch.account("PEN", person=True)
     other_name = client.get(f"/accounts/{other}")["name"]
     third = scratch.account("PEN", person=True)
+    bank = scratch.account("PEN")
     gone = str(uuid4())
     bad_color = "red"
 
     cases = [
         ({"bogus": 1, "color": bad_color}, "bogus", "UNKNOWN_FIELD", account_id),
         ({"sort_order": None, "color": bad_color}, "sort_order", "NOT_NULL", account_id),
+        ({"color": None, "bank_code": None}, "color", "NOT_NULL", account_id),
+        ({"bank_code": None}, None, "NOT_FOUND", gone),
+        ({"new_number": None}, None, "NOT_FOUND", gone),
+        ({"bank_code": None}, "bank_code", "NOT_NULL", account_id),
+        ({"new_number": None}, "new_number", "NOT_NULL", account_id),
+        ({"bank_code": None}, "bank_code", "NOT_NULL", bank),
+        ({"new_number": None}, "new_number", "NOT_NULL", bank),
         ({"statement_code": "ab", "color": bad_color}, "statement_code", "INVALID_FORMAT", gone),
         (
             {"statement_code": "ab", "currency_code": "PEN"},
@@ -650,6 +661,11 @@ def test_an_edit_is_refused_in_the_engines_order_each_step_before_the_next(clien
         status = 409 if reason == "NAME_EXISTS" else 422
         code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
         assert_refusal(err, status, code, key, reason)
+
+    for target in (account_id, bank):
+        err = _edit_refused(client, target, {"bank_code": None, "new_number": None})
+        reasons = dict.fromkeys(("bank_code", "new_number"), "NOT_NULL")
+        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
 
 
 def test_a_name_or_code_another_account_holds_is_a_conflict_and_its_own_is_not(client, scratch):
