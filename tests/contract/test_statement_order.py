@@ -44,7 +44,6 @@ from uuid import uuid4
 
 from tests.contract.conftest import (
     DRAWN_LAST4,
-    LOOSE_LINES_ON_SEALED_DAYS,
     CardRow,
     PaperRow,
     assert_refusal,
@@ -187,7 +186,6 @@ def test_the_upload_sets_the_order_and_the_read_gives_it_back(client, scratch):
         assert _numbered(client, line) == (None, place)
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_line_assigned_after_the_upload_is_unplaced_until_the_paper_is_uploaded_again(
     client, scratch
 ):
@@ -203,7 +201,7 @@ def test_a_line_assigned_after_the_upload_is_unplaced_until_the_paper_is_uploade
     client.post(f"/statements/{statement}/revert")  # the closed days are sealed against new rows
     opening = scratch.opening_balance(account, "2026-02-15")
     opening_tx = client.get(f"/bank-lines/{opening}")["parts"][0]["id"]
-    late = scratch.row(account, "2026-03-22", -300)
+    late = scratch.row(account, "2026-03-31", -300)  # the open last day: the upload may take it out
     scratch.assign(opening_tx, statement)
     scratch.assign(late["id"], statement)
 

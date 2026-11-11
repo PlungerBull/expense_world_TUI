@@ -11,8 +11,9 @@ engine:
     key, the message naming the period; the last local minute of the last sealed
     day is inside, the next day is not;
   · a move onto a sealed day, through `PUT /transactions/{id}` and `PUT /bank-lines/{id}`:
-    `date` moved in is `SEALED_PERIOD` on `date`; `account_id`, `currency_code` or both
-    moved in is `SEALED_PERIOD` on each of those sent; the date moved with them, on
+    `date` moved in is `SEALED_PERIOD` on `date`; `account_id` moved in, alone or with
+    `currency_code`, and `currency_code` alone on a row of the account dated on a sealed day
+    held by a draft, is `SEALED_PERIOD` on each of those sent; the date moved with them, on
     `date` alone; the row read back as it was;
   · a statement's last day stays open until the account's next statement is
     completed, is sealed under the statement's own name once it is, and opens
@@ -26,8 +27,8 @@ engine:
   · a `PUT /transactions/{id}` sending its `date` unchanged beside a new category is `200` for
     a line on a sealed day outside a completed statement, and `LOCKED` on `date` alone inside
     one;
-  · a row in the period filed nowhere does not stop `complete`, whose answer flags
-    its line in `review_lines`, and its day seals with the rest;
+  · a row filed nowhere on the statement's last day does not stop `complete`, whose answer
+    flags its line in `review_lines`;
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
     when there is none; revert carries neither;
   · statements of one account may not share a day, and may not run backwards;
@@ -49,7 +50,6 @@ all is still removed. Gating, target and the real-ledger guard: conftest.py.
 import pytest
 
 from tests.contract.conftest import (
-    LOOSE_LINES_ON_SEALED_DAYS,
     all_accounts,
     assert_refusal,
     assert_refusals,
@@ -76,20 +76,17 @@ def _soles(ending: int) -> list[dict]:
 @pytest.fixture
 def sealed_march(client, scratch):
     """An account holding soles and dollars whose March 2026 is completed, plus one row
-    outside it (April 10) and one in it filed nowhere (March 12): the completed statement
-    as the engine reads it, the outside row, the loose one. Its sealed days are March 1 to
-    30: the 31st waits for April's statement."""
+    outside it (April 10): the completed statement as the engine reads it, the outside row.
+    Its sealed days are March 1 to 30: the 31st waits for April's statement."""
     account = scratch.account("PEN", "USD")
     inside = scratch.row(account, "2026-03-10")
-    loose = scratch.row(account, "2026-03-12")
     march = scratch.completed(account, *MARCH, inside["id"])
     outside = scratch.row(account, "2026-04-10")
-    return account, march, outside, loose
+    return account, march, outside
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_create_and_batch(client, scratch, sealed_march):
-    account, march, _, _ = sealed_march
+    account, march, _ = sealed_march
     when = scratch.at("2026-03-15")
     err = scratch.refused_row(account, when)
     assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
@@ -100,17 +97,15 @@ def test_the_wall_on_create_and_batch(client, scratch, sealed_march):
     assert march["name"] in err.fields["transactions.0.date"]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_holds_in_the_accounts_other_currency(client, scratch, sealed_march):
     """The days are the account's: a dollar row, in a currency the statement holds no
     balances for, is refused on a sealed day too."""
-    account, march, _, _ = sealed_march
+    account, march, _ = sealed_march
     err = scratch.refused_row(account, scratch.at("2026-03-15"), "USD")
     assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
     assert march["name"] in err.fields["date"]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_march):
     """23:59 local on the last sealed day (March 30) is inside; 00:00 of the next
     day, the statement's own last day, is not."""
@@ -120,19 +115,22 @@ def test_the_wall_is_whole_days_in_the_display_timezone(client, scratch, sealed_
     scratch.row_at(account, scratch.at("2026-03-31", 0, 0))
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_last_day_seals_once_the_next_statement_is_completed(client, scratch, sealed_march):
     """March is completed and April is not: March 31 takes a row. April completed:
     March 31 is refused, named under March's own statement, up to 23:59 local,
     while April 1 is sealed and April 30, April's own last day, takes a row. April
     reverted: March 31 takes a row again."""
-    account, march, outside, _ = sealed_march
-    scratch.row(account, "2026-03-31")
+    account, march, outside = sealed_march
+    # The rows on March 31 join April's draft: completing April seals the day, and a row in
+    # no statement on a sealed day would refuse it.
+    first = scratch.row(account, "2026-03-31")
 
-    april = scratch.statement(account, *APRIL, balances=_soles(-1000))
+    april = scratch.statement(account, *APRIL, balances=_soles(-3000))
     scratch.assign(outside["id"], april["id"])
+    scratch.assign(first["id"], april["id"])
     # A draft next statement seals nothing.
-    scratch.row_at(account, scratch.at("2026-03-31", 23, 59))
+    late = scratch.row_at(account, scratch.at("2026-03-31", 23, 59))
+    scratch.assign(late["id"], april["id"])
     client.post(f"/statements/{april['id']}/complete")
 
     for hour, minute in ((0, 0), (12, 0), (23, 59)):
@@ -160,15 +158,16 @@ def _unwritten_refusal(client, path: str, body: dict, keys: set[str], name: str)
     assert all(name in err.fields[key] for key in keys), err.fields
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
-    """Moving the date in names `date`; moving the account, the currency or both in names
-    each of `account_id` and `currency_code` sent (Home's bulk `b` reports those keys);
-    moving the date with them names `date` alone; `PUT /bank-lines/{id}` moving the line in
+    """Moving the date in names `date`; moving the account, or the account with the currency, in
+    names each of `account_id` and `currency_code` sent (Home's bulk `b` reports those keys);
+    a new currency alone on a row of the account itself dated on a sealed day, held by a draft
+    (the only place such a row can be) and kept there with `statement_id`, names `currency_code`
+    alone; moving the date with them names `date` alone; `PUT /bank-lines/{id}` moving the line in
     answers as `PUT /transactions/{id}`. Each leaves the row as it was
     (contract: "Transactions (Ledger)", "Sealed periods")
     (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction")."""
-    account, march, outside, loose = sealed_march
+    account, march, outside = sealed_march
     name = march["name"]
     other = scratch.account("PEN", "USD")
     stray = scratch.row(other, "2026-03-15")
@@ -176,7 +175,6 @@ def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
     cases = [
         (outside["id"], {"date": scratch.at("2026-03-15")}, {"date"}),
         (stray["id"], {"account_id": account}, {"account_id"}),
-        (loose["id"], {"currency_code": "USD"}, {"currency_code"}),
         (
             stray["id"],
             {"account_id": account, "currency_code": "USD"},
@@ -187,6 +185,18 @@ def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
     for tx_id, body, keys in cases:
         _unwritten_refusal(client, f"/transactions/{tx_id}", body, keys, name)
 
+    # March 15 is held by April's draft when March is completed.
+    own = scratch.account("PEN", "USD")
+    inside = scratch.row(own, "2026-03-10")
+    held = scratch.row(own, "2026-03-15")
+    draft = scratch.statement(own, *APRIL)
+    scratch.assign(held["id"], draft["id"])
+    own_march = scratch.completed(own, *MARCH, inside["id"])
+    body = {"currency_code": "USD", "statement_id": draft["id"]}
+    _unwritten_refusal(
+        client, f"/transactions/{held['id']}", body, {"currency_code"}, own_march["name"]
+    )
+
     line = client.get(f"/transactions/{stray['id']}")["bank_line_id"]
     body = {"account_id": account, "currency_code": "PEN"}
     err = refused_line_write(client, line, body)
@@ -194,17 +204,15 @@ def test_the_wall_on_moving_a_row_in(client, scratch, sealed_march):
     assert read_signed(client, stray["id"])["account_id"] == other
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_wall_on_an_opening_balance(client, scratch, sealed_march):
-    account, march, _, _ = sealed_march
+    account, march, _ = sealed_march
     err = refused(lambda: scratch.opening_balance(account, "2026-03-20"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
     assert march["name"] in err.fields["date"]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_revert_opens_the_wall(client, scratch, sealed_march):
-    account, march, _, _ = sealed_march
+    account, march, _ = sealed_march
     client.post(f"/statements/{march['id']}/revert")
     scratch.row(account, "2026-03-15")
 
@@ -314,24 +322,20 @@ def test_a_draft_seals_nothing(client, scratch):
     scratch.row(account, "2026-03-15")
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
-def test_a_row_filed_nowhere_does_not_stop_complete_and_its_day_seals(client, scratch):
-    """A line in no statement is not a refusal of complete
-    (contract: POST /v1/statements/{statement_id}/complete): the statement
-    completes, its answer flags the unfiled row's line in `review_lines` of its
-    soles balance, and the unfiled row's day is sealed with the rest."""
+def test_a_row_filed_nowhere_on_the_open_last_day_does_not_stop_complete(client, scratch):
+    """A line in no statement on the statement's last day, which stays open, is not a refusal
+    of complete (contract: POST /v1/statements/{statement_id}/complete): the statement
+    completes, its answer flags the unfiled row's line in `review_lines` of its soles
+    balance."""
     account = scratch.account()
     filed = scratch.row(account, "2026-03-10")
-    unfiled = scratch.row(account, "2026-03-11")
+    unfiled = scratch.row(account, "2026-03-31")
     statement = scratch.statement(account, *MARCH, balances=_soles(-1000))
     scratch.assign(filed["id"], statement["id"])
 
     done = client.post(f"/statements/{statement['id']}/complete")
     assert done["status"] == 2
     assert balance_of(done, "PEN")["review_lines"] == [unfiled["bank_line_id"]]
-    err = scratch.refused_row(account, scratch.at("2026-03-11"))
-    assert_refusal(err, 422, "VALIDATION_ERROR", "date", "SEALED_PERIOD")
-    assert statement["name"] in err.fields["date"]
 
 
 def test_a_skipped_stretch_is_reported_and_a_clean_one_is_not(client, scratch):

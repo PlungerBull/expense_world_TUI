@@ -108,7 +108,6 @@ from expense.reads import count_bank_lines, fetch_bank_line, fetch_bank_lines
 from tests.contract.conftest import (
     CARD_HEADER,
     CURRENT_HEADER,
-    LOOSE_LINES_ON_SEALED_DAYS,
     assert_refusal,
     balance_of,
     live_ids,
@@ -674,7 +673,6 @@ def _review(client, statement: str) -> list[str]:
     return _lines(client, unassigned_in_period_of=statement, sort="statement")
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_review_list_reads_every_currency_of_the_account_before_and_after_the_close(
     client, scratch
 ):
@@ -683,19 +681,23 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
     currency of its account, so a dollar line in no statement dated on a soles-only
     statement's days is listed beside the soles line; oldest first, whatever the
     currency (a dollar line dated before a soles line comes first), and the count agrees. The
-    previous statement's last day is on both lists, and an `@Opening` seed is never
-    listed. On a draft it is the lines a close sent now would flag; after the close (the soles
-    balance's and `not_covered`'s `review_lines`) it lists the same lines. A line is assigned
-    only into a draft, so the statement is reverted to show a line dropping out once
-    assigned (contract: GET /v1/bank-lines, "The rule, on every currency of the statement's
-    account") (contract: GET /v1/bank-lines/count)."""
+    previous statement's last day is on both lists, a line before it is on March's list alone, and
+    an `@Opening` seed is never listed. On a draft it is the lines a close sent now would flag;
+    a line assigned to the draft drops out; after the close (the soles balance's and
+    `not_covered`'s `review_lines`) it lists the same lines. The lines left in no statement sit
+    on the last day, which stays open: a close refuses one on a sealed day
+    (contract: GET /v1/bank-lines, "The rule, on every currency of the statement's account")
+    (contract: GET /v1/bank-lines/count)."""
     account = scratch.account("PEN", "USD")
-    march = scratch.statement(account, *MARCH, balances=_pen(-1000))["id"]
+    march = scratch.statement(account, *MARCH, balances=_pen(-1250))["id"]
     inside = scratch.row(account, "2026-03-12", -1000)
     scratch.assign(inside["id"], march)
-    pen_loose = scratch.row(account, "2026-03-20", -200)["bank_line_id"]
+    early = scratch.row(account, "2026-03-20", -250)
+    # The loose lines below sit on the last day, which stays open: a close refuses one on a
+    # sealed day, so `early` is assigned before the close.
+    pen_loose = scratch.row_at(account, scratch.at("2026-03-31", 10), -200)["bank_line_id"]
     scratch.opening_balance(account, "2026-03-02", "USD")
-    usd_loose = scratch.row(account, "2026-03-15", -300, "USD")["bank_line_id"]
+    usd_loose = scratch.row_at(account, scratch.at("2026-03-31", 9), -300, "USD")["bank_line_id"]
     edge = scratch.row(account, "2026-03-31", -100, "USD")["bank_line_id"]
     scratch.row(account, "2026-02-10", -400)  # before March's days, with no statement before it
     april_line = scratch.row(account, "2026-04-05", -500, "USD")["bank_line_id"]
@@ -703,17 +705,18 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
     # A draft: the lines oldest first across the currencies; the assigned line, the earlier
     # one and the opening balance left out.
     expected = [usd_loose, pen_loose, edge]
-    assert _review(client, march) == expected
-    assert _lines_counted(client, unassigned_in_period_of=march) == 3
+    assert _review(client, march) == [early["bank_line_id"], *expected]
+    assert _lines_counted(client, unassigned_in_period_of=march) == 4
     listed = client.get(
         "/bank-lines", params={"unassigned_in_period_of": march, "sort": "statement"}
     )["items"]
     for row in listed:
         assert row == client.get(f"/bank-lines/{row['id']}")
         assert row["account_id"] == account
-    assert [row["currency_code"] for row in listed] == ["USD", "PEN", "USD"]
+    assert [row["currency_code"] for row in listed] == ["PEN", "USD", "PEN", "USD"]
 
-    # The next statement's list starts on March's last day.
+    # The next statement's list starts on March's last day, where three lines sit: the line of
+    # March 20 is on March's list alone.
     # (the dollars are held at its start, so it holds their balances too)
     april = scratch.statement(
         account,
@@ -727,8 +730,13 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
             },
         ],
     )["id"]
-    assert _review(client, april) == [edge, april_line]
-    assert _lines_counted(client, unassigned_in_period_of=april) == 2
+    assert _review(client, april) == [*expected, april_line]
+    assert _lines_counted(client, unassigned_in_period_of=april) == 4
+
+    # A line assigned to the draft drops out of its list.
+    scratch.assign(early["id"], march)
+    assert _review(client, march) == expected
+    assert _lines_counted(client, unassigned_in_period_of=march) == 3
 
     # The close flags the same lines: the soles balance's and `not_covered`'s review lines.
     done = client.post(f"/statements/{march}/complete")
@@ -742,14 +750,7 @@ def test_the_review_list_reads_every_currency_of_the_account_before_and_after_th
     assert _review(client, march) == expected
     assert _lines_counted(client, unassigned_in_period_of=march) == 3
 
-    # A line assigned to a statement drops out of the list (only a draft takes a line).
-    client.post(f"/statements/{march}/revert")
-    scratch.assign(client.get(f"/bank-lines/{pen_loose}")["parts"][0]["id"], march)
-    assert _review(client, march) == [usd_loose, edge]
-    assert _lines_counted(client, unassigned_in_period_of=march) == 2
 
-
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, target, scratch):
     """The flagged lines' screen counts the review list with `count_bank_lines(review_of=)`
     and lists every page of it with `fetch_review_lines`, the
@@ -769,9 +770,10 @@ def test_the_flagged_screens_own_reads_list_the_close_flagged_lines(client, targ
     account = scratch.account("PEN", "USD")
     march = scratch.statement(account, *MARCH, balances=_pen(-1000))["id"]
     scratch.assign(scratch.row(account, "2026-03-12", -1000)["id"], march)
-    pen_loose = scratch.row(account, "2026-03-20", -200)["bank_line_id"]
+    # The loose lines sit on the last day, which stays open: a close refuses one on a sealed day.
+    pen_loose = scratch.row_at(account, scratch.at("2026-03-31", 10), -200)["bank_line_id"]
     scratch.opening_balance(account, "2026-03-02", "USD")
-    usd_loose = scratch.row(account, "2026-03-15", -300, "USD")["bank_line_id"]
+    usd_loose = scratch.row_at(account, scratch.at("2026-03-31", 9), -300, "USD")["bank_line_id"]
     edge = scratch.row(account, "2026-03-31", -100, "USD")["bank_line_id"]
 
     listed, count = screen_reads(march)

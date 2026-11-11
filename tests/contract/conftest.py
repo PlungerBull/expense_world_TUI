@@ -487,13 +487,6 @@ def sheet_file(rows: list[list]) -> bytes:
 #: what the suite made; the seed's `0000` and `DRAWN_LAST4` are outside the draw.
 _NUMBERS = itertools.cycle(random.sample(range(9200, 10000), 800))
 
-#: A test the engine's later versions fail: a close or an upload refused while a bank line in no
-#: statement sits on a day it would seal. The next catch-up rewrites it and drops the mark.
-LOOSE_LINES_ON_SEALED_DAYS = pytest.mark.xfail(
-    strict=True,
-    reason="LOOSE_LINES_ON_SEALED_DAYS: engine versions cd6574eee1dd5ec0 and 5a465cd6cf5f21fe",
-)
-
 #: A test of the sheet import's create step, which makes a bank account from the sheet's typed
 #: name, as the engine no longer lets a bank account be named (`NAME_BUILT`). The official
 #: import's rewrite on built names (docs/specs/before-the-official-import.md) drops the mark.

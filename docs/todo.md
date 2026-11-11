@@ -48,6 +48,14 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The reply for 2fa4967b8eed9c3f left the outbox: handed over?
+Asked 2026-11-11 · Blocks: nothing
+`docs/to-engine/caught-up-with-2fa4967b8eed9c3f.md` was deleted from the working copy on
+2026-11-11, not by the loop; the deletion is left out of every commit.
+- **A.** You copied it to the engine: the deletion is committed.
+- **B.** It was not handed over: the file is restored from git.
+**Recommended:** none, a fact only you know.
+
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
 Found while the catch-up to `1002f105c6bacdf1` ran; drawn as panes 1–3 of

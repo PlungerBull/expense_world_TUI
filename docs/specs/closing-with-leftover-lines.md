@@ -79,8 +79,8 @@ the practice engine before building.
    run and apply, nothing written; the refusal's `details` ids in the order
    `?unassigned_in_period_of=<id>&sort=statement` lists them; the line taken out of the draft
    counted; 201 loose lines answering 200 ids and `"count": 201`;
-   the request the message names answering `200`; a flagged line on the open last day letting the
-   close through; the previous statement's last day sealed once it is completed.
+   the request the message names answering `200` (a flagged line on the open last day letting the
+   close through is proven in tests/contract/test_sealed_periods.py); the previous statement's last day sealed once it is completed.
 
 ## Reply to the engine
 

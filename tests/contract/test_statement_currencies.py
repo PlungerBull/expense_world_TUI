@@ -25,7 +25,6 @@ conftest.py.
 """
 
 from tests.contract.conftest import (
-    LOOSE_LINES_ON_SEALED_DAYS,
     assert_refusal,
     assert_refusals,
     balance_of,
@@ -82,13 +81,12 @@ def test_one_statement_holds_both_currencies_each_adding_up_on_its_own(client, s
         assert NOTES <= set(balance)
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covered(client, scratch):
     """A PEN and USD account with no dollar line and no money in dollars at the start sends
     only its PEN entry, and the statement holds PEN alone. The close reviews every currency
     of the account all the same: the answer's `not_covered` has an entry for USD with its
-    own notes, and a dollar line in no statement dated in the days is flagged there, in
-    the dollars' `review_lines`. Only the close carries `not_covered`
+    own notes, and a dollar line in no statement dated on the last day, which stays open, is
+    flagged there, in the dollars' `review_lines`. Only the close carries `not_covered`
     (contract: POST /v1/statements/{statement_id}/complete, "`not_covered`")."""
     account = scratch.account("PEN", "USD")
     pen_tx = scratch.row(account, "2026-04-15", -1200)["id"]
@@ -104,7 +102,7 @@ def test_a_currency_with_nothing_this_month_is_left_out_and_listed_in_not_covere
     assert "not_covered" not in client.get(f"/statements/{sid}")
 
     client.post(f"/statements/{sid}/revert")
-    stray = scratch.row(account, "2026-04-20", -300, "USD")
+    stray = scratch.row(account, "2026-04-30", -300, "USD")
     flagged = client.post(f"/statements/{sid}/complete")
     assert statement_codes(flagged) == ["PEN"]
     assert flagged["not_covered"] == [

@@ -58,9 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-5. **The loose-lines marks go.** Every live test marked `LOOSE_LINES_ON_SEALED_DAYS`
-   (tests/contract/conftest.py) is rewritten so its close or upload leaves no line in no
-   statement on a day it seals, and the mark is deleted.
 6. **The two refusals for writes at the same moment.** A bank download refused
    `PERSON_TAKES_NO_STATEMENT` on `account_id` shows in the engine's words on its account
    question, as any refusal there; nothing in the app reads `PERIOD_OVERLAPS` or
@@ -85,3 +82,8 @@ problems.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **Two docstrings in tests/contract/test_sealed_periods.py read a little wider than their
+  test:** :165 says a draft is "the only place such a row can be" (a row on a sealed day can also
+  sit in the completed statement, where a new currency is `LOCKED`); :14-17 says `currency_code`
+  alone is `SEALED_PERIOD` "on each of those sent", though the body also sends `statement_id`.

@@ -77,7 +77,6 @@ from expense.reads import pending_hashtag_of
 from tests.contract.conftest import (
     CURRENT_HEADER,
     DRAWN_LAST4,
-    LOOSE_LINES_ON_SEALED_DAYS,
     CardCharge,
     CardRow,
     PaperRow,
@@ -156,11 +155,10 @@ def _placed(client, statement: str) -> list[tuple[str, int, str]]:
     ]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_the_dry_run_shows_the_close_and_the_apply_does_it(client, scratch):
     account, code = _coded(scratch)
     matched = scratch.line(account, "2026-03-02", -2590)
-    far = scratch.row(account, "2026-03-07", -1000)  # two days off row 3: not its line
+    far = scratch.row(account, "2026-03-31", -1000)  # no row prints it; the last day stays open
     paper = savings_paper(
         [
             PaperRow(date(2026, 3, 2), "COMPRA BODEGA", -2590),
@@ -329,20 +327,20 @@ def test_the_dry_run_gives_the_closes_notes_and_not_covered_as_the_apply_does(cl
     assert done["statement"]["not_covered"] == done["not_covered"]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_a_line_one_day_off_is_moved_and_one_two_days_off_is_not(client, scratch):
     """The bank's day wins (contract: POST /v1/statements/import, "The bank's day wins"):
     the row dated 5 March takes the line of the 4th, moved to 00:00 of the 5th, and the
-    row of the 9th takes none of the line of the 7th, which stays where it is, flagged."""
+    row of the 29th takes none of the line of the 31st, the open last day, which stays where it
+    is, flagged."""
     account, _ = _coded(scratch)
     near = scratch.row(account, "2026-03-04", -3000)
     exact = scratch.row(account, "2026-03-20", -700)
-    far = scratch.row(account, "2026-03-07", -4000)
+    far = scratch.row(account, "2026-03-31", -4000)
     paper = savings_paper(
         [
             PaperRow(date(2026, 3, 5), "COMPRA UNO", -3000),
-            PaperRow(date(2026, 3, 9), "COMPRA DOS", -4000),
             PaperRow(date(2026, 3, 20), "COMPRA TRES", -700),
+            PaperRow(date(2026, 3, 29), "COMPRA DOS", -4000),
         ],
         before_cents=50000,
         **MARCH,
@@ -353,10 +351,10 @@ def test_a_line_one_day_off_is_moved_and_one_two_days_off_is_not(client, scratch
     assert _ledger(client, account) == before  # a dry run moves nothing
     assert [(r["outcome"], r["bank_line_id"], r["redated"]) for r in dry["rows"]] == [
         ("matched", near["bank_line_id"], True),
-        ("new", None, False),
         ("matched", exact["bank_line_id"], False),
+        ("new", None, False),
     ]
-    assert [r["date"] for r in dry["rows"]] == ["2026-03-05", "2026-03-09", "2026-03-20"]
+    assert [r["date"] for r in dry["rows"]] == ["2026-03-05", "2026-03-20", "2026-03-29"]
     assert dry["counts"] == {"matched": 2, "new": 1, "empty": 0, "taken_out": 0, "redated": 1}
 
     done = send_statement(client, account, paper, dry_run=False)
@@ -373,24 +371,25 @@ def test_a_line_one_day_off_is_moved_and_one_two_days_off_is_not(client, scratch
     untouched = client.get(f"/transactions/{far['id']}")
     assert untouched["date"] == far["date"] and untouched["statement_id"] is None
     assert (
-        done["rows"][1]["transaction_id"]
-        and done["rows"][1]["bank_line_id"] != (far["bank_line_id"])
+        done["rows"][2]["transaction_id"]
+        and done["rows"][2]["bank_line_id"] != (far["bank_line_id"])
     )
     assert balance_of(done["statement"], "PEN")["review_lines"] == [far["bank_line_id"]]
 
 
 @pytest.mark.parametrize(
     ("rows", "lines"),
-    [(2, 2), (2, 1), pytest.param(1, 2, marks=LOOSE_LINES_ON_SEALED_DAYS)],
+    [(2, 2), (2, 1), (1, 2)],
     ids=["2-on-2", "2-on-1", "1-on-2"],
 )
 def test_identical_lines_on_one_day_are_all_accounted_for(client, scratch, rows, lines):
     """Rows and lines of one day, direction and amount are matched on the exact day, the oldest
     line first (contract: POST /v1/statements/import, "The exact day"): each row
     takes a line while lines last, a row left over is created, and a line left over is
-    flagged, unchanged and outside the statement."""
+    flagged, unchanged and outside the statement. The day is the statement's last, which stays
+    open, so a line left over is flagged, not refused."""
     account, _ = _coded(scratch)
-    day = date(2026, 3, 12)
+    day = date(2026, 3, 31)
     ledger = [scratch.row(account, day.isoformat(), -3000) for _ in range(lines)]
     paper = savings_paper(
         [PaperRow(day, "COMPRA IGUAL", -3000) for _ in range(rows)],
@@ -441,13 +440,15 @@ def test_identical_lines_on_one_day_are_all_accounted_for(client, scratch, rows,
     assert transaction_count(client, account) == lines + len(created)
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_an_open_month_is_filled_and_a_line_the_paper_lacks_taken_out(client, scratch):
+    """The draft's days (April 3 to 28) become the paper's (April 1 to 30); the line the paper
+    lacks, held by the draft though dated outside its own days, on the paper's open last day
+    (April 30), is taken out, flagged and not refused."""
     account, _ = _coded(scratch)
     draft = scratch.statement(account, "2026-04-03", "2026-04-28", "PEN")["id"]
     name = client.get(f"/statements/{draft}")["name"]
     kept = scratch.row(account, "2026-04-10", -5000)
-    stray = scratch.row(account, "2026-04-12", -777)
+    stray = scratch.row(account, "2026-04-30", -777)
     scratch.assign(kept["id"], draft)
     scratch.assign(stray["id"], draft)
     paper = savings_paper(
@@ -1038,18 +1039,19 @@ def test_a_card_paper_with_dollars_at_zero_is_refused_where_the_dollars_hold_mon
     assert "30000" in err.fields["file"]
 
 
-@LOOSE_LINES_ON_SEALED_DAYS
 def test_an_open_card_month_is_filled_by_the_card_paper(client, scratch):
     """A draft over a card's soles and dollars is filled as a savings account's is: its days and
     balances become the paper's, it keeps its name, each purchase matches its line in either
-    currency, and a line the paper does not print is taken out, never deleted
+    currency, and a line the paper does not print is taken out, never deleted. The draft's
+    days are March 3 to 28; the line taken out is held by the draft though dated outside them,
+    on the paper's open last day (March 31), so it is flagged, not refused
     (contract: POST /v1/statements/import, "The statement")."""
     account, _ = _coded(scratch, "PEN", "USD")
     draft = scratch.statement(account, "2026-03-03", "2026-03-28", "PEN", "USD")["id"]
     name = client.get(f"/statements/{draft}")["name"]
     soles = scratch.row(account, "2026-03-10", -5000)
     dollars = scratch.row(account, "2026-03-12", -2000, "USD")
-    stray = scratch.row(account, "2026-03-15", -777)
+    stray = scratch.row(account, "2026-03-31", -777)
     for tx in (soles, dollars, stray):
         scratch.assign(tx["id"], draft)
     paper = card_paper(
