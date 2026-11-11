@@ -57,9 +57,6 @@ keeps `d` off a cash row.
 Approved 2026-11-11 on the answers 1A and 2B. Each reads the live contract on the
 practice engine before building.
 
-3. **Home** (question 2): each cash account in `/dashboard`'s order under its engine name,
-   with no mark after it (`CASH_MARK` in expense/tui/screens/home.py goes). A unit test with two
-   cash accounts.
 4. **No `Efectivo` left:** the comments, docstrings and unit fakes that name a cash account
    `Efectivo` (expense/tui/screens/create_forms.py, the `account_line` docstring in
    expense/tui/screens/accounts.py, the tests listed by `grep -rl Efectivo tests/unit`) use

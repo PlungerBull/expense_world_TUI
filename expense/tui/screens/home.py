@@ -7,7 +7,7 @@ Home is the month grid. One worker reads `/dashboard` for the balances and
   activity. A category with nothing in the whole window is not drawn at all
   (`build_range_grid` already drops it). `→` unfolds a category's
   hashtag rows, `←` folds them. Under the categories: inflow, outflow, net.
-- **ACCOUNTS** one row per account, the cash account marked `cash`, then an indented
+- **ACCOUNTS** one row per account, its name, then an indented
   line per currency it holds with today's balance in that currency, never summed with another
   (contract: GET /v1/dashboard, "Balances are native only").
 - **PEOPLE** the same way, a person settled when every currency's balance is
@@ -111,7 +111,6 @@ _SCREENS: dict[str, type[Screen]] = {
 #: Option-id prefixes; the rest of the id is the engine row.
 CATEGORY_PREFIX = "category:"
 TAG_PREFIX = "tag:"  # tag:<category id>:<hashtag id>, or tag:<category id>:#<n>
-CASH_MARK = "cash"  # the word after the cash account's name, drawn from its `kind`
 ACCOUNT_PREFIX = "account:"  # account:<account id>, or account:<account id>:<currency code>
 SETTLED_ID = "fold:settled"
 
@@ -134,7 +133,6 @@ class HomeRow(NamedTuple):
     name: str = ""
     dim: bool = False
     hashtag: str | None = None
-    mark: str = ""  # a dim word closing `left` (the cash account's `cash`)
 
 
 class HomeState(NamedTuple):
@@ -246,8 +244,7 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
 def _account_rows(
     account: dict, indent: str, palette: Palette | None, dim: bool = False
 ) -> list[HomeRow]:
-    """One account as Home draws it: its row (the name, then `cash` for a cash
-    account), then an indented
+    """One account as Home draws it: its row (the name), then an indented
     line per currency it holds, in the engine's order
     (contract: GET /v1/dashboard, "`accounts`"): the code, then that
     currency's own `current_balance_cents`, never summed with another. Every
@@ -255,9 +252,7 @@ def _account_rows(
     line `<name> · <code>`, which the dispatch builds."""
     name = name_or_unnamed(account.get("name"))
     head = f"{ACCOUNT_PREFIX}{account['id']}"
-    mark = CASH_MARK if account.get("kind") == "cash" else ""
-    left = f"{indent}{name}  {mark}" if mark else indent + name
-    rows = [HomeRow(head, left, name=name, dim=dim, mark=mark)]
+    rows = [HomeRow(head, indent + name, name=name, dim=dim)]
     for _, _, held in reads.held_currencies([account]):
         code = held["currency_code"]
         cell = _as_text(amount_cell(held.get("current_balance_cents"), palette, AMOUNT_RULE))
@@ -342,10 +337,7 @@ def home_options(rows: list[HomeRow | None]) -> list:
             continue
         style = "dim" if row.dim else ""
         if _is_whole(row):
-            whole = Text(row.left, style=style)
-            if row.mark:
-                whole.stylize("dim", len(row.left) - len(row.mark), len(row.left))
-            options.append(Option(whole, id=row.id, disabled=row.id is None))
+            options.append(Option(Text(row.left, style=style), id=row.id, disabled=row.id is None))
             continue
         text = Text(row.left[:name_w].ljust(name_w), style=style)
         right = row.right
