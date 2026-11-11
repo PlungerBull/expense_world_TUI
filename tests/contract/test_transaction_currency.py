@@ -650,7 +650,7 @@ def test_the_holder_routes_the_move_and_the_people_route_answer_as_an_unknown_ro
     account changes. The contract states these routes gone: there is no `/people` route, and no
     write moves a currency onto another account. The 404 and the null `fields` and `reasons`
     are the envelope's (contract: "Base Conventions", "Every failure is the envelope")
-    (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+    (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics")."""
     live = scratch.account("PEN")
     some = str(uuid4())
     scratch.accounts.append(some)

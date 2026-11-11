@@ -784,6 +784,7 @@ def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
             "message": "Not imported — nothing written. 9 names don't exist yet.",
             "fields": None,
             "reasons": None,
+            "details": None,
         }
     }
 

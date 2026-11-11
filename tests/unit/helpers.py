@@ -122,7 +122,11 @@ def shown(widget: Any) -> str:
 
 
 def error_body(
-    code: str, message: str = "boom", fields: object = None, reasons: object = None
+    code: str,
+    message: str = "boom",
+    fields: object = None,
+    reasons: object = None,
+    details: object = None,
 ) -> dict:
     """The engine's standard error envelope — see CLAUDE.md "Engine errors
     surface cleanly" and docs/runtime.md.
@@ -130,15 +134,30 @@ def error_body(
     `fields` defaults to None (the shape a non-validation refusal has); pass a
     dict for a 422, whose keys the engine names per row. `reasons` carries the
     same keys, each mapped to its reason code (contract: "Error reasons").
+    `details` is null, but on a refused close with loose lines on sealed days,
+    where it is `{"bank_line_ids": [...], "count": N}` (contract: "Error format").
     """
-    return {"error": {"code": code, "message": message, "fields": fields, "reasons": reasons}}
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "fields": fields,
+            "reasons": reasons,
+            "details": details,
+        }
+    }
 
 
 def error_response(
-    status: int, code: str, message: str = "boom", fields: object = None, reasons: object = None
+    status: int,
+    code: str,
+    message: str = "boom",
+    fields: object = None,
+    reasons: object = None,
+    details: object = None,
 ) -> httpx.Response:
     """`error_body` as a respx-ready response."""
-    return httpx.Response(status, json=error_body(code, message, fields, reasons))
+    return httpx.Response(status, json=error_body(code, message, fields, reasons, details))
 
 
 #: The engine's four refusals of a transaction's hashtag set, as

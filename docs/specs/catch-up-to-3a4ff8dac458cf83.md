@@ -58,10 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-1. **An error's `details`.** The error the app reads from an engine answer keeps `details`
-   beside `code`, `message`, `fields` and `reasons`, `None` when the engine sends `null`; how a
-   refusal is shown does not change. The unit fakes (tests/unit/helpers.py) send `details` on
-   every error, `null` but on `LOOSE_LINES_ON_SEALED_DAYS`.
 2. **No test leans on a message's words.** The unit fake's bound message
    (tests/unit/helpers.py, `Input should be …`) becomes the engine's
    `The amount is past the largest amount, 99,999,999,999 cents.`; `bank_line not found.` in

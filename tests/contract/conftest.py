@@ -385,7 +385,8 @@ def refused_line_write(client: ExpenseClient, line_id: str, body: dict) -> Engin
 
 def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str, str]) -> None:
     """The refusal is `status` `code`, keyed on exactly the keys of `reasons`, each
-    carrying its reason (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+    carrying its reason
+    (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics")."""
     assert (err.status, err.code) == (status, code), (err.status, err.code, err.reasons)
     assert err.reasons == reasons, err.reasons
     assert isinstance(err.fields, dict) and set(err.fields) == set(reasons), err.fields

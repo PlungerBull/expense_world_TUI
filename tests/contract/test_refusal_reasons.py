@@ -2,9 +2,9 @@
 
 A `CONFLICT` (`409`), `FORBIDDEN` (`403`) or `LIMIT_REACHED` (`422`) always carries
 `fields` and `reasons`, keyed by the thing refused: the path id, the body field that
-carried it, or `X-Idempotency-Key` (contract: "Base Conventions", "`fields` and
-`reasons` semantics"). The app picks its next-step line from `code` and `reasons`
-alone, so only the engine can say each refusal names the reason it does.
+carried it, or `X-Idempotency-Key` (contract: "Base Conventions", "`fields`,
+`reasons` and `details` semantics"). The app picks its next-step line from `code` and
+`reasons` alone, so only the engine can say each refusal names the reason it does.
 
 What it pins, each refusal's status, code, keyed `fields`/`reasons` and reason:
 

@@ -136,7 +136,7 @@ def test_category_tags_of_an_unknown_category_is_404(client, scratch):
     """404 on a category that does not exist or is deleted
     (contract: GET /v1/categories/{category_id}/hashtags), in the engine's envelope:
     `fields` and `reasons` are null on every code but a validation failure
-    (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+    (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics")."""
     category_id = scratch.category()
     client.delete(f"/categories/{category_id}")
 

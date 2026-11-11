@@ -418,7 +418,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch):
 
 # ---- the engine says no -------------------------------------------------
 # Each refusal carries `fields` and `reasons` keyed by the thing refused
-# (contract: "Base Conventions", "`fields` and `reasons` semantics"); the line
+# (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics"); the line
 # under the engine's words is chosen by the code and the reason alone.
 
 

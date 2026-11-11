@@ -307,7 +307,7 @@ def test_refuses_every_write_follows_the_code_alone():
 # ---------------------------------------------------------------------------
 # Every refusal with code CONFLICT, FORBIDDEN or LIMIT_REACHED names the rule
 # that fired in `reasons`, keyed by the thing refused
-# (contract: "Base Conventions", "`fields` and `reasons` semantics"); so does the
+# (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics"); so does the
 # VALIDATION_ERROR an opening balance draws when asked to move
 # (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"). The words
 # in these tests are stand-ins: the line follows the reason, never them.

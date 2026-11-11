@@ -126,6 +126,31 @@ def test_engine_error_without_reasons_is_none(config, error):
 
 
 @pytest.mark.parametrize(
+    "error,details",
+    [
+        ({"code": "NOT_FOUND", "message": "gone", "fields": None, "details": None}, None),
+        ({"code": "NOT_FOUND", "message": "gone"}, None),
+        (
+            {
+                "code": "VALIDATION_ERROR",
+                "message": "Loose lines.",
+                "details": {"bank_line_ids": ["a", "b"], "count": 2},
+            },
+            {"bank_line_ids": ["a", "b"], "count": 2},
+        ),
+    ],
+    ids=["null", "absent", "loose-lines"],
+)
+@respx.mock
+def test_engine_error_carries_its_details(config, error, details):
+    respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(422, json={"error": error}))
+    with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
+        client.get("/auth/me")
+
+    assert exc.value.details == details
+
+
+@pytest.mark.parametrize(
     "exc",
     [
         httpx.ConnectError("connection refused"),

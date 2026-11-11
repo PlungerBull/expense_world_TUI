@@ -1031,7 +1031,7 @@ one.
 
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
-(contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
+(contract: "Base Conventions", "`fields`, `reasons` and `details` semantics"); so do the
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
 system category or the pending hashtag draws when sent a new name, and the one a hashtag draws
 when named like the pending hashtag. The note it draws (a toast, a form's block, a LOG bar

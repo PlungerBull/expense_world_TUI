@@ -9,11 +9,13 @@ from expense.jsonout import json_text
 
 
 class EngineError(Exception):
-    """An engine error envelope `{ error: { code, message, fields, reasons } }`.
+    """An engine error envelope `{ error: { code, message, fields, reasons, details } }`.
 
     `fields` maps each refused field to its message; `reasons` maps the same keys to
     the engine's reason code (contract: "Error reasons"). Both are `None` when the
-    engine sends null. `raw_body` is the response body as sent, for `--json`.
+    engine sends null. `details` is the engine's object for the one refusal that
+    carries one, `None` otherwise (contract: "Error format"). `raw_body` is the
+    response body as sent, for `--json`.
     """
 
     def __init__(
@@ -24,12 +26,14 @@ class EngineError(Exception):
         status: int,
         raw_body: dict[str, Any],
         reasons: dict[str, str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message)
         self.code = code
         self.message = message
         self.fields = fields
         self.reasons = reasons
+        self.details = details
         self.status = status
         self.raw_body = raw_body
 
@@ -140,7 +144,7 @@ def refusal_kind(err: EngineError) -> Hashable:
 
 #: The codes whose refusals always name the rule that fired: `fields` and
 #: `reasons` are never null on them, keyed by the thing refused
-#: (contract: "Base Conventions", "`fields` and `reasons` semantics").
+#: (contract: "Base Conventions", "`fields`, `reasons` and `details` semantics").
 #: Not read by `next_step` (the table's (code, reason) key already picks the
 #: line); it is the source the table guard in tests/unit/test_errors.py checks
 #: every `NEXT_STEPS` row against, the `VALIDATION_ERROR` ones aside.
@@ -436,8 +440,16 @@ _HANDLED_ERRORS: tuple[type[Exception], ...] = (EngineError, *_ENVELOPE_ERRORS)
 
 def error_envelope(code: str, message: str) -> dict[str, Any]:
     """The engine's envelope shape for an error the app reports itself: its
-    code and message, no `fields` and no `reasons`."""
-    return {"error": {"code": code, "message": message, "fields": None, "reasons": None}}
+    code and message, no `fields`, no `reasons` and no `details`."""
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "fields": None,
+            "reasons": None,
+            "details": None,
+        }
+    }
 
 
 def json_body(err: Exception) -> dict[str, Any]:
