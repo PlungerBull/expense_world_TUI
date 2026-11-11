@@ -58,11 +58,6 @@ Approved 2026-11-11. Each reads the live contract on the practice engine before 
 practice engine is reseeded with the launcher's `--force` before the first live run, since the
 test database was rebuilt and its practice keys are new.
 
-3. **The soles-only close on `BCP-0001`.** The live suite reads
-   `EXPENSE_PRACTICE_SOLES_ACCOUNT_ID` from the seed's output beside
-   `EXPENSE_PRACTICE_ACCOUNT_ID`; the `card-soles-only` test sets a statement code on that account
-   with `PUT /accounts/{id}`, uploads the sample to it and closes it. docs/runtime.md "Working
-   against the live engine" names the new variable.
 4. **The live suite on several cash accounts.** tests/contract/test_cash_account.py proves three
    creates named `CASH-<n>` in rising order, no `CASH_EXISTS`, an empty cash account deleted, one
    holding a transaction refused `HAS_TRANSACTIONS`, a person named `Efectivo` created, and a

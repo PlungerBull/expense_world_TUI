@@ -99,8 +99,9 @@ from tests.contract.conftest import (
 MARCH = {"start": date(2026, 3, 1), "end": date(2026, 3, 31)}
 APRIL = {"start": date(2026, 4, 1), "end": date(2026, 4, 30)}
 
-#: The last 4 digits every statement sample prints (contract: GET /v1/statements/samples/{sample},
-#: "Testing the upload with it"); the account it is uploaded to holds them.
+#: The last 4 digits every statement sample but `card-soles-only` prints (contract:
+#: GET /v1/statements/samples/{sample}, "Testing the upload with it"); the account it is
+#: uploaded to holds them. `card-soles-only` prints `0001`, held by the soles-only account.
 SAMPLE_LAST4 = "0000"
 
 #: The numbers of a test's second and third account that each takes a made-up paper.
@@ -721,8 +722,6 @@ def _answer_balances(answer: dict, balances: list[dict]) -> list[dict]:
     ]
 
 
-# The sample `card-soles-only` is not uploaded: a sample goes only to an account numbered `0000`,
-# names are unique, and the one such account, `BCP-0000`, holds dollars, so none can take it.
 def test_the_card_samples_close_one_account_month_after_month(client, scratch, practice_account):
     """`card` then `card-no-dollars`, both currencies of one account closing in turn: the
     second, with no dollar row, closes its dollars with no line, their balances equal
@@ -786,6 +785,28 @@ def test_the_card_samples_close_one_account_month_after_month(client, scratch, p
         f"{code}-202503",
         f"{code}-202504",
     ]
+
+
+def test_the_card_soles_only_sample_closes_the_soles_only_account(
+    client, scratch, practice_soles_account
+):
+    """`card-soles-only` prints a number ending `0001`, so it goes to the practice account
+    `BCP-0001` (contract: GET /v1/statements/samples/{sample}, "Testing the upload with it"),
+    which holds soles only, so the apply closes a statement of soles alone, its dollars not
+    named (contract: POST /v1/statements/import, "Accounts"). The fixture takes the closed
+    month off again, so a rerun closes it afresh."""
+    account, _ = practice_soles_account
+    sample = _sample(client, "card-soles-only")
+
+    done = send_statement(client, account, _paper_of(sample), dry_run=False)
+    scratch.took(done)
+    assert _answer_balances(done, sample["balances"]) == sample["balances"]
+    statement = done["statement"]
+    assert (statement["account_id"], statement["status"]) == (account, 2)
+    assert [b["currency_code"] for b in statement["balances"]] == ["PEN"]
+    assert balance_of(statement, "PEN")["difference_cents"] == 0
+    lines = client.get("/bank-lines", params={"statement_id": done["statement_id"]})["items"]
+    assert len(lines) == len(sample["rows"])
 
 
 def test_a_card_paper_with_dollar_rows_sent_to_a_soles_only_account_is_refused(client, scratch):

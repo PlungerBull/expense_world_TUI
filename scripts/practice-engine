@@ -10,8 +10,9 @@
 #                                  /health, reseed the two practice users and print their
 #                                  fresh keys: the shared practice user's (EXPENSE_PAT) and
 #                                  the reserved-names practice user's (EXPENSE_RESERVED_PAT),
-#                                  and the id of the shared user's practice account BCP-0000
-#                                  (EXPENSE_PRACTICE_ACCOUNT_ID, no key)
+#                                  and the ids of the shared user's practice accounts BCP-0000
+#                                  and BCP-0001 (EXPENSE_PRACTICE_ACCOUNT_ID and
+#                                  EXPENSE_PRACTICE_SOLES_ACCOUNT_ID, no keys)
 #   scripts/practice-engine down   stop the practice engine listening on :8002, whoever
 #                                  started it, by its pid; anything else on the port is
 #                                  left alone

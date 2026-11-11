@@ -53,10 +53,13 @@ CLEANER = load_script("clean_practice_user.py")
 DEFAULT_COLOR = "#3b82f6"
 
 #: The practice account the seed holds, `BCP-0000`, by the id the seed printed
-#: (`EXPENSE_PRACTICE_ACCOUNT_ID`, docs/runtime.md "Working against the live engine"). The only
-#: account the engine's statement samples upload to, since they print numbers ending `0000`; a
-#: test that uses it undoes every change it makes there (`practice_account`).
+#: (`EXPENSE_PRACTICE_ACCOUNT_ID`, docs/runtime.md "Working against the live engine"). The
+#: account every statement sample but `card-soles-only` uploads to (`practice_account`).
 PRACTICE_ACCOUNT_ID = os.environ.get("EXPENSE_PRACTICE_ACCOUNT_ID")
+
+#: The seed's soles-only account `BCP-0001`, by `EXPENSE_PRACTICE_SOLES_ACCOUNT_ID`, which
+#: takes the `card-soles-only` sample (`practice_soles_account`).
+PRACTICE_SOLES_ACCOUNT_ID = os.environ.get("EXPENSE_PRACTICE_SOLES_ACCOUNT_ID")
 
 
 def minute_before(now: datetime, zone: ZoneInfo) -> datetime:
@@ -1221,10 +1224,18 @@ def scratch(client):
     made.cleanup()
 
 
-NO_PRACTICE_ACCOUNT = (
-    "EXPENSE_PRACTICE_ACCOUNT_ID is not set: pass the practice account's id, the one the reseed "
-    "prints, inline on the contract suite's command line beside EXPENSE_PAT "
-    '(docs/runtime.md "Working against the live engine")'
+def _missing_id(variable: str, what: str) -> str:
+    """The failure message when the id variable `variable` of `what` is not set."""
+    return (
+        f"{variable} is not set: pass {what}'s id, the one the reseed prints, inline on the "
+        "contract suite's command line beside EXPENSE_PAT "
+        '(docs/runtime.md "Working against the live engine")'
+    )
+
+
+NO_PRACTICE_ACCOUNT = _missing_id("EXPENSE_PRACTICE_ACCOUNT_ID", "the practice account")
+NO_PRACTICE_SOLES_ACCOUNT = _missing_id(
+    "EXPENSE_PRACTICE_SOLES_ACCOUNT_ID", "the soles-only practice account"
 )
 
 
@@ -1234,24 +1245,38 @@ def _held_on(client: ExpenseClient, account_id: str) -> tuple[set[str], int]:
     return {s["id"] for s in statements}, transaction_count(client, account_id)
 
 
-@pytest.fixture
-def practice_account(client, scratch):
-    """The seed's practice account `BCP-0000` (`PRACTICE_ACCOUNT_ID`) given a statement code of a
-    test's own, as `(id, statement_code)`: the one account a statement sample uploads to, since
-    the sample prints a number ending `0000` and a name is unique among the live accounts, so no
-    other account can hold it. Without the id the test fails, never skips. At teardown the
-    scratch is cleaned first (what the test took on there goes), the account's statement code
-    goes back to what it was, and an account holding a statement or a transaction it did not
-    hold at setup fails the test."""
-    if not PRACTICE_ACCOUNT_ID:
-        pytest.fail(NO_PRACTICE_ACCOUNT, pytrace=False)
-    path = f"/accounts/{PRACTICE_ACCOUNT_ID}"
+def _borrowed(client, scratch, account_id: str | None, missing: str):
+    """Give the seed's account `account_id` a statement code of a test's own and yield
+    `(id, code)`. Without the id the test fails, never skips. At teardown the scratch is
+    cleaned first (what the test took on there goes), the statement code goes back to what it
+    was, and an account holding a statement or a transaction it did not hold at setup fails
+    the test."""
+    if not account_id:
+        pytest.fail(missing, pytrace=False)
+    path = f"/accounts/{account_id}"
     original = client.get(path)["statement_code"]
     code = free_statement_codes(client, 1)[0]
     client.put(path, json_body={"statement_code": code})
-    held = _held_on(client, PRACTICE_ACCOUNT_ID)
-    yield PRACTICE_ACCOUNT_ID, code
+    held = _held_on(client, account_id)
+    yield account_id, code
     scratch.cleanup()
     client.put(path, json_body={"statement_code": original})
-    if _held_on(client, PRACTICE_ACCOUNT_ID) != held:
+    if _held_on(client, account_id) != held:
         pytest.fail("the test left a statement or a transaction on the practice account")
+
+
+@pytest.fixture
+def practice_account(client, scratch):
+    """The seed's practice account `BCP-0000` (`PRACTICE_ACCOUNT_ID`) as `(id, statement_code)`
+    (`_borrowed`): the account every statement sample but `card-soles-only` uploads to, since
+    they print a number ending `0000` and a name is unique among the live accounts, so no
+    other account can hold it."""
+    yield from _borrowed(client, scratch, PRACTICE_ACCOUNT_ID, NO_PRACTICE_ACCOUNT)
+
+
+@pytest.fixture
+def practice_soles_account(client, scratch):
+    """The seed's soles-only practice account `BCP-0001` (`PRACTICE_SOLES_ACCOUNT_ID`) as
+    `(id, statement_code)` (`_borrowed`): the account the `card-soles-only` sample uploads to,
+    since it prints a number ending `0001`."""
+    yield from _borrowed(client, scratch, PRACTICE_SOLES_ACCOUNT_ID, NO_PRACTICE_SOLES_ACCOUNT)

@@ -968,7 +968,8 @@ account, category or hashtag it made ([runtime.md](runtime.md) "Leftovers"). (4)
 use a practice user of their own, never this client's. (5) The begin balance hint says a statement
 holding the opening balance begins at 0.00 ([tui.md](tui.md) §4 "The New statement form"). (6) The live suite's bank accounts carry a
 number starting `9`, the cleaner's mark for them ([scripts/clean_practice_user.py](../scripts/clean_practice_user.py)),
-and a sample PDF goes to the seed's `BCP-0000` by its id ([runtime.md](runtime.md) "Leftovers").
+and a sample PDF goes to the seed's `BCP-0000`, `card-soles-only` to `BCP-0001`
+([runtime.md](runtime.md) "Leftovers").
 
 **Why.** A fake answering `{}` hides fields a screen reads, a fixture missing a required field
 passes until the real engine answers, and a field checked against every schema passes on another
