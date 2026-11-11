@@ -192,7 +192,6 @@ class AccountsScreen(ResourceListScreen):
         super().__init__()
         self._currencies: list[str] = []  # the engine's codes, read with the accounts
         self._banks: list[str] = []  # the engine's bank codes, read with them
-        self._listed = False  # a list build has succeeded: the accounts held are known
 
     def fetch_items(self, cfg, **kw):
         """The accounts, and with them the engine's currencies and banks (worker thread); a
@@ -206,7 +205,6 @@ class AccountsScreen(ResourceListScreen):
         """The columns follow the engine's currencies, one per code."""
         self.HEADERS = account_headers(self._currencies)
         self.ALIGN_RIGHT = set(range(len(_FIXED_HEADS), len(_FIXED_HEADS) + len(self._currencies)))
-        self._listed = True
         return super().build(items)
 
     def delete_question(self, item: dict) -> tuple[str, str, str]:
@@ -466,8 +464,4 @@ class AccountsScreen(ResourceListScreen):
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen
 
-        # the list holds every account, archived ones too: the engine allows one cash account;
-        # until the list has loaded, what the user holds is not known
-        holds_cash = any(a.get("kind") == "cash" for a in self._by_id.values())
-        offered = self._listed and not holds_cash
-        return NewAccountScreen(self._currencies, self._banks, cash_offered=offered)
+        return NewAccountScreen(self._currencies, self._banks)

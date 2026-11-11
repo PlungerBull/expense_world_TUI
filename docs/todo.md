@@ -22,7 +22,9 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 [from-engine/](from-engine/): the live suite fails until it lands.
 
 1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
-   2026-11-08, its question 4 answered 2026-11-11.
+   2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
+   asks "A loose-lines refusal names the statement it would close" and "A close can be checked
+   before it is sent".
 2. [Several cash accounts](specs/several-cash-accounts.md): approved 2026-11-11.
 3. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
    engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.

@@ -57,12 +57,6 @@ keeps `d` off a cash row.
 Approved 2026-11-11 on the answers 1A and 2B. Each reads the live contract on the
 practice engine before building.
 
-1. **`cash` on the New form, always** (question 1): the type line offers `cash` whatever the
-   user holds (`cash_offered` and the `holds_cash` count in expense/tui/screens/accounts.py go);
-   with `cash` picked the name line leaves the form, as for a bank account; `CASH_NAME` goes, and
-   a cash create left before the engine answers reads as a bank account's does. A
-   `LIMIT_REACHED` on `kind` (`CASH_NUMBERS_EXHAUSTED`) shows in the engine's words on the type
-   line.
 2. **Delete on a cash row** (pane 3): `d` on a cash account's row asks and deletes as on any
    account's row (the `_on_cash` guards on `delete` in expense/tui/screens/accounts.py go), and
    the `?` card lists it; `HAS_TRANSACTIONS` shows the shared way.

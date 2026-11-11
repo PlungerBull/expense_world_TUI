@@ -66,7 +66,7 @@ SITES = {
     "new cash account": (
         AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,
         ["cash", "PEN", "", "", "", ""],
-        "post", "Account created.", "Not created · Account Efectivo",
+        "post", "Account created.", "Not created · Account (unnamed)",
     ),
     "new person": (
         AccountsScreen, ACCOUNTS, "fetch_accounts", "n", None,

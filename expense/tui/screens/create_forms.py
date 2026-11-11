@@ -84,14 +84,7 @@ STATEMENT_CODE_EDIT_HINT = (
 CATEGORY_COLOR_HINT = "optional · enter to save · ↑↓ another swatch"
 # Bank first: it is the prefilled default, so `enter` on an untouched TYPE field
 # keeps `bank` and adding an ordinary account still costs one keypress.
-_ACCOUNT_TYPES = [("bank", "bank"), ("person", "person")]
-#: The type a user holds once, offered only while they hold none.
-_CASH_TYPE = ("cash", "cash")
-#: The name of the cash account: the engine names it by rule (contract: POST /v1/accounts,
-#: "The name"). The form's read-only `name` line shows it and a left-behind line quotes it.
-CASH_NAME = "Efectivo"
-#: Beside the cash account's `name` line: nothing typed there reaches the engine.
-CASH_NAME_WORD = "set by the engine"
+_ACCOUNT_TYPES = [("bank", "bank"), ("person", "person"), ("cash", "cash")]
 #: The engine field a refusal names → the account form line it lands on, New or
 #: Edit; a line the form does not have is passed over. A key under `currencies` is
 #: read by `NewAccountScreen._line_named`.
@@ -465,10 +458,10 @@ class NewAccountScreen(BarFormScreen):
     (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional").
     STATEMENT CODE and COLOR, skipped, are left out of the body.
 
-    TYPE offers `cash` too while `cash_offered` (the user holds no cash account, archived
-    ones counted). A cash account's lines are `type`, NAME (`Efectivo`, read-only: the engine
-    names it), CURRENCIES and COLOR and the pairs; its body has `kind: "cash"`, `currencies` and
-    `color`, and no name, bank, number or code (contract: POST /v1/accounts, "The name").
+    TYPE always offers `cash`. A cash account's lines are `type`, CURRENCIES and COLOR and the
+    pairs; it has no name line, since the engine names it. Its body has
+    `kind: "cash"`, `currencies` and `color`, and no name, bank, number or code
+    (contract: POST /v1/accounts, "The name").
 
     A refusal reads in the engine's words and puts the cursor back on the line it names
     (`_line_named`), with what was typed; a key naming `currencies.<i>…` names the
@@ -485,7 +478,7 @@ class NewAccountScreen(BarFormScreen):
             "choice",
             choices=_ACCOUNT_TYPES,
             required=True,
-            hint="bank or person · enter keeps bank",
+            hint="bank, person or cash · enter keeps bank",
         ),
         Field("bank", "BANK", "choice", required=True),
         Field("last4", "LAST 4", hint=LAST4_HINT),
@@ -501,27 +494,18 @@ class NewAccountScreen(BarFormScreen):
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
-    def __init__(self, currencies: list[str], banks: list[str], cash_offered: bool = False) -> None:
+    def __init__(self, currencies: list[str], banks: list[str]) -> None:
         """`currencies`, `banks`: the engine's codes (`GET /currencies`, `GET /banks`), read
         by the list this form opens from, in the engine's order: what CURRENCIES and BANK
-        offer. `cash_offered`: TYPE offers `cash`."""
+        offer."""
         super().__init__()
         offered = {
             "currencies": [(code, code) for code in currencies],
             "bank": [(code, code) for code in banks],
         }
-        if cash_offered:
-            offered["type"] = [*_ACCOUNT_TYPES, _CASH_TYPE]
         self.FIELDS = [
             _field_with_choices(f, offered[f.key]) if f.key in offered else f for f in self.FIELDS
         ]
-        if cash_offered:
-            self.FIELDS = [
-                _field_with_hint(f, "bank, person or cash · enter keeps bank")
-                if f.key == "type"
-                else f
-                for f in self.FIELDS
-            ]
         self._values["type"] = "bank"
 
     @property
@@ -537,26 +521,11 @@ class NewAccountScreen(BarFormScreen):
         return not (self._is_person or self._is_cash)
 
     def _identity_lines(self) -> list[str]:
-        """The lines after TYPE that name the account: a person's or the cash account's NAME,
-        a bank account's BANK and LAST 4."""
-        return ["name"] if self._is_person or self._is_cash else ["bank", "last4"]
-
-    def _lock_cash_name(self) -> None:
-        """The cash account's NAME is read-only while TYPE is `cash`."""
+        """The lines after TYPE that name the account: a person's NAME, a bank account's BANK
+        and LAST 4; a cash account has none."""
         if self._is_cash:
-            self._locked.add("name")
-        else:
-            self._locked.discard("name")
-
-    def _advance(self) -> None:
-        self._lock_cash_name()  # so the move skips it
-        super()._advance()
-
-    def _fixed_text(self, key: str) -> str | None:
-        return CASH_NAME if key == "name" and self._is_cash else None
-
-    def _locked_word(self, key: str) -> str:
-        return CASH_NAME_WORD if key == "name" else super()._locked_word(key)
+            return []
+        return ["name"] if self._is_person else ["bank", "last4"]
 
     def _sequence(self) -> list[str]:
         who = self._identity_lines()
@@ -598,7 +567,7 @@ class NewAccountScreen(BarFormScreen):
         pair = _pair_line(f.key)
         if pair and pair[0] == "as_of":
             return _pair_key("opening", pair[1]) in self._values  # an amount needs its day
-        return f.required and not (f.key == "name" and self._is_cash)
+        return f.required
 
     def _value_cell(self, key: str, value: object) -> Text:
         """An `opening` amount is drawn coloured by sign, as the ledger draws it."""
@@ -672,12 +641,9 @@ class NewAccountScreen(BarFormScreen):
         return "Person" if self._is_person else "Account"
 
     def _shown_name(self) -> str:
-        """A person's name as typed; the cash account's, the engine's by rule; a bank account
-        has none typed (the engine builds its name), so none: the left-behind line reads
-        `(unnamed)`."""
-        if self._is_cash:
-            return CASH_NAME
-        return "" if not self._is_person else self._values["name"]
+        """A person's name as typed; a bank or cash account has none typed (the engine names
+        it), so none: the left-behind line reads `(unnamed)`."""
+        return self._values["name"] if self._is_person else ""
 
     def _done(self) -> None:
         toast(self, self._saved_words())
@@ -1006,7 +972,11 @@ class EditAccountScreen(NewAccountScreen):
         asked for while NEW CARD holds text (it is on the form only then)."""
         if f.key == "new_card_from":
             return True
-        return False if f.key == "bank" else super()._field_required(f)
+        if f.key == "bank":
+            return False
+        if f.key == "name" and self._is_cash:  # the engine's name, shown read-only
+            return False
+        return super()._field_required(f)
 
     def _required_note(self, key: str) -> str:
         if key == "new_card_from":  # `New card from is required.`
@@ -1016,8 +986,6 @@ class EditAccountScreen(NewAccountScreen):
     def _locked_word(self, key: str) -> str:
         if key == "cards_before":
             return ""
-        if key == "name":  # the cash account's: not NewAccountScreen's `set by the engine`
-            return BarFormScreen._locked_word(self, key)
         return super()._locked_word(key)
 
     def _fixed_text(self, key: str) -> str | None:
