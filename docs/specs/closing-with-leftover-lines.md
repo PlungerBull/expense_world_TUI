@@ -79,12 +79,6 @@ the practice engine before building.
 3. **The month in the head** (question 8; waits on the engine ask "A loose-lines refusal names
    the statement it would close"): the head reads `Can't close <the statement's name> yet` from
    `details`, on the upload's screen.
-4. **The live contract tests:** `LOOSE_LINES_ON_SEALED_DAYS` on a close and on an upload's dry
-   run and apply, nothing written; the refusal's `details` ids in the order
-   `?unassigned_in_period_of=<id>&sort=statement` lists them; the line taken out of the draft
-   counted; 201 loose lines answering 200 ids and `"count": 201`;
-   the request the message names answering `200` (a flagged line on the open last day letting the
-   close through is proven in tests/contract/test_sealed_periods.py); the previous statement's last day sealed once it is completed.
 5. **A fix checks the close at once** (question 12; waits on the engine ask "A close can be
    checked before it is sent"): on the screen from `c`, a save from `⏎` sends the close as a dry
    run, as a save on the upload's screen sends the paper.
@@ -119,5 +113,8 @@ Not built in this spec; sorted when it is done.
   (expense/tui/screens/leftover_lines.py:312-315): `saves_pending()` counts only the screen's own
   writes, so the dry run can read the line before the save lands, and the save's own dry run
   (question 9) then does not follow, the preview being on top; `r` again recovers.
+- **Two live-test helpers have copies:** `_soles` in tests/contract/test_loose_lines_on_sealed_days.py
+  repeats test_sealed_periods.py:71, and its paged `_review` sits beside `_review`/`_every_page` in
+  test_bank_lines.py; one shared home in tests/contract/conftest.py would hold each.
 - **Two lines of docs/tui.md's "`d` is the TUI's one destructive key" passage run past the wrap
   width** (about :978-980).
