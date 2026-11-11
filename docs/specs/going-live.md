@@ -48,6 +48,12 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
    in the warning colour. The line is drawn as a mockup, and the owner picks it before task 6.
 5. **The engine-down message names the engine's start command,** from the engine's operations
    guide. It is the one remedy that is not a screen, since no screen can start the engine.
+6. **A release is prepared and tested before the owner runs it** (2026-11-11). The loop commits
+   the new version and its CHANGELOG entry on `develop`, the entry with an "Upgrading:" line when
+   the engine must go first; once CI passes that commit, the stop's summary says which version is
+   ready and gives the one command. The loop picks the number: the first part when the engine
+   must be upgraded first, the middle part for new screens or behaviour, the last for fixes.
+7. **The first release is `v1.0.0`** (2026-11-11).
 
 ## What it must do
 
@@ -56,7 +62,7 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
    - Agents cannot write in the live folder, push `main` or make a tag; the agents' guard covers it.
    - CLAUDE.md's single-branch rule becomes these two branches. The work folder switches to `develop`, and the guard's push rule and CI move with it.
 2. **A release is one command the owner runs** in the live folder, and only from a `develop` commit CI passed.
-   - It tags the release and writes the CHANGELOG entry. The entry has an "Upgrading:" line when the engine must go first.
+   - It moves `main` to the release commit, tags it and pushes; it writes no commit (answer 6).
    - It reinstalls `expense`.
    - **Going back** to the previous tag is one command too.
 3. **The install is exact:**
@@ -91,14 +97,13 @@ Also settled: a CHANGELOG entry for every release, an exact install that is not 
 
 Each task leaves `pytest tests/unit` green.
 
-3. **The release and going back:** the command the owner runs in the live folder, and
-   README's owner install lines, written once the pinned install they name exists. Its
-   first-time setup goes in todo.md's "Waiting on you" for the owner:
-   1. create the `develop` branch;
-   2. clone the repo into the live folder, on `main`;
-   3. replace the old install.
-4. **Two branches:** the guard keeps agents out of the live folder, off `main` and the tags; its
-   tests trip each; CLAUDE.md's "Dev loop" lines say so.
+4. **Two branches:** the guard keeps agents out of the live folder, off `main` and the tags, and
+   off `scripts/release.py` (`scripts/prepare_release.py` stays theirs); its tests trip each;
+   CI runs on `develop`, which the first release's CI check needs; CLAUDE.md's "Dev loop" lines
+   say so, and "This repo's loop" says a finished spec ends with `scripts/prepare_release.py` on
+   `develop`, pushed on its own so CI runs on that commit, and the stop's summary naming the
+   version and the command (answer 6). The
+   first-time setup goes to todo.md's "Waiting on you" once this task lands.
 5. **The launch check** and its screen. It waits on the engine's going-live release and the
    picked mockup.
 6. **REAL/PRACTICE and the backup's age** on Home, with the app's version read at runtime from
@@ -110,3 +115,9 @@ Each task leaves `pytest tests/unit` green.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **scripts/release.py's small gaps:** its docstring's "after any refusal past the fetch, the
+  live folder is as it was" leaves out a failed reinstall, which `latest` finishes; a
+  fast-forward refusal ends "run this again", though only the loop can fix it; a malformed
+  pyproject.toml in an old commit escapes `_version_at` as a traceback; its "not above the last
+  release" check has no test (prepare_release.py refuses the same earlier, tested).

@@ -12,6 +12,19 @@ See [CLAUDE.md](CLAUDE.md) for conventions, [docs/commands.md](docs/commands.md)
 > └── expense_world_engine/   ← engine (the practice engine runs from here)
 > ```
 
+## Install (the owner's app)
+
+The app the owner types is a release, installed from the live folder, never the folder agents edit. What each release holds is in [CHANGELOG.md](CHANGELOG.md).
+
+One time:
+
+1. Create `develop` from `main` and push it, in the work folder.
+2. Clone the repo into `~/Library/Application Support/expense_world/tui`, on `main`.
+3. `pipx uninstall expense-cli-menu`
+4. In the live folder, `python3 scripts/release.py`: the first release.
+
+After that, `python3 scripts/release.py` releases, `… back` goes to the previous release and `… latest` returns. The docstring of [scripts/release.py](scripts/release.py) says what each does and refuses.
+
 ## Install (dev)
 
 ```bash

@@ -1,5 +1,5 @@
 # Changelog
 
-An entry is `## vX.Y.Z — YYYY-MM-DD`, with an `Upgrading:` line first when the engine must go first.
+The format is in scripts/prepare_release.py's docstring.
 
 ## Unreleased
