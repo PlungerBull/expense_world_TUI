@@ -1178,8 +1178,8 @@ same toasts (`show_bulk_outcome`), except that the rows are named as the ledger 
 
 **The New form makes an account, its currencies and their openings in one write** (`n` on
 Manage ▸ Accounts; `NewAccountScreen` in [create_forms.py](../expense/tui/screens/create_forms.py),
-whose docstring gives each kind's lines and the body). A bank account has no `name` line: the
-engine builds its name (contract: POST /v1/accounts, "The name"). Its `bank` picks from
+whose docstring gives each kind's lines and the body). A bank or cash account has no `name`
+line: the engine builds its name (contract: POST /v1/accounts, "The name"). Its `bank` picks from
 `GET /banks` (`reads.fetch_bank_codes`, read by Manage ▸ Accounts with its currencies); the app
 checks nothing typed on `last 4`, the engine judging its shape.
 
@@ -1198,11 +1198,8 @@ checks nothing typed on `last 4`, the engine judging its shape.
   already taken by a bank account is keyed `last4` or `bank_code`
   (contract: POST /v1/accounts, "Validation"); `user_settings` (`SETTINGS_MISSING`) shows as a
   note with the setup hint.
-- **Left before the answer,** a bank or cash account, which have no typed name, read `Not
-  created · Account (unnamed)`.
-- **`type` always offers `cash`;** with it picked the `name` line leaves the form, as for a bank
-  account; the lines and the body are in `NewAccountScreen`'s docstring. A refusal keyed `kind`
-  lands on `type`.
+- **Left before the answer,** an account with no typed name reads `Not created · Account
+  (unnamed)`.
 
 **A bank account's Edit form holds its number on three lines,** `bank` (New's line), `last 4`
 and `since`, after `type`, with `cards before`, `new card` and `new card from` for a

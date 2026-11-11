@@ -228,7 +228,7 @@ Decisions whose why lives elsewhere:
 
 ## A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group (2026-08-16)
 
-**Decision.** (1) A TYPE field (`bank` / `person`, and `cash` while none is held) leads the New Account form, every kind posting to `POST /accounts`, read-only on edit ([create_forms.py](../expense/tui/screens/create_forms.py)'s docstring). (2) Home folds settled people behind a count (`▶ 3 settled`), a person whole or not at all (`split_settled` in [formatting.py](../expense/formatting.py)).
+**Decision.** (1) A TYPE field (`bank` / `person` / `cash`) leads the New Account form, every kind posting to `POST /accounts`, read-only on edit ([create_forms.py](../expense/tui/screens/create_forms.py)'s docstring). (2) Home folds settled people behind a count (`▶ 3 settled`), a person whole or not at all (`split_settled` in [formatting.py](../expense/formatting.py)).
 
 **Why.** One route makes either kind, so there is no second create path. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look alike), so the count keeps anyone from vanishing silently.
 
@@ -1075,7 +1075,7 @@ what a drop does. *A PDF dropped only alone* — a download and its PDF could no
 
 ## An account holds its currencies (2026-10-28)
 
-**Decision.** A bank account, a person or the cash account is one account holding one or more currencies (a Peruvian
+**Decision.** A bank account, a person or a cash account is one account holding one or more currencies (a Peruvian
 card holds soles and dollars; ALEJO owes in both). The account carries the name, colour, order,
 kind, statement code and archived flag; each currency only its code, opening balance and balance, so
 two currencies are never summed. A currency shows as the account's name and its code
@@ -1105,22 +1105,19 @@ keeps an engine that does not answer from holding the app on a blank screen.
 **Rejected.** *Reading it after the first screen* — Home would flip formats under the owner.
 *Keeping it in the settings file* — a second copy, stale on every other device.
 
-## The cash account is a third type, shown among the accounts and kept out of bank-only lists (2026-11-09)
+## A cash account is a type of account, shown among the accounts and kept out of bank-only lists (2026-11-11)
 
-**Decision.** The cash account, `Efectivo`, is made on the New Account form as a third type,
-offered only while the user holds none, archived included. Home lists it in ACCOUNTS in the
-engine's order, marked `cash`. Its row and Edit form offer only what the engine lets cash
-change. Every list that takes a statement, a bank PDF or a bank download holds bank accounts
-alone, picked by one shared check on `kind`.
+**Decision.** A cash account is a type on the New Account form, always offered, with no
+name line: the engine names each `CASH-<n>`. Home lists them in ACCOUNTS in the engine's order,
+unmarked. A cash row deletes as any account's; its row and Edit form offer only what the engine lets cash change. Every list
+that takes a statement, a bank PDF or a bank download holds bank accounts alone, picked by one
+shared check on `kind`.
 
 **Why.** Cash is money like any account's, so it lives where the accounts are, and making it
 from the form every account comes from adds no second create path. The engine names it and
-refuses what cash cannot take, so the app reads `kind` and never offers a refused move.
-Picking bank accounts, rather than leaving people out, keeps any later kind out of the bank
-lists too.
-
-**Rejected.** *A waiting `Efectivo` row on the accounts list* — a row for something that does
-not exist yet. *A CASH section of its own on Home* — one account in a block of its own.
+refuses what cash cannot take, so the app reads `kind` and never offers a refused move; its name
+already says cash, so a mark would repeat it. Picking bank accounts, rather than leaving people
+out, keeps any later kind out of the bank lists too.
 
 ## An account shows once and its currency is a field of its own; one currency shows, several are picked (2026-10-31)
 
