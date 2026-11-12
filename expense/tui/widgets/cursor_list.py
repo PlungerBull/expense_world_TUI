@@ -473,7 +473,12 @@ class CursorList(WindowedList):
         if action == "more":
             return bool(self._more)
         if action == "page":  # the base's rule: none on one page, no `pgup` on page 1
-            if self._more is not None and parameters and parameters[0] > 0:
+            if (
+                self._more is not None
+                and parameters
+                and isinstance(parameters[0], int)
+                and parameters[0] > 0
+            ):
                 return False  # growing: pgdn is "more", never "next page"
             return super().check_action(action, parameters)
         if action == "toggle":  # only where a screen owns a selection
@@ -495,7 +500,9 @@ class CursorList(WindowedList):
         if self._rows:
             self.post_message(self.Selected(self, self._rows[self._cursor].key, self._cursor))
 
-    def action_toggle(self) -> None:
+    # Textual's DOMNode has its own `action_toggle(attribute_name)`; the `toggle` binding here
+    # is a different action, and mypy cannot express that a subclass may shadow it.
+    def action_toggle(self) -> None:  # type: ignore[override]
         if self._rows:
             self.post_message(self.Toggled(self, self._rows[self._cursor].key, self._cursor))
 

@@ -16,6 +16,7 @@ declare has no description for this card to show.
 """
 
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.cells import cell_len
 from rich.console import Console, ConsoleOptions
@@ -23,8 +24,8 @@ from rich.console import Group as RichGroup
 from rich.table import Table
 from rich.text import Text
 from textual.actions import parse as parse_action
-from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.app import App, ComposeResult
+from textual.binding import Binding, BindingType
 from textual.containers import Vertical
 from textual.events import Resize
 from textual.keys import format_key, key_to_character
@@ -144,7 +145,7 @@ def _is_typed_character(key: str) -> bool:
     purpose: it maps to \\x1b, a character but not a visible one.
     """
     char = key_to_character(key)
-    return bool(char) and char.isprintable() and not char.isspace()
+    return bool(char and char.isprintable() and not char.isspace())
 
 
 def _display(key: str) -> str:
@@ -614,7 +615,10 @@ class HelpBindingMixin:
     which is the wanted behaviour.
     """
 
-    BINDINGS = [("question_mark", "help", "Keys")]
+    BINDINGS: ClassVar[list[BindingType]] = [("question_mark", "help", "Keys")]
+
+    if TYPE_CHECKING:  # the host is a Screen, which supplies `app`
+        app: App[Any]
 
     def action_help(self) -> None:
         title, groups = screen_inventory(self)

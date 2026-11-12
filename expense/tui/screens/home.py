@@ -39,13 +39,13 @@ would show rows the cell does not count.
 
 import calendar
 from datetime import date
-from typing import NamedTuple
+from typing import ClassVar, NamedTuple
 
 from rich.table import Table
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
@@ -387,7 +387,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     # which binds pgdn/pgup to scroll a page, and a focused widget's binding
     # wins over its screen's. Without priority, pgdn would scroll the list on
     # any terminal short enough to need it.
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         *LogTransactionMixin.BINDINGS,
         Binding(
             "pagedown",

@@ -270,7 +270,9 @@ class CheckList(WindowedList):
             t.add_row(*shown, style=CURSOR_STYLE if i == self._cursor else "")
         return Padding(t, (0, 0, 0, INDENT))
 
-    def action_toggle(self) -> None:
+    # Textual's DOMNode has its own `action_toggle(attribute_name)`; the `toggle` binding here
+    # is a different action, and mypy cannot express that a subclass may shadow it.
+    def action_toggle(self) -> None:  # type: ignore[override]
         if self._read_only or not self._rows:
             return
         key = self.cursor_key

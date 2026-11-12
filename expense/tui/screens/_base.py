@@ -17,13 +17,13 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.console import Group
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.types import NoActiveAppError
@@ -657,7 +657,9 @@ class LogTransactionMixin:
     Textual does not merge BINDINGS from a plain mixin.
     """
 
-    BINDINGS = [Binding("plus", "log_transaction", "Add", key_display="+")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("plus", "log_transaction", "Add", key_display="+")
+    ]
 
     def action_log_transaction(self) -> None:
         # imported here, not at module scope: log_bar imports EngineWriteMixin
@@ -888,13 +890,13 @@ class ResourceListScreen(SectionScreen):
     module functions (they have direct unit tests).
     """
 
-    TITLE: str = ""
+    TITLE: ClassVar[str] = ""
     HEADERS: list[str] = []
     EMPTY: str = "(empty)"
     LEGEND: str | None = None
     ALIGN_RIGHT: set[int] = set()
     RESOURCE: str = ""  # engine collection, e.g. "accounts"
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         ("n", "new", "New"),
         ("e", "edit", "Edit"),
     ]

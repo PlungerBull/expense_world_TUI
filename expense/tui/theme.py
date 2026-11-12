@@ -113,6 +113,8 @@ class Palette:
     warning: str
 
 
+# Textual types a Theme's colours as optional; this theme sets every one of them.
+assert EXPENSE_ANSI.success and EXPENSE_ANSI.error and EXPENSE_ANSI.accent
 PALETTE = Palette(_rich(EXPENSE_ANSI.success), _rich(EXPENSE_ANSI.error), PENDING_STYLE)
 
 # The help card's key glyphs; same story as PALETTE — one theme, so one value.

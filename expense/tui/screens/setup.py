@@ -37,7 +37,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 from textual import work
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.widgets import Input, Static
 
 from expense.config import LOCAL_ENGINE_URL, Config, validate_engine_url
@@ -49,7 +49,7 @@ from expense.errors import (
     format_error,
 )
 from expense.formatting import redact_token
-from expense.tui.screens._base import call_while_attached
+from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.theme import PALETTE
 
@@ -84,7 +84,7 @@ _KEY_REFUSED = "UNAUTHORIZED"
 _NO_PROFILE = "NOT_FOUND"
 
 
-def _setup_bindings() -> list[Binding | tuple[str, str, str]]:
+def _setup_bindings() -> list[BindingType]:
     """The bar-form keymap with `esc Quit`, and a second `^s` that reads `Create`
     once the engine asks for a profile — `check_action` shows one at a time."""
     bindings = form_bindings("Connect", cancel_desc="Quit")
@@ -257,7 +257,7 @@ class SetupScreen(FormScreen):
         from expense.http import ExpenseClient
 
         try:
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(self.app)) as client:
                 try:
                     client.get("/health", auth=False)
                 except Exception as exc:

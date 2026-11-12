@@ -266,7 +266,9 @@ class WindowedList(Static):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "page":  # no page key when one page holds it all; no `pgup` on page 1
-            if parameters and parameters[0] < 0:  # `pgup`: only with a page before this one
+            if (
+                parameters and isinstance(parameters[0], int) and parameters[0] < 0
+            ):  # `pgup`: only with a page before this one
                 return self._page_bounds()[0] > 0
             starts = self._page_starts()
             return len(starts) > 1 if starts is not None else len(self._rows) > self._page_size

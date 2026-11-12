@@ -10,11 +10,14 @@ and its own send), NewStatementScreen (dynamic sequence) and
 SetupScreen (first-time setup: the engine address and key, then a profile).
 """
 
+from collections.abc import Awaitable
+from typing import TYPE_CHECKING, ClassVar
+
 from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Horizontal
 from textual.message import Message
 from textual.screen import Screen
@@ -47,9 +50,7 @@ def may_have_landed(failure: Exception | None) -> bool:
     return failure is not None and open_it_again(failure) is None
 
 
-def form_bindings(
-    submit_desc: str, *, cancel_desc: str = "Cancel"
-) -> list[Binding | tuple[str, str, str]]:
+def form_bindings(submit_desc: str, *, cancel_desc: str = "Cancel") -> list[BindingType]:
     """The shared bar-form keymap; only the esc and ctrl+s descriptions vary.
 
     The footer reads `esc Cancel  ^s Save  ⇥ Field` — `⇥ Field` is the form's
@@ -120,8 +121,12 @@ class FormBar(Input):
 
 
 class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
-    BINDINGS = form_bindings("Create")
+    BINDINGS: ClassVar[list[BindingType]] = form_bindings("Create")
     RESOURCE = ""  # engine collection for the default POST submit
+    crumb: tuple[str, ...]  # every concrete form sets it
+    if TYPE_CHECKING:  # every concrete form defines the handler; `_keep_typed` calls it
+
+        def on_input_submitted(self, event: Input.Submitted) -> None: ...
 
     def __init__(self) -> None:
         super().__init__()
@@ -405,8 +410,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         return t
 
     # ---- submit ----------------------------------------------------------------
-    def action_cancel(self) -> None:
+    def action_cancel(self) -> Awaitable[None] | None:  # a form may override it as a coroutine
         self.dismiss()
+        return None
 
     def _title_given(self, text: str) -> bool:
         """False, with `Title is required.` as an error toast, when the title
