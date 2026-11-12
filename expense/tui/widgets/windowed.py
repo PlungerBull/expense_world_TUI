@@ -75,7 +75,7 @@ class WindowedList(Static):
         #: True for a list whose rows may cost more than a line (`_extra_lines`).
         self._varied = False
         # A line of content above the rule. Only a caption
-        # that *disambiguates* earns one — see docs/tui.md §3.
+        # that *disambiguates* earns one — see docs/tui.md §2 "One exception".
         self._caption = caption
         self._divider: str | None = "rule"
         self._status_line = True

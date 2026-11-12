@@ -317,7 +317,7 @@ one request → wait → done contract.
 
 ## The LOG bar's staged title gives way before the columns that place a line (2026-11-03)
 
-**Decision.** Title and tags give way first; marker, date, amount, currency, account and category stay whole ([tui.md](tui.md) "The LOG bar's account is one row per account").
+**Decision.** Title and tags give way first; marker, date, amount, currency, account and category stay whole ([log_bar.py](../expense/tui/screens/log_bar.py) `STAGED_FLEX`).
 
 **Why.** At 80 columns, a 20-letter account and category leave a title a few letters, or a bare `…`.
 
@@ -325,7 +325,7 @@ one request → wait → done contract.
 ## The LOG bar peek's title and count line shorten the account name, never the count or currency (2026-11-07)
 
 **Decision.** On the peek's title and count line only the account name gives way, with `…`;
-the count, the currency and the line's ending stay whole ([tui.md](tui.md) "The account peek").
+the count, the currency and the line's ending stay whole ([log_bar.py](../expense/tui/screens/log_bar.py) `peek_status`).
 
 **Why.** So long a name is rare, and a peek row is worth more.
 
@@ -740,7 +740,7 @@ its own `y`. *Refusing `c` with the engine's words only* — the user must then 
 balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn't …`.
 ## The Statements screens read whole at 80×24 (2026-11-03)
 
-**Decision.** Both Statements screens fit 80×24 without scrolling: lists page, the statements list's name is the column that gives way, and `c`'s boxes open under the head. Only a completed statement on an account with a statement code is numbered; an open one there waits for its PDF, with no ticking and no `c` ("A card's statement is one statement, and a month closes from the bank's PDF"). Details: [tui.md](tui.md) §4 "The Statements browse" and §5 "The Statements screens fit 80×24".
+**Decision.** Both Statements screens fit 80×24 without scrolling: lists page, the statements list's name is the column that gives way, and `c`'s boxes open under the head. Only a completed statement on an account with a statement code is numbered; an open one there waits for its PDF, with no ticking and no `c` ("A card's statement is one statement, and a month closes from the bank's PDF"). Details: [tui.md](tui.md) §2 "The Statements browse" and §5 "The frame".
 
 **Why.** They are read against the bank's paper at the smallest terminal the app plans for ("A terminal too small is the user's to fix"). The numbers are the paper's places, and the order and the figures are what a list is read for.
 
@@ -930,7 +930,7 @@ writes with a report of the parts saved* — the half-saved state it explains is
 
 ## Notes keep the engine's words, and a read-only line says why (2026-10-26)
 
-**Decision.** (1) Every note shows the engine's words as text, never as styling, guarded by a test. (2) A read-only line on the Edit form says why in the engine's sentence, the `message` of the line's `edit_limits`, each distinct sentence once. (3) A refusal that stops a run of writes reads the same everywhere, from one helper. (4) The question before completing a reconciliation names all six things it locks. Details: [tui.md](tui.md) §2 "The engine's words show as text, never as styling" and "What is read-only is the line's `edit_limits`, and nothing else", §4 for the question.
+**Decision.** (1) Every note shows the engine's words as text, never as styling, guarded by a test. (2) A read-only line on the Edit form says why in the engine's sentence, the `message` of the line's `edit_limits`, each distinct sentence once. (3) A refusal that stops a run of writes reads the same everywhere, from one helper. (4) The question before completing a reconciliation names all six things it locks. Details: [tui.md](tui.md) §2 "The engine's words show as text, never as styling" and "What is read-only is the line's `edit_limits`, and nothing else", [statements.py](../expense/tui/screens/statements.py) `_confirm_complete` for the question.
 
 **Why.** The engine's words are its contract with every client; restyled or vanishing text is a lossy copy. The engine sends each lock's reason in words, so no client keeps its own table from code to words that could drift, and one problem reads one way on every screen.
 
@@ -954,7 +954,7 @@ writes with a report of the parts saved* — the half-saved state it explains is
 
 ## A card's statement is one statement, and a month closes from the bank's PDF (2026-10-25)
 
-**Decision.** (1) A card's month is one statement covering every currency of the account, listed as one row and written whole (contract: "Statements", "Every write acts on the whole statement"). (2) The statement line is never shown: it only keeps a statement's lines in the paper's order. (3) No screen orders a statement, ticks the lines it still needs, or edits its name, days or balances beyond the blanks `c` asks for; a month's statement may be opened before its PDF, and uploading the PDF closes it, the engine reading, matching and completing. (4) The PDF writes what the ledger lacks and never changes or deletes what the paper lacks: a line the paper lacks is taken out or flagged and never stops the close, equal lines on one day match one to one, a card's undated charges each land on the statement's last day, and an installment purchase is one transaction a month, as billed (contract: POST /v1/statements/import). Details: [tui.md](tui.md) §4 "The Statements browse", §2 "A statement PDF closes its month".
+**Decision.** (1) A card's month is one statement covering every currency of the account, listed as one row and written whole (contract: "Statements", "Every write acts on the whole statement"). (2) The statement line is never shown: it only keeps a statement's lines in the paper's order. (3) No screen orders a statement, ticks the lines it still needs, or edits its name, days or balances beyond the blanks `c` asks for; a month's statement may be opened before its PDF, and uploading the PDF closes it, the engine reading, matching and completing. (4) The PDF writes what the ledger lacks and never changes or deletes what the paper lacks: a line the paper lacks is taken out or flagged and never stops the close, equal lines on one day match one to one, a card's undated charges each land on the statement's last day, and an installment purchase is one transaction a month, as billed (contract: POST /v1/statements/import). Details: [tui.md](tui.md) §2 "The Statements browse" and "A statement PDF closes its month".
 
 **Why.** A statement is one thing on paper, so it is one row and one write. The owner checks a month against the bank's PDF, which already holds each currency's balances, every line and the paper's order, so reading it replaces every hand step. Writing exactly what the paper holds makes every statement add up to it, while a logged line the paper lacks stays for the owner to judge.
 
@@ -967,7 +967,7 @@ request body is checked for the fields the engine sets itself
 ([tests/unit/conftest.py](../tests/unit/conftest.py)). (3) A live test fails when it leaves an
 account, category or hashtag it made ([runtime.md](runtime.md) "Leftovers"). (4) Engine-side probes
 use a practice user of their own, never this client's. (5) The begin balance hint says a statement
-holding the opening balance begins at 0.00 ([tui.md](tui.md) §4 "The New statement form"). (6) The live suite's bank accounts carry a
+holding the opening balance begins at 0.00 ([statements.py](../expense/tui/screens/statements.py) `_opening_note`). (6) The live suite's bank accounts carry a
 number starting `9`, the cleaner's mark for them ([scripts/clean_practice_user.py](../scripts/clean_practice_user.py)),
 and a sample PDF goes to the seed's `BCP-0000`, `card-soles-only` to `BCP-0001`
 ([runtime.md](runtime.md) "Leftovers").
@@ -1012,8 +1012,8 @@ engine's words; the app keeps no rule of which days a close seals
 may flag lines on days it leaves open (its last day, a gap); they show on a screen of its own right
 after the complete and from the `⚑` line and `f`. That screen, the `⚑` count and whether the screen
 opens go by the statement's review list and the engine's count of it, never a sum of `review_lines`
-(contract: GET /v1/bank-lines, "It has no bound"). Details: [tui.md](tui.md) §4
-"The lines a complete flagged for review" and "On the statement". (3) A statement is the account's,
+(contract: GET /v1/bank-lines, "It has no bound"). Details: [tui.md](tui.md) §2
+"The lines a complete flagged for review". (3) A statement is the account's,
 covering its currencies, under the account's code
 (contract: "What an account is", "Statement code"); codes are never matched across accounts. (4) The
 "no statement" list's `!` reads `! dated inside a statement` ([tui.md](tui.md) §2). (5) The
@@ -1061,7 +1061,7 @@ draws its own statement PDFs, with no PDF library
 ([test_statement_import.py](../tests/contract/test_statement_import.py)'s docstring). (7) Balance
 lines follow the engine's currency order; the app sorts nothing
 (contract: POST /v1/statements/import, "Response"). Details: [tui.md](tui.md) §2
-"A statement PDF closes its month", §4 "A dropped bank file".
+"A statement PDF closes its month" and "A dropped bank file".
 
 **Why.** One door for every bank file is one place to learn; the engine reads the paper, the app
 only sends it. The contract says to resend after the ledger moved. A wrong paper shows almost every
@@ -1273,7 +1273,7 @@ in most runs. *Skipping the reviewer on small tasks* — refused 2026-10-16.
 ## The staged list's title and tags give way; OPERATION says it changes every part (2026-11-02)
 
 **Decision.** Staged rows wider than the LOG bar cut the title and tags, never another cell
-([tui.md](tui.md) §4 "The LOG bar's account is one row per account"). The OPERATION line says it
+([log_bar.py](../expense/tui/screens/log_bar.py) `STAGED_FLEX`). The OPERATION line says it
 changes every part, as date, title, account and currency do ([tui.md](tui.md) §2
 "A split transaction says what reaches every part").
 
@@ -1321,7 +1321,7 @@ lines between the head and the box until the next key; other refusals there stay
 list refits, and a box under the head re-places itself, on Textual's `screen_layout_refresh_signal`,
 so the `⚑` and refusal lines never cost the page line. (4) A difference not checked yet stays blank
 on a draft too, as "A null difference is blank, a zero difference is the em-dash" holds. (5) An
-unreadable balance's note names its currency. Details: [tui.md](tui.md) §4, §5.
+unreadable balance's note names its currency. Details: [tui.md](tui.md) §2, §5.
 
 **Why.** "Statement" is the owner's word. The box under the head is where the refused complete is
 fixed; a toast covers it and fades. `call_after_refresh` runs after the top screen, so under a box
@@ -1349,7 +1349,7 @@ hand-back already queued.
 ## A footer too wide for the screen tightens, then leaves keys out whole (2026-11-06)
 
 **Decision.** Every footer is `FittingFooter` ([footer.py](../expense/tui/widgets/footer.py)): it
-tightens first, then leaves keys out whole ([tui.md](tui.md) §5).
+tightens first, then leaves keys out whole.
 
 **Why.** Past a first page the footer gains `pgup Prev` ("Every screen's frame"), and Manage's
 outgrows 80 columns and the ledger's 140. A cut key (`d Del`, `m Currenc`) reads as another word.
@@ -1364,7 +1364,7 @@ keys out without tightening* — it drops keys tighter spacing keeps whole.
 **Decision.** A card taller than its room spreads out on a wide terminal, else scrolls; one that
 fits keeps its layout and covers what is behind it to its frame. It lists each key once, and a key
 in `CARD_FOLLOWS_CHECK` only while it works, and one in `CARD_NEEDS_A_ROW` only while its list
-holds a row, worded for the empty list where `CARD_TEXT_WHILE_EMPTY` says so ([tui.md](tui.md) §4).
+holds a row, worded for the empty list where `CARD_TEXT_WHILE_EMPTY` says so ([help.py](../expense/tui/screens/help.py)).
 The footer reads the same declaration: on an empty list a key needing a row leaves it, and comes
 back with the first row; a key off only for a moment, such as the ledger's while a bulk write
 runs, stays greyed ([tui.md](tui.md) §5).
@@ -1383,7 +1383,7 @@ nothing. *An empty list's footer kept as with rows* — it offers keys that do n
 **Decision.** A write that can be left carries a `LeftBehind`
 ([_base.py](../expense/tui/screens/_base.py)): answered after its screen left, it shows the screen's
 message, a refusal titled with what did not happen and to what; queued writes are still sent, a
-refusal stopping none. What each screen says: [tui.md](tui.md) §1.
+refusal stopping none. What each screen says: each write's call site; the rule, [tui.md](tui.md) §1.
 
 **Why.** An unseen refusal is a change you think happened, and once the screen is gone nothing holds
 the queued writes for a retry.
@@ -1417,7 +1417,7 @@ does not answer holds the app open.
 
 **Decision.** A test waits through `wait_for` ([helpers.py](../tests/unit/helpers.py)), in that
 screen's own test helpers, for what the app finishes a moment later, and fails if it never comes
-([tui.md](tui.md) §6).
+([CLAUDE.md](../CLAUDE.md) "Testing conventions").
 
 **Why.** A fixed pause passes on the owner's Mac and fails now and then on GitHub's slower runners.
 

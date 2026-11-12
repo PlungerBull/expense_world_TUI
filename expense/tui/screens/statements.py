@@ -129,7 +129,7 @@ from expense.tui.widgets.picker import matching
 from expense.tui.widgets.refusal import as_markup, toast, under_itself, warning_note
 
 # Status labels + period formatting are owned by expense/formatting.py
-# (format_status / format_period) — one copy, per the §5 rule.
+# (format_status / format_period) — one copy (CLAUDE.md "One copy of everything shared").
 _period = formatting.format_period
 
 #: What the leftover lines' screen hands back when `c` was pressed: the statement asks
