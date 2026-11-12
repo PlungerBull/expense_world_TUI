@@ -454,7 +454,7 @@ class StatementLeftoverScreen(LeftoverLines, Screen):
 
     def __init__(
         self,
-        statement_id: str,
+        statement_id: str | None,
         *,
         name: str,
         account: str,

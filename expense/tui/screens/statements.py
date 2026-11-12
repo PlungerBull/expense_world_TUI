@@ -60,7 +60,7 @@ outside the statement, is read-only, and has no `c`, `u` or toggle.
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any, NamedTuple, TypedDict
 
@@ -101,6 +101,7 @@ from expense.tui.screens._base import (
     AdaptiveRowsMixin,
     ContentSwapLockMixin,
     EngineWriteMixin,
+    FetchKwargs,
     LeftBehind,
     NewestReadMixin,
     SectionScreen,
@@ -179,13 +180,18 @@ _UNFILED_LAYOUT = _UnfiledLayout(
 #: listed; any other key the list offers (`pgdn`, `pgup`) follows them.
 _UNFILED_FOOTER = ("escape", "enter", "d", "r", "question_mark")
 
+
 #: What the "no statement" list asks the engine for, with the account and no dates:
 #: this account's bank lines in no statement, any day, every currency together. The
 #: list and its count both take it (`GET /bank-lines`, `GET /bank-lines/count`).
 #: The list alone adds `UNFILED_SORT` (the count takes no order); it opens with the
 #: `GROW_STEP` oldest and `pgdn` appends the next ones
 #: (contract: GET /v1/bank-lines, "Filters").
-UNFILED_FILTER = {"unreconciled": True}
+class _UnfiledFilter(TypedDict):
+    unreconciled: bool
+
+
+UNFILED_FILTER = _UnfiledFilter(unreconciled=True)
 #: Oldest first, the order of the lines of a statement that hold no place
 #: (contract: GET /v1/bank-lines, "Ordering").
 UNFILED_SORT = "date_asc"
@@ -337,7 +343,12 @@ def open_edit_form(
         shown=(title, net_cents),
     )
     form.crumb = (*crumb, "Edit")
-    screen.app.push_screen(form, lambda saved: saved and reload())
+
+    def saved_back(saved: object) -> None:
+        if saved:
+            reload()
+
+    screen.app.push_screen(form, saved_back)
 
 
 def run_assignment(
@@ -525,7 +536,7 @@ def statement_rows(
     return rows
 
 
-def _read_statements(cfg, account_id: object, kw: dict) -> list:
+def _read_statements(cfg, account_id: object, kw: FetchKwargs) -> list:
     """The panel's one read: every statement of the account, whole
     (`GET /statements?account_id=`)."""
     return items_of(reads.fetch_statements(cfg, str(account_id), **kw))
@@ -909,9 +920,13 @@ class StatementsScreen(SectionScreen):
             if line is not None and first_part(line) is not None:
                 from expense.tui.screens.edit_form import BankLineEditFormScreen
 
+                def saved_back(saved: object) -> None:
+                    if saved:  # `esc` keeps the cursor
+                        self._reload_unfiled()
+
                 self.app.push_screen(
                     BankLineEditFormScreen(line=line, opener=self, reload=self._reload_unfiled),
-                    lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
+                    saved_back,
                 )
             return
         if event.control is self._accts_list:
@@ -921,16 +936,21 @@ class StatementsScreen(SectionScreen):
             return
         # `⏎` on a statement opens the whole statement, every currency it covers
         item = self._by_id.get(event.key)
-        if item and self._open_account():
+        open_account = self._open_account()
+        if item and open_account:
             self._resume_key = event.key
+
+            def back(_result: object) -> None:
+                self._load()
+
             self.app.push_screen(
                 StatementScreen(
                     item,
-                    statement_code=self._open_account().code,
+                    statement_code=open_account.code,
                     opener=self,
                     reload=self._load,
                 ),
-                lambda _result: self._load(),
+                back,
             )
 
     @work(thread=True, exclusive=True, group="statements")
@@ -1401,7 +1421,8 @@ class NewStatementScreen(FormScreen):
         acct = self._browse.get(account_id)
         self._codes = acct.codes if acct else ()
         for key in [k for k in self._values if _balance_line(k)]:
-            if _balance_line(key)[1] not in self._codes:
+            balance = _balance_line(key)
+            if balance is not None and balance[1] not in self._codes:
                 self._values.pop(key)
                 self._display.pop(key, None)
         self._values["account"] = account_id
@@ -1575,8 +1596,8 @@ def _fetch_all_lines(cfg, **kw) -> list[dict]:
 
 def fetch_month_lines(
     cfg,
-    statement_id: str,
-    account_id: str,
+    statement_id: str | None,
+    account_id: str | None,
     date_start: str,
     date_end: str,
     *,
@@ -1606,7 +1627,7 @@ def fetch_month_lines(
     return assigned, available
 
 
-def fetch_review_lines(cfg, statement_id: str, **kw) -> list[dict]:
+def fetch_review_lines(cfg, statement_id: str | None, **kw) -> list[dict]:
     """The flagged lines' screen's list: every page of the statement's review list, in the
     statement's order
     (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it")."""
@@ -1639,8 +1660,10 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
     is a line field, so a `PUT` on any part moves every part
     (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment").
     """
-    rows, checked, part_of = [], [], {}
-    apart = []
+    rows: list[tuple] = []
+    checked: list[Any] = []  # line ids, as the engine sent them
+    part_of: dict[Any, Any] = {}
+    apart: list[tuple] = []
     in_statement = {line.get("id") for line in assigned}
     for line in [*assigned, *available]:
         key = line.get("id")
@@ -1737,7 +1760,7 @@ _BALANCE_SAVED = "The balances are saved. The statement is not completed:"
 _HEAD_WIDTHS = (12, 13, 10)
 
 
-def balance_lines(balances: object, palette: Palette) -> list[Text]:
+def balance_lines(balances: Iterable[object] | None, palette: Palette) -> list[Text]:
     """The head's balances: a `begin  end  diff` line, then one line for each
     currency the statement covers, in the engine's order
     (contract: "Statements", "Which currencies a statement covers"). A currency
@@ -1807,7 +1830,7 @@ class StatementScreen(
         *,
         statement_code: str | None = None,
         opener: Screen | None = None,
-        reload: Callable[[], None] | None = None,
+        reload: Callable[[], object] | None = None,
     ) -> None:
         """`statement_code` is the statement code of the record's account
         (`BrowseAccount.code`), `None` when it has none. `opener` is the screen that
@@ -1946,7 +1969,7 @@ class StatementScreen(
                 # status would misrepresent balances and the read-only gate. A
                 # deleted one is a 404 (contract: GET /v1/statements/{statement_id}).
                 try:
-                    statement = reads.fetch_statement(cfg, self._id, **kw)
+                    statement = reads.fetch_statement(cfg, str(self._id), **kw)
                 except EngineError as exc:
                     if exc.status != 404:
                         raise
@@ -2345,7 +2368,7 @@ class StatementScreen(
     def _confirm(
         self, title: str, message: str, action, *, under: Callable[[], int] | None = None
     ) -> None:
-        def cb(ok: bool) -> None:
+        def cb(ok: bool | None) -> None:
             if ok:
                 action()
 
@@ -2664,7 +2687,7 @@ class FlaggedLinesScreen(
     ]
 
     def __init__(
-        self, statement_id: str, *, statement: str, statement_code: str | None = None
+        self, statement_id: str | None, *, statement: str, statement_code: str | None = None
     ) -> None:
         """`statement_code` is the statement code of the statement's account
         (`BrowseAccount.code`), `None` when it has none."""
