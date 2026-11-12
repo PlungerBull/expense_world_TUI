@@ -1,11 +1,15 @@
+import logging
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any
 
+import click
 import typer
 
 from expense.jsonout import json_text
+
+log = logging.getLogger(__name__)
 
 
 class EngineError(Exception):
@@ -432,7 +436,10 @@ def format_error(err: Exception, *, on_list: bool = False, self_reading: bool = 
     if isinstance(err, EngineConnectionError):
         return f"could not reach engine at {err.url} (is it running?)"
     # ConfigMissing/ConfigInvalid render as their message, same as any other
-    # exception — one fallback covers both.
+    # exception — one fallback covers both. Any other one is unexpected: logged
+    # with its traceback.
+    if not isinstance(err, ConfigMissingError | ConfigInvalidError):
+        log.error("unexpected error", exc_info=err)
     return str(err)
 
 
@@ -514,5 +521,10 @@ def handle_errors(fn):
             output, exit_code, use_stderr = render(err, json_mode=json_mode)
             typer.echo(output, err=use_stderr)
             raise typer.Exit(code=exit_code) from err
+        except (click.exceptions.ClickException, click.exceptions.Exit, click.exceptions.Abort):
+            raise
+        except Exception as err:
+            log.error("unexpected error", exc_info=err)
+            raise
 
     return wrapper

@@ -55,6 +55,8 @@ Python 3.11+ · Textual · Typer · httpx; `openpyxl` is dev-only. **No local ca
 
 **Confirm destructive operations.** Deletes and reverts ask first, only `y` confirms, and the question says no screen can bring it back. Archive and unarchive are prompt-free toggles.
 
+**The running app keeps a log** (requests, refusals, retries, unexpected errors); the token, the Authorization header and the config never reach it; its place and detail: [docs/runtime.md](docs/runtime.md) "The log".
+
 **Config isolation.** The token and engine URL live in `~/.expense-config` (chmod 600), the app's only local state, never checked in or shared across machines. The repo is **public**, so a committed secret stays in history for good: credentials and real ledger data never enter it.
 
 **Mock every screen before building it — every time.** Before writing or changing any user-facing view (screen, list, form, report, message, or a table's columns), present its HTML mockup in [docs/mockups/](docs/mockups/) and wait, even for a screen approved before. **Showing a mockup is not approval:** never implement, even in auto-accept mode, until the owner explicitly picks one. An unspecified or ambiguous detail means stop and ask.

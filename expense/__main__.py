@@ -6,6 +6,7 @@ surface"); everything else is done in the app.
 
 import typer
 
+from expense import applog
 from expense.commands import import_cmd
 from expense.context import AppContext
 from expense.tui import open_app
@@ -28,6 +29,7 @@ def main(
     ),
 ) -> None:
     """Run `expense` alone to open the app."""
+    applog.configure()
     ctx.obj = AppContext(verbose=verbose)
     if ctx.invoked_subcommand is None:
         open_app(ctx)

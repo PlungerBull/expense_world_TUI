@@ -1202,7 +1202,7 @@ class LogBarScreen(Screen):
             message = format_error(err)
             call_while_attached(self, self._stop_save, message)
         except Exception as err:  # noqa: BLE001 - a worker crash must not be silent
-            call_while_attached(self, self._stop_save, str(err))
+            call_while_attached(self, self._stop_save, format_error(err))
         else:
             call_while_attached(self, self._save_finished, leave_after)
             return

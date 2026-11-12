@@ -56,6 +56,16 @@ folder (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged 
 Once `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
 
+### May the log keep a refusal that repeats what you typed?
+Asked 2026-11-12 · Blocks: nothing; the log is built logging refusals in full
+You asked for every engine refusal in the log, in full, and for descriptions and amounts to stay
+out unless `--verbose` is on. A few refusals repeat a value back, for example `Row 12: Monto holds
+'abc', not a number.` from a sheet import. Request lines never hold a description or amount.
+- **A.** Keep each refusal as the engine sent it.
+- **B.** Leave out a refusal's echoed values unless `--verbose` is on.
+**Recommended:** A, because the refusal is what you need to read when something went wrong, and
+the log stays on your own Mac.
+
 ### tui.md ends at 5,778 words, not 5,000: accept it?
 Asked 2026-11-12 · Blocks: [lean docs](specs/lean-docs.md)'s finish
 Every task is done. tui.md went from 26,124 words to 5,778; your target was 5,000 or less, and all

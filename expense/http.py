@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 import time
 import uuid
@@ -9,6 +10,8 @@ import httpx
 
 from expense.config import Config
 from expense.errors import EngineConnectionError, EngineError
+
+log = logging.getLogger(__name__)
 
 _WRITE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 
@@ -28,6 +31,11 @@ _WRITE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 _RETRY_BACKOFF_SECONDS = (1.0, 2.0)
 _WRITE_ATTEMPTS = len(_RETRY_BACKOFF_SECONDS) + 1
 _RETRYABLE_STATUS = frozenset({500, 502, 503, 504})
+
+
+def _target(request: httpx.Request) -> str:
+    """Path and query as sent: what the log shows of a request (never its body)."""
+    return request.url.raw_path.decode()
 
 
 class ExpenseClient:
@@ -111,19 +119,31 @@ class ExpenseClient:
             )
             if self._verbose:
                 self._dump_request(request)
+            started = time.perf_counter()
             try:
                 response = self._client.send(request)
             except httpx.TransportError as exc:
+                # The type alone: an exception's text can carry the request's headers.
+                log.warning("%s %s failed: %s", method, _target(request), type(exc).__name__)
                 # Base of connect/timeout plus read/write aborts, protocol
                 # and proxy failures, and UnsupportedProtocol (scheme-less
                 # URL) — none of these may escape as a raw traceback.
                 if isinstance(exc, httpx.TimeoutException) and attempt < attempts:
-                    self._notify_retry(attempt, attempts, "timed out")
+                    self._notify_retry(attempt, attempts, "timed out", method, request, headers)
                     time.sleep(_RETRY_BACKOFF_SECONDS[attempt - 1])
                     continue
                 raise EngineConnectionError(url=str(request.url), original=exc) from exc
+            log.info(
+                "%s %s %s %dms",
+                method,
+                _target(request),
+                response.status_code,
+                (time.perf_counter() - started) * 1000,
+            )
             if response.status_code in _RETRYABLE_STATUS and attempt < attempts:
-                self._notify_retry(attempt, attempts, f"got HTTP {response.status_code}")
+                self._notify_retry(
+                    attempt, attempts, f"got HTTP {response.status_code}", method, request, headers
+                )
                 time.sleep(_RETRY_BACKOFF_SECONDS[attempt - 1])
                 continue
             break
@@ -153,6 +173,7 @@ class ExpenseClient:
                 ),
             )
 
+        log.warning("%s %s refused %s: %s", method, _target(request), response.status_code, body)
         raise EngineError(
             code=error["code"],
             message=error["message"],
@@ -163,7 +184,24 @@ class ExpenseClient:
             details=error.get("details"),
         )
 
-    def _notify_retry(self, attempt: int, attempts: int, cause: str) -> None:
+    def _notify_retry(
+        self,
+        attempt: int,
+        attempts: int,
+        cause: str,
+        method: str,
+        request: httpx.Request,
+        headers: dict[str, str],
+    ) -> None:
+        log.warning(
+            "%s %s %s; retry %d/%d, X-Idempotency-Key %s",
+            method,
+            _target(request),
+            cause,
+            attempt + 1,
+            attempts,
+            headers.get("X-Idempotency-Key"),
+        )
         print(
             f"Write {cause}; retrying ({attempt + 1}/{attempts}) with the same "
             "idempotency key — the engine replays instead of double-applying.",

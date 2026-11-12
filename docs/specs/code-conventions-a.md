@@ -52,12 +52,11 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-7. **The log:**
-   - requests, refusals, retries and unexpected errors, at the fixed place, rotating, with no token;
-   - the redirect, and the unit tests' redirect;
-   - docs/runtime.md.
 8. `--verbose` adds request and reply bodies to the log; a test that no token or Authorization
-   value reaches it.
+   value reaches it. The token also reaches no traceback: `EngineConnectionError` takes httpx's
+   message as its own (expense/errors.py:45-49), so a token pasted with a trailing space would
+   ride in a logged traceback (tui/app.py:161-166, errors.py:441-442); a filter in
+   expense/applog.py that blanks the token in every record closes every such path.
 
 ## Found along the way
 
@@ -69,3 +68,11 @@ Not built in this spec; sorted when it is done.
   (log_bar.py:687), `EditAccountScreen` (create_forms.py:907) and `StatementLeftoverScreen`
   (leftover_lines.py:468); harmless today, as nothing reads the widget's name, but a rename such
   as `_account_name` keeps the two apart.
+- **System ▸ Config `t` saves a pasted token unstripped** (expense/tui/screens/system.py:91-94):
+  a trailing space on the paste makes every request fail as a refused header.
+- **About 15 `except Exception` blocks show nothing and log nothing** (the rate check, the header
+  stats, the name maps: reads.py:645, :662; _base.py:757, :869, :980, :1029; transactions.py:525,
+  :533, :546, :706; statements.py:578, :2158, :2727; header.py:97; cursor_list.py:487; app.py:156),
+  so a bug inside one never reaches the log.
+- **A 5xx whose body is not the engine's error shape** logs only its request line
+  (expense/http.py:159-179), not the body the engine sent.

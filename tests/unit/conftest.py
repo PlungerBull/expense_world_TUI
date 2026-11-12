@@ -5,14 +5,15 @@ one at a time by deleting their local copy — never leave a diverged local
 fixture named `configured` behind.
 """
 
+import logging
 import socket
 from pathlib import Path
 
 import pytest
 
+from expense import applog, number_format, reads, region
 from expense import config as config_module
 from expense import http as http_module
-from expense import number_format, reads, region
 from tests.unit import helpers
 
 # Loopback stays reachable so a locally-bound helper never trips the guard;
@@ -86,7 +87,8 @@ def comma_format():
 
 @pytest.fixture(autouse=True)
 def _hermetic_paths(tmp_path, monkeypatch):
-    """Point the config env at a nonexistent tmp file for EVERY test.
+    """Point the config env at a nonexistent tmp file, and the log env at a tmp file,
+    for EVERY test.
 
     Every ExpenseApp launch mounts HomeScreen, whose header stat worker
     (net · spent · owed) calls ensure_loaded + fetch_dashboard on mount —
@@ -96,9 +98,17 @@ def _hermetic_paths(tmp_path, monkeypatch):
     var afterward and still wins.
     """
     monkeypatch.setenv("EXPENSE_CONFIG", str(tmp_path / "hermetic-config"))
+    monkeypatch.setenv("EXPENSE_LOG", str(tmp_path / "logs" / "tui.log"))
     config_module.release()
     yield
     config_module.release()
+    # Whatever a test's launch configured: no handler left, lines propagate as before.
+    logger = logging.getLogger(applog.ROOT_LOGGER)
+    for handler in list(logger.handlers):
+        handler.close()
+        logger.removeHandler(handler)
+    logger.propagate = True
+    logger.setLevel(logging.NOTSET)
 
 
 #: The terminal every unit test sees: 80x24, the size `shutil.get_terminal_size`

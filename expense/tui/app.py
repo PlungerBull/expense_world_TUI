@@ -1,11 +1,13 @@
 """The Textual app shell + the launch that `expense`, run alone, makes."""
 
+import logging
 import sys
 from collections.abc import Callable
 
 import typer
 from textual import work
 from textual.app import App
+from textual.worker import WorkerFailed
 
 from expense.context import get_verbose
 from expense.region import apply_launch_format
@@ -15,6 +17,8 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import EXPENSE_ANSI
 from expense.tui.widgets.header import Breadcrumb
+
+log = logging.getLogger(__name__)
 
 
 class ExpenseApp(App):
@@ -153,6 +157,13 @@ class ExpenseApp(App):
         except Exception:
             return
         self.call_from_thread(self._set_rate_stale, stale)
+
+    def _handle_exception(self, error: Exception) -> None:
+        # A crash: the traceback goes to the log, then Textual shows it and exits.
+        # A failed worker arrives wrapped, without a traceback of its own.
+        cause = error.error if isinstance(error, WorkerFailed) else error
+        log.error("unhandled error", exc_info=cause)
+        super()._handle_exception(error)
 
     def _set_rate_stale(self, stale: bool | None) -> None:
         self.rate_stale = stale
