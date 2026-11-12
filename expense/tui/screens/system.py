@@ -19,7 +19,7 @@ from expense import region
 from expense.errors import format_error
 from expense.formatting import redact_token
 from expense.number_format import NumberFormat, set_current_format
-from expense.tui.screens._base import LeftBehind, SectionScreen
+from expense.tui.screens._base import LeftBehind, SectionScreen, screen_fetch_kwargs
 from expense.tui.screens.modals import PromptModal, QuestionLine, QuestionModal
 from expense.tui.widgets.refusal import toast
 
@@ -155,7 +155,7 @@ class AuthScreen(SectionScreen):
             # The shared path is what caches `main_currency`, which the
             # header's stale-rate check targets. Reading /auth/me here
             # directly would leave no cached currency and so no warning, ever.
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(self.app)) as client:
                 body = reads.fetch_me(cfg, client=client)
         except EngineError as exc:
             if exc.status == 404:

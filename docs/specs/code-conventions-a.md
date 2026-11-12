@@ -52,16 +52,13 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-Counted 2026-11-12 after task 2: 88 errors in 11 files; the other 54 modules are checked.
+Counted 2026-11-12 after task 3: 54 errors in 8 files; the other 57 modules are checked.
 
-3. mypy: _base.py, edit_form.py and system.py, 17 after task 2. `screen_fetch_kwargs(app)`
-   (_base.py:55) takes an untyped `app`, so setup.py's `self.app._verbose` passes unchecked; type
-   it once, so the same error in system.py, bank_import.py, transactions.py, log_bar.py and
-   statement_upload.py gets one checked fix.
-4. mypy: transactions.py and accounts.py, 19.
-5. mypy: statements.py, 19.
+4. mypy: transactions.py and accounts.py, 16.
+5. mypy: statements.py, 20; two of them come from `_read_statements`'s `kw: dict` (:528),
+   which takes `FetchKwargs`.
 6. mypy: log_bar.py, create_forms.py, statement_upload.py, bank_import.py and
-   leftover_lines.py, 33; the file list becomes the whole package and `follow_imports = "silent"`
+   leftover_lines.py, 18; the file list becomes the whole package and `follow_imports = "silent"`
    goes with it; CLAUDE.md's lint line says so.
 7. **The log:**
    - requests, refusals, retries and unexpected errors, at the fixed place, rotating, with no token;

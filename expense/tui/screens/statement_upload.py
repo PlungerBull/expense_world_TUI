@@ -55,7 +55,12 @@ from expense.formatting import (
     title_or_untitled,
     truncate,
 )
-from expense.tui.screens._base import call_while_attached, counted_save, relabel
+from expense.tui.screens._base import (
+    call_while_attached,
+    counted_save,
+    relabel,
+    screen_fetch_kwargs,
+)
 from expense.tui.screens.bank_import import (
     ASKING,
     MIN_PAGE,
@@ -462,7 +467,7 @@ class StatementPreviewScreen(PreviewScreen):
         from expense import config as config_module
         from expense.http import ExpenseClient
 
-        verbose = self.app._verbose
+        verbose = screen_fetch_kwargs(self.app)["verbose"]
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=verbose) as client:

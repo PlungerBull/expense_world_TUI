@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from functools import partial
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 
 from rich.console import Group
 from rich.text import Text
@@ -50,11 +50,26 @@ from expense.tui.widgets.refusal import as_markup, toast
 
 if TYPE_CHECKING:
     from expense.config import Config
+    from expense.tui.app import ExpenseApp
+
+    #: The mixins below are only ever mixed into a Screen; this tells mypy so.
+    _ScreenHost = Screen
+else:
+    _ScreenHost = object
 
 
-def screen_fetch_kwargs(app) -> dict:
+def expense_app(app: App[Any]) -> "ExpenseApp":
+    """`screen.app` is typed `App[Any]`; the running app is always an `ExpenseApp`."""
+    return cast("ExpenseApp", app)
+
+
+class FetchKwargs(TypedDict):
+    verbose: bool
+
+
+def screen_fetch_kwargs(app: App[Any]) -> FetchKwargs:
     """The standard TUI read kwargs: verbosity off the app."""
-    return dict(verbose=app._verbose)
+    return FetchKwargs(verbose=expense_app(app)._verbose)
 
 
 def relabel(screen: Screen, key: str, description: str, action: str | None = None) -> None:
@@ -212,7 +227,7 @@ def pending_writes(app: "App") -> int:
     return len(saves) + len(app.__dict__.get("_counted_saves", ()))
 
 
-class EngineWriteMixin:
+class EngineWriteMixin(_ScreenHost):
     """Engine writes off the UI thread — one at a time, in order, per screen.
 
     Shared by SectionScreen and the bar-cycle form screens (which subclass
@@ -281,7 +296,7 @@ class EngineWriteMixin:
         to being finished after its screen has left (`LeftBehind`, class docstring)."""
         if self._write_queue is None:
             self._write_queue = deque()
-        app_writers(self.app).add(self)  # type: ignore[attr-defined]
+        app_writers(self.app).add(self)
         item = _QueuedWrite(
             method,
             path,
@@ -304,7 +319,7 @@ class EngineWriteMixin:
         write. On a screen that has left, only the writes carrying a `LeftBehind` count, up to
         the first that does not: it and every write behind it are dropped."""
         writes = self.writes_unanswered()
-        if not (self.is_attached and not self._pruning):  # type: ignore[attr-defined]
+        if not (self.is_attached and not self._pruning):
             kept = []
             for write in writes:
                 if write.left_behind is None:
@@ -315,10 +330,14 @@ class EngineWriteMixin:
 
     def dismiss(self, result: Any = None) -> Any:
         """Close this screen; while the quit question is on top, once it is answered."""
-        close = super().dismiss  # type: ignore[misc]
-        app = self.app  # type: ignore[attr-defined]
+        close = super().dismiss
+        app = expense_app(self.app)
         if app.quit_question_open:
-            app.after_quit_question(lambda: close(result))
+
+            def leave() -> None:
+                close(result)
+
+            app.after_quit_question(leave)
             return None
         return close(result)
 
@@ -359,7 +378,7 @@ class EngineWriteMixin:
         failure: Exception | None = None
         try:
             cfg = item.config or config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(app)) as client:
                 if item.method == "POST":
                     body = client.post(item.path, json_body=item.json_body)
                 elif item.method == "PUT":
@@ -627,7 +646,7 @@ class ContentSwapLockMixin:
         return self._swap_lock
 
 
-class LogTransactionMixin:
+class LogTransactionMixin(_ScreenHost):
     """Adds `+` — jump straight to the LOG bar.
 
     Logging is the thing you do most, so it is a key, not a menu row.
@@ -674,7 +693,7 @@ class LogTransactionMixin:
         reload, so a transaction you just wrote appears without pressing `r`."""
 
 
-class AdaptiveRowsMixin:
+class AdaptiveRowsMixin(_ScreenHost):
     """How many rows a list may ask for, given the room it actually has.
 
     Adaptive rows (cap 20): the page IS the screenful, so every list measures
@@ -863,7 +882,7 @@ class SectionScreen(
         """Fetch data in a worker thread. Raise to surface an in-app error."""
         raise NotImplementedError
 
-    def build(self, data: object) -> list[Widget]:
+    def build(self, data: Any) -> list[Widget]:
         """Return the widgets to mount inside the card (runs on the UI thread)."""
         raise NotImplementedError
 
@@ -1045,7 +1064,11 @@ class ResourceListScreen(SectionScreen):
         return widgets
 
     def action_new(self) -> None:
-        self.app.push_screen(self.new_screen(), lambda _result: self._load())
+
+        def reload(_result: object) -> None:
+            self._load()
+
+        self.app.push_screen(self.new_screen(), reload)
 
     def action_edit(self) -> None:
         item = self.selected_record()

@@ -1190,7 +1190,7 @@ class LogBarScreen(Screen):
         rows = self._pending()
         try:
             cfg = config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(self.app)) as client:
                 if rows:
                     pending = self._refs.pending_hashtag_id if self._refs else None
                     items = [

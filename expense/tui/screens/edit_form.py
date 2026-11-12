@@ -115,7 +115,7 @@ from rich.text import Text
 from textual import work
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Input
+from textual.widgets import Input, Static
 
 from expense import reads
 from expense.bank_line_write import kept_part, line_body, new_part
@@ -479,7 +479,8 @@ class EditFormScreen(FormScreen):
     def _held_codes(self) -> tuple[str, ...]:
         """The currencies the line's account holds; none when the account is not in the
         pool (an archived one) or the reference lists are not in yet."""
-        return self._codes.get(self._values.get("account"), ())
+        account = self._values.get("account")
+        return self._codes.get(account, ()) if account is not None else ()
 
     def _only_currency(self) -> str | None:
         """The one currency the line's account holds, when it holds exactly one: the
@@ -897,6 +898,7 @@ class EditFormScreen(FormScreen):
             new = self._values.get(key)
             if key == "date":
                 # never empty: an empty date bar commits today
+                assert new is not None  # a line always carries its date
                 fields["date"] = to_canonical_aware(new)
             elif key == "operation":
                 # `null` clears the line's operation code
@@ -966,7 +968,7 @@ class EditFormScreen(FormScreen):
         method, path, payload, busy = request
         self._submitting = True
         self._refusal = None
-        self.query_one("#hint").update(Text(busy, style="dim"))
+        self.query_one("#hint", Static).update(Text(busy, style="dim"))
         self._refresh_view()
         self.run_write(
             method,

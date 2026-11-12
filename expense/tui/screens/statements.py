@@ -62,12 +62,12 @@ outside the statement, is read-only, and has no `c`, `u` or toggle.
 import uuid
 from collections.abc import Callable
 from functools import partial
-from typing import NamedTuple, TypedDict
+from typing import Any, NamedTuple, TypedDict
 
 from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
-from textual.app import ComposeResult
+from textual.app import App, ComposeResult
 from textual.binding import ActiveBinding, Binding
 from textual.containers import Container
 from textual.css.query import NoMatches
@@ -2122,7 +2122,7 @@ class StatementScreen(
                 markup=True,
             )
 
-    def _count_then_say(self, app, statement_id, name: str, notes: list[str]) -> None:
+    def _count_then_say(self, app: App[Any], statement_id, name: str, notes: list[str]) -> None:
         """Thread side: the engine's count of the statement's review list as on screen
         (a failed read leaves the `⚑` line out), then the message on the app, unless it
         is quitting. The screen is gone: it is only the node the hand-back is checked on."""
@@ -2130,7 +2130,7 @@ class StatementScreen(
 
         try:
             count = reads.count_bank_lines(
-                config_module.ensure_loaded(), review_of=statement_id, verbose=app._verbose
+                config_module.ensure_loaded(), review_of=statement_id, **screen_fetch_kwargs(app)
             )
         except Exception:
             count = 0

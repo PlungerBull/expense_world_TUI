@@ -839,7 +839,7 @@ class ImportPreviewScreen(PreviewScreen):
 
         try:
             cfg = config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(self.app)) as client:
                 response = flow.import_call(
                     client, self._pick, self._run.current.data, dry_run=dry_run
                 )
@@ -849,7 +849,7 @@ class ImportPreviewScreen(PreviewScreen):
                 mismatches = day_mismatches(response, self._pick.name)
                 # The one read the preview adds: the names of the
                 # statements that stop a move to the bank's day.
-                names, names_error = statement_names(cfg, rows, verbose=self.app._verbose)
+                names, names_error = statement_names(cfg, rows, **screen_fetch_kwargs(self.app))
                 lines = [preview_line(r, names) for r in rows]
         except Exception as err:  # every failure is shown, none swallowed
             call_while_attached(self, self._failed, err)

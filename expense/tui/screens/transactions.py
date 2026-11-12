@@ -852,7 +852,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         stop: Exception | None = None
         try:
             cfg = config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+            with ExpenseClient(cfg, **screen_fetch_kwargs(self.app)) as client:
                 for sent, (key, body) in enumerate(writes, start=1):
                     try:
                         landed.append((key, client.put(f"/transactions/{key}", json_body=body)))
