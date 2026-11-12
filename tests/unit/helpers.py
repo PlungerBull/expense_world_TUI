@@ -4,6 +4,17 @@ test infrastructure (fixtures live in conftest.py).
 Import style: `from tests.unit.helpers import FakeClient, wait_for, ...`.
 Keep this module free of Textual imports at module level so the sheet-import
 test files pay no TUI import cost.
+
+Conventions the helpers rest on (CLAUDE.md "Testing conventions" holds the rule):
+- A test about name display patches `load_*_name_map` at the screen module
+  (`expense.tui.screens.X.load_...`), not at `expense.reads`; a test not about names
+  leaves it unpatched and gets the short-id fallback.
+- A test that reads what a toast shows runs with `run_app(..., toasts=True)` and reads
+  `toasts_shown(app)`; one that only needs what was sent patches `notify`.
+
+Known and accepted: a screen load may open several short-lived clients (Transactions: the
+page and three name maps; the bulk pick's reference lists load once, on the first bulk
+key), harmless on loopback.
 """
 
 import asyncio
@@ -1096,9 +1107,10 @@ def account_with_currencies(base: dict | None = None, /, **fields: Any) -> dict:
     `held_currency` in the order the engine lists them, PEN before USD
     (contract: GET /v1/accounts/{account_id}) (contract: "Bank Accounts", "Per-currency order").
     It is the shared account builder for the model of one account holding its
-    currencies. A person passes `kind="person"` and holds no bank (`bank_code` `None`);
-    a bank account's `numbers` are `{last4, start_date, end_date}` entries, the first with
-    no start day (contract: PUT /v1/accounts/{account_id})."""
+    currencies: a test passes only the fields it is about, and no test file defines an
+    account builder of its own. A person passes `kind="person"` and holds no bank
+    (`bank_code` `None`); a bank account's `numbers` are `{last4, start_date, end_date}`
+    entries, the first with no start day (contract: PUT /v1/accounts/{account_id})."""
     account = {**_ACCOUNT_HOLDING, **(base or {}), **fields}
     if account["kind"] == "person" and "bank_code" not in fields:
         account["bank_code"] = None
@@ -1475,6 +1487,11 @@ async def wait_for(
 
     Fails the test on timeout — a timed-out wait should point at the wait
     site, not surface as a confusing assert a few lines later.
+
+    Wait for the thing the test is about: a save is over when its request was sent
+    *and* `_saving` is false again. A bare `pilot.pause()` is for asserting a
+    non-event (an inert key), where no predicate can be written; a timed
+    `pilot.pause(<n>)` guesses the app's speed, so the test says why.
     """
     for _ in range(max(1, round(timeout / interval))):
         await pilot.pause(interval)

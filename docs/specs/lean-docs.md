@@ -58,7 +58,7 @@ Everything else lives in code and docstrings, and docs point to the file.
    | Doc | Before | Target |
    |---|---:|---:|
    | docs/tui.md | 26,124 | ≤ 5,000 |
-   | CLAUDE.md | 2,632 | ≤ 1,500 |
+   | CLAUDE.md | 2,632 | ≤ 2,300 (2026-11-11: every rule kept, "How work runs" as it is) |
    | docs/decisions.md | 17,999 | ≤ 17,999 |
    | docs/runtime.md | 3,344 | ≤ 2,600 |
    | AGENTS.md | 91 | ≤ 60 |
@@ -106,8 +106,6 @@ Everything else lives in code and docstrings, and docs point to the file.
 Each task keeps `pytest tests/unit` green and reports words before and after for every doc it
 touches, with a moves list: each removed passage and where it now lives.
 
-1. **CLAUDE.md as a map,** with the test conventions' one home; AGENTS.md as one line; the
-   re-count of tui.md's sections.
 2. **runtime.md as the operations doc** and the practice engine's one home; the script header
    and README.md point to it.
 3. **tui.md §2, first half:** Setup, Home, the ledger and the bulk pick, the Edit form, no

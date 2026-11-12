@@ -14,7 +14,7 @@ Decisions whose why lives elsewhere:
 | Decision | The why lives in |
 |---|---|
 | The app is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
-| Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [runtime.md](runtime.md) "Write semantics" |
+| Server-first writes, no offline queue | "All reads are live" below · [runtime.md](runtime.md) "Write semantics" |
 | Every screen is mocked first, and showing a mockup is not approval | [CLAUDE.md](../CLAUDE.md) "Mock every screen before building it" |
 | The agent loop's rules (roles, per task, per spec) | [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; the why is below |
 | PAT auth (`ewe_pat_` prefix) | [commands.md](commands.md) "Auth model" |
@@ -190,11 +190,12 @@ Decisions whose why lives elsewhere:
 
 ## All reads are live — no local replica (2026-08-06)
 
-**Decision.** No cache and no write queue: every read is a live GET, every write waits for the answer. Details: [runtime.md](runtime.md).
+**Decision.** No cache and no write queue: every read is a live GET, every write waits for the answer.
 
-**Why.** The engine runs on the owner's Mac, so a read is sub-millisecond and a replica only adds staleness and conflicts.
+**Why.** The engine runs on the owner's Mac, so a read is sub-millisecond, a replica adds only staleness and conflicts, and every client gets
+one request → wait → done contract.
 
-**Rejected.** *A cache rebuilt from REST reads* — every consistency cost, no latency gain. *Local-first writes with a last-write-wins queue* — the engine's writes have computed side effects, so it means duplicating the engine or "saved" rows bouncing later.
+**Rejected.** *A cache from REST reads* — every consistency cost, no latency gain. *Local-first writes with a last-write-wins queue* — the engine's writes have computed side effects, so it means duplicating the engine or "saved" rows bouncing.
 
 ## Transfers are two ordinary transactions (2026-08-16)
 
