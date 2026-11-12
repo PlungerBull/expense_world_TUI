@@ -56,7 +56,7 @@ filtered ledger is back to Home, never to the unfiltered ledger).
 `@Pendiente` is a row on Home, and `⏎` on it is the filter.
 """
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Callable, Hashable, Iterable
 from typing import NamedTuple
 
 from rich.console import RenderableType
@@ -88,6 +88,7 @@ from expense.formatting import (
 )
 from expense.reads import (
     ENGINE_PAGE_CAP,
+    QuickAddRefs,
     hashtags_to_send,
     load_account_index,
     load_category_name_map,
@@ -275,7 +276,7 @@ def refusal_notes(
     one per line in those words (`named_rows`) instead."""
     if row_lines is None:
         refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
-        phrase = rows_phrase
+        phrase: Callable[[Iterable[int]], str] = rows_phrase
     else:  # a row stands for its place in `failed`, counted from 1
         keys = [key for key, *_ in failed]
         refusals = [
@@ -393,7 +394,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         Binding("s", "split", "Edit", tooltip="Edit the transaction and its parts"),
         DELETE_KEY,
     ]
-    crumb = ("Capture & ledger", "Transactions")
+    crumb: tuple[str, ...] = ("Capture & ledger", "Transactions")
     #: The keys that wait for a row: the `?` card and `check_action` both read this
     #: (`waits_for_a_row`, help.py).
     CARD_NEEDS_A_ROW = frozenset({"select_all", "pick", "split", "delete"})
@@ -416,7 +417,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self._maps: tuple[dict, dict, dict] = ({}, {}, {})
         self._archived: frozenset = frozenset()  # ids of the archived accounts
         self._grow = GrowingRead(self, on_more=self._append_loaded)
-        self._refs = None  # QuickAddRefs, loaded on the first bulk key
+        self._refs: QuickAddRefs | None = None  # loaded on the first bulk key
         self._pending_pick: str | None = None
         self._bulk_busy = False
         self._delete_reading = False  # `d` is reading the cursor row's bank line
@@ -741,6 +742,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
     def _picker_options(self, kind: str) -> list[tuple[str, str]]:
         refs = self._refs
+        assert refs is not None  # the pickers open once `_set_refs` has loaded them
         if kind == "category":
             # @Pendiente is pickable here on purpose: sending rows back to
             # pending is how a wrong bulk pick is undone
@@ -768,25 +770,28 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if picked is None or self._bulk_busy:
             return
         names = dict(self._picker_options(kind))
+        payload: dict[str, str | list[str]]
+        pick_id = str(picked)  # a single id for every kind but hashtags, which sends a list
         if kind == "account":
-            held = {a: (n, codes) for a, n, codes in self._refs.quickadd_accounts}.get(picked)
+            assert self._refs is not None  # `_picker_options` has just read it
+            held = {a: (n, codes) for a, n, codes in self._refs.quickadd_accounts}.get(pick_id)
             if held is None:
                 return
-            label, payload = held[0], {"account_id": picked}
+            label, payload = held[0], {"account_id": pick_id}
             # `account_id` alone, whatever the account holds: the engine moves a row to an
             # only currency the row lacks, the amount as it is, keeps a row's own currency
             # on an account holding it, and refuses a row an account of several lacks.
         elif kind == "currency":
-            label = names.get(picked, str(picked))
-            payload = {"currency_code": picked}
+            label = names.get(pick_id, pick_id)
+            payload = {"currency_code": pick_id}
         elif kind == "hashtags":
-            ids = list(picked) if isinstance(picked, list) else [picked]
+            ids = list(picked) if isinstance(picked, list) else [pick_id]
             ids = hashtags_to_send(ids, self._refs.pending_hashtag_id if self._refs else None)
             label = " ".join("#" + names.get(i, i) for i in ids) or "(no tags)"
             payload = {"hashtag_ids": ids}
         else:
-            label = names.get(picked, str(picked))
-            payload = {"category_id": picked}
+            label = names.get(pick_id, pick_id)
+            payload = {"category_id": pick_id}
         self._bulk_busy = True
         self.refresh_bindings()
         writes = bulk_writes(

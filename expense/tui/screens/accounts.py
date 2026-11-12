@@ -224,6 +224,8 @@ class AccountsScreen(ResourceListScreen):
         if waits_for_a_row(self, action):
             return False  # empty list → nothing to act on; the keys leave the footer
         item = self.selected_record()
+        if item is None:
+            return False
         if action in ("add_currency", "remove_currency"):
             return True  # any account, a person's and an archived one's too: the engine judges
         if item.get("is_archived") or item.get("kind") == "cash":

@@ -52,9 +52,8 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-Counted 2026-11-12 after task 3: 54 errors in 8 files; the other 57 modules are checked.
+Counted 2026-11-12 after task 4: 38 errors in 6 files; the other 59 modules are checked.
 
-4. mypy: transactions.py and accounts.py, 16.
 5. mypy: statements.py, 20; two of them come from `_read_statements`'s `kw: dict` (:528),
    which takes `FetchKwargs`.
 6. mypy: log_bar.py, create_forms.py, statement_upload.py, bank_import.py and
