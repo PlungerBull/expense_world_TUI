@@ -246,7 +246,8 @@ class AuthScreen(SectionScreen):
         """`f`: ask which format, then `PUT /auth/settings` with it, or `null` for Follow
         this Mac. The engine judges the value (contract: PUT /v1/auth/settings): a refusal
         shows under the question in its words and nothing changes.
-        Saved, the session format follows at once (`set_current_format`)."""
+        Saved, the session format follows at once (`set_current_format`); a screen already
+        drawn takes it at its next load."""
         if self._format_state is None:
             return
         setting, region_format = self._format_state

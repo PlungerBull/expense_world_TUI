@@ -1512,7 +1512,7 @@ class NewStatementScreen(FormScreen):
     def _refusal_text(self, exc: Exception) -> str:
         """The engine's words whole; a refusal naming one currency's entry
         (`balances.USD`, or `balances.<i>.…` by its place in the body) puts the
-        cursor on that currency's begin balance."""
+        cursor on that currency's begin balance (contract: POST /v1/statements, "Order")."""
         self._refused_line = None
         if isinstance(exc, EngineError):
             for field in [*(exc.reasons or {}), *(exc.fields or {})]:

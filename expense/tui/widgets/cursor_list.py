@@ -213,7 +213,10 @@ LIST_KEYS = frozenset({"move", "select", "toggle", "more", "page"})
 def waits_for_a_row(owner, action: str) -> bool:
     """True when `owner` (a list widget or the screen around one) names `action` in its
     `CARD_NEEDS_A_ROW` class frozenset and its `has_rows` is false: the footer's
-    `check_action` drops the key and the `?` card does not list it. Both ask this one test."""
+    `check_action` drops the key and the `?` card does not list it. Both ask this one test.
+    A `check_action` answers `False`, not `None`, for such a key: `None` leaves it in the footer
+    dimmed, and is kept for a key that is off only for a moment (the ledger's `pick` while a
+    bulk write runs)."""
     return action in getattr(owner, "CARD_NEEDS_A_ROW", ()) and not owner.has_rows
 
 
