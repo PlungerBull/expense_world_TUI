@@ -106,11 +106,11 @@ Everything else lives in code and docstrings, and docs point to the file.
 Each task keeps `pytest tests/unit` green and reports words before and after for every doc it
 touches, with a moves list: each removed passage and where it now lives.
 
-3. **tui.md §2, first half:** Setup, Home, the ledger and the bulk pick, the Edit form, no
-   statement. Before a walkthrough goes, check that each of its keys is on the `?` card or in
-   the footer.
 4. **tui.md §2, second half:** the imports, the statement PDF, Accounts and Manage, delete,
-   refusals, the account forms, chrome.
+   refusals, the account forms, chrome. "Stepping past COLOR keeps it" moves out of the Edit
+   form block into Accounts and Manage, keeping its heading. The Edit form block is 718 words
+   against 350: "A move takes a row out of its statement" and the split-transaction counts can
+   point at `unassign_on_move`, `moved_parts` and `bulk_writes` for what they hold.
 5. **tui.md §4 becomes the cross-screen key rules;** Statements joins §2; §1, §3 and §5 become
    rules plus pointers; §6 goes to its home.
 6. **Re-point the citations** of every removed tui.md section in code, docs and decisions.md.
@@ -124,3 +124,7 @@ Not built in this spec; sorted when it is done.
   fails fast, though a connect timeout is retried (:117, `TimeoutException`); docs/runtime.md
   says "5xx", though :31 retries only 500, 502, 503 and 504. check_fixture_drift.py:21 says the
   run fails when the versions differ, leaving out a missing saved version.
+- **expense/tui/screens/transactions.py:20-21's docstring says an account move sends
+  `account_id` and `currency_code`;** the code sends `account_id` alone (:775), as tui.md says.
+- **expense/tui/screens/edit_form.py:4-5's docstring leaves CURRENCY out** of the shared fields
+  (`DATE › TITLE › ACCOUNT`), though the form shows it after ACCOUNT (:59).
