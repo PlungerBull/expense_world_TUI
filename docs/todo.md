@@ -27,7 +27,9 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
    before it is sent".
 2. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
    engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
-3. [Lean docs](specs/lean-docs.md): approved 2026-11-11.
+3. [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its acceptance check
+   waits on the practice engine, off until you say the engine's rebuild is done, since the moved
+   contract citations are checked live.
 4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11.
 5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
@@ -53,6 +55,18 @@ When the loop's summary says v1.0.0 is ready, run `python3 scripts/release.py` i
 folder (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`).
 Once `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
+
+### tui.md ends at 5,778 words, not 5,000: accept it?
+Asked 2026-11-12 · Blocks: [lean docs](specs/lean-docs.md)'s finish
+Every task is done. tui.md went from 26,124 words to 5,778; your target was 5,000 or less, and all
+the docs together are 33,392 against 32,000. What is left is mostly engine rules quoted with where
+the engine says them, and a few rules no code comment says; cutting them means moving each into the
+code first. CLAUDE.md (2,241), runtime.md (2,306), decisions.md (17,979) and AGENTS.md (24) meet
+theirs, and the new docs/README.md index is 258.
+- **A.** Accept 5,778 and finish the spec.
+- **B.** One more task: move the engine rules into the code that sends them, then cut tui.md to 5,000.
+**Recommended:** A, because each remaining line is a rule someone reading tui.md needs, and moving it
+into code only hides it from the next reader.
 
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
