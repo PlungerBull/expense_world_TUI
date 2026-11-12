@@ -52,11 +52,6 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-8. `--verbose` adds request and reply bodies to the log; a test that no token or Authorization
-   value reaches it. The token also reaches no traceback: `EngineConnectionError` takes httpx's
-   message as its own (expense/errors.py:45-49), so a token pasted with a trailing space would
-   ride in a logged traceback (tui/app.py:161-166, errors.py:441-442); a filter in
-   expense/applog.py that blanks the token in every record closes every such path.
 
 ## Found along the way
 

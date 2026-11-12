@@ -7,6 +7,7 @@ and what never does: docs/runtime.md "The log".
 
 import logging
 import os
+import re
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -15,6 +16,42 @@ DEFAULT_LOG_PATH = "~/Library/Logs/expense_world/tui.log"
 MAX_BYTES = 1_000_000
 BACKUP_COUNT = 3
 _FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+
+
+_MARK = "[REDACTED]"
+# A `Bearer ...` value, or anything shaped like a token (the `ewe_pat_` prefix).
+_SECRET = re.compile(r"Bearer\s+\S+|ewe_pat_\S+")
+# Every token a client has sent, so one saved while the app runs is covered too.
+_tokens: set[str] = set()
+
+
+def remember_token(token: str) -> None:
+    """Blank this token (and its stripped form) in every record from now on."""
+    _tokens.update({token, token.strip()} - {""})
+
+
+def redact(text: str) -> str:
+    for token in sorted(_tokens, key=len, reverse=True):
+        text = text.replace(token, _MARK)
+    return _SECRET.sub(_MARK, text)
+
+
+class _TokenFilter(logging.Filter):
+    """Blank the token and any `Bearer ...` value in the whole record, traceback
+    included, whatever a message or an exception's text happens to carry."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            record.msg = redact(record.getMessage())
+            record.args = None
+            if record.exc_info:
+                record.exc_text = redact(logging.Formatter().formatException(record.exc_info))
+                record.exc_info = None
+            elif record.exc_text:
+                record.exc_text = redact(record.exc_text)
+        except Exception:  # noqa: BLE001 - a log call never raises into app code
+            pass
+        return True
 
 
 def log_path() -> Path:
@@ -47,5 +84,6 @@ def configure() -> None:
     except OSError:
         logger.addHandler(logging.NullHandler())
         return
+    handler.addFilter(_TokenFilter())
     handler.setFormatter(logging.Formatter(_FORMAT))
     logger.addHandler(handler)

@@ -1,6 +1,7 @@
 """The app's log file: what the HTTP client writes to it, where it lives, and that a
 location that cannot be written never stops the app."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -140,3 +141,53 @@ def test_an_unexpected_crash_of_a_command_is_logged_and_still_propagates(log_fil
         command()
 
     assert "command-crash" in log_file()
+
+
+def _post_a_name(verbose: bool):
+    respx.post(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(201, json={"id": "reply-1"}))
+    with ExpenseClient(Config(engine_url=BASE, token=ENGINE_TOKEN), verbose=verbose) as client:
+        client.post("/accounts", json_body={"name": "sent-name"})
+
+
+@respx.mock
+def test_verbose_puts_the_request_and_reply_bodies_in_the_log(log_file):
+    _post_a_name(verbose=True)
+
+    text = log_file()
+    assert 'request body: {"name": "sent-name"}' in text
+    assert "reply body: " in text
+    assert "reply-1" in text
+    assert "Authorization" not in text
+
+
+@respx.mock
+def test_without_verbose_no_body_reaches_the_log(log_file):
+    _post_a_name(verbose=False)
+
+    text = log_file()
+    assert "POST /v1/accounts 201" in text
+    assert "sent-name" not in text
+    assert "reply-1" not in text
+
+
+@respx.mock
+def test_no_token_or_bearer_value_reaches_any_line_including_a_traceback(log_file):
+    token = "ewe_pat_secret "
+    message = f"Illegal header value b'Bearer {token}'"
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json={}))
+    with ExpenseClient(Config(engine_url=BASE, token=token), verbose=True) as client:
+        client.get("/accounts")
+    try:
+        try:
+            raise httpx.LocalProtocolError(message)
+        except httpx.LocalProtocolError as exc:
+            raise EngineConnectionError(url=BASE, original=exc) from exc
+    except EngineConnectionError as err:
+        format_error(err)
+        logging.getLogger("expense.tui.app").error("unhandled error", exc_info=err)
+
+    text = log_file()
+    assert "Traceback" in text
+    assert "ewe_pat_secret" not in text
+    assert "Bearer" not in text
+    assert "[REDACTED]" in text

@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from expense import applog
 from expense.config import Config
 from expense.errors import EngineConnectionError, EngineError
 
@@ -49,6 +50,8 @@ class ExpenseClient:
     ):
         self._config = config
         self._verbose = verbose
+        if config.token:
+            applog.remember_token(config.token)
 
         timeout = httpx.Timeout(connect=timeout_connect, read=timeout_read, write=10.0, pool=5.0)
         self._client = httpx.Client(
@@ -217,10 +220,12 @@ class ExpenseClient:
             print(f"    {name}: {value}", file=sys.stderr)
         if request.content:
             try:
-                decoded = json.dumps(json.loads(request.content))
-                print(f"    body: {decoded}", file=sys.stderr)
+                shown = json.dumps(json.loads(request.content))
+                print(f"    body: {shown}", file=sys.stderr)
             except (JSONDecodeError, ValueError):
-                print(f"    body: {request.content[:500]!r}", file=sys.stderr)
+                shown = repr(request.content[:500])
+                print(f"    body: {shown}", file=sys.stderr)
+            log.info("request body: %s", shown)
         print(file=sys.stderr, flush=True)
 
     def _dump_response(self, response: httpx.Response) -> None:
@@ -233,4 +238,5 @@ class ExpenseClient:
             print(f"    {name}: {value}", file=sys.stderr)
         if response.content:
             print(f"    body: {response.text}", file=sys.stderr)
+            log.info("reply body: %s", response.text)
         print(file=sys.stderr, flush=True)
