@@ -25,10 +25,11 @@ def rate_alert(stale: bool | None, palette: Palette | None = None) -> Text:
 
     `stale` is `App.rate_stale`: True when today has no exchange rate of its own
     and every home-currency figure is being priced at an older day's rate.
-    False (fresh) and None (not yet known — pre-fetch, offline, unconfigured)
-    both render nothing. **None must stay silent**: an indicator that fires when
-    it cannot reach the engine is reporting on the connection, not on the rate,
-    and one that cries wolf gets ignored on the day it is right.
+    There is no grace period: it also shows on an ordinary morning before the
+    engine's fetch job has run. False (fresh) and None (not yet known — pre-fetch,
+    offline, unconfigured) both render nothing. **None must stay silent**: an
+    indicator that fires when it cannot reach the engine is reporting on the
+    connection, not on the rate, and one that cries wolf gets ignored on the day it is right.
 
     Warning-colored, not error-colored: carried-forward rates are the engine's
     designed fallback and the figures stay roughly right, so this is "look at

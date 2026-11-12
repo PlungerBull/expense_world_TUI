@@ -1,6 +1,6 @@
 # Decision record
 
-Why the product is the way it is today, and what was rejected, so nobody re-litigates it. Only decisions that govern current code or product live here; a decision that is undone, or whose subject is deleted, is deleted too (git history is the archive).
+Why the product is the way it is, and what was rejected, so nobody re-litigates it. Only decisions that govern current code or product live here; a decision that is undone, or whose subject is deleted, is deleted too; git keeps it.
 
 Rules for this file:
 
@@ -309,7 +309,7 @@ one request → wait → done contract.
 
 ## The LOG bar shows the named account's ledger — elastic, and it stays put (2026-08-29)
 
-**Decision.** The account the line names shows its ledger under the staged list: elastic, the bar's account never a staged row's, staying on the last one named. No balance. Its count line names the pick's label, as an account holds several currencies and the peek lists one. Details: [tui.md](tui.md) "The account peek".
+**Decision.** The account the line names shows its ledger under the staged list: elastic, the bar's account never a staged row's, staying on the last one named. No balance. Its count line names the pick's label, as an account holds several currencies and the peek lists one. Details: [log_bar.py](../expense/tui/screens/log_bar.py) `AccountPeek`.
 
 **Why.** It answers "did I already log this?" for the line being typed, without taking rows from the batch.
 
@@ -366,8 +366,8 @@ missing title to the category or account* — invented text that looks typed. *S
 **Decision.** BCP `.xlsx` downloads go to the engine whole, dry run first, and the engine reads
 and matches them ([tui.md](tui.md) "The import door"); titles play no part
 (contract: POST /v1/transactions/import, "Matching") and there is no amount-only rule. The
-account is asked every run. A day whose totals disagree is only reported; ledger lines no row
-claimed stay out of that month's reconciliation and are deleted there. A row a day off its
+account is asked every run, and a day whose totals disagree is only reported
+([bank_import.py](../expense/tui/screens/bank_import.py) `preview_days`). A row a day off its
 ledger line is new. The title is the bank's text and the client writes no description (the
 owner's notes field). New rows land under `@Pendiente` and `#Pendiente`, classified by hand in
 Home. Unclaimed lines arrive unsigned and the engine will not sign them, so one guarded helper
@@ -724,7 +724,7 @@ category's tags* — the TUI is the surface in use.
 
 **Decision.** `c` on a draft with blank balances asks for each, saves them in one write, then asks
 `Complete statement?`; a refused complete naming a balance or a currency opens the same boxes for
-it ([tui.md](tui.md) "`c` needs every balance", "A refused complete"). Saving and completing stay
+it ([statements.py](../expense/tui/screens/statements.py)'s module docstring; [tui.md](tui.md) "A refused complete"). Saving and completing stay
 two writes, and a refused save closes the box.
 
 **Why.** The engine refuses a complete with a balance not entered (contract: POST /v1/statements/{statement_id}/complete, "Every balance must be entered")
@@ -804,7 +804,7 @@ balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn
 
 ## The bank import's preview is one table: a mark and a reason per file row (2026-10-18)
 
-**Decision.** The preview is one table of every row the engine read, each with a mark and one reason from a short fixed list: ✓ the row is in the ledger after the import, ✗ it needs looking at, `·` a row of `0`. A move to the bank's day is one more "Modified existing transaction"; a move a completed statement stops is ✗ `Not moved: <statement> is completed`, the statement named by one read by its id (contract: GET /v1/statements/{statement_id}). The days where the file and the ledger disagree show on the preview only. Details: [tui.md](tui.md) §2 "The import door".
+**Decision.** The preview is one table of every row the engine read, each with a mark and one reason from a short fixed list: ✓ the row is in the ledger after the import, ✗ it needs looking at, `·` a row of `0`. A move to the bank's day is one more "Modified existing transaction"; a move a completed statement stops is ✗ `Not moved: <statement> is completed`, the statement named by one read by its id (contract: GET /v1/statements/{statement_id}). The days where the file and the ledger disagree show on the preview only ([bank_import.py](../expense/tui/screens/bank_import.py) `preview_days`). Details: [tui.md](tui.md) §2 "The import door".
 
 **Why.** A fixed list takes a new engine behaviour as one more reason, not a new suffix with its own wording. With a reconciliation done right the bank's day and the ledger's agree, so a stopped move points at one completed wrong; it says "not moved" because the bank's title and operation number still land (contract: POST /v1/transactions/import). The engine's answer holds the statement's id alone, as every reference to another record.
 
@@ -873,12 +873,10 @@ over time, and the engine builds its name, `BCP-5678`, or `BCP` until it has a n
 (contract: POST /v1/accounts, "The name"). Every screen shows that name, and no client types or
 builds one, not even to say what a removal or a failed create would leave. A person keeps a typed
 name. A replaced card is the same account, its name following the new card; older numbers read
-`cards before`; emptying `last 4` asks before it removes a number. On the LOG bar, `$` finds a
-name by either word, and `$` with exactly four digits that are one of a card's last 4 finds that
-account; other digits after `$` stay money. Exact-name-wins stays, so `$BCP` is the account named
-`BCP` and every written line parses back to its own account; while `$bcp` is typed, the list
-offers the exact name and every name built on it, in the engine's order. Details: [tui.md](tui.md)
-§2, the account forms and the LOG bar's `$`.
+`cards before`; emptying `last 4` asks before it removes a number. On the LOG bar, `$` and a
+card's last 4 find that account, and an exact name still wins, so every written line parses back
+to its own account ([parse.py](../expense/quickadd/parse.py)). Details: [tui.md](tui.md) §2, the
+account forms.
 
 **Why.** Every BCP paper prints its number, so an account that knows it lets the engine refuse a
 paper sent to the wrong account and name the account as the bank does. A card replaced after a
@@ -1016,7 +1014,6 @@ opens go by the statement's review list and the engine's count of it, never a su
 "The lines a complete flagged for review". (3) A statement is the account's,
 covering its currencies, under the account's code
 (contract: "What an account is", "Statement code"); codes are never matched across accounts. (4) The
-"no statement" list's `!` reads `! dated inside a statement` ([tui.md](tui.md) §2). (5) The
 reserved-names practice user's key is handled like the shared one's ([runtime.md](runtime.md)
 "Working against the live engine").
 
@@ -1048,31 +1045,28 @@ anything is written, so a line the close will flag shows there.
 worked out from the row's moment in the machine's zone* — wrong whenever the machine's zone is not
 the user's.
 
-## A statement PDF comes in through the import door, and its preview is the check (2026-10-27)
+## A statement PDF comes in through the import door (2026-10-27)
 
 **Decision.** (1) A month's PDF is dropped on the LOG bar like a download, its account picked from
 the same list; several files go one by one, and a file's kind is its name's ending alone
 (contract: POST /v1/statements/import). (2) Both uploads send one body from `request_body`, as the
 contract gives both routes the same three keys, and share base preview and result screens. (3) A
 `CONCURRENT_CHANGE` on the apply leads to a fresh preview, never a resend, whatever key it names.
-(4) The preview is the check against another account's PDF: the engine does not compare the paper's
-number with the account. (5) The upload's small details follow the download's. (6) The live suite
+(4) The upload's small details follow the download's. (5) The live suite
 draws its own statement PDFs, with no PDF library
-([test_statement_import.py](../tests/contract/test_statement_import.py)'s docstring). (7) Balance
+([test_statement_import.py](../tests/contract/test_statement_import.py)'s docstring). (6) Balance
 lines follow the engine's currency order; the app sorts nothing
 (contract: POST /v1/statements/import, "Response"). Details: [tui.md](tui.md) §2
 "A statement PDF closes its month" and "A dropped bank file".
 
 **Why.** One door for every bank file is one place to learn; the engine reads the paper, the app
 only sends it. The contract says to resend after the ledger moved. A wrong paper shows almost every
-row as new before anything is written; comparing numbers belongs to accounts carrying them, a spec
-of its own. A test PDF is fixed-width text at exact points, a few lines of code.
+row as new before anything is written. A test PDF is fixed-width text at exact points, a few lines of code.
 
 **Rejected.** *Soles first on a card* — the app would reorder the engine's answer, and clients could
 differ. *Starting the upload from the statement on Reconciliations* — a key and a path field for
 what a drop does. *A PDF dropped only alone* — a download and its PDF could not go in together.
 *Keeping the tick-list on a coded account's open statement* — ticking cannot close the month there.
-*Waiting for accounts to carry their numbers* — closing statements would wait on account names.
 
 ## An account holds its currencies (2026-10-28)
 
@@ -1134,8 +1128,7 @@ out, keeps any later kind out of the bank lists too.
 balance, since the delete removes them all. (2) The currency is a field of its own, picked like any
 other. (3) One currency asks for none, several are picked before a save; the app then sends no currency and
 a move sends the account alone, and the engine settles it, a row moved onto a one-currency account
-taking that currency at the same amount, said as `· was USD · not converted` on the Edit form and
-counted in `b`'s note. (4) A currency move keeps a draft statement and an account move takes the row
+taking that currency at the same amount ([edit_form.py](../expense/tui/screens/edit_form.py), `currency_change_note`). (4) A currency move keeps a draft statement and an account move takes the row
 out, as the engine leaves the assignment to the client (contract: "Statements", "Assigning
 transactions"). Details: [tui.md](tui.md) §2.
 
@@ -1301,7 +1294,7 @@ two lines per row. *Only a count under the table* — it says how many move, not
 block under the form until the next key, sized to fit 80×24; `^s` keeps what is typed as `⏎` would,
 then saves, an untouched line keeping nothing; a long crumb is cut with `…` so the `!` rate alert
 always shows; `pgup Prev` is off a list's first page; a positive transaction amount carries its `+`,
-balances and sums none. Details: [tui.md](tui.md) §1, §3 "Amounts", §4, §5.
+balances and sums none. Details: [header.py](../expense/tui/widgets/header.py), [tui.md](tui.md) §1, §3 "Amounts", §4, §5.
 
 **Why.** Two rows gained per list let the Statements screens fit 80×24. A toast fades before it is
 read or fixed. A value in the bar is typed as far as the user sees, and dropping it drew a refusal
@@ -1406,7 +1399,7 @@ forms say nothing more. *The list waiting for `r`* — it may hide a change that
 ## Quitting asks while saves are still being sent (2026-11-06)
 
 **Decision.** While any save is unanswered or waiting, on any screen, quitting asks first and only
-`y` quits; a save of several writes counts once ([tui.md](tui.md) §1).
+`y` quits; a save of several writes counts once ([_base.py](../expense/tui/screens/_base.py) `pending_writes`).
 
 **Why.** Quitting drops what is still being sent, and you would not learn whether it landed.
 

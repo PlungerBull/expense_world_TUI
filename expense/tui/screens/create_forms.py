@@ -849,10 +849,10 @@ class EditAccountScreen(NewAccountScreen):
     currency's pair read-only so the rest still saves.
 
     The save is one `PUT /accounts/{id}`, all or nothing
-    (contract: PUT /v1/accounts/{account_id}). It carries the account's own fields
-    only when they changed: a person's `name`, the `color`, and the
-    `statement_code`, `null` when the line was emptied, which clears the code with
-    no question. `opening_balances`, keyed by currency code, carries only the
+    (contract: PUT /v1/accounts/{account_id}, "`opening_balances`").
+    It carries the account's own fields only when they changed: a person's `name`,
+    the `color`, and the `statement_code`, `null` when the line was emptied, which
+    clears the code with no question. `opening_balances`, keyed by currency code, carries only the
     currencies whose pair changed: a currency with no opening balance gets a set
     (`transaction_id`, `amount_cents`, `date`); one that has it gets a change of
     only the `amount_cents` and/or `date` that changed; one whose amount was

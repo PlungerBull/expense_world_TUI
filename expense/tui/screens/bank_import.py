@@ -225,7 +225,8 @@ class ImportRun:
     def cancel_label(self) -> str:
         """esc's word before a file is written: it stops this file and every
         file after it, so it counts them — `Cancel all` (three or
-        more), `Cancel both` (two), `Cancel` (this one alone)."""
+        more), `Cancel both` (two), `Cancel` (this one alone). A file already
+        imported stays imported."""
         if self.left >= 3:
             return "Cancel all"
         return "Cancel both" if self.left == 2 else "Cancel"
@@ -545,7 +546,9 @@ def preview_days(
     totals and the rows behind it: the file's by its spreadsheet row, the
     ledger's by title and amount, each part of a split transaction on its own
     line. A report
-    only: nothing on it changes what `⏎` writes."""
+    only: nothing on it changes what `⏎` writes, and the import removes nothing and
+    asks nothing about a row on such a day; it stays out of that month's statement,
+    where it is deleted."""
     if not days:
         return []
     n = len(days)

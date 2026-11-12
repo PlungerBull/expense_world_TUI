@@ -42,8 +42,8 @@ PACKAGE = "expense.tui"
 
 #: A `show=False` binding whose action is the inverse of a shown one needs no row
 #: of its own: it renders as a dim parenthetical on its partner's row
-#: (`↓   Down   (↑ up)`). Textual's panel prints it as a row with a blank
-#: description instead — the `↑ k` row in the §1.2 capture. Maps folded action →
+#: (`↓   Down   (↑ up)`). Textual's own panel prints it as a row with a blank
+#: description instead (`↑ k`). Maps folded action →
 #: the action whose row it joins.
 FOLD_INTO = {"move(-1)": "move(1)"}
 

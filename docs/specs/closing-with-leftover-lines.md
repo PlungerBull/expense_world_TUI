@@ -107,8 +107,6 @@ Not built in this spec; sorted when it is done.
 - **The 80-column wrap test's `startswith("  ")` check is true by construction**
   (test_tui_statement_upload.py, `test_a_full_page_with_a_flagged_line_wraps_its_head_and_ends_above_the_footer_at_80x30`);
   it would also take a three-cell indent.
-- **docs/mockups/expense-world-moves-and-preview.html still draws the old note** `on the paper's
-  days` (:134, :163).
 - **`r` pressed while the Edit form's save is still being sent goes out at once**
   (expense/tui/screens/leftover_lines.py:312-315): `saves_pending()` counts only the screen's own
   writes, so the dry run can read the line before the save lands, and the save's own dry run

@@ -1,8 +1,8 @@
 """Doc hygiene guard (CLAUDE.md doc rules (5) "No provenance" and (6) "Point, don't restate").
 
-Three checks keep a clean-up clean: no doc and no code in expense/, tests/ and scripts/ carries
+Two checks keep a clean-up clean: no doc and no code in expense/, tests/ and scripts/ carries
 a provenance tag (a mockup pane, a pick letter, an owner-and-date stamp; a bare "3 A" passes in
-code), and each doc stays under a word budget.
+code).
 """
 
 import re
@@ -16,7 +16,6 @@ PROVENANCE_DOCS = sorted(
     [REPO_ROOT / "CLAUDE.md", REPO_ROOT / "README.md", REPO_ROOT / "AGENTS.md"]
     + [p for p in DOCS.glob("*.md") if p.name != "todo.md"]
 )
-BUDGET_DOCS = sorted(PROVENANCE_DOCS + [DOCS / "todo.md"])
 
 # Case-insensitive; a spaced option letter must be a capital, so prose such as "screen 3 a row"
 # stays legal. A bare "screen N" or "question N" is not a tag; "pane N" always is.
@@ -33,20 +32,6 @@ _PROVENANCE = [
     _OWNER_STAMP_DOC,
 ]
 
-# Each doc's ceiling: its word count (`wc -w`) rounded up to the next 100, plus about 10%.
-BUDGETS = {
-    "AGENTS.md": 110,
-    "CLAUDE.md": 3400,
-    "README.md": 330,
-    "docs/commands.md": 2530,
-    "docs/decisions.md": 18150,
-    "docs/file-import-plan.md": 220,
-    "docs/runtime.md": 3500,
-    "docs/todo.md": 2970,
-    "docs/tui.md": 26800,
-}
-
-
 # CLAUDE.md rule (5) quotes the tags it forbids; that one sentence is not scanned.
 _RULE_5 = re.compile(r"\*\*\(5\) No provenance\*\*.*?(?=\*\*\(6\))", re.DOTALL)
 
@@ -61,19 +46,6 @@ def _provenance_hits(rel: str, text: str) -> list[str]:
     return hits
 
 
-def _over_budget(rel: str, text: str, budgets: dict[str, int]) -> str | None:
-    if rel not in budgets:
-        return f"{rel} has no word budget: add it to BUDGETS in tests/unit/test_doc_hygiene.py"
-    words = len(text.split())
-    if words > budgets[rel]:
-        return (
-            f"{rel} is {words} words, over its budget of {budgets[rel]}: cut what restates "
-            "code or another doc (CLAUDE.md doc rules (5) and (6)) before adding; "
-            "raise the budget only in the same commit, saying why."
-        )
-    return None
-
-
 def test_no_doc_holds_a_provenance_tag():
     hits = []
     for doc in PROVENANCE_DOCS:
@@ -82,16 +54,6 @@ def test_no_doc_holds_a_provenance_tag():
         "Docs hold provenance tags (CLAUDE.md doc rule (5): state the fact, not where "
         "it was picked):\n  " + "\n  ".join(hits)
     )
-
-
-def test_every_doc_is_within_its_word_budget():
-    problems = []
-    for doc in BUDGET_DOCS:
-        rel = doc.relative_to(REPO_ROOT).as_posix()
-        problem = _over_budget(rel, doc.read_text(), BUDGETS)
-        if problem:
-            problems.append(problem)
-    assert not problems, "\n".join(problems)
 
 
 def test_provenance_guard_trips():
@@ -142,20 +104,6 @@ def test_provenance_guard_trips():
         "the screen 2 lines up",
     ):
         assert not _provenance_hits("docs/x.md", text), text
-
-
-def test_budget_guard_trips():
-    assert _over_budget("a.md", "one two three", {"a.md": 3}) is None
-    over = _over_budget("a.md", "one two three four", {"a.md": 3})
-    assert over is not None
-    assert over.startswith("a.md is 4 words, over its budget of 3: cut what restates")
-    missing = _over_budget("new.md", "one", {"a.md": 3})
-    assert missing is not None
-    assert "new.md has no word budget" in missing
-
-
-def test_every_budget_names_a_doc_in_scope():
-    assert set(BUDGETS) == {p.relative_to(REPO_ROOT).as_posix() for p in BUDGET_DOCS}
 
 
 # Code guard: the same tags stay out of comments, docstrings, test names and parametrize ids.

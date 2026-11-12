@@ -106,16 +106,6 @@ Everything else lives in code and docstrings, and docs point to the file.
 Each task keeps `pytest tests/unit` green and reports words before and after for every doc it
 touches, with a moves list: each removed passage and where it now lives.
 
-7. **Mockups, the budget check and `docs/README.md`,** as answered; the final word counts. Before
-   counting, the trims named in review that lose no fact: the Account forms' opening-balance
-   bullets restate `EditAccountScreen`'s docstring; the bank import's "The days where the file
-   and the ledger disagree" and "Several files" restate bank_import.py (the date-range export
-   warning stays); Accounts and Manage's `x` 404 answers and the `c` archived-account sentence
-   restate the contract and accounts.py. help.py:46 cites "the §1.2 capture" of a mockup the
-   mockup removal deletes. Statements (about 490 words, target 250) retells
-   the statements.py module docstring; the LOG bar's "A dropped bank file", "The legend row" and
-   "The account peek", and §1's rate alert, retell log_bar.py, dropped.py, header.py and
-   reads.py: each can lose about half once task 6 has re-pointed its citers.
 
 ## Found along the way
 
