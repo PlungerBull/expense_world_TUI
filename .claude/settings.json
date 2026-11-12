@@ -12,7 +12,7 @@
       "Bash(git show*)",
       "Bash(git add *)",
       "Bash(PATH=\"$PWD/.venv/bin:$PATH\" git commit *)",
-      "Bash(git push origin main)",
+      "Bash(git push origin develop)",
       "Bash(git push)"
     ]
   },

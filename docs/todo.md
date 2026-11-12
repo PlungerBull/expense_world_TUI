@@ -47,28 +47,12 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Two branches: push the last `main` commit, create `develop`, set up the live folder
-Asked 2026-11-11 · Blocks: every push of the loop, and the first release
-The guard now keeps agents off `main`, so the loop's work waits unpushed on local `main` until
-`develop` exists. In the work folder, in this order:
-1. `git push origin main` (the guard blocks agents from it).
-2. In `.claude/settings.json`, change `Bash(git push origin main)` to
-   `Bash(git push origin develop)` (agents never edit permission settings).
-3. `git branch develop main` then `git push -u origin develop`; tell the loop, which then runs
-   `git fetch && git checkout develop` and works there.
-4. `git clone https://github.com/PlungerBull/expense_world_TUI.git "$HOME/Library/Application Support/expense_world/tui"`.
-5. Remove the old install: `pipx uninstall expense-cli-menu`, if it is a pipx install (is it?).
-The first install, `python3 scripts/release.py` in the live folder (needs `gh` logged in and
-`pipx`), waits for the loop to prepare v1.0.0 on `develop` and CI to pass it.
+### Your first release, then the old install goes
+Asked 2026-11-11 · Blocks: nothing yet; the first install follows the loop preparing v1.0.0
+When the loop's summary says v1.0.0 is ready, run `python3 scripts/release.py` in the live
+folder (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`).
+Once `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
-
-### The reply for 2fa4967b8eed9c3f left the outbox: handed over?
-Asked 2026-11-11 · Blocks: nothing
-`docs/to-engine/caught-up-with-2fa4967b8eed9c3f.md` was deleted from the working copy on
-2026-11-11, not by the loop; the deletion is left out of every commit.
-- **A.** You copied it to the engine: the deletion is committed.
-- **B.** It was not handed over: the file is restored from git.
-**Recommended:** none, a fact only you know.
 
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
