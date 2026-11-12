@@ -70,13 +70,13 @@ class ExpenseApp(App):
         self._setup = setup
 
     _quit_question: ConfirmModal | None = None
-    _after_quit_question: list[Callable[[], None]]
+    _after_quit_question: list[Callable[[], object]]
 
     @property
     def quit_question_open(self) -> bool:
         return self._quit_question is not None and self._quit_question in self.screen_stack
 
-    def after_quit_question(self, leave: Callable[[], None]) -> None:
+    def after_quit_question(self, leave: Callable[[], object]) -> None:
         """Run `leave` (a screen closing itself) now, or, while the quit question is on
         top, once it is answered: closing a screen pops the top one, which would be the
         question. Dropped when the answer is `y`."""

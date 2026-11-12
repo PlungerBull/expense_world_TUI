@@ -52,11 +52,6 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-Counted 2026-11-12 after task 5: 18 errors in 5 files; the other 60 modules are checked.
-
-6. mypy: log_bar.py, create_forms.py, statement_upload.py, bank_import.py and
-   leftover_lines.py, 18 (6, 4, 4, 2, 2); the file list becomes the whole package and `follow_imports = "silent"`
-   goes with it; CLAUDE.md's lint line says so.
 7. **The log:**
    - requests, refusals, retries and unexpected errors, at the fixed place, rotating, with no token;
    - the redirect, and the unit tests' redirect;
@@ -67,3 +62,10 @@ Counted 2026-11-12 after task 5: 18 errors in 5 files; the other 60 modules are 
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+- **Older `# type: ignore`s mypy no longer needs:** `self.app.after_quit_question(...)` at
+  expense/tui/screens/log_bar.py:1051 and setup.py:375 could go through `expense_app(...)` as
+  bank_import.py does; modals.py:38-50 keeps four that a Screen-host base could clear.
+- **`self._name` shadows Textual's `DOMNode._name`** (the widget's `name`) in `AccountPeek`
+  (log_bar.py:687), `EditAccountScreen` (create_forms.py:907) and `StatementLeftoverScreen`
+  (leftover_lines.py:468); harmless today, as nothing reads the widget's name, but a rename such
+  as `_account_name` keeps the two apart.

@@ -58,6 +58,7 @@ from expense.formatting import (
 from expense.tui.screens._base import (
     call_while_attached,
     counted_save,
+    expense_app,
     relabel,
     screen_fetch_kwargs,
 )
@@ -419,7 +420,7 @@ class StatementPreviewScreen(PreviewScreen):
         apply's, shows here."""
         if not self._writing and refused_on_number(err):
             question = StatementAccountScreen(self._run, self._owner, (self._pick, err))
-            self.app.after_quit_question(lambda: self.app.switch_screen(question))
+            expense_app(self.app).after_quit_question(lambda: self.app.switch_screen(question))
             return
         loose = loose_lines(err)
         if loose is not None:
@@ -427,7 +428,7 @@ class StatementPreviewScreen(PreviewScreen):
 
             self._writing = False
             leftover = LeftoverLinesScreen(self._run, self._owner, self._pick, loose)
-            self.app.after_quit_question(lambda: self.app.switch_screen(leftover))
+            expense_app(self.app).after_quit_question(lambda: self.app.switch_screen(leftover))
             return
         super()._failed(err)
 
@@ -511,7 +512,7 @@ class StatementPreviewScreen(PreviewScreen):
         result = StatementResultScreen(
             self._run, self._owner, self._pick, answer, statement_id, flagged
         )
-        self.app.after_quit_question(lambda: self.app.switch_screen(result))
+        expense_app(self.app).after_quit_question(lambda: self.app.switch_screen(result))
         if count_error:
             toast(self.app, count_error, title="Failed", severity="error")
 

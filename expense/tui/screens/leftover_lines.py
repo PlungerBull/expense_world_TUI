@@ -413,7 +413,7 @@ class LeftoverLinesScreen(LeftoverLines, ImportScreen):
         relabel(self, "escape", self._run.cancel_label())
         self._start_lines()
 
-    def on_resize(self, _event) -> None:
+    def on_resize(self) -> None:
         self._resized()
 
     def action_read_again(self) -> None:
@@ -465,7 +465,7 @@ class StatementLeftoverScreen(LeftoverLines, Screen):
         name and `crumb` the statement screen's trail."""
         super().__init__()
         self._statement_id = statement_id
-        self._name = name
+        self._name: str = name
         self._account = account
         self._trail = crumb
         self._loose = loose

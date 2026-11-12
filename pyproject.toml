@@ -55,14 +55,11 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
-# Permissive start, scoped to the plumbing that passes engine JSON around
-# (backlog 4.2); widen the file list / tighten flags as modules get annotated.
+# The whole package is checked, plus the release scripts.
 [tool.mypy]
 python_version = "3.11"
 mypy_path = "scripts"
-# Errors in modules not yet in `files` stay quiet; every listed module is checked in full.
-follow_imports = "silent"
-files = ["expense/__init__.py", "expense/__main__.py", "expense/bank_import/__init__.py", "expense/bank_import/engine.py", "expense/bank_import/flow.py", "expense/bank_import/statement.py", "expense/bank_line_write.py", "expense/batch_write.py", "expense/commands/__init__.py", "expense/commands/import_cmd.py", "expense/config.py", "expense/context.py", "expense/currencies.py", "expense/dates.py", "expense/errors.py", "expense/formatting.py", "expense/http.py", "expense/import_/__init__.py", "expense/import_/engine.py", "expense/jsonout.py", "expense/number_format.py", "expense/quickadd/__init__.py", "expense/quickadd/money.py", "expense/quickadd/names.py", "expense/quickadd/parse.py", "expense/quickadd/payload.py", "expense/quickadd/route.py", "expense/quickadd/when.py", "expense/reads.py", "expense/region.py", "expense/tui/__init__.py", "expense/tui/app.py", "expense/tui/dropped.py", "expense/tui/screens/__init__.py", "expense/tui/screens/_base.py", "expense/tui/screens/_form.py", "expense/tui/screens/_growing.py", "expense/tui/screens/accounts.py", "expense/tui/screens/bulk_pick.py", "expense/tui/screens/categories.py", "expense/tui/screens/edit_form.py", "expense/tui/screens/hashtags.py", "expense/tui/screens/help.py", "expense/tui/screens/home.py", "expense/tui/screens/modals.py", "expense/tui/screens/setup.py", "expense/tui/screens/statements.py", "expense/tui/screens/system.py", "expense/tui/screens/transactions.py", "expense/tui/theme.py", "expense/tui/widgets/__init__.py", "expense/tui/widgets/cells.py", "expense/tui/widgets/checklist.py", "expense/tui/widgets/cursor_list.py", "expense/tui/widgets/footer.py", "expense/tui/widgets/header.py", "expense/tui/widgets/parts_table.py", "expense/tui/widgets/picker.py", "expense/tui/widgets/refusal.py", "expense/tui/widgets/windowed.py", "scripts/release.py", "scripts/prepare_release.py"]
+files = ["expense", "scripts/release.py", "scripts/prepare_release.py"]
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_unused_configs = true

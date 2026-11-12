@@ -79,6 +79,7 @@ from textual.app import ComposeResult
 from textual.binding import ActiveBinding, Binding
 from textual.containers import Horizontal
 from textual.screen import Screen
+from textual.timer import Timer
 from textual.types import NoActiveAppError
 from textual.widgets import Input, Label, Static
 
@@ -679,14 +680,13 @@ class AccountPeek(Static):
     """
 
     def __init__(self) -> None:
-        super().__init__("", id="peek")
+        super().__init__(Text(""), id="peek")
         self._rows: list[tuple] = []
         self._total = 0
         self._note = ""
-        self._name = ""
+        self._name: str = ""
         self._code: str | None = None
         self._status = ""
-        self._content: RenderableType = Text("")
 
     def show(
         self,
@@ -730,14 +730,8 @@ class AccountPeek(Static):
         """
         return max(0, self.content_size.height - self.CHROME_LINES)
 
-    @property
-    def content(self) -> RenderableType:
-        """What the panel is drawing right now — the table, or a note."""
-        return self._content
-
     def _rebuild(self) -> None:
-        self._content = self._build()
-        self.update(self._content)
+        self.update(self._build())  # `content` then reads back the table, or a note
 
     def _build(self) -> RenderableType:
         if self._note:
@@ -841,7 +835,7 @@ class LogBarScreen(Screen):
         self._peek_cache: dict[Pick, tuple[list[dict], int]] = {}
         self._peek_note: dict[Pick, str] = {}
         self._peek_wanted: Pick | None = None
-        self._peek_timer = None
+        self._peek_timer: Timer | None = None
         # the files the bar holds instead of a line — `None` when it is a line
         self._files: list[Path] | None = None
         # why the files in the bar cannot be imported, until the
@@ -1586,7 +1580,7 @@ class LogBarScreen(Screen):
         refused, parsed, refs = self._refused, self._parsed, self._refs
         if refused is None or parsed is None or refs is None:
             return Text("")
-        rows: list[Text] = []
+        rows: list[RenderableType] = []
         head = Text("  ! not staged — ", style=PALETTE.error)
         head.append(", ".join(refused.reasons), style=PALETTE.error)
         rows.append(head)

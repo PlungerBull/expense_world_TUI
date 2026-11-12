@@ -356,7 +356,7 @@ class BarFormScreen(FormScreen):
 
 
 class NewHashtagScreen(BarFormScreen):
-    crumb = ("Manage", "Hashtags", "New")
+    crumb: tuple[str, ...] = ("Manage", "Hashtags", "New")
     RESOURCE = "hashtags"
     NOUN = "hashtag"
     FIELDS = [Field("name", "NAME", required=True, hint="lowercase, no “#” · enter creates")]
@@ -369,7 +369,7 @@ class NewHashtagScreen(BarFormScreen):
 
 
 class NewCategoryScreen(BarFormScreen):
-    crumb = ("Manage", "Categories", "New")
+    crumb: tuple[str, ...] = ("Manage", "Categories", "New")
     RESOURCE = "categories"
     NOUN = "category"
     # Colour is optional: a skipped colour is left out of the body, never sent as
@@ -468,7 +468,7 @@ class NewAccountScreen(BarFormScreen):
     currency at place `i` of the body sent.
     """
 
-    crumb = ("Manage", "Accounts", "New")
+    crumb: tuple[str, ...] = ("Manage", "Accounts", "New")
     RESOURCE = "accounts"
     NOUN = "account"
     FIELDS = [
@@ -904,7 +904,7 @@ class EditAccountScreen(NewAccountScreen):
         `GET /banks`)."""
         super().__init__(currencies, banks)
         self._id = record["id"]
-        self._name = record.get("name") or "—"
+        self._name: str = record.get("name") or "—"
         self._was = record.get("name") or ""  # as the list shows it
         # Both read-only here. The currencies change with their own keys on
         # Manage ▸ Accounts; `type` is no field of the account's update: it

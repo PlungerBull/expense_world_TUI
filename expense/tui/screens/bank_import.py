@@ -83,6 +83,7 @@ from expense.tui.dropped import is_statement
 from expense.tui.screens._base import (
     call_while_attached,
     counted_save,
+    expense_app,
     relabel,
     screen_fetch_kwargs,
 )
@@ -672,8 +673,9 @@ class PreviewScreen(ImportScreen):
         self._ask(dry_run=True)
 
     # ---- what each preview says ----------------------------------------------
-    def _ask(self, dry_run: bool) -> None:
-        """The one call, the dry run or the apply, in a worker."""
+    def _ask(self, dry_run: bool) -> object:
+        """The one call, the dry run or the apply, in a worker (a `@work` method: its
+        Worker comes back)."""
         raise NotImplementedError
 
     def changed(self, err: Exception) -> bool:
@@ -885,7 +887,7 @@ class ImportPreviewScreen(PreviewScreen):
         self._writing = False
         self._run.imported += 1
         result = ImportResultScreen(self._run, self._owner, self._pick, counts)
-        self.app.after_quit_question(lambda: self.app.switch_screen(result))
+        expense_app(self.app).after_quit_question(lambda: self.app.switch_screen(result))
 
     # ---- keys ----------------------------------------------------------------
     def action_page(self, delta: int) -> None:
