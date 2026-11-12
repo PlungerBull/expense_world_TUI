@@ -52,15 +52,16 @@ Counted 2026-11-11:
 
 Each task leaves `pytest tests/unit` green and mypy green on everything it covers.
 
-1. Re-count the mypy errors; widen mypy to every module already clean (44 of 64 on
-   2026-11-09).
-2. mypy: the widgets, theme.py and the small screens (help, hashtags, categories, home, setup,
-   _form), about 22 errors.
-3. mypy: _base.py, edit_form.py and system.py, about 23.
-4. mypy: transactions.py and accounts.py, about 24.
-5. mypy: statements.py, 24.
-6. mypy: log_bar.py, create_forms.py, statement_upload.py and bank_import.py; the file list
-   becomes the whole package; CLAUDE.md's lint line says so.
+Counted 2026-11-12: 130 errors in 21 files; the other 44 modules are checked.
+
+2. mypy: the widgets (checklist, cursor_list, windowed), theme.py and the small screens (help,
+   hashtags, categories, home, setup, _form), 21 errors.
+3. mypy: _base.py, edit_form.py and system.py, 23.
+4. mypy: transactions.py and accounts.py, 24.
+5. mypy: statements.py, 25.
+6. mypy: log_bar.py, create_forms.py, statement_upload.py, bank_import.py and
+   leftover_lines.py, 36; the file list becomes the whole package and `follow_imports = "silent"`
+   goes with it; CLAUDE.md's lint line says so.
 7. **The log:**
    - requests, refusals, retries and unexpected errors, at the fixed place, rotating, with no token;
    - the redirect, and the unit tests' redirect;
