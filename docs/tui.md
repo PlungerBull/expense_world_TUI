@@ -1686,8 +1686,7 @@ and main-row `+` send the same byte, so one binding catches both.
 stages the line — or completes the open token, or puts a lifted row back; `↑↓` drive
 the completion picker while a token is open and move through staged rows when the bar
 is empty; `ctrl+s` writes everything not already written, through `POST /transactions/batch`
-([batch_write.py](../expense/batch_write.py); chunking in [runtime.md](runtime.md) "Bulk
-writes"), a saved row keeping its `✓` until the next line is staged; `ctrl+x` drops the
+([batch_write.py](../expense/batch_write.py); chunking and retries there), a saved row keeping its `✓` until the next line is staged; `ctrl+x` drops the
 picked row; `esc` unpicks, then leaves (confirming if rows are staged and unwritten). The bar
 always holds focus, which is why no bare letter is a command there and why the screen
 has no `?` — a focused `Input` swallows printable keys.

@@ -1,10 +1,7 @@
 #!/bin/bash -p
 # Start or stop the practice engine: the last commit of the engine checkout next to this
-# repo, on :8002, over the disposable `expense_world_test` database, started by the engine's
-# own launcher, deploy/local/client-practice-engine.sh, from the checkout's root. The
-# launcher serves an export of the engine's last commit, never the checkout's uncommitted
-# work, and names that commit in the log (docs/runtime.md "Working against the live engine"
-# is the ops guide this script follows word for word).
+# repo, on :8002, over the disposable `expense_world_test` database. What it is, the keys it
+# prints and the tester's hand start: docs/runtime.md "Working against the live engine".
 #
 #   scripts/practice-engine up     start it (or reuse the one already on :8002), wait for
 #                                  /health, reseed the two practice users and print their
@@ -17,9 +14,8 @@
 #                                  started it, by its pid; anything else on the port is
 #                                  left alone
 #
-# A reused engine keeps serving the commit it started on: `down` then `up` serves a newer
-# engine commit. Both keys are printed to the terminal by the engine's own reseed and are
-# never written to a file here. Everything this script runs is fixed in it: port 8002, the
+# Both keys are printed to the terminal by the engine's own reseed and are never written
+# to a file here. Everything this script runs is fixed in it: port 8002, the
 # engine's launcher (which fixes the database and the interpreter), its reseed. It takes no
 # options, and the caller's environment does not reach anything it runs: `bash -p` skips
 # BASH_ENV and inherited functions, every exported variable is unset below, and the

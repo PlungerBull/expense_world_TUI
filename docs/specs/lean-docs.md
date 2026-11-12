@@ -106,8 +106,6 @@ Everything else lives in code and docstrings, and docs point to the file.
 Each task keeps `pytest tests/unit` green and reports words before and after for every doc it
 touches, with a moves list: each removed passage and where it now lives.
 
-2. **runtime.md as the operations doc** and the practice engine's one home; the script header
-   and README.md point to it.
 3. **tui.md §2, first half:** Setup, Home, the ledger and the bulk pick, the Edit form, no
    statement. Before a walkthrough goes, check that each of its keys is on the `?` card or in
    the footer.
@@ -121,3 +119,8 @@ touches, with a moves list: each removed passage and where it now lives.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **expense/http.py's retry comments read looser than the code:** :22-23 say a connect failure
+  fails fast, though a connect timeout is retried (:117, `TimeoutException`); docs/runtime.md
+  says "5xx", though :31 retries only 500, 502, 503 and 504. check_fixture_drift.py:21 says the
+  run fails when the versions differ, leaving out a missing saved version.

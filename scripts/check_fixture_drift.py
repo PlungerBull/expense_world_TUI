@@ -19,16 +19,17 @@ makes the target explicit.
 
 CONTRACT VERSION. Every run also compares the engine's `info.version` with the one
 saved in `scripts/engine-contract-version`, fails when they differ and prints what
-moved; the rules live in docs/runtime.md "Contract version". Saving a new
+moved (`version_problem`, `changes_report`, `changes_since`). Saving a new
 version is its own step, refused unless the version is the first entry of the
-contract's change log:
+contract's change log (`main`):
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
-What a marked answer is checked for and what the check cannot see: docs/runtime.md
-"Fixture drift". Exit code is 0 when the version matches, nothing retired is found and no
-marked answer misses a required field or holds a key its endpoint lacks, 1 otherwise, so it also
-works as a gate. It cannot tell a retired engine field from a key a test invented for
+What a marked answer is checked for: `answer_of` in tests/unit/helpers.py, `_checked`
+and `extra_keys`; what the check cannot see: docs/runtime.md "Fixture drift". Exit code
+is 0 when the version matches, nothing retired is found and no marked answer misses a
+required field or holds a key its endpoint lacks, 1 otherwise, so it also works as a gate.
+It cannot tell a retired engine field from a key a test invented for
 its own bookkeeping, so it prints the unknowns and leaves the judgement to a human —
 see KNOWN_LOCAL for the ones already triaged.
 """
