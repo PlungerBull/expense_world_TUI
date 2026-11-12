@@ -195,7 +195,8 @@ _APP_FAULT = (
 #: Every refusal the app can meet that has a line of its own, keyed by the
 #: engine's `code` and reason, never by HTTP status, route or wording —
 #: docs/decisions.md "Hints are chosen by the engine's reasons, never its wording".
-#: The reasons are the contract's (contract: "Error reasons"). Left out on purpose:
+#: The reasons are the contract's (contract: "Error reasons"). Any reason not here
+#: shows the engine's words alone. Left out on purpose:
 #: `IN_COMPLETED_RECONCILIATION`, whose message already says to revert the
 #: statement to draft first (contract: DELETE /v1/transactions/{transaction_id})
 #: (contract: DELETE /v1/bank-lines/{bank_line_id}),
@@ -254,6 +255,9 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
         "rename it on Manage ▸ Categories, then save again.",
         no_line_on=frozenset({"hashtag_ids", "hashtag_id"}),
     ),
+    # An opening balance saved on an account's Edit form that got one meanwhile, keyed
+    # `opening_balances.<code>` (contract: PUT /v1/accounts/{account_id}, "Sent at the same
+    # moment").
     ("CONFLICT", "OPENING_BALANCE_EXISTS"): NextStep(
         "It got one meanwhile: close the form and open it again to change it."
     ),

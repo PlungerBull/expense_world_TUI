@@ -106,15 +106,15 @@ Everything else lives in code and docstrings, and docs point to the file.
 Each task keeps `pytest tests/unit` green and reports words before and after for every doc it
 touches, with a moves list: each removed passage and where it now lives.
 
-4. **tui.md §2, second half:** the imports, the statement PDF, Accounts and Manage, delete,
-   refusals, the account forms, chrome. "Stepping past COLOR keeps it" moves out of the Edit
-   form block into Accounts and Manage, keeping its heading. The Edit form block is 718 words
-   against 350: "A move takes a row out of its statement" and the split-transaction counts can
-   point at `unassign_on_move`, `moved_parts` and `bulk_writes` for what they hold.
 5. **tui.md §4 becomes the cross-screen key rules;** Statements joins §2; §1, §3 and §5 become
    rules plus pointers; §6 goes to its home.
 6. **Re-point the citations** of every removed tui.md section in code, docs and decisions.md.
-7. **Mockups, the budget check and `docs/README.md`,** as answered; the final word counts.
+7. **Mockups, the budget check and `docs/README.md`,** as answered; the final word counts. Before
+   counting, the trims named in review that lose no fact: the Account forms' opening-balance
+   bullets restate `EditAccountScreen`'s docstring; the bank import's "The days where the file
+   and the ledger disagree" and "Several files" restate bank_import.py (the date-range export
+   warning stays); Accounts and Manage's `x` 404 answers and the `c` archived-account sentence
+   restate the contract and accounts.py.
 
 ## Found along the way
 

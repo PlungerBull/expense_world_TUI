@@ -239,74 +239,50 @@ its answer, and the footer is the key list. Until its reads are in it takes noth
 failed read says why in a toast and saves nothing. No suggestions and no same-merchant
 spreading — [decisions.md](decisions.md) "Home is the month".
 
-**Stepping past ACCOUNT, CURRENCY or CATEGORY keeps them.** The lines open with the bar empty
-and the highlight on the line's own value, so `⏎` with nothing typed keeps it, and `⏎` on every
-line and then `ctrl+s` send nothing and say `No changes to save.` A value the list does not
-hold leaves the highlight on the first entry, which `⏎` then takes. CATEGORY's list is the
-ledger's `c` list (`pickable_categories` in [reads.py](../expense/reads.py)): `@Pendiente` in
-it, `@Opening` never. The "no statement" form works the same.
-**Stepping past COLOR keeps it** on the Edit screens of Manage ▸ Categories and Manage ▸
-Accounts. The line opens with the bar empty and the highlight on the row's own swatch, so `⏎`
-with nothing typed keeps it and the summary goes on showing it; typing filters and highlights
-the first match, `↑↓` choose another, and a bar emptied again puts the highlight back on the
-row's own. An account with no colour opens on nothing, and `⏎` skips the line (`—
-(optional)`). A colour no swatch shows (the engine's own, on a row created with none) highlights
-nothing and `⏎` keeps it, on a category too, where COLOR is required; the summary shows it as
-its hex. The save sends `color` only when another swatch was picked, so `⏎` down every line
-saves the name alone and the engine keeps the colour (`_edit_payload` in
-[create_forms.py](../expense/tui/screens/create_forms.py)). On New account and New category
-COLOR is optional: while it is empty no swatch is highlighted, typing or `↑↓` highlights one
-and `⏎` picks it, and a skipped colour is left out of the body, never sent as null, so the
-engine gives its default (contract: POST /v1/categories). Edit category keeps it required, so
-a `PUT` never sends null.
+**Stepping past ACCOUNT, CURRENCY or CATEGORY keeps them:** the highlight opens on the line's
+own value, so `⏎` with nothing typed keeps it, and `⏎` on every line then `ctrl+s` send nothing
+and say `No changes to save.` The "no statement" form works the same (`_recompute` in
+[edit_form.py](../expense/tui/screens/edit_form.py)).
 
-**A move takes a row out of its statement.** The engine wants the assignment said on an
-account change, so `b` and the Edit form send `statement_id: null` for a row whose account or
-currency changes, and a currency move alone keeps the statement (`unassign_on_move` in
-[edit_form.py](../expense/tui/screens/edit_form.py) holds the rule and its citations). The
-receipt counts what the engine says moved and left (`moved_parts`): `3 rows → Caja Chica · 2
-left their statement`; a move that changes nothing shows no receipt. The form sends no `null`
-except `operation_code` and that `statement_id`; an emptied note goes as `description: ""`
-(contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+**A move takes a row out of its statement.** The engine wants the assignment said on an account
+change, so `b` and the Edit form send `statement_id: null` for a row whose account or currency
+changes, and a currency move alone keeps the statement (`unassign_on_move`, `bulk_writes`). The
+form sends no `null` except `operation_code` and that `statement_id`; an emptied note goes as
+`description: ""` (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is
+updated in place").
 
-**A date the form can't read is refused at `⏎`.** On DATE, on both Edit forms, `⏎` checks the
-bar with the reader the save uses (`is_readable_date` in [dates.py](../expense/dates.py)) and
-notes `Date: use YYYY-MM-DD.` for anything else: the bar keeps what was typed, the cursor stays
-and the line keeps its value, so a `ctrl+s` after it never sends the unread date.
+**A date the form can't read is refused at `⏎`,** on both Edit forms, with the reader the save
+uses (`is_readable_date` in [dates.py](../expense/dates.py)); the line keeps its value, so a
+`ctrl+s` after it never sends the unread date.
 
 **An opening balance stays on its account and in @Opening.** The engine refuses to move such a
 row to another account or category, `@Pendiente` included (contract: PUT
 /v1/transactions/{transaction_id}, "Opening balances stay put"), gives it no hashtag, not even
 the pending one (contract: PUT /v1/transactions/{transaction_id}), and keeps its bank line's one
 part (contract: PUT /v1/bank-lines/{bank_line_id}, "A line holding an opening balance keeps its
-parts"). The Edit form reads this from `edit_limits`; `b`, `c`, `h` and `m` send such a row like
-any other, the engine refuses it, the other rows go and it stays selected. The LOG bar cannot
-name @Opening.
+parts"). `b`, `c`, `h` and `m` send such a row like any other: the engine refuses it, the other
+rows go and it stays selected. The LOG bar cannot name @Opening.
 
 **A split transaction says what reaches every part.** The engine writes a line's date, title,
 operation, account and currency onto every part, while amount, category, hashtags and note stay
-each part's own (contract: "Transactions (Ledger)", "Bank lines"); with two parts or more the
-hint under the bar adds `· changes every part of the transaction` on those lines. In the
-ledger's bulk keys `c` and `h` change only the selected parts, `b` on one part moves the whole
-transaction, every part leaving its statement, and `m` moves every part to the currency, each
-keeping its statement (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). One
-`PUT` per selected row, nothing fanned out; with every part selected a later `PUT` finds the
-line already moved and is accepted as it is, since it carries no `version`. `b` and `m` count
-the parts the engine says moved, `c` and `h` the rows they wrote.
+each part's own (contract: "Transactions (Ledger)", "Bank lines"). In the ledger's bulk keys `c`
+and `h` change only the selected parts, `b` on one part moves the whole transaction, every part
+leaving its statement, and `m` moves every part to the currency, each keeping its statement
+(contract: PUT /v1/transactions/{transaction_id}, "Line fields"). One `PUT` per selected row;
+with every part selected a later `PUT` finds the line already moved and is accepted as it is,
+since it carries no `version`.
 
 **A refused save stays under the parts** until something changes (`refusal_lines`).
-`SPLIT_TOTAL_MISMATCH` is keyed `parts`, whose words give both totals in cents, and every
-`parts.<i>.amount_cents` says only that the parts must add up to the line's total (contract: PUT
-/v1/bank-lines/{bank_line_id}, "The total"). **What is read-only is the line's `edit_limits`,
-and nothing else**; the app keeps no copy of the engine's locking rules (contract: GET
-/v1/bank-lines/{bank_line_id}, "Response fields").
+`SPLIT_TOTAL_MISMATCH` is keyed `parts`, and every `parts.<i>.amount_cents` says only that the
+parts must add up to the line's total (contract: PUT /v1/bank-lines/{bank_line_id}, "The
+total"). **What is read-only is the line's `edit_limits`, and nothing else**; the app keeps no
+copy of the engine's locking rules (contract: GET /v1/bank-lines/{bank_line_id}, "Response
+fields").
 
 **The pending hashtag never rides beside a real one.** The engine refuses it together with
 another hashtag (`PENDING_HASHTAG_NOT_ALONE`) and replaces it when a real set is written
-(contract: "Transactions (Ledger)", "Hashtags on a transaction"). Every hashtag write sends a
-set without it beside a real one, and the screens list what the save sends: a part's cell never
-shows it, a LOG bar line with no `#tag` reads `#Pendiente`. One helper does both,
-`hashtags_to_send` in [reads.py](../expense/reads.py).
+(contract: "Transactions (Ledger)", "Hashtags on a transaction"); `hashtags_to_send` in
+[reads.py](../expense/reads.py) is the one helper.
 
 **`u` on the Statements browse — the account's bank lines in no statement.** The panel swaps:
 the open account's statements give way to its bank lines in no statement, any day, every
@@ -328,691 +304,226 @@ a split transaction goes whole in one `DELETE /bank-lines/{id}` (contract: DELET
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py)).
 The app sends the bank's download whole and reads no cell of it: the engine reads the file,
-numbers its rows as the spreadsheet does, matches them against the ledger and refuses what it
-cannot take (contract: POST /v1/transactions/import). Every row of the file goes in, whatever
-its date. **Export the download with an explicit date range covering everything since the
-last import, never the bank's default view:** BCP's current-account default is the last 20
-movements, about twelve days on `BCP PEN`, nothing can detect rows a file does not contain,
-and the month's statement is the only backstop.
+matches its rows against the ledger and refuses what it cannot take (contract: POST
+/v1/transactions/import). Every row of the file goes in, whatever its date. **Export the
+download with an explicit date range covering everything since the last import, never the
+bank's default view:** BCP's current-account default is the last 20 movements, about twelve
+days on `BCP PEN`, nothing can detect rows a file does not contain, and the month's statement
+is the only backstop.
 
-`↵` on the LOG bar's dropped files (§4 "A dropped bank file") reads every file's bytes at
-once, before any screen opens, through `read_file` in
-[flow.py](../expense/bank_import/flow.py). A file that cannot be read from disk (gone, or not
-readable) keeps the bar where it is: the hint reads
-`can't read the file · File not found: <path>` (or
-`can't read the file · Could not open <path>: <why>`), its first words in the error colour, the
-footer is `esc Cancel` alone, nothing is sent, and the next keystroke clears it. With several
-files dropped, the hint names the first such file (`<name> · can't read the file · …`) and none
-of them starts. Otherwise each file, in drop order, goes through three full screens that replace
-one another above the LOG bar: a download through the three below, a statement PDF through the
-statement upload's own three ("A statement PDF closes its month" below):
+`↵` on the LOG bar's dropped files (§4 "A dropped bank file") reads every file first, so an
+unreadable one stops the run before any is written. Each file then goes through three full
+screens above the LOG bar: which account (asked every time), the preview, the result; the
+module docstring says what each draws. A pick sends `account_id` and the engine files each row
+under the currency the file names (contract: POST /v1/transactions/import, "Accounts"). **A
+row's mark and reason come from the engine's `outcome`, never from the reason's words**
+(`row_verdict`); every count is the engine's.
 
-| Screen | Shows | Keys |
-|---|---|---|
-| **Which account is this file?** | the file's name dim beside the question; every live bank account once, in the engine's order, named by the account, its currencies its own, the account's `currencies` in the engine's order (contract: "Bank Accounts", "`currencies`"): an account holding both is one line (`VISA Infinite Sapphire   PEN + USD`); archived accounts left out. `account_picks` in [flow.py](../expense/bank_import/flow.py) reads the one accounts list alone. Asked every time; nothing is remembered | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | the engine's dry run as one table, `#  date  title  amount  ✓  reason` (the mark's column has no heading), one row per row the engine read, numbered by its spreadsheet row (the first data row is 2), the amount signed by `signed_cents`, a row with no title showing `(untitled)`; on an account holding two currencies, `cur` after the amount: the row's own `currency_code`. Each row's mark and reason (below); `… N more · pgdn` when the rows outrun the screen; then the counts (below), and under them the days where the file and the ledger disagree (below) | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
-| **✓ 9 rows imported · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line, then the counts in the past tense (below): no table and no days | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
+**The days where the file and the ledger disagree** are the engine's `day_mismatches`, a report
+on the preview alone that changes nothing `⏎` writes. A day is reported when its file total and
+its ledger total after the import differ, or when it holds a ledger line no file row claimed,
+so a day with equal totals can be one (contract: POST /v1/transactions/import). The upload
+removes nothing and asks nothing about such a row; it stays out of that month's statement,
+where it is deleted.
 
-Picking an account sends its id as `account_id`; the engine files each row under the currency the
-file names for it, `S/` or `$` (contract: POST /v1/transactions/import, "Accounts"). A row in a currency
-the account does not hold is refused, `CURRENCY_NOT_HELD` on `rows.<row>.account_id`, and the
-engine's words show under the preview. The request is
-exactly `dry_run`, `account_id` and `file`, the file's bytes in standard base64
-(`request_body` in [engine.py](../expense/bank_import/engine.py)).
+**A refused file** shows on the preview in the engine's words (`refusal_lines`,
+`names_its_row`), nothing written. A `CONCURRENT_CHANGE` on a `rows.<row>` key means a matched
+ledger line changed while the import ran (contract: POST /v1/transactions/import,
+"Concurrency"); `⏎ Preview again` asks for a fresh dry run, and nothing is sent again without
+one.
 
-**Each row's mark and reason** come from the engine's `outcome`, never from the reason's
-words (`row_verdict` and `preview_line` in [engine.py](../expense/bank_import/engine.py)).
-`✓` (success colour) means the row is in the ledger after the import, `✗` (error colour, bold)
-that it is left out, `·` (dim) a row of `0`:
-
-| Mark | Reason | When |
-|---|---|---|
-| ✓ | `New` (success colour) | the engine's `new`: created on `⏎` |
-| ✓ | `Already in the ledger` (dim) | `matched`, and the apply writes nothing onto its line |
-| ✓ | `Modified existing transaction` | `matched`, and the apply writes the file's operation number onto the line (`backfill_code`), the bank's title (`retitled`), or moves the line to the bank's day (`redated`) |
-| ✗ | `Not moved: <statement> is completed` | `matched`, and a completed statement stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
-| ✗ | `Closed period` | the engine's `sealed`: on a sealed day, never created |
-| · | `Skipped: amount 0` (dim) | the engine's `skipped`: a row of `0`, never matched or created |
-
-Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
-statement's id only, so the preview's worker reads each distinct one once by its id
-(`statement_names` in [flow.py](../expense/bank_import/flow.py)), never a list of statements
-and never while drawing
-(contract: GET /v1/statements/{statement_id}).
-When a read fails, its rows read `Not moved: its statement is completed`, the other ids are
-still read, and a dim `! could not read the statements' names: <why>` sits under the
-counts with the first failure's reason.
-
-**The counts** under the table: `14 rows · 5 new · 6 in the ledger · 1 moves to the bank's day ·
-1 takes the bank's title`, the moved and title counts only when not zero; then, on a line of
-its own under the first count, `1 closed · 1 skipped`, each only when not zero, the line only
-when one is. After importing they read in the past tense: `1 moved to the bank's day`,
-`1 took the bank's title`. Every count on the preview and the result, and the count in
-`⏎ Import N rows`, is the engine's: its `counts` (`new`, `matched`, `sealed`, `skipped`,
-`retitled`, `redated`), and its rows for the total. The apply's answer is read for its counts
-alone.
-
-**The days where the file and the ledger disagree** are the engine's `day_mismatches`: a day is
-reported when its file total and its ledger total after the import differ, or when it holds a
-ledger line no file row claimed, so a day with equal totals can be one
-(contract: POST /v1/transactions/import). Each names the file rows it found in no ledger line
-(`unmatched_rows`, by spreadsheet row) and the ledger lines no file row claimed
-(`unclaimed_lines`, each with its `parts`, a split transaction being one entry with every
-part). The preview takes them as they come (`day_mismatches` in
-[engine.py](../expense/bank_import/engine.py)) and reads no transaction to fill them. Each part
-is its own row, the transaction's title and the part's own amount, signed by `signed_cents`;
-nothing adds parts up, and every total is the engine's.
-
-They show **on the preview only**, under the counts: `! 3 days where the file and the ledger
-disagree`, then each day as `2026-09-12   file -42.90 · ledger after import -84.90`, and under
-it its rows: a file row as `row 4   FARMACIA CENTRAL  -42.90   in the file, not found`, a
-ledger part as `Farmacia  -42.00   in the ledger, not in the file`. It is a report only: nothing on
-it changes what `⏎` writes. On a file of an account holding two currencies, each day
-names its account and its own `currency_code`: `2026-09-12 · BCP Signature · USD`. A line the
-import moves to the bank's day counts on that day, so the move leaves no day disagreeing
-(contract: POST /v1/transactions/import). A skipped row plays no part in the days.
-
-The upload does nothing to a ledger row no file row claimed: it removes nothing and asks
-nothing. Such a row stays out of that month's statement, where it is deleted.
-
-A preview with nothing new keeps the table and the counts and adds dim `nothing to import`.
-On the last (or only) file `⏎` does nothing and the footer is `esc Back`. With a file still
-to come the footer is `esc Cancel both` / `esc Cancel all` (below) and `⏎ Next file`, and
-`⏎` opens the next file's account list, writing nothing. `⏎` on a preview with new rows
-sends the same file on the same account as the apply — one `POST /transactions/import`
-with `dry_run: false` through the shared HTTP client (its idempotency key covers a retry).
-
-**A refused file** shows on the preview, under its title, in the engine's words
-(`refusal_lines` and `failure_lines` in [bank_import.py](../expense/tui/screens/bank_import.py)):
-`CODE — message`, then one `!` line per refused key in the engine's order, then
-`Nothing was written.` dim. The engine names a refused row by its key, `rows.<row>` or
-`rows.<row>.<field>` by spreadsheet row. When the row's words begin `Row <row>:`, as every
-refusal made before anything is read from the ledger does, a `FUTURE_DATE` included
-(contract: POST /v1/transactions/import, "Rejected up front with `422`"), its line is `! `
-and the engine's words alone; when they do not (a `409`'s words need not begin so), the line
-keeps the key, `! rows.<row>.<field>: <words>`, so the row is never lost. Any other key
-(`file`, refused whole: not a download, unreadable, empty, over 500 rows; `account_id`) shows
-as `! <key>: <words>` too (`names_its_row` in [errors.py](../expense/errors.py)). The app's
-line for the refusal, when "When the engine says no" gives one, follows after a blank line. The
-footer is `esc Back` on the last (or only) file, and keeps `esc Cancel both` / `esc Cancel all`
-while files follow; `⏎` sends nothing more. A failure that names no key (a `5xx`, the engine
-unreachable) is the shared error text, whole. Every failure of a download is also a `Failed`
-toast with the shared error text.
-
-**A ledger line changed while the import ran**: the apply's `409 CONFLICT` with
-`CONCURRENT_CHANGE` on a `rows.<row>` key means something else split, deleted or changed a
-ledger line a file row matched, and nothing was written
-(contract: POST /v1/transactions/import, "Concurrency"). The preview shows the engine's words
-as a refused file does, and under a blank line
-`It changed while the import ran: ⏎ checks the file against the ledger again.`; the footer
-is `esc Cancel  ⏎ Preview again`. `⏎` runs the dry run again on the ledger as it is now, and the
-footer returns to `⏎ Import N rows`: nothing is sent again without a fresh preview.
-
-**Several files**, of either kind, go one by one in drop order, each its own way — a download
-through the import door, a PDF through the statement upload (`first_screen` in
-[bank_import.py](../expense/tui/screens/bank_import.py)), each asking its account — in one
-run. The crumb carries `Import ▸ file 1 of 2` (`Upload a statement ▸ file 2 of 2` on a PDF's
-account list, `Upload ▸ file 2 of 2` on its preview and result) and each file's name sits
-beside the question. `esc` before a file is written cancels it and every file after it, and
-its word counts the files still to come, this one included: `esc Cancel all` (three or more),
-`esc Cancel both` (two), `esc Cancel` (this one alone — `esc Back` on a nothing-new or refused
-preview). File 1 of 2 says `Cancel both`, file 2 of 2 `Cancel`, file 2 of 3 `Cancel both`. A
-file already imported stays imported, and `⏎ Next file` follows each written file. The two
-previews share their failure, `⏎ Preview again` and `esc` steps (`PreviewScreen`), and the two
-screens after an apply their `⏎` and `esc` (`ResultScreen`). **`esc`** on any import screen
-lands on the LOG bar with the bar cleared and the staged rows as they were; a row lifted for
-editing goes back unchanged when the drop is imported. `⏎ Home` leaves the bar for Home,
-through the bar's discard question when rows are staged and unwritten, and Home reads afresh:
-this month's window, every category folded, the cursor on the first category
-(`HomeScreen.start_fresh`).
+**Several files**, of either kind, go one by one in drop order in one run. `esc` before a file
+is written cancels it and every file after it (`cancel_label`); a file already imported stays
+imported. `⏎ Home` leaves through the LOG bar's discard question when rows are staged, and Home
+reads afresh (`HomeScreen.start_fresh`).
 
 **The import screens' keys.** `⏎ Import N rows` on the preview is the one key on an import
-screen that changes data (`⏎ Close <name>` on a statement PDF's), named in the footer with
-what it writes. There is no `r`: each screen reads once, when it opens, `⏎ Preview again`
-reads the dry run afresh, and dropping the file on the LOG bar again reads everything afresh.
-There is no `?`: they do not take `HelpBindingMixin`, so the footer is their whole key list.
+screen that changes data (`⏎ Close <name>` on a statement PDF's), named in the footer. There is
+no `r` and no `?`: they do not take `HelpBindingMixin`, so the footer is their whole key list.
 
 **A statement PDF closes its month**
 ([statement_upload.py](../expense/tui/screens/statement_upload.py)). A `.pdf` dropped on the
 LOG bar (§4 "A dropped bank file") is a month's statement: the app sends it whole and reads
-nothing in it, and the engine reads the paper, matches each of its rows to a ledger line,
-creates the lines the ledger lacks, takes out of the month's open statement the lines the
-paper does not print, puts every line in the paper's order and completes the statement, the
-account's, every currency the paper covers together (on a card, its soles and its dollars),
-creating it or filling its open draft
-(contract: POST /v1/statements/import). The request is the download's (`request_body` in
-[engine.py](../expense/bank_import/engine.py)), sent by `statement_call` in
-[flow.py](../expense/bank_import/flow.py) to `POST /statements/import`; the answer reads
-through [statement.py](../expense/bank_import/statement.py). The account is the one you pick: the
-engine never picks it by the number the paper prints
-(contract: POST /v1/statements/import, "Accounts"), and the app matches, adds up and guesses
-nothing. Its three full screens replace one another above the LOG bar, as a download's do:
+nothing in it, and the engine matches each row to a ledger line, creates the lines the ledger
+lacks, takes out of the month's open statement the lines the paper does not print, orders every
+line as the paper does and completes the statement, every currency the paper covers together,
+creating it or filling its open draft (contract: POST /v1/statements/import). The account is
+the one you pick: the engine never picks it by the number the paper prints
+(contract: POST /v1/statements/import, "Accounts"). Three full screens work as a download's;
+the module docstring says what they draw.
 
-| Screen | Shows | Keys |
-|---|---|---|
-| **Which account is this statement?** | crumb `Upload a statement`; the file's name dim beside the question; the download's account list ("Which account is this file?" above), an account with no statement code included (the engine refuses it in its words when picked). A dry run refused for the account's number (`NUMBER_REASONS` in [statement_upload.py](../expense/tui/screens/statement_upload.py)) writes nothing and returns here, the cursor on the account picked and the "Failed" note carrying the engine's words (contract: POST /v1/statements/import, "The numbers the paper prints must fit the account's") | `esc Cancel  ⏎ Pick  ↑↓ Move` |
-| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is its name, with its currencies when it holds two (`BCP Signature PEN + USD`). Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (the answer's `creates`) or `a draft, filled from the paper` (it fills an open draft); then `begin  end` dim and one line per currency the answer's `balances` holds, its code and the paper's balances, in the engine's order, none for a currency the paper does not cover (contract: POST /v1/statements/import, "Which currencies the statement covers"). Under them each currency's `warnings` as `⚠ USD: <sentence>` in the warning colour, the balances' first and then those of `not_covered` (the account's currencies the paper holds no balances for), in the engine's order. Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a paper with two balances (a card's), the row's own `currency_code`; a taken-out line shows its own `currency_code`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; after a matched row whose ledger line is one day off it and moves to the row's day on `⏎` (`redated`), dim `· day moved`, no old day, no count (contract: POST /v1/statements/import, "The bank's day wins"); `… N more · pgdn` when the rows outrun the screen. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then `⚑ Will be flagged · in no statement, on the last day, which stays open until the next month closes` (warning colour) and the lines the close will flag, each under the table's columns, in the engine's order: every balance's `review_lines`, then every `not_covered` entry's, each id once (a line taken out may show in both blocks), left out with its count when none is named (contract: POST /v1/statements/import, "Response"); then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
-| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the engine's count of the completed statement's review list, read once after the apply, is above zero, the `⚑` line a statement shows (§4 "On the statement"). No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+`f` on the screen after the close opens the flagged lines' screen ("The lines a complete flagged
+for review" in §4). A refused upload shows the engine's words under the preview once, with no
+`Failed` toast; a `CONCURRENT_CHANGE` on any key (`changed_meanwhile`) offers `⏎ Preview again`.
+One refused for leftover lines (`LOOSE_LINES_ON_SEALED_DAYS` on `file`) opens
+[leftover_lines.py](../expense/tui/screens/leftover_lines.py) in place of the preview.
 
-Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
-colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
-`@Pendiente` and the pending hashtag, `· Empty` (dim) for `empty`, a row of `0.00` whose place
-stays empty, its amount in no colour. Every other amount is coloured by its sign. The title
-column takes what the screen leaves once the other columns have their room, so no row wraps;
-only a screen too narrow for the paper's longest title cuts one, with `…`. The answer names
-the lines taken out and the lines to flag by id alone, so the preview's worker reads them once by their ids
-(`statement_lines` in [flow.py](../expense/bank_import/flow.py)), never while drawing, and not
-at all when there are none. When the read fails, each block keeps its head, and a dim
-`! could not read the ledger lines: <why>` sits under the counts.
-
-**The counts** are the engine's `counts` and its rows for the total:
-`10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out`, the `new` count in the accent colour
-when not zero, `empty` and `taken out` only when not zero, then, in the warning colour, `2 to flag` (the lines under `⚑ Will be flagged`) only when not zero. After the close they read
-`10 rows · 5 were in the ledger · 4 created · 1 empty · 1 taken out`. The screen after the close
-reads the apply's answer, not the dry run's.
-
-`⏎ Close <name>` sends the same PDF on the same account as the apply — one
-`POST /statements/import` with `dry_run: false` through the shared HTTP client (its
-idempotency key covers a retry); a repeated `⏎` while it is on its way sends nothing more, and
-`esc` on the preview sends nothing. `f` on the screen after the close opens the flagged lines'
-screen on the completed statement, the apply's `statement` ("The lines a complete flagged for
-review" in §4), with the picked account's statement code; back from it, the `⚑` line shows the
-engine's count of the lines still flagged. A count read that fails leaves the closed result as
-it is, toasts the engine's words and shows no `⚑` line.
-
-**A refused upload** shows under `Preview · <account>` the engine's words as a refused
-download does: `CODE — message`, a `!` line per refused key (`! file: …` for a paper the
-engine cannot read, misread or that does not add up, or a period sharing a day with another
-statement (`PERIOD_OVERLAPS`), or a statement written into the paper's month while the upload
-ran (`STATEMENT_MONTH_TAKEN`), and for `MONEY_AT_START_NOT_COVERED`, a currency the paper
-shows at zero while the account held money in it; `! account_id: …` for an account archived, a person, a cash account, with no
-statement code (`NO_STATEMENT_CODE`), not holding a currency the paper shows money in, or none
-it prints (`CURRENCY_NOT_HELD`), or holding one the paper does not print at all
-(`ACCOUNT_CURRENCY_NOT_ON_PAPER`); a row's `rows.<place>.date` future date as the engine's
-`Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the
-app's line when "When the engine says no" gives one. The footer and `⏎` are a refused
-download's. A refusal met by the apply shows under the preview the same way. When it is a
-`409 CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line (`rows.<place>`) or the
-statement's draft (`file`) changed while it ran
-(contract: POST /v1/statements/import, "Concurrency"), or the pending category or hashtag a
-created row files under was deleted while it was being created (`category_id` or `hashtag_ids`)
-(contract: POST /v1/statements/import), the line under it is
-`It changed while the upload ran: ⏎ checks the paper against the ledger again.` and the footer
-`esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes. A
-failed upload, refused or not (a `5xx`, the engine unreachable), shows its words once, on the
-screen: no `Failed` toast repeats them.
-
-**An upload refused for leftover lines** (`LOOSE_LINES_ON_SEALED_DAYS` on `file`, dry run or
-apply) is not shown on the preview: the lines the refusal names open the screen in
-[leftover_lines.py](../expense/tui/screens/leftover_lines.py) in its place.
-
-**Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
-picker, the Edit form's account field, the ledger's `b` pick, the Statements
-browse, the new-statement form and the bank import's "Which account is this file?"
-show accounts as `GET /accounts` lists them, every account that is not a person (a bank or
-cash account) first, then every person (contract: GET /v1/accounts). No screen sorts them. A
-person is an account whose `kind` is `person`, never told by name. A screen that has no use
-for people leaves them out and moves nothing else; the bank-only lists hold bank accounts alone
-(`reads.takes_statements`). The LOG bar's `$` picker, the Edit form's account
-field and the ledger's `b` pick offer no archived account (`QuickAddRefs.quickadd_accounts` in
-[reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
-`account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one shows
-its name in the ledger's Account column and on its Edit form's ACCOUNT line, and its code in
-Cur and on CURRENCY, read-only on its Edit form (below).
+**Accounts stand in the engine's order everywhere.** Every screen shows accounts as
+`GET /accounts` lists them, every account that is not a person first, then every person
+(contract: GET /v1/accounts); no screen sorts them, and a person is an account whose `kind` is
+`person`, never told by name. The LOG bar's `$` picker, the Edit form's account field and the
+ledger's `b` pick offer no archived account (`QuickAddRefs.quickadd_accounts`): the engine
+refuses one as a transaction's `account_id` (contract: POST /v1/accounts/{account_id}/archive).
 
 **On an archived account's row the ledger offers no `d`.** The engine deletes none of
 an archived account's transactions (contract: POST /v1/accounts/{account_id}/archive), so with
-the cursor on one, whole ledger or filtered from Home, `d Delete` leaves the footer and the key
-does nothing and sends nothing; on the next row of an active account or a person it is back,
-the footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does,
-where only what the line's `edit_limits` leaves open changes (below). The row is drawn as any
-other, with nothing on it saying why, and `s`, `c`, `b`, `h`, `m`, `⏎` and every other key
-stay; the engine still judges each write they send. The ledger learns which accounts are
-archived from the same `GET /accounts` that gives it the names, one read per load
-(`reads.load_account_index`), so an account unarchived on Manage ▸ Accounts gets its `d` back
-at the ledger's next read. The `?` card still lists `d`, as it does while rows are selected:
-the ledger's `CARD_NEEDS_A_ROW` keys leave the card only while it has no row (§4 "App-wide keys are `^q` and `?`").
+the cursor on one `d Delete` leaves the footer and the key does nothing; every other key
+stays, and the engine judges each write. The ledger learns which accounts are archived from
+the same `GET /accounts` that gives it the names (`reads.load_account_index`).
 
 **On an archived account's line the Edit form changes the categorisation alone.**
 Such a line keeps its parts and their amounts, and every line field sent is refused but a title
 or operation code filled while it is empty
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A line with a part on an archived account keeps its parts and their amounts")
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). The form reads it from the line's
-`edit_limits`, as every read-only line ("What is read-only is the line's `edit_limits`"
-above): the line fields it names read `read-only`, and one line under them names them with the
-engine's sentence, for example `date, title, account: The account is archived. Unarchive it first.`
-(`date, account: …` when the engine leaves an empty title open); each part's amount is dimmed
-under a dim `amount  read-only` with the same sentence beside it, there is no `^n` or `^x`,
-and the form opens on the first line that can change, a title still empty if the engine leaves
-it open, else part 1's CATEGORY. Each part's category, hashtags and note change as on any
-line, and the save sends each part at its current amount. The "no statement" Edit form follows the
-same `edit_limits` on a line of an archived account, which only a list read before the account
-was archived still shows. When the engine refuses anyway (the account archived after the line
-was read), its words stay under the parts.
+`edit_limits`.
 
-**Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows.**
-Categories is a table of Color, Name and System; Hashtags one of Name and System, the same
-without the colour, in the order `GET /hashtags` lists them, or `(no hashtags)` when there
-are none. System reads `system 🔒` on a built-in row and `—` on the rest. The built-in rows
-are `@Pendiente` and `@Opening` among the categories and the pending hashtag among the
-hashtags: the rows with a `system_key`, never found by name (`reads.is_system_row`). They
-keep their names and are never deleted
-(contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
+**Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows**, the ones with a
+`system_key`, never found by name (`reads.is_system_row`). They keep their names and are never
+deleted (contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
 (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name"), so with the
-cursor on one the footer offers neither `e Edit` nor `d Delete` and both keys do nothing
-(`ResourceListScreen.is_fixed` in [_base.py](../expense/tui/screens/_base.py)); on every
-other row they end the footer as usual. A built-in category's colour is not changed
-from this app either. Under the list a legend says so: `System categories cannot be renamed
-or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
+cursor on one the footer offers neither `e Edit` nor `d Delete` (`ResourceListScreen.is_fixed`).
 
-**Manage ▸ Accounts is a table of Name, Type, Code, Color, a column per currency and Status**,
-every kind together, under the legend `balances are native currency`. It has
-one row per account, named by the account's name alone, in the engine's order ("Accounts stand
-in the engine's order everywhere" above). Type reads `person` for a person, `cash` for a cash
-account (by its `kind`) and `bank` for any other account. The currency columns are the
-currencies the engine lists, in its order (`GET /currencies`, read in the list's worker with the
-accounts by `fetch_currency_codes` in [reads.py](../expense/reads.py)) (contract: GET /v1/currencies).
-The list screen hands the same codes to the New and Edit forms. Each
-holds the account's balance in that currency, right-aligned and never summed with another, or a
-dim `—` where the account does not hold it. Code is the account's statement code, or a dim `—`
-when it has none. An archived account's row is dimmed whole. `e`, `a`, `t` and `d` act on the
-account under the cursor, every currency at once, through one call with the account's id
-(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"); `c` and `x` add
-and remove one currency of it. After `a`, `t`, `c` or `x` the cursor is back on the same
-account (`account_rows` in [accounts.py](../expense/tui/screens/accounts.py)). Archive asks
-nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
+**Manage ▸ Accounts** lists every account, people and archived ones too, with a balance column
+per currency the engine lists, never summed (contract: GET /v1/currencies); the module
+docstring of [accounts.py](../expense/tui/screens/accounts.py) holds the columns and keys.
+`e`, `a`, `t` and `d` act on the whole account, every currency at once
+(contract: POST /v1/accounts/{account_id}/archive, "Every currency at once"). Archive asks
+nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle"). `a`, `t`, `c` and `x`
+share one guard, one write at a time (`run_guarded_write`).
 
-**`t` turns an account into a person and back.** On Manage ▸ Accounts the footer reads
-`t Make person` on a bank account's row and `t Make bank` on a person's, following the cursor,
-between `a Archive` and `d Delete`. `t` opens a short question (`QuestionModal` in
-[modals.py](../expense/tui/screens/modals.py), whose docstring holds its keys). On a bank
-account it reads `Make <name> a person?` with an empty `name` line; on a person, `Make <name> a
-bank account?` with a `bank` line, the engine's `GET /banks` in its order, and an optional
-`last 4`. `⏎` sends
-`POST /accounts/{id}/make-person` with `{"name"}`, or `POST /accounts/{id}/make-account` with
-`{"bank_code"}` and `last4` only when typed, never a `name`, through `run_guarded_write` as `a`
-does (contract: POST /v1/accounts/{account_id}/make-person, "Body")
-(contract: POST /v1/accounts/{account_id}/make-account, "Body"); `esc` sends nothing. The app
-checks nothing. A refusal keyed on a line of the question (`name`, `bank_code`, `last4`) keeps
-it open: the engine's words show under that line, the cursor goes there and what was typed stays. Any other
-refusal closes it and reads as "When the engine says no" below says, titled `Failed`, or
-`Not made a person` / `Not made a bank account` once the list is left. Written, the list reads again with the cursor on the account in its
-new place, under the name the engine gives it, and the note says `Now a person.` or
-`Now a bank account.`. On an archived row and on a cash row `t` leaves the footer. The Edit form's `type` line
-stays read-only.
+**`t` turns an account into a person and back,** asking for what the engine needs: a person's
+name, or a bank and an optional last 4 (`QuestionModal`). The app checks nothing; a refusal
+keyed on a line of the question keeps it open
+(contract: POST /v1/accounts/{account_id}/make-person, "Body")
+(contract: POST /v1/accounts/{account_id}/make-account, "Body").
 
-**`c` adds a currency to an account.** On Manage ▸ Accounts the footer reads `c Currency`
-after `e Edit`, on every row, a person's and an archived account's too. `c` opens the pick
-`Add a currency · <account>` (`PickModal` in
-[modals.py](../expense/tui/screens/modals.py)): the account on one line as the delete question
-names it, then the engine's currencies it does not hold, in the engine's order
-(`currencies_to_add` in [accounts.py](../expense/tui/screens/accounts.py)). `↑↓` move the
-highlight, `esc` leaves the list as it was, and `⏎` sends `POST /accounts/{id}/currencies` with
-`{"currency_code": …}` at once, with no question, through `run_write` as `a` does
-(contract: POST /v1/accounts/{account_id}/currencies). The note says `Currency added: USD.`
-and the list reads again with the cursor on the same account, its new currency's column at
-`0.00`; its opening balance is set on the Edit form. On an account holding every supported
-currency `c` opens nothing, sends nothing and notes `Visa Inventada already holds every
-currency.`, naming the account. A refusal leaves the list as it was; an archived account's is
-the engine's to refuse, not the app's ("When the engine says no" below).
+**`c` adds a currency to an account** from the engine's currencies it does not hold, at once,
+with no question (contract: POST /v1/accounts/{account_id}/currencies). An archived account's
+refusal is the engine's to give, not the app's.
 
-**`x` removes a currency from an account.** The footer reads `x Remove currency` after
-`c Currency`, on every row, a person's and an archived account's too. `x` opens the pick
-`Remove a currency · <account>`: the account as `c`'s pick names it, then the currencies it
-holds in the engine's order (`currencies_held` in
-[accounts.py](../expense/tui/screens/accounts.py)); `esc` leaves the list as it was. `⏎`
-asks first with `ConfirmModal`, as a delete does, the question naming the account and the
-currency (`removal_question`): `Remove USD from Visa Inventada?`, its body the account with
-that currency's balance alone, then what the account keeps, or, for its only currency, `It is
-the account's only currency.`. Only `y` sends
-`DELETE /accounts/{id}/currencies/{code}`, with no body, through `run_write`
-(contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}); `⏎`, `n`, `esc` and
-any other key send nothing. The note says `Currency removed: USD.` and the list reads again
-with the cursor on the same account, the removed currency's column a dim `—`.
-A refusal leaves the list as it was, its note the engine's words ("When the engine says no"
-below), the two `404 NOT_FOUND` answers, `account not found.` and `currency <code> not found.`,
-included (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
-`a`, `t`, `c` and `x` share one guard, one write at a time: while one is in flight, the four
-do nothing until the engine refuses that write or the list builds from a read that began after
-the write was answered; a reload that lands earlier (`r`, a form closing), and another write's
-refusal, neither lift nor hold the guard (`run_guarded_write` in
-[_base.py](../expense/tui/screens/_base.py)).
+**`x` removes a currency from an account,** after `ConfirmModal` asks (`removal_question`); only
+`y` sends it (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}). The two
+`404 NOT_FOUND` answers, `account not found.` and `currency <code> not found.`, show as any
+refusal (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals").
 
-**`d` is the TUI's one destructive key.** It deletes the row under the cursor on Manage ▸
-Accounts, Categories and Hashtags (a built-in row aside, above), on the ledger (whole or
-filtered from Home), in the statement's "no statement" list, on a statement's flagged lines and on an upload's
-leftover lines, always the last of the screen's own footer keys but on the flagged lines, whose
-footer ends `d Delete  ↑↓ Move`, and the leftover lines, whose footer ends `d Delete  r Read again`; a footer too wide for the screen leaves it out (§5). Cursor row
-only, never a selection; when the ledger turns it off: §4 "The ledger's selection keys". On an
-empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
-away and can be undone, delete is for something made by mistake.
-Removing one currency of an account is `x`, which asks first the same way ("`x` removes a
-currency from an account" above).
+**Stepping past COLOR keeps it** on the Edit screens of Manage ▸ Categories and Manage ▸
+Accounts: the highlight opens on the row's own swatch, and the save sends `color` only when
+another swatch was picked (`_edit_payload` in
+[create_forms.py](../expense/tui/screens/create_forms.py)). On New account and New category
+COLOR is optional, and a skipped colour is left out of the body, never sent as null, so the
+engine gives its default (contract: POST /v1/categories). Edit category keeps it required, so
+a `PUT` never sends null.
 
-On Accounts the delete acts on the whole account (contract: "What an account is", "An account is deleted whole"):
-the body's first line is the account, its kind, then each currency it holds with that
-currency's balance: a two-currency account reads
-`Visa Inventada · bank · PEN -2,340.50 · USD -185.20`, a one-currency account
-`BCP-5678 · bank · PEN 350.00`. `y` sends one
-`DELETE /accounts/{id}`, on a cash account's row too; the engine's refusals
-(contract: DELETE /v1/accounts/{account_id}, "Refusals") show the shared way.
-
-Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
-and send nothing). The question names the row, then says the part that matters: **no
-screen can bring it back.**
-
-| Screen | Question | Body | Note after |
-|---|---|---|---|
-| Accounts | `Delete this account?` | `Prueba · bank · PEN 0.00 · USD 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
-| Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
-| Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, and a line never split in the "no statement" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
-| Ledger, on a part of a split transaction; a split transaction in the "no statement" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
-| A statement's screen (`d` deletes the statement itself) | `Delete statement?` | `Detaches its transactions and removes the statement. Its transactions stay. No screen can bring it back.` | `Statement deleted.` |
-
-`y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
-key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
-Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the "no statement" list's oldest ten, the flagged lines' review
-list read again whole. The hashtag question names the
-cascade because the engine never refuses that delete for being in use; it takes the tag
-off every transaction carrying it, and one left with no hashtag carries the pending hashtag
-(contract: DELETE /v1/hashtags/{hashtag_id}). The question names the pending hashtag as the
-list gives it (`#Pendiente`), or says `the pending hashtag` while the user has none yet.
-
-**On the ledger, a split transaction goes whole.** Every ledger row names its bank line
-(contract: "Transactions (Ledger)", "Bank lines"), but not how many parts the line holds, so
-`d` on a row first reads its line once with the shared `reads.fetch_bank_line`
-(contract: GET /v1/bank-lines/{bank_line_id}). With `part_count` above 1 the row is a part of
-a split transaction: the question names the real part count, its body is the bank line as
-the statement lists show it, then its account, and `y` sends one `DELETE /bank-lines/{id}`,
-which deletes every part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}),
-through the same `confirm_delete`; the ledger reads its newest ten again, cursor on row 1, every part gone. A
-line of one part is a row never split: the ledger's own question and
-`DELETE /transactions/{id}`, as above. A line that cannot be read asks nothing and sends
-nothing: the "Failed" note carries the engine's words, and `d` again reads again. While the
-read runs, `d` again does nothing; a read that lands once the ledger is gone or covered by
-another screen asks nothing.
-
-**A refused delete** leaves the row and the list as they were and shows the "Failed" note:
-the engine's own words, then the line saying what to do instead, when the table below gives
-one.
+**`d` is the TUI's one destructive key.** It deletes the row under the cursor, never a
+selection, on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside), on the ledger,
+in the statement's "no statement" list, on a statement's flagged lines and on an upload's
+leftover lines; when the ledger turns it off: §4 "The ledger's selection keys". Every delete
+asks first with `ConfirmModal`: only `y` deletes, and the question names the row and says
+**no screen can bring it back** (each screen's code holds its question). A hashtag's question
+names the cascade, since the engine never refuses that delete for being in use
+(contract: DELETE /v1/hashtags/{hashtag_id}). On Accounts the delete acts on the whole account
+(contract: "What an account is", "An account is deleted whole"). On the ledger `d` reads the
+row's line first (`reads.fetch_bank_line`, contract: GET /v1/bank-lines/{bank_line_id}), and a
+split transaction goes whole in one `DELETE /bank-lines/{id}`
+(contract: DELETE /v1/bank-lines/{bank_line_id}). A refused delete leaves the row and the list
+as they were.
 
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
-(contract: "Base Conventions", "`fields`, `reasons` and `details` semantics"); so do the
-`VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
-system category or the pending hashtag draws when sent a new name, and the one a hashtag draws
-when named like the pending hashtag. The note it draws (a toast, a form's block, a LOG bar
-row, the bank import's preview, the Edit form's parts, a statement's refused complete) shows the
-engine's words whole (`CODE — message`, then one `key: …` line per refused field; a LOG bar row
-the engine names reads `key: …` for each refused field, without the code and message, and so
-does a ledger row refused by `b`, `c`, `h` or `m`), and for the reasons below a blank line and
-one line of the app's saying what to do. A reason the table does not list has no line: the engine's words
-show alone.
+(contract: "Base Conventions", "`fields`, `reasons` and `details` semantics"). The note shows
+the engine's words whole, and for a reason `NEXT_STEPS` in [errors.py](../expense/errors.py)
+lists, a blank line and one line of the app's saying what to do (contract: "Error reasons");
+that table holds every line and the reason's key. The line is chosen by the error's `code` and
+reason alone, never by the HTTP status, the route or the engine's wording
+([decisions.md](decisions.md) "Hints are chosen by the engine's reasons, never its wording").
+Where the screen picks between two lines of one reason: `list_refusal_text`,
+`changed_while_running` and `changed_meanwhile`.
 
-| Reason (contract: "Error reasons") | Where you meet it | The line under it |
-|---|---|---|
-| `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
-| `HAS_TRANSACTIONS` on `currency_code` | `x` on Manage ▸ Accounts, on a currency holding a transaction (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals") | none: the engine's words alone |
-| `LAST_CURRENCY` on `currency_code` | `x` on Manage ▸ Accounts, on the account's only currency (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals") | none: the engine's words alone; deleting the account is `d`, a choice of its own |
-| `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
-| `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
-| `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
-| `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account that has ever been in a statement, a deleted one included (contract: POST /v1/accounts/{account_id}/make-person, "Refusals") | none: the engine's words alone |
-| `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
-| `IN_LIVE_STATEMENT` on `account_id` | `d` on Manage ▸ Accounts, on an account a live statement holds (contract: DELETE /v1/accounts/{account_id}, "Refusals") | none: the engine's words alone |
-| `IN_LIVE_STATEMENT` on `currency_code` | `x` on Manage ▸ Accounts, on a currency a live statement holds | none: the engine's words alone |
-| `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the statement to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save, `c` or an opening balance) | `c` and `x` on Manage ▸ Accounts, on an archived account, offered on purpose since the engine judges it (contract: POST /v1/accounts/{account_id}/currencies, "Refusals") (contract: DELETE /v1/accounts/{account_id}/currencies/{currency_code}, "Refusals"); an opening balance saved on an archived account's Edit form, keyed `opening_balances.<code>` for every code sent (contract: PUT /v1/accounts/{account_id}, "Keys"); a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no statement", `b` or `m` on ledger rows, a save on the Edit form or the "no statement" Edit form, and `space`, `c` (its balances' save too), `u` and `d` on a statement's screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
-| `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
-| `DUPLICATE_CURRENCY` on `currency_code` | `c` on Manage ▸ Accounts, on a list read before the account got that currency elsewhere | none: the engine's words alone |
-| `CURRENCY_NOT_HELD` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save naming a currency its account does not hold; `m` on ledger rows moving a row onto one (contract: "Error reasons") | none: the engine's words already name the currency, and the staged rows stay, or the refused row stays selected |
-| `REQUIRED` on `currency_code` (a batch item's `transactions.<i>.currency_code`) | a LOG bar save of a line with no `%` on an account holding several, which routing stops before sending (contract: POST /v1/transactions, "Fields") | none: the engine's words list the codes held, and the staged row stays |
-| `UNSUPPORTED_VALUE` on `currency_code` | a LOG bar save naming a currency the engine does not support (contract: "Error reasons") | none: the engine's words say it |
-| `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account has (contract: "What an account is", "One account per code") | none: the engine's words already say it |
-| `STATEMENT_MONTH_TAKEN` (a `VALIDATION_ERROR`) on `date_end`, or on `file` for a statement PDF | a new statement (`n`) ending in a month another statement of the account holds; a statement PDF, when a statement is written into the paper's month while the upload runs (contract: POST /v1/statements/import, "Concurrency") | none: the engine's words name the statement holding that month |
-| `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
-| `CURRENCY_NOT_HELD` on `account_id` | a save on the Edit form, or the "no statement" Edit form, that sent an account alone, and `b` on ledger rows, onto an account holding several currencies, none of them the line's (contract: PUT /v1/transactions/{transaction_id}, "Moving a transaction"); a statement PDF whose paper shows money in a currency the picked account does not hold (contract: POST /v1/statements/import, "Accounts") | none: the engine's words name the currency, and the form stays, or the refused row stays selected, or, for a statement PDF, `Nothing was written.` |
-| `OPERATION_CODE_EXISTS` | a transaction's account or currency changed on its Edit form; an operation number, account or currency changed on the "no statement" Edit form; `b` or `m` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `a`, `t` and `d` on an account, `d` on a category, a hashtag or a statement; `c` and `x` on an account's currencies; a tick, or the balances saved at `c`, on a statement (contract: PUT /v1/statements/{statement_id}, "Sent at the same moment as another write") | `It changed at the same moment: press r, then try again.` (`try again.` alone on the leftover lines' screen of a close, which has no `r`) |
-| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, a new statement, or `h` on ledger rows | `It changed at the same moment: save again.` |
-| `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
-| `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
-| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
-| `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
-| `OPENING_BALANCE_EXISTS` on `opening_balances.<code>` | saving an opening balance on the account's Edit form (contract: PUT /v1/accounts/{account_id}, "Sent at the same moment") | `It got one meanwhile: close the form and open it again to change it.` |
-| `RECONCILIATION_NOT_DRAFT` | `d` on a statement's screen | `Press u to revert it, then d again.` |
-| `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
-| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance, which the engine keys on `account_id`; its Edit form, on a change of account | `To move an opening balance, set it on the other account's Edit form.` |
-| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) on `currency_code` | `m` on ledger rows that include an opening balance, which moves a currency alone; its Edit form, on a change of currency alone | none: the engine's words show alone |
-| `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
-| `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
-| `RESERVED_NAME` (a `VALIDATION_ERROR`) on `name` | a new category, or a category renamed on its Edit form, named like a system category (`@Opening`, `@Pendiente`); a new hashtag, or a hashtag renamed on its Edit form, named `Pendiente` in any letter case | `That name belongs to a system row: pick another.` |
-| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance | `Leave the opening balance out of the selection.` |
-| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `parts.<index>.hashtag_ids` | an opening balance's Edit form, should the refusal reach it (its hashtags show read-only) | none: the engine's words alone |
-| `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
-
-The line is chosen by the error's `code` and reason alone, never by the HTTP status, the
-route or the engine's wording ([decisions.md](decisions.md) "Hints are chosen by the
-engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEPS` in
-[errors.py](../expense/errors.py), read by the shared error text `format_error`; where a key
-or the screen picks between two rows of one reason, the function that picks says how:
-`list_refusal_text` in [_base.py](../expense/tui/screens/_base.py) (a write sent from a
-list), `changed_while_running` in
-[bank_import.py](../expense/tui/screens/bank_import.py) and `changed_meanwhile` in
-[statement_upload.py](../expense/tui/screens/statement_upload.py) (the import door's two
-`CONCURRENT_CHANGE` lines, shown in place of `format_error`'s).
-
-**The engine's words show as text, never as styling.** Every note shows them as sent,
-`[` and all: a `[like this]` or a lone `[` in a refusal, a warning or a name is never read
-as markup and never vanishes. Lines drawn on a screen (under the parts, the import's
-preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
-Rich `Text`. Lists show names and titles as the engine holds them: every list handing its
-table plain cells draws them through `list_cell` in
-[cursor_list.py](../expense/tui/widgets/cursor_list.py), so `BCP [like this]`, a `[/]` or a
-lone `[` shows as typed; a cell the app styles itself (a swatch, a coloured amount, a mark)
-is a `Text` it builds and is drawn as built. A toast whose message is not a fixed sentence of
-the app's goes through `toast` in [refusal.py](../expense/tui/widgets/refusal.py), which
-shows it as text; the title is always text. The one toast that styles the engine's words on
-purpose, the ledger's bulk edit note, writes its lines into content markup through
-`as_markup` there. Guards: [test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py),
+**The engine's words show as text, never as styling.** A `[like this]` in a refusal, a warning or
+a name is never read as markup: lines are Rich `Text`, lists draw names through `list_cell`, a
+toast of the engine's words goes through `toast` in
+[refusal.py](../expense/tui/widgets/refusal.py), and the ledger's bulk edit note alone styles
+them, through `as_markup`. Guards:
+[test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py),
 [test_toast_words.py](../tests/unit/test_toast_words.py) and
 [test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py).
 
 **"Saved" means the engine holds the row.** The LOG bar ticks a row only when the engine
 created it, or refused it only because the row's own id is taken (`ID_EXISTS` on its
-`transactions.<i>.id` and nothing else): a replay of a save whose answer was lost. Every
-other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on each row it
-covers, which keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
+`transactions.<i>.id` and nothing else): a replay of a save whose answer was lost. Any other
+refusal keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
 
-**Refused rows read one line per kind of error** under the table (`save_errors`):
-what was refused in the error colour, then the rows it hit, unstyled — `row 2`, or
-`rows 4, 6` for several — and, last and dim, `ctrl+s retries just the rows without a ✓.`
+**Refused rows read one line per kind of error** under the table (`save_errors`), the rows it hit
+beside it ([runtime.md](runtime.md) "How refused rows read").
 
-```
-  amount_cents: Must not be zero. row 2
-  date: Period 2026-01-01 to 2026-01-30 is sealed by completed statement 'January 2026'. Revert it to draft to change anything inside it. rows 4, 6
-  ctrl+s retries just the rows without a ✓.
-```
-
-- **A row the engine names** reads in the engine's words for it, and rows refused alike
-  share one line, on two sends of one save too
-  ([runtime.md](runtime.md) "How refused rows read"). The app's line saying what to do, when
-  the refusal has one ("When the engine says no" above), follows dim on the next line.
-- **A refusal naming no row** (a `409` keyed `category_id`, a `5xx`) is a line of its own,
-  with the app's line under it, dim.
-- **A save the connection stopped** puts its words on every row it left unsent: one line,
-  those rows after it. A save a refusal of every further write stopped is said once, in a
-  toast, on no row ([runtime.md](runtime.md) "Bulk writes").
-
-**The ledger's bulk edit reads its refused rows the same way** (`b`, `c`, `h`, `m`), through
-the same grouping (`refusal_notes` in [transactions.py](../expense/tui/screens/transactions.py)):
-one toast per kind of refusal, titled `Refused`, or `2 of 3 refused` when more than one row
-was refused, holding what was refused in the error colour, the rows under it, unstyled, as the
-list numbered them before the write, and the app's line saying what to do, dim. Every row it
-hit is named. A refusal with no field words (a `401`, `404` or `5xx`, or a `409`/`422`
-naming no key; `errors.is_keyed_refusal`) reads whole, as a refusal naming no row: the
-engine's code and message first, the rows it met under them, its field lines and the app's
-line after. A lost connection reads in the shared text, the rows it met under it.
-
-```
-2 of 3 refused
-account_id: Locked by completed statement.
-rows 1, 3
-```
-
-A refusal of every further write (`SETTINGS_MISSING`) is no row's and is not counted among
-them: it shows after them, once, in the note the LOG bar shows when the same refusal stops its
-save, one copy for both (`run_stopped` in [refusal.py](../expense/tui/widgets/refusal.py)):
-titled `Failed`, the engine's words whole, then, after a blank line, the line saying what to
-do. A row refused for its own reason before the stop keeps its own note.
-
-```
-Failed
-SETTINGS_MISSING — User settings have not been provisioned.
-  user_settings: Must be provisioned via POST /v1/auth/bootstrap.
-
-Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.
-```
-
-Left before the run ends (the second `esc`), every row is still sent and the app shows the
-same toasts (`show_bulk_outcome`), except that the rows are named as the ledger showed them,
-`DAY · TITLE · AMOUNT`, one per line, four at most, then `and 2 more`
-(`named_rows`).
+**The ledger's bulk edit reads its refused rows the same way** (`b`, `c`, `h`, `m`), one toast
+per kind (`refusal_notes` in [transactions.py](../expense/tui/screens/transactions.py)); a
+refusal of every further write (`SETTINGS_MISSING`) is no row's and shows once, after them
+(`run_stopped`).
 
 **The New form makes an account, its currencies and their openings in one write** (`n` on
-Manage ▸ Accounts; `NewAccountScreen` in [create_forms.py](../expense/tui/screens/create_forms.py),
-whose docstring gives each kind's lines and the body). A bank or cash account has no `name`
-line: the engine builds its name (contract: POST /v1/accounts, "The name"). Its `bank` picks from
-`GET /banks` (`reads.fetch_bank_codes`, read by Manage ▸ Accounts with its currencies); the app
-checks nothing typed on `last 4`, the engine judging its shape.
+Manage ▸ Accounts; `NewAccountScreen` in [create_forms.py](../expense/tui/screens/create_forms.py)).
+A bank or cash account has no `name` line: the engine builds its name (contract: POST
+/v1/accounts, "The name"). The save is one `POST /accounts`, whole or not at all
+(contract: POST /v1/accounts, "Required")
+(contract: POST /v1/accounts, "Optional"). A name already taken by a bank account is keyed
+`last4` or `bank_code` (contract: POST /v1/accounts, "Validation").
 
-- **`currencies` takes one currency or more,** picked as a part's HASHTAGS line on the Edit
-  form picks hashtags, from the currencies not yet picked, in the engine's order; the summary
-  lists the picks as `PEN · USD`.
-- **The pairs are the Edit form's** (one copy of the lines and of `opening_balance_body`); a
-  save with an amount and no day says `PEN as of is required.` and sends nothing.
-- **The save is one `POST /accounts`,** whole or not at all
-  (contract: POST /v1/accounts, "Required")
-  (contract: POST /v1/accounts, "Optional"). With nothing picked in `currencies` it says
-  `Currencies is required.` and sends nothing; a code still in the bar at `ctrl+s` is added
-  first, as `⏎` would add it (§4 "The bar forms' keys").
-- **A refusal** shows the "Failed" note in the engine's words, and the cursor goes back on
-  the line its key names, holding what was typed (`NewAccountScreen._line_named`). A name
-  already taken by a bank account is keyed `last4` or `bank_code`
-  (contract: POST /v1/accounts, "Validation"); `user_settings` (`SETTINGS_MISSING`) shows as a
-  note with the setup hint.
-- **Left before the answer,** an account with no typed name reads `Not created · Account
-  (unnamed)`.
+**A bank account's Edit form holds its number on three lines,** `bank`, `last 4` and `since`,
+with `cards before`, `new card` and `new card from` for a replacement
+(`EditAccountScreen`'s docstring). The app checks nothing typed on them
+(contract: PUT /v1/accounts/{account_id}, "The numbers"). Emptying `last 4` on an account that
+has a number removes it, after `ConfirmModal` asks; only `y` sends `current_number: null`.
 
-**A bank account's Edit form holds its number on three lines,** `bank` (New's line), `last 4`
-and `since`, after `type`, with `cards before`, `new card` and `new card from` for a
-replacement; a person's and a cash account's have none, a cash account's `name` reading
-its name, read-only. `EditAccountScreen`'s docstring says when each line is on the
-form, what it opens holding and what the save sends of it. The app checks nothing typed on
-them (contract: PUT /v1/accounts/{account_id}, "The numbers").
+**A bank account's statement code is a line of its own on New and Edit,** on a bank account
+only: the engine lets a person carry a code too
+(contract: "What an account is", "A person carries a code like a bank account"), and these
+forms offer it none. Small letters show as capitals while typing (`FormScreen._typed`). On New
+a skipped code is left out of the body, never sent as `null` (contract: POST /v1/accounts). On
+Edit, emptying it sends `statement_code: null`, which clears the code with no question: typing
+it again brings every statement line back (contract: PUT /v1/accounts/{account_id},
+"`statement_code`").
 
-- **Emptying `last 4` on an account that has a number removes it,** after `ConfirmModal` asks
-  over the form (`EditAccountScreen._removal_question`: `Remove card 5678 from BCP-5678?`).
-  Only `y` sends `current_number: null`; any other answer sends nothing. An emptied opening
-  balance's question follows this one.
-- **A `new card` sends `new_number`** beside whatever else changed; one beside a changed
-  `last 4` or `since`, or a removal, is the engine's to refuse.
-
-**A bank account's statement code is a line of its own on New and Edit.**
-**`statement code`** sits right after `currencies` on New and Edit, on a bank
-account only. The engine lets a person carry a code too
-(contract: "What an account is", "A person carries a code like a bank account"); these forms
-offer it none. On New, TYPE turned to `person` or `cash` takes the line off the form and the
-save sends no code; turned back to `bank`, the line returns holding what was typed, as `bank`
-and `last 4` do. A person's Edit form and a cash account's have no such line.
-
-- **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`);
-  no other line of any form changes what is typed. The app checks nothing else about the
-  code: the engine judges its shape.
-- **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
-  is left out of the body, never sent as `null` (contract: POST /v1/accounts).
-- **On Edit,** the line opens holding the account's code. Emptied, the save sends
-  `statement_code: null`, which clears the code with no question: nothing is lost, since
-  typing the code again brings every statement line back
-  (contract: PUT /v1/accounts/{account_id}, "`statement_code`").
-- **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
-  line with what was typed, on New and Edit.
-
-**An account's opening balance lives on its Edit form, one per currency** (`e` on Manage ▸
-Accounts opens the form on the account). `currencies` lists the currencies the account holds,
-read-only (`PEN · USD`; they change on Manage ▸ Accounts). The form ends with two optional
-lines per currency after `color`, in the engine's order of the account's currencies
-(contract: "Bank Accounts", "Per-currency order"), each named by its currency:
-**`PEN opening`**, the amount, and **`PEN as of`**, its day, then **`USD opening`** and
-**`USD as of`**; the bar reads `PEN OPENING`. There is no title line; the engine names the
-row. Every kind's form has the pairs, and its opening balances are written the same way. A bank account's form has no `name` line: a `name` sent for it is
+**An account's opening balance lives on its Edit form, one per currency:** two optional lines
+per currency, in the engine's order (contract: "Bank Accounts", "Per-currency order"), `PEN
+opening` and `PEN as of`. A bank account's form has no `name` line: a `name` sent for it is
 refused (contract: PUT /v1/accounts/{account_id}).
 
-- **The amount is signed and taken as typed**, in its line's currency; the app never adds or
-  flips a sign. On the bar's right `debt` or `credit` follows what is typed, as
-  `EditAccountScreen`'s docstring says. An `as of` line takes
-  `YYYY-MM-DD`, starts empty, and is
-  marked `*` once its currency has an amount.
-  The summary draws each `opening` amount coloured by sign, as the ledger does.
-- **A currency that has one opens with its pair filled.** Each currency's entry in the
-  account's `currencies` names its opening balance by id, or `null` when it has none
-  (contract: "Bank Accounts", "`currencies`"),
-  and the form reads each named row with `GET /transactions/{id}?debit_as_negative=true`
-  (`reads.fetch_transaction`), one at a time, so the amount arrives signed and nothing reads
-  the sign off `transaction_type` (contract: "Base Conventions", "Sign convention — responses").
-  A save waits for those reads, saying `The PEN opening balance is still loading.` (the first
-  currency still loading, in the form's order); a read that fails shows its "Failed" note and
-  leaves that currency's pair read-only, so the rest still saves.
+- **The amount is signed and taken as typed**; the app never adds or flips a sign.
+- **A currency that has one opens with its pair filled:** the account's `currencies` name each
+  opening balance by id, or `null` (contract: "Bank Accounts", "`currencies`"), and the form
+  reads it with `GET /transactions/{id}?debit_as_negative=true` (`reads.fetch_transaction`),
+  so the amount arrives signed and nothing reads the sign off `transaction_type`
+  (contract: "Base Conventions", "Sign convention — responses").
 - **A save is one `PUT /accounts/{id}`**, all or nothing
-  (contract: PUT /v1/accounts/{account_id}, "`opening_balances`"), carrying only what changed
-  (`EditAccountScreen`'s docstring): a currency's opening balance is set with a client
-  `transaction_id`, changed by only its amount or date, never its `transaction_id`, or cleared
-  with `null`. Nothing changed sends `{}`, which the engine answers unchanged.
-- **Emptying the amount of an existing one and saving clears it**, after `ConfirmModal` asks
-  `Delete this opening balance?` over the form, a line naming the account, currency, amount
-  and day, then `It leaves the account's balance, and no screen can bring it back.`; two
-  emptied ask once, `Delete these opening balances?`, a line each. Only `y` sends the one
-  `PUT`; `⏎`, `n` and `esc` go back to the form with nothing sent.
-- **A refusal** shows the "Failed" note in the engine's words (`format_error`) and leaves the
-  form open with what was typed; nothing was saved, and the next save sends the whole body
-  again, a set with a new `transaction_id`.
-  The cursor goes on the line the key names (`EditAccountScreen._line_named`). When the
-  engine names several codes (`ACCOUNT_ARCHIVED` names every one sent), the cursor goes to
-  the first in the form's order and the note shows the
-  engine's words whole. `user_settings` (`SETTINGS_MISSING`) names no line: a note, the cursor
-  stays. `esc` just leaves.
-- **Saved,** the form closes with `Saved.` and the account list reads again from its first
-  page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
-  this way: one that wrote dismisses with `True` and the list starts over; one closed with
-  `esc` before any write keeps the edited row selected (`ResourceListScreen._edited` in
-  [_base.py](../expense/tui/screens/_base.py)).
+  (contract: PUT /v1/accounts/{account_id}, "`opening_balances`"), carrying only what changed.
+  Emptying the amount of an existing one clears it, after `ConfirmModal` asks.
+- **Every Manage Edit form that wrote** dismisses with `True` and the list starts over; one
+  closed with `esc` before any write keeps the edited row selected
+  (`ResourceListScreen._edited`).
 
-**No cards. No vertical lines. Horizontal rules divide sections.**
-
-- **Nothing is drawn inside a box** — not a modal, not a list panel, not the input bar,
-  not a plain yes/no `ConfirmModal`.
-- **Horizontal rules are the divider** (the header's `border-bottom` is the pattern).
-- **A question that needs room becomes a screen**, not a card.
+**No cards. No vertical lines. Horizontal rules divide sections.** Nothing is drawn inside a
+box, not a modal, a list panel, the input bar or a plain yes/no `ConfirmModal`; a horizontal rule
+is the divider (the header's `border-bottom` is the pattern); a question that needs room becomes
+a screen, not a card.
 
 **List chrome is content.** A list's page status (`rows 21-40 of 133 · page 2 of 7`) is
 drawn as ordinary content by `WindowedList.framed()`
-([windowed.py](../expense/tui/widgets/windowed.py)), which every repaint of both list widgets
-passes through: a plain rule opens the section, the page status sits dim beneath the rows,
-and there is no title, the breadcrumb already naming the screen. **The status line is drawn
-on every windowed list, blank when there is nothing to say**, except where a screen turns it
-off for a mode that never has a status (`set_status_line(False)`, the Statements lines in no
-statement): the line is fixed per list or mode, never by rows, since `AdaptiveRowsMixin` measures
-the widget's height. **The rule passes an explicit style**: Rich's default `rule.line`
-resolves to a literal green that `test_no_literal_color_styles_in_tui` cannot see, because
-it greps source rather than renders.
+([windowed.py](../expense/tui/widgets/windowed.py)): a plain rule opens the section, the page
+status sits dim beneath the rows, and there is no title, the breadcrumb already naming the
+screen. The status line is drawn on every windowed list, blank when there is nothing to say (off
+in the Statements "no statement" mode, `set_status_line(False)`),
+fixed per list or mode, never by rows, since `AdaptiveRowsMixin` measures the widget's height.
+**The rule passes an explicit style**: Rich's default `rule.line` resolves to a literal green
+that `test_no_literal_color_styles_in_tui` cannot see, because it greps source rather than
+renders.
 
 ⚠️ **One exception.** A title that is *chrome* disappears; one that is *information*
-becomes a line of content above the rule. The Statements browse stacks two lists once a
-panel is open, and its caption (`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`)
-is the only thing tying the lower rows to an account above. Ask "would the screen still be
-unambiguous without this?" — not "is this a title?".
+becomes a line of content above the rule: the Statements browse's caption
+(`Statements · Visa BCP · PEN + USD · VIS   ·   oldest → newest`) is the only thing tying the
+lower rows to an account above. Ask "would the screen still be unambiguous without this?" — not
+"is this a title?".
 
 ---
 

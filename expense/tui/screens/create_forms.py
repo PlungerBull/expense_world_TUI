@@ -711,7 +711,16 @@ class NewAccountScreen(BarFormScreen):
 
 def _edit_payload(values: dict, original_color: str | None) -> dict:
     """A Manage Edit form's body: the name, and the colour only when it is not
-    the row's own, so a colour no swatch shows is never sent back."""
+    the row's own, so a colour no swatch shows is never sent back.
+
+    The COLOR line opens with the bar empty and the highlight on the row's own
+    swatch, so `⏎` with nothing typed keeps it; typing filters, `↑↓` choose
+    another, and a bar emptied again puts the highlight back on the row's own.
+    An account with no colour opens on nothing and `⏎` skips the line. A colour
+    no swatch shows (the engine's own, on a row created with none) highlights
+    nothing, `⏎` keeps it, and the summary shows its hex; that holds on a
+    category too, where COLOR is required. `⏎` down every line saves the name
+    alone and the engine keeps the colour."""
     payload = {"name": values["name"]}
     if values.get("color") and values["color"] != original_color:
         payload["color"] = values["color"]
