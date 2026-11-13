@@ -47,12 +47,8 @@ launcher on its newest code, and the version check ran against it on 2026-11-12.
 
 ## Tasks
 
-Each task leaves `pytest tests/unit` green. Task 1 is done.
+Each task leaves `pytest tests/unit` green. Tasks 1 and 2 are done.
 
-2. **A live contract test for `GET /health`:** every field present, `mode` `PRACTICE` and
-   `backup.state` `not_kept` on the practice engine, nulls allowed where the contract allows
-   them. The `503` on a structure mismatch cannot be caused from this client, so it is cited,
-   not driven.
 3. **CHANGELOG's "Upgrading:" line** names contract `1.1` as the one the engine must serve.
 
 ## Reply to the engine
@@ -67,3 +63,9 @@ Each task leaves `pytest tests/unit` green. Task 1 is done.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **Contract tests that check a response's exact key set fail on a compatible `1.x` addition,**
+  which Base Conventions says a client tolerates: tests/contract/test_account_reads.py:137, :140,
+  :263, :275, test_cash_account.py:181, test_resources_lifecycle.py:67,
+  test_transactions_cursor.py:49, :244, test_bank_import.py:306, :351, :381,
+  test_reports_and_dashboard.py:133. Each would check its required fields as a subset instead.
