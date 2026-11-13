@@ -1,7 +1,7 @@
 # Engine data travels as typed objects, and tests check what a screen does
 
-**Status: approved 2026-11-11, with every question answered as recommended.** It runs after
-[Code conventions A](code-conventions-a.md). When done, the why moves to
+**Status: approved 2026-11-11, with every question answered as recommended.** It is v1.3,
+last in the Queue. When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---

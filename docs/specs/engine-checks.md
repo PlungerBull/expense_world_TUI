@@ -2,8 +2,7 @@
 
 **Status: approved 2026-11-11 as tasks 5–7 of [The app the owner runs](going-live.md), split out
 on 2026-11-12 into v1.2.**
-- The engine shipped what its tasks read in contract `1.1`
-  ([the catch-up to 1.1](catch-up-to-1-1.md)): the version as `breaking.adding`, and
+- The engine shipped what its tasks read in contract `1.1`: the version as `breaking.adding`, and
   `GET /health`'s `mode`, backup and `503` message (contract: GET /health).
 - Tasks 1 and 2 wait on the owner picking their mockups.
 - When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.

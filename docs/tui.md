@@ -337,8 +337,8 @@ a `PUT` never sends null.
 selection, on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside), on the ledger,
 in the statement's "no statement" list, on a statement's flagged lines and on an upload's
 leftover lines; when the ledger turns it off: §4 "The ledger's selection keys". Every delete
-asks first with `ConfirmModal`: only `y` deletes, and the question names the row and says
-**no screen can bring it back** (each screen's code holds its question). A hashtag's question
+asks first as [CLAUDE.md](../CLAUDE.md) "Confirm destructive operations" says, its
+`ConfirmModal` naming the row (each screen's code holds its question). A hashtag's question
 names the cascade, since the engine never refuses that delete for being in use
 (contract: DELETE /v1/hashtags/{hashtag_id}). On Accounts the delete acts on the whole account
 (contract: "What an account is", "An account is deleted whole"). On the ledger `d` reads the
@@ -433,11 +433,10 @@ lower rows to an account above. Ask "would the screen still be unambiguous witho
 
 ## 3. Theming — the terminal supplies every colour
 
-**No literal colors in the TUI, and no authored ones either.** CSS uses `$accent` /
-`$secondary` / `$error`; Rich content takes the `PALETTE` constant
-([theme.py](../expense/tui/theme.py)). The tokens are **ANSI slots**, not hexes, with no detection at startup
-(guards: `test_no_literal_color_styles_in_tui`, `test_theme_is_ansi_slots_not_hexes`; why:
-[decisions.md](decisions.md) "The terminal supplies the palette").
+The rule, its tokens and its guards are [CLAUDE.md](../CLAUDE.md) "Colour comes from the
+terminal"; nothing is detected at startup ([decisions.md](decisions.md) "The terminal supplies
+the palette", "TUI paints the terminal's own background"). What only rendering revealed is said
+by the comments of `theme.py` and `app.tcss`.
 
 **Amounts.** Every figure shown, and every example amount in a note, is written in the session's
 format (§1 "One reader for every typed amount"). Green is money in, the error colour money out.
@@ -450,13 +449,6 @@ amounts (the staged total, a day's net, a count line's `… left`) write no `+`.
 beginning and ending balances, and Home's dim `inflow` and `outflow` rows, are in no colour. The
 three rules are `TRANSACTION_RULE`, `AMOUNT_RULE` and `BALANCE_RULE` in
 [theme.py](../expense/tui/theme.py).
-
-**Theme the foreground, never the base surface.** The app runs in ANSI mode: the base fill is
-`ansi_default`, the terminal's own background, set structurally in
-[app.tcss](../expense/tui/app.tcss). A future theme recolors the foreground and semantic spans
-only and never paints a full-screen background ([decisions.md](decisions.md) "TUI paints the
-terminal's own background"; guard: `test_tui_theme.py::test_base_fills_are_terminal_transparent`).
-What only rendering revealed is said by the comments of `theme.py` and `app.tcss`.
 
 **The cursor is reverse video, applied as a Rich style** ([decisions.md](decisions.md) "The
 cursor is reverse video"): `CURSOR_STYLE` in [windowed.py](../expense/tui/widgets/windowed.py)
@@ -473,7 +465,6 @@ are hand-written into the `?` card ([help.py](../expense/tui/screens/help.py) `C
 - **`r` always refreshes**, everywhere.
 - **`y` alone confirms** — on the questions that delete, complete or revert, the quit question
   while saves are still being sent, a currency's removal and an emptied opening balance included.
-  Archive asks nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle").
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen handles
   `CursorList.Selected` there, and the card *drops* the row rather than advertise `⏎ Open`
   falsely. The exception is a currency pick (Manage ▸ Accounts' `c` and `x`, §2 "`c` adds a

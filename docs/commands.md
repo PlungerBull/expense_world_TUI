@@ -14,7 +14,7 @@
 | `expense import sheet <file.xlsx>` | The personal spreadsheet → the engine (below). |
 | `expense --help` | Lists `import` (whose one command is `sheet`) and nothing else. |
 
-`--verbose` / `-v` is the one root flag: it prints every HTTP request and response to stderr, Authorization redacted, for the app and the sheet import alike. Any other word after `expense` is an unknown command (exit 2).
+`--verbose` / `-v` is the one root flag: it prints every HTTP request and response to stderr, Authorization redacted, for the app and the sheet import alike, and puts their bodies in the log ([runtime.md](runtime.md) "The log"). Any other word after `expense` is an unknown command (exit 2).
 
 ---
 

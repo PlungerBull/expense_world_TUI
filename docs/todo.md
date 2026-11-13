@@ -24,25 +24,22 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [The catch-up to contract 1.1](specs/catch-up-to-1-1.md): approved 2026-11-12;
-   it runs first.
-2. **v1.0** · [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its
-   acceptance check waits on the catch-up to contract 1.1.
-3. **v1.0** · [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task
-   is done; its acceptance check waits on the catch-up to contract 1.1.
-4. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
+1. **v1.0** · [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done and its
+   acceptance check ran 2026-11-12; it retires once "Lean docs ends above its word total" is
+   answered.
+2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-5. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
+3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
    answered A on 2026-11-12; task 1 waits on question 17's facts. v1.0.0 is prepared after its
    rehearsal.
-6. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+4. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-7. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+5. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
    the owner runs, split out 2026-11-12. The engine shipped what they read in contract 1.1;
    tasks 1 and 2 wait on the owner picking their mockups.
-8. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+6. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
@@ -150,6 +147,30 @@ Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They 
 3. Is PARDO a person or a bank account (a bank account needs its bank)?
 **Recommended:** none, facts only you know.
 
+### Lean docs ends above its word total
+Asked 2026-11-12 · Blocks: Lean docs retiring
+The docs total 34,178 words (`wc -w`, every root and docs/*.md), against the target of 32,000.
+The "about 33,400 accepted" in the spec was a miscount: the real total was already 33,742 when
+you accepted tui.md at 5,778. Since then the docs sweep cut 258 words. Three new decisions (the
+docs rule, the type check and log, the version check) added 255, so decisions.md is 18,234
+against its 17,999. todo.md grew 402 with these two questions and the finished specs' finds; the
+questions leave once answered. The biggest cut left is docs/commands.md's `expense import sheet`
+section, about 1,500 words retelling what the import prints, which the official import already
+rewrites.
+- **A.** Accept about 34,000 now, and cut the import section while the official import rewrites it.
+- **B.** Cut about 1,800 words now, the import section included, before Lean docs retires.
+**Recommended:** A, because the import section is rewritten in the official import anyway, and
+cutting it now means doing it twice.
+
+### A token pasted in System ▸ Config keeps its spaces
+Asked 2026-11-12 · Blocks: nothing yet
+Setup trims a pasted token; System ▸ Config `t` saves it as pasted
+(expense/tui/screens/system.py:91-94), so a trailing space makes every request fail as a
+refused header until it is pasted again.
+- **A.** A small spec: `t` trims the token as Setup does, with a test.
+- **B.** Leave it.
+**Recommended:** A, because a stray space from a paste is easy to make and every screen then fails.
+
 ---
 
 ## Backlog
@@ -157,6 +178,25 @@ Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They 
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 the shared loop, `../agent-loop.md` "Specs and tasks".
+
+- **Twelve live contract tests check a response's exact key set,** so a compatible `1.x` addition,
+  which Base Conventions says a client tolerates, fails them: tests/contract/test_account_reads.py:137,
+  :140, :263, :275, test_cash_account.py:181, test_resources_lifecycle.py:67,
+  test_transactions_cursor.py:49, :244, test_bank_import.py:306, :351, :381,
+  test_reports_and_dashboard.py:133. Each would check its required fields as a subset, as
+  test_auth_smoke.py's `/health` test does.
+- **About 15 `except Exception` blocks show nothing and log nothing** (the rate check, the header
+  stats, the name maps: reads.py:645, :662; _base.py:757, :869, :980, :1029; transactions.py:525,
+  :533, :546, :706; statements.py:578, :2158, :2727; header.py:97; cursor_list.py:487; app.py:156),
+  so a bug inside one never reaches the log.
+- **A 5xx whose body is not the engine's error shape logs only its request line**
+  (expense/http.py:159-179), not the body the engine sent.
+- **Older `# type: ignore`s mypy no longer needs:** `self.app.after_quit_question(...)` at
+  expense/tui/screens/log_bar.py:1051 and setup.py:375 could go through `expense_app(...)` as
+  bank_import.py does; modals.py:38-50 keeps four that a Screen-host base could clear.
+- **`self._name` shadows Textual's `DOMNode._name`** in `AccountPeek` (log_bar.py:687),
+  `EditAccountScreen` (create_forms.py:907) and `StatementLeftoverScreen` (leftover_lines.py:468);
+  harmless today, but a rename such as `_account_name` keeps the two apart.
 
 - **After a reload that fails, the ledger's footer and `?` card keep its row keys** (`a`, `c`,
   `b`, `h`, `m`, `s`, `d`) with no list on screen, since `TransactionsScreen.has_rows`

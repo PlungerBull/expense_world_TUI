@@ -14,5 +14,5 @@
 | [todo.md](todo.md) | You pick the next task, or look for what waits on the owner. |
 | [specs/](specs/README.md) | You run or write a spec: the owner's specs, one per piece of work. |
 | [mockups/](mockups/) | You draw or change a screen: the HTML mockups of open work, the approval gate. |
-| [to-engine/](to-engine/README.md) | You ask the engine for a change: one file per ask not yet handed over. |
+| [to-engine/](to-engine/README.md) | You ask the engine for a change or reply to a catch-up: one file per thing not yet handed over. |
 | [from-engine/](from-engine/README.md) | The engine sent a catch-up: files planned into a spec, then deleted. |

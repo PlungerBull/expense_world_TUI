@@ -1446,3 +1446,25 @@ only for data nothing else carries (a statement's name and days, an amount, a cu
 the suite for nothing the owner would notice. The data in a message is what the screen shows.
 
 **Rejected.** *No message checks at all* — a refusal naming the wrong statement would pass.
+
+## Docs hold only what the code cannot say (2026-11-12)
+
+**Decision.** Docs hold the why (here), running and repairing the app ([runtime.md](runtime.md)) and product rules the code cannot show; for the rest they name the file. [tui.md](tui.md) keeps a short section per screen, its keys being the `?` card's and the footers'. A mockup leaves with its spec.
+
+**Why.** The docs ran to 55,000 words for 22,000 lines of code, mostly key-by-key walkthroughs that went stale.
+
+**Rejected.** *A word budget per doc in a test* — it froze each doc and never cut. *Archiving built screens' mockups* — a second copy agents read.
+
+## The whole app is type-checked, and the running app keeps a log (2026-11-12)
+
+**Decision.** mypy checks all of `expense/` and the release scripts, the whole package as one entry. The running app keeps a rotating log ([runtime.md](runtime.md) "The log"), a refusal in it as the engine sent it.
+
+**Why.** A file list left most of the app unchecked, and the TUI swallows stderr, so a problem in daily use left nothing to read. A refusal logged whole matches what the screen showed.
+
+**Rejected.** *`--verbose` on stderr as the trail* — the TUI swallows it.
+
+## The version check stops on any contract move, the second number included (2026-11-12)
+
+**Decision.** The `breaking.adding` version (contract: "Base Conventions") is compared whole; a move in either number stops the loop until its hand-off is planned ([runtime.md](runtime.md) "Contract version").
+
+**Why.** This client exists to exercise the engine, so what an addition brings is learned, not skipped.
