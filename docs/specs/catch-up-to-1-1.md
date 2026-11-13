@@ -47,9 +47,7 @@ launcher on its newest code, and the version check ran against it on 2026-11-12.
 
 ## Tasks
 
-Each task leaves `pytest tests/unit` green. Tasks 1 and 2 are done.
-
-3. **CHANGELOG's "Upgrading:" line** names contract `1.1` as the one the engine must serve.
+Each task leaves `pytest tests/unit` green. Tasks 1–3 are done.
 
 ## Reply to the engine
 
