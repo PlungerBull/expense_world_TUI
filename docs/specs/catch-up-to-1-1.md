@@ -2,7 +2,7 @@
 
 Catches up from contract `3a4ff8dac458cf83` through `1.0` to `1.1`.
 
-**Status: draft for the owner to approve (2026-11-12), with its tasks below.** It runs first in
+**Status: approved 2026-11-12, with its tasks below.** It runs first in
 v1.0. The engine's hand-off asks no question back. When done, its why moves to
 [decisions.md](../decisions.md), its reply goes to [to-engine/](../to-engine/), and this file is
 deleted.

@@ -70,7 +70,7 @@ account's month.
 
 ## Open questions
 
-15. **Where the sheet's accounts are made** (pane 17).
+15. **Where the sheet's accounts are made** (pane 17). **Answered 2026-11-12: A.**
     - **A.** All in the app first: each bank account on the New form with its bank, last 4,
       currencies and statement code, each person by its name. The import puts each bank
       account's sheet name on its account with `--account-name "VISA Infinite Sapphire=BCP-5678"`,
@@ -82,7 +82,7 @@ account's month.
       person.
     - **Recommended:** A: one place makes accounts, no guess at which name is a person, and the
       `t` step after the import goes away.
-16. **The closed accounts at other banks** (pane 18). The engine lists only BCP, so the two
+16. **The closed accounts at other banks** (pane 18). **Answered 2026-11-12: A.** The engine lists only BCP, so the two
     Interbank accounts, and the Oro card and Alcancía if they are not BCP's, cannot be made as
     bank accounts.
     - **A.** Ask the engine to list their banks; each is made at its own bank, then archived.
@@ -129,8 +129,8 @@ account's month.
 
 ## Tasks
 
-Drafted on the recommended answers (15 A, 16 A); each reads the live contract on the practice
-engine before building.
+On the answers 15 A and 16 A (2026-11-12); each reads the live contract on the practice engine
+before building. Task 1 waits on question 17's facts.
 
 1. **The engine ask:** "GET /banks lists every bank the owner's accounts were at", naming the
    banks question 17 gives, in [to-engine/](../to-engine/).
