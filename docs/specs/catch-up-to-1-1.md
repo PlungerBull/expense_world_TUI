@@ -47,11 +47,8 @@ launcher on its newest code, and the version check ran against it on 2026-11-12.
 
 ## Tasks
 
-Each task leaves `pytest tests/unit` green.
+Each task leaves `pytest tests/unit` green. Task 1 is done.
 
-1. **Record contract `1.1`** with the version check's `--record-version`, and name the three
-   keys it flags as the tests' own in its `KNOWN_LOCAL`: `conclusion`
-   (tests/unit/test_release_scripts.py:20, :188) and `extra` (test_constraints_complete.py:29).
 2. **A live contract test for `GET /health`:** every field present, `mode` `PRACTICE` and
    `backup.state` `not_kept` on the practice engine, nulls allowed where the contract allows
    them. The `503` on a structure mismatch cannot be caused from this client, so it is cited,

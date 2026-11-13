@@ -192,6 +192,12 @@ KNOWN_LOCAL = frozenset(
         "busy",
         "notes",
         "on_list",
+        # a GitHub Actions run's JSON, which the release-script tests fake
+        # (`{"status": "completed", "conclusion": "success"}`), not an engine body
+        "conclusion",
+        # the marker environment `packaging` evaluates in the constraints test
+        # (`{"extra": e}`), not an engine field
+        "extra",
     }
 )
 
