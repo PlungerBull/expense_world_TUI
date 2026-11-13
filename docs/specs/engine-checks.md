@@ -2,9 +2,10 @@
 
 **Status: approved 2026-11-11 as tasks 5–7 of [The app the owner runs](going-live.md), split out
 on 2026-11-12 into v1.2.**
-- Its tasks wait on the engine's own going-live release. Its hand-off reaches
-  [from-engine/](../from-engine/) as a catch-up file.
-- Tasks 1 and 2 also wait on the owner picking their mockups.
+- The engine shipped what its tasks read in contract `1.1`
+  ([the catch-up to 1.1](catch-up-to-1-1.md)): the version as `breaking.adding`, and
+  `GET /health`'s `mode`, backup and `503` message (contract: GET /health).
+- Tasks 1 and 2 wait on the owner picking their mockups.
 - When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -53,13 +54,10 @@ or unhealthy.
 
 Each task leaves `pytest tests/unit` green.
 
-1. **The launch check** and its screen. It waits on the engine's going-live release and the
-   picked mockup.
+1. **The launch check** and its screen. It waits on the picked mockup.
 2. **REAL/PRACTICE and the backup's age** on Home, with the app's version read at runtime from
-   the installed package's metadata. It waits on the engine's going-live release
-   and the picked mockup.
-3. **The fix in every engine-down and unhealthy message.** The unhealthy half waits on the
-   engine's going-live release.
+   the installed package's metadata. It waits on the picked mockup.
+3. **The fix in every engine-down and unhealthy message.**
 
 ## Found along the way
 
