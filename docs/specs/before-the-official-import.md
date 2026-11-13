@@ -147,6 +147,10 @@ before building. Task 1 waits on question 17's facts.
 5. **The rehearsal on the practice engine:** a made-up sheet with the real sheet's shape (a
    card in two currencies, two savings accounts, people, a split purchase, opening balances, a
    closed account at a second bank) goes through steps 3–8, and every balance matches.
+6. **docs/commands.md's `expense import sheet` section keeps only what the code can't say:**
+   what the import prints and how its engine steps run are said by import_cmd.py and engine.py,
+   so the section names them instead of retelling them (about 1,500 words today; Lean docs'
+   word total, answered A on 2026-11-13).
 
 ## Found along the way
 

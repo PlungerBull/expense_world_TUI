@@ -24,9 +24,8 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done and its
-   acceptance check ran 2026-11-12; it retires once "Lean docs ends above its word total" is
-   answered.
+1. **v1.0** · [A pasted token is saved without its spaces](specs/pasted-token.md): approved
+   2026-11-13.
 2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
@@ -147,30 +146,6 @@ Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They 
 3. Is PARDO a person or a bank account (a bank account needs its bank)?
 **Recommended:** none, facts only you know.
 
-### Lean docs ends above its word total
-Asked 2026-11-12 · Blocks: Lean docs retiring
-The docs total 34,178 words (`wc -w`, every root and docs/*.md), against the target of 32,000.
-The "about 33,400 accepted" in the spec was a miscount: the real total was already 33,742 when
-you accepted tui.md at 5,778. Since then the docs sweep cut 258 words. Three new decisions (the
-docs rule, the type check and log, the version check) added 255, so decisions.md is 18,234
-against its 17,999. todo.md grew 402 with these two questions and the finished specs' finds; the
-questions leave once answered. The biggest cut left is docs/commands.md's `expense import sheet`
-section, about 1,500 words retelling what the import prints, which the official import already
-rewrites.
-- **A.** Accept about 34,000 now, and cut the import section while the official import rewrites it.
-- **B.** Cut about 1,800 words now, the import section included, before Lean docs retires.
-**Recommended:** A, because the import section is rewritten in the official import anyway, and
-cutting it now means doing it twice.
-
-### A token pasted in System ▸ Config keeps its spaces
-Asked 2026-11-12 · Blocks: nothing yet
-Setup trims a pasted token; System ▸ Config `t` saves it as pasted
-(expense/tui/screens/system.py:91-94), so a trailing space makes every request fail as a
-refused header until it is pasted again.
-- **A.** A small spec: `t` trims the token as Setup does, with a test.
-- **B.** Leave it.
-**Recommended:** A, because a stray space from a paste is easy to make and every screen then fails.
-
 ---
 
 ## Backlog
@@ -179,6 +154,12 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 the shared loop, `../agent-loop.md` "Specs and tasks".
 
+- **Four code comments read differently from the code:** expense/http.py:26-27 says a connect
+  failure fails fast, though a connect timeout is retried (`TimeoutException`);
+  scripts/check_fixture_drift.py:20 says the run fails when the versions differ, leaving out a
+  missing saved version; expense/tui/screens/transactions.py:20-21 says an account move sends
+  `currency_code` too, though it sends `account_id` alone; expense/tui/screens/edit_form.py:4
+  leaves CURRENCY out of the shared fields, though the form shows it after ACCOUNT.
 - **Twelve live contract tests check a response's exact key set,** so a compatible `1.x` addition,
   which Base Conventions says a client tolerates, fails them: tests/contract/test_account_reads.py:137,
   :140, :263, :275, test_cash_account.py:181, test_resources_lifecycle.py:67,
