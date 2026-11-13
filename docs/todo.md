@@ -24,16 +24,17 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [The catch-up to contract 1.1](specs/catch-up-to-1-1.md): drafted 2026-11-12,
-   waiting on your approval; it runs first.
+1. **v1.0** · [The catch-up to contract 1.1](specs/catch-up-to-1-1.md): approved 2026-11-12;
+   it runs first.
 2. **v1.0** · [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its
    acceptance check waits on the catch-up to contract 1.1.
 3. **v1.0** · [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task
    is done; its acceptance check waits on the catch-up to contract 1.1.
 4. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-5. **v1.0** · [The official import](specs/before-the-official-import.md): waits on your answers to
-   its questions 15–17 and your approval; v1.0.0 is prepared after its rehearsal.
+5. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
+   answered A on 2026-11-12; task 1 waits on question 17's facts. v1.0.0 is prepared after its
+   rehearsal.
 6. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -58,16 +59,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### The catch-up to contract 1.1: approve it?
-Asked 2026-11-12 · Blocks: [the catch-up to 1.1](specs/catch-up-to-1-1.md), and so lean docs'
-and code conventions A's acceptance checks
-The engine's hand-off asks nothing back. The spec records `1.1`, adds a live test of the engine's
-new health answer, and points the changelog at `1.1`. The engine's screen asks (REAL or PRACTICE,
-the backup's age, an unhealthy engine's message, a breaking contract) go to v1.2's [The app
-checks its engine](specs/engine-checks.md), which now waits only on its mockups.
-- **A.** Approve the spec and its three tasks.
-**Recommended:** A, since it is the bookkeeping that lets v1.0's other specs finish.
 
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check
@@ -149,12 +140,15 @@ Found while the number format setting was built; drawn as panes 14–16 of
 **Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
 every amount on screen follows the pick as soon as it is known.
 
-### The official import, redrafted for built names: approve it?
-Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)
-The spec is rewritten now that the engine names bank accounts itself and lists one bank. Its
-questions 15–17 are in the spec, 15 and 16 drawn as panes 17–18 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html). One reply answers
-them and approves the spec and its tasks.
+### The official import's question 17: the facts only you know
+Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)'s task 1, the
+engine ask that lists the closed accounts' banks
+Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They are:
+1. Which bank holds the Oro card, and which holds Alcancía?
+2. The last 4 digits of each account you have them for; the two Interbank accounts need one
+   each, or both would be named `INTERBANK`.
+3. Is PARDO a person or a bank account (a bank account needs its bank)?
+**Recommended:** none, facts only you know.
 
 ---
 
