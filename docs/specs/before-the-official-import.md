@@ -88,10 +88,10 @@ account's month.
     - **A.** Ask the engine to list their banks; each is made at its own bank, then archived.
     - **B.** Make them people: each keeps its rows and balance, but shows under people.
     - **Recommended:** A, so each closed account is what it was.
-17. **Facts only you know:** which bank holds the Oro card and Alcancía; the last 4 of each
-    account you have them for (both Interbank accounts need one each, or they would share the
-    name `INTERBANK`); and whether PARDO is made a person or a bank account (a bank account
-    needs a bank).
+17. **Facts only you know.** **Answered 2026-11-13:** the Oro card and Alcancía are at BCP; every
+    account that shares a bank has a last 4 of its own, typed in the app at step 3 and kept out
+    of this repo; PARDO, the José Pardo apartment, is made a person until the app has a kind of
+    account for an investment. So Interbank is the one bank the engine must add.
 
 ## What the engine settled
 
@@ -107,7 +107,7 @@ account's month.
    (question 16 A).
 2. The owner wipes the live database.
 3. In the app: each bank account made with its bank, last 4, currencies and statement code; each
-   person made by name; PARDO as question 17 says.
+   person made by name, PARDO among them.
 4. The import's dry run, with an `--account-name` for each bank account's sheet name: every
    account found, the categories and hashtags listed as missing.
 5. `--create-names` makes the categories and hashtags, importing nothing.
@@ -130,13 +130,9 @@ account's month.
 ## Tasks
 
 On the answers 15 A and 16 A (2026-11-12); each reads the live contract on the practice engine
-before building. Task 1 waits on question 17's facts; task 2 is done.
+before building. Tasks 1–3 are done; task 5 waits on the engine ask "GET /banks lists every
+bank the owner's accounts were at", for its closed account at a second bank.
 
-1. **The engine ask:** "GET /banks lists every bank the owner's accounts were at", naming the
-   banks question 17 gives, in [to-engine/](../to-engine/).
-3. **`--account-name` puts a sheet name on an account that exists,** found by its name as the
-   engine holds it (`BCP-5678`, a person's name); a name no account holds is a usage error
-   naming it; `docs/commands.md` "Renaming an account" says so.
 4. **The live contract tests:** the sheet import's two tests waiting on `NAME_BUILT` make their
    accounts first with a bank and last 4, put the sheet's names on them, and pass; a sheet
    name shared by two accounts answers `ambiguous` with no proposal.

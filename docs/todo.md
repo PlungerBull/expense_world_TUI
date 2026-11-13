@@ -26,8 +26,9 @@ prepares the release (CLAUDE.md "This repo's loop").
 
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
-   answered A on 2026-11-12; task 1 waits on question 17's facts; task 2 is done; task 3 (built, uncommitted) waits on pane 21. v1.0.0 is
+2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–17
+   answered by 2026-11-13; tasks 1–3 are done; task 5 waits on
+   the engine ask "GET /banks lists every bank the owner's accounts were at". v1.0.0 is
    prepared after its rehearsal.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
@@ -76,26 +77,6 @@ the cash account's name.
 - **B.** Approve it into v1.0, before the official import.
 **Recommended:** A, because v1.0 is the import and its release, and none of the six blocks it.
 
-### The official import's words for a rename to no account (pane 21)
-Asked 2026-11-13 · Blocks: the official import's task 3, and the tasks after it
-Task 3 is built and uncommitted: `--account-name` to a name no account holds is refused, and so
-is a rename saved by an earlier run, which after the wipe names no account. Pane 21 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html) draws the four
-cases (one typed, two typed, saved, typed and saved at once).
-- **A.** As built: "…which no account is named."
-- **B.** Plainer: "…, and no account has that name."
-**Recommended:** B, the same facts and fix in plainer words.
-
-### The official import's question 17: the facts only you know
-Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)'s task 1, the
-engine ask that lists the closed accounts' banks
-Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They are:
-1. Which bank holds the Oro card, and which holds Alcancía?
-2. The last 4 digits of each account you have them for; the two Interbank accounts need one
-   each, or both would be named `INTERBANK`.
-3. Is PARDO a person or a bank account (a bank account needs its bank)?
-**Recommended:** none, facts only you know.
-
 ---
 
 ## Backlog
@@ -104,6 +85,9 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 the shared loop, `../agent-loop.md` "Specs and tasks".
 
+- **A kind of account for an investment [UI]** — PARDO, the owner's apartment, is a person
+  until one exists, then converts in place, keeping its rows and balance. Needs a spec from the
+  owner, and an engine ask with it.
 - **Four code comments read differently from the code:** expense/http.py:26-27 says a connect
   failure fails fast, though a connect timeout is retried (`TimeoutException`);
   scripts/check_fixture_drift.py:20 says the run fails when the versions differ, leaving out a

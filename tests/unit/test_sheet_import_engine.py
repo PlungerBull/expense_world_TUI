@@ -340,9 +340,10 @@ def test_a_rename_putting_two_sheet_accounts_on_one_is_not_refused():
 def test_names_one_rename_covers_are_one_account_not_two():
     """`BCP` and `bcp` are one account to the rename: no clash."""
     renames = {rename_key("BCP"): "Sueldo Soles"}
-    table = names_table(TWO_ACCOUNTS, renames, [])
+    accounts = [account_with_currencies(id="acc-s", name="Sueldo Soles")]
+    table = names_table(TWO_ACCOUNTS, renames, accounts)
     check_renames(table, [("BCP", "Sueldo Soles")])
-    assert [(e.name, e.renamed_to) for e in missing_accounts(table)] == [
+    assert [(e.name, e.renamed_to) for e in table if e.renamed_to] == [
         ("BCP", "Sueldo Soles"),
         ("bcp", "Sueldo Soles"),
     ]

@@ -169,7 +169,7 @@ def _saved() -> dict[str, str]:
 DRY_RUN_NAMES_MISSING = """\
 Accounts (4)
   SHEET NAME   CUR          ROWS   GOES TO
-  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app
+  BCP          PEN + USD   1,515   Sueldo Soles  yours
   Interbank    PEN           402   make it in the app
   Visa         PEN + USD     261   make it in the app
   Ana          PEN + USD      44   make it in the app
@@ -188,7 +188,7 @@ Hashtags (2)
 
 No counts yet: the engine counts once every name exists.
 
-4 sheet accounts have no account yet: make them in the app. A bank account then
+3 sheet accounts have no account yet: make them in the app. A bank account then
 gets the sheet's name with --account-name "<sheet name>=<its name>".
 5 names don't exist yet. Create them with:
   expense import sheet libro.xlsx --create-names
@@ -206,7 +206,7 @@ def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missin
     categories and hashtags only; only the dry run without the table is sent, and
     the rename is remembered."""
     route = _engine(_answer(yours=False))
-    accounts = _accounts([])
+    accounts = _accounts([SUELDO])
     creates = _creates()
     result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
@@ -852,14 +852,14 @@ def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
 @respx.mock
 def test_a_rename_is_remembered_by_name_and_a_flag_replaces_it(sheet):
     _engine(_answer(yours=False))
-    _accounts([])
+    _accounts([SUELDO, account_with_currencies(id="acc-old", name="Old")])
     assert _run("--account-name", "Bcp=Old").exit_code == 0
     assert _saved() == {"Bcp": "Old"}
     result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
     assert _saved() == {"BCP": "Sueldo Soles"}
     result = _run()
-    assert "  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  yours\n" in result.stdout
 
 
 def _save_names(names):
@@ -872,10 +872,10 @@ def _save_names(names):
 def test_saved_renames_with_a_currency_going_to_one_ledger_name_are_one_rename(sheet):
     _save_names({"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Soles"})
     _engine(_answer(yours=False))
-    _accounts([])
+    _accounts([SUELDO])
     result = _run()
     assert result.exit_code == 0, _out(result)
-    assert "  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  yours\n" in result.stdout
 
 
 @pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
@@ -916,7 +916,7 @@ def test_a_sheet_account_named_with_a_currency_cannot_be_renamed(sheet):
 def test_a_flag_replaces_every_saved_key_of_its_name_and_ends_the_stop(sheet):
     _save_names({"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "bcp": "Old"})
     _engine(_answer(yours=False))
-    _accounts([])
+    _accounts([SUELDO])
     result = _run("--account-name", "BCP=Sueldo Soles")
     assert result.exit_code == 0, _out(result)
     assert _saved() == {"BCP": "Sueldo Soles"}
@@ -956,6 +956,90 @@ def test_a_rename_for_an_account_the_sheet_lacks_is_a_usage_error(sheet):
     assert result.exit_code == 2, _out(result)
     assert 'the sheet has no account "Nope".' in strip_panel(_out(result))
     assert _saved() == {}
+
+
+@pytest.mark.parametrize(
+    "ledger",
+    ["BCP-5678", "Ana Pérez"],
+    ids=["a bank account by its built name", "a person by name"],
+)
+@respx.mock
+def test_a_rename_goes_to_the_account_the_engine_holds_under_that_name(sheet, ledger):
+    """Archived accounts and people are read too; the id sent is the account's."""
+    route = _engine(_answer(yours=True), _answer(yours=True, dry_run=False))
+    accounts = _accounts([SUELDO, account_with_currencies(id="acc-held", name=ledger)])
+    result = _run("--account-name", f"BCP={ledger}", "--apply")
+    assert result.exit_code == 0, _out(result)
+    assert accounts.call_count == 1
+    sent = _body(route.calls[-1].request)["names"]["accounts"]
+    assert sent[0] == {"name": "BCP", "account_id": "acc-held"}
+    assert _saved() == {"BCP": ledger}
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_a_rename_to_a_name_no_account_holds_is_a_usage_error_naming_it(sheet, step):
+    _engine(_answer(yours=False))
+    _accounts([SUELDO])
+    creates = _creates()
+    result = _run("--account-name", "BCP=BCP-0000", *step)
+    assert result.exit_code == 2, _out(result)
+    assert 'no account is named "BCP-0000".' in strip_panel(_out(result))
+    assert _saved() == {}
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_a_saved_rename_to_a_name_no_account_holds_stops_the_run_and_a_flag_replaces_it(
+    sheet, step
+):
+    _save_names({"BCP": "BCP-0000"})
+    _engine(_answer(yours=True), _answer(yours=True, dry_run=False))
+    _accounts([SUELDO])
+    creates = _creates()
+    before = config_module.config_path().read_text()
+    result = _run(*step)
+    assert result.exit_code == 2, _out(result)
+    words = " ".join(strip_panel(_out(result)).split())
+    assert "Invalid value" not in words
+    assert (
+        'Your saved rename sends "BCP" to "BCP-0000", which no account is named. '
+        'Replace it with --account-name "BCP=<ledger name>".'
+    ) in words
+    assert config_module.config_path().read_text() == before
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+    fixed = _run("--account-name", "BCP=Sueldo Soles", *step)
+    assert fixed.exit_code == 0, _out(fixed)
+    assert _saved() == {"BCP": "Sueldo Soles"}
+
+
+@respx.mock
+def test_every_rename_to_a_name_no_account_holds_is_listed_in_one_refusal(sheet):
+    _save_names({"Visa": "Visa-9999"})
+    _engine(_answer(yours=True))
+    _accounts([SUELDO])
+    result = _run("--account-name", "BCP=BCP-0000")
+    assert result.exit_code == 2, _out(result)
+    words = strip_panel(_out(result))
+    assert '--account-name "BCP=BCP-0000" names "BCP-0000", which no account is named.' in words
+    assert 'Your saved rename sends "Visa" to "Visa-9999", which no account is named.' in words
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+
+
+@respx.mock
+def test_two_typed_renames_to_names_no_account_holds_are_named_in_one_usage_error(sheet):
+    _engine(_answer(yours=True))
+    _accounts([SUELDO])
+    result = _run("--account-name", "BCP=BCP-0000", "--account-name", "Visa=Visa-9999")
+    assert result.exit_code == 2, _out(result)
+    words = " ".join(strip_panel(_out(result)).split())
+    assert "Invalid value for '--account-name':" in words
+    assert 'no account is named "BCP-0000" or "Visa-9999".' in words
+    assert _saved() == {}
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
 
 
 # ---- the file and the settings -----------------------------------------------------

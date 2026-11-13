@@ -32,6 +32,7 @@ from expense.import_.engine import (
     NameEntry,
     RenameRefused,
     SavedRenamesDisputed,
+    SavedRenamesMissing,
     SheetImport,
     Step,
     import_sheet,
@@ -386,11 +387,12 @@ def run_import(
     --account-name "SHEET_NAME=LEDGER_NAME" puts one sheet account's rows on
     a ledger account of your choosing ("BCP=Sueldo Soles"). It is saved to
     the config and applied on every later run; passing it again for the same
-    sheet name replaces every saved key of that name. An account the sheet does not have is a
-    usage error and nothing is saved. Two sheet accounts may be put on one
-    ledger account. When the saved renames send one sheet account to two
-    ledger names, the run stops (a usage error) before anything is written,
-    naming both; --account-name for that account fixes it.
+    sheet name replaces every saved key of that name. An account the sheet does
+    not have, or a ledger name no account holds, is a usage error and nothing
+    is saved. Two sheet accounts may be put on one ledger account. When the
+    saved renames send one sheet account to two ledger names, the run stops (a
+    usage error) before anything is written, naming both; --account-name for
+    that account fixes it.
 
     Example: expense import sheet Presupuesto.xlsx
 
@@ -430,7 +432,7 @@ def run_import(
             disputed=disputed,
             verbose=get_verbose(ctx),
         )
-    except SavedRenamesDisputed as exc:
+    except (SavedRenamesDisputed, SavedRenamesMissing) as exc:
         raise click.UsageError(str(exc)) from exc
     except RenameRefused as exc:
         raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc

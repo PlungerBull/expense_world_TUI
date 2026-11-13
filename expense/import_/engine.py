@@ -155,6 +155,11 @@ class SavedRenamesDisputed(RenameRefused):
     error of the run, not of any `--account-name` typed."""
 
 
+class SavedRenamesMissing(RenameRefused):
+    """A saved rename goes to a name no account holds: a usage error of the run,
+    listing every such rename, typed or saved."""
+
+
 def check_disputed(table: list["NameEntry"], disputed: Mapping[str, tuple[str, ...]]) -> None:
     """Refuse (`SavedRenamesDisputed`) a sheet name the saved renames send to
     different ledger names; only the sheet's own accounts count."""
@@ -227,8 +232,8 @@ def names_table(
     - A renamed account (`renames`, keyed by `rename_key`) goes to your
       account of the rename's name, when `accounts` (your accounts as
       `GET /accounts` lists them, archived and people included) holds one,
-      compared as the engine compares account names; else it is missing, to
-      be made in the app under the rename.
+      compared as the engine compares account names; else it has no id, and
+      `check_renames` refuses it.
     - Any other name goes to the engine's `proposed_id`, yours under that name
       (contract: POST /v1/transactions/import-sheet, "Names").
     - A name with neither is missing.
@@ -255,13 +260,46 @@ def names_table(
 
 def check_renames(table: list[NameEntry], flags: Iterable[Rename]) -> None:
     """Refuse (`RenameRefused`) a flag naming an account the sheet does not
-    have. Two of the sheet's names renamed onto one account are sent as they
-    are, with the same `account_id`: the engine decides what may share one
+    have, then every rename, typed or saved, to a name no account holds
+    (`SavedRenamesMissing` when a saved one is among them).
+    Two of the sheet's names renamed onto one account are sent as they are,
+    with the same `account_id`: the engine decides what may share one
     (contract: POST /v1/transactions/import-sheet, "Names")."""
     listed = {rename_key(e.name) for e in table if e.kind == ACCOUNT}
     for sheet, _ledger in flags:
         if rename_key(saved_name(sheet)) not in listed:
             raise RenameRefused(f'the sheet has no account "{sheet}".')
+    typed_keys = {rename_key(saved_name(sheet)) for sheet, _ledger in flags}
+    typed: list[Rename] = []
+    saved: list[Rename] = []
+    for entry in table:
+        if entry.renamed_to is None or entry.target_id is not None:
+            continue
+        found = (entry.name, entry.renamed_to)
+        into = typed if rename_key(saved_name(entry.name)) in typed_keys else saved
+        if all(rename_key(saved_name(n)) != rename_key(saved_name(found[0])) for n, _ in into):
+            into.append(found)
+    if not saved:
+        if typed:
+            quoted = [f'"{ledger}"' for _name, ledger in typed]
+            named = quoted[0] if len(quoted) == 1 else f"{', '.join(quoted[:-1])} or {quoted[-1]}"
+            raise RenameRefused(f"no account is named {named}.")
+        return
+    raise SavedRenamesMissing(
+        "\n".join(
+            [
+                *(
+                    f'--account-name "{n}={ledger}" names "{ledger}", which no account is named.'
+                    for n, ledger in typed
+                ),
+                *(
+                    f'Your saved rename sends "{n}" to "{ledger}", which no account is named. '
+                    f'Replace it with --account-name "{n}=<ledger name>".'
+                    for n, ledger in saved
+                ),
+            ]
+        )
+    )
 
 
 def missing_names(table: list[NameEntry]) -> list[NameEntry]:
