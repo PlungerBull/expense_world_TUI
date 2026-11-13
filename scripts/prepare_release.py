@@ -7,8 +7,7 @@ Sets `version` in pyproject.toml and moves CHANGELOG.md's `## Unreleased` lines 
 `## vX.Y.Z — YYYY-MM-DD` (today), leaving an empty Unreleased. The loop then commits both and
 waits for CI. It refuses an empty Unreleased, a version not above the last tag, and a dirty tree.
 
-The number: the first part moves when the engine must be upgraded first, the middle part for
-new screens or behaviour, the last part for fixes.
+The number: the version the Queue (docs/todo.md) gives the work, `vX.Y.0`.
 
 CHANGELOG.md format, owned here: `## Unreleased` first, then one `## vX.Y.Z — YYYY-MM-DD` entry
 per release, newest first, each a list of bullets. When the engine must be upgraded first, the

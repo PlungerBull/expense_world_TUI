@@ -21,17 +21,27 @@ loop skips it until it can run.
 A catch-up spec built from the engine's hand-off goes first once that file is in
 [from-engine/](from-engine/): the live suite fails until it lands.
 
-1. [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+Each line carries its version; a version's specs run in the order listed, and its last spec
+prepares the release (CLAUDE.md "This repo's loop").
+
+1. **v1.0** · The catch-up to contract 1.1: its hand-off is in [from-engine/](from-engine/),
+   to be planned into a spec; it runs first.
+2. **v1.0** · [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its
+   acceptance check waits on the catch-up to contract 1.1.
+3. **v1.0** · [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task
+   is done; its acceptance check waits on the catch-up to contract 1.1.
+4. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
+   done; its acceptance check needs the v1.0.0 release installed.
+5. **v1.0** · [The official import](specs/before-the-official-import.md): waits on your answers to
+   its questions 15–17 and your approval; v1.0.0 is prepared after its rehearsal.
+6. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-2. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
-   engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
-3. [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its acceptance check
-   waits on the catch-up to contract 1.1.
-4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task is done; its
-   acceptance check waits on the catch-up to contract 1.1.
-5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+7. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+   the owner runs, split out 2026-11-12. They wait on the engine's going-live release; tasks 1
+   and 2 also wait on the owner picking their mockups.
+8. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
@@ -50,55 +60,13 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### Your first release, then the old install goes
-Asked 2026-11-11 · Blocks: nothing yet; the first install follows the loop preparing v1.0.0
-When the loop's summary says v1.0.0 is ready, run `python3 scripts/release.py` in the live
-folder (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`).
-Once `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
+Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check
+v1.0.0 is prepared after the official import's rehearsal, as the last spec of v1.0; until then
+`scripts/release.py` finds no prepared release and refuses. When the loop's summary says v1.0.0
+is ready, run `python3 scripts/release.py` in the live folder
+(`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`). Once
+`expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
-
-### The engine's contract moved to 1.1: ask it for a hand-off file?
-Asked 2026-11-12 · Blocks: the loop; lean docs' and code conventions A's acceptance checks
-The version check on the practice engine reports the contract moved past the version this client
-last caught up to, `3a4ff8dac458cf83`. Its printout:
-```
-the engine's contract version has changed: saved 3a4ff8dac458cf83, engine 1.1.
-  1.1  2026-11-12
-    added: `GET /health` answers `200` with `release`, `contract_version`, `mode` (`REAL` or
-    `PRACTICE`), `structure` and `backup` (with `overdue` past 36 hours), besides `status`.
-    changed: `GET /health` answers `503 SERVICE_UNAVAILABLE` also when the database's structure
-    no longer matches the engine's code; the engine refuses to start on such a database.
-  1.0  2026-11-11
-    changed: the contract version is two numbers, `breaking.adding`, in `info.version`.
-```
-It also lists three keys the tests use that the engine has no field for: `conclusion`
-(tests/unit/test_release_scripts.py:20, :188) and `extra` (test_constraints_complete.py:29). They
-look like the tests' own keys, not engine drift, so they become a task once the loop runs again.
-- **A.** Ask the engine for one hand-off file covering `3a4ff8dac458cf83` → `1.1`; the loop plans
-  it into a catch-up spec, which runs first.
-**Recommended:** A, since that is how every moved version is caught up; v1.0.0's CHANGELOG also
-names `3a4ff8dac458cf83` as the contract the engine must serve.
-
-### May the log keep a refusal that repeats what you typed?
-Asked 2026-11-12 · Blocks: nothing; the log is built logging refusals in full
-You asked for every engine refusal in the log, in full, and for descriptions and amounts to stay
-out unless `--verbose` is on. A few refusals repeat a value back, for example `Row 12: Monto holds
-'abc', not a number.` from a sheet import. Request lines never hold a description or amount.
-- **A.** Keep each refusal as the engine sent it.
-- **B.** Leave out a refusal's echoed values unless `--verbose` is on.
-**Recommended:** A, because the refusal is what you need to read when something went wrong, and
-the log stays on your own Mac.
-
-### tui.md ends at 5,778 words, not 5,000: accept it?
-Asked 2026-11-12 · Blocks: [lean docs](specs/lean-docs.md)'s finish
-Every task is done. tui.md went from 26,124 words to 5,778; your target was 5,000 or less, and all
-the docs together are 33,392 against 32,000. What is left is mostly engine rules quoted with where
-the engine says them, and a few rules no code comment says; cutting them means moving each into the
-code first. CLAUDE.md (2,241), runtime.md (2,306), decisions.md (17,979) and AGENTS.md (24) meet
-theirs, and the new docs/README.md index is 258.
-- **A.** Accept 5,778 and finish the spec.
-- **B.** One more task: move the engine rules into the code that sends them, then cut tui.md to 5,000.
-**Recommended:** A, because each remaining line is a rule someone reading tui.md needs, and moving it
-into code only hides it from the next reader.
 
 ### Three small screen questions from the finished catch-up
 Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered

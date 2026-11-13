@@ -57,13 +57,13 @@ Everything else lives in code and docstrings, and docs point to the file.
 
    | Doc | Before | Target |
    |---|---:|---:|
-   | docs/tui.md | 26,124 | ≤ 5,000 |
+   | docs/tui.md | 26,124 | ≤ 5,000 (2026-11-12: 5,778 accepted) |
    | CLAUDE.md | 2,632 | ≤ 2,300 (2026-11-11: every rule kept, "How work runs" as it is) |
    | docs/decisions.md | 17,999 | ≤ 17,999 |
    | docs/runtime.md | 3,344 | ≤ 2,600 |
    | AGENTS.md | 91 | ≤ 60 |
    | docs/README.md | — | ≤ 300 |
-   | All root and docs/*.md | 54,915 | ≤ 32,000 |
+   | All root and docs/*.md | 54,915 | ≤ 32,000 (2026-11-12: about 33,400 accepted, with tui.md's) |
 
    docs/tui.md by section, now → target:
    - intro 93 → 80

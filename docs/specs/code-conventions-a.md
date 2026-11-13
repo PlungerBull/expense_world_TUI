@@ -27,6 +27,7 @@ Counted 2026-11-11:
    - every unexpected error, with its traceback.
 
    With `--verbose`, request and reply bodies go in too. Descriptions and amounts stay out unless asked for.
+   A refusal is logged as the engine sent it, even when it echoes a typed value (2026-11-12).
 
 ## What it must do
 
