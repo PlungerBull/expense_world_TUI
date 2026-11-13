@@ -65,7 +65,7 @@
 
 <div class="head">
   <h1>Small details, open questions</h1>
-  <p>Panes 1 to 16 are small details found while building the last few pieces of work. <b>Each is built as A today</b> (A is drawn from the app as it is), and B, or C, is the smallest change that answers it. Panes 17 and 18 belong to the official import's draft and aren't built yet. Most carry a recommendation; pane 2 is your call.</p>
+  <p>Panes 1 to 16 are small details found while building the last few pieces of work. <b>Each is built as A today</b> (A is drawn from the app as it is), and B, or C, is the smallest change that answers it. Panes 17 to 20 belong to the official import's draft and aren't built yet. Most carry a recommendation; pane 2 is your call.</p>
   <p>Answer with one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip stays as A. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
@@ -950,6 +950,71 @@ Dry run — nothing written.</pre></div></div>
 </div>
 </div>
 
+<!-- ================================================================== 19 -->
+<div class="pane">
+<div class="lbl">19 · Two or more sheet accounts with no account <span>— pick A or B</span></div>
+<p class="blurb">Pane 17 A, answered, draws one missing account. Here two are missing: <code>ALEJO</code>, a person you have not made yet, and <code>Cuenta Digital Dólares</code>, a bank account. The engine's answer does not say which is a person, so the line is the same for both.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the example names the first one</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · the dry run, its last lines</span></div>
+<div class="app"><pre>No counts yet: the engine counts once every name exists.
+
+2 sheet accounts have no account yet: make them in the app. A bank account then
+gets the sheet's name with --account-name "ALEJO=&lt;its name&gt;".
+5 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+It makes categories and hashtags only, never an account.
+Dry run — nothing written.</pre></div></div>
+<p class="cap">The example takes the first missing name in the table, here a person, though only a bank account needs <code>--account-name</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>the example names no one</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · the dry run, its last lines</span></div>
+<div class="app"><pre>No counts yet: the engine counts once every name exists.
+
+2 sheet accounts have no account yet: make them in the app. A bank account then
+gets the sheet's name with --account-name "&lt;sheet name&gt;=&lt;its name&gt;".
+5 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+It makes categories and hashtags only, never an account.
+Dry run — nothing written.</pre></div></div>
+<p class="cap">The table above already marks each one <code>make it in the app</code>; the example never points at a person. With one missing, it still names that one, as pane 17 A draws.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 20 -->
+<div class="pane">
+<div class="lbl">20 · Words for the cases pane 17 does not draw <span>— pick A or B</span></div>
+<p class="blurb">Three outputs pane 17 A leaves undrawn, as built now. A missing account is shown with pane 17 A's lines; only the lines around them change.</p>
+
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>keep these words</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · 1. the dry run, every category and hashtag yours, one account missing: its last lines</span></div>
+<div class="app"><pre>No counts yet: the engine counts once every name exists.
+
+1 sheet account has no account yet: make it in the app. A bank account then
+gets the sheet's name with --account-name "Cuenta Digital Dólares=&lt;its name&gt;".
+Dry run — nothing written.</pre></div></div>
+<p class="cap">No <code>--create-names</code> lines: there is nothing for it to make.</p>
+
+<div class="term" style="margin-top:14px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · 2. --create-names with categories, hashtags and one account missing</span></div>
+<div class="app"><pre><span class="d">%</span> expense import sheet libro.xlsx --create-names
+Created 3 categories, 2 hashtags.
+Nothing imported. Run the dry run again to see the counts.
+1 sheet account has no account yet: make it in the app. A bank account then
+gets the sheet's name with --account-name "Cuenta Digital Dólares=&lt;its name&gt;".</pre></div></div>
+<p class="cap">With only the account missing, the first two lines are left out and the account lines show alone. With nothing missing at all, it prints today's <code>Created no names: every one is yours.</code></p>
+
+<div class="term" style="margin-top:14px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · 3. --apply --json, refused with one account and 5 names missing</span></div>
+<div class="app"><pre>{"error": {"code": "NAMES_MISSING", "message": "Not imported — nothing written.
+1 sheet account has no account yet: make it in the app. 5 names don't exist yet.", …}}</pre></div></div>
+<p class="cap">One message, the two counts in turn (drawn on two lines; it is one). The plain <code>--apply</code> prints <code>Not imported — nothing written.</code>, then pane 17 A's lines, and <code>then run the dry run to see the counts.</code> only when names are missing.</p></div>
+
+<div class="var"><div class="oh">B · <span>tell us the words</span></div>
+<p class="cap">Say which of 1, 2 or 3 should read differently, and how.</p></div>
+</div>
+</div>
+
 <div class="pick">
 <b>To pick:</b> one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip from 1 to 16 stays as A; 17 and 18 need an answer.
 <ol>
@@ -971,6 +1036,8 @@ Dry run — nothing written.</pre></div></div>
 <li>Amounts following the pick: <b>A</b> Home waits · <b>B</b> Home redraws at once.</li>
 <li>Where the sheet's accounts are made: <b>A</b> the people are made in the app too · <b>B</b> the create step makes the people.</li>
 <li>The closed accounts at other banks: <b>A</b> bank accounts at Interbank, archived (engine change) · <b>B</b> made people.</li>
+<li>Two or more missing accounts: <b>A</b> the example names the first · <b>B</b> the example names no one.</li>
+<li>The undrawn import outputs: <b>A</b> keep these words · <b>B</b> tell us the words.</li>
 </ol>
 </div>
 
