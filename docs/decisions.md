@@ -862,9 +862,9 @@ balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn
 
 **Decision.** An account turns into a person and back in the app, not in the import: `t` on Manage ▸ Accounts, which asks for what the engine needs: a person's name, or a bank account's bank and an optional last 4, from which the engine builds its name. The account keeps its id, currencies, balances, opening balance and transactions (contract: POST /v1/accounts/{account_id}/make-person) (contract: POST /v1/accounts/{account_id}/make-account), as "A person carries an opening balance" says. A refusal, such as `HAS_RECONCILIATION` on an account ever in a statement, is the engine's words alone. The sheet import matches no names itself: the engine proposes an account per sheet name, so a re-run after a conversion is the engine's to match. Details: [tui.md](tui.md) §2 "`t` turns an account into a person and back".
 
-**Why.** The owner's sheet records loans as the app does, one account per person and currency whose balance is the debt (ALEJO, ALONSO, LC, ALEX, LIDIA, MATILDE, CARLOS, KORAKUEN), and the import creates every sheet account as a bank account. A person never has statements, since a person sends no bank statement.
+**Why.** The owner's sheet records loans as the app does, one account per person and currency whose balance is the debt (ALEJO, ALONSO, LC, ALEX, LIDIA, MATILDE, CARLOS, KORAKUEN), and the import makes no account: each is made in the app first. A person never has statements, since a person sends no bank statement.
 
-**Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with the sheet, while an account action also fixes any account created as the wrong kind. *`t` opening the Edit form, turned* — a whole form for one or two lines.
+**Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with the sheet, while an account action also fixes any account made as the wrong kind. *`t` opening the Edit form, turned* — a whole form for one or two lines.
 
 ## The engine names a bank account from its bank and card number (2026-11-09)
 
@@ -1150,7 +1150,7 @@ currency* — one more key on every such move, for what the line already says. *
 engine's order (`formatting.currencies_phrase`) and send the account's id alone; the engine files
 each row and PDF balance under its own currency. (2) The PDF preview shows a balance only for
 currencies the answer covers. (3) The sheet's names table lists each account name once, its
-currencies in `CUR`; `--create-names` makes one account per missing name. (4) A rename is the sheet
+currencies in `CUR`; `--create-names` makes only categories and hashtags, and a missing account is made in the app. (4) A rename is the sheet
 name alone (`--account-name SHEET_NAME=LEDGER_NAME`), and two sheet names may land on one account,
 the engine judging. (5) One statement per account, covering its currencies
 ("A close flags lines instead of refusing, and a statement is the account's"). Details:

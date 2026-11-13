@@ -27,8 +27,8 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
-   answered A on 2026-11-12; task 1 waits on question 17's facts, task 2 (built, uncommitted)
-   and the tasks after it on panes 19 and 20. v1.0.0 is prepared after its rehearsal.
+   answered A on 2026-11-12; task 1 waits on question 17's facts; task 2 is done. v1.0.0 is
+   prepared after its rehearsal.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -143,18 +143,6 @@ Your reply of 2026-11-12 read "17: [your facts]", with the facts left out. They 
    each, or both would be named `INTERBANK`.
 3. Is PARDO a person or a bank account (a bank account needs its bank)?
 **Recommended:** none, facts only you know.
-
-### The official import's words for missing accounts (panes 19 and 20)
-Asked 2026-11-13 · Blocks: the official import's tasks 2 to 4
-Task 2 is built, its code approved and uncommitted. Pane 17 A draws one missing account; the
-build needed words for cases it does not draw, drawn in panes 19 and 20 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
-- **19.** Two or more missing accounts: **A** the `--account-name` example names the first one
-  (it can be a person) · **B** it names no one, `"<sheet name>=<its name>"`.
-- **20.** The dry run with only accounts missing, `--create-names` with an account missing, and
-  the `--apply --json` refusal: **A** keep the words drawn · **B** tell us the words.
-**Recommended:** 19 B, because the example should never point at a person; 20 A, because each
-reuses pane 17 A's lines and leaves out only what has nothing to say.
 
 ---
 

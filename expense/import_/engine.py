@@ -1,6 +1,6 @@
 """The sheet import through the engine: `POST /transactions/import-sheet`, its
-names table, the step that creates the names the sheet lacks, and the renames
-of `--account-name`. No typer and no printing.
+names table, the step that creates the categories and hashtags the sheet lacks,
+and the renames of `--account-name`. No typer and no printing.
 
 The engine reads the whole workbook, matches every row against the ledger and
 writes everything or nothing (contract: POST /v1/transactions/import-sheet).
@@ -16,8 +16,9 @@ names and refuses a bad sheet before anything else is sent:
 
 - the dry run: once every name has an id, a second dry run with the table
   answers the counts; while one lacks it, nothing more is sent;
-- the create step: each missing name is created through its own route, and
-  nothing is imported;
+- the create step: each missing category and hashtag is created through its
+  own route, and nothing is imported; an account is never created here, it is
+  made in the app (a missing one is listed, and blocks the apply);
 - the apply: written with the table, only once every name has an id.
 
 Every write is one `ExpenseClient.post`, which carries its own idempotency key.
@@ -25,7 +26,7 @@ Every write is one `ExpenseClient.post`, which carries its own idempotency key.
 
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
 
@@ -41,12 +42,15 @@ ACCOUNT = "account"
 CATEGORY = "category"
 HASHTAG = "hashtag"
 
-#: kind → (its list in `names`, the key of its id in the table, its create route).
+#: kind → (its list in `names`, the key of its id in the table).
 _KINDS = {
-    ACCOUNT: ("accounts", "account_id", "/accounts"),
-    CATEGORY: ("categories", "category_id", "/categories"),
-    HASHTAG: ("hashtags", "hashtag_id", "/hashtags"),
+    ACCOUNT: ("accounts", "account_id"),
+    CATEGORY: ("categories", "category_id"),
+    HASHTAG: ("hashtags", "hashtag_id"),
 }
+
+#: The kinds the create step makes, each with its create route.
+_CREATE_ROUTES = {CATEGORY: "/categories", HASHTAG: "/hashtags"}
 
 #: The read timeout of the import's calls: the engine reads and matches the whole
 #: sheet in one request, which takes far longer than a single write.
@@ -172,7 +176,8 @@ class Goes(Enum):
     """Where one name of the sheet goes."""
 
     YOURS = "yours"  # an account, category or hashtag you have
-    MISSING = "missing"  # one you lack, which the create step creates
+    # One you lack: the create step makes a category or hashtag, the app an account.
+    MISSING = "missing"
 
 
 @dataclass(frozen=True)
@@ -192,19 +197,12 @@ class NameEntry:
     #: rename); None when it keeps the sheet's name.
     renamed_to: str | None = None
 
-    @property
-    def ledger_name(self) -> str:
-        """The name it is written under: its rename, else the sheet's own,
-        with no currency added."""
-        return self.renamed_to or self.name
-
 
 def _create_key(entry: NameEntry) -> tuple[str, str]:
     """Two missing names are one when the engine would refuse the second as
     taken: names are unique case-insensitively
-    (contract: POST /v1/accounts, "Validation")
     (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
-    return (entry.kind, entry.ledger_name.strip().casefold())
+    return (entry.kind, entry.name.strip().casefold())
 
 
 def _listed(answer: dict, kind: str) -> list[dict]:
@@ -230,11 +228,10 @@ def names_table(
       account of the rename's name, when `accounts` (your accounts as
       `GET /accounts` lists them, archived and people included) holds one,
       compared as the engine compares account names; else it is missing, to
-      be created under the rename (contract: POST /v1/accounts, "Validation").
+      be made in the app under the rename.
     - Any other name goes to the engine's `proposed_id`, yours under that name
       (contract: POST /v1/transactions/import-sheet, "Names").
-    - A name with neither is missing, to be created under the sheet's name,
-      holding the currencies its rows are in.
+    - A name with neither is missing.
     """
     yours = {
         str(a.get("name") or "").strip().casefold(): str(a["id"]) for a in accounts if a.get("id")
@@ -268,22 +265,19 @@ def check_renames(table: list[NameEntry], flags: Iterable[Rename]) -> None:
 
 
 def missing_names(table: list[NameEntry]) -> list[NameEntry]:
-    """The names the create step creates, in the table's order: each missing
-    entry, once per name the engine would hold as one (`_create_key`); an
-    account that stands for several sheet names holds the currencies of all
-    of them."""
+    """The categories and hashtags the create step creates, in the table's order:
+    each missing one, once per name the engine would hold as one (`_create_key`)."""
     out: dict[tuple[str, str], NameEntry] = {}
     for entry in table:
-        if entry.goes is not Goes.MISSING:
-            continue
-        key = _create_key(entry)
-        first = out.get(key)
-        if first is None:
-            out[key] = entry
-        else:
-            extra = tuple(c for c in entry.currencies if c not in first.currencies)
-            out[key] = replace(first, currencies=(*first.currencies, *extra))
+        if entry.goes is Goes.MISSING and entry.kind != ACCOUNT:
+            out.setdefault(_create_key(entry), entry)
     return list(out.values())
+
+
+def missing_accounts(table: list[NameEntry]) -> list[NameEntry]:
+    """The sheet's accounts with no account, one per sheet name, in the table's
+    order: each is made in the app, never by the import."""
+    return [e for e in table if e.kind == ACCOUNT and e.goes is Goes.MISSING]
 
 
 def table_body(table: list[NameEntry]) -> dict:
@@ -292,7 +286,7 @@ def table_body(table: list[NameEntry]) -> dict:
     no missing name is sent."""
     body: dict[str, list[dict]] = {"accounts": [], "categories": [], "hashtags": []}
     for entry in table:
-        listed, id_key, _route = _KINDS[entry.kind]
+        listed, id_key = _KINDS[entry.kind]
         if entry.target_id is None:
             raise ValueError(f"{entry.kind} {entry.name!r} has no id to send")
         body[listed].append({"name": entry.name, id_key: entry.target_id})
@@ -381,12 +375,11 @@ class Stage(Enum):
 @dataclass(frozen=True)
 class Created:
     """One name the create step created: its kind, the name it was created
-    under (the sheet's, or its rename), an account's currencies, its id, and
-    the engine's answer to the create, untouched."""
+    under (the sheet's), its id, and the engine's answer to the create,
+    untouched."""
 
     kind: str
     name: str
-    currencies: tuple[str, ...]
     id: str
     answer: dict = field(default_factory=dict, compare=False)
 
@@ -412,7 +405,12 @@ class SheetImport:
 
     @property
     def missing(self) -> list[NameEntry]:
+        """The categories and hashtags the create step would create."""
         return missing_names(self.table)
+
+    @property
+    def missing_accounts(self) -> list[NameEntry]:
+        return missing_accounts(self.table)
 
     @property
     def rows(self) -> list[SheetRow]:
@@ -424,14 +422,9 @@ class SheetImport:
 
 
 def _create_body(entry: NameEntry, new_id: str) -> dict:
-    """A name's create: an account under its ledger name holding the
-    currencies, as the sheet's rows use them (contract: POST /v1/accounts,
-    "Required"); a category or hashtag under the sheet's name, with no colour
+    """A category's or hashtag's create: under the sheet's name, with no colour
     (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
-    body: dict = {"id": new_id, "name": entry.ledger_name}
-    if entry.kind == ACCOUNT:
-        body["currencies"] = [{"currency_code": code} for code in entry.currencies]
-    return body
+    return {"id": new_id, "name": entry.name}
 
 
 IMPORT_PATH = "/transactions/import-sheet"
@@ -458,10 +451,11 @@ def import_sheet(
 
     - `DRY_RUN`: with no name missing, the dry run again with the table, for
       the counts; with one missing, nothing more.
-    - `CREATE_NAMES`: each missing name created, one create per name the
-      engine would hold as one (`missing_names`); nothing imported.
-    - `APPLY`: with no name missing, the apply with the table, whose answer
-      is what happened; with one missing, nothing is sent.
+    - `CREATE_NAMES`: each missing category and hashtag created, one create
+      per name the engine would hold as one (`missing_names`); no account is
+      created; nothing imported.
+    - `APPLY`: with no name and no account missing, the apply with the table,
+      whose answer is what happened; with one missing, nothing is sent.
 
     The first refusal stops the run and is kept whole, with what was created
     before it."""
@@ -489,11 +483,9 @@ def import_sheet(
                 result.stage = Stage.CREATE
                 for entry in missing:
                     new_id = str(uuid4())
-                    made = client.post(_KINDS[entry.kind][2], _create_body(entry, new_id))
-                    result.created.append(
-                        Created(entry.kind, entry.ledger_name, entry.currencies, new_id, made)
-                    )
-            elif not missing:
+                    made = client.post(_CREATE_ROUTES[entry.kind], _create_body(entry, new_id))
+                    result.created.append(Created(entry.kind, entry.name, new_id, made))
+            elif not missing and not result.missing_accounts:
                 result.stage = Stage.APPLY if step is Step.APPLY else Stage.COUNTS
                 result.answer = client.post(
                     IMPORT_PATH,

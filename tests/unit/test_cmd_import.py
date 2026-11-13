@@ -169,10 +169,10 @@ def _saved() -> dict[str, str]:
 DRY_RUN_NAMES_MISSING = """\
 Accounts (4)
   SHEET NAME   CUR          ROWS   GOES TO
-  BCP          PEN + USD   1,515   Sueldo Soles  missing
-  Interbank    PEN           402   missing
-  Visa         PEN + USD     261   missing
-  Ana          PEN + USD      44   missing
+  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app
+  Interbank    PEN           402   make it in the app
+  Visa         PEN + USD     261   make it in the app
+  Ana          PEN + USD      44   make it in the app
 
 Categories (4)
   SHEET NAME       ROWS   GOES TO
@@ -188,8 +188,11 @@ Hashtags (2)
 
 No counts yet: the engine counts once every name exists.
 
-9 names don't exist yet. Create them with:
+4 sheet accounts have no account yet: make them in the app. A bank account then
+gets the sheet's name with --account-name "<sheet name>=<its name>".
+5 names don't exist yet. Create them with:
   expense import sheet libro.xlsx --create-names
+It makes categories and hashtags only, never an account.
 Dry run — nothing written.
 """
 
@@ -198,9 +201,10 @@ Dry run — nothing written.
 @respx.mock
 def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missing(sheet):
     """The first dry run with --account-name: the renamed account shows its new name,
-    `SALDO INICIAL` is a name like any other, no counts, the create step's
-    command line; only the dry run without the table is sent, and the rename
-    is remembered."""
+    a sheet account with no account is one to make in the app, `SALDO INICIAL` is
+    a name like any other, no counts, the create step's command line for the
+    categories and hashtags only; only the dry run without the table is sent, and
+    the rename is remembered."""
     route = _engine(_answer(yours=False))
     accounts = _accounts([])
     creates = _creates()
@@ -215,16 +219,16 @@ def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missin
 
 @respx.mock
 def test_the_create_steps_command_line_keeps_the_file_as_typed(sheet, tmp_path):
-    """Without a rename the account keeps the sheet's name and your accounts
-    are not read; a path with a space is quoted so it can be pasted."""
+    """Without a rename your accounts are not read; a path with a space is
+    quoted so it can be pasted."""
     (tmp_path / "mi libro.xlsx").write_bytes(b"made up")
     _engine(_answer(yours=False))
     accounts = _accounts([])
     result = _run(file="mi libro.xlsx")
     assert result.exit_code == 0, _out(result)
-    assert "  BCP          PEN + USD   1,515   missing\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   make it in the app\n" in result.stdout
     assert "  expense import sheet 'mi libro.xlsx' --create-names\n" in result.stdout
-    assert "9 names don't exist yet. Create them with:\n" in result.stdout
+    assert "5 names don't exist yet. Create them with:\n" in result.stdout
     assert accounts.call_count == 0
 
 
@@ -241,42 +245,49 @@ def test_one_missing_name_reads_in_the_singular(sheet):
     assert result.stdout.endswith(
         "1 name doesn't exist yet. Create it with:\n"
         "  expense import sheet libro.xlsx --create-names\n"
+        "It makes categories and hashtags only, never an account.\n"
+        "Dry run — nothing written.\n"
+    )
+
+
+@respx.mock
+def test_missing_accounts_alone_offer_no_create_step(sheet):
+    """Only an account lacks an account: the dry run says to make it in the app and
+    names no command that creates anything."""
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("VISA", 2, currencies=["PEN"])],
+        categories=[sheet_name_use("Comida", 2, "cat-comida")],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    _engine(answer)
+    result = _run()
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout.endswith(
+        "No counts yet: the engine counts once every name exists.\n\n"
+        "1 sheet account has no account yet: make it in the app. A bank account then\n"
+        'gets the sheet\'s name with --account-name "VISA=<its name>".\n'
         "Dry run — nothing written.\n"
     )
 
 
 # ---- creating the names --------------------------------------------------
 @respx.mock
-def test_the_create_step_creates_every_missing_name_and_imports_nothing(sheet):
-    """The renamed account is created under its new name; the sheet
+def test_the_create_step_creates_only_categories_and_hashtags_and_imports_nothing(sheet):
+    """The accounts the sheet lacks are listed for the app, never created; the sheet
     goes only as a dry run without the table, first."""
-    config_module.save(
-        config_module.ensure_loaded().model_copy(
-            update={"sheet_account_names": {"BCP": "Sueldo Soles"}}
-        )
-    )
     _engine(_answer(yours=False))
-    _accounts([])
     creates = _creates()
     result = _run("--create-names")
     assert result.exit_code == 0, _out(result)
     assert result.stdout == (
-        "Created 4 accounts, 3 categories, 2 hashtags.\n"
+        "Created 3 categories, 2 hashtags.\n"
         "Nothing imported. Run the dry run again to see the counts.\n"
+        "4 sheet accounts have no account yet: make them in the app. A bank account then\n"
+        'gets the sheet\'s name with --account-name "<sheet name>=<its name>".\n'
     )
     assert _sent()[0] == ("/v1/transactions/import-sheet", True, False)
-    assert [path for path, *_ in _sent()[1:]] == ["/v1/accounts"] * 4 + ["/v1/categories"] * 3 + [
-        "/v1/hashtags"
-    ] * 2
-    sent = [_body(c.request) for c in creates["accounts"].calls]
-    both = [{"currency_code": "PEN"}, {"currency_code": "USD"}]
-    made = [(a["name"], a["currencies"]) for a in sent]
-    assert made == [
-        ("Sueldo Soles", both),
-        ("Interbank", [{"currency_code": "PEN"}]),
-        ("Visa", both),
-        ("Ana", both),
-    ]
+    assert [path for path, *_ in _sent()[1:]] == ["/v1/categories"] * 3 + ["/v1/hashtags"] * 2
+    assert creates["accounts"].call_count == 0
     categories = [_body(c.request)["name"] for c in creates["categories"].calls]
     assert categories == ["Comida", "Transporte", "SALDO INICIAL"]
 
@@ -292,16 +303,35 @@ def test_the_create_step_run_again_creates_nothing(sheet):
 
 
 @respx.mock
-def test_one_name_of_one_kind_created_reads_in_the_singular(sheet):
+def test_one_name_and_one_account_read_in_the_singular(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
+        categories=[sheet_name_use("Comida", 2)],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    _engine(answer)
+    _creates()
+    result = _run("--create-names")
+    assert result.stdout.splitlines()[0] == "Created 1 category."
+    assert "1 sheet account has no account yet: make it in the app." in result.stdout
+
+
+@respx.mock
+def test_the_create_step_with_only_accounts_missing_creates_nothing_and_lists_them(sheet):
     answer = sheet_import_answer(
         accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
         categories=[sheet_name_use("Comida", 2, "cat-comida")],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
     _engine(answer)
-    _creates()
+    creates = _creates()
     result = _run("--create-names")
-    assert result.stdout.splitlines()[0] == "Created 1 account."
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "1 sheet account has no account yet: make it in the app. A bank account then\n"
+        'gets the sheet\'s name with --account-name "BCP=<its name>".\n'
+    )
+    assert all(r.call_count == 0 for r in creates.values())
 
 
 @respx.mock
@@ -320,26 +350,28 @@ def test_the_create_step_with_the_apply_is_a_usage_error(sheet):
 @respx.mock
 def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
-        categories=[sheet_name_use("@Opening", 2)],
+        categories=[sheet_name_use("Comida", 2), sheet_name_use("@Opening", 2)],
         hashtags=[sheet_name_use("Casa", 2)],
     )
     _engine(answer)
     creates = _creates()
     creates["categories"].mock(
-        return_value=httpx.Response(
-            422,
-            json=error_body(
-                "VALIDATION_ERROR",
-                "Invalid input.",
-                {"name": "This name is reserved."},
-                {"name": "RESERVED_NAME"},
+        side_effect=[
+            httpx.Response(201, json={"id": "c1", "name": "Comida"}),
+            httpx.Response(
+                422,
+                json=error_body(
+                    "VALIDATION_ERROR",
+                    "Invalid input.",
+                    {"name": "This name is reserved."},
+                    {"name": "RESERVED_NAME"},
+                ),
             ),
-        )
+        ]
     )
     result = _run("--create-names")
     assert result.exit_code == 1
-    assert result.stdout == "Created 1 account.\n"
+    assert result.stdout == "Created 1 category.\n"
     assert result.stderr == (
         "Error: VALIDATION_ERROR — Invalid input.\n  name: This name is reserved.\n"
     )
@@ -432,9 +464,34 @@ def test_the_apply_while_a_name_is_missing_is_refused_and_names_the_step(sheet):
     assert result.exit_code == 1
     assert result.stdout == (
         "Not imported — nothing written.\n"
-        "9 names don't exist yet. Create them with:\n"
+        "4 sheet accounts have no account yet: make them in the app. A bank account then\n"
+        'gets the sheet\'s name with --account-name "<sheet name>=<its name>".\n'
+        "5 names don't exist yet. Create them with:\n"
         "  expense import sheet libro.xlsx --create-names\n"
+        "It makes categories and hashtags only, never an account.\n"
         "then run the dry run to see the counts.\n"
+    )
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@respx.mock
+def test_the_apply_while_only_an_account_is_missing_is_refused(sheet):
+    """Every category and hashtag is yours; the one account with no account still
+    stops the apply, and nothing is created."""
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("VISA", 2, currencies=["PEN"])],
+        categories=[sheet_name_use("Comida", 2, "cat-comida")],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    _engine(answer)
+    creates = _creates()
+    result = _run("--apply")
+    assert result.exit_code == 1
+    assert result.stdout == (
+        "Not imported — nothing written.\n"
+        "1 sheet account has no account yet: make it in the app. A bank account then\n"
+        'gets the sheet\'s name with --account-name "VISA=<its name>".\n'
     )
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     assert all(r.call_count == 0 for r in creates.values())
@@ -711,22 +768,15 @@ def test_json_prints_the_engines_answer_to_each_name_created(sheet):
     assert list(printed) == ["created"]
     answers = {
         kind: [json.loads(_made(c.request).content) for c in creates[kind].calls]
-        for kind in ("accounts", "categories", "hashtags")
+        for kind in ("categories", "hashtags")
     }
     assert printed["created"] == answers
-    assert [a["name"] for a in printed["created"]["accounts"]] == [
-        "BCP",
-        "Interbank",
-        "Visa",
-        "Ana",
-    ]
 
 
 @respx.mock
 def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refusal(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
-        categories=[sheet_name_use("@Opening", 2)],
+        categories=[sheet_name_use("Comida", 2), sheet_name_use("@Opening", 2)],
         hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
     refusal = error_body(
@@ -737,12 +787,14 @@ def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refus
     )
     _engine(answer)
     creates = _creates()
-    creates["categories"].mock(return_value=httpx.Response(422, json=refusal))
+    made = {"id": "c1", "name": "Comida"}
+    creates["categories"].mock(
+        side_effect=[httpx.Response(201, json=made), httpx.Response(422, json=refusal)]
+    )
     result = _run("--create-names", "--json")
     assert result.exit_code == 1
-    account = json.loads(_made(creates["accounts"].calls[0].request).content)
     assert json.loads(result.stdout) == {
-        "created": {"accounts": [account], "categories": [], "hashtags": []},
+        "created": {"categories": [made], "hashtags": []},
         **refusal,
     }
     assert result.stderr == ""
@@ -751,17 +803,20 @@ def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refus
 @respx.mock
 def test_json_on_the_engine_out_of_reach_part_way_keeps_the_names_created(sheet):
     answer = sheet_import_answer(
-        accounts=[sheet_name_use("BCP", 2, currencies=["PEN"])],
-        categories=[sheet_name_use("Comida", 2)],
-        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+        categories=[sheet_name_use("Comida", 2), sheet_name_use("Casa", 2)],
     )
     _engine(answer)
     creates = _creates()
-    creates["categories"].mock(side_effect=httpx.ConnectError("connection refused"))
+    creates["categories"].mock(
+        side_effect=[
+            httpx.Response(201, json={"id": "c1", "name": "Comida"}),
+            httpx.ConnectError("connection refused"),
+        ]
+    )
     result = _run("--create-names", "--json")
     assert result.exit_code == 6
     printed = json.loads(result.stdout)
-    assert [a["name"] for a in printed["created"]["accounts"]] == ["BCP"]
+    assert [c["name"] for c in printed["created"]["categories"]] == ["Comida"]
     assert printed["error"]["code"] == "CONNECTION_ERROR"
 
 
@@ -781,7 +836,11 @@ def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
     assert json.loads(result.stdout) == {
         "error": {
             "code": "NAMES_MISSING",
-            "message": "Not imported — nothing written. 9 names don't exist yet.",
+            "message": (
+                "Not imported — nothing written. "
+                "4 sheet accounts have no account yet: make them in the app. "
+                "5 names don't exist yet."
+            ),
             "fields": None,
             "reasons": None,
             "details": None,
@@ -800,7 +859,7 @@ def test_a_rename_is_remembered_by_name_and_a_flag_replaces_it(sheet):
     assert result.exit_code == 0, _out(result)
     assert _saved() == {"BCP": "Sueldo Soles"}
     result = _run()
-    assert "  BCP          PEN + USD   1,515   Sueldo Soles  missing\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app\n" in result.stdout
 
 
 def _save_names(names):
@@ -816,7 +875,7 @@ def test_saved_renames_with_a_currency_going_to_one_ledger_name_are_one_rename(s
     _accounts([])
     result = _run()
     assert result.exit_code == 0, _out(result)
-    assert "  BCP          PEN + USD   1,515   Sueldo Soles  missing\n" in result.stdout
+    assert "  BCP          PEN + USD   1,515   Sueldo Soles  make it in the app\n" in result.stdout
 
 
 @pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)

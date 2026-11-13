@@ -28,6 +28,7 @@ from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
     HASHTAG,
+    Goes,
     NameEntry,
     RenameRefused,
     SavedRenamesDisputed,
@@ -47,6 +48,9 @@ _NOUNS = {
     CATEGORY: ("Categories", "category", "categories"),
     HASHTAG: ("Hashtags", "hashtag", "hashtags"),
 }
+
+#: Where a sheet account with no account goes: the app makes accounts, never the import.
+_MAKE_IN_APP = "make it in the app"
 
 #: Between two columns of a names table.
 _GAP = "   "
@@ -78,7 +82,7 @@ def _table_lines(kind: str, entries: list[NameEntry]) -> list[str]:
 
     out = [f"{title} ({len(entries)})", line("SHEET NAME", "CUR", "ROWS", "GOES TO")]
     for entry, cur, count in zip(entries, currencies, rows, strict=True):
-        goes = entry.goes.value
+        goes = _MAKE_IN_APP if kind == ACCOUNT and entry.goes is Goes.MISSING else entry.goes.value
         if entry.renamed_to is not None:
             goes = f"{entry.renamed_to}  {goes}"
         out.append(line(entry.name, cur, count, goes))
@@ -133,16 +137,51 @@ def _create_command(file: str) -> str:
 
 
 def _missing_count(result: SheetImport) -> str:
-    """`9 names don't exist yet.`, or `1 name doesn't exist yet.`"""
+    """`5 names don't exist yet.`, or `1 name doesn't exist yet.`: the categories
+    and hashtags the create step makes."""
     count = len(result.missing)
     if count == 1:
         return "1 name doesn't exist yet."
     return f"{count:,} names don't exist yet."
 
 
-def _missing_lines(result: SheetImport, file: str) -> list[str]:
+def _accounts_sentence(result: SheetImport) -> str:
+    """`1 sheet account has no account yet: make it in the app.`"""
+    count = len(result.missing_accounts)
+    if count == 1:
+        return "1 sheet account has no account yet: make it in the app."
+    return f"{count:,} sheet accounts have no account yet: make them in the app."
+
+
+def _account_lines(result: SheetImport) -> list[str]:
+    """The sheet accounts with no account: made in the app, a bank account then
+    given the sheet's name with `--account-name`."""
+    missing = result.missing_accounts
+    name = missing[0].name if len(missing) == 1 else "<sheet name>"
+    return [
+        f"{_accounts_sentence(result)} A bank account then",
+        f'gets the sheet\'s name with --account-name "{name}=<its name>".',
+    ]
+
+
+def _create_lines(result: SheetImport, file: str) -> list[str]:
     them = "it" if len(result.missing) == 1 else "them"
-    return [f"{_missing_count(result)} Create {them} with:", f"  {_create_command(file)}"]
+    return [
+        f"{_missing_count(result)} Create {them} with:",
+        f"  {_create_command(file)}",
+    ]
+
+
+def _missing_lines(result: SheetImport, file: str) -> list[str]:
+    """What is still missing: the accounts to make in the app, then the
+    categories and hashtags to create."""
+    lines = _account_lines(result) if result.missing_accounts else []
+    if result.missing:
+        lines += [
+            *_create_lines(result, file),
+            "It makes categories and hashtags only, never an account.",
+        ]
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +248,7 @@ def _created_json(result: SheetImport) -> dict:
     """The engine's answer to each create, by kind."""
     return {
         _NOUNS[kind][2]: [c.answer for c in result.created if c.kind == kind]
-        for kind in (ACCOUNT, CATEGORY, HASHTAG)
+        for kind in (CATEGORY, HASHTAG)
     }
 
 
@@ -271,24 +310,31 @@ def _print_applied(result: SheetImport) -> None:
 
 
 def _print_created(result: SheetImport) -> None:
-    """The names the run created."""
-    if not result.created:
+    """The names the run created, then the accounts still to make in the app."""
+    if result.created:
+        typer.echo(_created_line(result))
+        typer.echo("Nothing imported. Run the dry run again to see the counts.")
+    elif not result.missing_accounts:
         typer.echo("Created no names: every one is yours.")
-        return
-    typer.echo(_created_line(result))
-    typer.echo("Nothing imported. Run the dry run again to see the counts.")
+    if result.missing_accounts:
+        for line in _account_lines(result):
+            typer.echo(line)
 
 
 def _refuse_missing(result: SheetImport, file: str, *, json_output: bool) -> None:
-    """`--apply` while a name is missing writes nothing and names
-    the create step. Exit 1."""
+    """`--apply` while a name or an account is missing writes nothing and says
+    what to do. Exit 1."""
     if json_output:
-        emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {_missing_count(result)}"))
+        sentences = [_accounts_sentence(result)] if result.missing_accounts else []
+        if result.missing:
+            sentences.append(_missing_count(result))
+        emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {' '.join(sentences)}"))
     else:
         typer.echo(_NOT_IMPORTED)
         for line in _missing_lines(result, file):
             typer.echo(line)
-        typer.echo("then run the dry run to see the counts.")
+        if result.missing:
+            typer.echo("then run the dry run to see the counts.")
     raise typer.Exit(code=1)
 
 
@@ -300,8 +346,8 @@ def run_import(
         False,
         "--create-names",
         help=(
-            "Create every account, category and hashtag the sheet uses that you lack. "
-            "Imports nothing."
+            "Create every category and hashtag the sheet uses that you lack, never an "
+            "account. Imports nothing."
         ),
     ),
     apply: bool = typer.Option(
@@ -327,12 +373,12 @@ def run_import(
     The dry run lists every account (a name, with the currencies its rows are
     in), category and hashtag the sheet uses, its rows, and whether it is
     yours or missing. While one is missing it shows no counts, since the
-    engine counts only once every name exists, and gives the command that
-    creates them: --create-names, which creates every missing name and
-    imports nothing. Once every name exists, the dry run shows the engine's
-    counts, and --apply imports; with a name missing, --apply is refused and
-    writes nothing. Sending the same sheet again writes nothing: every row is
-    matched.
+    engine counts only once every name exists. A missing category or hashtag
+    is made by --create-names, which imports nothing; a missing account is
+    made in the app, never by the import. Once every name exists, the dry run
+    shows the engine's counts, and --apply imports; with a name or an account
+    missing, --apply is refused and writes nothing. Sending the same sheet
+    again writes nothing: every row is matched.
 
     One bad row stops the whole import, and every refused row is listed in the
     engine's words; nothing is written and no name is created.
