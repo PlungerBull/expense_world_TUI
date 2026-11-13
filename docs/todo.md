@@ -63,76 +63,18 @@ is ready, run `python3 scripts/release.py` in the live folder
 `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
 
-### Three small screen questions from the finished catch-up
-Asked 2026-11-09 · Blocks: nothing yet; each joins a spec in its area once answered
-Found while the catch-up to `1002f105c6bacdf1` ran; drawn as panes 1–3 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
-1. **`n` on Manage ▸ Accounts while the list shows "Could not load."** It opens a New form whose
-   currencies line has nothing to pick (the currencies come with the list's read). Turn `n` off
-   until the list loads, or keep it?
-2. **A flagged line in a currency a one-currency paper does not cover** shows in the preview's
-   `⚑` block with no currency (the column shows only on a two-currency paper). Leave it, show the
-   currency on such lines, or show the column whenever the paper misses a currency?
-3. **The `⚠` notes:** the preview leads each with its currency (`⚠ USD: …`), the close screen
-   leaves a covered currency's bare. One way on both screens, or each as it is?
-
-### Small screen details from the account numbers work
-Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while accounts got their numbers; each is built as described; drawn as panes 4–8 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
-1. **A New bank account left before the engine refuses it** reads `Not created · Account
-   (unnamed)`, since the account has no name until the engine builds it. Keep it, or name it by
-   the bank typed (`Account BCP`)?
-2. **Removing a card** asks `Remove card 5678 from BCP-5678?` / `1234 is its number again. No
-   screen can bring 5678 back.`; the mockup also said `and it shows as BCP-1234`, which only the
-   engine can say. Keep it, or ask the engine for the name a removal leaves? Its footer is every
-   question's `[y] confirm [enter / n / esc] cancel`, not the mockup's `y removes · any other key
-   keeps it`.
-3. **Lines the mockup did not draw:** the Edit form's `since` leaves the form while the account has
-   no number, and so does `new card`; `new card from` shows once `new card` holds digits; several
-   older cards share one `cards before` line, oldest first; the new lines' hints follow the
-   form's others (`optional · the replacement card's last 4 digits · enter to go on`). Keep them?
-4. **The LOG bar's `$` hint lines:** the mockup drew `"$5678" matches 1 account` and `$56 is an
-   amount: 56.00`; today a single match resolves as you type with no line, as `$nic` does, and no
-   amount line shows. Add both lines, or keep it as it is?
-5. **The upload could skip "Which account is this statement?"** now that accounts carry their
-   numbers: the engine would name the account from the number the paper prints. Ask the engine
-   for it, or keep asking?
-**Recommended:** 1–4 as built, since each follows the app's existing screens and builds no name
-in the app; 5 ask the engine, since the paper already says which account it is.
-
-### Small screen details from the cash account
-Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while the cash account was built; drawn as panes 9–13 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
-1. **The New form's type line** reads `bank, person or cash · enter keeps bank`, the form's own
-   hint shape; the mockup drew `bank · person · cash · ←→ picks`, naming keys the form does not
-   use. Keep it as built?
-2. **The Accounts `?` card lists both `t` lines** (make person, make bank) on every row, the cash
-   and archived rows included, though the footer shows only the one the row takes. Showing only
-   that one changes the card on every row. Keep it, or show only the `t` the row takes?
-3. **Home's ACCOUNTS block for a user with no accounts** shows its heading and no rows; PEOPLE in
-   the same state says `none`. Say `none` there too?
-4. **`⏎ Open` shows in the Manage lists' footer** (Accounts, Categories), though `⏎` does nothing
-   there and the `?` card leaves it out. Drop it from the footer?
-**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
-the screen says what is there and offers only keys that work.
-
-### Small screen details from the number format
-Asked 2026-11-09 · Blocks: nothing; each answer other than "as built" joins a spec in its area
-Found while the number format setting was built; drawn as panes 14–16 of
-[expense-world-open-questions.html](mockups/expense-world-open-questions.html).
-1. **The words not drawn:** saving reads `Number format saved.`; when the Mac's region cannot be
-   named, the row reads `1,234.56  · follows this Mac`, with no region in brackets. Keep both?
-2. **Auth & profile's footer** reads `esc Back  r Refresh  ? Keys  b Bootstrap  f Number
-   format`, every screen's own keys first; the sketch drew `esc Back  b Bootstrap  f Number
-   format  ? Keys`. Keep the app's order?
-3. **A new device, right after Setup,** shows amounts in its own region's format until the app
-   is opened again, since the account's pick is read at launch. Read it as Setup finishes too?
-4. **A pick saved after you left Auth & profile** (the engine answering late) says `Number format
-   saved.`, but Home keeps the old format until it next reloads. Redraw Home when it lands?
-**Recommended:** 1 and 2 as built, since each follows the app's other screens; 3 and 4 yes, so
-every amount on screen follows the pick as soon as it is known.
+### Approve "Small screen details"
+Asked 2026-11-13 · Blocks: Small screen details
+Your picks on panes 1–16 of [expense-world-open-questions.html](mockups/expense-world-open-questions.html)
+became [Small screen details](specs/small-screen-details.md): six changes, five of them screens
+only, and the upload going straight to its preview once the engine ask "A statement PDF's
+upload names its account from the card number the paper prints" lands (it waits in
+[to-engine/](to-engine/) for you to hand over). Pane 13 needs nothing: since several cash
+accounts, the engine names each `CASH-0001` and up, skipping a taken name, so no person can hold
+the cash account's name.
+- **A.** Approve it as v1.1, beside closing with leftover lines.
+- **B.** Approve it into v1.0, before the official import.
+**Recommended:** A, because v1.0 is the import and its release, and none of the six blocks it.
 
 ### The official import's question 17: the facts only you know
 Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)'s task 1, the
