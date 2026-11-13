@@ -28,8 +28,7 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 2. [The app the owner runs](specs/going-live.md): approved 2026-11-11. Tasks 5–7 wait on the
    engine's going-live release; tasks 5 and 6 also wait on the owner picking their mockups.
 3. [Lean docs](specs/lean-docs.md): approved 2026-11-11. Every task is done; its acceptance check
-   waits on the practice engine, off until you say the engine's rebuild is done, since the moved
-   contract citations are checked live.
+   waits on the catch-up to contract 1.1.
 4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task is done; its
    acceptance check waits on the catch-up to contract 1.1.
 5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
