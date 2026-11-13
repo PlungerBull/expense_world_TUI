@@ -24,21 +24,19 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [A pasted token is saved without its spaces](specs/pasted-token.md): approved
-   2026-11-13.
-2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
+1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
+2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
    answered A on 2026-11-12; task 1 waits on question 17's facts. v1.0.0 is prepared after its
    rehearsal.
-4. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-5. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+4. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
    the owner runs, split out 2026-11-12. The engine shipped what they read in contract 1.1;
    tasks 1 and 2 wait on the owner picking their mockups.
-6. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+5. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
 
