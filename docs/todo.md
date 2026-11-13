@@ -31,7 +31,7 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
    waits on the practice engine, off until you say the engine's rebuild is done, since the moved
    contract citations are checked live.
 4. [Code conventions A](specs/code-conventions-a.md): approved 2026-11-11. Every task is done; its
-   acceptance check waits on the practice engine, as lean docs' does.
+   acceptance check waits on the catch-up to contract 1.1.
 5. [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
 
 ---
@@ -56,6 +56,28 @@ When the loop's summary says v1.0.0 is ready, run `python3 scripts/release.py` i
 folder (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`).
 Once `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
+
+### The engine's contract moved to 1.1: ask it for a hand-off file?
+Asked 2026-11-12 · Blocks: the loop; lean docs' and code conventions A's acceptance checks
+The version check on the practice engine reports the contract moved past the version this client
+last caught up to, `3a4ff8dac458cf83`. Its printout:
+```
+the engine's contract version has changed: saved 3a4ff8dac458cf83, engine 1.1.
+  1.1  2026-11-12
+    added: `GET /health` answers `200` with `release`, `contract_version`, `mode` (`REAL` or
+    `PRACTICE`), `structure` and `backup` (with `overdue` past 36 hours), besides `status`.
+    changed: `GET /health` answers `503 SERVICE_UNAVAILABLE` also when the database's structure
+    no longer matches the engine's code; the engine refuses to start on such a database.
+  1.0  2026-11-11
+    changed: the contract version is two numbers, `breaking.adding`, in `info.version`.
+```
+It also lists three keys the tests use that the engine has no field for: `conclusion`
+(tests/unit/test_release_scripts.py:20, :188) and `extra` (test_constraints_complete.py:29). They
+look like the tests' own keys, not engine drift, so they become a task once the loop runs again.
+- **A.** Ask the engine for one hand-off file covering `3a4ff8dac458cf83` → `1.1`; the loop plans
+  it into a catch-up spec, which runs first.
+**Recommended:** A, since that is how every moved version is caught up; v1.0.0's CHANGELOG also
+names `3a4ff8dac458cf83` as the contract the engine must serve.
 
 ### May the log keep a refusal that repeats what you typed?
 Asked 2026-11-12 · Blocks: nothing; the log is built logging refusals in full
