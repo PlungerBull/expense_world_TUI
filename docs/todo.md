@@ -27,7 +27,7 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15 and 16
-   answered A on 2026-11-12; task 1 waits on question 17's facts; task 2 is done. v1.0.0 is
+   answered A on 2026-11-12; task 1 waits on question 17's facts; task 2 is done; task 3 (built, uncommitted) waits on pane 21. v1.0.0 is
    prepared after its rehearsal.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
@@ -75,6 +75,16 @@ the cash account's name.
 - **A.** Approve it as v1.1, beside closing with leftover lines.
 - **B.** Approve it into v1.0, before the official import.
 **Recommended:** A, because v1.0 is the import and its release, and none of the six blocks it.
+
+### The official import's words for a rename to no account (pane 21)
+Asked 2026-11-13 · Blocks: the official import's task 3, and the tasks after it
+Task 3 is built and uncommitted: `--account-name` to a name no account holds is refused, and so
+is a rename saved by an earlier run, which after the wipe names no account. Pane 21 of
+[expense-world-open-questions.html](mockups/expense-world-open-questions.html) draws the four
+cases (one typed, two typed, saved, typed and saved at once).
+- **A.** As built: "…which no account is named."
+- **B.** Plainer: "…, and no account has that name."
+**Recommended:** B, the same facts and fix in plainer words.
 
 ### The official import's question 17: the facts only you know
 Asked 2026-11-09 · Blocks: [the official import](specs/before-the-official-import.md)'s task 1, the

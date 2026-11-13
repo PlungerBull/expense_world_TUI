@@ -65,7 +65,7 @@
 
 <div class="head">
   <h1>Small details, open questions</h1>
-  <p>Panes 1 to 16 are small details found while building the last few pieces of work. <b>Each is built as A today</b> (A is drawn from the app as it is), and B, or C, is the smallest change that answers it. Panes 17 to 20 belong to the official import's draft and aren't built yet. Most carry a recommendation; pane 2 is your call.</p>
+  <p>Panes 1 to 16 are small details found while building the last few pieces of work. <b>Each is built as A today</b> (A is drawn from the app as it is), and B, or C, is the smallest change that answers it. Panes 17 to 21 belong to the official import's draft and aren't built yet. Most carry a recommendation; pane 2 is your call.</p>
   <p>Answer with one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip stays as A. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
@@ -1015,6 +1015,52 @@ gets the sheet's name with --account-name "Cuenta Digital Dólares=&lt;its name&
 </div>
 </div>
 
+<!-- ================================================================== 21 -->
+<div class="pane">
+<div class="lbl">21 · A rename to an account that does not exist <span>— pick A or B</span></div>
+<p class="blurb"><code>--account-name SHEET=LEDGER</code> puts a sheet name on the account named LEDGER. Before the wipe a dry run could save a rename to an account not made yet; after it, that saved rename names no account. Four cases, each refused before anything is created, imported or saved (exit 2). <code>Usage: …</code> and <code>Try … --help</code> frame each, as every usage error.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>as built</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">1. typed: --account-name "BCP=BCP-0000"</span></div>
+<div class="app"><pre>Error: Invalid value for '--account-name': no account
+is named "BCP-0000".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">1b. two typed: "BCP=BCP-0000" and "Visa=Visa-9999"</span></div>
+<div class="app"><pre>Error: Invalid value for '--account-name': no account
+is named "BCP-0000" or "Visa-9999".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">2. saved from an earlier run, no flag typed</span></div>
+<div class="app"><pre>Error: Your saved rename sends "BCP" to "BCP-0000",
+which no account is named. Replace it with
+--account-name "BCP=&lt;ledger name&gt;".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">3. one typed and one saved at once</span></div>
+<div class="app"><pre>Error: --account-name "BCP=BCP-0000" names "BCP-0000",
+which no account is named.
+Your saved rename sends "Visa" to "Visa-9999", which
+no account is named. Replace it with
+--account-name "Visa=&lt;ledger name&gt;".</pre></div></div>
+<p class="cap">Every case names the account that doesn't exist, and a saved one also names its sheet name and the flag that replaces it.</p></div>
+
+<div class="var"><div class="oh">B · <span>plainer words</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">1. typed: --account-name "BCP=BCP-0000"</span></div>
+<div class="app"><pre>Error: Invalid value for '--account-name': no account
+is named "BCP-0000".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">1b. two typed: "BCP=BCP-0000" and "Visa=Visa-9999"</span></div>
+<div class="app"><pre>Error: Invalid value for '--account-name': no account
+is named "BCP-0000" or "Visa-9999".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">2. saved from an earlier run, no flag typed</span></div>
+<div class="app"><pre>Error: Your saved rename sends "BCP" to "BCP-0000", and
+no account has that name. Replace it with
+--account-name "BCP=&lt;ledger name&gt;".</pre></div></div>
+<div class="term" style="margin-top:10px"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">3. one typed and one saved at once</span></div>
+<div class="app"><pre>Error: --account-name "BCP=BCP-0000": no account is
+named "BCP-0000".
+Your saved rename sends "Visa" to "Visa-9999", and no
+account has that name. Replace it with
+--account-name "Visa=&lt;ledger name&gt;".</pre></div></div>
+<p class="cap">The same facts and the same fix, without "which no account is named". Cases 1 and 1b are A's.</p></div>
+</div>
+</div>
+
 <div class="pick">
 <b>To pick:</b> one letter per pane, e.g. <code>1B 2A 3B 4A …</code>. A pane you skip from 1 to 16 stays as A; 17 and 18 need an answer.
 <ol>
@@ -1038,6 +1084,7 @@ gets the sheet's name with --account-name "Cuenta Digital Dólares=&lt;its name&
 <li>The closed accounts at other banks: <b>A</b> bank accounts at Interbank, archived (engine change) · <b>B</b> made people.</li>
 <li>Two or more missing accounts: <b>A</b> the example names the first · <b>B</b> the example names no one.</li>
 <li>The undrawn import outputs: <b>A</b> keep these words · <b>B</b> tell us the words.</li>
+<li>A rename to an account that does not exist: <b>A</b> as built · <b>B</b> plainer words.</li>
 </ol>
 </div>
 

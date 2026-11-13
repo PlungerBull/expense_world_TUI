@@ -151,3 +151,7 @@ before building. Task 1 waits on question 17's facts; task 2 is done.
 ## Found along the way
 
 Not built in this spec; sorted when it is done.
+
+- **`--account-name` to a name two live accounts hold takes the last one listed, silently**
+  (`names_table`, expense/import_/engine.py). The engine refuses a second account of a taken
+  name, so after the wipe no two accounts share one; only names older than built names could.
