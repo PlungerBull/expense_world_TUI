@@ -160,6 +160,7 @@ account's month.
     - **B.** The question stays as built, and step 4 checks the splits and opening balances in
       the app after the import.
     - **Recommended:** A, so step 4 is checked before anything is written.
+    - **Picked 2026-11-14: A.**
 
 ## What the engine settled
 
@@ -202,8 +203,7 @@ the answers 15 A and 16 A (2026-11-12), and tasks 7 and 8 on 2026-11-14, on cont
 5. **The rehearsal on the practice engine,** after 7 and 8, run 2026-11-14 on a made-up sheet:
    every account, the archived one, the split transactions and all 12 balances came out as the
    sheet has them, in one write; step 4 fails, since the question names neither the split
-   transactions nor the opening balances (question 21). Once question 21 is answered (and, on
-   A, built), it runs again: a made-up sheet with the real sheet's
+   transactions nor the opening balances. It runs again once question 21 A is built: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening
    balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
    every balance matches.
