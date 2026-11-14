@@ -59,6 +59,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The import's review: three edges and `--json`
+Asked 2026-11-14 · Blocks: the official import's task 8 (its drawn parts are being built meanwhile)
+Panes 8, 9 and 10 of
+[mockups/expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
+draw three things the review meets that the earlier panes don't, and the command's `--json` needs
+a yes or no; each is the official import's question 20, with its options and reasons.
+- **A.** The recommended picks: `8A 9A 10A`, and `--json` dropped.
+- **B.** Other letters (say which).
+**Recommended:** A: every sheet name has a row, the app opens only with something to review,
+you go on in the app afterwards, and nothing reads `--json`.
+
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check
 v1.0.0 is prepared after the official import's rehearsal, as the last spec of v1.0; until then

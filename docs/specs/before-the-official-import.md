@@ -119,6 +119,21 @@ account's month.
       words; or B, capitals as typed, as STATEMENT CODE already does. **Recommended:** B, so the
       two code lines behave alike.
     - **Picked 2026-11-14: 5 A, 6 A, 7 B.**
+20. **The review's edges** (panes 8, 9 and 10 of
+    [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)),
+    and `--json`.
+    - **Pane 8, a sheet name already one of the owner's accounts:** A, its row stays, saying
+      which account it goes to; or B, it is left out and named under the table.
+      **Recommended:** A, so every sheet name has a row.
+    - **Pane 9, the engine refusing the sheet itself:** A, the terminal prints the engine's
+      words and the app doesn't open; or B, the Import sheet screen opens on the refusal.
+      **Recommended:** A, so the app opens only when there is something to review.
+    - **Pane 10, after the import or `esc`:** A, the app stays open on Home with the result on
+      its top line; or B, the app closes and the terminal prints the result.
+      **Recommended:** A, since the owner goes on in the app.
+    - **`--json`:** A, `expense import sheet` drops `--json`, since the review is a screen; or
+      B, it keeps `--json` for a dry run that prints the engine's answer and opens nothing.
+      **Recommended:** A: nothing reads it, and a dry run is the review itself.
 
 ## What the engine settled
 
@@ -157,7 +172,7 @@ Each reads the live contract on the practice engine before building. Tasks 1–4
 the answers 15 A and 16 A (2026-11-12), and task 7 on 2026-11-14; task 8 replaces what tasks 2 and 3 built. Task 8 runs on
 contract 3.1, which this client records.
 
-8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it.** Each missing account prefilled
+8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it, and question 20 picks.** Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
    keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving

@@ -66,7 +66,7 @@
 <div class="head">
   <h1>Banks, and the import's review</h1>
   <p>Drawn for the engine's contract 3.1: a bank is a 3–4 letter code with a required last 4, and the sheet import suggests the accounts it is missing and makes the ones you confirm, with the names and rows, in one write. Nothing here is built.</p>
-  <p>Panes 1 and 2 draw what is decided; 3 B, 4 A, 5 A, 6 A and 7 B are picked. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+  <p>Panes 1 and 2 draw what is decided; 3 B, 4 A, 5 A, 6 A and 7 B are picked. <b>Answer panes 8, 9 and 10 with one letter each</b>, e.g. <code>8A 9A 10A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
 <!-- ================================================================== group 1 -->
@@ -294,6 +294,98 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
    bank            IBK
    last 4          4321</pre></div></div>
 <p class="cap">Typing <code>ibk</code> shows and sends <code>IBK</code>, the way the statement code line takes <code>sig</code> as <code>SIG</code> today. Anything else wrong, like <code>IB</code>, still gets the engine's words.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== group 3 -->
+<div class="grp">
+  <h2>The review's edges</h2>
+  <p>Three things the review meets that panes 3–6 don't draw. Answer each with one letter, e.g. <code>8A 9B 10A</code>.</p>
+</div>
+
+<!-- ================================================================== 8 -->
+<div class="pane">
+<div class="lbl">8 · A sheet name that is already one of your accounts <span>— pick A or B</span></div>
+<p class="blurb">The engine puts a sheet name equal to an account's name on that account. On the official import the ledger is empty, so this happens only on a re-run or a rehearsal.</p>
+
+<div class="var"><div class="oh">A · <span>the row stays, saying which account it goes to</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx</span></div>
+<div class="app"><pre>  4,191 rows · 17 accounts, 3 categories and 2 hashtags to make
+
+  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+<span class="rev">  BCP Sueldo Soles         PEN         1,203   bank · BCP · 1234                </span>
+  BCP-5678                 PEN + USD   1,846   <span class="d">yours · BCP-5678</span>
+  ALEJO                    PEN + USD      58   person · ALEJO</pre></div></div>
+</div>
+<p class="cap">Every sheet name has a row. A row already yours makes nothing: <code>⏎</code> and <code>a</code> skip it, and the count leaves it out.</p></div>
+
+<div class="var"><div class="oh">B · <span>the row is left out; a line under the table names it</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx</span></div>
+<div class="app"><pre>  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+<span class="rev">  BCP Sueldo Soles         PEN         1,203   bank · BCP · 1234                </span>
+  ALEJO                    PEN + USD      58   person · ALEJO
+
+  Categories   Comida · Transporte · SALDO INICIAL
+  Hashtags     Personal · Trabajo
+  <span class="d">Already yours: BCP-5678 (1,846 rows).</span></pre></div></div>
+</div>
+<p class="cap">The table holds only what is made.</p></div>
+</div>
+
+<!-- ================================================================== 9 -->
+<div class="pane">
+<div class="lbl">9 · The engine refuses the sheet itself <span>— pick A or B</span></div>
+<p class="blurb">A row the engine can't read (a bad date, a missing column) refuses the whole sheet before anything can be reviewed.</p>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the terminal says so; the app doesn't open</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal</span></div>
+<div class="app"><pre><span class="d">%</span> expense import sheet libro.xlsx
+<span class="n">Error: VALIDATION_ERROR — The sheet has rows
+that cannot be read.</span>
+  row 212 · FECHA: Must be a date.
+  row 988 · MONEDA: Must be PEN or USD.
+Nothing was written.
+<span class="d">%</span></pre></div></div>
+<p class="cap">As today: the engine's words, rows grouped as the LOG bar's, exit code 1. The app opens only when there is something to review.</p></div>
+
+<div class="var"><div class="oh">B · <span>the Import sheet screen opens on the refusal</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Import sheet</span>  ▸  libro.xlsx
+<span class="d">──────────────────────────────────────────────</span>
+  <span class="n">The sheet has rows that cannot be read.</span>
+  row 212 · FECHA: Must be a date.
+  row 988 · MONEDA: Must be PEN or USD.
+  <span class="d">Nothing was written.</span>
+
+ <span class="a">esc</span> Leave</pre></div></div>
+<p class="cap">The same words, inside the app.</p></div>
+</div>
+</div>
+
+<!-- ================================================================== 10 -->
+<div class="pane">
+<div class="lbl">10 · After the import, or after esc <span>— pick A or B</span></div>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the app stays open on Home, with the result on its top line</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · after y</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Home</span>
+<span class="d">──────────────────────────────────────────────</span>
+  <span class="p">Imported 4,189 rows · 18 accounts, 3 categories
+  and 2 hashtags made.</span>
+  …Home as usual…</pre></div></div>
+<p class="cap"><code>esc</code> before the import lands on Home too, with "Nothing was imported." You go on in the app as if you had typed <code>expense</code>.</p></div>
+
+<div class="var"><div class="oh">B · <span>the app closes; the terminal prints the result</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">terminal · after y</span></div>
+<div class="app"><pre><span class="d">%</span> expense import sheet libro.xlsx
+Imported 4,189 rows · 18 accounts, 3 categories
+and 2 hashtags made.
+<span class="d">%</span></pre></div></div>
+<p class="cap"><code>esc</code> closes it too, printing "Nothing was imported." The command stays a one-off.</p></div>
 </div>
 </div>
 
