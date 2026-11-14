@@ -1,10 +1,12 @@
 # The official import
 
-**Status: draft for the owner to approve, rewritten on 2026-11-09 for built names: the engine
-builds a bank account's name from its bank and card number (`BCP-5678`), never creates an
-account in a sheet import, and lists one bank, BCP. Questions 15–17 are open, with mockup panes
-17 and 18 of [expense-world-open-questions.html](../mockups/expense-world-open-questions.html).
-It runs last, after the queued specs.** Turning an account into a person is built
+**Status: approved; questions 15–18 answered by 2026-11-13. A bank account is a 3–4 letter code
+and a required last 4 (`IBK-4321`), and only a bank the engine reads takes a statement code
+(question 18). The import's review makes the accounts, categories, hashtags and rows in one write;
+where it runs waits on panes 3 and 4 of
+[expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html).
+Tasks 7 and 8 wait on the engine's hand-off for two asks, named in
+"Tasks".** Turning an account into a person is built
 ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key"); the
 split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a
 split purchase in as one split transaction"); the sheet import goes through the engine. When the
@@ -23,10 +25,10 @@ owner.
 An **account** is one bank product, one person or the cash account, holding its currencies
 (contract: "What an account is", "Its currencies"). The sheet names an account once for all its
 currencies, so the Visa is one account holding soles and dollars, and each person is one account,
-ALEJO in soles and in dollars on one. A bank account is made from its bank and its card's last 4
-digits and named by the engine (`BCP-5678`); two accounts at one bank with no number would share
-the name `BCP`, which the engine refuses (contract: POST /v1/accounts, "Validation"). A person is
-named as typed. An account holds the statement code its PDFs print, and one PDF closes one
+ALEJO in soles and in dollars on one. A bank account is made from a code of 3 or 4 letters and its
+card's last 4 digits, both required, and named by the engine (`IBK-4321`); no bank has to exist
+first. A person and the cash account are named as typed. Only a bank the engine reads statement
+PDFs for (`GET /banks`: BCP) holds a statement code, the one its PDFs print, and one PDF closes one
 account's month.
 
 ## The sheet as it is imported (checked 2026-10-21)
@@ -67,6 +69,7 @@ account's month.
 | 11 | Oro and Interbank? | As the sheet names them: each name one account holding every currency its rows use (2026-11-05). |
 | 12 | The engine's ledger update before the wipe? | Wipe first, then update the engine on the empty database (2026-11-05). |
 | 13 | Account names | The engine's built names, with no alias: the Visa reads `BCP-` and its card's last 4, not `VISA Infinite Sapphire` (2026-11-08). |
+| 14 | What a bank is | A code of 3 or 4 letters the owner types and a required last 4, named `CODE-1234` by the engine; no list of banks, no full names, no suggestions for now (the TUI can add them from the owner's accounts later); a statement code only at a bank `GET /banks` lists, which means "the banks whose PDFs the engine reads"; no new check on bank downloads (2026-11-13). |
 
 ## Open questions
 
@@ -94,12 +97,12 @@ account's month.
     account for an investment. So Interbank is the one bank the engine must add.
 18. **Where the accounts are made, once the engine can suggest them.** **Answered 2026-11-13:**
     the engine says its bank list is fixed only as built, and that an account the user confirms
-    in the import's request is no side effect. So this replaces 15 A and 16 A: a bank is a
-    code the owner types (`IBK-4321`), the engine saying which codes it reads, and the
-    import's review shows each sheet account with the engine's suggestion, the owner confirms or
-    changes each, and one write makes the accounts, categories, hashtags and rows. Its screens:
+    in the import's request is no side effect. So this replaces 15 A and 16 A: a bank is a code
+    (decision 14), and the import's review shows each sheet account with the engine's suggestion,
+    the owner confirms or changes each, and one write makes the accounts, categories, hashtags and
+    rows. Where the review runs and how a row is edited are panes 3 and 4 of
     [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html),
-    not yet picked. Steps 3 to 8 below change once the picks and the engine's hand-off land.
+    not yet picked; panes 1 and 2 draw decision 14.
 
 ## What the engine settled
 
@@ -111,22 +114,19 @@ account's month.
 
 ## Steps
 
-1. The queued specs are done and the engine lists every bank the closed accounts were at
-   (question 16 A).
+1. The queued specs and this spec's tasks 7 and 8 are done.
 2. The owner wipes the live database.
-3. In the app: each bank account made with its bank, last 4, currencies and statement code; each
-   person made by name, PARDO among them.
-4. The import's dry run, with an `--account-name` for each bank account's sheet name: every
-   account found, the categories and hashtags listed as missing.
-5. `--create-names` makes the categories and hashtags, importing nothing.
-6. The dry run again: no row skipped but the two zero rows; the 9 split purchases counted as 9
+3. The import's review: each sheet account set as a bank account (code, last 4, a statement code
+   at BCP), a person by its name (PARDO among them) or the cash account, the closed ones marked
+   archived; the categories and hashtags listed to make.
+4. The review's count: no row skipped but the two zero rows; the 9 split purchases counted as 9
    split transactions; each first `SALDO INICIAL` row counted as its currency's opening balance.
-7. The import with `--apply`, refused by nothing.
-8. In the app: the closed accounts archived. No account is deleted.
+5. The import, one write, refused by nothing. No account is deleted.
 
 ## How the owner knows it is done
 
-1. The accounts screen shows every bank account under its built name with its statement code,
+1. The accounts screen shows every bank account under its built name, the BCP ones with their
+   statement code,
    the eight people under people, and the closed accounts archived; the Visa is one account
    holding soles and dollars.
 2. Each split purchase shows as one split transaction.
@@ -137,17 +137,28 @@ account's month.
 
 ## Tasks
 
-On the answers 15 A and 16 A (2026-11-12); each reads the live contract on the practice engine
-before building. Tasks 1–4 and 6 are done; a sheet name two accounts share (`ambiguous`) is
-left out of task 4's tests, since every create and rename refuses a taken name and only accounts
-made before built names can share one (contract: POST /v1/transactions/import-sheet, "Names").
-Question 18 adds tasks once its mockup is picked and the engine's hand-off for the asks "A bank
-account's bank is a short code the user types, and the engine says which codes it can read" and "The sheet import suggests the accounts it is missing and makes
-the ones the user confirms, with its names and rows, in one write" lands; task 5 runs after them.
+Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
+the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. A sheet name two
+accounts share (`ambiguous`) is left out of task 4's tests, since every create and rename refuses
+a taken name (contract: POST /v1/transactions/import-sheet, "Names"). Tasks 7 and 8 start from the
+engine's hand-off, whose catch-up spec takes the contract's side first.
 
-5. **The rehearsal on the practice engine:** a made-up sheet with the real sheet's shape (a
-   card in two currencies, two savings accounts, people, a split purchase, opening balances, a
-   closed account at a second bank) goes through steps 3–8, and every balance matches.
+7. **The bank account form, as decision 14 and panes 1 and 2 draw it.** Waits on the ask
+   "A bank account's bank is a 3–4 letter code the user types, its last 4 is required, and only a
+   bank `GET /banks` lists takes a statement code". On Manage ▸ Accounts New and Edit, and `t`'s
+   question when it makes a bank account, BANK is a typed code of 3 or 4 letters with no
+   suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
+   `GET /banks` lists. The Edit form removes a
+   number only while another stays. A refusal is the engine's words.
+8. **The import's review, as panes 3 and 4 are picked.** Waits on the ask
+   "The sheet import suggests the accounts it is missing and makes the ones the user confirms,
+   with its names and rows, in one write" and on the picks. It replaces making every account in
+   the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
+   the closed accounts by hand.
+5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
+   shape (a card in two currencies, two savings accounts, people, a split purchase, opening
+   balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
+   every balance matches.
 
 ## Found along the way
 
@@ -156,3 +167,4 @@ Not built in this spec; sorted when it is done.
 - **`--account-name` to a name two live accounts hold takes the last one listed, silently**
   (`names_table`, expense/import_/engine.py). The engine refuses a second account of a taken
   name, so after the wipe no two accounts share one; only names older than built names could.
+  It goes with `--account-name` in task 8.

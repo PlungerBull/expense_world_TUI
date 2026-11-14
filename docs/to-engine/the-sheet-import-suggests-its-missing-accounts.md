@@ -17,16 +17,18 @@ name with its rows and currencies, and a proposed match the user confirms.
 ## The ask
 
 - **A suggestion for each sheet account name no account holds,** in the dry run, beside today's
-  proposed match: a kind (`bank`, `person`, `cash`), a bank (a code `GET /banks` lists, held in the
-  name, as the ask "A bank account's bank is a short code the user types, and the engine says
-  which codes it can read" gives them), a last 4 when the name holds four digits, and the
-  currencies its rows use. **An unsure guess is `null`, never a default:** `ALEJO` gets no kind. The guessing rules are written in the
-  contract, so every client shows the same suggestion.
+  proposed match: a kind (`bank`, `person`, `cash`), a bank code (`BCP`, when the name holds a
+  code `GET /banks` lists), a last 4 when the name holds four digits, and the currencies its rows
+  use. **An unsure guess is `null`, never a default:** `ALEJO` gets no kind. The guessing rules
+  are written in the contract, so every client shows the same suggestion.
 - **The import makes only what its request lists,** and nothing else: the accounts to make (each
-  with its client id, kind, bank, last 4, a person's name, its currencies, an optional statement
-  code), the categories and hashtags to make, each sheet name given its id, and the rows, in one
-  write. A refusal leaves nothing made. The first `SALDO INICIAL` row of a made account's currency
-  is its opening balance, as for an account that exists.
+  with its client id, kind, a bank account's code and last 4, a person's name, its currencies, and
+  a statement code at a bank `GET /banks` lists), judged as `POST /accounts` judges them under the
+  ask "A bank account's bank is a 3–4 letter code the user types, its last 4 is required, and only
+  a bank `GET /banks` lists takes a statement code", the categories and hashtags to make, each
+  sheet name given its id, and the rows, in one write. A refusal leaves nothing made. The first
+  `SALDO INICIAL` row of a made account's currency is its opening balance, as for an account that
+  exists.
 - **An account can be made archived:** the request marks it, and it is archived once its rows are
   in, for a closed account that only holds history.
 - The dry run of such a request counts what the write would make and import, so the client shows

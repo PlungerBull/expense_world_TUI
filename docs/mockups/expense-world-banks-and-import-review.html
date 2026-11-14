@@ -65,87 +65,56 @@
 
 <div class="head">
   <h1>Banks, and the import's review</h1>
-  <p>Drawn for the two engine asks "A bank account's bank is a short code the user types, and the engine says which codes it can read" and "The sheet import suggests the accounts it is missing and makes the ones the user confirms, with its names and rows, in one write". Nothing here is built; the engine's hand-off may still move a detail.</p>
-  <p>Answer with one letter per pane, e.g. <code>1A 2B 3B 4A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+  <p>Drawn for the two engine asks "A bank account's bank is a 3–4 letter code the user types, its last 4 is required, and only a bank <code>GET /banks</code> lists takes a statement code" and "The sheet import suggests the accounts it is missing and makes the ones the user confirms, with its names and rows, in one write". Nothing here is built; the engine's hand-off may still move a detail.</p>
+  <p>Panes 1 and 2 draw what is decided; answer panes 3 and 4 with one letter each, e.g. <code>3B 4A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
 <!-- ================================================================== group 1 -->
 <div class="grp">
-  <h2>The bank, as a code</h2>
-  <p>Manage ▸ Accounts ▸ New, the BANK line. A bank is the letters in an account's name (<code>IBK-4321</code>) and nothing more; the engine says which codes it can read, today BCP. No list of banks to keep, no screen of its own.</p>
+  <h2>The bank account form · decided</h2>
+  <p>Manage ▸ Accounts ▸ New. A bank account is a code of 3 or 4 letters and its last 4, named <code>CODE-1234</code> by the engine; no bank has to exist first and nothing is suggested. Only a bank whose statements the app reads (today BCP) asks for a statement code. People and cash keep the names you type. Panes 1 and 2 draw this, to check; they ask no letter.</p>
 </div>
 
 <!-- ================================================================== 1 -->
 <div class="pane">
-<div class="lbl">1 · The BANK line <span>— pick A or B</span></div>
-<p class="blurb">Today the line only picks from the engine's list. Here it takes any code you type, and suggests the codes the engine reads and the ones your accounts already use.</p>
-
-<div class="var"><div class="oh">A · <span>type a code; the suggestions say what the app reads</span><span class="rec">recommended</span></div>
+<div class="lbl">1 · A bank account at IBK <span>— decided, to check</span></div>
 <div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK, IBK typed</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on LAST 4</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">BANK            </span>IBK<span class="a">▍</span>
-   <span class="d">letters, up to 10 · a new code · the app reads none of its papers</span>
-
-     BCP          <span class="d">reads its PDFs and downloads</span>
-     IBK          <span class="d">yours · 1 account</span>
+   <span class="b">LAST 4          </span>4321<span class="a">▍</span>
 
    type            bank
-   <span class="b">bank            </span>IBK
-   last 4          <span class="d">—  (optional)</span>
+   bank            IBK
+   <span class="b">last 4          </span>4321
    currencies      <span class="d">—  *</span>
-   statement code  <span class="d">—  (optional)</span>
    color           <span class="d">—  (optional)</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
 </div>
-<p class="cap">The note under BANK says what the typed code does, so a typo (<code>IBX</code>) reads "a new code" before it is saved. Picking a suggestion keeps one spelling per bank. A code is changed on the account's Edit form, as today.</p></div>
-
-<div class="var"><div class="oh">B · <span>type a code, no notes</span></div>
-<div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK, IBK typed</span></div>
-<div class="app"><pre>   <span class="b">BANK            </span>IBK<span class="a">▍</span>
-
-     BCP
-     IBK</pre></div></div>
-</div>
-<p class="cap">Shorter; what the app reads shows only on the statement code line (pane 2).</p></div>
+<p class="cap">BANK takes 3 or 4 letters, LAST 4 four digits; both are required. No statement code line: the app reads no IBK statement. Saved, it lists as <code>IBK-4321</code>. A refusal, such as a taken name, is the engine's words under its line.</p>
 </div>
 
 <!-- ================================================================== 2 -->
 <div class="pane">
-<div class="lbl">2 · The statement code line at a code the app can't read <span>— pick A or B</span></div>
-<p class="blurb">The engine refuses a statement code there: a coded account closes its month only from the bank's PDF. The account's statements close by hand instead.</p>
-
-<div class="opt">
-<div class="var"><div class="oh">A · <span>the line is left out</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at IBK</span></div>
+<div class="lbl">2 · A bank account at BCP <span>— decided, to check</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, BCP typed</span></div>
 <div class="app"><pre>   type            bank
-   bank            IBK
-   last 4          4321
+   bank            BCP
+   last 4          5678
    currencies      PEN, USD
+   statement code  SIG
    color           <span class="d">—  (optional)</span></pre></div></div>
 </div>
-
-<div class="var"><div class="oh">B · <span>the line says why</span><span class="rec">recommended</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at IBK</span></div>
-<div class="app"><pre>   type            bank
-   bank            IBK
-   last 4          4321
-   currencies      PEN, USD
-   statement code  <span class="d">read-only · the app reads no IBK PDF</span>
-   color           <span class="d">—  (optional)</span></pre></div></div>
-</div>
-</div>
-<p class="cap">B uses the form's existing <code>read-only</code> words, so the missing line never looks like a bug. The same holds on the Edit form.</p>
+<p class="cap">The statement code line appears once BANK is a code the engine reads statements for, and leaves again if BANK changes to one it doesn't. On the Edit form a number is removed only while another stays: a bank account always has its last 4.</p>
 </div>
 
 <!-- ================================================================== group 2 -->
 <div class="grp">
   <h2>The import's review</h2>
-  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> a name holding <code>BCP</code> gets a BCP account; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you set once, here.</p>
+  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> a name holding <code>BCP</code> and four digits gets a BCP account with that last 4; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you set once, here.</p>
 </div>
 
 <!-- ================================================================== 5 -->
@@ -161,14 +130,14 @@
 <span class="b">1 of 6 · VISA Infinite Sapphire</span> · PEN + USD · 1,846 rows
   kind (bank, person, cash)            <span class="d">not guessed:</span> bank
   bank                                 BCP
-  last 4 (optional)                    5678
-  statement code (optional)            SIG
+  last 4                               5678
+  statement code (BCP only)            SIG
   archive once imported? (y/N)         n
 
 <span class="b">2 of 6 · IBK</span> · PEN + USD · 212 rows
   kind (bank, person, cash)            <span class="d">not guessed:</span> bank
   bank                                 IBK
-  last 4 (optional)                    4321
+  last 4                               4321
   archive once imported? (y/N)         y
 <span class="d">…</span>
 
@@ -218,7 +187,6 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
    bank            IBK
    <span class="b">last 4          </span>4321
    currencies      PEN, USD   <span class="d">the sheet's</span>
-   statement code  <span class="d">read-only · the app reads no IBK PDF</span>
    color           <span class="d">—  (optional)</span>
    archive         yes
 
@@ -234,7 +202,7 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
   <b>What happens after you pick</b>
   <ol>
     <li>You hand both engine asks to the engine; this mockup waits for their hand-off, which may still move a detail.</li>
-    <li>Your picks become the official import's new tasks: the BANK line, then the review in place of making every account by hand and <code>--account-name</code>.</li>
+    <li>Panes 1 and 2 are the official import's task 7; your picks on 3 and 4 make its task 8, the review, in place of making every account by hand and <code>--account-name</code>.</li>
     <li>Then the rehearsal, the real import, and v1.0.0.</li>
   </ol>
 </div>

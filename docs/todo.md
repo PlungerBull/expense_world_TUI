@@ -26,14 +26,10 @@ prepares the release (CLAUDE.md "This repo's loop").
 
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–17
-   answered by 2026-11-13; tasks 1–4 and 6 are done. Its question 18 (2026-11-13) replaces 15 A:
-   a bank is a code the owner types, and the import's review makes the accounts. Its new
-   tasks wait on the mockup picks and on the engine asks "A bank account's bank is a short code the user
-   types, and the engine says which codes it can read"
-   and "The sheet import suggests the accounts it is missing and makes the ones the user
-   confirms, with its names and rows, in one write"; task 5 waits on both. v1.0.0 is prepared
-   after its rehearsal.
+2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
+   answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
+   (the import's review) wait on the two engine asks the spec's "Tasks" names, and task 8 also on
+   the owner's picks; the rehearsal, task 5, runs after both. v1.0.0 is prepared after it.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -68,16 +64,16 @@ is ready, run `python3 scripts/release.py` in the live folder
 `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
 
-### Pick the banks and the import's review
-Asked 2026-11-13 · Blocks: the official import
-[expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
-draws the BANK line taking a typed code, the statement code line at a code the app can't read,
-and the import's review. Pane 3 B names a new screen ("Import sheet"). Then hand over the two
-engine asks in
-[to-engine/](to-engine/), and give the engine coders the account names your sheet uses: they
-asked for them to pick the guessing rules, and this repo is public.
-**Recommended:** 1A 2B 3B 4A, because a typed code says up front whether the app reads its
-papers, and every account is set on one screen, fixable in any order before anything is written.
+### Pick the import's review
+Asked 2026-11-13 · Blocks: the official import's task 8
+Panes 3 and 4 of [expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html):
+where the review runs (questions in the terminal, or a screen in the app) and what `⏎` on a row
+opens. Pane 3 B names a new screen ("Import sheet"). Panes 1 and 2 draw your bank decisions, for
+you to check. Then hand over the two engine asks in [to-engine/](to-engine/), and give the engine
+coders the account names your sheet uses: they asked for them to pick the guessing rules, and
+this repo is public.
+**Recommended:** 3B 4A, because every account is set on one screen, fixable in any order before
+anything is written, with the account form you already know.
 
 ### Approve "Small screen details"
 Asked 2026-11-13 · Blocks: Small screen details
