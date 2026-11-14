@@ -487,15 +487,6 @@ def sheet_file(rows: list[list]) -> bytes:
 #: what the suite made; the seed's `0000` and `DRAWN_LAST4` are outside the draw.
 _NUMBERS = itertools.cycle(random.sample(range(9200, 10000), 800))
 
-#: A test of the sheet import's create step, which makes a bank account from the sheet's typed
-#: name, as the engine no longer lets a bank account be named (`NAME_BUILT`). The official
-#: import's rewrite on built names (docs/specs/before-the-official-import.md) drops the mark.
-SHEET_IMPORT_TYPES_A_NAME = pytest.mark.xfail(
-    strict=True,
-    reason="the sheet import creates a bank account from a typed name, NAME_BUILT: "
-    "docs/specs/before-the-official-import.md",
-)
-
 #: The number a made-up statement paper prints unless a test gives another; a test that uploads
 #: one makes its account with it (`last4=DRAWN_LAST4`).
 DRAWN_LAST4 = "9100"

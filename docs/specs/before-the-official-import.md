@@ -130,12 +130,12 @@ account's month.
 ## Tasks
 
 On the answers 15 A and 16 A (2026-11-12); each reads the live contract on the practice engine
-before building. Tasks 1–3 are done; task 5 waits on the engine ask "GET /banks lists every
-bank the owner's accounts were at", for its closed account at a second bank.
+before building. Tasks 1–4 are done; a sheet name two accounts share (`ambiguous`) is left out
+of task 4's tests, since every create and rename refuses a taken name and only accounts made
+before built names can share one (contract: POST /v1/transactions/import-sheet, "Names").
+Task 5 waits on the engine ask "GET /banks lists every bank the owner's accounts were at", for
+its closed account at a second bank.
 
-4. **The live contract tests:** the sheet import's two tests waiting on `NAME_BUILT` make their
-   accounts first with a bank and last 4, put the sheet's names on them, and pass; a sheet
-   name shared by two accounts answers `ambiguous` with no proposal.
 5. **The rehearsal on the practice engine:** a made-up sheet with the real sheet's shape (a
    card in two currencies, two savings accounts, people, a split purchase, opening balances, a
    closed account at a second bank) goes through steps 3–8, and every balance matches.

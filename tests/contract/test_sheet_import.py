@@ -5,11 +5,12 @@ The engine reads the whole sheet, matches every row against the ledger and write
 everything or nothing (contract: POST /v1/transactions/import-sheet). It never
 creates a name, and answers outcomes and counts only with a table giving every
 name its id (contract: POST /v1/transactions/import-sheet, "Names"): the dry run
-lists the names while one is missing, the create step creates each one the
-caller lacks and imports nothing, then the dry run counts and the apply writes.
-An account is one name whatever currencies its rows are in: the table holds one
-entry for it, `{name, account_id}` with no currency, the create step makes one
-account holding every currency its rows use, each row lands on its own currency
+lists the names while one is missing, the create step creates each category and
+hashtag the caller lacks and imports nothing, then the dry run counts and the apply
+writes. A bank account is never made by the import: each test makes its accounts first,
+through the engine, and puts the sheet's names on them with `renames`, as `--account-name`
+does. An account is one name whatever currencies its rows are in: the table holds one
+entry for it, `{name, account_id}` with no currency, each row lands on its own currency
 of it (`MONEDA`), and an account lacking one is `CURRENCY_NOT_HELD` on its entry.
 A bad row refuses the whole sheet on every step, keyed by its row,
 a day after today's included, before any name is created
@@ -26,6 +27,11 @@ currencies gets each currency's first non-zero `SALDO INICIAL` row as its openin
 Every name is fresh per run, so a second run of the suite still finds every row
 new on its first apply: the practice user's data outlives a reseed. Each test
 hands what it wrote to the `scratch` cleanup. Gating, target and the real-ledger guard: conftest.py.
+
+A sheet name shared by two accounts answers `ambiguous` with no proposal only for accounts made
+before the engine built bank accounts' names; every create and rename route refuses a name in
+use (`NAME_EXISTS`), so the practice engine cannot make one and no test here causes it
+(contract: POST /v1/transactions/import-sheet, "Names").
 """
 
 from datetime import date
@@ -47,7 +53,6 @@ from expense.import_.engine import (
 )
 from tests.contract.conftest import (
     CLEANER,
-    SHEET_IMPORT_TYPES_A_NAME,
     account_balance,
     assert_refusal,
     assert_refusals,
@@ -137,28 +142,34 @@ def _refused_on_every_step(target, data: bytes, scratch) -> list[SheetImport]:
     return out
 
 
-@SHEET_IMPORT_TYPES_A_NAME
 def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scratch):
     n = Names()
     data = sheet_file(_good(n))
-    # The first dry run lists every name missing, with its rows and no outcome: the account
-    # once, holding the two currencies its rows are in.
+    # The account is made first, holding the two currencies its rows are in, and the sheet's
+    # name goes onto it by its rename.
+    account = scratch.account("PEN", "USD")
+    renames = {rename_key(n.account): client.get(f"/accounts/{account}")["name"]}
+    # The first dry run lists every category and hashtag missing, with its rows and no outcome;
+    # the account once, going to the account it is renamed to.
     before = CLEANER.holdings(client)
-    dry = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames={}), scratch)
+    dry = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames=renames), scratch)
     assert [(e.kind, e.name, e.currencies, e.rows, e.goes, e.target_id) for e in dry.table] == [
-        (ACCOUNT, n.account, ("PEN", "USD"), 6, Goes.MISSING, None),
+        (ACCOUNT, n.account, ("PEN", "USD"), 6, Goes.YOURS, account),
         (CATEGORY, n.food, (), 4, Goes.MISSING, None),
         (CATEGORY, n.pay, (), 2, Goes.MISSING, None),
         (HASHTAG, n.home, (), 4, Goes.MISSING, None),
         (HASHTAG, n.work, (), 2, Goes.MISSING, None),
     ]
+    # A sheet name no account holds has no proposal and is not ambiguous
+    # (contract: POST /v1/transactions/import-sheet, "Names").
     (listed,) = dry.answer["names"]["accounts"]
-    assert (listed["name"], listed["currencies"], listed["proposed_id"]) == (
+    assert (listed["name"], listed["currencies"], listed["proposed_id"], listed["ambiguous"]) == (
         n.account,
         ["PEN", "USD"],
         None,
+        False,
     )
-    assert not dry.counted and len(dry.missing) == 5
+    assert not dry.counted and len(dry.missing) == 4
     assert [(r.row, r.outcome, r.transaction_id) for r in dry.rows] == [
         (row, None, None) for row in range(2, 8)
     ]
@@ -174,8 +185,8 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     assert dry.created == []
 
     # The apply while names are missing sends nothing more.
-    early = _ran(import_sheet(target, data, step=Step.APPLY, renames={}), scratch)
-    assert (early.counted, early.created, len(early.missing)) == (False, [], 5)
+    early = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
+    assert (early.counted, early.created, len(early.missing)) == (False, [], 4)
     assert all(r.transaction_id is None for r in early.rows)
     assert CLEANER.holdings(client) == before
 
@@ -194,31 +205,23 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
         )
     assert CLEANER.holdings(client) == before
 
-    # The create step creates every name, one account holding both currencies under the
-    # name, and imports nothing.
-    made_run = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames={}), scratch)
-    assert sorted((c.kind, c.name, c.currencies) for c in made_run.created) == sorted(
-        [
-            (ACCOUNT, n.account, ("PEN", "USD")),
-            (CATEGORY, n.food, ()),
-            (CATEGORY, n.pay, ()),
-            (HASHTAG, n.home, ()),
-            (HASHTAG, n.work, ()),
-        ]
+    # The create step creates every category and hashtag, no account, and imports nothing.
+    made_run = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
+    assert sorted((c.kind, c.name) for c in made_run.created) == sorted(
+        [(CATEGORY, n.food), (CATEGORY, n.pay), (HASHTAG, n.home), (HASHTAG, n.work)]
     )
     made = {(c.kind, c.name): c.id for c in made_run.created}
     assert all(c.answer["id"] == c.id for c in made_run.created)
-    account = made[(ACCOUNT, n.account)]
-    held = client.get("/accounts", params={"include_archived": "true"})["items"]
-    (only,) = [a for a in held if a["name"] == n.account]
-    assert only["id"] == account
-    assert sorted(c["currency_code"] for c in only["currencies"]) == ["PEN", "USD"]
     assert live_ids(client, account) == set()
 
-    # Run again, it creates nothing: every name is proposed as the one just made.
-    again_made = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames={}), scratch)
+    # Run again, it creates nothing: every name is proposed as the one just made, the account
+    # the one it is renamed to.
+    again_made = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
     assert again_made.created == []
-    assert {(e.kind, e.name): e.target_id for e in again_made.table} == made
+    assert {(e.kind, e.name): e.target_id for e in again_made.table} == {
+        **made,
+        (ACCOUNT, n.account): account,
+    }
 
     # The table sent holds one entry per account name, mapped to its account, and no currency.
     sent = table_body(again_made.table)
@@ -227,7 +230,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     # The dry run now counts: every non-zero row new, the zero row skipped, the split one
     # line; nothing written.
     held = CLEANER.holdings(client)
-    counted = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames={}), scratch)
+    counted = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames=renames), scratch)
     assert counted.counted and counted.missing == []
     assert {r.row: r.outcome for r in counted.rows} == {
         2: "new", 3: "new", 4: "new", 5: "skipped", 6: "new", 7: "new"
@@ -241,7 +244,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
 
     # The apply writes every non-zero row new. A table carrying a `currency_code` on an
     # account would be refused whole (`UNKNOWN_FIELD`), so a run that goes through sent none.
-    first = _ran(import_sheet(target, data, step=Step.APPLY, renames={}), scratch)
+    first = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
     assert first.created == []
     rows = {r.row: r for r in first.rows}
     assert {row: r.outcome for row, r in rows.items()} == {
@@ -278,7 +281,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
 
     # Applied again: nothing created, every non-zero row matched on its line, nothing written.
     held = CLEANER.holdings(client)
-    again = _ran(import_sheet(target, data, step=Step.APPLY, renames={}), scratch)
+    again = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
     assert again.created == []
     assert all(e.goes is Goes.YOURS for e in again.table)
     assert [(r.row, r.outcome, r.transaction_id, r.bank_line_id) for r in again.rows] == [
@@ -502,48 +505,33 @@ def test_a_zero_saldo_inicial_dated_earlier_leaves_the_first_non_zero_one_the_op
     assert transaction_count(client, person) == 1
 
 
-@SHEET_IMPORT_TYPES_A_NAME
-def test_a_renamed_account_lands_under_its_rename(client, target, scratch):
+def test_two_sheet_names_renamed_onto_two_accounts_land_each_on_its_own(client, target, scratch):
     n = Names()
-    fresh, onto = f"{n.account}-fresh", f"{n.account}-onto"
-    renamed_to = f"contract-sheet-renamed-{uuid4().hex[:10]}"
-    existing = scratch.account("PEN")
-    existing_name = client.get(f"/accounts/{existing}")["name"]
-    renames = {rename_key(fresh): renamed_to, rename_key(onto): existing_name}
+    left_sheet, right_sheet = f"{n.account}-left", f"{n.account}-right"
+    left, right = scratch.account("PEN"), scratch.account("PEN")
+    left_name = client.get(f"/accounts/{left}")["name"]
+    right_name = client.get(f"/accounts/{right}")["name"]
+    renames = {rename_key(left_sheet): left_name, rename_key(right_sheet): right_name}
     data = sheet_file(
         [
-            sheet_row("CAFE", n.home, n.food, date(2026, 4, 2), -9.5, fresh, "PEN"),
-            sheet_row("TIENDA", n.home, n.food, date(2026, 4, 3), -12, onto, "PEN"),
-            sheet_row("DOLARES", n.home, n.food, date(2026, 4, 4), -3, fresh, "USD"),
+            sheet_row("CAFE", n.home, n.food, date(2026, 4, 2), -9.5, left_sheet, "PEN"),
+            sheet_row("TIENDA", n.home, n.food, date(2026, 4, 3), -12, right_sheet, "PEN"),
         ]
     )
-    # A rename to a name you lack is created under it, holding the currencies its rows are
-    # in; one to an account you have goes to it, nothing created for it; the sheet's names
-    # never are.
+    # Each rename goes to the account of that name; the create step makes the category and
+    # hashtag only, never an account, the sheet's names included.
     names = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
     table = {e.name: e for e in names.table if e.kind == ACCOUNT}
-    assert (table[fresh].goes, table[fresh].ledger_name) == (Goes.MISSING, renamed_to)
-    assert (table[onto].goes, table[onto].target_id) == (Goes.YOURS, existing)
-    accounts = [(c.name, c.currencies) for c in names.created if c.kind == ACCOUNT]
-    assert accounts == [(renamed_to, ("PEN", "USD"))]
+    assert (table[left_sheet].goes, table[left_sheet].target_id) == (Goes.YOURS, left)
+    assert (table[right_sheet].goes, table[right_sheet].target_id) == (Goes.YOURS, right)
+    assert table[left_sheet].renamed_to == left_name
+    assert [(c.kind, c.name) for c in names.created] == [(CATEGORY, n.food), (HASHTAG, n.home)]
     listed = {a["name"] for a in client.get("/accounts")["items"]}
-    assert renamed_to in listed and fresh not in listed and onto not in listed
+    assert {left_name, right_name} <= listed
+    assert left_sheet not in listed and right_sheet not in listed
 
-    created = next(c.id for c in names.created if c.kind == ACCOUNT)
     first = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
-    table = {e.name: e for e in first.table if e.kind == ACCOUNT}
-    assert (table[fresh].goes, table[fresh].target_id) == (Goes.YOURS, created)
     rows = {r.row: r for r in first.rows}
-    assert [rows[row].outcome for row in (2, 3, 4)] == ["new", "new", "new"]
-    assert client.get(f"/accounts/{created}")["name"] == renamed_to
-    assert read_signed(client, rows[2].transaction_id)["account_id"] == created
-    assert read_signed(client, rows[3].transaction_id)["account_id"] == existing
-    dollars = read_signed(client, rows[4].transaction_id)
-    assert (dollars["account_id"], dollars["currency_code"]) == (created, "USD")
-
-    # Applied again with the same renames: both found under their renames, every row matched.
-    again = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
-    table = {e.name: e for e in again.table if e.kind == ACCOUNT}
-    assert (table[fresh].goes, table[fresh].target_id) == (Goes.YOURS, created)
-    assert (table[onto].goes, table[onto].target_id) == (Goes.YOURS, existing)
-    assert [r.outcome for r in again.rows] == ["matched", "matched", "matched"]
+    assert [rows[row].outcome for row in (2, 3)] == ["new", "new"]
+    assert read_signed(client, rows[2].transaction_id)["account_id"] == left
+    assert read_signed(client, rows[3].transaction_id)["account_id"] == right
