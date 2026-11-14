@@ -849,6 +849,14 @@ def bank_code() -> str:
         return c.get("/banks")["items"][0]["code"]
 
 
+def unlisted_bank_code(client: ExpenseClient) -> str:
+    """A bank code (three or four capitals) `GET /banks` does not list, a bank whose accounts
+    take no statement code (contract: GET /v1/banks)
+    (contract: POST /v1/accounts, "Validation")."""
+    listed = {item["code"] for item in client.get("/banks")["items"]}
+    return next(code for code in ("IBK", "SCOT", "BBVA", "INTB") if code not in listed)
+
+
 def kind_change(client: ExpenseClient, account_id: str, route: str) -> dict:
     """`route` (`make-person` or `make-account`) sent for the account with the body it takes: a
     new `contract-…` name for a person, a bank and a new number for a bank account

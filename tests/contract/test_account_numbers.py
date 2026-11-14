@@ -17,17 +17,25 @@ What it pins:
    ends the number before it the day before its `start_date` and the name follows the new
    card; `current_number: null` makes the one before current again; each moves `version` once.
    `FIRST_NUMBER_HAS_NO_START` and `NUMBER_START_NOT_LATER` are refused on their keys, nothing
-   written.
+   written; an account's only number is never removed (`LAST_NUMBER`).
 4. The kind changes' bodies (contract: POST /v1/accounts/{account_id}/make-person)
    (contract: POST /v1/accounts/{account_id}/make-account): `make-person {name}` drops the bank
    and the numbers; `make-account {bank_code, last4}` names the account `BCP-<last4>`; a `name`
    on `make-account` is `NAME_BUILT`, nothing written.
+5. A bank is any three or four capitals, none has to exist first: `IBK` accounts are made, named
+   `IBK-<last4>`, and the same name twice is `NAME_EXISTS` on `last4`; `ibk`, `IB`, `IBKXX`,
+   ` IBK` and `I8K` are `INVALID_FORMAT` on `bank_code` on the create, the edit and
+   `make-account`, and a missing or `null` `last4` is `REQUIRED` on the create and `make-account`,
+   nothing written
+   (contract: POST /v1/accounts, "Required").
 
 Every account is fresh per run (a bank account numbered from the suite's range) and removed by the
 `scratch` fixture. Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
 from uuid import uuid4
+
+import pytest
 
 from tests.contract.conftest import (
     account_body,
@@ -61,6 +69,68 @@ def test_the_banks_read_lists_code_and_name_and_includes_bcp(client):
     assert all(set(item) == {"code", "name"} for item in items)
     assert all(isinstance(item["code"], str) and isinstance(item["name"], str) for item in items)
     assert "BCP" in {item["code"] for item in items}
+
+
+def test_any_three_or_four_capitals_name_a_bank_and_its_name_is_unique(client, scratch):
+    """An `IBK` account is made with its last 4 and named `IBK-<last4>`; a second `IBK` account
+    with another last 4 is made too; the same bank and last 4 again is `409` `NAME_EXISTS` on
+    `last4`, nothing written
+    (contract: POST /v1/accounts, "Required")
+    (contract: POST /v1/accounts, "The name")."""
+    first, second = next_last4(), next_last4()
+    for last4 in (first, second):
+        made = client.get(f"/accounts/{scratch.account(bank_code='IBK', last4=last4)}")
+        assert (made["bank_code"], made["name"]) == ("IBK", f"IBK-{last4}")
+
+    again = account_body(bank_code="IBK", last4=first)
+    scratch.accounts.append(again["id"])
+    err = refused_writing_nothing(client, lambda: client.post("/accounts", json_body=again))
+    assert_refusal(err, 409, "CONFLICT", "last4", "NAME_EXISTS")
+
+
+@pytest.mark.parametrize("value", ["ibk", "IB", "IBKXX", " IBK", "I8K"])
+def test_a_bank_code_that_is_not_three_or_four_capitals_is_invalid_format(client, scratch, value):
+    """The create, the edit and `make-account` each refuse it as `INVALID_FORMAT` on `bank_code`,
+    nothing written (contract: POST /v1/accounts, "Required")
+    (contract: PUT /v1/accounts/{account_id})
+    (contract: POST /v1/accounts/{account_id}/make-account)."""
+    bank = scratch.account()
+    person = scratch.account(person=True)
+    created = account_body(bank_code=value)
+    scratch.accounts.append(created["id"])
+    calls = (
+        lambda: client.post("/accounts", json_body=created),
+        lambda: _put(client, bank, {"bank_code": value}),
+        lambda: client.post(
+            f"/accounts/{person}/make-account",
+            json_body={"bank_code": value, "last4": next_last4()},
+        ),
+    )
+    for call in calls:
+        err = refused_writing_nothing(client, call)
+        assert_refusal(err, 422, "VALIDATION_ERROR", "bank_code", "INVALID_FORMAT")
+
+
+@pytest.mark.parametrize("sent", ["missing", "null"])
+def test_a_bank_account_without_a_last4_is_required(client, scratch, sent):
+    """A missing or `null` `last4` is `REQUIRED` on `last4` on the create and on `make-account`,
+    nothing written (contract: POST /v1/accounts, "Optional")
+    (contract: POST /v1/accounts/{account_id}/make-account)."""
+    person = scratch.account(person=True)
+    created = account_body()
+    scratch.accounts.append(created["id"])
+    made = {"bank_code": bank_code()}
+    if sent == "null":
+        created["last4"] = made["last4"] = None
+    else:
+        del created["last4"]
+    calls = (
+        lambda: client.post("/accounts", json_body=created),
+        lambda: client.post(f"/accounts/{person}/make-account", json_body=made),
+    )
+    for call in calls:
+        err = refused_writing_nothing(client, call)
+        assert_refusal(err, 422, "VALIDATION_ERROR", "last4", "REQUIRED")
 
 
 def test_every_account_read_carries_its_bank_and_numbers_and_the_name_is_built(client, scratch):
@@ -112,6 +182,18 @@ def test_a_replacement_ends_the_old_number_the_day_before_and_a_removal_restores
     assert _numbers(removed) == [(first, None, None)]
     assert removed["name"] == f"{bank_code()}-{first}"
     assert removed["version"] == version + 2
+
+
+def test_the_only_number_is_never_removed(client, scratch):
+    """`current_number: null` on an account holding one number is `409` `LAST_NUMBER` on
+    `current_number`, nothing written (contract: PUT /v1/accounts/{account_id}, "The numbers")."""
+    last4 = next_last4()
+    account_id = _bank_account(client, scratch, last4=last4)
+    err = refused_writing_nothing(
+        client, lambda: _put(client, account_id, {"current_number": None})
+    )
+    assert_refusal(err, 409, "CONFLICT", "current_number", "LAST_NUMBER")
+    assert _numbers(client.get(f"/accounts/{account_id}")) == [(last4, None, None)]
 
 
 def test_a_number_start_the_first_number_cannot_have_or_not_later_is_refused(client, scratch):

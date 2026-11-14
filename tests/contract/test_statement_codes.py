@@ -12,6 +12,8 @@ account's, not a currency's, and a person carries one like any account. Pinned h
   · one account per code: a second live account of the caller's with the same code, in any
     currency, of either kind, archived or not, is `409` `STATEMENT_CODE_EXISTS` on the create
     and on `PUT`, writing nothing, and a deleted account holds no code;
+  · only a bank `GET /banks` lists takes a code: elsewhere it is `422`
+    `BANK_TAKES_NO_STATEMENT_CODE`, on the field that caused it;
   · a person carries a code like any account: set on the create, changed and cleared with
     `PUT`, held against every other live account, kept when it changes kind in either
     direction, and it begins no statement line;
@@ -38,11 +40,13 @@ from tests.contract.conftest import (
     assert_refusal,
     free_statement_codes,
     kind_change,
+    next_last4,
     refused_keeping,
     refused_writing_nothing,
     savings_paper,
     send_statement,
     statement_create_body,
+    unlisted_bank_code,
 )
 
 MALFORMED = ("sig", "SI", "SIGN", " SIG", "S1G", "")
@@ -118,6 +122,41 @@ def test_a_malformed_statement_code_is_refused(client, scratch):
         err = refused_writing_nothing(client, _put_code(client, account, value))
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", "INVALID_FORMAT")
     assert _code_of(client, account) == code
+
+
+def test_a_bank_the_banks_read_does_not_list_takes_no_statement_code(client, scratch):
+    """On the create and on `PUT` a code at such a bank is `422` on `statement_code`; moving a
+    coded account to one without clearing the code is `422` on `bank_code`, and with
+    `statement_code: null` goes through; a person carrying a code made an account there is `422`
+    on `bank_code`; each writes nothing
+    (contract: "What an account is", "Statement code")
+    (contract: PUT /v1/accounts/{account_id})
+    (contract: POST /v1/accounts/{account_id}/make-account)."""
+    other = unlisted_bank_code(client)
+    code, label = free_statement_codes(client, 2)
+    reason = "BANK_TAKES_NO_STATEMENT_CODE"
+
+    call = _post_account(client, scratch, code=code, bank_code=other)
+    err = refused_writing_nothing(client, call)
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", reason)
+
+    plain = scratch.account(bank_code=other)
+    err = refused_writing_nothing(client, _put_code(client, plain, code))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_code", reason)
+
+    coded = scratch.account(code=code)
+    move = {"bank_code": other}
+    err = refused_writing_nothing(client, lambda: client.put(f"/accounts/{coded}", json_body=move))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "bank_code", reason)
+    moved = client.put(f"/accounts/{coded}", json_body={**move, "statement_code": None})
+    assert (moved["bank_code"], moved["statement_code"]) == (other, None)
+
+    person = scratch.account(code=label, person=True)
+    body = {"bank_code": other, "last4": next_last4()}
+    err = refused_writing_nothing(
+        client, lambda: client.post(f"/accounts/{person}/make-account", json_body=body)
+    )
+    assert_refusal(err, 422, "VALIDATION_ERROR", "bank_code", reason)
 
 
 def test_one_account_holds_a_code_whatever_its_currencies(client, scratch):

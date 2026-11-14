@@ -79,14 +79,8 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 Each task leaves `pytest tests/unit` green and reads the live contract on the practice engine
 before building. Each live test makes its accounts with a last 4 from `next_last4()`, so the
-practice-user clean-up finds them. Tasks 1 and 2 are done.
+practice-user clean-up finds them. Tasks 1–3 are done.
 
-3. **Live tests for the account rules of `2.0`:** `IBK` with a last 4 made as `IBK-4321`, a second
-   `IBK` with another last 4 made, the same last 4 again `NAME_EXISTS`; `ibk`, `IB`, `IBKXX`,
-   ` IBK` and `I8K` each `INVALID_FORMAT` on `bank_code`; no last 4 `REQUIRED` on `POST /accounts`
-   and on `make-account`; `BANK_TAKES_NO_STATEMENT_CODE` on each field it is keyed on, with a
-   `BCP` account still taking a code; `GET /banks` still `BCP`; `LAST_NUMBER` on an only number,
-   and the current number removed when there are two.
 4. **Live tests for the sheet import of `3.0` and `3.1`:** one apply with `create` makes a bank
    account, a person, a cash account and an archived account, with categories and hashtags,
    `names` pointing at their ids; `created` counts them on the dry run and the apply; each made
