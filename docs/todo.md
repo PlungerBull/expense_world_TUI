@@ -77,6 +77,17 @@ the cash account's name.
 - **B.** Approve it into v1.0, before the official import.
 **Recommended:** A, because v1.0 is the import and its release, and none of the six blocks it.
 
+### Build Code conventions B while v1.0 waits?
+Asked 2026-11-13 · Blocks: Code conventions B
+Everything else in the Queue waits on the engine or on you, and v1.0.0 waits on the rehearsal,
+which waits on the engine listing Interbank. Code conventions B (v1.3) could run now, but
+v1.0.0 is prepared from `develop`, so whatever is built there first ships in v1.0.0. B changes
+how every screen reads the engine's answers, nothing you see.
+- **A.** Wait: build nothing past v1.0 until v1.0.0 is prepared.
+- **B.** Build it now; it ships in v1.0.0, and the rehearsal then runs on the reworked code.
+**Recommended:** A, because v1.0.0 should hold the code the import was rehearsed and reviewed
+on, and the wait is only for one engine change.
+
 ---
 
 ## Backlog
