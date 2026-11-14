@@ -6,7 +6,7 @@ and a required last 4 (`IBK-4321`), and only a bank the engine reads takes a sta
 on a screen the command opens (panes 3 B and 4 A of
 [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
 The engine shipped both in contract 3.1, which [the catch-up to 3.1](catch-up-to-3-1.md) takes
-first; tasks 7 and 8 wait on question 19.** Turning an account into a person is built
+first; question 19 is answered 2026-11-14 (5 A, 6 A, 7 B).** Turning an account into a person is built
 ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key"); the
 split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a
 split purchase in as one split transaction"); the sheet import goes through the engine. When the
@@ -118,6 +118,7 @@ account's month.
     - **Pane 7, BANK typed in small letters:** A, sent as typed and refused in the engine's
       words; or B, capitals as typed, as STATEMENT CODE already does. **Recommended:** B, so the
       two code lines behave alike.
+    - **Picked 2026-11-14: 5 A, 6 A, 7 B.**
 
 ## What the engine settled
 
@@ -154,16 +155,15 @@ account's month.
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
 the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. Tasks 7 and 8
-run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1, and each waits on
-question 19's pick for its panes.
+run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1.
 
 7. **The bank account form, as decision 14 and panes 1, 2 and 7 draw it.** On Manage ▸ Accounts New and Edit, and `t`'s
-   question when it makes a bank account, BANK is a typed code of 3 or 4 letters with no
-   suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
+   question when it makes a bank account, BANK is a typed code of 3 or 4 letters, capitalised as
+   typed (7 B), with no suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
    `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words
    under its line: `INVALID_FORMAT` and, when `t` makes a person that carries a statement code a
    bank account at a bank `GET /banks` does not list, `BANK_TAKES_NO_STATEMENT_CODE` under BANK.
-8. **The import's review, as panes 3 B, 4 A, 5 and 6 draw it.** Each missing account prefilled
+8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it.** Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
    keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
@@ -178,7 +178,7 @@ question 19's pick for its panes.
 Part 2 of the reply to the hand-off of 2026-11-14 (part 1 is
 [the catch-up to 3.1](catch-up-to-3-1.md)'s), written once tasks 7, 8 and 5 are done. It reports
 on the hand-off's "Done when" checks for the forms (`IBK-4321` made, `ibk` and a missing last 4
-refused in the engine's words, or `ibk` taken as `IBK` if pane 7 is B) and for the review (each
+a missing last 4 refused in the engine's words, `ibk` taken as `IBK` since the form capitalises it) and for the review (each
 missing account prefilled, one apply making them and every row, shown on the rehearsal's made-up
 sheet), and closes the screen side of the two asks part 1 names.
 

@@ -30,7 +30,7 @@ prepares the release (CLAUDE.md "This repo's loop").
    done; its acceptance check needs the v1.0.0 release installed.
 3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
    answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
-   (the import's review) run after the catch-up to 3.1 and wait on question 19; the rehearsal,
+   (the import's review) run after the catch-up to 3.1, question 19 answered 2026-11-14; the rehearsal,
    task 5, runs after both. v1.0.0 is prepared after it.
 4. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
@@ -61,18 +61,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the catch-up to 3.1, and pick panes 5, 6 and 7
-Asked 2026-11-14 · Blocks: the catch-up to 3.1; the official import's tasks 7 and 8
-The engine shipped a bank as a typed code with a required last 4, and the sheet import that makes
-the accounts it suggests. [The catch-up to 3.1](specs/catch-up-to-3-1.md) brings the app's
-contract checks and live tests up to it, with no screen change; its tasks are listed in it.
-Three details of the screens are left open, drawn as panes 5, 6 and 7 of
-[mockups/expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
-(the official import's question 19).
-- **A.** Approve the catch-up as drafted, and answer the panes, e.g. `5A 6A 7B`.
-- **B.** Change something in the catch-up first (say what).
-**Recommended:** A with `5A 6A 7B`: every gap shows before sending, the engine's words stay beside
-the refused row, and BANK capitalises as STATEMENT CODE does.
+### Approve the catch-up to 3.1
+Asked 2026-11-14 · Blocks: the catch-up to 3.1, and with it the official import's tasks 7 and 8
+[The catch-up to 3.1](specs/catch-up-to-3-1.md) brings the app's contract checks and live tests
+up to the engine's contract 3.1 (a bank as a typed code with a required last 4, the sheet import
+that makes the accounts it suggests), with no screen change; its five tasks are listed in it.
+- **A.** Approve it as drafted.
+- **B.** Change something first (say what).
+**Recommended:** A: until it lands, the live contract suite fails on the engine, and the screens
+wait behind it.
 
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check

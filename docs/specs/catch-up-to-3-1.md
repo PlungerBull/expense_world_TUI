@@ -7,7 +7,7 @@ import's review are [the official import](before-the-official-import.md)'s tasks
 first in v1.0: until it lands, the live contract suite fails on the engine.
 
 **Status: drafted 2026-11-14, waiting for the owner's approval.** It has no question of its own;
-the screens' questions are the official import's question 19. When done, its why moves to
+the screens' questions are the official import's question 19, answered the same day. When done, its why moves to
 [decisions.md](../decisions.md), its reply goes to [to-engine/](../to-engine/), and this file is
 deleted.
 
@@ -58,8 +58,8 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 ## What the engine declined, or did differently
 
-- **A lower-case bank is refused, never upper-cased by the engine.** Whether the form capitalises
-  what the owner types is the official import's question 19, pane 7.
+- **A lower-case bank is refused, never upper-cased by the engine.** The form capitalises what
+  the owner types (the official import's question 19, pane 7 B).
 - **A person keeps its statement code as a label.** Making that person a bank account at a bank
   `GET /banks` does not list is refused on `bank_code`; `t`'s question shows it under BANK
   (task 7).
