@@ -79,15 +79,8 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 Each task leaves `pytest tests/unit` green and reads the live contract on the practice engine
 before building. Each live test makes its accounts with a last 4 from `next_last4()`, so the
-practice-user clean-up finds them. Tasks 1–3 are done.
+practice-user clean-up finds them. Tasks 1–4 are done.
 
-4. **Live tests for the sheet import of `3.0` and `3.1`:** one apply with `create` makes a bank
-   account, a person, a cash account and an archived account, with categories and hashtags,
-   `names` pointing at their ids; `created` counts them on the dry run and the apply; each made
-   account's balance per currency equals its rows. A refusal of a row, of a made account's field,
-   and of two made hashtags sharing a name is keyed as the contract says and leaves nothing made.
-   `suggestion` is `null` beside a `proposed_id` and otherwise follows the published rules on a
-   few names (`BCP 5678`, `BCP5678`, `Interbank PEN`, a name with two runs of four digits).
 5. **A live test of dry-run keys** on each of the three routes: the apply under its dry run's key
    goes through, and a dry run sent again runs again. A key an apply used stays `409` for a dry run.
 

@@ -2,13 +2,15 @@
 (expense/import_/engine.py) on made-up sheets.
 
 The engine reads the whole sheet, matches every row against the ledger and writes
-everything or nothing (contract: POST /v1/transactions/import-sheet). It never
-creates a name, and answers outcomes and counts only with a table giving every
-name its id (contract: POST /v1/transactions/import-sheet, "Names"): the dry run
-lists the names while one is missing, the create step creates each category and
-hashtag the caller lacks and imports nothing, then the dry run counts and the apply
-writes. A bank account is never made by the import: each test makes its accounts first,
-through the engine, and puts the sheet's names on them with `renames`, as `--account-name`
+everything or nothing (contract: POST /v1/transactions/import-sheet). It makes an account,
+category or hashtag only from the `create` the request lists, all of it landing with the rows or
+none of it (contract: POST /v1/transactions/import-sheet, "Create"), as the `Creation` tests
+show, and answers outcomes and counts only with a table giving every name its id
+(contract: POST /v1/transactions/import-sheet, "Names"): the dry run
+lists the names while one is missing, the app's create step makes each category and
+hashtag the caller lacks through the create routes and imports nothing, then the dry run counts
+and the apply writes. The other tests make their accounts first, through the engine, and put
+the sheet's names on them with `renames`, as `--account-name`
 does. An account is one name whatever currencies its rows are in: the table holds one
 entry for it, `{name, account_id}` with no currency, each row lands on its own currency
 of it (`MONEDA`), and an account lacking one is `CURRENCY_NOT_HELD` on its entry.
@@ -29,6 +31,7 @@ new on its first apply: the practice user's data outlives a reseed. Each test
 hands what it wrote to the `scratch` cleanup. Gating, target and the real-ledger guard: conftest.py.
 """
 
+from copy import deepcopy
 from datetime import date
 from uuid import uuid4
 
@@ -51,7 +54,10 @@ from tests.contract.conftest import (
     account_balance,
     assert_refusal,
     assert_refusals,
+    bank_code,
+    free_statement_codes,
     live_ids,
+    next_last4,
     read_signed,
     refused,
     sheet_file,
@@ -155,21 +161,12 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
         (HASHTAG, n.home, (), 4, Goes.MISSING, None),
         (HASHTAG, n.work, (), 2, Goes.MISSING, None),
     ]
-    # A sheet name no account holds, naming no bank and no last 4, has no proposal and its
-    # suggestion names no kind, bank or last 4
-    # (contract: POST /v1/transactions/import-sheet, "Names").
     (listed,) = dry.answer["names"]["accounts"]
     assert (listed["name"], listed["currencies"], listed["proposed_id"]) == (
         n.account,
         ["PEN", "USD"],
         None,
     )
-    assert listed["suggestion"] == {
-        "kind": None,
-        "bank_code": None,
-        "last4": None,
-        "currencies": ["PEN", "USD"],
-    }
     assert not dry.counted and len(dry.missing) == 4
     assert [(r.row, r.outcome, r.transaction_id) for r in dry.rows] == [
         (row, None, None) for row in range(2, 8)
@@ -536,3 +533,205 @@ def test_two_sheet_names_renamed_onto_two_accounts_land_each_on_its_own(client, 
     assert [rows[row].outcome for row in (2, 3)] == ["new", "new"]
     assert read_signed(client, rows[2].transaction_id)["account_id"] == left
     assert read_signed(client, rows[3].transaction_id)["account_id"] == right
+
+
+class Creation:
+    """What one `create` makes and the sheet that uses it: a bank account holding soles and
+    dollars, a person, a cash account and an archived bank account, two categories and two
+    hashtags, each under a client-generated id the `names` table gives its sheet name."""
+
+    def __init__(self, scratch) -> None:
+        n = self.names = Names()
+        code, self.last4, self.archived_last4 = bank_code(), next_last4(), next_last4()
+        self.bank_name = f"{code}-{self.last4}"
+        self.archived_name = f"{code}-{self.archived_last4}"
+        self.person_name = f"{n.account}-person"
+        self.cash_name = f"{n.account}-cash"
+        self.bank, self.person, self.cash, self.archived = (str(uuid4()) for _ in range(4))
+        self.food, self.pay, self.home, self.work = (str(uuid4()) for _ in range(4))
+        scratch.accounts += [self.bank, self.person, self.cash, self.archived]
+        scratch.categories += [self.food, self.pay]
+        scratch.hashtags += [self.home, self.work]
+        self.create = {
+            "accounts": [
+                {"id": self.bank, "kind": "bank", "bank_code": code, "last4": self.last4,
+                 "currencies": ["PEN", "USD"]},
+                {"id": self.person, "kind": "person", "name": self.person_name,
+                 "currencies": ["PEN"]},
+                {"id": self.cash, "kind": "cash", "currencies": ["PEN"]},
+                {"id": self.archived, "kind": "bank", "bank_code": code,
+                 "last4": self.archived_last4, "currencies": ["PEN"], "archived": True},
+            ],
+            "categories": [{"id": self.food, "name": n.food}, {"id": self.pay, "name": n.pay}],
+            "hashtags": [{"id": self.home, "name": n.home}, {"id": self.work, "name": n.work}],
+        }  # fmt: skip
+        self.table = {
+            "accounts": [
+                {"name": self.bank_name, "account_id": self.bank},
+                {"name": self.person_name, "account_id": self.person},
+                {"name": self.cash_name, "account_id": self.cash},
+                {"name": self.archived_name, "account_id": self.archived},
+            ],
+            "categories": [
+                {"name": n.food, "category_id": self.food},
+                {"name": n.pay, "category_id": self.pay},
+            ],
+            "hashtags": [
+                {"name": n.home, "hashtag_id": self.home},
+                {"name": n.work, "hashtag_id": self.work},
+            ],
+        }  # fmt: skip
+        #: Each row's account id and signed cents, by currency, in sheet order (rows 2 to 9).
+        self.rows = [
+            (self.bank, "PEN", -950), (self.bank, "PEN", 2000), (self.bank, "USD", -2025),
+            (self.person, "PEN", 30000), (self.person, "PEN", -1500),
+            (self.cash, "PEN", -400),
+            (self.archived, "PEN", -750), (self.archived, "PEN", 10000),
+        ]  # fmt: skip
+
+    def sheet(self, *extra: list) -> bytes:
+        """The sheet of `rows`; the person's first row is its `SALDO INICIAL`, its currency's
+        opening balance, which needs no category in the table."""
+        n, name = self.names, {
+            self.bank: self.bank_name,
+            self.person: self.person_name,
+            self.cash: self.cash_name,
+            self.archived: self.archived_name,
+        }  # fmt: skip
+        kinds = [(n.home, n.food), (n.work, n.pay)]
+        rows = []
+        for place, (account, currency, cents) in enumerate(self.rows):
+            hashtag, category = kinds[place % 2]
+            if place == 3:
+                category = "SALDO INICIAL"
+            day = date(2026, 1, 5) if place == 3 else date(2026, 3, 10 + place)
+            rows.append(
+                sheet_row(
+                    "MOVIMIENTO", hashtag, category, day, cents / 100, name[account], currency
+                )
+            )
+        return sheet_file([*rows, *extra])
+
+    def body(self, data: bytes, *, dry_run: bool) -> dict:
+        return {**request_body(data, dry_run=dry_run, names=self.table), "create": self.create}
+
+
+def test_one_apply_with_create_makes_the_accounts_names_and_rows(client, scratch):
+    """`create` makes a bank account, a person, a cash account and an archived one, with
+    two categories and two hashtags, each under the client's id, which `names` points at:
+    `created` counts them on the dry run, which makes none, and on the apply, whose
+    rows land on them, each currency's balance their rows' sum, the archived account archived,
+    and the person's first `SALDO INICIAL` its currency's opening balance
+    (contract: POST /v1/transactions/import-sheet, "Create")
+    (contract: POST /v1/transactions/import-sheet, "Response")."""
+    made = Creation(scratch)
+    data = made.sheet()
+    counted = {"accounts": 4, "categories": 2, "hashtags": 2}
+    held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]
+
+    dry = client.post("/transactions/import-sheet", json_body=made.body(data, dry_run=True))
+    assert dry["created"] == counted
+    assert {r["outcome"] for r in dry["rows"]} == {"new"} and dry["counts"]["new"] == 8
+    assert all(r["transaction_id"] is None for r in dry["rows"])
+    assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (held, total)
+
+    applied = client.post("/transactions/import-sheet", json_body=made.body(data, dry_run=False))
+    scratch.transactions.extend(r["transaction_id"] for r in applied["rows"])
+    assert applied["created"] == counted
+    assert [r["outcome"] for r in applied["rows"]] == ["new"] * 8
+    assert [r["account_id"] for r in applied["rows"]] == [a for a, _, _ in made.rows]
+    made_ids = set(CLEANER.holdings(client)) - set(held)
+    assert made_ids == {made.bank, made.person, made.cash, made.archived, made.food, made.pay,
+                        made.home, made.work}  # fmt: skip
+
+    for account in (made.bank, made.person, made.cash, made.archived):
+        for currency in {c for a, c, _ in made.rows if a == account}:
+            expected = sum(c for a, cur, c in made.rows if (a, cur) == (account, currency))
+            assert account_balance(client, account, currency) == expected, (account, currency)
+        assert client.get(f"/accounts/{account}")["is_archived"] is (account == made.archived)
+    person = client.get(f"/accounts/{made.person}")["currencies"][0]
+    assert person["opening_balance_transaction_id"] == applied["rows"][3]["transaction_id"]
+
+
+def test_a_refused_create_or_row_leaves_nothing_made(client, scratch):
+    """A made thing's refusal under its own route's rules and a row's refusal each answer
+    keyed as the contract gives and make nothing, on the dry run and the apply alike: no
+    account, category, hashtag or row
+    (contract: POST /v1/transactions/import-sheet, "Create")
+    (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`")."""
+    made = Creation(scratch)
+    data = made.sheet()
+    statement_code = free_statement_codes(client, 1)[0]
+    two_hashtags = deepcopy(made.create)
+    two_hashtags["hashtags"][1]["name"] = made.names.home
+    same_code = deepcopy(made.create)
+    same_code["accounts"][0]["statement_code"] = same_code["accounts"][3]["statement_code"] = (
+        statement_code
+    )
+    bad_currency = deepcopy(made.create)
+    bad_currency["accounts"][1]["currencies"] = ["PEN", "EUR"]
+    bad_row = sheet_row(
+        "EURO", made.names.home, made.names.food, date(2026, 3, 19), -5, made.bank_name, "EUR"
+    )
+    invalid, conflict = "VALIDATION_ERROR", "CONFLICT"
+    currency_key = "create.accounts.1.currencies.1.currency_code"
+    cases = [
+        (data, two_hashtags, 409, conflict, "create.hashtags.1.name", "NAME_EXISTS"),
+        (
+            data,
+            same_code,
+            409,
+            conflict,
+            "create.accounts.3.statement_code",
+            "STATEMENT_CODE_EXISTS",
+        ),
+        (data, bad_currency, 422, invalid, currency_key, "UNSUPPORTED_VALUE"),
+        (made.sheet(bad_row), made.create, 422, invalid, "rows.10.currency", "UNEXPECTED_LAYOUT"),
+    ]
+    held, total = CLEANER.holdings(client), client.get("/transactions/count")["count"]
+    for sheet, create, status, error_code, key, reason in cases:
+        for dry_run in (True, False):
+            body = {**made.body(sheet, dry_run=dry_run), "create": create}
+            err = refused(
+                lambda body=body: client.post("/transactions/import-sheet", json_body=body)
+            )
+            assert_refusal(err, status, error_code, key, reason)
+            assert (CLEANER.holdings(client), client.get("/transactions/count")["count"]) == (
+                held,
+                total,
+            ), (key, dry_run)
+
+
+def test_a_suggestion_is_null_beside_a_proposal_and_otherwise_follows_the_rules(client, scratch):
+    """An account the ledger holds is proposed and has no suggestion; a name it does not is
+    suggested by the published rules, on the name as the sheet writes it: the bank code a first
+    word the bank list holds (with the last 4 digits taken off its end), the last 4 the one run
+    of exactly four digits, none when the name holds two; `Interbank PEN` gives nothing
+    (contract: POST /v1/transactions/import-sheet, "Names")."""
+    code = bank_code()
+    held = scratch.account("PEN")
+    held_name = client.get(f"/accounts/{held}")["name"]
+    sheet_names = [held_name, f"{code} 5678", f"{code}5678", "Interbank PEN", f"{code} 1234 5678"]
+    day = date(2026, 3, 14)
+    data = sheet_file(
+        [
+            sheet_row("CAFE", "contract-sheet-h", "contract-sheet-c", day, -1, name, "PEN")
+            for name in sheet_names
+        ]
+    )
+    answer = client.post("/transactions/import-sheet", json_body=request_body(data, dry_run=True))
+    listed = {a["name"]: a for a in answer["names"]["accounts"]}
+    assert (listed[held_name]["proposed_id"], listed[held_name]["suggestion"]) == (held, None)
+    suggested = {name: a["suggestion"] for name, a in listed.items() if name != held_name}
+    assert suggested == {
+        f"{code} 5678": {"kind": "bank", "bank_code": code, "last4": "5678", "currencies": ["PEN"]},
+        f"{code}5678": {"kind": "bank", "bank_code": code, "last4": "5678", "currencies": ["PEN"]},
+        "Interbank PEN": {"kind": None, "bank_code": None, "last4": None, "currencies": ["PEN"]},
+        f"{code} 1234 5678": {
+            "kind": "bank",
+            "bank_code": code,
+            "last4": None,
+            "currencies": ["PEN"],
+        },
+    }
+    assert all(listed[name]["proposed_id"] is None for name in suggested)
