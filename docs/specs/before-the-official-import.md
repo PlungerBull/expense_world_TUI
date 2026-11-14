@@ -150,6 +150,16 @@ account's month.
       it waits only for the first. **Recommended:** C: a stray category would sit in the real
       ledger from day one, while colours are a few edits. The rehearsal runs either way.
     - **Picked 2026-11-14: 8 A, 9 A, 10 A, 11 A; `--json` and `--apply` dropped; C.**
+21. **The question before the import** (pane 12 of
+    [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
+    Step 4 checks the split transactions and the opening balances in the review's count, and the
+    engine's answer counts both (`split_lines`, `split_rows`, `opening_balances`), but the
+    question as built names neither.
+    - **A.** The question adds a line: "Among them 9 split transactions of 23 rows and 22
+      opening balances.", left out when the sheet has neither.
+    - **B.** The question stays as built, and step 4 checks the splits and opening balances in
+      the app after the import.
+    - **Recommended:** A, so step 4 is checked before anything is written.
 
 ## What the engine settled
 
@@ -189,7 +199,11 @@ account's month.
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
 the answers 15 A and 16 A (2026-11-12), and tasks 7 and 8 on 2026-11-14, on contract 3.1.
 
-5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
+5. **The rehearsal on the practice engine,** after 7 and 8, run 2026-11-14 on a made-up sheet:
+   every account, the archived one, the split transactions and all 12 balances came out as the
+   sheet has them, in one write; step 4 fails, since the question names neither the split
+   transactions nor the opening balances (question 21). Once question 21 is answered (and, on
+   A, built), it runs again: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening
    balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
    every balance matches.
@@ -208,4 +222,6 @@ sheet), and closes the screen side of the two asks part 1 names.
 
 Not built in this spec; sorted when it is done.
 
-- Nothing yet.
+- `scripts/clean_practice_user.py:98-99` takes every cash account on the shared practice user
+  for the suite's whenever a last-4 prefix is given, so `test_clean_practice_user.py`'s clean-up
+  deletes a cash account the suite did not make (the rehearsal's, 2026-11-14).
