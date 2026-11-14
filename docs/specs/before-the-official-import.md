@@ -2,9 +2,9 @@
 
 **Status: approved; questions 15–18 answered by 2026-11-13. A bank account is a 3–4 letter code
 and a required last 4 (`IBK-4321`), and only a bank the engine reads takes a statement code
-(question 18). The import's review makes the accounts, categories, hashtags and rows in one write;
-where it runs waits on panes 3 and 4 of
-[expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html).
+(question 18). The import's review makes the accounts, categories, hashtags and rows in one write,
+on a screen the command opens (panes 3 B and 4 A of
+[expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
 Tasks 7 and 8 wait on the engine's hand-off for two asks, named in
 "Tasks".** Turning an account into a person is built
 ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key"); the
@@ -100,9 +100,11 @@ account's month.
     in the import's request is no side effect. So this replaces 15 A and 16 A: a bank is a code
     (decision 14), and the import's review shows each sheet account with the engine's suggestion,
     the owner confirms or changes each, and one write makes the accounts, categories, hashtags and
-    rows. Where the review runs and how a row is edited are panes 3 and 4 of
-    [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html),
-    not yet picked; panes 1 and 2 draw decision 14.
+    rows. Panes 1 and 2 of
+    [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)
+    draw decision 14. **Picked 2026-11-13: 3 B**, `expense import sheet <file>` opens the review
+    as a screen in the app, named "Import sheet"; **4 A**, `⏎` on a row opens the New account form
+    filled from the engine's suggestion.
 
 ## What the engine settled
 
@@ -148,12 +150,10 @@ engine's hand-off, whose catch-up spec takes the contract's side first.
    bank `GET /banks` lists takes a statement code". On Manage ▸ Accounts New and Edit, and `t`'s
    question when it makes a bank account, BANK is a typed code of 3 or 4 letters with no
    suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
-   `GET /banks` lists. The Edit form removes a
-   number only while another stays. A refusal is the engine's words.
-8. **The import's review, as panes 3 and 4 are picked.** Waits on the ask
+   `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words.
+8. **The import's review, as panes 3 B and 4 A draw it.** Waits on the ask
    "The sheet import suggests the accounts it is missing and makes the ones the user confirms,
-   with its names and rows, in one write" and on the picks. It replaces making every account in
-   the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
+   with its names and rows, in one write". It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
    the closed accounts by hand.
 5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening

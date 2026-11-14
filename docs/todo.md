@@ -28,8 +28,8 @@ prepares the release (CLAUDE.md "This repo's loop").
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
    answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
-   (the import's review) wait on the two engine asks the spec's "Tasks" names, and task 8 also on
-   the owner's picks; the rehearsal, task 5, runs after both. v1.0.0 is prepared after it.
+   (the import's review) wait on the two engine asks the spec's "Tasks" names; the rehearsal,
+   task 5, runs after both. v1.0.0 is prepared after it.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -64,16 +64,13 @@ is ready, run `python3 scripts/release.py` in the live folder
 `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
 
-### Pick the import's review
-Asked 2026-11-13 · Blocks: the official import's task 8
-Panes 3 and 4 of [expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html):
-where the review runs (questions in the terminal, or a screen in the app) and what `⏎` on a row
-opens. Pane 3 B names a new screen ("Import sheet"). Panes 1 and 2 draw your bank decisions, for
-you to check. Then hand over the two engine asks in [to-engine/](to-engine/), and give the engine
-coders the account names your sheet uses: they asked for them to pick the guessing rules, and
-this repo is public.
-**Recommended:** 3B 4A, because every account is set on one screen, fixable in any order before
-anything is written, with the account form you already know.
+### Give the engine coders your sheet's account names
+Asked 2026-11-13 · Blocks: the engine ask "The sheet import suggests the accounts it is missing
+and makes the ones the user confirms, with its names and rows, in one write"
+The engine coders asked for the account names your sheet's `CUENTA` column uses, to pick the
+import's guessing rules. Give them directly, not through this repo: it is public. Hand over the
+two engine asks in [to-engine/](to-engine/) with them.
+**Recommended:** none, a step only you can do.
 
 ### Approve "Small screen details"
 Asked 2026-11-13 · Blocks: Small screen details
