@@ -198,25 +198,14 @@ account's month.
 ## Tasks
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
-the answers 15 A and 16 A (2026-11-12), and tasks 7 and 8 on 2026-11-14, on contract 3.1.
-
-5. **The rehearsal on the practice engine,** after 7 and 8, run 2026-11-14 on a made-up sheet:
-   every account, the archived one, the split transactions and all 12 balances came out as the
-   sheet has them, in one write; step 4 fails, since the question names neither the split
-   transactions nor the opening balances. Question 21 A is built (2026-11-14), so it runs again: a made-up sheet with the real sheet's
-   shape (a card in two currencies, two savings accounts, people, a split purchase, opening
-   balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
-   every balance matches.
+the answers 15 A and 16 A (2026-11-12), and tasks 5, 7 and 8 on 2026-11-14, on contract 3.1:
+the rehearsal's made-up sheet, of the real one's shape, came through the review and one apply
+with every account, split purchase, opening balance and balance as the sheet has them.
 
 ## Reply to the engine
 
-Part 2 of the reply to the hand-off of 2026-11-14 (part 1, "Caught up with contract 3.1: a bank
-is a typed code with a required last 4, and the sheet import makes what `create` lists (part 1,
-the contract side)", covers the contract), written once tasks 7, 8 and 5 are done. It reports
-on the hand-off's "Done when" checks for the forms (`IBK-4321` made, `ibk` and a missing last 4
-a missing last 4 refused in the engine's words, `ibk` taken as `IBK` since the form capitalises it) and for the review (each
-missing account prefilled, one apply making them and every row, shown on the rehearsal's made-up
-sheet), and closes the screen side of the two asks part 1 names.
+Written 2026-11-14: [caught-up-with-3-1-screens.md](../to-engine/caught-up-with-3-1-screens.md),
+part 2 of the reply to the hand-off of 2026-11-14.
 
 ## Found along the way
 
