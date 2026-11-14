@@ -27,10 +27,13 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–17
-   answered by 2026-11-13; tasks 1–4 and 6 are done; task 5 waits on
-   the engine ask "GET /banks lists every bank the owner's accounts were at", which the
-   question "The engine says why its bank list is closed, and whether a bank and a sheet's
-   accounts can come from the user" may replace. v1.0.0 is prepared after its rehearsal.
+   answered by 2026-11-13; tasks 1–4 and 6 are done. Its question 18 (2026-11-13) replaces 15 A:
+   banks come from a catalogue or the owner, and the import's review makes the accounts. Its new
+   tasks wait on the mockup picks and on the engine asks "A bank account is at a bank from the
+   engine's catalogue or one the user adds, and each bank says what the engine can read for it"
+   and "The sheet import suggests the accounts it is missing and makes the ones the user
+   confirms, with its names and rows, in one write"; task 5 waits on both. v1.0.0 is prepared
+   after its rehearsal.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -64,6 +67,17 @@ is ready, run `python3 scripts/release.py` in the live folder
 (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`). Once
 `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
+
+### Pick the banks and the import's review
+Asked 2026-11-13 · Blocks: the official import
+[expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
+draws the BANK picker, where banks are added and fixed, the form that adds one, the statement
+code line at a bank the app can't read, and the import's review. Panes 2 B and 5 B name new
+screens ("Banks", "Import sheet"). Then hand over the two engine asks in
+[to-engine/](to-engine/), and give the engine coders the account names your sheet uses: they
+asked for them to pick the guessing rules, and this repo is public.
+**Recommended:** 1A 2B 3A 4B 5B 6A, because every bank then says up front what the app reads,
+and every account is set on one screen, fixable in any order before anything is written.
 
 ### Approve "Small screen details"
 Asked 2026-11-13 · Blocks: Small screen details
