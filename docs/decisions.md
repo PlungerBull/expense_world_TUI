@@ -1468,3 +1468,11 @@ the suite for nothing the owner would notice. The data in a message is what the 
 **Decision.** The `breaking.adding` version (contract: "Base Conventions") is compared whole; a move in either number stops the loop until its hand-off is planned ([runtime.md](runtime.md) "Contract version").
 
 **Why.** This client exists to exercise the engine, so what an addition brings is learned, not skipped.
+
+## A live test cites a refusal no request can set up, and sends a chosen key one way (2026-11-14)
+
+**Decision.** When the contract still publishes a refusal no request can now cause, such as `ACCOUNT_HAS_NO_NUMBER` once every bank account takes a last 4 (contract: "Bank Accounts"), its live test cites the rule instead of driving it, and the reply to the engine asks whether the refusal is still reachable. A live test that sends a chosen `X-Idempotency-Key` does it through `under_key` ([tests/contract/conftest.py](../tests/contract/conftest.py)).
+
+**Why.** A test that builds an impossible state by hand proves nothing the engine can do. One way of holding a key keeps the replay and dry-run tests readable side by side.
+
+**Rejected.** *Deleting the test with no trace* — the refusal would stay published and unasked about.

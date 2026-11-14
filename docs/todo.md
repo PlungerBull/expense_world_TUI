@@ -24,25 +24,23 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [The catch-up to contract 3.1](specs/catch-up-to-3-1.md): approved 2026-11-14, from
-   the engine's hand-off of that day.
-2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
+1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
+2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
    answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
-   (the import's review) run after the catch-up to 3.1, question 19 answered 2026-11-14; the rehearsal,
+   (the import's review) run on contract 3.1, question 19 answered 2026-11-14; the rehearsal,
    task 5, runs after both. v1.0.0 is prepared after it.
-4. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-5. **v1.1** · [Small screen details](specs/small-screen-details.md): approved 2026-11-13. Task 6
+4. **v1.1** · [Small screen details](specs/small-screen-details.md): approved 2026-11-13. Task 6
    waits on the engine ask "A statement PDF's upload names its account from the card number the
    paper prints".
-6. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+5. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
    the owner runs, split out 2026-11-12. The engine shipped what they read in contract 1.1;
    tasks 1 and 2 wait on the owner picking their mockups.
-7. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11. Nothing past
+6. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11. Nothing past
    v1.0 is built until v1.0.0 is prepared, so v1.0.0 holds the code the import was rehearsed on.
 
 ---
@@ -112,9 +110,6 @@ the shared loop, `../agent-loop.md` "Specs and tasks".
 - **Two comments in expense/errors.py (:71, :328) cite `POST /v1/accounts/{account_id}/opening-balance`,**
   which the account Edit form no longer uses; point them at `PUT /v1/accounts/{account_id}` if
   they describe it.
-- **`scripts/clean_practice_user.py` cannot remove an unnumbered `BCP`** a killed live run leaves
-  behind (`owns` matches bank accounts by a number starting 9), so later runs hit `NAME_EXISTS`
-  until it is deleted by hand.
 - **Small code-comment fixes from the number format:** the launch read takes no `verbose`
   (expense/tui/app.py); `AuthScreen.check_action` returns `True` rather than the base's answer;
   expense/region.py:3 says the region is read once at launch, though Auth & profile reads it on
@@ -128,6 +123,8 @@ the shared loop, `../agent-loop.md` "Specs and tasks".
   says a draft is "the only place such a row can be" (a row on a sealed day can also sit in the
   completed statement, where a new currency is `LOCKED`); :14-17 says `currency_code` alone is
   `SEALED_PERIOD` "on each of those sent", though the body also sends `statement_id`.
+- **`scripts/clean_practice_user.py:91` still describes matching a bank account "by no number"**,
+  a case no request can make since contract 2.0.
 - **Bank files become the intake.** Plan: [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and

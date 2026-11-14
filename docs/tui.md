@@ -386,7 +386,7 @@ A bank or cash account has no `name` line: the engine builds its name (contract:
 /v1/accounts, "The name"). The save is one `POST /accounts`, whole or not at all
 (contract: POST /v1/accounts, "Required")
 (contract: POST /v1/accounts, "Optional"). A name already taken by a bank account is keyed
-`last4` or `bank_code` (contract: POST /v1/accounts, "Validation").
+`last4` (contract: POST /v1/accounts, "Validation").
 
 **A bank account's Edit form holds its number on three lines,** `bank`, `last 4` and `since`,
 with `cards before`, `new card` and `new card from` for a replacement

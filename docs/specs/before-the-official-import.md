@@ -5,8 +5,8 @@ and a required last 4 (`IBK-4321`), and only a bank the engine reads takes a sta
 (question 18). The import's review makes the accounts, categories, hashtags and rows in one write,
 on a screen the command opens (panes 3 B and 4 A of
 [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
-The engine shipped both in contract 3.1, which [the catch-up to 3.1](catch-up-to-3-1.md) takes
-first; question 19 is answered 2026-11-14 (5 A, 6 A, 7 B).** Turning an account into a person is built
+The engine shipped both in contract 3.1, which this client caught up with on 2026-11-14;
+question 19 is answered 2026-11-14 (5 A, 6 A, 7 B).** Turning an account into a person is built
 ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key"); the
 split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a
 split purchase in as one split transaction"); the sheet import goes through the engine. When the
@@ -155,7 +155,7 @@ account's month.
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
 the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. Tasks 7 and 8
-run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1.
+run on contract 3.1, which this client records.
 
 7. **The bank account form, as decision 14 and panes 1, 2 and 7 draw it.** On Manage ▸ Accounts New and Edit, and `t`'s
    question when it makes a bank account, BANK is a typed code of 3 or 4 letters, capitalised as
@@ -163,11 +163,19 @@ run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1.
    `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words
    under its line: `INVALID_FORMAT` and, when `t` makes a person that carries a statement code a
    bank account at a bank `GET /banks` does not list, `BANK_TAKES_NO_STATEMENT_CODE` under BANK.
+   It sets right what 3.1 makes untrue there: docs/tui.md:317-318 (`t`'s optional last 4), :391-395
+   (emptying LAST 4 removes the number) and :397-404 (a statement code on every bank account);
+   expense/reads.py:142-143 (`fetch_bank_codes` as the banks an account may take);
+   expense/tui/screens/create_forms.py:62-63, :447-448, :455-456, :862-864, :903-904 and
+   expense/tui/screens/accounts.py:193, :355, :362 (an optional last 4, BANK picked from
+   `GET /banks`, a numberless account).
 8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it.** Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
    keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
-   the closed accounts by hand.
+   the closed accounts by hand, and with them what the docs and code say of them:
+   docs/commands.md:34-60, docs/runtime.md:71, README.md:33 and expense/import_/engine.py:10-12
+   ("never creates one").
 5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening
    balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
@@ -175,8 +183,9 @@ run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1.
 
 ## Reply to the engine
 
-Part 2 of the reply to the hand-off of 2026-11-14 (part 1 is
-[the catch-up to 3.1](catch-up-to-3-1.md)'s), written once tasks 7, 8 and 5 are done. It reports
+Part 2 of the reply to the hand-off of 2026-11-14 (part 1, "Caught up with contract 3.1: a bank
+is a typed code with a required last 4, and the sheet import makes what `create` lists (part 1,
+the contract side)", covers the contract), written once tasks 7, 8 and 5 are done. It reports
 on the hand-off's "Done when" checks for the forms (`IBK-4321` made, `ibk` and a missing last 4
 a missing last 4 refused in the engine's words, `ibk` taken as `IBK` since the form capitalises it) and for the review (each
 missing account prefilled, one apply making them and every row, shown on the rehearsal's made-up
