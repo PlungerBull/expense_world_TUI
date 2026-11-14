@@ -149,6 +149,7 @@ account's month.
       it waits for neither (the category deleted and the colours set by hand afterwards); or C,
       it waits only for the first. **Recommended:** C: a stray category would sit in the real
       ledger from day one, while colours are a few edits. The rehearsal runs either way.
+    - **Picked 2026-11-14: 8 A, 9 A, 10 A, 11 A; `--json` and `--apply` dropped; C.**
 
 ## What the engine settled
 
@@ -160,7 +161,9 @@ account's month.
 
 ## Steps
 
-1. The queued specs and this spec's tasks 7 and 8 are done.
+1. The queued specs and this spec's tasks 7 and 8 are done, and the engine ask "The sheet import
+   says which names only opening balances use, so a client never makes a category or hashtag no
+   transaction needs" has landed and been caught up with (question 20, C).
 2. The owner wipes the live database.
 3. The import's review: each sheet account set as a bank account (code, last 4, a statement code
    at BCP), a person by its name (PARDO among them) or the cash account, the closed ones marked
@@ -188,7 +191,8 @@ the answers 15 A and 16 A (2026-11-12), and task 7 on 2026-11-14; task 8 replace
 contract 3.1, which this client records.
 
 8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it, and question 20 picks.**
-   Its drawn parts are built (2026-11-14); what is left is question 20's answers. Each missing account prefilled
+   Its drawn parts are built (2026-11-14); what is left is question 20's picks: 8 A, 10 A,
+   and dropping `--json` and `--apply` (9 A and 11 A are built). Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
    keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
