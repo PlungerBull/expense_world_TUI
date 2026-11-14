@@ -177,7 +177,8 @@ def made_phrase(counts: MadeCounts) -> str:
 def ready_question(answer: dict) -> str:
     """The engine's count of the dry run as the one question's first line: what is made,
     the rows imported and, only when there are any, the rows already in the ledger, on a
-    closed statement's day and of zero."""
+    closed statement's day and of zero; then, on a line of its own and only when the
+    engine counted any, the split transactions with their rows and the opening balances."""
     counts = answer_counts(answer)
     parts = [count_phrase(counts.new, "row", "rows") + " imported"]
     for count, words in (
@@ -188,7 +189,16 @@ def ready_question(answer: dict) -> str:
         if count:
             parts.append(f"{count_phrase(count, 'row', 'rows')} {words}")
     done = parts[0] if len(parts) == 1 else f"{', '.join(parts[:-1])} and {parts[-1]}"
-    return f"Ready: {made_phrase(answer_created(answer))} made; {done}."
+    question = f"Ready: {made_phrase(answer_created(answer))} made; {done}."
+    among = []
+    if counts.split_lines:
+        among.append(
+            f"{count_phrase(counts.split_lines, 'split transaction', 'split transactions')} "
+            f"of {count_phrase(counts.split_rows, 'row', 'rows')}"
+        )
+    if counts.opening_balances:
+        among.append(count_phrase(counts.opening_balances, "opening balance", "opening balances"))
+    return f"{question}\nAmong them {' and '.join(among)}." if among else question
 
 
 def imported_line(answer: dict) -> str:

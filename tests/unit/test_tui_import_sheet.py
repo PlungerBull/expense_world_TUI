@@ -413,6 +413,19 @@ def test_the_question_names_what_the_engine_counted_beyond_new_and_zero_rows():
     assert ready_question(answer) == (
         "Ready: 1 account, 0 categories and 0 hashtags made; "
         "1 row imported, 3 rows already in the ledger and 1 row on a closed statement's day."
+    )  # neither split transactions nor opening balances: no second line
+
+    both = {**COUNTS, "split_lines": 9, "split_rows": 23, "opening_balances": 22}
+    assert ready_question(sheet_import_answer(counts=both)).endswith(
+        "\nAmong them 9 split transactions of 23 rows and 22 opening balances."
+    )
+    one_each = {**both, "split_lines": 1, "split_rows": 2, "opening_balances": 1}
+    assert ready_question(sheet_import_answer(counts=one_each)).endswith(
+        "\nAmong them 1 split transaction of 2 rows and 1 opening balance."
+    )
+    only = {**COUNTS, "opening_balances": 22}
+    assert ready_question(sheet_import_answer(counts=only)).endswith(
+        "skipped.\nAmong them 22 opening balances."
     )
 
 
