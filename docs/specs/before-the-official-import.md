@@ -94,8 +94,8 @@ account's month.
     account for an investment. So Interbank is the one bank the engine must add.
 18. **Where the accounts are made, once the engine can suggest them.** **Answered 2026-11-13:**
     the engine says its bank list is fixed only as built, and that an account the user confirms
-    in the import's request is no side effect. So this replaces 15 A and 16 A: banks come from
-    the engine's catalogue or the owner, each saying what the engine can read for it, and the
+    in the import's request is no side effect. So this replaces 15 A and 16 A: a bank is a
+    code the owner types (`IBK-4321`), the engine saying which codes it reads, and the
     import's review shows each sheet account with the engine's suggestion, the owner confirms or
     changes each, and one write makes the accounts, categories, hashtags and rows. Its screens:
     [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html),
@@ -142,8 +142,7 @@ before building. Tasks 1–4 and 6 are done; a sheet name two accounts share (`a
 left out of task 4's tests, since every create and rename refuses a taken name and only accounts
 made before built names can share one (contract: POST /v1/transactions/import-sheet, "Names").
 Question 18 adds tasks once its mockup is picked and the engine's hand-off for the asks "A bank
-account is at a bank from the engine's catalogue or one the user adds, and each bank says what
-the engine can read for it" and "The sheet import suggests the accounts it is missing and makes
+account's bank is a short code the user types, and the engine says which codes it can read" and "The sheet import suggests the accounts it is missing and makes
 the ones the user confirms, with its names and rows, in one write" lands; task 5 runs after them.
 
 5. **The rehearsal on the practice engine:** a made-up sheet with the real sheet's shape (a

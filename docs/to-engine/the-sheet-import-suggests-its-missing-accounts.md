@@ -17,11 +17,10 @@ name with its rows and currencies, and a proposed match the user confirms.
 ## The ask
 
 - **A suggestion for each sheet account name no account holds,** in the dry run, beside today's
-  proposed match: a kind (`bank`, `person`, `cash`), a bank (from the catalogue's codes and other
-  names, and the user's own banks, as the ask "A bank account is at a bank from the engine's
-  catalogue or one the user adds, and each bank says what the engine can read for it" gives
-  them), a last 4 when the name holds four digits, and the currencies its rows use. **An unsure
-  guess is `null`, never a default:** `ALEJO` gets no kind. The guessing rules are written in the
+  proposed match: a kind (`bank`, `person`, `cash`), a bank (a code `GET /banks` lists, held in the
+  name, as the ask "A bank account's bank is a short code the user types, and the engine says
+  which codes it can read" gives them), a last 4 when the name holds four digits, and the
+  currencies its rows use. **An unsure guess is `null`, never a default:** `ALEJO` gets no kind. The guessing rules are written in the
   contract, so every client shows the same suggestion.
 - **The import makes only what its request lists,** and nothing else: the accounts to make (each
   with its client id, kind, bank, last 4, a person's name, its currencies, an optional statement
@@ -36,8 +35,7 @@ name with its rows and currencies, and a proposed match the user confirms.
 ## Done when
 
 - A dry run on an empty ledger lists each sheet account with its suggestion: a name holding
-  `IBK` suggests a bank account at Interbank, a name holding `BCP` and four digits suggests a BCP
-  account with that last 4, `ALEJO` suggests nothing.
+  `BCP` and four digits suggests a BCP account with that last 4, `ALEJO` suggests nothing.
 - One apply makes two bank accounts, one person, one archived account, three categories and two
   hashtags, and imports every row onto them; each account's balance in each currency is the
   sheet's total.

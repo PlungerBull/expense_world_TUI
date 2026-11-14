@@ -65,38 +65,35 @@
 
 <div class="head">
   <h1>Banks, and the import's review</h1>
-  <p>Drawn for the two engine asks "A bank account is at a bank from the engine's catalogue or one the user adds, and each bank says what the engine can read for it" and "The sheet import suggests the accounts it is missing and makes the ones the user confirms, with its names and rows, in one write". Nothing here is built; the engine's hand-off may still move a detail.</p>
-  <p>Answer with one letter per pane, e.g. <code>1A 2B 3A …</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+  <p>Drawn for the two engine asks "A bank account's bank is a short code the user types, and the engine says which codes it can read" and "The sheet import suggests the accounts it is missing and makes the ones the user confirms, with its names and rows, in one write". Nothing here is built; the engine's hand-off may still move a detail.</p>
+  <p>Answer with one letter per pane, e.g. <code>1A 2B 3B 4A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
 <!-- ================================================================== group 1 -->
 <div class="grp">
-  <h2>Banks</h2>
-  <p>Manage ▸ Accounts ▸ New, the BANK line. The engine lists its catalogue's banks and yours, each saying what it can read for it.</p>
+  <h2>The bank, as a code</h2>
+  <p>Manage ▸ Accounts ▸ New, the BANK line. A bank is the letters in an account's name (<code>IBK-4321</code>) and nothing more; the engine says which codes it can read, today BCP. No list of banks to keep, no screen of its own.</p>
 </div>
 
 <!-- ================================================================== 1 -->
 <div class="pane">
-<div class="lbl">1 · What the BANK picker shows <span>— pick A or B</span></div>
-<p class="blurb">Today the picker lists codes alone. Typing filters it, as now: <code>int</code> leaves INTERBANK.</p>
+<div class="lbl">1 · The BANK line <span>— pick A or B</span></div>
+<p class="blurb">Today the line only picks from the engine's list. Here it takes any code you type, and suggests the codes the engine reads and the ones your accounts already use.</p>
 
-<div class="var"><div class="oh">A · <span>code, name, and what the app reads</span><span class="rec">recommended</span></div>
+<div class="var"><div class="oh">A · <span>type a code; the suggestions say what the app reads</span><span class="rec">recommended</span></div>
 <div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK, IBK typed</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">BANK            </span><span class="a">▍</span>
+   <span class="b">BANK            </span>IBK<span class="a">▍</span>
+   <span class="d">letters, up to 10 · a new code · the app reads none of its papers</span>
 
-     <span class="rev">BCP         Banco de Crédito del Perú         reads PDFs and downloads</span>
-     INTERBANK   Interbank                         <span class="d">entered by hand</span>
-     BBVA        BBVA Perú                         <span class="d">entered by hand</span>
-     SCOTIABANK  Scotiabank Perú                   <span class="d">entered by hand</span>
-     ALFA        Caja Alfa                  <span class="a">yours</span>  <span class="d">entered by hand</span>
-     <span class="a">+ add a bank</span>
+     BCP          <span class="d">reads its PDFs and downloads</span>
+     IBK          <span class="d">yours · 1 account</span>
 
    type            bank
-   <span class="b">bank            </span><span class="d">—  *</span>
+   <span class="b">bank            </span>IBK
    last 4          <span class="d">—  (optional)</span>
    currencies      <span class="d">—  *</span>
    statement code  <span class="d">—  (optional)</span>
@@ -104,99 +101,41 @@
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
 </div>
-<p class="cap">Every bank says up front whether the app reads its papers, so an Interbank account never waits on a PDF upload that can't come. <code>yours</code> marks a bank you added. Typing <code>ibk</code> finds Interbank by its other name.</p></div>
+<p class="cap">The note under BANK says what the typed code does, so a typo (<code>IBX</code>) reads "a new code" before it is saved. Picking a suggestion keeps one spelling per bank. A code is changed on the account's Edit form, as today.</p></div>
 
-<div class="var"><div class="oh">B · <span>code and name only</span></div>
+<div class="var"><div class="oh">B · <span>type a code, no notes</span></div>
 <div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK</span></div>
-<div class="app"><pre>   <span class="b">BANK            </span><span class="a">▍</span>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · n, on BANK, IBK typed</span></div>
+<div class="app"><pre>   <span class="b">BANK            </span>IBK<span class="a">▍</span>
 
-     <span class="rev">BCP         Banco de Crédito del Perú</span>
-     INTERBANK   Interbank
-     BBVA        BBVA Perú
-     SCOTIABANK  Scotiabank Perú
-     ALFA        Caja Alfa
-     <span class="a">+ add a bank</span></pre></div></div>
+     BCP
+     IBK</pre></div></div>
 </div>
-<p class="cap">Shorter; what the app reads shows only later, on the statement code line (pane 4).</p></div>
+<p class="cap">Shorter; what the app reads shows only on the statement code line (pane 2).</p></div>
 </div>
 
 <!-- ================================================================== 2 -->
 <div class="pane">
-<div class="lbl">2 · Where you add, rename or remove a bank <span>— pick A or B</span></div>
-<p class="blurb">A bank you added can be mistyped. The engine keeps one an account uses from being removed.</p>
-
-<div class="var"><div class="oh">A · <span>from the picker only</span></div>
-<p class="cap"><code>+ add a bank</code> opens pane 3's form and comes back to the account form with the new bank picked. A mistyped bank can't be fixed or removed from any screen.</p></div>
-
-<div class="var"><div class="oh">B · <span>the picker adds, and Manage ▸ Banks lists them</span><span class="rec">recommended</span></div>
-<div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · Manage ▸ Banks</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Banks</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
-
-  CODE        NAME                       OTHER NAMES  READS            ACCOUNTS
-  BCP         Banco de Crédito del Perú               PDFs, downloads         5
-  INTERBANK   Interbank                  IBK          <span class="d">by hand</span>                 2
-  BBVA        BBVA Perú                               <span class="d">by hand</span>                 0
-  SCOTIABANK  Scotiabank Perú                         <span class="d">by hand</span>                 0
-<span class="rev">  ALFA        Caja Alfa                               by hand                 0 </span>
-
-
-
- <span class="a">esc</span> Back  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
-</div>
-<p class="cap">A new Manage list, beside Accounts, Categories and Hashtags; <b>"Banks" is a new screen name</b>, so say if you'd call it something else. <code>e</code> and <code>d</code> act on your own banks only; on a catalogue bank the footer leaves them out. <code>d</code> asks first, as every delete does, and the engine refuses it while an account is at that bank.</p></div>
-</div>
-
-<!-- ================================================================== 3 -->
-<div class="pane">
-<div class="lbl">3 · Adding a bank <span>— pick A or B</span></div>
-<p class="blurb">From <code>+ add a bank</code> in the picker, or <code>n</code> on Manage ▸ Banks.</p>
-
-<div class="var"><div class="oh">A · <span>as drawn</span><span class="rec">recommended</span></div>
-<div class="opt wide">
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · + add a bank, on CODE</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Banks  ▸  <span class="b">New</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">CODE            </span>ALFA<span class="a">▍</span>
-   <span class="d">letters only, up to 10 · its accounts are named ALFA and their last 4</span>
-
-   <span class="b">code            </span>ALFA
-   name            <span class="d">—  *</span>
-   other names     <span class="d">—  (optional) · names your spreadsheet uses for it</span>
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
-</div>
-<p class="cap">No line for what the app reads: a bank you add reads nothing, and the engine says so on the list. A code the catalogue holds (<code>BCP</code>) is the engine's refusal, shown under CODE.</p></div>
-
-<div class="var"><div class="oh">B · <span>tell us what differs</span></div>
-<p class="cap">A line to add or drop, or other words.</p></div>
-</div>
-
-<!-- ================================================================== 4 -->
-<div class="pane">
-<div class="lbl">4 · The statement code line at a bank the app can't read <span>— pick A or B</span></div>
+<div class="lbl">2 · The statement code line at a code the app can't read <span>— pick A or B</span></div>
 <p class="blurb">The engine refuses a statement code there: a coded account closes its month only from the bank's PDF. The account's statements close by hand instead.</p>
 
 <div class="opt">
 <div class="var"><div class="oh">A · <span>the line is left out</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at INTERBANK</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at IBK</span></div>
 <div class="app"><pre>   type            bank
-   bank            INTERBANK
+   bank            IBK
    last 4          4321
    currencies      PEN, USD
    color           <span class="d">—  (optional)</span></pre></div></div>
 </div>
 
 <div class="var"><div class="oh">B · <span>the line says why</span><span class="rec">recommended</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at INTERBANK</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · New, at IBK</span></div>
 <div class="app"><pre>   type            bank
-   bank            INTERBANK
+   bank            IBK
    last 4          4321
    currencies      PEN, USD
-   statement code  <span class="d">read-only · the app reads no Interbank PDF</span>
+   statement code  <span class="d">read-only · the app reads no IBK PDF</span>
    color           <span class="d">—  (optional)</span></pre></div></div>
 </div>
 </div>
@@ -206,12 +145,12 @@
 <!-- ================================================================== group 2 -->
 <div class="grp">
   <h2>The import's review</h2>
-  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> <code>IBK</code> holds a bank's other name, so it becomes an Interbank account; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you pick once, here.</p>
+  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> a name holding <code>BCP</code> gets a BCP account; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you set once, here.</p>
 </div>
 
 <!-- ================================================================== 5 -->
 <div class="pane">
-<div class="lbl">5 · Where the review happens <span>— pick A or B</span></div>
+<div class="lbl">3 · Where the review happens <span>— pick A or B</span></div>
 
 <div class="var"><div class="oh">A · <span>questions in the terminal</span></div>
 <div class="opt wide">
@@ -227,8 +166,8 @@
   archive once imported? (y/N)         n
 
 <span class="b">2 of 6 · IBK</span> · PEN + USD · 212 rows
-  kind (bank, person, cash)            <span class="d">⏎ keeps</span> bank
-  bank                                 <span class="d">⏎ keeps</span> INTERBANK
+  kind (bank, person, cash)            <span class="d">not guessed:</span> bank
+  bank                                 IBK
   last 4 (optional)                    4321
   archive once imported? (y/N)         y
 <span class="d">…</span>
@@ -249,7 +188,7 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
 <span class="rev">  VISA Infinite Sapphire   PEN + USD   1,846   ? pick a kind                    </span>
   Sueldo Soles             PEN         1,203   bank · BCP · 1234
   Cuenta Digital Dólares   USD           312   bank · BCP · 9012
-  IBK                      PEN + USD     212   bank · INTERBANK · 4321  archive
+  IBK                      PEN + USD     212   bank · IBK · 4321        archive
   Alcancía                 PEN            40   bank · BCP · 3456        archive
   ALEJO                    PEN + USD      58   <span class="w">? pick a kind</span>
 
@@ -265,7 +204,7 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
 
 <!-- ================================================================== 6 -->
 <div class="pane">
-<div class="lbl">6 · ⏎ on a row of the review <span>— pick A or B · if 5 B</span></div>
+<div class="lbl">4 · ⏎ on a row of the review <span>— pick A or B · if 3 B</span></div>
 
 <div class="var"><div class="oh">A · <span>the New account form, filled from the suggestion</span><span class="rec">recommended</span></div>
 <div class="opt wide">
@@ -275,11 +214,11 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
 
    <span class="b">LAST 4          </span>4321<span class="a">▍</span>
 
-   type            bank       <span class="d">suggested</span>
-   bank            INTERBANK  <span class="d">suggested · IBK is one of its names</span>
+   type            bank
+   bank            IBK
    <span class="b">last 4          </span>4321
    currencies      PEN, USD   <span class="d">the sheet's</span>
-   statement code  <span class="d">read-only · the app reads no Interbank PDF</span>
+   statement code  <span class="d">read-only · the app reads no IBK PDF</span>
    color           <span class="d">—  (optional)</span>
    archive         yes
 
@@ -295,7 +234,7 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
   <b>What happens after you pick</b>
   <ol>
     <li>You hand both engine asks to the engine; this mockup waits for their hand-off, which may still move a detail.</li>
-    <li>Your picks become the official import's new tasks: the bank picker and Manage ▸ Banks, then the review in place of making every account by hand and <code>--account-name</code>.</li>
+    <li>Your picks become the official import's new tasks: the BANK line, then the review in place of making every account by hand and <code>--account-name</code>.</li>
     <li>Then the rehearsal, the real import, and v1.0.0.</li>
   </ol>
 </div>
