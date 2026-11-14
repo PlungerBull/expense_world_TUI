@@ -487,6 +487,11 @@ def grouped_refusals(
     return grouped
 
 
+def count_phrase(count: int, one: str, many: str) -> str:
+    """`1 row`, `4,191 rows`: the count grouped, with its noun in the singular for one."""
+    return f"{count:,} {one if count == 1 else many}"
+
+
 def currencies_phrase(codes: Iterable[str]) -> str:
     """An account's currency codes as `PEN`, or `PEN + USD`, in the order given
     (the engine's; nothing is sorted)."""

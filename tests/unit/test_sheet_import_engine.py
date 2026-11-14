@@ -1,5 +1,5 @@
-"""The sheet import through the engine: what is sent, the names table, the
-renames, and each step's calls (contract: POST /v1/transactions/import-sheet).
+"""The sheet import through the engine: what is sent, the names table, what the review
+makes, and each step's calls (contract: POST /v1/transactions/import-sheet).
 
 Every answer is built by the fake engine's own builders in tests/unit/helpers.py
 (`sheet_import_answer`), shaped from the contract's response schema; every
@@ -21,28 +21,24 @@ from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
     HASHTAG,
-    Created,
-    Goes,
     NameEntry,
-    RenameRefused,
     Stage,
     Step,
-    check_disputed,
-    check_renames,
+    Suggestion,
+    account_entry,
+    create_refusals,
     import_sheet,
-    merge_renames,
     missing_accounts,
     missing_names,
     names_table,
-    parse_account_name,
-    rename_key,
+    new_ids,
     request_body,
-    saved_renames,
+    review_create,
+    review_names,
     table_body,
 )
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import (
-    account_with_currencies,
     error_body,
     sheet_import_answer,
     sheet_name_use,
@@ -69,6 +65,7 @@ def _body(request: httpx.Request) -> dict:
     return json.loads(request.content)
 
 
+#: A sheet using one account name in two currencies, which you lack; a category you have
 #: A sheet using one account name in two currencies, which you lack; a category you have
 #: and one you do not; a hashtag you do not.
 DRY = sheet_import_answer(
@@ -129,18 +126,6 @@ def _engine(dry: dict | httpx.Response = DRY, tabled: object = None):
     return respx.post(IMPORT).mock(side_effect=answer)
 
 
-def _made(request: httpx.Request) -> httpx.Response:
-    """A create's answer: the resource under the sent id and name."""
-    return httpx.Response(201, json={**_body(request), "is_archived": False})
-
-
-def _creates() -> dict[str, respx.Route]:
-    return {
-        path: respx.post(f"{BASE}/v1/{path}").mock(side_effect=_made)
-        for path in ("accounts", "categories", "hashtags")
-    }
-
-
 def _writes() -> list[httpx.Request]:
     return [call.request for call in respx.calls if call.request.method == "POST"]
 
@@ -162,120 +147,52 @@ def test_the_body_is_the_file_whole_in_base64_and_dry_run():
     }
 
 
-# ---- renames -----------------------------------------------------------------------
-def test_an_account_name_flag_reads_sheet_name_and_ledger_name():
-    """The ledger name is everything after the first `=`; the sheet's name may
-    hold a colon."""
-    assert parse_account_name(" BCP = Sueldo Soles ") == ("BCP", "Sueldo Soles")
-    assert parse_account_name("A:B=X=Y") == ("A:B", "X=Y")
-
-
-@pytest.mark.parametrize("value", ["BCP", "BCP:PEN", "=X", "BCP= ", " =X"])
-def test_a_malformed_account_name_is_refused_in_words(value):
-    with pytest.raises(RenameRefused, match="is not SHEET_NAME=LEDGER_NAME"):
-        parse_account_name(value)
-
-
-def test_a_saved_rename_is_keyed_by_the_sheets_name():
-    """`sheet_account_names` keys are sheet names, trimmed and case-insensitive;
-    a key with a currency is read by its name alone."""
-    renames, disputed = saved_renames(
-        {"BCP": "Sueldo Soles", " A:B ": " X ", "Empty": " ", " ": "Z", "Oro:PEN": "Old"}
-    )
-    assert renames == {rename_key("bcp"): "Sueldo Soles", "a:b": "X", "oro": "Old"}
-    assert disputed == {}
-    table = names_table(DRY, saved_renames({"BCP Oro:PEN": "Old"})[0], [])
-    assert table[0].renamed_to == "Old"
-
-
-def test_keys_of_one_name_going_to_one_ledger_name_are_one_rename():
-    renames, disputed = saved_renames(
-        {"BCP:PEN": "Sueldo Soles", "BCP:USD": " sueldo soles ", "bcp": "Sueldo Soles"}
-    )
-    assert renames == {"bcp": "Sueldo Soles"}
-    assert disputed == {}
-
-
-def test_keys_of_one_name_going_to_two_ledger_names_are_disputed():
-    renames, disputed = saved_renames(
-        {"BCP:PEN": "Sueldo Soles", "BCP:USD": "Sueldo Dólares", "Otra Caja": "X"}
-    )
-    assert renames == {"otra caja": "X"}
-    assert disputed == {"bcp": ("Sueldo Soles", "Sueldo Dólares")}
-    table = names_table(TWO_ACCOUNTS, renames, [])
-    with pytest.raises(RenameRefused) as refused:
-        check_disputed(table, disputed)
-    assert str(refused.value) == (
-        'Your saved renames send "BCP" to both "Sueldo Soles" and "Sueldo Dólares". '
-        'Choose one with --account-name "BCP=<ledger name>".'
-    )
-    check_disputed(table, {"nobody": ("A", "B")})
-
-
-def test_a_flag_name_and_a_saved_key_are_read_by_one_rule():
-    """A trailing `:` and three capital letters is a currency in both."""
-    merged, renames, disputed = merge_renames(
-        {"Caja:USD": "Old", "caja": "Older"}, [("Caja:PEN", "Efectivo")]
-    )
-    assert merged == {"Caja:PEN": "Efectivo"}
-    assert renames == {"caja": "Efectivo"}
-    assert disputed == {}
-    assert saved_renames({"Caja:usd": "X"})[0] == {"caja:usd": "X"}  # lower-case: a name
-    table = names_table(sheet_import_answer(accounts=[sheet_name_use("Caja:USD", 1)]), renames, [])
-    with pytest.raises(RenameRefused, match='the sheet has no account "Caja:USD"'):
-        check_renames(table, [("Caja:USD", "Efectivo")])
-
-
-def test_a_flag_replaces_the_saved_rename_of_its_account_in_any_letter_case():
-    merged, renames, disputed = merge_renames(
-        {"Bcp": "Old", "Interbank": "Dolares", "BCP:USD": "Older"}, [("BCP", "Sueldo Soles")]
-    )
-    assert merged == {"Interbank": "Dolares", "BCP": "Sueldo Soles"}
-    assert renames == {rename_key("Interbank"): "Dolares", rename_key("BCP"): "Sueldo Soles"}
-    assert disputed == {}
-
-
 # ---- the names table ---------------------------------------------------------------
 def _goes(table: list[NameEntry]) -> list[tuple]:
-    return [(e.kind, e.name, e.currencies, e.goes, e.target_id) for e in table]
+    return [(e.kind, e.name, e.currencies, e.target_id) for e in table]
 
 
 def test_each_name_goes_to_its_proposal_else_it_is_missing():
     """An account used in two currencies is one name, one entry holding both
     currencies in the engine's order."""
-    table = names_table(DRY, {}, [])
+    table = names_table(DRY)
     assert _goes(table) == [
-        (ACCOUNT, "BCP Oro", ("PEN", "USD"), Goes.MISSING, None),
-        (CATEGORY, "food", (), Goes.YOURS, "cat-food"),
-        (CATEGORY, "travel", (), Goes.MISSING, None),
-        (HASHTAG, "trip", (), Goes.MISSING, None),
+        (ACCOUNT, "BCP Oro", ("PEN", "USD"), None),
+        (CATEGORY, "food", (), "cat-food"),
+        (CATEGORY, "travel", (), None),
+        (HASHTAG, "trip", (), None),
     ]
     assert [e.rows for e in table] == [5, 4, 1, 5]
-    assert all(e.renamed_to is None for e in table)
-    assert [g.value for g in Goes] == ["yours", "missing"]
 
 
-def test_a_renamed_account_goes_to_yours_of_that_name_over_the_proposal():
-    """The rename wins over the proposal; your account is found by its name,
-    trimmed and in any letter case."""
-    renames = {rename_key(" bcp oro "): "Sueldo Soles"}
-    accounts = [
-        account_with_currencies(id="acc-other", name="Other"),
-        account_with_currencies(id="acc-sueldo", name=" sueldo soles "),
-    ]
-    account = names_table(ALL_YOURS, renames, accounts)[0]
-    assert (account.goes, account.target_id, account.renamed_to) == (
-        Goes.YOURS,
-        "acc-sueldo",
-        "Sueldo Soles",
+def test_an_account_carries_the_engines_suggestion_and_a_proposed_one_none():
+    answer = sheet_import_answer(
+        accounts=[
+            sheet_name_use(
+                "BCP 5678",
+                2,
+                suggestion={
+                    "kind": "bank",
+                    "bank_code": "BCP",
+                    "last4": "5678",
+                    "currencies": ["PEN"],
+                },
+                currencies=["PEN"],
+            ),
+            sheet_name_use("ALEJO", 2, currencies=["PEN"]),
+            sheet_name_use("BCP-1234", 2, "acc-1", currencies=["PEN"]),
+        ],
     )
+    suggested, unsure, proposed = [e.suggestion for e in names_table(answer)[:3]]
+    assert suggested == Suggestion("bank", "BCP", "5678")
+    assert unsure == Suggestion(None, None, None)
+    assert proposed is None
 
 
 def test_missing_names_are_the_categories_and_hashtags_one_per_name_the_engine_holds_as_one():
     """`Travel` and `travel` are two names to the sheet but one category to the
     engine, which would refuse the second create as taken; an account is never
-    among the names to create, and each sheet name with no account is listed as
-    one to make in the app."""
+    among the names to create."""
     answer = sheet_import_answer(
         accounts=[
             sheet_name_use("BCP", 1, currencies=["PEN"]),
@@ -284,7 +201,7 @@ def test_missing_names_are_the_categories_and_hashtags_one_per_name_the_engine_h
         categories=[sheet_name_use("Travel"), sheet_name_use("travel"), sheet_name_use("Food")],
         hashtags=[sheet_name_use("trip", 1, "tag-trip")],
     )
-    table = names_table(answer, {}, [])
+    table = names_table(answer)
     assert [(e.kind, e.name) for e in missing_names(table)] == [
         (CATEGORY, "Travel"),
         (CATEGORY, "Food"),
@@ -294,7 +211,7 @@ def test_missing_names_are_the_categories_and_hashtags_one_per_name_the_engine_h
 
 def test_the_table_sent_gives_every_name_its_id_and_an_account_no_currency():
     """One `{name, account_id}` per account name, however many currencies it holds."""
-    assert table_body(names_table(ALL_YOURS, {}, [])) == {
+    assert table_body(names_table(ALL_YOURS)) == {
         "accounts": [{"name": "BCP Oro", "account_id": "acc-oro"}],
         "categories": [
             {"name": "food", "category_id": "cat-food"},
@@ -303,50 +220,127 @@ def test_the_table_sent_gives_every_name_its_id_and_an_account_no_currency():
         "hashtags": [{"name": "trip", "hashtag_id": "tag-trip"}],
     }
     with pytest.raises(ValueError, match="BCP Oro"):
-        table_body(names_table(DRY, {}, []))
+        table_body(names_table(DRY))
 
 
-# ---- checking the renames against the sheet ----------------------------------------
-TWO_ACCOUNTS = sheet_import_answer(
+# ---- what the review makes ---------------------------------------------------------
+#: A sheet of an account to make, a proposed account, a category to make in two spellings
+#: and a hashtag to make.
+REVIEWED = sheet_import_answer(
     accounts=[
-        sheet_name_use("BCP", 2, currencies=["PEN"]),
-        sheet_name_use("Interbank", 1, "acc-ib", currencies=["PEN"]),
-        sheet_name_use("bcp", 1, currencies=["PEN"]),
-    ]
+        sheet_name_use("BCP 5678", 3, currencies=["PEN", "USD"]),
+        sheet_name_use("BCP-1234", 2, "acc-have", currencies=["PEN"]),
+    ],
+    categories=[
+        sheet_name_use("Travel"),
+        sheet_name_use("travel"),
+        sheet_name_use("food", 1, "c1"),
+    ],
+    hashtags=[sheet_name_use("trip")],
 )
+SET = {"type": "bank", "bank": "BCP", "last4": "5678", "archive": "yes", "name": "BCP 5678"}
 
 
-def test_a_flag_for_an_account_the_sheet_lacks_is_refused():
-    table = names_table(TWO_ACCOUNTS, {}, [])
-    with pytest.raises(RenameRefused, match='the sheet has no account "Nope".'):
-        check_renames(table, [("Nope", "Dolares")])
-    check_renames(table, [(" interbank ", "Sueldo")])  # trimmed, any letter case
+def test_the_review_makes_an_id_once_for_each_thing_it_creates():
+    table = names_table(REVIEWED)
+    ids = new_ids(table)
+    assert set(ids) == {
+        (ACCOUNT, "BCP 5678"),
+        (CATEGORY, "travel"),
+        (HASHTAG, "trip"),
+    }
+    assert len(set(ids.values())) == 3
 
 
-def test_a_rename_putting_two_sheet_accounts_on_one_is_not_refused():
-    """The engine decides what may share an account; both names go to one id."""
-    renames = {rename_key("BCP"): "sueldo", rename_key("Interbank"): "Sueldo"}
-    accounts = [account_with_currencies(id="acc-s", name="Sueldo")]
-    table = names_table(TWO_ACCOUNTS, renames, accounts)
-    check_renames(table, [("BCP", "sueldo"), ("Interbank", "Sueldo")])
-    sent = [e for e in table if e.kind == ACCOUNT]
-    assert [(e.name, e.target_id) for e in sent] == [
-        ("BCP", "acc-s"),
-        ("Interbank", "acc-s"),
-        ("bcp", "acc-s"),
+def test_create_lists_what_is_missing_and_names_points_every_name_at_an_id():
+    """The proposed account is in `names` with its proposed id and out of `create`; the two
+    spellings of one category are two names at one made id."""
+    table = names_table(REVIEWED)
+    ids = new_ids(table)
+    acc, cat, tag = ids[(ACCOUNT, "BCP 5678")], ids[(CATEGORY, "travel")], ids[(HASHTAG, "trip")]
+    assert review_create(table, ids, {"BCP 5678": SET}) == {
+        "accounts": [
+            {
+                "id": acc,
+                "kind": "bank",
+                "bank_code": "BCP",
+                "last4": "5678",
+                "currencies": ["PEN", "USD"],
+                "archived": True,
+            }
+        ],
+        "categories": [{"id": cat, "name": "Travel"}],
+        "hashtags": [{"id": tag, "name": "trip"}],
+    }
+    assert review_names(table, ids) == {
+        "accounts": [
+            {"name": "BCP 5678", "account_id": acc},
+            {"name": "BCP-1234", "account_id": "acc-have"},
+        ],
+        "categories": [
+            {"name": "Travel", "category_id": cat},
+            {"name": "travel", "category_id": cat},
+            {"name": "food", "category_id": "c1"},
+        ],
+        "hashtags": [{"name": "trip", "hashtag_id": tag}],
+    }
+
+
+@pytest.mark.parametrize(
+    ("values", "entry"),
+    [
+        (
+            {
+                "type": "bank",
+                "bank": "BCP",
+                "last4": "5678",
+                "statement_code": "SIG",
+                "archive": "no",
+            },
+            {"bank_code": "BCP", "last4": "5678", "statement_code": "SIG", "archived": False},
+        ),
+        (
+            {"type": "person", "name": "ALEJO", "archive": "no"},
+            {"name": "ALEJO", "archived": False},
+        ),
+        ({"type": "cash", "name": "Caja", "bank": "BCP", "archive": "yes"}, {"archived": True}),
+    ],
+    ids=["bank", "person", "cash"],
+)
+def test_an_account_entry_carries_only_what_its_kind_takes(values, entry):
+    assert account_entry("id-1", ("PEN",), values) == {
+        "id": "id-1",
+        "kind": values["type"],
+        "currencies": ["PEN"],
+        **entry,
+    }
+
+
+def test_a_refusal_keyed_create_names_its_list_place_and_field():
+    err = EngineError(
+        "VALIDATION_ERROR",
+        "Invalid.",
+        {
+            "create.accounts.1.last4": "taken",
+            "create.hashtags.0.name": "bad",
+            "create.accounts.2": "x",
+        },
+        422,
+        {},
+    )
+    assert [tuple(r) for r in create_refusals(err)] == [
+        ("accounts", 1, "last4", "taken"),
+        ("hashtags", 0, "name", "bad"),
+        ("accounts", 2, None, "x"),
     ]
 
 
-def test_names_one_rename_covers_are_one_account_not_two():
-    """`BCP` and `bcp` are one account to the rename: no clash."""
-    renames = {rename_key("BCP"): "Sueldo Soles"}
-    accounts = [account_with_currencies(id="acc-s", name="Sueldo Soles")]
-    table = names_table(TWO_ACCOUNTS, renames, accounts)
-    check_renames(table, [("BCP", "Sueldo Soles")])
-    assert [(e.name, e.renamed_to) for e in table if e.renamed_to] == [
-        ("BCP", "Sueldo Soles"),
-        ("bcp", "Sueldo Soles"),
-    ]
+@pytest.mark.parametrize("key", ["rows.2.title", "names.accounts.0.account_id", "file", "create"])
+def test_a_refusal_with_a_key_of_anything_else_is_no_create_refusal(key):
+    fields = {"create.accounts.0.last4": "a", key: "b"}
+    err = EngineError("VALIDATION_ERROR", "Invalid.", fields, 422, {})
+    assert create_refusals(err) == []
+    assert create_refusals(ValueError("x")) == []
 
 
 # ---- the run -----------------------------------------------------------------------
@@ -354,70 +348,30 @@ def test_names_one_rename_covers_are_one_account_not_two():
 @respx.mock
 def test_with_every_name_yours_the_second_request_carries_the_whole_table(configured, step):
     route = _engine(ALL_YOURS)
-    import_sheet(_cfg(), DATA, step=step, renames={})
+    import_sheet(_cfg(), DATA, step=step)
     bodies = [_body(c.request) for c in route.calls]
     assert bodies[0] == {"dry_run": True, "file": file_field(DATA)}
     assert bodies[1] == {
         "dry_run": step is not Step.APPLY,
         "file": file_field(DATA),
-        "names": {
-            "accounts": [{"name": "BCP Oro", "account_id": "acc-oro"}],
-            "categories": [
-                {"name": "food", "category_id": "cat-food"},
-                {"name": "travel", "category_id": "cat-trv"},
-            ],
-            "hashtags": [{"name": "trip", "hashtag_id": "tag-trip"}],
-        },
+        "names": table_body(names_table(ALL_YOURS)),
     }
 
 
 @respx.mock
-def test_a_rename_reads_your_accounts_people_and_archived_included(configured):
-    _engine()
-    accounts = respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(
-            200, json={"items": [account_with_currencies(id="acc-sueldo", name="Sueldo Soles")]}
-        )
-    )
-    renames = {rename_key("BCP Oro"): "Sueldo Soles"}
-    result = import_sheet(_cfg(), DATA, step=Step.DRY_RUN, renames=renames)
-    assert accounts.call_count == 1
-    params = accounts.calls[0].request.url.params
-    assert (params["include_archived"], params["include_people"]) == ("true", "true")
-    assert (result.table[0].goes, result.table[0].target_id) == (Goes.YOURS, "acc-sueldo")
+def test_the_names_step_sends_the_first_dry_run_alone(configured):
+    route = _engine(ALL_YOURS)
+    result = import_sheet(_cfg(), DATA, step=Step.NAMES)
+    assert route.call_count == 1
+    assert (result.error, result.counted, len(result.table)) == (None, False, 4)
 
 
 @respx.mock
-def test_the_create_step_creates_each_missing_category_and_hashtag_and_imports_nothing(configured):
-    """A dry run without `names`, then one create per missing category and hashtag
-    through its own route, each under its own idempotency key; the missing
-    account is never created and no import is sent."""
+def test_a_missing_name_sends_nothing_beyond_the_first_dry_run(configured):
     route = _engine()
-    creates = _creates()
-    result = import_sheet(_cfg(), DATA, step=Step.CREATE_NAMES, renames={})
-
-    writes = _writes()
-    assert [w.url.path for w in writes] == [
-        "/v1/transactions/import-sheet",
-        "/v1/categories",
-        "/v1/hashtags",
-    ]
-    keys = [w.headers["X-Idempotency-Key"] for w in writes]
-    assert len(set(keys)) == len(keys) == 3
-    assert route.call_count == 1 and "names" not in _body(writes[0])
-    assert creates["accounts"].call_count == 0
-
-    category = _body(creates["categories"].calls[0].request)
-    hashtag = _body(creates["hashtags"].calls[0].request)
-    assert (set(category), category["name"]) == ({"id", "name"}, "travel")
-    assert (set(hashtag), hashtag["name"]) == ({"id", "name"}, "trip")
-    assert result.created == [
-        Created(CATEGORY, "travel", category["id"]),
-        Created(HASHTAG, "trip", hashtag["id"]),
-    ]
-    assert result.created[0].answer == {**category, "is_archived": False}
-    assert [e.name for e in result.missing_accounts] == ["BCP Oro"]
-    assert (result.error, result.stage, result.counted, result.answer) == (None, None, False, DRY)
+    result = import_sheet(_cfg(), DATA, step=Step.APPLY)
+    assert route.call_count == 1
+    assert (result.counted, result.answer) == (False, DRY)
 
 
 @pytest.mark.parametrize(
@@ -427,7 +381,7 @@ def test_the_create_step_creates_each_missing_category_and_hashtag_and_imports_n
 def test_a_table_refused_is_kept_with_its_stage(configured, step, stage):
     """An archived account the engine proposed is refused in the table."""
     _engine(ALL_YOURS, tabled=httpx.Response(422, json=INVALID_REFERENCE))
-    result = import_sheet(_cfg(), DATA, step=step, renames={})
+    result = import_sheet(_cfg(), DATA, step=step)
     assert isinstance(result.error, EngineError)
     assert result.error.raw_body == INVALID_REFERENCE
     assert (result.stage, result.counted, result.answer) == (stage, False, ALL_YOURS)
@@ -446,8 +400,26 @@ def test_a_failed_apply_is_retried_by_the_client_under_its_one_key(configured):
         return next(answers, None) or httpx.Response(200, json=_answered(body))
 
     route = respx.post(IMPORT).mock(side_effect=apply)
-    result = import_sheet(_cfg(), DATA, step=Step.APPLY, renames={})
+    result = import_sheet(_cfg(), DATA, step=Step.APPLY)
     assert result.error is None
     applies = [c.request for c in route.calls if "names" in _body(c.request)]
     assert len(applies) == 2
     assert applies[0].headers["X-Idempotency-Key"] == applies[1].headers["X-Idempotency-Key"]
+
+
+def test_two_accounts_differing_only_in_case_are_made_under_two_ids():
+    """Accounts are kept by the name as listed; the engine refuses the second as taken, but the
+    review sends each its own id, while the two spellings of a category share the one."""
+    answer = sheet_import_answer(
+        accounts=[
+            sheet_name_use("BCP Soles", 1, currencies=["PEN"]),
+            sheet_name_use("bcp soles", 1, currencies=["PEN"]),
+        ],
+        categories=[sheet_name_use("Travel"), sheet_name_use("travel")],
+    )
+    table = names_table(answer)
+    ids = new_ids(table)
+    entries = review_create(table, ids, {"BCP Soles": SET, "bcp soles": SET})["accounts"]
+    assert entries[0]["id"] != entries[1]["id"]
+    sent = review_names(table, ids)
+    assert sent["categories"][0]["category_id"] == sent["categories"][1]["category_id"]

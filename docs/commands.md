@@ -31,33 +31,26 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
 | `engine_url` | Base URL of the engine (`http://127.0.0.1:8000`) |
 | `token` | PAT (prefix `ewe_pat_`). Sent verbatim as `Authorization: Bearer <token>`. |
 | `main_currency` | Mirrored from `/v1/auth/me` for formatting hints |
-| `sheet_account_names` | The ledger name per sheet account, keyed by the sheet's name, as `--account-name` saves it ("`expense import sheet`" below) |
 
 ---
 
 ## `expense import sheet`
 
-`import sheet <file.xlsx> [--create-names | --apply] [--account-name SHEET_NAME=LEDGER_NAME ...] [--json]` brings the personal sheet into the engine. The app sends the file whole, in base64, and reads no cell of it; the engine reads the workbook, matches every row against the ledger and writes everything or nothing (contract: POST /v1/transactions/import-sheet). A sheet with bad rows is refused whole on any step, nothing written or created (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The sheet's layout is the engine's (contract: POST /v1/transactions/import-sheet, "The sheet"); sending the same sheet again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching").
+`import sheet <file.xlsx> [--apply] [--json]` brings the personal sheet into the engine. The app sends the file whole, in base64, and reads no cell of it; the engine reads the workbook, matches every row against the ledger and writes everything or nothing (contract: POST /v1/transactions/import-sheet). A sheet with bad rows is refused whole, nothing written (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The sheet's layout is the engine's (contract: POST /v1/transactions/import-sheet, "The sheet"); sending the same sheet again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching").
 
-**Three steps, because every name needs an id first.** The engine never looks a name up: it answers counts only once a table gives every account, category and hashtag its id (contract: POST /v1/transactions/import-sheet, "Names"). Each step first sends the sheet as a dry run without a table, so a refused sheet stops there.
+**Without a flag it opens the app on the import's review.** The command sends the sheet as a dry run without a table; when the engine answers, the app opens on the "Import sheet" screen, where each sheet account the engine has no account for is set once and one write makes the accounts, categories and hashtags and imports the rows (contract: POST /v1/transactions/import-sheet, "Create"). The screen's docstring ([import_sheet.py](../expense/tui/screens/import_sheet.py)) holds its keys and what it sends. When the app closes the command prints the one line the review ends with. A refused sheet never opens the app: the engine's words print and the command exits 1.
 
-1. **Dry run** (no flag) writes nothing: it lists every name and where it goes, then the engine's counts once every name exists.
-2. **`--create-names`** creates the missing categories and hashtags and imports nothing (contract: POST /v1/categories) (contract: POST /v1/hashtags). It never goes with `--apply`.
-3. **`--apply`** imports with the table; it is refused, nothing written, while a name or an account is missing.
+**`--apply`** imports without the review, once every account, category and hashtag has an id (the engine's proposals: a name the ledger already holds is proposed, (contract: POST /v1/transactions/import-sheet, "Names")); it is refused, nothing written, while one is missing, and points at the review. **`--json`** prints the engine's answer to the dry run (with the counts, once every name has an id) and opens nothing.
 
-**The import makes no account.** A sheet account with no account is made in the app; `--account-name` then gives it the sheet's name.
+**Exit codes:** 0 for a review that ended, a dry run and an apply that went through; 1 when the file cannot be read, the engine refused the sheet or a write, or `--apply` met a missing name or account; 2 for a usage error; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
 
-**`--account-name "BCP=Sueldo Soles"`** (repeatable) puts the sheet's `BCP` rows on the ledger account of that name. It is saved to `sheet_account_names` in the settings file, dry run included, and applied on every later run. Two sheet names may go to one ledger account; the engine decides what may share one (contract: POST /v1/transactions/import-sheet, "Names").
-
-**Exit codes:** 0 for a dry run, a create step and an apply that went through; 1 when the file cannot be read, the engine refused the sheet or a write, or `--apply` met a missing name or account; 2 for a usage error; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
-
-What it prints (tables, counts, refused rows, the rename rules and their usage errors, the `--json` shapes) is said by [import_cmd.py](../expense/commands/import_cmd.py) and [engine.py](../expense/import_/engine.py), and pinned by their tests. Refused rows are grouped as the LOG bar's are ([runtime.md](runtime.md) "How refused rows read").
+What it prints (counts, refused rows, the `--json` shapes) is said by [import_cmd.py](../expense/commands/import_cmd.py) and [engine.py](../expense/import_/engine.py), and pinned by their tests. Refused rows are grouped as the LOG bar's are ([runtime.md](runtime.md) "How refused rows read").
 
 ### Sanctioned exceptions
 
 Deliberate, reviewed deviations — do not re-flag in future reviews:
 
-- **`import sheet --create-names --json`** and **`import sheet --apply --json` with a name missing** are client-composed (shapes: the module docstring of [`import_cmd.py`](../expense/commands/import_cmd.py)): the create step is many engine calls, printed as the engine's answer to each, and the refused apply sends nothing, so its envelope is the app's.
+- **`import sheet --apply --json` with a name missing** is client-composed (shape: the module docstring of [`import_cmd.py`](../expense/commands/import_cmd.py)): the refused apply sends nothing, so its envelope is the app's.
 
 ---
 

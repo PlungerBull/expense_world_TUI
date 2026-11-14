@@ -6,14 +6,20 @@ lazily so `expense import sheet` doesn't pay the cost.
 See [docs/tui.md](../../docs/tui.md).
 """
 
+from typing import TYPE_CHECKING
+
 import typer
 
+if TYPE_CHECKING:
+    from expense.import_.engine import SheetReview
 
-def open_app(ctx: typer.Context) -> None:
-    """Open the interactive app."""
+
+def open_app(ctx: typer.Context, review: "SheetReview | None" = None) -> str | None:
+    """Open the interactive app, on the import's review when `review` is given; the one
+    line the app ends with, if any."""
     from expense.tui.app import launch
 
-    launch(ctx)
+    return launch(ctx, review)
 
 
 __all__ = ["open_app"]

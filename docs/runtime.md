@@ -68,7 +68,7 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   **The keys go on the command line, nowhere else.** The shared practice user's key goes in `EXPENSE_PAT`, the reserved-names user's in `EXPENSE_RESERVED_PAT`, both inline on the command that uses them, never in a file ([CLAUDE.md](../CLAUDE.md) "Stay inside this repo"). The next reseed revokes both, so each is good for one check; the practice accounts' ids are no key.
 
-  **Pointing `expense` at it.** The app reads its key only from the file `EXPENSE_CONFIG` names, so hand it the config as a pipe: `EXPENSE_CONFIG=<(printf '{"engine_url":"http://127.0.0.1:8002","token":"<key>","main_currency":"PEN"}') expense …`. `main_currency` is there because a read of `/auth/me` otherwise saves it back; anything that writes the config (the setup and Config screens, `import sheet --account-name` saving a rename) fails on a pipe. A pipe gives its contents to the first read only, and the app and each step of `expense import sheet` read the settings once, so both work this way.
+  **Pointing `expense` at it.** The app reads its key only from the file `EXPENSE_CONFIG` names, so hand it the config as a pipe: `EXPENSE_CONFIG=<(printf '{"engine_url":"http://127.0.0.1:8002","token":"<key>","main_currency":"PEN"}') expense …`. `main_currency` is there because a read of `/auth/me` otherwise saves it back; anything that writes the config (the setup and Config screens) fails on a pipe. A pipe gives its contents to the first read only, and the app and `expense import sheet` read the settings once, so both work this way.
 
   **Stop it when the check ends:** `scripts/practice-engine down`.
 

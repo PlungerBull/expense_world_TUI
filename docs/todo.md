@@ -27,9 +27,8 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
-   answered by 2026-11-13; tasks 1–4, 6 and 7 are done. Task 8
-   (the import's review) runs on contract 3.1, question 19 answered 2026-11-14; the rehearsal,
-   task 5, runs after it. v1.0.0 is prepared after it.
+   answered by 2026-11-13; tasks 1–4, 6 and 7 are done, and task 8's drawn
+   parts. Task 8's rest waits on question 20; the rehearsal, task 5, runs after it. v1.0.0 is prepared after it.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
@@ -59,16 +58,20 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The import's review: three edges and `--json`
-Asked 2026-11-14 · Blocks: the official import's task 8 (its drawn parts are being built meanwhile)
-Panes 8, 9 and 10 of
+### The import's review: its edges, `--json`, `--apply`, and two engine asks
+Asked 2026-11-14 · Blocks: the official import's task 8 (its drawn parts are built meanwhile)
+Panes 8, 9, 10 and 11 of
 [mockups/expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
-draw three things the review meets that the earlier panes don't, and the command's `--json` needs
-a yes or no; each is the official import's question 20, with its options and reasons.
-- **A.** The recommended picks: `8A 9A 10A`, and `--json` dropped.
+draw what the review meets beyond the earlier panes; the command's `--json` and `--apply` each
+need a yes or no; and two engine asks (in [to-engine/](to-engine/), for you to hand over) decide
+whether the official import waits. Each is the official import's question 20, with its options
+and reasons.
+- **A.** The recommended picks: `8A 9A 10A 11A`, `--json` and `--apply` dropped, and the
+  official import waiting only for the opening-balance names ask (C).
 - **B.** Other letters (say which).
 **Recommended:** A: every sheet name has a row, the app opens only with something to review,
-you go on in the app afterwards, and nothing reads `--json`.
+you go on in the app afterwards, every import goes through the review, and no stray category
+reaches the real ledger.
 
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check

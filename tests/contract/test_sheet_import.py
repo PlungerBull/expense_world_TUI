@@ -7,11 +7,10 @@ category or hashtag only from the `create` the request lists, all of it landing 
 none of it (contract: POST /v1/transactions/import-sheet, "Create"), as the `Creation` tests
 show, and answers outcomes and counts only with a table giving every name its id
 (contract: POST /v1/transactions/import-sheet, "Names"): the dry run
-lists the names while one is missing, the app's create step makes each category and
-hashtag the caller lacks through the create routes and imports nothing, then the dry run counts
-and the apply writes. The other tests make their accounts first, through the engine, and put
-the sheet's names on them with `renames`, as `--account-name`
-does. An account is one name whatever currencies its rows are in: the table holds one
+lists the names while one is missing, each category and hashtag the caller lacks is made
+through its create route, then the dry run counts and the apply writes. The other tests make
+their accounts first, through the engine, and write the sheet's names as theirs, which the
+engine proposes. An account is one name whatever currencies its rows are in: the table holds one
 entry for it, `{name, account_id}` with no currency, each row lands on its own currency
 of it (`MONEDA`), and an account lacking one is `CURRENCY_NOT_HELD` on its entry.
 A bad row refuses the whole sheet on every step, keyed by its row,
@@ -42,12 +41,10 @@ from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
     HASHTAG,
-    Goes,
     SheetImport,
     Stage,
     Step,
     import_sheet,
-    rename_key,
     request_body,
     table_body,
 )
@@ -112,13 +109,27 @@ def _bad_rows(n: Names) -> list[list]:
 
 
 def _keep(scratch, run: SheetImport) -> SheetImport:
-    """The run's records joined to the scratch, so its cleanup deletes every transaction the
-    run created and every name its create step created, whatever the test finds after."""
-    owner = {ACCOUNT: scratch.accounts, CATEGORY: scratch.categories, HASHTAG: scratch.hashtags}
-    for made in run.created:
-        owner[made.kind].append(made.id)
+    """The run's transactions joined to the scratch, so its cleanup deletes every one the run
+    created, whatever the test finds after."""
     scratch.transactions.extend(r.transaction_id for r in run.rows if r.transaction_id)
     return run
+
+
+def _make_missing(client, run: SheetImport, scratch) -> dict[tuple[str, str], str]:
+    """Each category and hashtag the run listed as missing, made through its own create route
+    under an id of the client's and kept in the scratch; the ids by kind and name."""
+    routes = {
+        CATEGORY: ("/categories", scratch.categories),
+        HASHTAG: ("/hashtags", scratch.hashtags),
+    }
+    made = {}
+    for entry in run.missing:
+        route, owned = routes[entry.kind]
+        new_id = str(uuid4())
+        owned.append(new_id)
+        client.post(route, json_body={"id": new_id, "name": entry.name})
+        made[(entry.kind, entry.name)] = new_id
+    return made
 
 
 def _ran(result: SheetImport, scratch) -> SheetImport:
@@ -130,17 +141,11 @@ def _ran(result: SheetImport, scratch) -> SheetImport:
 
 
 def _refused_on_every_step(target, data: bytes, scratch) -> list[SheetImport]:
-    """The sheet sent as each step: every one refused at its first dry run,
-    nothing created."""
+    """The sheet sent as each step: every one refused at its first dry run."""
     out = []
     for step in Step:
-        stopped = _keep(scratch, import_sheet(target, data, step=step, renames={}))
-        assert (stopped.stage, stopped.answer, stopped.table, stopped.created) == (
-            Stage.NAMES,
-            None,
-            [],
-            [],
-        ), step
+        stopped = _keep(scratch, import_sheet(target, data, step=step))
+        assert (stopped.stage, stopped.answer, stopped.table) == (Stage.NAMES, None, []), step
         assert isinstance(stopped.error, EngineError), step
         out.append(stopped)
     return out
@@ -148,27 +153,27 @@ def _refused_on_every_step(target, data: bytes, scratch) -> list[SheetImport]:
 
 def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scratch):
     n = Names()
-    data = sheet_file(_good(n))
-    # The account is made first, holding the two currencies its rows are in, and the sheet's
-    # name goes onto it by its rename.
+    # The account is made first, holding the two currencies its rows are in, and the sheet
+    # writes its name, so the engine proposes it.
     account = scratch.account("PEN", "USD")
-    renames = {rename_key(n.account): client.get(f"/accounts/{account}")["name"]}
+    n.account = client.get(f"/accounts/{account}")["name"]
+    data = sheet_file(_good(n))
     # The first dry run lists every category and hashtag missing, with its rows and no outcome;
-    # the account once, going to the account it is renamed to.
+    # the account once, proposed.
     before = CLEANER.holdings(client)
-    dry = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames=renames), scratch)
-    assert [(e.kind, e.name, e.currencies, e.rows, e.goes, e.target_id) for e in dry.table] == [
-        (ACCOUNT, n.account, ("PEN", "USD"), 6, Goes.YOURS, account),
-        (CATEGORY, n.food, (), 4, Goes.MISSING, None),
-        (CATEGORY, n.pay, (), 2, Goes.MISSING, None),
-        (HASHTAG, n.home, (), 4, Goes.MISSING, None),
-        (HASHTAG, n.work, (), 2, Goes.MISSING, None),
+    dry = _ran(import_sheet(target, data, step=Step.DRY_RUN), scratch)
+    assert [(e.kind, e.name, e.currencies, e.rows, e.target_id) for e in dry.table] == [
+        (ACCOUNT, n.account, ("PEN", "USD"), 6, account),
+        (CATEGORY, n.food, (), 4, None),
+        (CATEGORY, n.pay, (), 2, None),
+        (HASHTAG, n.home, (), 4, None),
+        (HASHTAG, n.work, (), 2, None),
     ]
     (listed,) = dry.answer["names"]["accounts"]
     assert (listed["name"], listed["currencies"], listed["proposed_id"]) == (
         n.account,
         ["PEN", "USD"],
-        None,
+        account,
     )
     assert not dry.counted and len(dry.missing) == 4
     assert [(r.row, r.outcome, r.transaction_id) for r in dry.rows] == [
@@ -183,11 +188,10 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
         (6, None, "PEN"),
         (7, None, "PEN"),
     ]
-    assert dry.created == []
 
     # The apply while names are missing sends nothing more.
-    early = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
-    assert (early.counted, early.created, len(early.missing)) == (False, [], 4)
+    early = _ran(import_sheet(target, data, step=Step.APPLY), scratch)
+    assert (early.counted, len(early.missing)) == (False, 4)
     assert all(r.transaction_id is None for r in early.rows)
     assert CLEANER.holdings(client) == before
 
@@ -206,19 +210,18 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
         )
     assert CLEANER.holdings(client) == before
 
-    # The create step creates every category and hashtag, no account, and imports nothing.
-    made_run = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
-    assert sorted((c.kind, c.name) for c in made_run.created) == sorted(
-        [(CATEGORY, n.food), (CATEGORY, n.pay), (HASHTAG, n.home), (HASHTAG, n.work)]
-    )
-    made = {(c.kind, c.name): c.id for c in made_run.created}
-    assert all(c.answer["id"] == c.id for c in made_run.created)
+    # Every category and hashtag is made through its create route, no account.
+    made = _make_missing(client, dry, scratch)
+    assert set(made) == {
+        (CATEGORY, n.food),
+        (CATEGORY, n.pay),
+        (HASHTAG, n.home),
+        (HASHTAG, n.work),
+    }
     assert live_ids(client, account) == set()
 
-    # Run again, it creates nothing: every name is proposed as the one just made, the account
-    # the one it is renamed to.
-    again_made = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
-    assert again_made.created == []
+    # Run again, every name is proposed as the one just made.
+    again_made = _ran(import_sheet(target, data, step=Step.NAMES), scratch)
     assert {(e.kind, e.name): e.target_id for e in again_made.table} == {
         **made,
         (ACCOUNT, n.account): account,
@@ -231,7 +234,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     # The dry run now counts: every non-zero row new, the zero row skipped, the split one
     # line; nothing written.
     held = CLEANER.holdings(client)
-    counted = _ran(import_sheet(target, data, step=Step.DRY_RUN, renames=renames), scratch)
+    counted = _ran(import_sheet(target, data, step=Step.DRY_RUN), scratch)
     assert counted.counted and counted.missing == []
     assert {r.row: r.outcome for r in counted.rows} == {
         2: "new", 3: "new", 4: "new", 5: "skipped", 6: "new", 7: "new"
@@ -245,8 +248,7 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
 
     # The apply writes every non-zero row new. A table carrying a `currency_code` on an
     # account would be refused whole (`UNKNOWN_FIELD`), so a run that goes through sent none.
-    first = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
-    assert first.created == []
+    first = _ran(import_sheet(target, data, step=Step.APPLY), scratch)
     rows = {r.row: r for r in first.rows}
     assert {row: r.outcome for row, r in rows.items()} == {
         2: "new", 3: "new", 4: "new", 5: "skipped", 6: "new", 7: "new"
@@ -282,9 +284,8 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
 
     # Applied again: nothing created, every non-zero row matched on its line, nothing written.
     held = CLEANER.holdings(client)
-    again = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
-    assert again.created == []
-    assert all(e.goes is Goes.YOURS for e in again.table)
+    again = _ran(import_sheet(target, data, step=Step.APPLY), scratch)
+    assert all(e.target_id for e in again.table)
     assert [(r.row, r.outcome, r.transaction_id, r.bank_line_id) for r in again.rows] == [
         (row, "matched", None, rows[row].bank_line_id) if row in GOOD_ROWS
         else (row, "skipped", None, None)
@@ -320,16 +321,14 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
     assert live_ids(client, account) == written
 
 
-def test_an_account_lacking_a_currency_of_its_rows_is_refused_on_its_entry(client, target, scratch):
+def test_an_account_lacking_a_currency_of_its_rows_is_refused_on_its_entry(client, scratch):
     """A name whose rows are in soles and dollars, sent to an account holding soles only, is
     `CURRENCY_NOT_HELD` on `names.accounts.<i>.account_id`, `<i>` its place in the table, on the
-    dry run with the table and the apply, nothing written (contract:
+    dry run with the table and the apply, nothing written or made (contract:
     POST /v1/transactions/import-sheet, "Names")."""
     n = Names()
     soles_only = scratch.account("PEN")
-    soles_name = client.get(f"/accounts/{soles_only}")["name"]
     ok, short = f"{n.account}-ok", f"{n.account}-short"
-    renames = {rename_key(ok): soles_name, rename_key(short): soles_name}
     data = sheet_file(
         [
             sheet_row("CAFE", n.home, n.food, date(2026, 4, 2), -9.5, ok, "PEN"),
@@ -337,22 +336,27 @@ def test_an_account_lacking_a_currency_of_its_rows_is_refused_on_its_entry(clien
             sheet_row("DOLARES", n.home, n.food, date(2026, 4, 4), -3, short, "USD"),
         ]
     )
-    # the category and the hashtag are made first: the table is sent only with every name
-    made = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
-    assert [(c.kind, c.name) for c in made.created] == [(CATEGORY, n.food), (HASHTAG, n.home)]
+    food, home = str(uuid4()), str(uuid4())
+    names = {
+        "accounts": [
+            {"name": ok, "account_id": soles_only},
+            {"name": short, "account_id": soles_only},
+        ],
+        "categories": [{"name": n.food, "category_id": food}],
+        "hashtags": [{"name": n.home, "hashtag_id": home}],
+    }
+    create = {
+        "accounts": [],
+        "categories": [{"id": food, "name": n.food}],
+        "hashtags": [{"id": home, "name": n.home}],
+    }
     held = CLEANER.holdings(client)
     account_read = client.get(f"/accounts/{soles_only}")
-    for step in (Step.DRY_RUN, Step.APPLY):
-        stopped = _keep(scratch, import_sheet(target, data, step=step, renames=renames))
-        assert stopped.stage is (Stage.COUNTS if step is Step.DRY_RUN else Stage.APPLY)
-        assert [e.target_id for e in stopped.table if e.kind == ACCOUNT] == [soles_only] * 2
-        assert isinstance(stopped.error, EngineError)
+    for dry_run in (True, False):
+        body = request_body(data, dry_run=dry_run, names=names, create=create)
+        err = refused(lambda body=body: client.post("/transactions/import-sheet", json_body=body))
         assert_refusal(
-            stopped.error,
-            422,
-            "VALIDATION_ERROR",
-            "names.accounts.1.account_id",
-            "CURRENCY_NOT_HELD",
+            err, 422, "VALIDATION_ERROR", "names.accounts.1.account_id", "CURRENCY_NOT_HELD"
         )
         assert CLEANER.holdings(client) == held
         assert transaction_count(client, soles_only) == 0
@@ -506,32 +510,27 @@ def test_a_zero_saldo_inicial_dated_earlier_leaves_the_first_non_zero_one_the_op
     assert transaction_count(client, person) == 1
 
 
-def test_two_sheet_names_renamed_onto_two_accounts_land_each_on_its_own(client, target, scratch):
+def test_two_accounts_the_sheet_names_by_their_own_names_land_each_on_its_own(
+    client, target, scratch
+):
     n = Names()
-    left_sheet, right_sheet = f"{n.account}-left", f"{n.account}-right"
     left, right = scratch.account("PEN"), scratch.account("PEN")
     left_name = client.get(f"/accounts/{left}")["name"]
     right_name = client.get(f"/accounts/{right}")["name"]
-    renames = {rename_key(left_sheet): left_name, rename_key(right_sheet): right_name}
     data = sheet_file(
         [
-            sheet_row("CAFE", n.home, n.food, date(2026, 4, 2), -9.5, left_sheet, "PEN"),
-            sheet_row("TIENDA", n.home, n.food, date(2026, 4, 3), -12, right_sheet, "PEN"),
+            sheet_row("CAFE", n.home, n.food, date(2026, 4, 2), -9.5, left_name, "PEN"),
+            sheet_row("TIENDA", n.home, n.food, date(2026, 4, 3), -12, right_name, "PEN"),
         ]
     )
-    # Each rename goes to the account of that name; the create step makes the category and
-    # hashtag only, never an account, the sheet's names included.
-    names = _ran(import_sheet(target, data, step=Step.CREATE_NAMES, renames=renames), scratch)
+    # Each name is proposed for the account of that name; the category and hashtag are made
+    # first, through their create routes.
+    names = _ran(import_sheet(target, data, step=Step.NAMES), scratch)
     table = {e.name: e for e in names.table if e.kind == ACCOUNT}
-    assert (table[left_sheet].goes, table[left_sheet].target_id) == (Goes.YOURS, left)
-    assert (table[right_sheet].goes, table[right_sheet].target_id) == (Goes.YOURS, right)
-    assert table[left_sheet].renamed_to == left_name
-    assert [(c.kind, c.name) for c in names.created] == [(CATEGORY, n.food), (HASHTAG, n.home)]
-    listed = {a["name"] for a in client.get("/accounts")["items"]}
-    assert {left_name, right_name} <= listed
-    assert left_sheet not in listed and right_sheet not in listed
+    assert (table[left_name].target_id, table[right_name].target_id) == (left, right)
+    _make_missing(client, names, scratch)
 
-    first = _ran(import_sheet(target, data, step=Step.APPLY, renames=renames), scratch)
+    first = _ran(import_sheet(target, data, step=Step.APPLY), scratch)
     rows = {r.row: r for r in first.rows}
     assert [rows[row].outcome for row in (2, 3)] == ["new", "new"]
     assert read_signed(client, rows[2].transaction_id)["account_id"] == left

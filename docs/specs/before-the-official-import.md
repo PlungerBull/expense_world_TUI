@@ -134,6 +134,21 @@ account's month.
     - **`--json`:** A, `expense import sheet` drops `--json`, since the review is a screen; or
       B, it keeps `--json` for a dry run that prints the engine's answer and opens nothing.
       **Recommended:** A: nothing reads it, and a dry run is the review itself.
+    - **Pane 11, a row with a last 4 but no bank:** A, the row reads `bank · ? bank · 1234`, the
+      line under the table counts it, and `⏎` opens the form on BANK; a row with no kind opens
+      with TYPE not yet picked; or B, other words. **Recommended:** A, the way `? last 4` reads.
+    - **`--apply`:** A, `expense import sheet` drops `--apply`, so every import goes through the
+      review; or B, it keeps `--apply` to import, with no review and no question, a sheet whose
+      names all have an account. **Recommended:** A: one way in, every import seen before it is
+      written.
+    - **The two engine asks** "The sheet import says which names only opening balances use, so a
+      client never makes a category or hashtag no transaction needs" and "The sheet import's
+      `create.accounts` takes an account's `color`, as `POST /accounts` does": until they land,
+      the review would make a `SALDO INICIAL` category no transaction uses, and its form has no
+      colour line (colours set afterwards in Edit). A, the official import waits for both; B,
+      it waits for neither (the category deleted and the colours set by hand afterwards); or C,
+      it waits only for the first. **Recommended:** C: a stray category would sit in the real
+      ledger from day one, while colours are a few edits. The rehearsal runs either way.
 
 ## What the engine settled
 
@@ -172,7 +187,8 @@ Each reads the live contract on the practice engine before building. Tasks 1–4
 the answers 15 A and 16 A (2026-11-12), and task 7 on 2026-11-14; task 8 replaces what tasks 2 and 3 built. Task 8 runs on
 contract 3.1, which this client records.
 
-8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it, and question 20 picks.** Each missing account prefilled
+8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it, and question 20 picks.**
+   Its drawn parts are built (2026-11-14); what is left is question 20's answers. Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
    keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
@@ -198,7 +214,4 @@ sheet), and closes the screen side of the two asks part 1 names.
 
 Not built in this spec; sorted when it is done.
 
-- **`--account-name` to a name two live accounts hold takes the last one listed, silently**
-  (`names_table`, expense/import_/engine.py). The engine refuses a second account of a taken
-  name, so after the wipe no two accounts share one; only names older than built names could.
-  It goes with `--account-name` in task 8.
+- Nothing yet.

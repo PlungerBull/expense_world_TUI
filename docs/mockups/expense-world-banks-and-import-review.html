@@ -66,7 +66,7 @@
 <div class="head">
   <h1>Banks, and the import's review</h1>
   <p>Drawn for the engine's contract 3.1: a bank is a 3–4 letter code with a required last 4, and the sheet import suggests the accounts it is missing and makes the ones you confirm, with the names and rows, in one write. Nothing here is built.</p>
-  <p>Panes 1 and 2 draw what is decided; 3 B, 4 A, 5 A, 6 A and 7 B are picked. <b>Answer panes 8, 9 and 10 with one letter each</b>, e.g. <code>8A 9A 10A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+  <p>Panes 1 and 2 draw what is decided; 3 B, 4 A, 5 A, 6 A and 7 B are picked. <b>Answer panes 8, 9, 10 and 11 with one letter each</b>, e.g. <code>8A 9A 10A 11A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
 <!-- ================================================================== group 1 -->
@@ -387,6 +387,27 @@ and 2 hashtags made.
 <span class="d">%</span></pre></div></div>
 <p class="cap"><code>esc</code> closes it too, printing "Nothing was imported." The command stays a one-off.</p></div>
 </div>
+</div>
+
+<!-- ================================================================== 11 -->
+<div class="pane">
+<div class="lbl">11 · A row with a last 4 but no bank <span>— pick A or B</span></div>
+<p class="blurb">A name like <code>Visa 1234</code> gives the engine a last 4 and no bank it reads statements for, so it suggests a bank account with no code.</p>
+
+<div class="var"><div class="oh">A · <span>the row asks for the bank, as it asks for a last 4</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx</span></div>
+<div class="app"><pre>  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+<span class="rev">  Visa 1234                PEN + USD   1,846   bank · ? bank · 1234             </span>
+  BCP Sueldo Soles         PEN         1,203   bank · BCP · <span class="w">? last 4</span>
+  ALEJO                    PEN + USD      58   <span class="w">? pick a kind</span>
+
+  <span class="w">3 accounts still need a bank, a last 4 or a kind.</span></pre></div></div>
+</div>
+<p class="cap"><code>⏎</code> opens the form on BANK. A row with no kind opens its form with TYPE not yet picked.</p></div>
+
+<div class="var"><div class="oh">B · <span>tell us what differs</span></div>
+<p class="cap">Other words for the row or the line under the table.</p></div>
 </div>
 
 <div class="pick">

@@ -842,13 +842,13 @@ balance is typed. *A `Failed` title* — the screen's other refusals say `Couldn
 
 **Rejected.** *Keeping `COD_EECC` as each line's statement line* — statement lines come only from a reconciliation, and 2,275 hand-typed codes would clash with the ones a reconciliation makes. *Creating each month's reconciliations and their order at the import, from `COD_EECC`* — reconciling is the owner's call, made later. *Folding case in a `COD_EECC` or an operation code* — they come from a program, and folding would merge two movements the engine keeps apart. *Listing every group on the dry run* — the groups are checked in the app.
 
-## The sheet import creates its names in a step of its own, and a dry run never writes (2026-10-27)
+## The sheet import is reviewed on a screen and lands in one write (2026-11-14)
 
-**Decision.** `expense import sheet` runs in three steps, the dry run, `--create-names` and `--apply`, so a refused sheet creates nothing and the counts are always seen before anything is imported. The counts name the split transactions and the rows they hold, as the engine counts them (contract: POST /v1/transactions/import-sheet, "Response"). Details: [commands.md](commands.md) "`expense import sheet`".
+**Decision.** `expense import sheet <file>` opens the app on its review ("Import sheet"): each sheet account the engine has no account for, filled from the engine's suggestion and set on the New account form, with the categories and hashtags to make. `^s` sends the dry run with `create`, the engine's count comes back as one question, and only `y` applies the same body: the accounts, categories, hashtags and rows land together or not at all (contract: POST /v1/transactions/import-sheet, "Create"). The counts name the split transactions and the rows they hold, as the engine counts them (contract: POST /v1/transactions/import-sheet, "Response"). Details: [import_sheet.py](../expense/tui/screens/import_sheet.py).
 
-**Why.** The engine never creates a name and counts a dry run only once every name has an id (contract: POST /v1/transactions/import-sheet, "Names"), and on the official import into an empty ledger every name is new. Counting rows beside splits keeps three splits of eight rows from reading like three of six.
+**Why.** On the official import into an empty ledger every name is new, and making eighteen accounts by hand first, then matching each sheet name to one, was the slow and error-prone part. The engine guesses only from what a name says, so the owner confirms each account once, on the form already used for new accounts, and nothing is written until the whole result has been counted.
 
-**Rejected.** *A dry run with no counts* — the numbers would show only after the one-time import. *A dry run that creates the missing names* — a preview that writes. *`--apply` creating what is missing* — an import made without its counts seen. *A command of its own for the step* — `import sheet` stays the only command. *The app counting the split rows itself* — only possible after an apply, and the grouping is the engine's rule.
+**Rejected.** *Questions one at a time in the terminal* — a typo means starting again. *Making every account in the app first and naming it after the sheet* — the step the review replaces. *The suggestion applied by itself* — the engine guesses only from the name. *The app counting the split rows itself* — the grouping is the engine's rule.
 
 ## A person carries an opening balance (2026-10-28)
 
@@ -1150,19 +1150,16 @@ currency* — one more key on every such move, for what the line already says. *
 engine's order (`formatting.currencies_phrase`) and send the account's id alone; the engine files
 each row and PDF balance under its own currency. (2) The PDF preview shows a balance only for
 currencies the answer covers. (3) The sheet's names table lists each account name once, its
-currencies in `CUR`; `--create-names` makes only categories and hashtags, and a missing account is made in the app. (4) A rename is the sheet
-name alone (`--account-name SHEET_NAME=LEDGER_NAME`), and two sheet names may land on one account,
-the engine judging. (5) One statement per account, covering its currencies
+currencies in `CUR`. (4) Two sheet names may land on one account, the engine judging. (5) One statement per account, covering its currencies
 ("A close flags lines instead of refusing, and a statement is the account's"). Details:
 [tui.md](tui.md) §2 "The import door"; [commands.md](commands.md) "`expense import sheet`".
 
 **Why.** An account holds its currencies (contract: "Bank Accounts", "`currencies`"), so a sheet
 name, a door's pick and a statement are each the account's.
 
-**Rejected.** *Renames per name and currency* — a name is one account, and the engine reads each
-row's currency. *The client refusing two names onto one account* — the engine allows it and judges.
-*Keeping a typed `Caja:USD` while a saved one reads as `Caja`* — a rename that holds one run only;
-such a sheet name cannot be renamed.
+**Rejected.** *A sheet account per name and currency* — a name is one account, and the engine reads
+each row's currency. *The client refusing two names onto one account* — the engine allows it and
+judges.
 
 ## The live suite makes every record one way (2026-10-30)
 

@@ -33,6 +33,7 @@ from expense.tui.screens.edit_form import (
     BankLineEditFormScreen,
     EditFormScreen,
 )
+from expense.tui.screens.import_sheet import SheetAccountScreen
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.screens.statements import NewStatementScreen
 from expense.tui.theme import ACCENT
@@ -343,6 +344,12 @@ SHAPES = {
         NewStatementScreen(account_id="acc1", account_name="BCP", currencies=("PEN", "USD")),
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
+    SheetAccountScreen: lambda: [
+        SheetAccountScreen("BCP Oro", ("PEN",), {"type": "bank", "bank": "BCP"}, ENGINE_BANKS),
+        SheetAccountScreen("ALEJO", ("PEN",), {"type": "person", "name": "ALEJO"}, ENGINE_BANKS),
+        SheetAccountScreen("Caja", ("PEN",), {"type": "cash"}, ENGINE_BANKS),
+        SheetAccountScreen("VISA", ("PEN",), {}, ENGINE_BANKS),
+    ],
 }
 
 _SAYS_SAVE = re.compile(r"\bsav", re.IGNORECASE)

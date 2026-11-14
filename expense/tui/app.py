@@ -10,9 +10,11 @@ from textual.app import App
 from textual.worker import WorkerFailed
 
 from expense.context import get_verbose
+from expense.import_.engine import SheetReview
 from expense.region import apply_launch_format
 from expense.tui.screens._base import pending_writes
 from expense.tui.screens.home import HomeScreen
+from expense.tui.screens.import_sheet import ImportSheetScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import EXPENSE_ANSI
@@ -21,7 +23,7 @@ from expense.tui.widgets.header import Breadcrumb
 log = logging.getLogger(__name__)
 
 
-class ExpenseApp(App):
+class ExpenseApp(App[str | None]):
     """Root app: registers the theme and hosts the screen stack.
 
     `verbose` is read off the typer context and handed to engine fetches
@@ -54,7 +56,9 @@ class ExpenseApp(App):
     # an alert — "don't know" must look like silence, not like a warning.
     rate_stale: bool | None = None
 
-    def __init__(self, *, verbose: bool = False, setup: bool = False) -> None:
+    def __init__(
+        self, *, verbose: bool = False, setup: bool = False, review: SheetReview | None = None
+    ) -> None:
         # ansi_color=True makes Textual paint the terminal's OWN default
         # background (SGR 49) instead of a fixed hex, so the app fill and the
         # terminal's window padding are one continuous surface — no seam — on
@@ -72,6 +76,8 @@ class ExpenseApp(App):
         # has accepted the settings, dismissing it lands on Home, which reads
         # afresh on resume.
         self._setup = setup
+        # the import's review, pushed over Home (`expense import sheet <file>`)
+        self._review = review
 
     _quit_question: ConfirmModal | None = None
     _after_quit_question: list[Callable[[], object]]
@@ -131,6 +137,8 @@ class ExpenseApp(App):
             self.push_screen(SetupScreen())
             return  # no settings yet: the rate check runs once setup is done
         self.refresh_rate_status()
+        if self._review is not None:
+            self.push_screen(ImportSheetScreen(self._review))
 
     @work(thread=True, exclusive=True, group="rate-status")
     def refresh_rate_status(self) -> None:
@@ -182,8 +190,9 @@ class ExpenseApp(App):
             repaint()
 
 
-def launch(ctx: typer.Context) -> None:
-    """TTY guard + launch. The app is interactive-only."""
+def launch(ctx: typer.Context, review: SheetReview | None = None) -> str | None:
+    """TTY guard + launch. The app is interactive-only. Returns the line the app ends
+    with, if it ends with one (the import's review does)."""
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         typer.echo("Error: the app needs an interactive terminal.", err=True)
         raise typer.Exit(code=1)
@@ -199,8 +208,9 @@ def launch(ctx: typer.Context) -> None:
     from expense import reads
 
     # The one read of the settings file: the app holds the result, and every
-    # screen and read uses it. No usable file → the app opens on Setup.
-    cfg = config_module.load_usable()
+    # screen and read uses it. No usable file → the app opens on Setup. A review
+    # brings the settings its command read (a pipe gives its contents once).
+    cfg = review.cfg if review is not None else config_module.load_usable()
     config_module.hold(cfg)
     setup = cfg is None
     # The account's pick wins; none, or no read, follows the machine's region.
@@ -211,6 +221,6 @@ def launch(ctx: typer.Context) -> None:
     # ignore the mouse and restores native select-to-copy.
     # Why: docs/decisions.md "TUI is keyboard-only".
     try:
-        ExpenseApp(verbose=get_verbose(ctx), setup=setup).run(mouse=False)
+        return ExpenseApp(verbose=get_verbose(ctx), setup=setup, review=review).run(mouse=False)
     finally:
         config_module.release()

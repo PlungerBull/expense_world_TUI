@@ -118,16 +118,10 @@ KNOWN_LOCAL = frozenset(
         # being how refusal.py's toast shows the engine's words as text), not engine fields
         "severity",
         "markup",
+        # the import review's form line, `yes`/`no`, sent as `archived` (`create.accounts`)
+        "archive",
         # client-side config file fields — never sent to the engine
         "engine_url",
-        # the renames `expense import sheet` remembers per sheet account
-        "sheet_account_names",
-        # the sheet account names those renames are keyed by in the rename tests
-        # (`{"BCP:PEN": ...}`, `{"bcp": ...}`), lower-cased sheet names, not fields
-        "bcp",
-        "caja",
-        "nobody",
-        "oro",
         # a config key no Config field holds: the stale-config load test
         # writes it on purpose to prove an unknown key loads and is dropped
         "bank_files",

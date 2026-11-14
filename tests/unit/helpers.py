@@ -1317,6 +1317,10 @@ class FakeClient:
     what it was sent;
     the other three answer the statement the path names, as the test serves
     `GET /statements/{id}` (or its id alone), with its status after the write.
+
+    `post_queue` answers the next POSTs one item each, in order, before any other answer: an
+    item that is an exception is raised, any other is returned (a call that must answer
+    differently each time, such as the sheet import's dry run, apply and refusals).
     """
 
     def __init__(self) -> None:
@@ -1324,6 +1328,7 @@ class FakeClient:
         self.get_responses: dict[str, Any] = {}
         self.write_responses: dict[str, Any] = {}
         self.errors: dict[str, Exception] = {}
+        self.post_queue: list[Any] = []
 
     def __enter__(self):
         return self
@@ -1354,6 +1359,11 @@ class FakeClient:
 
     def post(self, path: str, json_body: dict | None = None) -> dict:
         self._record("POST", path, json_body)
+        if self.post_queue:
+            item = self.post_queue.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
         return self._answer("POST", path, json_body)
 
     def put(self, path: str, json_body: dict | None = None) -> dict:

@@ -30,5 +30,5 @@ pip install -e ".[dev]" -c constraints.txt
 
 ```bash
 expense                       # the app (asks for the engine address and key the first time)
-expense import sheet <file>   # the spreadsheet import (a dry run; --create-names, then --apply)
+expense import sheet <file>   # the spreadsheet import: opens the app on its review
 ```

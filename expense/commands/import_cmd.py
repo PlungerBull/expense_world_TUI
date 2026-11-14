@@ -1,23 +1,22 @@
 """`expense import sheet <file>` — the owner's spreadsheet, sent to the engine whole.
 
-The engine reads the sheet and answers (expense/import_/engine.py); this module
-only prints the answer, and saves the renames `--account-name` gives.
+The engine reads the sheet and answers (expense/import_/engine.py). A dry run opens the
+app on the import's review (expense/tui/screens/import_sheet.py), which makes the accounts,
+categories and hashtags and imports the rows in one write; this module prints the other
+two ways in: `--apply` and `--json`.
 
-`--json` prints the engine's answer as it sent it. Two documents are the app's
-(docs/commands.md "Sanctioned exceptions"): `--create-names --json` is
-`{"created": {"categories": [...], "hashtags": [...]}}`, beside the `error` that
-stopped it when one did; `--apply --json` with a name or an account missing is
-a `NAMES_MISSING` envelope (`errors.error_envelope`), nothing written.
+`--json` prints the engine's answer as it sent it. One document is the app's
+(docs/commands.md "Sanctioned exceptions"): `--apply --json` with a name or an account
+missing is a `NAMES_MISSING` envelope (`errors.error_envelope`), nothing written.
 
-`SALDO INICIAL` is a category name like any other to the app: listed, created by
-the create step, and an unused category to delete once only opening balances
-use it (contract: POST /v1/transactions/import-sheet, "Opening balances").
+`SALDO INICIAL` is a category name like any other to the app: listed, made by the review,
+and an unused category to delete once only opening balances use it
+(contract: POST /v1/transactions/import-sheet, "Opening balances").
 """
 
 import shlex
 from pathlib import Path
 
-import click
 import typer
 
 from expense import config as config_module
@@ -26,86 +25,20 @@ from expense.context import get_verbose
 from expense.errors import (
     EngineError,
     error_envelope,
-    exit_code_of,
     handle_errors,
-    json_body,
     key_field,
     key_index,
     names_its_row,
 )
-from expense.formatting import currencies_phrase, grouped_refusals, rows_phrase
+from expense.formatting import count_phrase, grouped_refusals, rows_phrase
 from expense.import_.engine import (
-    ACCOUNT,
-    CATEGORY,
-    HASHTAG,
-    Goes,
-    NameEntry,
-    RenameRefused,
-    SavedRenamesDisputed,
-    SavedRenamesMissing,
     SheetImport,
+    SheetReview,
     Step,
     import_sheet,
-    merge_renames,
-    parse_account_name,
 )
 from expense.jsonout import emit_json
-
-_ACCOUNT_NAME_HINT = "'--account-name'"
-
-#: kind → (the table's title, its noun for one, for several).
-_NOUNS = {
-    ACCOUNT: ("Accounts", "account", "accounts"),
-    CATEGORY: ("Categories", "category", "categories"),
-    HASHTAG: ("Hashtags", "hashtag", "hashtags"),
-}
-
-#: Where a sheet account with no account goes: the app makes accounts, never the import.
-_MAKE_IN_APP = "make it in the app"
-
-#: Between two columns of a names table.
-_GAP = "   "
-
-
-def _plural(count: int, one: str, many: str) -> str:
-    return f"{count:,} {one if count == 1 else many}"
-
-
-# ---------------------------------------------------------------------------
-# the names tables
-# ---------------------------------------------------------------------------
-def _table_lines(kind: str, entries: list[NameEntry]) -> list[str]:
-    """One kind's table: its title and count, the column heads, then a line per
-    name: the sheet's name, an account's currencies, its rows, and where it goes
-    (a renamed account's ledger name before it)."""
-    title = _NOUNS[kind][0]
-    names = [e.name for e in entries]
-    rows = [f"{e.rows:,}" for e in entries]
-    currencies = [currencies_phrase(e.currencies) for e in entries]
-    name_w = max([len("SHEET NAME"), *map(len, names)])
-    rows_w = max([len("ROWS"), *map(len, rows)])
-    cur_w = max([len("CUR"), *map(len, currencies)])
-    currency = kind == ACCOUNT
-
-    def line(name: str, cur: str, count: str, goes: str) -> str:
-        cells = [name.ljust(name_w), *([cur.ljust(cur_w)] if currency else []), count.rjust(rows_w)]
-        return "  " + _GAP.join([*cells, goes])
-
-    out = [f"{title} ({len(entries)})", line("SHEET NAME", "CUR", "ROWS", "GOES TO")]
-    for entry, cur, count in zip(entries, currencies, rows, strict=True):
-        goes = _MAKE_IN_APP if kind == ACCOUNT and entry.goes is Goes.MISSING else entry.goes.value
-        if entry.renamed_to is not None:
-            goes = f"{entry.renamed_to}  {goes}"
-        out.append(line(entry.name, cur, count, goes))
-    return out
-
-
-def _print_tables(result: SheetImport) -> None:
-    for kind in (ACCOUNT, CATEGORY, HASHTAG):
-        entries = [e for e in result.table if e.kind == kind]
-        for text in _table_lines(kind, entries):
-            typer.echo(text)
-        typer.echo("")
+from expense.tui import open_app
 
 
 # ---------------------------------------------------------------------------
@@ -141,58 +74,15 @@ def _row_lists(result: SheetImport) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# names still missing: the lines the first dry run and the refused apply print
+# names still missing: what the refused apply prints
 # ---------------------------------------------------------------------------
-def _create_command(file: str) -> str:
-    return f"expense import sheet {shlex.quote(file)} --create-names"
-
-
 def _missing_count(result: SheetImport) -> str:
-    """`5 names don't exist yet.`, or `1 name doesn't exist yet.`: the categories
-    and hashtags the create step makes."""
-    count = len(result.missing)
+    """`5 names don't exist yet.`, or `1 name doesn't exist yet.`: the accounts,
+    categories and hashtags the review makes."""
+    count = len(result.missing) + len(result.missing_accounts)
     if count == 1:
         return "1 name doesn't exist yet."
     return f"{count:,} names don't exist yet."
-
-
-def _accounts_sentence(result: SheetImport) -> str:
-    """`1 sheet account has no account yet: make it in the app.`"""
-    count = len(result.missing_accounts)
-    if count == 1:
-        return "1 sheet account has no account yet: make it in the app."
-    return f"{count:,} sheet accounts have no account yet: make them in the app."
-
-
-def _account_lines(result: SheetImport) -> list[str]:
-    """The sheet accounts with no account: made in the app, a bank account then
-    given the sheet's name with `--account-name`."""
-    missing = result.missing_accounts
-    name = missing[0].name if len(missing) == 1 else "<sheet name>"
-    return [
-        f"{_accounts_sentence(result)} A bank account then",
-        f'gets the sheet\'s name with --account-name "{name}=<its name>".',
-    ]
-
-
-def _create_lines(result: SheetImport, file: str) -> list[str]:
-    them = "it" if len(result.missing) == 1 else "them"
-    return [
-        f"{_missing_count(result)} Create {them} with:",
-        f"  {_create_command(file)}",
-    ]
-
-
-def _missing_lines(result: SheetImport, file: str) -> list[str]:
-    """What is still missing: the accounts to make in the app, then the
-    categories and hashtags to create."""
-    lines = _account_lines(result) if result.missing_accounts else []
-    if result.missing:
-        lines += [
-            *_create_lines(result, file),
-            "It makes categories and hashtags only, never an account.",
-        ]
-    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +135,7 @@ def _refused_lines(err: EngineError) -> list[str]:
         else:
             refusals.append((kind, words, [row]))
     rows = {row for *_rest, row in found}
-    lines = [f"Refused — nothing written. {_plural(len(rows), 'row', 'rows')}:"]
+    lines = [f"Refused — nothing written. {count_phrase(len(rows), 'row', 'rows')}:"]
     for first, hit, rest in grouped_refusals(refusals):
         lines.append(f"  {first} {hit}" if hit else f"  {first}")
         lines.extend(f"  {line}" for line in rest)
@@ -253,52 +143,14 @@ def _refused_lines(err: EngineError) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# --json
+# --json and the apply
 # ---------------------------------------------------------------------------
-def _created_json(result: SheetImport) -> dict:
-    """The engine's answer to each create, by kind."""
-    return {
-        _NOUNS[kind][2]: [c.answer for c in result.created if c.kind == kind]
-        for kind in (CATEGORY, HASHTAG)
-    }
-
-
-def _created_line(result: SheetImport) -> str:
-    parts = [
-        _plural(n, one, many)
-        for kind, (_title, one, many) in _NOUNS.items()
-        if (n := sum(1 for c in result.created if c.kind == kind))
-    ]
-    return f"Created {', '.join(parts)}."
-
-
 #: `--apply` while a name is missing, under `--json`: nothing is sent, so there is
 #: no engine answer to pass through; the app's envelope (`errors.error_envelope`).
 NAMES_MISSING = "NAMES_MISSING"
 
 #: Before anything is written: the head of every refusal that writes nothing.
 _NOT_IMPORTED = "Not imported — nothing written."
-
-
-def _print_dry_run(result: SheetImport, file: str) -> None:
-    """The dry run: the names still missing while any is, else the counts."""
-    _print_tables(result)
-    if not result.counted:
-        typer.echo("No counts yet: the engine counts once every name exists.")
-        typer.echo("")
-        for line in _missing_lines(result, file):
-            typer.echo(line)
-        typer.echo("Dry run — nothing written.")
-        return
-    for line in _counts_lines(result, f"Rows: {len(result.rows):,} ·"):
-        typer.echo(line)
-    typer.echo("")
-    lists = _row_lists(result)
-    for line in lists:
-        typer.echo(line)
-    if lists:
-        typer.echo("")
-    typer.echo("Dry run — nothing written. Run again with --apply to import.")
 
 
 def _print_applied(result: SheetImport) -> None:
@@ -320,32 +172,15 @@ def _print_applied(result: SheetImport) -> None:
         typer.echo(line)
 
 
-def _print_created(result: SheetImport) -> None:
-    """The names the run created, then the accounts still to make in the app."""
-    if result.created:
-        typer.echo(_created_line(result))
-        typer.echo("Nothing imported. Run the dry run again to see the counts.")
-    elif not result.missing_accounts:
-        typer.echo("Created no names: every one is yours.")
-    if result.missing_accounts:
-        for line in _account_lines(result):
-            typer.echo(line)
-
-
 def _refuse_missing(result: SheetImport, file: str, *, json_output: bool) -> None:
-    """`--apply` while a name or an account is missing writes nothing and says
-    what to do. Exit 1."""
+    """`--apply` while a name or an account is missing writes nothing and points at the
+    review, which makes them. Exit 1."""
     if json_output:
-        sentences = [_accounts_sentence(result)] if result.missing_accounts else []
-        if result.missing:
-            sentences.append(_missing_count(result))
-        emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {' '.join(sentences)}"))
+        emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {_missing_count(result)}"))
     else:
         typer.echo(_NOT_IMPORTED)
-        for line in _missing_lines(result, file):
-            typer.echo(line)
-        if result.missing:
-            typer.echo("then run the dry run to see the counts.")
+        typer.echo(f"{_missing_count(result)} Make them in the review:")
+        typer.echo(f"  expense import sheet {shlex.quote(file)}")
     raise typer.Exit(code=1)
 
 
@@ -353,74 +188,37 @@ def _refuse_missing(result: SheetImport, file: str, *, json_output: bool) -> Non
 def run_import(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="Path to the .xlsx spreadsheet to import."),
-    create_names: bool = typer.Option(
-        False,
-        "--create-names",
-        help=(
-            "Create every category and hashtag the sheet uses that you lack, never an "
-            "account. Imports nothing."
-        ),
-    ),
     apply: bool = typer.Option(
-        False, "--apply", help="Import the sheet. Default is a dry run that writes nothing."
+        False,
+        "--apply",
+        help="Import the sheet without the review, once every name exists.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print the engine's answer as JSON."),
-    account_name: list[str] = typer.Option(
-        [],
-        "--account-name",
-        metavar="SHEET_NAME=LEDGER_NAME",
-        help=(
-            "Put a sheet account's rows on a ledger account of another name. Repeatable; "
-            "remembered in the config for every later run."
-        ),
-    ),
 ) -> None:
-    """Import your spreadsheet through the engine (a dry run by default).
+    """Import your spreadsheet through the engine.
 
     The file goes to the engine whole; the engine reads it, matches every row
     against the ledger, and writes everything or nothing. The app reads no
     cell of it.
 
-    The dry run lists every account (a name, with the currencies its rows are
-    in), category and hashtag the sheet uses, its rows, and whether it is
-    yours or missing. While one is missing it shows no counts, since the
-    engine counts only once every name exists. A missing category or hashtag
-    is made by --create-names, which imports nothing; a missing account is
-    made in the app, never by the import. Once every name exists, the dry run
-    shows the engine's counts, and --apply imports; with a name or an account
-    missing, --apply is refused and writes nothing. Sending the same sheet
-    again writes nothing: every row is matched.
+    Without a flag the engine's dry run opens the app on the import's review: each
+    account the sheet names that you lack, set once (a bank account's code and last
+    4, a person, the cash account, archived or not), the categories and hashtags to
+    make, then the engine's count, and one write makes them all and imports the
+    rows. Sending the same sheet again writes nothing: every row is matched.
+
+    --apply imports without the review, once every account, category and hashtag
+    exists; with one missing it is refused and writes nothing. --json prints the
+    engine's answer to the dry run (the counts too, once every name exists) and
+    opens nothing.
 
     One bad row stops the whole import, and every refused row is listed in the
-    engine's words; nothing is written and no name is created.
-
-    --account-name "SHEET_NAME=LEDGER_NAME" puts one sheet account's rows on
-    a ledger account of your choosing ("BCP=Sueldo Soles"). It is saved to
-    the config and applied on every later run; passing it again for the same
-    sheet name replaces every saved key of that name. An account the sheet does
-    not have, or a ledger name no account holds, is a usage error and nothing
-    is saved. Two sheet accounts may be put on one ledger account. When the
-    saved renames send one sheet account to two ledger names, the run stops (a
-    usage error) before anything is written, naming both; --account-name for
-    that account fixes it.
+    engine's words; nothing is written.
 
     Example: expense import sheet Presupuesto.xlsx
 
-    Example: expense import sheet Presupuesto.xlsx --create-names
-
     Example: expense import sheet Presupuesto.xlsx --apply
-
-    Example: expense import sheet Presupuesto.xlsx --account-name "BCP=Sueldo Soles"
     """
-    if create_names and apply:
-        raise click.UsageError(
-            "--create-names creates names and imports nothing, so it never goes with --apply."
-        )
-    try:
-        flags = [parse_account_name(value) for value in account_name]
-    except RenameRefused as exc:
-        raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc
-
     # Read once: the settings file may be a pipe.
     cfg = config_module.require(config_module.load())
     try:
@@ -429,34 +227,10 @@ def run_import(
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
-    saved = dict(cfg.sheet_account_names)
-    merged, renames, disputed = merge_renames(saved, flags)
-    step = Step.APPLY if apply else Step.CREATE_NAMES if create_names else Step.DRY_RUN
-    try:
-        result = import_sheet(
-            cfg,
-            data,
-            step=step,
-            renames=renames,
-            flags=flags,
-            disputed=disputed,
-            verbose=get_verbose(ctx),
-        )
-    except (SavedRenamesDisputed, SavedRenamesMissing) as exc:
-        raise click.UsageError(str(exc)) from exc
-    except RenameRefused as exc:
-        raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc
-    # Remembered once the renames were checked against this sheet, a dry run's too.
-    if result.table and merged != saved:
-        cfg.sheet_account_names = merged
-        config_module.save(cfg)
+    step = Step.APPLY if apply else Step.DRY_RUN if json_output else Step.NAMES
+    result = import_sheet(cfg, data, step=step, verbose=get_verbose(ctx))
 
     if result.error is not None:
-        if result.created and json_output:
-            emit_json({"created": _created_json(result), **json_body(result.error)})
-            raise typer.Exit(code=exit_code_of(result.error))
-        if result.created:
-            typer.echo(_created_line(result))
         if isinstance(result.error, EngineError) and _rows_refusal(result.error):
             if not json_output:
                 for line in _refused_lines(result.error):
@@ -464,12 +238,6 @@ def run_import(
                 raise typer.Exit(code=1)
         raise result.error
 
-    if step is Step.CREATE_NAMES:
-        if json_output:
-            emit_json({"created": _created_json(result)})
-        else:
-            _print_created(result)
-        return
     if step is Step.APPLY and not result.counted:
         _refuse_missing(result, file, json_output=json_output)
     if json_output:
@@ -477,4 +245,11 @@ def run_import(
     elif step is Step.APPLY:
         _print_applied(result)
     else:
-        _print_dry_run(result, file)
+        _review(ctx, SheetReview(Path(file).name, data, result.table, len(result.rows), cfg))
+
+
+def _review(ctx: typer.Context, review: SheetReview) -> None:
+    """Open the app on the review and print the one line it ends with."""
+    line = open_app(ctx, review)
+    if line:
+        typer.echo(line)

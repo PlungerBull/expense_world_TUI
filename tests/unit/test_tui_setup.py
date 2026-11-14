@@ -204,7 +204,6 @@ def test_a_working_key_saves_the_settings_and_lands_on_home(monkeypatch, before)
         "engine_url": ENGINE_URL,
         "token": KEY,
         "main_currency": "PEN",
-        "sheet_account_names": {},
     }
     assert os.stat(path).st_mode & 0o777 == 0o600
 

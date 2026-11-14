@@ -1,36 +1,35 @@
-"""The sheet import through the engine: `POST /transactions/import-sheet`, its
-names table, the step that creates the categories and hashtags the sheet lacks,
-and the renames of `--account-name`. No typer and no printing.
+"""The sheet import through the engine: `POST /transactions/import-sheet`, the names
+table it answers, and the body the review sends. No typer and no printing.
 
 The engine reads the whole workbook, matches every row against the ledger and
 writes everything or nothing (contract: POST /v1/transactions/import-sheet).
 The app sends the file whole, as the bank import door sends a download, and
 reads no cell of it.
 
-The engine never looks a name up and never creates one: every answer lists
-each name the sheet uses with a proposal, and the outcomes and counts come
-only with a table giving every name its id
-(contract: POST /v1/transactions/import-sheet, "Names"). So a run is one of
-three steps (`Step`), each first a dry run without the table, which lists the
-names and refuses a bad sheet before anything else is sent:
+The engine never looks a name up: every answer lists each name the sheet uses with
+a proposal, and the outcomes and counts come only with a table giving every name its
+id (contract: POST /v1/transactions/import-sheet, "Names"). It makes an account,
+category or hashtag only from the `create` the same request lists, all of it landing
+with the rows or none of it (contract: POST /v1/transactions/import-sheet, "Create").
+So a run is one of three steps (`Step`), each first a dry run without the table, which
+lists the names and refuses a bad sheet before anything else is sent:
 
-- the dry run: once every name has an id, a second dry run with the table
-  answers the counts; while one lacks it, nothing more is sent;
-- the create step: each missing category and hashtag is created through its
-  own route, and nothing is imported; an account is never created here, it is
-  made in the app (a missing one is listed, and blocks the apply);
-- the apply: written with the table, only once every name has an id.
+- `NAMES`: that first dry run alone, what the import's review opens on
+  (expense/tui/screens/import_sheet.py);
+- `DRY_RUN`: once every name has an id, a second dry run with the table answers the
+  counts; while one lacks it, nothing more is sent;
+- `APPLY`: written with the table, only once every name has an id.
 
+The review makes what is missing: it sends `create` and `names` through `send_review`.
 Every write is one `ExpenseClient.post`, which carries its own idempotency key.
 """
 
-import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import NamedTuple
 from uuid import uuid4
 
-from expense import reads
 from expense.bank_import.engine import file_field
 from expense.config import Config
 from expense.errors import EngineConnectionError, EngineError
@@ -42,172 +41,78 @@ ACCOUNT = "account"
 CATEGORY = "category"
 HASHTAG = "hashtag"
 
-#: kind → (its list in `names`, the key of its id in the table).
+#: kind → (its list in `names` and in `create`, the key of its id in the table).
 _KINDS = {
     ACCOUNT: ("accounts", "account_id"),
     CATEGORY: ("categories", "category_id"),
     HASHTAG: ("hashtags", "hashtag_id"),
 }
 
-#: The kinds the create step makes, each with its create route.
-_CREATE_ROUTES = {CATEGORY: "/categories", HASHTAG: "/hashtags"}
-
 #: The read timeout of the import's calls: the engine reads and matches the whole
 #: sheet in one request, which takes far longer than a single write.
 IMPORT_READ_TIMEOUT = 300.0
 
+IMPORT_PATH = "/transactions/import-sheet"
 
-def request_body(data: bytes, *, dry_run: bool, names: dict | None = None) -> dict:
-    """The body the engine takes: `dry_run`, the workbook's bytes (`file_field`)
-    and, when given, the confirmed table (`table_body`); a dry run may leave
-    `names` out (contract: POST /v1/transactions/import-sheet, "Body")."""
+
+def request_body(
+    data: bytes, *, dry_run: bool, names: dict | None = None, create: dict | None = None
+) -> dict:
+    """The body the engine takes: `dry_run`, the workbook's bytes (`file_field`) and,
+    when given, the confirmed table (`table_body`, `review_names`) and what `create`
+    makes; a dry run may leave `names` out (contract: POST /v1/transactions/import-sheet,
+    "Body")."""
     body: dict = {"dry_run": dry_run, "file": file_field(data)}
     if names is not None:
         body["names"] = names
+    if create is not None:
+        body["create"] = create
     return body
-
-
-# ---------------------------------------------------------------------------
-# renames: --account-name and the config's `sheet_account_names`
-# ---------------------------------------------------------------------------
-class RenameRefused(ValueError):
-    """A rename the import cannot take: malformed, or naming an account the sheet
-    lacks. The message is the sentence the command shows."""
-
-
-#: One `--account-name`: the sheet's name and the ledger name.
-Rename = tuple[str, str]
-
-
-def rename_key(name: str) -> str:
-    """How a renamed sheet account is found: its name trimmed and
-    case-insensitive."""
-    return name.strip().casefold()
-
-
-def parse_account_name(value: str) -> Rename:
-    """`"BCP=Sueldo Soles"` → `("BCP", "Sueldo Soles")`.
-
-    The ledger name is everything after the first `=`; the sheet's name is
-    what comes before it (it may itself hold a colon; one ending in `:` and
-    three capital letters is read as written with a currency, `saved_name`).
-    """
-    sheet, eq, ledger = value.partition("=")
-    sheet, ledger = sheet.strip(), ledger.strip()
-    if not eq or not sheet or not ledger:
-        raise RenameRefused(f'{value!r} is not SHEET_NAME=LEDGER_NAME (e.g. "BCP=Sueldo Soles").')
-    return sheet, ledger
-
-
-_CURRENCY_SUFFIX = re.compile(r":[A-Z]{3}$")
-
-
-def saved_name(saved_key: str) -> str:
-    """The sheet name a saved key stands for: a saved key ending in `:` and an
-    upper-case code (`"BCP:PEN"`) is read as its name written with a currency,
-    so as `"BCP"`. A `--account-name` is read the same way, so a sheet account
-    whose own name ends in `:` and three capital letters cannot be renamed."""
-    return _CURRENCY_SUFFIX.sub("", saved_key.strip())
-
-
-def saved_renames(saved: Mapping[str, str]) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
-    """The config's `sheet_account_names` (`"BCP"` → `"Sueldo Soles"`) as
-    `(renames, disputed)`, both keyed by `rename_key` of the sheet's name; a key
-    with no name, or a rename with no ledger name, is left out.
-
-    The keys of one name (`"BCP:PEN"`, `"BCP:USD"`, `"BCP"`) that go to one
-    ledger name (compared as the engine compares account names) are one
-    rename. Keys that go to different ledger names put the name in `disputed`
-    with each ledger name once, in the order saved, and out of `renames`."""
-    found: dict[str, list[str]] = {}
-    for saved_key, ledger in saved.items():
-        name, ledger = saved_name(saved_key), ledger.strip()
-        if name and ledger:
-            ledgers = found.setdefault(rename_key(name), [])
-            if all(rename_key(ledger) != rename_key(seen) for seen in ledgers):
-                ledgers.append(ledger)
-    renames = {key: ledgers[0] for key, ledgers in found.items() if len(ledgers) == 1}
-    disputed = {key: tuple(ledgers) for key, ledgers in found.items() if len(ledgers) > 1}
-    return renames, disputed
-
-
-def merge_renames(
-    saved: Mapping[str, str], flags: Iterable[Rename]
-) -> tuple[dict[str, str], dict[str, str], dict[str, tuple[str, ...]]]:
-    """The saved renames with this run's flags: a flag replaces every saved key
-    of the same sheet account, whatever its letter case and whether or not the
-    key carries a currency. Returns the `sheet_account_names` to save, the
-    renames and the disputed names (`saved_renames`). A flag's name is read like
-    a saved key (`saved_name`)."""
-    merged = dict(saved)
-    for sheet, ledger in flags:
-        for old in [
-            k for k in merged if rename_key(saved_name(k)) == rename_key(saved_name(sheet))
-        ]:
-            del merged[old]
-        merged[sheet] = ledger
-    renames, disputed = saved_renames(merged)
-    return merged, renames, disputed
-
-
-class SavedRenamesDisputed(RenameRefused):
-    """The saved renames send one sheet name to different ledger names: a usage
-    error of the run, not of any `--account-name` typed."""
-
-
-class SavedRenamesMissing(RenameRefused):
-    """A saved rename goes to a name no account holds: a usage error of the run,
-    listing every such rename, typed or saved."""
-
-
-def check_disputed(table: list["NameEntry"], disputed: Mapping[str, tuple[str, ...]]) -> None:
-    """Refuse (`SavedRenamesDisputed`) a sheet name the saved renames send to
-    different ledger names; only the sheet's own accounts count."""
-    for entry in table:
-        ledgers = disputed.get(rename_key(entry.name)) if entry.kind == ACCOUNT else None
-        if ledgers:
-            quoted = [f'"{ledger}"' for ledger in ledgers]
-            both = f"{', '.join(quoted[:-1])} and {quoted[-1]}"
-            raise SavedRenamesDisputed(
-                f'Your saved renames send "{entry.name}" to both {both}. '
-                f'Choose one with --account-name "{entry.name}=<ledger name>".'
-            )
 
 
 # ---------------------------------------------------------------------------
 # the names table
 # ---------------------------------------------------------------------------
-class Goes(Enum):
-    """Where one name of the sheet goes."""
+@dataclass(frozen=True)
+class Suggestion:
+    """The engine's guess for an account the caller lacks, to show the owner and never
+    applied by itself (contract: POST /v1/transactions/import-sheet, "Names")."""
 
-    YOURS = "yours"  # an account, category or hashtag you have
-    # One you lack: the create step makes a category or hashtag, the app an account.
-    MISSING = "missing"
+    kind: str | None
+    bank_code: str | None
+    last4: str | None
 
 
 @dataclass(frozen=True)
 class NameEntry:
-    """One name the sheet uses, as the engine lists it, and where it goes."""
+    """One name the sheet uses, as the engine lists it."""
 
     kind: str  # ACCOUNT, CATEGORY or HASHTAG
     name: str  # the sheet's name, as the engine lists it
     #: An account's currencies, in the engine's order; empty for a category or hashtag.
     currencies: tuple[str, ...]
     rows: int  # the rows using it, as the engine counts them
-    goes: Goes
-    #: The id it goes to: the engine's proposal, or your account of its rename;
-    #: None for a missing name.
+    #: The id the engine proposes: yours under that name; None for a missing name.
     target_id: str | None
-    #: The ledger name a renamed account goes to (`--account-name`, or a saved
-    #: rename); None when it keeps the sheet's name.
-    renamed_to: str | None = None
+    #: An account the caller lacks: the engine's guess; None beside a proposal.
+    suggestion: Suggestion | None = None
+
+    @property
+    def missing(self) -> bool:
+        return self.target_id is None
 
 
-def _create_key(entry: NameEntry) -> tuple[str, str]:
-    """Two missing names are one when the engine would refuse the second as
-    taken: names are unique case-insensitively
-    (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
+def create_key(entry: NameEntry) -> tuple[str, str]:
+    """Two names are one when the engine would refuse the second as taken: names are
+    unique case-insensitively (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
     return (entry.kind, entry.name.strip().casefold())
+
+
+def made_key(entry: NameEntry) -> tuple[str, str]:
+    """What a thing the review makes is kept under: an account by its name as the engine lists
+    it (two spellings are two accounts), a category or hashtag by `create_key` (two spellings
+    are one the engine would refuse to make twice)."""
+    return (entry.kind, entry.name) if entry.kind == ACCOUNT else create_key(entry)
 
 
 def _listed(answer: dict, kind: str) -> list[dict]:
@@ -215,107 +120,47 @@ def _listed(answer: dict, kind: str) -> list[dict]:
     return list(names.get(_KINDS[kind][0]) or [])
 
 
-def renamed_accounts(answer: dict, renames: Mapping[str, str]) -> bool:
-    """Whether any account the answer lists has a rename: only then are your
-    accounts read."""
-    return any(rename_key(str(a.get("name"))) in renames for a in _listed(answer, ACCOUNT))
+def _suggestion(item: dict) -> Suggestion | None:
+    raw = item.get("suggestion")
+    if not raw:
+        return None
+    return Suggestion(raw.get("kind"), raw.get("bank_code"), raw.get("last4"))
 
 
-def names_table(
-    answer: dict,
-    renames: Mapping[str, str],
-    accounts: list[dict],
-) -> list[NameEntry]:
-    """Every name the engine's answer lists, in its order (accounts, then
-    categories, then hashtags), and where each goes.
-
-    - A renamed account (`renames`, keyed by `rename_key`) goes to your
-      account of the rename's name, when `accounts` (your accounts as
-      `GET /accounts` lists them, archived and people included) holds one,
-      compared as the engine compares account names; else it has no id, and
-      `check_renames` refuses it.
-    - Any other name goes to the engine's `proposed_id`, yours under that name
-      (contract: POST /v1/transactions/import-sheet, "Names").
-    - A name with neither is missing.
-    """
-    yours = {
-        str(a.get("name") or "").strip().casefold(): str(a["id"]) for a in accounts if a.get("id")
-    }
+def names_table(answer: dict) -> list[NameEntry]:
+    """Every name the engine's answer lists, in its order (accounts, then categories,
+    then hashtags), each with the id the engine proposes
+    (contract: POST /v1/transactions/import-sheet, "Names")."""
     table: list[NameEntry] = []
     for kind in (ACCOUNT, CATEGORY, HASHTAG):
         for item in _listed(answer, kind):
-            name = str(item.get("name"))
-            currencies = tuple(str(c) for c in item.get("currencies") or ())
-            rows = int(item.get("rows") or 0)
-            renamed = renames.get(rename_key(name)) if kind == ACCOUNT else None
-            if renamed is not None:
-                target = yours.get(renamed.strip().casefold())
-            else:
-                proposed = item.get("proposed_id")
-                target = str(proposed) if proposed else None
-            goes = Goes.YOURS if target else Goes.MISSING
-            table.append(NameEntry(kind, name, currencies, rows, goes, target, renamed))
+            proposed = item.get("proposed_id")
+            table.append(
+                NameEntry(
+                    kind,
+                    str(item.get("name")),
+                    tuple(str(c) for c in item.get("currencies") or ()),
+                    int(item.get("rows") or 0),
+                    str(proposed) if proposed else None,
+                    _suggestion(item) if kind == ACCOUNT else None,
+                )
+            )
     return table
 
 
-def check_renames(table: list[NameEntry], flags: Iterable[Rename]) -> None:
-    """Refuse (`RenameRefused`) a flag naming an account the sheet does not
-    have, then every rename, typed or saved, to a name no account holds
-    (`SavedRenamesMissing` when a saved one is among them).
-    Two of the sheet's names renamed onto one account are sent as they are,
-    with the same `account_id`: the engine decides what may share one
-    (contract: POST /v1/transactions/import-sheet, "Names")."""
-    listed = {rename_key(e.name) for e in table if e.kind == ACCOUNT}
-    for sheet, _ledger in flags:
-        if rename_key(saved_name(sheet)) not in listed:
-            raise RenameRefused(f'the sheet has no account "{sheet}".')
-    typed_keys = {rename_key(saved_name(sheet)) for sheet, _ledger in flags}
-    typed: list[Rename] = []
-    saved: list[Rename] = []
-    for entry in table:
-        if entry.renamed_to is None or entry.target_id is not None:
-            continue
-        found = (entry.name, entry.renamed_to)
-        into = typed if rename_key(saved_name(entry.name)) in typed_keys else saved
-        if all(rename_key(saved_name(n)) != rename_key(saved_name(found[0])) for n, _ in into):
-            into.append(found)
-    if not saved:
-        if typed:
-            quoted = [f'"{ledger}"' for _name, ledger in typed]
-            named = quoted[0] if len(quoted) == 1 else f"{', '.join(quoted[:-1])} or {quoted[-1]}"
-            raise RenameRefused(f"no account is named {named}.")
-        return
-    raise SavedRenamesMissing(
-        "\n".join(
-            [
-                *(
-                    f'--account-name "{n}={ledger}" names "{ledger}", which no account is named.'
-                    for n, ledger in typed
-                ),
-                *(
-                    f'Your saved rename sends "{n}" to "{ledger}", which no account is named. '
-                    f'Replace it with --account-name "{n}=<ledger name>".'
-                    for n, ledger in saved
-                ),
-            ]
-        )
-    )
-
-
 def missing_names(table: list[NameEntry]) -> list[NameEntry]:
-    """The categories and hashtags the create step creates, in the table's order:
-    each missing one, once per name the engine would hold as one (`_create_key`)."""
+    """The categories and hashtags to make, in the table's order: each missing one,
+    once per name the engine would hold as one (`create_key`)."""
     out: dict[tuple[str, str], NameEntry] = {}
     for entry in table:
-        if entry.goes is Goes.MISSING and entry.kind != ACCOUNT:
-            out.setdefault(_create_key(entry), entry)
+        if entry.missing and entry.kind != ACCOUNT:
+            out.setdefault(create_key(entry), entry)
     return list(out.values())
 
 
 def missing_accounts(table: list[NameEntry]) -> list[NameEntry]:
-    """The sheet's accounts with no account, one per sheet name, in the table's
-    order: each is made in the app, never by the import."""
-    return [e for e in table if e.kind == ACCOUNT and e.goes is Goes.MISSING]
+    """The sheet's accounts with no account, one per sheet name, in the table's order."""
+    return [e for e in table if e.kind == ACCOUNT and e.missing]
 
 
 def table_body(table: list[NameEntry]) -> dict:
@@ -329,6 +174,124 @@ def table_body(table: list[NameEntry]) -> dict:
             raise ValueError(f"{entry.kind} {entry.name!r} has no id to send")
         body[listed].append({"name": entry.name, id_key: entry.target_id})
     return body
+
+
+# ---------------------------------------------------------------------------
+# what the review makes
+# ---------------------------------------------------------------------------
+def new_ids(table: list[NameEntry]) -> dict[tuple[str, str], str]:
+    """An id for each thing the review makes, the client's own as on the create routes:
+    one per account with no account and one per category or hashtag name
+    (`missing_names`). Made once and kept, so every send of the same review carries the
+    same ids."""
+    return {made_key(e): str(uuid4()) for e in [*missing_accounts(table), *missing_names(table)]}
+
+
+def account_entry(account_id: str, currencies: tuple[str, ...], values: Mapping[str, str]) -> dict:
+    """One `create.accounts` entry from the lines the owner set (`type`, `bank`, `last4`,
+    `name`, `statement_code`, `archive`, as the form holds them): a bank account's code and
+    last 4, a person's name, a cash account none of the four, then the sheet's currencies
+    (contract: POST /v1/transactions/import-sheet, "Create")."""
+    kind = values["type"]
+    entry: dict = {"id": account_id, "kind": kind}
+    if kind == "person":
+        entry["name"] = values["name"]
+    elif kind == "bank":
+        entry["bank_code"] = values["bank"]
+        entry["last4"] = values["last4"]
+        if values.get("statement_code"):
+            entry["statement_code"] = values["statement_code"]
+    entry["currencies"] = list(currencies)
+    entry["archived"] = values.get("archive") == "yes"
+    return entry
+
+
+def review_names(table: list[NameEntry], ids: Mapping[tuple[str, str], str]) -> dict:
+    """The `names` of the review: every entry to the id the engine proposed, else to the
+    id the review makes it under."""
+    return table_body(
+        [e if e.target_id else _with_id(e, ids[made_key(e)]) for e in table],
+    )
+
+
+def _with_id(entry: NameEntry, target_id: str) -> NameEntry:
+    return NameEntry(
+        entry.kind, entry.name, entry.currencies, entry.rows, target_id, entry.suggestion
+    )
+
+
+def review_create(
+    table: list[NameEntry],
+    ids: Mapping[tuple[str, str], str],
+    accounts: Mapping[str, Mapping[str, str]],
+) -> dict:
+    """The `create` of the review: an entry for each account with no account, in the
+    table's order, from the lines set for its sheet name in `accounts`
+    (`account_entry`), then the categories and the hashtags to make."""
+    body: dict[str, list[dict]] = {
+        "accounts": [
+            account_entry(ids[made_key(e)], e.currencies, accounts[e.name])
+            for e in missing_accounts(table)
+        ],
+        "categories": [],
+        "hashtags": [],
+    }
+    for entry in missing_names(table):
+        body[_KINDS[entry.kind][0]].append({"id": ids[made_key(entry)], "name": entry.name})
+    return body
+
+
+def send_review(
+    client: ExpenseClient,
+    data: bytes,
+    table: list[NameEntry],
+    ids: Mapping[tuple[str, str], str],
+    accounts: Mapping[str, Mapping[str, str]],
+    *,
+    dry_run: bool,
+) -> dict:
+    """The review's one call: the dry run that judges and counts it, or the apply with
+    the same body. Raises what the client raises."""
+    body = request_body(
+        data,
+        dry_run=dry_run,
+        names=review_names(table, ids),
+        create=review_create(table, ids, accounts),
+    )
+    return client.post(IMPORT_PATH, body)
+
+
+class CreateRefusal(NamedTuple):
+    """One refusal keyed `create.<list>.<i>.<field>`: the list (`accounts`, `categories`
+    or `hashtags`), the entry's place `i` in what was sent, the engine's field (None for
+    the entry alone) and its words."""
+
+    listed: str
+    place: int
+    field: str | None
+    words: str
+
+
+def create_refusals(err: Exception) -> list[CreateRefusal]:
+    """The refusals of `err` when every key it names is a `create.<list>.<i>…` one, in the
+    engine's order; else none (the refusal is of the file, the rows or the table, which
+    the engine answers alone) (contract: POST /v1/transactions/import-sheet, "Create")."""
+    if not isinstance(err, EngineError) or not err.fields:
+        return []
+    found: list[CreateRefusal] = []
+    for key, words in err.fields.items():
+        bits = str(key).split(".", 3)
+        if (
+            len(bits) < 3
+            or bits[0] != "create"
+            or bits[1] not in {listed for listed, _ in _KINDS.values()}
+            or not bits[2].isdigit()
+        ):
+            return []
+        found.append(
+            CreateRefusal(bits[1], int(bits[2]), bits[3] if len(bits) == 4 else None, str(words))
+        )
+    return found
 
 
 # ---------------------------------------------------------------------------
@@ -389,37 +352,40 @@ def answer_counts(answer: dict) -> SheetCounts:
     )
 
 
+@dataclass(frozen=True)
+class MadeCounts:
+    """The answer's `created`: the accounts, categories and hashtags the request made
+    (on a dry run, would make)."""
+
+    accounts: int
+    categories: int
+    hashtags: int
+
+
+def answer_created(answer: dict) -> MadeCounts:
+    created = answer.get("created") or {}
+    return MadeCounts(
+        **{key: int(created.get(key) or 0) for key in MadeCounts.__dataclass_fields__}
+    )
+
+
 # ---------------------------------------------------------------------------
 # the run
 # ---------------------------------------------------------------------------
 class Step(Enum):
     """What a run is asked to do."""
 
-    DRY_RUN = "dry_run"  # show the names, and the counts once every name exists
-    CREATE_NAMES = "create_names"  # create the missing names; import nothing
-    APPLY = "apply"  # import, once every name exists
+    NAMES = "names"  # the first dry run alone: the names the sheet uses
+    DRY_RUN = "dry_run"  # the names, and the counts once every name has an id
+    APPLY = "apply"  # import, once every name has an id
 
 
 class Stage(Enum):
     """The call a run stopped at."""
 
-    NAMES = "names"  # the dry run without the table: nothing created
-    ACCOUNTS = "accounts"  # reading your accounts for a rename: nothing created
+    NAMES = "names"  # the dry run without the table
     COUNTS = "counts"  # the dry run with the table: nothing written
-    CREATE = "create"  # creating a name: those before it were created
     APPLY = "apply"  # the apply with the table: nothing written
-
-
-@dataclass(frozen=True)
-class Created:
-    """One name the create step created: its kind, the name it was created
-    under (the sheet's), its id, and the engine's answer to the create,
-    untouched."""
-
-    kind: str
-    name: str
-    id: str
-    answer: dict = field(default_factory=dict, compare=False)
 
 
 @dataclass
@@ -430,20 +396,18 @@ class SheetImport:
     table, or the apply's, when one was sent (`counted`), else the first dry
     run's; None when that was refused. `error` is what stopped the run, an
     engine refusal (`EngineError`, its envelope in `raw_body` as sent) or the
-    engine out of reach; `stage` is where. `created` lists every name the
-    create step created, one stopped part way included."""
+    engine out of reach; `stage` is where."""
 
     step: Step
     table: list[NameEntry] = field(default_factory=list)
     answer: dict | None = None
     counted: bool = False  # `answer` came with the table: it holds outcomes
-    created: list[Created] = field(default_factory=list)
     error: EngineError | EngineConnectionError | None = None
     stage: Stage | None = None
 
     @property
     def missing(self) -> list[NameEntry]:
-        """The categories and hashtags the create step would create."""
+        """The categories and hashtags with no proposal."""
         return missing_names(self.table)
 
     @property
@@ -459,75 +423,45 @@ class SheetImport:
         return answer_counts(self.answer or {})
 
 
-def _create_body(entry: NameEntry, new_id: str) -> dict:
-    """A category's or hashtag's create: under the sheet's name, with no colour
-    (contract: POST /v1/categories) (contract: POST /v1/hashtags)."""
-    return {"id": new_id, "name": entry.name}
+@dataclass(frozen=True)
+class SheetReview:
+    """What the app opens the review on: the sheet's file name and bytes, the names the first
+    dry run listed (`Step.NAMES`) and the settings the command read."""
+
+    file_name: str
+    data: bytes
+    table: list[NameEntry]
+    rows: int
+    #: The settings the command read: the app uses them, never reading the file again
+    #: (a pipe gives its contents once).
+    cfg: Config
 
 
-IMPORT_PATH = "/transactions/import-sheet"
-
-
-def import_sheet(
-    cfg: Config,
-    data: bytes,
-    *,
-    step: Step,
-    renames: Mapping[str, str],
-    flags: Iterable[Rename] = (),
-    disputed: Mapping[str, tuple[str, ...]] | None = None,
-    verbose: bool = False,
-) -> SheetImport:
+def import_sheet(cfg: Config, data: bytes, *, step: Step, verbose: bool = False) -> SheetImport:
     """Run one step of the sheet import on the workbook's bytes.
 
-    A dry run without the table first: a refused sheet stops here, nothing
-    created. Your accounts are read only when an account the sheet uses has a
-    rename (`reads.fetch_accounts`), the `disputed` saved names the sheet uses
-    (`check_disputed`) and this run's `flags` (`check_renames`) are checked
-    against the sheet, each raising `RenameRefused` before anything else is
-    sent. Then, by `step`:
+    A dry run without the table first: a refused sheet stops here. Then, by `step`:
 
-    - `DRY_RUN`: with no name missing, the dry run again with the table, for
-      the counts; with one missing, nothing more.
-    - `CREATE_NAMES`: each missing category and hashtag created, one create
-      per name the engine would hold as one (`missing_names`); no account is
-      created; nothing imported.
-    - `APPLY`: with no name and no account missing, the apply with the table,
-      whose answer is what happened; with one missing, nothing is sent.
+    - `NAMES`: nothing more.
+    - `DRY_RUN`: with no name missing, the dry run again with the table, for the counts.
+    - `APPLY`: with no name missing, the apply with the table, whose answer is what
+      happened; with one missing, nothing is sent.
 
-    The first refusal stops the run and is kept whole, with what was created
-    before it."""
+    The first refusal stops the run and is kept whole."""
     result = SheetImport(step=step)
     with ExpenseClient(cfg, verbose=verbose, timeout_read=IMPORT_READ_TIMEOUT) as client:
         try:
             result.stage = Stage.NAMES
             answer = client.post(IMPORT_PATH, request_body(data, dry_run=True))
             result.answer = answer
-            accounts: list[dict] = []
-            if renamed_accounts(answer, renames):
-                result.stage = Stage.ACCOUNTS
-                accounts = reads.items_of(
-                    reads.fetch_accounts(
-                        cfg, include_archived=True, include_people=True, verbose=verbose
-                    )
-                )
-            table = names_table(answer, renames, accounts)
-            check_disputed(table, disputed or {})
-            check_renames(table, flags)
-            result.table = table
-            missing = result.missing
-
-            if step is Step.CREATE_NAMES:
-                result.stage = Stage.CREATE
-                for entry in missing:
-                    new_id = str(uuid4())
-                    made = client.post(_CREATE_ROUTES[entry.kind], _create_body(entry, new_id))
-                    result.created.append(Created(entry.kind, entry.name, new_id, made))
-            elif not missing and not result.missing_accounts:
+            result.table = names_table(answer)
+            if step is not Step.NAMES and not any(e.missing for e in result.table):
                 result.stage = Stage.APPLY if step is Step.APPLY else Stage.COUNTS
                 result.answer = client.post(
                     IMPORT_PATH,
-                    request_body(data, dry_run=step is not Step.APPLY, names=table_body(table)),
+                    request_body(
+                        data, dry_run=step is not Step.APPLY, names=table_body(result.table)
+                    ),
                 )
                 result.counted = True
             result.stage = None
