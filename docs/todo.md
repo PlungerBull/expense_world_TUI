@@ -75,6 +75,10 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)). What lands here and how it runs:
 the shared loop, `../agent-loop.md` "Specs and tasks".
 
+- **Citations split across lines** — tui.md:135, 143, 146, 161, 163, 174, 177, 178, 180, 182,
+  188, 202, 208, 245, 255, 259, 325, 385 and decisions.md:1131 break a `(contract: …)` citation
+  over two lines, against CLAUDE.md's "on one line in a doc"; the citation test reads them
+  joined, so nothing fails.
 - **A kind of account for an investment [UI]** — PARDO, the owner's apartment, is a person
   until one exists, then converts in place, keeping its rows and balance. Needs a spec from the
   owner, and an engine ask with it.

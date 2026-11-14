@@ -6,7 +6,7 @@ How to run and repair the app (`expense`) and the sheet import (`expense import 
 
 The engine address and key live in `~/.expense-config` (or the path `EXPENSE_CONFIG` names; fields in [commands.md](commands.md)). [expense/config.py](../expense/config.py) is its one reader and writer. The app reads it once, at launch, and a save replaces what it holds (`config.hold`; why: [decisions.md](decisions.md) "The app holds its settings from launch, and only the newest read hands back").
 
-**A fresh start needs no command.** With no usable settings file the app opens on its setup screen, which writes one, replacing a damaged one, only once setup is done ([tui.md](tui.md) §2 "Setup comes first"). `expense import sheet`, finding no usable file, stops on every step with a message pointing at that screen (exit 3).
+**A fresh start needs no command.** With no usable settings file the app opens on its setup screen, which writes one, replacing a damaged one, only once setup is done ([tui.md](tui.md) §2 "Setup comes first"). `expense import sheet`, finding no usable file, stops with a message pointing at that screen (exit 3).
 
 ## Read semantics
 

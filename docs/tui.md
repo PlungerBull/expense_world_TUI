@@ -315,8 +315,8 @@ nothing ([decisions.md](decisions.md) "Archive is a prompt-free toggle"). `a`, `
 share one guard, one write at a time (`run_guarded_write`).
 
 **`t` turns an account into a person and back,** asking for what the engine needs: a person's
-name, or a bank code typed in capitals and the last 4 (`QuestionModal`). The app checks nothing; a refusal
-keyed on a line of the question keeps it open
+name, or a bank code typed in capitals and the last 4 (`QuestionModal`). The app checks
+nothing; a refusal keyed on a line of the question keeps it open
 (contract: POST /v1/accounts/{account_id}/make-person, "Body")
 (contract: POST /v1/accounts/{account_id}/make-account, "Body").
 
@@ -394,17 +394,18 @@ with `cards before`, `new card` and `new card from` for a replacement
 (contract: PUT /v1/accounts/{account_id}, "The numbers"). Emptying `last 4` removes the number
 only while another stays, after `ConfirmModal` asks; only `y` sends `current_number: null`.
 
-**A bank account's statement code is a line of its own on New and Edit,** only while BANK is a code
-`GET /banks` lists, the banks whose statement PDFs the engine reads (contract: "What an account
-is", "Statement code"). It is on a bank account only: the engine lets a person carry a code too
+**A bank account's statement code is a line of its own on New and Edit,** only while BANK is a
+code `GET /banks` lists, the banks whose statement PDFs the engine reads
+(contract: "What an account is", "Statement code"). It is on a bank account only: the engine
+lets a person carry a code too
 (contract: "What an account is", "A person carries a code like a bank account"), and these
 forms offer it none. BANK and the code show small letters as capitals while typing
-(`FormScreen._typed`); `NewAccountScreen`'s docstring holds the lines. On New
-a skipped or hidden code is left out of the body, never sent as `null` (contract: POST
-/v1/accounts). On Edit, emptying it sends `statement_code: null`, which clears the code with no
-question: typing it again brings every statement line back (contract: PUT
-/v1/accounts/{account_id}, "`statement_code`"); a move to a bank the engine reads no statements
-of is in `EditAccountScreen`'s docstring.
+(`FormScreen._typed`); `NewAccountScreen`'s docstring holds the lines. On New a skipped or
+hidden code is left out of the body, never sent as `null` (contract: POST /v1/accounts). On
+Edit, emptying it sends `statement_code: null`, which clears the code with no question: typing
+it again brings every statement line back
+(contract: PUT /v1/accounts/{account_id}, "`statement_code`"); a move to a bank the engine
+reads no statements of is in `EditAccountScreen`'s docstring.
 
 **An account's opening balance lives on its Edit form, one per currency:** two optional lines
 per currency, in the engine's order (contract: "Bank Accounts", "Per-currency order"), `PEN
