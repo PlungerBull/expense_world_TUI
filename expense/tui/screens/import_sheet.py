@@ -13,8 +13,11 @@ question: only `y` sends the apply with the same body. Nothing is written before
 refusal keyed `create.<list>.<i>.<field>` marks the row it names (`create_refusals`); every
 other one reads in the engine's words under the table.
 
-The screen ends in `_leave`, the one place the app's way out of the review is decided: the
-app closes and the command prints the line.
+A name the engine proposes an existing account for keeps its row, `yours · <account>`, which
+`⏎` and `a` skip; it goes in `names` with its proposed id and never in `create`.
+
+The screen ends in `_leave`, the one place the review's way out is decided: it closes onto
+Home, which shows the line under its rule (`HomeScreen.show_note`).
 """
 
 from contextlib import nullcontext
@@ -32,8 +35,9 @@ from textual.widgets import Static
 
 from expense import reads
 from expense.errors import format_error
-from expense.formatting import count_phrase, currencies_phrase
+from expense.formatting import count_phrase, currencies_phrase, resolve_name
 from expense.import_.engine import (
+    ACCOUNT,
     CATEGORY,
     HASHTAG,
     IMPORT_READ_TIMEOUT,
@@ -44,11 +48,11 @@ from expense.import_.engine import (
     answer_counts,
     answer_created,
     create_refusals,
-    missing_accounts,
     missing_names,
     new_ids,
     send_review,
 )
+from expense.reads import load_account_name_map
 from expense.tui.screens._base import (
     call_while_attached,
     counted_save,
@@ -57,6 +61,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens._form import form_bindings, may_have_landed
 from expense.tui.screens.create_forms import Field, NewAccountScreen
 from expense.tui.screens.help import HelpBindingMixin
+from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import PALETTE
 from expense.tui.widgets.footer import FittingFooter
@@ -138,8 +143,10 @@ def makes_cell(values: dict[str, str]) -> Text:
 
 
 def still_needed(rows: list["AccountRow"]) -> str | None:
-    """`5 accounts still need a last 4, 13 a kind.`: how many rows ask for each piece, the
-    bank first and the kind last; None when none asks."""
+    """What the rows to make still ask for, under the table: with one or two kinds of piece
+    missing, how many rows ask for each (`5 accounts still need a last 4, 13 a kind.`, the bank
+    first and the kind last); with all three, the rows once and the pieces after
+    (`3 accounts still need a bank, a last 4 or a kind.`); None when none asks."""
     asked = [row for row in rows if missing_piece(row.values)]
     if not asked:
         return None
@@ -148,6 +155,10 @@ def still_needed(rows: list["AccountRow"]) -> str | None:
         for what in ("a bank", "a last 4", "a kind")
         if (n := sum(1 for r in asked if missing_piece(r.values) == what))
     ]
+    if len(parts) == 3:
+        need = "needs" if len(asked) == 1 else "need"
+        words = f"{parts[0][1]}, {parts[1][1]} or {parts[2][1]}"
+        return f"{count_phrase(len(asked), 'account', 'accounts')} still {need} {words}."
     first, what = parts[0]
     need = "needs" if first == 1 else "need"
     line = f"{count_phrase(first, 'account', 'accounts')} still {need} {what}"
@@ -193,6 +204,7 @@ class AccountRow:
     the engine's refusal of it, as `(its field, its words)`."""
 
     entry: NameEntry
+    #: The form's lines; empty on a row that is already an account (`entry.target_id`).
     values: dict[str, str]
     refusal: tuple[str | None, str] | None = None
 
@@ -292,9 +304,14 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         self._review = review
         self._ids = new_ids(review.table)
         self._rows = [
-            AccountRow(entry, initial_values(entry.suggestion, entry.name))
-            for entry in missing_accounts(review.table)
+            AccountRow(
+                entry, {} if entry.target_id else initial_values(entry.suggestion, entry.name)
+            )
+            for entry in review.table
+            if entry.kind == ACCOUNT
         ]
+        #: Id → name of the accounts a name is proposed for, read when there are any.
+        self._account_names: dict[str, str] = {}
         self._categories = [e.name for e in missing_names(review.table) if e.kind == CATEGORY]
         self._hashtags = [e.name for e in missing_names(review.table) if e.kind == HASHTAG]
         self._cursor = 0
@@ -329,6 +346,8 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         try:
             cfg = config_module.ensure_loaded()
             banks = reads.fetch_bank_codes(cfg, **screen_fetch_kwargs(self.app))
+            if any(row.entry.target_id for row in self._rows):
+                self._account_names = load_account_name_map()
         except Exception as exc:  # the form is then without a statement code line
             call_while_attached(self, self._banks_failed, format_error(exc))
             return
@@ -337,16 +356,24 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
     def _banks_read(self, banks: list[str]) -> None:
         self._statement_banks = banks
         self.refresh_bindings()
+        self._repaint()
 
     def _banks_failed(self, message: str) -> None:
         self._statement_banks = []
         toast(self, message, title="Failed", severity="error")
         self.refresh_bindings()
 
+    def _to_make(self) -> list[AccountRow]:
+        """The rows the review makes an account of: those the engine proposed none for."""
+        return [row for row in self._rows if not row.entry.target_id]
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action in ("edit", "archive", "move"):
+        if action == "move":
+            return bool(self._rows) and not self._busy
+        if action in ("edit", "archive"):
             return (
                 bool(self._rows)
+                and not self._rows[self._cursor].entry.target_id
                 and not self._busy
                 and (action != "edit" or self._statement_banks is not None)
             )
@@ -374,7 +401,11 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         table.add_column("ARCHIVE", no_wrap=True)
         for i in window:
             row = self._rows[i]
-            makes = makes_cell(row.values)
+            if row.entry.target_id:
+                name = resolve_name(row.entry.target_id, self._account_names)
+                makes = Text(f"yours · {name}", style="dim")
+            else:
+                makes = makes_cell(row.values)
             if row.refusal is not None:
                 makes = Text.assemble(("! ", PALETTE.error), makes)
             table.add_row(
@@ -388,7 +419,7 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         return table, self._top, len(self._rows) - window.stop
 
     def _head(self) -> Text:
-        made = MadeCounts(len(self._rows), len(self._categories), len(self._hashtags))
+        made = MadeCounts(len(self._to_make()), len(self._categories), len(self._hashtags))
         rows = count_phrase(self._review.rows, "row", "rows")
         return Text(f"{rows} · {made_phrase(made)} to make")
 
@@ -404,7 +435,7 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         """Under the lists: what the rows still ask for, then each refusal and that nothing
         was written."""
         notes: list[RenderableType] = []
-        if line := still_needed(self._rows):
+        if line := still_needed(self._to_make()):
             notes.append(Text(line, style=PALETTE.warning))
         for row in self._rows:
             if row.refusal is not None:
@@ -438,6 +469,7 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
     # ---- keys --------------------------------------------------------------
     def action_move(self, delta: int) -> None:
         self._cursor = max(0, min(len(self._rows) - 1, self._cursor + delta))
+        self.refresh_bindings()
         self._repaint()
 
     def action_archive(self) -> None:
@@ -473,16 +505,18 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         self._leave(NOTHING_IMPORTED)
 
     def _leave(self, line: str) -> None:
-        """The one way out of the review, after the import and on `esc`: the app closes and
-        the command prints `line`."""
-        self.app.exit(line)
+        """The one way out of the review, after the import and on `esc`: back to Home, as a
+        bare `expense` opens it, with `line` on its top line."""
+        home = next(s for s in self.app.screen_stack if isinstance(s, HomeScreen))
+        self.dismiss()
+        home.show_note(line)
 
     # ---- the engine --------------------------------------------------------
     def action_import(self) -> None:
         """`^s`: held while any row says `?`; else the dry run, then the question."""
         if self._busy:
             return
-        if line := still_needed(self._rows):
+        if line := still_needed(self._to_make()):
             toast(self, line, severity="error")
             return
         self._clear_refusals()
@@ -513,7 +547,7 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         from expense import config as config_module
         from expense.http import ExpenseClient
 
-        accounts = {row.entry.name: row.values for row in self._rows}
+        accounts = {row.entry.name: row.values for row in self._to_make()}
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(
@@ -562,12 +596,13 @@ class ImportSheetScreen(HelpBindingMixin, Screen):
         if not refusals:
             self._other_refusal = format_error(err)
         marked: list[int] = []
+        made = self._to_make()  # `create.accounts.<i>` counts the rows made, in this order
         for refusal in refusals:
-            if refusal.listed == "accounts" and refusal.place < len(self._rows):
-                row = self._rows[refusal.place]
+            if refusal.listed == "accounts" and refusal.place < len(made):
+                row = made[refusal.place]
                 if row.refusal is None:
                     row.refusal = (refusal.field, refusal.words)
-                    marked.append(refusal.place)
+                    marked.append(self._rows.index(row))
             elif refusal.listed in ("categories", "hashtags"):
                 self._list_refusals.setdefault(refusal.listed, []).append(refusal.words)
         if marked:

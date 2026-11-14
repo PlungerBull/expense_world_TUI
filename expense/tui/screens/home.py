@@ -46,7 +46,7 @@ from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.screen import Screen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -427,11 +427,26 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     # ---- widgets ------------------------------------------------------------
     def compose(self) -> ComposeResult:
         yield Static(_build_header(None, None), id="brand")
+        yield Static("", id="note")
         yield CursorOptionList(*home_options(home_rows(None, self._state)), id="menu")
         yield FittingFooter()
 
     def on_mount(self) -> None:
         self._load_month()
+
+    def show_note(self, line: str) -> None:
+        """One line under the header's rule, in the success style: what the import's review
+        handed back (`ImportSheetScreen._leave`). It stays until another screen opens over
+        Home."""
+        note = self.query_one("#note", Static)
+        note.update(Text(line))
+        note.display = True
+
+    def on_screen_suspend(self) -> None:
+        """A screen opening over Home takes the note away; a modal (`?`, the quit question)
+        is not leaving Home."""
+        if not isinstance(self.app.screen, ModalScreen):
+            self.query_one("#note", Static).display = False
 
     def on_screen_resume(self) -> None:
         # returning home after a write should reflect the new numbers

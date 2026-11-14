@@ -1,5 +1,3 @@
-import json
-
 import pytest
 import typer
 
@@ -17,7 +15,6 @@ from expense.errors import (
     refuses_every_write,
     render,
 )
-from tests.unit.helpers import error_body
 
 
 def test_render_engine_error_human_with_fields():
@@ -29,9 +26,8 @@ def test_render_engine_error_human_with_fields():
         raw_body={},
         reasons={"amount_cents": "ZERO_AMOUNT"},
     )
-    output, exit_code, use_stderr = render(err, json_mode=False)
+    output, exit_code = render(err)
     assert exit_code == 1
-    assert use_stderr is True
     assert "Error: VALIDATION_ERROR — Transaction validation failed." in output
     assert "  amount_cents: Must not be zero." in output
 
@@ -46,33 +42,9 @@ def test_render_engine_error_human_is_the_engine_words_alone():
         status=401,
         raw_body={},
     )
-    output, exit_code, use_stderr = render(err, json_mode=False)
+    output, exit_code = render(err)
     assert exit_code == 1
-    assert use_stderr is True
     assert output == "Error: UNAUTHORIZED — Missing or invalid token"
-
-
-def test_render_connection_error_json_envelope():
-    err = EngineConnectionError(
-        url="https://x.invalid",
-        original=TimeoutError("timeout"),
-    )
-    output, exit_code, _ = render(err, json_mode=True)
-    assert exit_code == 6
-    envelope = json.loads(output)
-    assert envelope["error"]["code"] == "CONNECTION_ERROR"
-    assert envelope["error"]["fields"] is None
-    assert envelope["error"]["reasons"] is None
-
-
-def test_render_config_invalid_json_envelope():
-    err = ConfigInvalidError("Config file at /x is not valid JSON.")
-    output, exit_code, _ = render(err, json_mode=True)
-    assert exit_code == 3
-    envelope = json.loads(output)
-    assert envelope["error"]["code"] == "CONFIG_INVALID"
-    assert envelope["error"]["fields"] is None
-    assert envelope["error"]["reasons"] is None
 
 
 def test_format_error_leaves_reasons_off_screen():
@@ -94,24 +66,7 @@ def test_format_error_leaves_reasons_off_screen():
     assert format_error(with_reasons) == (
         "VALIDATION_ERROR — Transaction validation failed.\n  amount_cents: Must not be zero."
     )
-    assert render(with_reasons, json_mode=False) == render(without, json_mode=False)
-
-
-def test_render_engine_error_json_keeps_the_reasons():
-    raw = error_body(
-        "VALIDATION_ERROR", "bad", {"amount_cents": "zero"}, {"amount_cents": "ZERO_AMOUNT"}
-    )
-    err = EngineError(
-        code="VALIDATION_ERROR",
-        message="bad",
-        fields={"amount_cents": "zero"},
-        status=422,
-        raw_body=raw,
-        reasons={"amount_cents": "ZERO_AMOUNT"},
-    )
-    output, _, _ = render(err, json_mode=True)
-    assert json.loads(output) == raw
-    assert json.loads(output)["error"]["reasons"] == {"amount_cents": "ZERO_AMOUNT"}
+    assert render(with_reasons) == render(without)
 
 
 def test_format_error_401_includes_hint():
@@ -183,22 +138,6 @@ def test_format_error_other_422_has_no_setup_hint():
     assert "press b" not in format_error(err)
 
 
-def test_render_settings_missing_json_is_the_raw_body_without_the_hint():
-    raw = error_body(
-        "SETTINGS_MISSING",
-        "User settings have not been provisioned.",
-        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
-        {"user_settings": "NOT_PROVISIONED"},
-    )
-    err = _settings_missing(
-        raw["error"]["message"], raw["error"]["fields"], raw["error"]["reasons"], raw
-    )
-    output, exit_code, use_stderr = render(err, json_mode=True)
-    assert json.loads(output) == raw
-    assert "Hint" not in output
-    assert (exit_code, use_stderr) == (1, False)
-
-
 def test_format_error_connection_error():
     err = EngineConnectionError(
         url="https://nonexistent.invalid",
@@ -228,7 +167,7 @@ def test_format_error_falls_back_to_str():
     ],
 )
 def test_render_human_is_prefix_plus_engine_text(err):
-    output, _, _ = render(err, json_mode=False)
+    output, _ = render(err)
     assert output == "Error: " + engine_text(err)
 
 
@@ -243,7 +182,7 @@ def test_render_human_is_prefix_plus_engine_text(err):
 )
 def test_handle_errors_exits_with_the_errors_code(error, exit_code):
     @handle_errors
-    def cmd(json_output: bool = False):
+    def cmd():
         raise error
 
     with pytest.raises(typer.Exit) as exc:
@@ -253,7 +192,7 @@ def test_handle_errors_exits_with_the_errors_code(error, exit_code):
 
 def test_handle_errors_propagates_unexpected():
     @handle_errors
-    def cmd(json_output: bool = False):
+    def cmd():
         raise RuntimeError("bug")
 
     with pytest.raises(RuntimeError, match="bug"):

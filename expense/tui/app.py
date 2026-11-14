@@ -23,7 +23,7 @@ from expense.tui.widgets.header import Breadcrumb
 log = logging.getLogger(__name__)
 
 
-class ExpenseApp(App[str | None]):
+class ExpenseApp(App):
     """Root app: registers the theme and hosts the screen stack.
 
     `verbose` is read off the typer context and handed to engine fetches
@@ -190,9 +190,8 @@ class ExpenseApp(App[str | None]):
             repaint()
 
 
-def launch(ctx: typer.Context, review: SheetReview | None = None) -> str | None:
-    """TTY guard + launch. The app is interactive-only. Returns the line the app ends
-    with, if it ends with one (the import's review does)."""
+def launch(ctx: typer.Context, review: SheetReview | None = None) -> None:
+    """TTY guard + launch. The app is interactive-only."""
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         typer.echo("Error: the app needs an interactive terminal.", err=True)
         raise typer.Exit(code=1)
@@ -221,6 +220,6 @@ def launch(ctx: typer.Context, review: SheetReview | None = None) -> str | None:
     # ignore the mouse and restores native select-to-copy.
     # Why: docs/decisions.md "TUI is keyboard-only".
     try:
-        return ExpenseApp(verbose=get_verbose(ctx), setup=setup, review=review).run(mouse=False)
+        ExpenseApp(verbose=get_verbose(ctx), setup=setup, review=review).run(mouse=False)
     finally:
         config_module.release()

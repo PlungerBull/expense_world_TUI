@@ -26,6 +26,12 @@ Screen {
     text-style: bold;
     border-bottom: solid $secondary;  /* thin rule dividing header from menu */
 }
+/* The line the import's review leaves under the rule (HomeScreen.show_note). */
+#note {
+    display: none;
+    padding: 0 2;
+    color: $success;
+}
 /* No box: the menu sits directly on the terminal-transparent background (one
    surface with the screen, not a raised panel). It carries `ansi_default`
    itself rather than a token, for the reason given at the top of this file —

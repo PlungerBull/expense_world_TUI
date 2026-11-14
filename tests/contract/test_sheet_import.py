@@ -1,4 +1,4 @@
-"""Contract: the sheet import through the engine, run by the app's own module
+"""Contract: the sheet import through the engine, built with the app's own module
 (expense/import_/engine.py) on made-up sheets.
 
 The engine reads the whole sheet, matches every row against the ledger and writes
@@ -33,18 +33,24 @@ hands what it wrote to the `scratch` cleanup. Gating, target and the real-ledger
 """
 
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import date
+from enum import Enum
 from uuid import uuid4
 
-from expense.errors import EngineError
+from expense.errors import EngineConnectionError, EngineError
+from expense.http import ExpenseClient
 from expense.import_.engine import (
     ACCOUNT,
     CATEGORY,
     HASHTAG,
-    SheetImport,
-    Stage,
-    Step,
-    import_sheet,
+    NameEntry,
+    SheetCounts,
+    SheetRow,
+    answer_counts,
+    answer_rows,
+    missing_names,
+    names_table,
     request_body,
     table_body,
 )
@@ -64,6 +70,72 @@ from tests.contract.conftest import (
     transaction_count,
     under_key,
 )
+
+
+class Step(Enum):
+    """What a run is asked to do: the first dry run alone, the dry run that counts, the apply."""
+
+    NAMES = "names"
+    DRY_RUN = "dry_run"
+    APPLY = "apply"
+
+
+class Stage(Enum):
+    """The call a run stopped at."""
+
+    NAMES = "names"
+    COUNTS = "counts"
+    APPLY = "apply"
+
+
+@dataclass
+class SheetImport:
+    """One run of the sheet as the app's review sends it, the engine's last answer and where
+    the run stopped."""
+
+    table: list[NameEntry] = field(default_factory=list)
+    answer: dict | None = None
+    counted: bool = False  # `answer` came with the table: it holds outcomes
+    error: EngineError | EngineConnectionError | None = None
+    stage: Stage | None = None
+
+    @property
+    def missing(self) -> list[NameEntry]:
+        return missing_names(self.table)
+
+    @property
+    def rows(self) -> list[SheetRow]:
+        return answer_rows(self.answer or {})
+
+    @property
+    def counts(self) -> SheetCounts:
+        return answer_counts(self.answer or {})
+
+
+def import_sheet(target, data: bytes, *, step: Step) -> SheetImport:
+    """The first dry run without the table, then, by `step` and once every name has an id
+    (the engine's proposals), the dry run or the apply with the table."""
+    result = SheetImport()
+    with ExpenseClient(target) as client:
+        try:
+            result.stage = Stage.NAMES
+            result.answer = client.post(
+                "/transactions/import-sheet", request_body(data, dry_run=True)
+            )
+            result.table = names_table(result.answer)
+            if step is not Step.NAMES and not any(e.target_id is None for e in result.table):
+                result.stage = Stage.APPLY if step is Step.APPLY else Stage.COUNTS
+                result.answer = client.post(
+                    "/transactions/import-sheet",
+                    request_body(
+                        data, dry_run=step is not Step.APPLY, names=table_body(result.table)
+                    ),
+                )
+                result.counted = True
+            result.stage = None
+        except (EngineError, EngineConnectionError) as err:
+            result.error = err
+    return result
 
 
 class Names:

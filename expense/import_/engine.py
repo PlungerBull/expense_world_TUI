@@ -11,14 +11,9 @@ a proposal, and the outcomes and counts come only with a table giving every name
 id (contract: POST /v1/transactions/import-sheet, "Names"). It makes an account,
 category or hashtag only from the `create` the same request lists, all of it landing
 with the rows or none of it (contract: POST /v1/transactions/import-sheet, "Create").
-So a run is one of three steps (`Step`), each first a dry run without the table, which
-lists the names and refuses a bad sheet before anything else is sent:
-
-- `NAMES`: that first dry run alone, what the import's review opens on
-  (expense/tui/screens/import_sheet.py);
-- `DRY_RUN`: once every name has an id, a second dry run with the table answers the
-  counts; while one lacks it, nothing more is sent;
-- `APPLY`: written with the table, only once every name has an id.
+So the command sends the sheet as a dry run without the table (`import_sheet`), which lists
+the names and refuses a bad sheet before anything else is sent, and opens the review on it
+(expense/tui/screens/import_sheet.py).
 
 The review makes what is missing: it sends `create` and `names` through `send_review`.
 Every write is one `ExpenseClient.post`, which carries its own idempotency key.
@@ -26,7 +21,6 @@ Every write is one `ExpenseClient.post`, which carries its own idempotency key.
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import NamedTuple
 from uuid import uuid4
 
@@ -372,61 +366,25 @@ def answer_created(answer: dict) -> MadeCounts:
 # ---------------------------------------------------------------------------
 # the run
 # ---------------------------------------------------------------------------
-class Step(Enum):
-    """What a run is asked to do."""
-
-    NAMES = "names"  # the first dry run alone: the names the sheet uses
-    DRY_RUN = "dry_run"  # the names, and the counts once every name has an id
-    APPLY = "apply"  # import, once every name has an id
-
-
-class Stage(Enum):
-    """The call a run stopped at."""
-
-    NAMES = "names"  # the dry run without the table
-    COUNTS = "counts"  # the dry run with the table: nothing written
-    APPLY = "apply"  # the apply with the table: nothing written
-
-
 @dataclass
 class SheetImport:
-    """What one run of the sheet import comes to.
+    """The first dry run: the engine's answer untouched and the names table built from it,
+    or, when it stopped the run, `error`: an engine refusal (`EngineError`, its envelope in
+    `raw_body` as sent) or the engine out of reach."""
 
-    `answer` is the engine's last answer, untouched: the dry run's with the
-    table, or the apply's, when one was sent (`counted`), else the first dry
-    run's; None when that was refused. `error` is what stopped the run, an
-    engine refusal (`EngineError`, its envelope in `raw_body` as sent) or the
-    engine out of reach; `stage` is where."""
-
-    step: Step
     table: list[NameEntry] = field(default_factory=list)
     answer: dict | None = None
-    counted: bool = False  # `answer` came with the table: it holds outcomes
     error: EngineError | EngineConnectionError | None = None
-    stage: Stage | None = None
-
-    @property
-    def missing(self) -> list[NameEntry]:
-        """The categories and hashtags with no proposal."""
-        return missing_names(self.table)
-
-    @property
-    def missing_accounts(self) -> list[NameEntry]:
-        return missing_accounts(self.table)
 
     @property
     def rows(self) -> list[SheetRow]:
         return answer_rows(self.answer or {})
 
-    @property
-    def counts(self) -> SheetCounts:
-        return answer_counts(self.answer or {})
-
 
 @dataclass(frozen=True)
 class SheetReview:
     """What the app opens the review on: the sheet's file name and bytes, the names the first
-    dry run listed (`Step.NAMES`) and the settings the command read."""
+    dry run listed and how many rows it read, and the settings the command read."""
 
     file_name: str
     data: bytes
@@ -437,34 +395,14 @@ class SheetReview:
     cfg: Config
 
 
-def import_sheet(cfg: Config, data: bytes, *, step: Step, verbose: bool = False) -> SheetImport:
-    """Run one step of the sheet import on the workbook's bytes.
-
-    A dry run without the table first: a refused sheet stops here. Then, by `step`:
-
-    - `NAMES`: nothing more.
-    - `DRY_RUN`: with no name missing, the dry run again with the table, for the counts.
-    - `APPLY`: with no name missing, the apply with the table, whose answer is what
-      happened; with one missing, nothing is sent.
-
-    The first refusal stops the run and is kept whole."""
-    result = SheetImport(step=step)
+def import_sheet(cfg: Config, data: bytes, *, verbose: bool = False) -> SheetImport:
+    """The sheet as a dry run without the table: it lists every name the sheet uses and
+    refuses a bad sheet before anything else is sent. The first refusal is kept whole."""
+    result = SheetImport()
     with ExpenseClient(cfg, verbose=verbose, timeout_read=IMPORT_READ_TIMEOUT) as client:
         try:
-            result.stage = Stage.NAMES
-            answer = client.post(IMPORT_PATH, request_body(data, dry_run=True))
-            result.answer = answer
-            result.table = names_table(answer)
-            if step is not Step.NAMES and not any(e.missing for e in result.table):
-                result.stage = Stage.APPLY if step is Step.APPLY else Stage.COUNTS
-                result.answer = client.post(
-                    IMPORT_PATH,
-                    request_body(
-                        data, dry_run=step is not Step.APPLY, names=table_body(result.table)
-                    ),
-                )
-                result.counted = True
-            result.stage = None
+            result.answer = client.post(IMPORT_PATH, request_body(data, dry_run=True))
+            result.table = names_table(result.answer)
         except (EngineError, EngineConnectionError) as err:
             result.error = err
     return result

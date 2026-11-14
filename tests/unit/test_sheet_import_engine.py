@@ -22,8 +22,6 @@ from expense.import_.engine import (
     CATEGORY,
     HASHTAG,
     NameEntry,
-    Stage,
-    Step,
     Suggestion,
     account_entry,
     create_refusals,
@@ -66,7 +64,6 @@ def _body(request: httpx.Request) -> dict:
 
 
 #: A sheet using one account name in two currencies, which you lack; a category you have
-#: A sheet using one account name in two currencies, which you lack; a category you have
 #: and one you do not; a hashtag you do not.
 DRY = sheet_import_answer(
     accounts=[sheet_name_use("BCP Oro", 5, None, currencies=["PEN", "USD"])],
@@ -84,50 +81,10 @@ ALL_YOURS = sheet_import_answer(
 )
 
 
-def _answered(body: dict) -> dict:
-    """The answer to a body with the table: each row on the table's first
-    account, new, as a dry run or an apply."""
-    account_id = body["names"]["accounts"][0]["account_id"]
-    applied = body["dry_run"] is False
-    rows = [
-        sheet_row(
-            r,
-            account_id=account_id,
-            outcome="new",
-            is_opening_balance=False,
-            transaction_id=f"t-{r}" if applied else None,
-            bank_line_id=f"bl-{r}" if applied else None,
-        )
-        for r in range(2, 7)
-    ]
-    return sheet_import_answer(
-        accounts=ALL_YOURS["names"]["accounts"],
-        categories=ALL_YOURS["names"]["categories"],
-        hashtags=ALL_YOURS["names"]["hashtags"],
-        rows=rows,
-        dry_run=body["dry_run"],
-    )
-
-
-def _engine(dry: dict | httpx.Response = DRY, tabled: object = None):
-    """Route the import: a body without `names` answers `dry`, one with them
-    answers `tabled` (by default `_answered`), a response, or raises it."""
-
-    def answer(request: httpx.Request) -> httpx.Response:
-        body = _body(request)
-        if "names" not in body:
-            return dry if isinstance(dry, httpx.Response) else httpx.Response(200, json=dry)
-        if tabled is None:
-            return httpx.Response(200, json=_answered(body))
-        if isinstance(tabled, Exception):
-            raise tabled
-        return tabled  # type: ignore[return-value]
-
-    return respx.post(IMPORT).mock(side_effect=answer)
-
-
-def _writes() -> list[httpx.Request]:
-    return [call.request for call in respx.calls if call.request.method == "POST"]
+def _engine(first: dict | httpx.Response = DRY):
+    """The import route answers `first`."""
+    reply = first if isinstance(first, httpx.Response) else httpx.Response(200, json=first)
+    return respx.post(IMPORT).mock(return_value=reply)
 
 
 # ---- what is sent ------------------------------------------------------------------
@@ -344,67 +301,21 @@ def test_a_refusal_with_a_key_of_anything_else_is_no_create_refusal(key):
 
 
 # ---- the run -----------------------------------------------------------------------
-@pytest.mark.parametrize("step", [Step.DRY_RUN, Step.APPLY])
 @respx.mock
-def test_with_every_name_yours_the_second_request_carries_the_whole_table(configured, step):
+def test_the_command_sends_the_first_dry_run_alone_and_keeps_its_names(configured):
     route = _engine(ALL_YOURS)
-    import_sheet(_cfg(), DATA, step=step)
-    bodies = [_body(c.request) for c in route.calls]
-    assert bodies[0] == {"dry_run": True, "file": file_field(DATA)}
-    assert bodies[1] == {
-        "dry_run": step is not Step.APPLY,
-        "file": file_field(DATA),
-        "names": table_body(names_table(ALL_YOURS)),
-    }
-
-
-@respx.mock
-def test_the_names_step_sends_the_first_dry_run_alone(configured):
-    route = _engine(ALL_YOURS)
-    result = import_sheet(_cfg(), DATA, step=Step.NAMES)
+    result = import_sheet(_cfg(), DATA)
     assert route.call_count == 1
-    assert (result.error, result.counted, len(result.table)) == (None, False, 4)
+    assert _body(route.calls[0].request) == {"dry_run": True, "file": file_field(DATA)}
+    assert (result.error, len(result.table), len(result.rows)) == (None, 4, 5)
 
 
 @respx.mock
-def test_a_missing_name_sends_nothing_beyond_the_first_dry_run(configured):
-    route = _engine()
-    result = import_sheet(_cfg(), DATA, step=Step.APPLY)
-    assert route.call_count == 1
-    assert (result.counted, result.answer) == (False, DRY)
-
-
-@pytest.mark.parametrize(
-    ("step", "stage"), [(Step.DRY_RUN, Stage.COUNTS), (Step.APPLY, Stage.APPLY)]
-)
-@respx.mock
-def test_a_table_refused_is_kept_with_its_stage(configured, step, stage):
-    """An archived account the engine proposed is refused in the table."""
-    _engine(ALL_YOURS, tabled=httpx.Response(422, json=INVALID_REFERENCE))
-    result = import_sheet(_cfg(), DATA, step=step)
+def test_a_refused_sheet_is_kept_whole(configured):
+    _engine(httpx.Response(422, json=INVALID_REFERENCE))
+    result = import_sheet(_cfg(), DATA)
     assert isinstance(result.error, EngineError)
-    assert result.error.raw_body == INVALID_REFERENCE
-    assert (result.stage, result.counted, result.answer) == (stage, False, ALL_YOURS)
-
-
-@respx.mock
-def test_a_failed_apply_is_retried_by_the_client_under_its_one_key(configured):
-    """The module sends each write once; the HTTP client's bounded retry re-sends
-    the apply under the same idempotency key, so a retry never double-applies."""
-    answers = iter([httpx.Response(503, json=error_body("INTERNAL_ERROR", "Busy."))])
-
-    def apply(request: httpx.Request) -> httpx.Response:
-        body = _body(request)
-        if "names" not in body:
-            return httpx.Response(200, json=ALL_YOURS)
-        return next(answers, None) or httpx.Response(200, json=_answered(body))
-
-    route = respx.post(IMPORT).mock(side_effect=apply)
-    result = import_sheet(_cfg(), DATA, step=Step.APPLY)
-    assert result.error is None
-    applies = [c.request for c in route.calls if "names" in _body(c.request)]
-    assert len(applies) == 2
-    assert applies[0].headers["X-Idempotency-Key"] == applies[1].headers["X-Idempotency-Key"]
+    assert (result.error.raw_body, result.answer, result.table) == (INVALID_REFERENCE, None, [])
 
 
 def test_two_accounts_differing_only_in_case_are_made_under_two_ids():

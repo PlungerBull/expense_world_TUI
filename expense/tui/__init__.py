@@ -14,12 +14,11 @@ if TYPE_CHECKING:
     from expense.import_.engine import SheetReview
 
 
-def open_app(ctx: typer.Context, review: "SheetReview | None" = None) -> str | None:
-    """Open the interactive app, on the import's review when `review` is given; the one
-    line the app ends with, if any."""
+def open_app(ctx: typer.Context, review: "SheetReview | None" = None) -> None:
+    """Open the interactive app, on the import's review when `review` is given."""
     from expense.tui.app import launch
 
-    return launch(ctx, review)
+    launch(ctx, review)
 
 
 __all__ = ["open_app"]

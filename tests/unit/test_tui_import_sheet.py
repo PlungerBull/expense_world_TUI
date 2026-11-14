@@ -12,11 +12,14 @@ import pytest
 from expense.config import Config
 from expense.errors import EngineError
 from expense.import_.engine import SheetReview, names_table
+from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.import_sheet import (
+    AccountRow,
     ImportSheetScreen,
     SheetAccountScreen,
     makes_cell,
     ready_question,
+    still_needed,
 )
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import PALETTE
@@ -24,6 +27,7 @@ from tests.unit.helpers import (
     ENGINE_BANKS,
     enter_values,
     refusal_block,
+    render_text,
     run_app,
     sheet_import_answer,
     sheet_name_use,
@@ -118,6 +122,14 @@ def _open(review: SheetReview, body, **options):
 
 def _text(screen) -> list[str]:
     return shown(screen.query_one("#import-body")).splitlines()
+
+
+def _note(app) -> str | None:
+    """Home's line under the rule as drawn, in the success style; None while it is hidden."""
+    note = app.screen.query_one("#note")
+    if not note.display:
+        return None
+    return render_text(note.content).strip()
 
 
 def _sent(fake_client) -> list[dict]:
@@ -284,6 +296,38 @@ def test_the_app_given_a_review_opens_on_it_with_the_settings_the_command_read(
     assert (held, seen) == ([CFG], [False])
 
 
+def test_a_name_the_engine_proposes_an_account_for_keeps_its_row_and_makes_nothing(
+    fake_client, monkeypatch
+):
+    """`yours · <account>` in the dim style, left out of the head's count; `⏎` and `a` skip
+    it (its form never opens, nothing is archived)."""
+    monkeypatch.setattr(
+        "expense.tui.screens.import_sheet.load_account_name_map", lambda: {"acc-have": "BCP-0001"}
+    )
+
+    async def body(pilot, app, screen):
+        await wait_for(pilot, lambda: "yours · BCP-0001" in "\n".join(_text(screen)))
+        lines = _text(screen)
+        assert lines[0] == "4,191 rows · 1 account, 0 categories and 0 hashtags to make"
+        assert lines[3].startswith("BCP-0001") and lines[3].endswith("yours · BCP-0001")
+        await pilot.press("down", "enter", "a")  # onto the proposed row
+        assert screen._cursor == 1 and app.screen is screen
+        assert screen._rows[1].values == {}
+        assert "archive" not in _text(screen)[3].replace("ARCHIVE", "")
+
+    _open(_review([READY[0], READY[2]]), body)
+
+
+def test_the_line_under_the_table_counts_the_rows_once_when_all_three_are_asked():
+    entry = _review(ACCOUNTS).table[0]
+    rows = [
+        AccountRow(entry, {"type": "bank", "last4": "1234"}),
+        AccountRow(entry, {"type": "bank", "bank": "BCP"}),
+        AccountRow(entry, {}),
+    ]
+    assert still_needed(rows) == "3 accounts still need a bank, a last 4 or a kind."
+
+
 def test_a_form_holding_archive_yes_keeps_it_on_enter(fake_client):
     async def body(pilot, app, screen):
         await pilot.press("a", "enter")  # BCP 1234 archived, then its form
@@ -349,16 +393,14 @@ def test_the_dry_run_sends_create_with_ids_kept_and_names_at_them_then_only_y_ap
 
         await pilot.press("n")  # anything but y: back on the review, nothing applied
         await wait_for(pilot, lambda: app.screen is screen)
-        assert len(fake_client.posts) == 1 and app.return_value is None
+        assert len(fake_client.posts) == 1
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         assert _sent(fake_client)[1] == first  # the same ids and the same body, sent again
         await pilot.press("y")
-        await wait_for(pilot, lambda: app.return_value is not None)
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
         assert _sent(fake_client)[2] == {**first, "dry_run": False}
-        assert app.return_value == (
-            "Imported 4,189 rows · 2 accounts, 2 categories and 1 hashtag made."
-        )
+        assert _note(app) == "Imported 4,189 rows · 2 accounts, 2 categories and 1 hashtag made."
 
     _open(_review(READY, ["Comida", "Transporte"], ["Personal"]), body)
 
@@ -374,12 +416,21 @@ def test_the_question_names_what_the_engine_counted_beyond_new_and_zero_rows():
     )
 
 
-def test_esc_leaves_with_nothing_written_and_the_app_says_so(fake_client):
+def test_esc_leaves_for_home_with_nothing_written_and_the_app_says_so(fake_client):
     async def body(pilot, app, screen):
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.return_value is not None)
-        assert app.return_value == "Nothing was imported."
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        assert _note(app) == "Nothing was imported."
         assert fake_client.posts == []
+        # a modal over Home (the `?` card) leaves it; a screen opening over Home takes it away
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: not isinstance(app.screen, HomeScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        assert _note(app) == "Nothing was imported."
+        await pilot.press("plus")  # the LOG bar: a screen over Home
+        await wait_for(pilot, lambda: not isinstance(app.screen, HomeScreen))
+        assert app.screen_stack[0].query_one("#note").display is False
 
     _open(_review(ACCOUNTS), body)
 
@@ -392,15 +443,17 @@ def test_a_refused_account_marks_its_row_and_its_form_opens_on_the_line_with_the
     under the table and that nothing was written; `⏎` opens its form with the same words, the
     cursor on LAST 4; `^s` there takes the row back."""
     words = "An account named IBK-4321 already exists."
+    # a proposed row comes first: `create.accounts.1` is the second row made, the third row
     fake_client.post_queue.append(_refusal({"create.accounts.1.last4": words}))
 
     async def body(pilot, app, screen):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: "Nothing was written." in "\n".join(_text(screen)))
         lines = _text(screen)
-        assert lines[3].startswith("IBK 4321") and "! bank · IBK · 4321" in lines[3]
+        assert lines[4].startswith("IBK 4321") and "! bank · IBK · 4321" in lines[4]
+        assert not any("!" in line for line in lines[2:4])  # neither the proposed nor BCP 1234
         assert lines[-2:] == [f"! IBK 4321: {words}", "Nothing was written."]
-        assert screen._cursor == 1 and app.return_value is None
+        assert screen._cursor == 2 and app.screen is screen
         await pilot.press("enter")
         form = app.screen
         assert (form._key, refusal_block(form)) == ("last4", f"Failed\n{words}")
@@ -408,7 +461,7 @@ def test_a_refused_account_marks_its_row_and_its_form_opens_on_the_line_with_the
         await wait_for(pilot, lambda: app.screen is screen)
         assert not any("!" in line for line in _text(screen))
 
-    _open(_review(READY[:2], ["Comida"], ["Personal"]), body)
+    _open(_review([READY[2], READY[0], READY[1]], ["Comida"], ["Personal"]), body)
 
 
 def test_a_refused_hashtag_reads_under_the_hashtags_line_and_marks_no_row(fake_client):

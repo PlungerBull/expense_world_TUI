@@ -1,6 +1,5 @@
-"""`expense import sheet`: what the terminal prints and where the review opens: the dry run
-hands the first answer to the app, `--apply` and `--json` print, a sheet with bad rows and the
-apply refused while a name is missing exit 1.
+"""`expense import sheet`: the dry run hands the first answer to the app; a sheet the engine
+refuses prints each refusal by row, exits 1 and opens no app.
 
 The engine is respx: every answer is the fake engine's `sheet_import_answer`
 (tests/unit/helpers.py), every refusal an envelope shaped as the practice
@@ -29,9 +28,6 @@ runner = CliRunner()
 cli_app = real_cli_app()
 IMPORT = f"{BASE}/v1/transactions/import-sheet"
 FILE = "libro.xlsx"
-#: The two commands that read the sheet's first dry run: the review and the apply.
-STEPS = [[], ["--apply"]]
-STEP_IDS = ["dry", "apply"]
 
 
 @pytest.fixture
@@ -80,55 +76,18 @@ def _names(*, yours: bool) -> dict:
     }
 
 
-def _answer(*, yours: bool, dry_run: bool = True, rows=None, counts=None) -> dict:
-    return sheet_import_answer(
-        **_names(yours=yours),
-        rows=rows if rows is not None else [sheet_row(2)],
-        dry_run=dry_run,
-        counts=counts,
-    )
+def _answer(*, yours: bool) -> dict:
+    return sheet_import_answer(**_names(yours=yours), rows=[sheet_row(2)])
 
 
-#: The counts once every name exists: 1,961 rows, 7 of them zero.
-SKIPPED = [14, 90, 311, 1201, 1202, 1555, 1960]
-COUNTS = {
-    "new": 1954,
-    "matched": 0,
-    "sealed": 0,
-    "skipped": 7,
-    "opening_balances": 4,
-    "split_lines": 3,
-    "split_rows": 8,
-}
-
-
-def _counted_rows(outcome: str = "new", *, sealed: tuple[int, ...] = ()) -> list[dict]:
-    rows = []
-    for r in range(2, 1963):
-        if r in SKIPPED:
-            rows.append(sheet_row(r, 0, outcome="skipped", account_id="acc-ib"))
-        elif r in sealed:
-            rows.append(sheet_row(r, outcome="sealed", account_id="acc-ib"))
-        else:
-            rows.append(sheet_row(r, outcome=outcome, account_id="acc-ib"))
-    return rows
-
-
-def _engine(first: dict | httpx.Response, tabled: dict | httpx.Response | None = None):
-    """The import route: a body without `names` answers `first`, one with them
-    `tabled`."""
-
-    def answer(request: httpx.Request) -> httpx.Response:
-        reply = tabled if "names" in _body(request) else first
-        assert reply is not None, "the table was sent"
-        return reply if isinstance(reply, httpx.Response) else httpx.Response(200, json=reply)
-
-    return respx.post(IMPORT).mock(side_effect=answer)
+def _engine(first: dict | httpx.Response):
+    """The import route answers `first`."""
+    reply = first if isinstance(first, httpx.Response) else httpx.Response(200, json=first)
+    return respx.post(IMPORT).mock(return_value=reply)
 
 
 def _sent() -> list[tuple[str, bool | None, bool]]:
-    """Every POST: its path, and for the import its `dry_run` and whether the
-    table went with it."""
+    """Every POST: its path, and its `dry_run` and whether the table went with it."""
     out = []
     for call in respx.calls:
         if call.request.method != "POST":
@@ -140,12 +99,12 @@ def _sent() -> list[tuple[str, bool | None, bool]]:
 
 @pytest.fixture
 def review(monkeypatch):
-    """The app the review opens: it records what it was opened on and ends with a line."""
+    """The app the review opens: it records what it was opened on."""
     opened: list[SheetReview] = []
 
     def open_app(ctx, review=None):
         opened.append(review)
-        return "Nothing was imported."
+        return None
 
     monkeypatch.setattr("expense.commands.import_cmd.open_app", open_app)
     return opened
@@ -153,13 +112,13 @@ def review(monkeypatch):
 
 # ---- the first dry run opens the review ------------------------------------------------
 @respx.mock
-def test_the_dry_run_opens_the_review_on_the_first_answer_and_prints_its_line(sheet, review):
+def test_the_dry_run_opens_the_review_on_the_first_answer(sheet, review):
     """Only the dry run without the table is sent; the app is opened on the file's name, its
-    bytes and every name the engine listed, and what the app ends with is printed."""
+    bytes and every name the engine listed; the command prints nothing."""
     _engine(_answer(yours=False))
     result = _run()
     assert result.exit_code == 0, _out(result)
-    assert result.stdout == "Nothing was imported.\n"
+    assert result.stdout == ""
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
     (opened,) = review
     assert (opened.file_name, opened.data, opened.rows) == (
@@ -179,111 +138,6 @@ def test_a_sheet_of_names_all_proposed_still_opens_the_review(sheet, review):
     _engine(_answer(yours=True))
     assert _run().exit_code == 0
     assert len(review) == 1
-
-
-@respx.mock
-def test_an_app_that_ends_with_no_line_prints_nothing(sheet, monkeypatch):
-    monkeypatch.setattr("expense.commands.import_cmd.open_app", lambda ctx, review=None: None)
-    _engine(_answer(yours=False))
-    result = _run()
-    assert (result.exit_code, result.stdout) == (0, "")
-
-
-# ---- the apply while a name is missing -----------------------------------------------
-@respx.mock
-def test_the_apply_while_a_name_is_missing_is_refused_and_points_at_the_review(sheet):
-    _engine(_answer(yours=False))
-    result = _run("--apply")
-    assert result.exit_code == 1
-    assert result.stdout == (
-        "Not imported — nothing written.\n"
-        "9 names don't exist yet. Make them in the review:\n"
-        "  expense import sheet libro.xlsx\n"
-    )
-    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
-
-
-# ---- the apply, then the same sheet again --------------------------------
-@respx.mock
-def test_the_apply_writes_and_says_what_was_written(sheet):
-    _engine(
-        _answer(yours=True),
-        _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS),
-    )
-    result = _run("--apply")
-    assert result.exit_code == 0, _out(result)
-    assert result.stdout == (
-        "Written: new 1,954 · matched 0 · sealed 0 · skipped 7\n"
-        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
-        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
-    )
-    assert _sent() == [
-        ("/v1/transactions/import-sheet", True, False),
-        ("/v1/transactions/import-sheet", False, True),
-    ]
-
-
-@respx.mock
-def test_an_apply_lists_the_rows_on_a_closed_statements_day_under_the_zero_rows(sheet):
-    counts = {**COUNTS, "new": 1952, "sealed": 2}
-    rows = _counted_rows(sealed=(40, 41))
-    _engine(
-        _answer(yours=True),
-        _answer(yours=True, dry_run=False, rows=rows, counts=counts),
-    )
-    result = _run("--apply")
-    assert result.exit_code == 0, _out(result)
-    assert result.stdout == (
-        "Written: new 1,952 · matched 0 · sealed 2 · skipped 7\n"
-        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
-        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
-        "Sealed, on a closed statement's day: rows 40, 41\n"
-    )
-
-
-@respx.mock
-def test_an_apply_with_nothing_skipped_or_sealed_ends_on_its_counts(sheet):
-    counts = {**COUNTS, "new": 1961, "skipped": 0}
-    rows = [sheet_row(r, outcome="new", account_id="acc-ib") for r in range(2, 1963)]
-    _engine(
-        _answer(yours=True),
-        _answer(yours=True, dry_run=False, rows=rows, counts=counts),
-    )
-    result = _run("--apply")
-    assert result.exit_code == 0, _out(result)
-    assert result.stdout == (
-        "Written: new 1,961 · matched 0 · sealed 0 · skipped 0\n"
-        "Opening balances 4 · split transactions 3 (8 rows)\n"
-    )
-
-
-@respx.mock
-def test_the_same_sheet_applied_again_matches_every_row_and_writes_nothing_new(sheet):
-    counts = {**COUNTS, "new": 0, "matched": 1954}
-    _engine(
-        _answer(yours=True),
-        _answer(yours=True, dry_run=False, rows=_counted_rows("matched"), counts=counts),
-    )
-    result = _run("--apply")
-    assert result.exit_code == 0, _out(result)
-    assert result.stdout == (
-        "Written: new 0 · matched 1,954 · sealed 0 · skipped 7\n"
-        "Opening balances 4 · split transactions 3 (8 rows)\n\n"
-        "Nothing new: every row is already in the ledger.\n"
-    )
-
-
-@respx.mock
-def test_a_sheet_of_zero_rows_only_applied_lists_them_and_never_says_nothing_new(sheet):
-    rows = [sheet_row(r, 0, outcome="skipped", account_id="acc-ib") for r in (2, 3)]
-    _engine(_answer(yours=True), _answer(yours=True, dry_run=False, rows=rows))
-    result = _run("--apply")
-    assert result.exit_code == 0, _out(result)
-    assert result.stdout == (
-        "Written: new 0 · matched 0 · sealed 0 · skipped 2\n"
-        "Opening balances 0 · split transactions 0 (0 rows)\n\n"
-        "Skipped, amount zero: rows 2, 3\n"
-    )
 
 
 # ---- a sheet with bad rows -----------------------------------------------
@@ -314,19 +168,18 @@ Fix the sheet and run it again.
 """
 
 
-@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
 @respx.mock
-def test_a_bad_row_stops_every_step_and_lists_each_refusal_by_row(sheet, step):
+def test_a_bad_row_stops_the_command_and_lists_each_refusal_by_row(sheet, review):
     _engine(httpx.Response(422, json=ROWS_REFUSED))
-    result = _run(*step)
+    result = _run()
     assert result.exit_code == 1
     assert result.stdout == BAD_ROWS_REFUSAL
+    assert review == []  # the app is not opened
     assert _sent() == [("/v1/transactions/import-sheet", True, False)]
 
 
-@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
 @respx.mock
-def test_a_file_refused_whole_prints_as_every_engine_error(sheet, step):
+def test_a_file_refused_whole_prints_as_every_engine_error(sheet):
     refusal = error_body(
         "VALIDATION_ERROR",
         "The file is not the sheet's layout.",
@@ -334,7 +187,7 @@ def test_a_file_refused_whole_prints_as_every_engine_error(sheet, step):
         {"file": "UNEXPECTED_LAYOUT"},
     )
     _engine(httpx.Response(422, json=refusal))
-    result = _run(*step)
+    result = _run()
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr == (
@@ -355,61 +208,14 @@ def test_a_row_refusal_whose_words_do_not_name_its_row_keeps_its_field(sheet):
         },
         dict.fromkeys(["rows.2.category", "rows.9.category"], "DUPLICATE_IN_REQUEST"),
     )
-    _engine(_answer(yours=True), httpx.Response(422, json=refusal))
-    result = _run("--apply")
+    _engine(httpx.Response(422, json=refusal))
+    result = _run()
     assert result.exit_code == 1
     assert result.stdout == (
         "Refused — nothing written. 2 rows:\n"
         "  category: Another row is this account's opening balance. rows 2, 9\n\n"
         "Fix the sheet and run it again.\n"
     )
-
-
-#: Row refusals fixing the sheet does not clear, each as the contract keys it
-#: (contract: POST /v1/transactions/import-sheet, "Concurrency")
-#: (contract: POST /v1/transactions/import-sheet, "Opening balances")
-#: (contract: POST /v1/transactions/import-sheet, "On apply").
-NOT_THE_SHEETS = {
-    "concurrent-change": (
-        409,
-        "CONFLICT",
-        "rows.12",
-        "Row 12: Its line changed while the import ran; send it again.",
-        "CONCURRENT_CHANGE",
-    ),
-    "opening-balance-exists": (
-        409,
-        "CONFLICT",
-        "rows.2.account_id",
-        "The account already has an opening balance on another day.",
-        "OPENING_BALANCE_EXISTS",
-    ),
-    "line-codes-exhausted": (
-        422,
-        "LIMIT_REACHED",
-        "rows.5.transaction_id",
-        "Every bank line code has been given.",
-        "LINE_CODES_EXHAUSTED",
-    ),
-}
-
-
-@pytest.mark.parametrize(
-    ("status", "code", "key", "words", "reason"),
-    list(NOT_THE_SHEETS.values()),
-    ids=list(NOT_THE_SHEETS),
-)
-@respx.mock
-def test_a_row_refusal_the_sheet_does_not_cause_prints_as_every_engine_error(
-    sheet, status, code, key, words, reason
-):
-    refusal = error_body(code, "The import was refused.", {key: words}, {key: reason})
-    _engine(_answer(yours=True), httpx.Response(status, json=refusal))
-    result = _run("--apply")
-    assert result.exit_code == 1
-    assert result.stdout == ""
-    assert result.stderr == f"Error: {code} — The import was refused.\n  {key}: {words}\n"
-    assert "Fix the sheet" not in _out(result)
 
 
 @respx.mock
@@ -434,54 +240,3 @@ def test_the_engine_out_of_reach_exits_6(sheet):
     result = _run()
     assert result.exit_code == 6
     assert "could not reach engine" in result.stderr
-
-
-# ---- --json ------------------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("args", "first", "then"),
-    [
-        ((), _answer(yours=False), None),
-        (
-            (),
-            _answer(yours=True),
-            _answer(yours=True, rows=_counted_rows(), counts=COUNTS),
-        ),
-        (
-            ("--apply",),
-            _answer(yours=True),
-            _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS),
-        ),
-    ],
-    ids=["names missing", "counted", "apply"],
-)
-@respx.mock
-def test_json_prints_the_engines_answer_and_opens_no_review(sheet, review, args, first, then):
-    _engine(first, then)
-    result = _run(*args, "--json")
-    assert result.exit_code == 0, _out(result)
-    assert json.loads(result.stdout) == (then or first)
-    assert review == []
-
-
-@respx.mock
-def test_json_on_a_refused_sheet_is_the_engines_body(sheet):
-    _engine(httpx.Response(422, json=ROWS_REFUSED))
-    result = _run("--apply", "--json")
-    assert result.exit_code == 1
-    assert json.loads(result.stdout) == ROWS_REFUSED
-
-
-@respx.mock
-def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
-    _engine(_answer(yours=False))
-    result = _run("--apply", "--json")
-    assert result.exit_code == 1
-    assert json.loads(result.stdout) == {
-        "error": {
-            "code": "NAMES_MISSING",
-            "message": ("Not imported — nothing written. 9 names don't exist yet."),
-            "fields": None,
-            "reasons": None,
-            "details": None,
-        }
-    }

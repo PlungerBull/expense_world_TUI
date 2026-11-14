@@ -27,8 +27,7 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
-   answered by 2026-11-13; tasks 1–4, 6 and 7 are done, and task 8's drawn
-   parts; question 20 answered 2026-11-14. The rehearsal, task 5, runs after task 8;
+   answered by 2026-11-13; tasks 1–4 and 6–8 are done. The rehearsal, task 5, is next;
    the import itself waits on the engine ask the spec's step 1 names. v1.0.0 is prepared after it.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine

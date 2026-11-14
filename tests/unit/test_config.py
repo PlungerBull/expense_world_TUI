@@ -128,16 +128,11 @@ def test_corrupt_config_renders_clean_cli_error(tmp_config):
 
     tmp_config.write_text("{not valid json")
     runner = CliRunner()
-    result = runner.invoke(cli_app, ["import", "sheet", "s.xlsx", "--apply"])
+    result = runner.invoke(cli_app, ["import", "sheet", "s.xlsx"])
     assert result.exit_code == 3
     assert "not valid JSON" in result.output
     assert "setup screen" in result.output
     assert "Traceback" not in result.output
-
-    result = runner.invoke(cli_app, ["import", "sheet", "s.xlsx", "--apply", "--json"])
-    assert result.exit_code == 3
-    envelope = json.loads(result.output)
-    assert envelope["error"]["code"] == "CONFIG_INVALID"
 
 
 def _settings(**over):

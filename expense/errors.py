@@ -7,8 +7,6 @@ from typing import Any
 import click
 import typer
 
-from expense.jsonout import json_text
-
 log = logging.getLogger(__name__)
 
 
@@ -19,7 +17,7 @@ class EngineError(Exception):
     the engine's reason code (contract: "Error reasons"). Both are `None` when the
     engine sends null. `details` is the engine's object for the one refusal that
     carries one, `None` otherwise (contract: "Error format"). `raw_body` is the
-    response body as sent, for `--json`.
+    response body as sent.
     """
 
     def __init__(
@@ -443,70 +441,35 @@ def format_error(err: Exception, *, on_list: bool = False, self_reading: bool = 
     return str(err)
 
 
-# The shared-envelope error families: {ExcType: (envelope code, exit code)}.
-# EngineError is not in this table: `json_body` and `exit_code_of` each handle it in
-# a branch of their own, since its --json output is the engine's raw body passed
-# through verbatim, not a client-composed envelope.
-_ENVELOPE_ERRORS: dict[type[Exception], tuple[str, int]] = {
-    EngineConnectionError: ("CONNECTION_ERROR", 6),
-    ConfigMissingError: ("CONFIG_MISSING", 3),
-    ConfigInvalidError: ("CONFIG_INVALID", 3),
+# Each error family `handle_errors` takes, with the exit code it ends the command with
+# (EngineError is exit 1, in `exit_code_of`).
+_EXIT_CODES: dict[type[Exception], int] = {
+    EngineConnectionError: 6,
+    ConfigMissingError: 3,
+    ConfigInvalidError: 3,
 }
 
-# Everything handle_errors catches — registering a type in _ENVELOPE_ERRORS
+# Everything handle_errors catches — registering a type in _EXIT_CODES
 # is the single step that makes it render cleanly.
-_HANDLED_ERRORS: tuple[type[Exception], ...] = (EngineError, *_ENVELOPE_ERRORS)
-
-
-def error_envelope(code: str, message: str) -> dict[str, Any]:
-    """The engine's envelope shape for an error the app reports itself: its
-    code and message, no `fields`, no `reasons` and no `details`."""
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-            "fields": None,
-            "reasons": None,
-            "details": None,
-        }
-    }
-
-
-def json_body(err: Exception) -> dict[str, Any]:
-    """An error as `--json` prints it: an engine refusal's body as sent, or
-    the app's envelope (`error_envelope`) for an error `handle_errors` takes.
-    Any other error is raised."""
-    if isinstance(err, EngineError):
-        return err.raw_body
-    for exc_type, (code, _exit_code) in _ENVELOPE_ERRORS.items():
-        if isinstance(err, exc_type):
-            return error_envelope(code, str(err))
-    raise err
+_HANDLED_ERRORS: tuple[type[Exception], ...] = (EngineError, *_EXIT_CODES)
 
 
 def exit_code_of(err: Exception) -> int:
     """The exit code an error `handle_errors` takes ends the command with: 1
-    for an engine refusal, else its family's (`_ENVELOPE_ERRORS`). Any other
+    for an engine refusal, else its family's (`_EXIT_CODES`). Any other
     error is raised."""
     if isinstance(err, EngineError):
         return 1
-    for exc_type, (_code, exit_code) in _ENVELOPE_ERRORS.items():
+    for exc_type, exit_code in _EXIT_CODES.items():
         if isinstance(err, exc_type):
             return exit_code
     raise err
 
 
-def render(err: Exception, *, json_mode: bool) -> tuple[str, int, bool]:
-    """Render an error.
-
-    Returns (output_text, exit_code, use_stderr).
-    JSON mode writes to stdout so output is pipe-friendly (`json_body`); human
-    mode writes to stderr, in the engine's words alone (`engine_text`).
-    """
-    exit_code = exit_code_of(err)
-    if json_mode:
-        return json_text(json_body(err)), exit_code, False
-    return "Error: " + engine_text(err), exit_code, True
+def render(err: Exception) -> tuple[str, int]:
+    """Render an error for stderr, in the engine's words alone (`engine_text`), with its
+    exit code."""
+    return "Error: " + engine_text(err), exit_code_of(err)
 
 
 def handle_errors(fn):
@@ -514,12 +477,11 @@ def handle_errors(fn):
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        json_mode = bool(kwargs.get("json_output", False))
         try:
             return fn(*args, **kwargs)
         except _HANDLED_ERRORS as err:
-            output, exit_code, use_stderr = render(err, json_mode=json_mode)
-            typer.echo(output, err=use_stderr)
+            output, exit_code = render(err)
+            typer.echo(output, err=True)
             raise typer.Exit(code=exit_code) from err
         except (click.exceptions.ClickException, click.exceptions.Exit, click.exceptions.Abort):
             raise

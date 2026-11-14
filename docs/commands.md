@@ -36,21 +36,13 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
 
 ## `expense import sheet`
 
-`import sheet <file.xlsx> [--apply] [--json]` brings the personal sheet into the engine. The app sends the file whole, in base64, and reads no cell of it; the engine reads the workbook, matches every row against the ledger and writes everything or nothing (contract: POST /v1/transactions/import-sheet). A sheet with bad rows is refused whole, nothing written (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The sheet's layout is the engine's (contract: POST /v1/transactions/import-sheet, "The sheet"); sending the same sheet again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching").
+`import sheet <file.xlsx>` brings the personal sheet into the engine. The app sends the file whole, in base64, and reads no cell of it; the engine reads the workbook, matches every row against the ledger and writes everything or nothing (contract: POST /v1/transactions/import-sheet). A sheet with bad rows is refused whole, nothing written (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The sheet's layout is the engine's (contract: POST /v1/transactions/import-sheet, "The sheet"); sending the same sheet again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching").
 
-**Without a flag it opens the app on the import's review.** The command sends the sheet as a dry run without a table; when the engine answers, the app opens on the "Import sheet" screen, where each sheet account the engine has no account for is set once and one write makes the accounts, categories and hashtags and imports the rows (contract: POST /v1/transactions/import-sheet, "Create"). The screen's docstring ([import_sheet.py](../expense/tui/screens/import_sheet.py)) holds its keys and what it sends. When the app closes the command prints the one line the review ends with. A refused sheet never opens the app: the engine's words print and the command exits 1.
+**It opens the app on the import's review.** The command sends the sheet as a dry run without a table; when the engine answers, the app opens on the "Import sheet" screen, where each sheet account the engine has no account for is set once and one write makes the accounts, categories and hashtags and imports the rows (contract: POST /v1/transactions/import-sheet, "Create"). The screen's docstring ([import_sheet.py](../expense/tui/screens/import_sheet.py)) holds its keys and what it sends. The review ends on Home with its result as a note; the command prints nothing. A refused sheet never opens the app: the engine's words print and the command exits 1.
 
-**`--apply`** imports without the review, once every account, category and hashtag has an id (the engine's proposals: a name the ledger already holds is proposed, (contract: POST /v1/transactions/import-sheet, "Names")); it is refused, nothing written, while one is missing, and points at the review. **`--json`** prints the engine's answer to the dry run (with the counts, once every name has an id) and opens nothing.
+**Exit codes:** 0 for a review that ended; 1 when the file cannot be read or the engine refused the sheet; 2 for a usage error; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
 
-**Exit codes:** 0 for a review that ended, a dry run and an apply that went through; 1 when the file cannot be read, the engine refused the sheet or a write, or `--apply` met a missing name or account; 2 for a usage error; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
-
-What it prints (counts, refused rows, the `--json` shapes) is said by [import_cmd.py](../expense/commands/import_cmd.py) and [engine.py](../expense/import_/engine.py), and pinned by their tests. Refused rows are grouped as the LOG bar's are ([runtime.md](runtime.md) "How refused rows read").
-
-### Sanctioned exceptions
-
-Deliberate, reviewed deviations — do not re-flag in future reviews:
-
-- **`import sheet --apply --json` with a name missing** is client-composed (shape: the module docstring of [`import_cmd.py`](../expense/commands/import_cmd.py)): the refused apply sends nothing, so its envelope is the app's.
+What it prints (the refused rows) is said by [import_cmd.py](../expense/commands/import_cmd.py) and [engine.py](../expense/import_/engine.py), and pinned by their tests. Refused rows are grouped as the LOG bar's are ([runtime.md](runtime.md) "How refused rows read").
 
 ---
 
@@ -66,4 +58,3 @@ Deliberate, reviewed deviations — do not re-flag in future reviews:
   [expense/errors.py](../expense/errors.py); its own lines are the refused rows' head and
   `Fix the sheet and run it again.` (`_refused_lines` in import_cmd.py). The lines the app adds
   under a refusal are the TUI's ([tui.md](tui.md) "When the engine says no").
-- **`--json`** — two-space indent, keys in insertion order, UTF-8 written as UTF-8 (`Café`, not `Caf\u00e9`). An engine error under `--json` is the engine's body verbatim. One serialiser, [expense/jsonout.py](../expense/jsonout.py), for the engine's answer, the names created and the error envelope.

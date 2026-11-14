@@ -70,8 +70,7 @@ def format_cents(value: object, *, grouped: bool = True) -> str:
     These are as written under `1,234.56`; `1.234,56` swaps the two marks.
 
     Integer arithmetic throughout — no float division — so large amounts never
-    drift. This is a human-display convenience only; `--json` output stays the
-    raw engine integer. Non-int, non-None values fall back to `str()`.
+    drift. This is a human-display convenience only. Non-int, non-None values fall back to `str()`.
     """
     if value is None:
         return "(null)"

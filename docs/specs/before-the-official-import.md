@@ -187,18 +187,8 @@ account's month.
 ## Tasks
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
-the answers 15 A and 16 A (2026-11-12), and task 7 on 2026-11-14; task 8 replaces what tasks 2 and 3 built. Task 8 runs on
-contract 3.1, which this client records.
+the answers 15 A and 16 A (2026-11-12), and tasks 7 and 8 on 2026-11-14, on contract 3.1.
 
-8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it, and question 20 picks.**
-   Its drawn parts are built (2026-11-14); what is left is question 20's picks: 8 A, 10 A,
-   and dropping `--json` and `--apply` (9 A and 11 A are built). Each missing account prefilled
-   from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
-   `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
-   keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
-   the closed accounts by hand, and with them what the docs and code say of them:
-   docs/commands.md:34-60, docs/runtime.md:71, README.md:33 and expense/import_/engine.py:10-12
-   ("never creates one").
 5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening
    balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and

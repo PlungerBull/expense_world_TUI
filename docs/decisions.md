@@ -19,7 +19,6 @@ Decisions whose why lives elsewhere:
 | The agent loop's rules (roles, per task, per spec) | [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; the why is below |
 | PAT auth (`ewe_pat_` prefix) | [commands.md](commands.md) "Auth model" |
 | Public GitHub repo (free CI), so secrets and real ledger data never enter it | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
-| Sanctioned deviations from the principles | [commands.md](commands.md) "Sanctioned exceptions" |
 | Rates cross the wire as integers (`rate_e8`, the rate × 10^8), so every client does exact integer maths with no float drift | (contract: GET /v1/exchange-rates) |
 
 ## What a half-written batch means (2026-08-25)
