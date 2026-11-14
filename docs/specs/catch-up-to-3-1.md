@@ -6,7 +6,7 @@ categories and hashtags it lists" (2026-11-14), all but its screens: the bank ac
 import's review are [the official import](before-the-official-import.md)'s tasks 7 and 8. It runs
 first in v1.0: until it lands, the live contract suite fails on the engine.
 
-**Status: drafted 2026-11-14, waiting for the owner's approval.** It has no question of its own;
+**Status: approved 2026-11-14, with its tasks below.** It has no question of its own;
 the screens' questions are the official import's question 19, answered the same day. When done, its why moves to
 [decisions.md](../decisions.md), its reply goes to [to-engine/](../to-engine/), and this file is
 deleted.

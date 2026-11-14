@@ -24,8 +24,8 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [The catch-up to contract 3.1](specs/catch-up-to-3-1.md): drafted 2026-11-14, from
-   the engine's hand-off of that day. Blocked: waits on the owner's approval.
+1. **v1.0** · [The catch-up to contract 3.1](specs/catch-up-to-3-1.md): approved 2026-11-14, from
+   the engine's hand-off of that day.
 2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
@@ -60,16 +60,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### Approve the catch-up to 3.1
-Asked 2026-11-14 · Blocks: the catch-up to 3.1, and with it the official import's tasks 7 and 8
-[The catch-up to 3.1](specs/catch-up-to-3-1.md) brings the app's contract checks and live tests
-up to the engine's contract 3.1 (a bank as a typed code with a required last 4, the sheet import
-that makes the accounts it suggests), with no screen change; its five tasks are listed in it.
-- **A.** Approve it as drafted.
-- **B.** Change something first (say what).
-**Recommended:** A: until it lands, the live contract suite fails on the engine, and the screens
-wait behind it.
 
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check
