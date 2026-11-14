@@ -25,7 +25,7 @@ _MODALS = [
     lambda: PromptModal("Rename", "New name"),
     lambda: QuestionModal(
         "Make Eliana a bank account?",
-        [QuestionLine("bank_code", "bank", ("BCP",)), QuestionLine("last4", "last 4")],
+        [QuestionLine("bank_code", "bank"), QuestionLine("last4", "last 4")],
         "⏎ makes it · esc keeps it",
         lambda values: None,
     ),

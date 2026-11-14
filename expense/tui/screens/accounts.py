@@ -55,8 +55,8 @@ _FIXED_HEADS = ["Name", "Type", "Code", "Color"]
 def _bank_body(values: dict[str, str]) -> dict:
     """`make-account`'s body: the bank and the last 4, each only when the line holds text,
     as typed, never `null`, and no `name` (contract: POST
-    /v1/accounts/{account_id}/make-account, "Body"). With no bank listed none is sent: the
-    engine answers `REQUIRED` on `bank_code`."""
+    /v1/accounts/{account_id}/make-account, "Body"). A line left empty is left out: the
+    engine answers `REQUIRED` on it."""
     return {key: values[key] for key in ("bank_code", "last4") if values[key]}
 
 
@@ -190,14 +190,15 @@ class AccountsScreen(ResourceListScreen):
     def __init__(self) -> None:
         super().__init__()
         self._currencies: list[str] = []  # the engine's codes, read with the accounts
-        self._banks: list[str] = []  # the engine's bank codes, read with them
+        self._statement_banks: list[str] = []  # the banks whose statements it reads, read with them
 
     def fetch_items(self, cfg, **kw):
-        """The accounts, and with them the engine's currencies and banks (worker thread); a
+        """The accounts, and with them the engine's currencies and the banks it reads statements
+        of (worker thread); a
         refused or failed read of any shows the engine's words."""
         accounts = reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
         self._currencies = reads.fetch_currency_codes(cfg, **kw)
-        self._banks = reads.fetch_bank_codes(cfg, **kw)
+        self._statement_banks = reads.fetch_bank_codes(cfg, **kw)
         return accounts
 
     def build(self, items: list):
@@ -352,14 +353,14 @@ class AccountsScreen(ResourceListScreen):
             )
 
     def action_make_bank(self) -> None:
-        """`t` on a person: the question for the bank and an optional last 4."""
+        """`t` on a person: the question for the bank and the last 4, both typed."""
         if self.check_action("make_bank", ()):
             self._ask_to_turn(
                 "make-account",
                 "a bank account",
                 (
-                    QuestionLine("bank_code", "bank", tuple(self._banks)),
-                    QuestionLine("last4", "last 4", note="optional"),
+                    QuestionLine("bank_code", "bank", typed=str.upper),
+                    QuestionLine("last4", "last 4"),
                 ),
                 _bank_body,
                 "Now a bank account.",
@@ -448,9 +449,9 @@ class AccountsScreen(ResourceListScreen):
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditAccountScreen
 
-        return EditAccountScreen(item, self._currencies, self._banks)
+        return EditAccountScreen(item, self._currencies, self._statement_banks)
 
     def new_screen(self):
         from expense.tui.screens.create_forms import NewAccountScreen
 
-        return NewAccountScreen(self._currencies, self._banks)
+        return NewAccountScreen(self._currencies, self._statement_banks)

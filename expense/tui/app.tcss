@@ -271,7 +271,7 @@ PromptBox.under-head Input {
     height: 1;
     padding: 0;
 }
-/* a question's typed line: its label, the input, a dim note; the engine's words under it */
+/* a question's typed line: its label and the input; the engine's words under it */
 .line-row {
     height: 1;
 }
@@ -279,9 +279,6 @@ PromptBox.under-head Input {
     width: 1fr;
     height: 1;
     padding: 0;
-}
-.line-note {
-    width: auto;
 }
 .line-refusal {
     margin: 0 0 0 2;

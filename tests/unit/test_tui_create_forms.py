@@ -33,6 +33,12 @@ def _enter(screen, text):
     screen.on_input_submitted(None)
 
 
+async def _to_currencies(pilot):
+    """A new bank account, typed up to its CURRENCIES line: TYPE keeps bank, then BANK (small
+    letters, shown as capitals) and LAST 4."""
+    await pilot.press("enter", *"bcp", "enter", *"5678", "enter")
+
+
 def _run(fake_client, screen, steps):
     async def scenario(pilot, app):
         await app.push_screen(screen)
@@ -176,7 +182,7 @@ def test_an_optional_color_list_highlights_only_what_is_matched_or_arrowed_to(fa
         if isinstance(screen, NewCategoryScreen):
             screen._values["name"] = "Mascotas"
         else:
-            screen._values.update(bank="BCP", currencies=["PEN"])
+            screen._values.update(bank="IBK", last4="4321", currencies=["PEN"])
         await pilot.press("down")
         await pilot.pause()
         assert _highlighted(screen) == ["██ blue"]
@@ -432,20 +438,21 @@ def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
     """Empty enter on TYPE keeps `bank` — adding an account costs no extra decision."""
-    # type (empty → the prefilled bank), bank, skip last 4, PEN, empty enter goes on, skip code,
+    # type (empty → the prefilled bank), bank, last 4, PEN, empty enter goes on, skip code,
     # color and the PEN pair
     path, body = _run(
         fake_client,
         NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS),
-        ["", "BCP", "", "PEN", "", "", "", "", ""],
+        ["", "BCP", "5678", "PEN", "", "", "", "", ""],
     )
     assert path == "/accounts"
     assert body == {
         "id": body["id"],
         "kind": "bank",
         "bank_code": "BCP",
+        "last4": "5678",
         "currencies": [{"currency_code": "PEN"}],
-    }  # a skipped last 4, code, colour and opening are left out, never null
+    }  # a skipped code, colour and opening are left out, never null
     uuid.UUID(body["id"])
 
 
@@ -472,7 +479,7 @@ def test_the_currencies_line_offers_the_codes_it_is_given_in_their_order(fake_cl
     path, body = _run(
         fake_client,
         NewAccountScreen(["EUR", "PEN", "USD"], ENGINE_BANKS),
-        ["", "BCP", "", "EUR", "", "", "", "", ""],
+        ["", "BCP", "5678", "EUR", "", "", "", "", ""],
     )
     assert body["currencies"] == [{"currency_code": "EUR"}]
     screen = NewAccountScreen(["EUR", "PEN", "USD"], ENGINE_BANKS)
@@ -821,8 +828,7 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
     async def scenario(pilot, app):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter")  # TYPE keeps bank
-        await pilot.press("enter", "enter")  # BANK takes BCP, LAST 4 skipped
+        await _to_currencies(pilot)
         assert screen._key == "currencies"
         assert str(screen.query_one("#field").content) == "CURRENCIES"
         assert str(screen.query_one("#hint", Static).content) == (
@@ -852,6 +858,7 @@ def test_new_bank_account_in_two_currencies_is_one_post_with_both(fake_client):
         "id": body["id"],
         "kind": "bank",
         "bank_code": "BCP",
+        "last4": "5678",
         "currencies": [{"currency_code": "PEN"}, {"currency_code": "USD"}],
         "statement_code": "VIS",
     }
@@ -893,7 +900,8 @@ def test_an_unmatched_code_adds_nothing_and_the_bar_stays(fake_client, monkeypat
         screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", "enter", "enter", *"EUR", "enter")
+        await _to_currencies(pilot)
+        await pilot.press(*"EUR", "enter")
         await pilot.pause()
         assert screen._key == "currencies"
         assert screen.query_one("#bar", Input).value == "EUR"
@@ -911,7 +919,7 @@ def _save_with_typed_currencies(fake_client, typed: list[str], after=None):
         screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", "enter", "enter")
+        await _to_currencies(pilot)
         for code in typed[:-1]:
             await pilot.press(*code, "enter")
         await pilot.press(*typed[-1], "ctrl+s")
@@ -952,7 +960,8 @@ def test_no_currency_picked_blocks_the_save(fake_client, monkeypatch):
         screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("enter", "enter", "enter", "enter")
+        await _to_currencies(pilot)
+        await pilot.press("enter")
         await pilot.pause()
         assert screen._key == "statement_code"
         assert "currencies — *" in _summary_lines(screen)
@@ -1021,7 +1030,7 @@ def test_a_color_refusal_on_new_lands_on_color_in_the_engines_words(fake_client)
     async def scenario(pilot, app):
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        for text in ["", "BCP", "", "PEN", "USD", "", ""]:
+        for text in ["", "BCP", "5678", "PEN", "USD", "", ""]:
             _enter(screen, text)
         assert screen._key == "color"
         screen._values["color"] = "#5ab87a"

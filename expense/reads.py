@@ -139,9 +139,9 @@ def fetch_currency_codes(cfg, *, verbose: bool = False) -> list[str]:
 
 
 def fetch_bank_codes(cfg, *, verbose: bool = False) -> list[str]:
-    """GET /v1/banks → the bank codes a bank account can take, in the order the engine
-    lists them for a picker (contract: GET /v1/banks). The same for every user; an
-    entry without a string `code` is skipped."""
+    """GET /v1/banks → the codes of the banks whose statement PDFs the engine reads, in the
+    engine's order (contract: GET /v1/banks). The same for every user; an entry without a
+    string `code` is skipped."""
     body = fetch_body(cfg, path="/banks", params=None, verbose=verbose)
     return [
         entry["code"]

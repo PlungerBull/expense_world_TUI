@@ -48,7 +48,8 @@ from tests.unit.helpers import (
 )
 
 NAME_GOES_ON = "free text · enter to go on"
-LAST4_GOES_ON = "optional · the card's last 4 digits · enter to go on"
+BANK_GOES_ON = "three or four letters, e.g. IBK · enter to go on"
+LAST4_GOES_ON = "the card's last 4 digits · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
 CATEGORY_COLOR_SAVES = "optional · enter to save · ↑↓ another swatch"
 CODE_GOES_ON = "optional · three capital letters, e.g. SIG · enter to go on"
@@ -154,16 +155,17 @@ def _open(screen, body):
 
 
 def test_new_account_last4_goes_on_and_color_keeps_it(fake_client):
-    """New: `⏎` keeps bank on TYPE and takes BANK; LAST 4 reads "enter to go on"; past CURRENCIES,
-    STATEMENT CODE reads "enter to go on" and COLOR "enter keeps it"."""
+    """New: `⏎` keeps bank on TYPE and takes the BANK typed; LAST 4 reads "enter to go on";
+    past CURRENCIES, STATEMENT CODE reads "enter to go on" and COLOR "enter keeps it"."""
 
     async def body(pilot, screen):
         await pilot.press("enter")  # TYPE keeps bank
         assert screen._key == "bank"
-        await pilot.press("enter")  # BANK takes BCP
+        assert _hint(screen) == BANK_GOES_ON
+        await pilot.press(*"bcp", "enter")
         assert screen._key == "last4"
         assert _hint(screen) == LAST4_GOES_ON
-        await pilot.press("enter")
+        await pilot.press(*"5678", "enter")
         assert screen._key == "currencies"
         await pilot.press(*"PEN", "enter", "enter")  # PEN, then an empty enter goes on
         assert screen._key == "statement_code"

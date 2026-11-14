@@ -2,7 +2,7 @@
 
 The lines come after `type`; the save is one `PUT /accounts/{id}` carrying only what
 changed, the number's part as `current_number`; emptying `last 4` asks before it removes the
-number; each refusal lands on the line its key names
+number, and is refused on an account with one number; each refusal lands on the line its key names
 (contract: PUT /v1/accounts/{account_id}, "The numbers").
 """
 
@@ -36,9 +36,9 @@ REPLACED = account_with_currencies(
 #: An account with no number: named by its bank alone.
 NUMBERLESS = account_with_currencies(FIRST, name="BCP", numbers=[])
 PERSON = account_with_currencies(FIRST, id="acc-eli", name="Eliana", kind="person", numbers=[])
-#: An account whose PEN has an opening balance, and that row.
+#: A two-number account whose PEN has an opening balance, and that row.
 OPENED = account_with_currencies(
-    FIRST, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")]
+    REPLACED, currencies=[held_currency("PEN", opening_balance_transaction_id="tx-open")]
 )
 OPENING_ROW = {"id": "tx-open", "amount_cents": -320000, "day": "2026-01-01"}
 
@@ -96,7 +96,7 @@ def _save(record, fake_client, edit):
 def test_a_first_cards_lines_hints_and_bank_pick():
     async def body(pilot, app, screen):
         assert screen._key == "bank"  # opens on the account's bank
-        assert screen._suggestions[screen._suggest_idx][0] == "BCP"
+        assert screen.query_one("#bar", Input).value == "BCP" and not screen._suggests("bank")
         await pilot.press("enter")
         assert screen._values["bank"] == "BCP" and screen._key == "last4"
         assert screen._sequence()[:8] == [
@@ -118,8 +118,8 @@ def test_a_first_cards_lines_hints_and_bank_pick():
             "currencies PEN read-only",
         ]
         assert not {"bank", "last4", "since"} & screen._locked
-        _on(screen, "last4")
-        assert _hint(screen) == "the card's last 4 digits · empty removes it · enter to go on"
+        _on(screen, "last4")  # the only number: required, never emptied
+        assert _hint(screen) == "the card's last 4 digits · enter to go on"
         _on(screen, "since")
         assert _hint(screen) == "YYYY-MM-DD · this card's first day · enter to go on"
 
@@ -147,6 +147,8 @@ def test_a_replaced_cards_lines_and_the_new_card_lines():
             "new card — (optional)",
             "currencies PEN read-only",
         ]
+        _on(screen, "last4")  # another number stays: emptying it removes the current one
+        assert _hint(screen) == "the card's last 4 digits · empty removes it · enter to go on"
         _on(screen, "since")
         assert screen.query_one("#bar", Input).value == "2026-08-15"
         assert "new_card_from" not in screen._sequence()
@@ -186,9 +188,28 @@ def test_cards_before_lists_every_earlier_number_oldest_first():
 def test_with_no_number_there_is_no_since_and_no_new_card_line():
     async def body(pilot, app, screen):
         assert screen._sequence()[:4] == ["type", "bank", "last4", "currencies"]
-        assert "last 4 — (optional)" in _summary(screen)
+        assert "last 4 — *" in _summary(screen)
 
     _form(NUMBERLESS, body)
+
+
+def test_last_4_on_an_account_with_one_number_is_required_and_nothing_is_sent_or_asked(
+    fake_client, monkeypatch
+):
+    notes: list[str] = []
+    monkeypatch.setattr(
+        EditAccountScreen, "notify", lambda self, message, **kw: notes.append(message)
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "last4", "")
+        assert screen._key == "last4" and notes == ["Last 4 is required."]
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.screen is screen  # no question to remove the only number
+
+    _form(FIRST, body)
+    assert fake_client.requests == []
 
 
 def test_a_persons_form_has_none_of_the_number_lines():
@@ -232,7 +253,6 @@ _NEW_CARD = (("new_card", "9012"), ("new_card_from", "2026-09-01"))
         # a day typed on a first number goes for the engine to judge
         (FIRST, _typed(("since", "2026-08-20")), {"current_number": {"start_date": "2026-08-20"}}),
         (NUMBERLESS, _typed(("last4", "5678")), {"current_number": {"last4": "5678"}}),
-        (NUMBERLESS, _typed(("last4", "")), {}),
         (REPLACED, _typed(("since", "")), {"current_number": {"start_date": None}}),
         (FIRST, _first_card_reads_first_card, {}),
         (
@@ -253,7 +273,6 @@ _NEW_CARD = (("new_card", "9012"), ("new_card_from", "2026-09-01"))
         "digits-and-since",
         "since-on-a-first-number",
         "first-number",
-        "numberless-left-empty",
         "since-emptied",
         "since-emptied-on-a-first-number",
         "replacement-with-colour",
@@ -289,16 +308,12 @@ def _remove(record, fake_client, answer):
     return asked
 
 
-@pytest.mark.parametrize(
-    ("record", "message"),
-    [
-        (REPLACED, "1234 is its number again. No screen can bring 5678 back."),
-        (FIRST, "No screen can bring 5678 back."),
-    ],
-)
-def test_the_question_names_the_number_and_y_sends_it_removed(fake_client, record, message):
-    asked = _remove(record, fake_client, "y")
-    assert asked == {"title": "Remove card 5678 from BCP-5678?", "message": message}
+def test_the_question_names_the_number_and_y_sends_it_removed(fake_client):
+    asked = _remove(REPLACED, fake_client, "y")
+    assert asked == {
+        "title": "Remove card 5678 from BCP-5678?",
+        "message": "1234 is its number again. No screen can bring 5678 back.",
+    }
     assert fake_client.puts == [("/accounts/acc-bcp", {"current_number": None})]
 
 
@@ -374,7 +389,7 @@ def _refusal(key: str, code: str, status: int) -> EngineError:
 @pytest.mark.parametrize(
     "key, code, status, line, edit",
     [
-        ("bank_code", "UNSUPPORTED_VALUE", 422, "bank", ("bank", "BBVA")),
+        ("bank_code", "INVALID_FORMAT", 422, "bank", ("bank", "IB")),
         ("current_number.last4", "NAME_EXISTS", 409, "last4", ("last4", "9012")),
         ("current_number", "NUMBER_IN_COMPLETED_STATEMENT", 409, "last4", ("last4", "9012")),
         (
@@ -398,8 +413,7 @@ def test_a_refusal_lands_on_its_line_holding_what_was_typed(
         await wait_for(pilot, lambda: refusal_block(screen) is not None)
         assert "The engine's words." in refusal_block(screen)
         assert screen._key == line
-        if line != "bank":  # a choice line's bar is empty: its pick shows in the summary
-            assert screen.query_one("#bar", Input).value == edit[1]
+        assert screen.query_one("#bar", Input).value == edit[1]
         assert screen._values[edit[0]] == edit[1]
 
     _form(REPLACED, body)

@@ -27,9 +27,9 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
-   answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
-   (the import's review) run on contract 3.1, question 19 answered 2026-11-14; the rehearsal,
-   task 5, runs after both. v1.0.0 is prepared after it.
+   answered by 2026-11-13; tasks 1–4, 6 and 7 are done. Task 8
+   (the import's review) runs on contract 3.1, question 19 answered 2026-11-14; the rehearsal,
+   task 5, runs after it. v1.0.0 is prepared after it.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked

@@ -1,6 +1,7 @@
 """The account form's STATEMENT CODE line, New and Edit.
 
-The line sits after CURRENCIES, on a bank account only, with a hint; emptied and
+The line sits after CURRENCIES, on a bank account only and only while its BANK is a code
+`GET /banks` lists, with a hint; emptied and
 saved it clears the code, no question; small letters show as capitals while
 typing; and every refusal of a code, a taken one (`STATEMENT_CODE_EXISTS`)
 included, in the engine's words alone. The code is optional on
@@ -73,7 +74,7 @@ async def _open(pilot, app, screen):
 async def _to_code(pilot, screen):
     """A new bank account, typed up to its STATEMENT CODE line."""
     await pilot.press("enter")  # TYPE keeps bank
-    await pilot.press("enter", "enter")  # BANK takes BCP, LAST 4 skipped
+    await enter_values(pilot, "BCP", "5678")
     await enter_values(pilot, "PEN", "")  # PEN, then an empty enter goes on
     await pilot.pause()
     assert screen._key == "statement_code"
@@ -93,6 +94,7 @@ def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_cli
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
+        await _to_code(pilot, screen)
         assert screen._sequence() == [
             "type",
             "bank",
@@ -100,8 +102,9 @@ def test_new_bank_account_line_sits_after_currencies_and_sends_the_code(fake_cli
             "currencies",
             "statement_code",
             "color",
+            "opening:PEN",
+            "as_of:PEN",
         ]
-        await _to_code(pilot, screen)
         assert str(screen.query_one("#field").content) == "STATEMENT CODE"
         assert _hint(screen) == NEW_HINT
         assert "statement code — (optional)" in _summary(screen)
@@ -156,16 +159,57 @@ def test_a_person_has_no_code_line_and_back_on_bank_it_holds_what_was_typed(fake
     assert path == "/accounts" and body["kind"] == "person" and "statement_code" not in body
 
 
-# ---- capitals while typing -------------------------------------------------------------
+def test_the_line_is_on_the_form_only_while_bank_is_a_code_the_engine_reads_statements_for():
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        assert "statement_code" not in screen._sequence()  # no bank yet
+        await pilot.press("enter")  # TYPE keeps bank
+        await enter_values(pilot, "BCP")
+        assert "statement_code" in screen._sequence()
+        _on(screen, "bank")
+        await enter_values(pilot, "IBK")
+        assert "statement_code" not in screen._sequence()
+        assert "statement code" not in _summary(screen)
+
+    run_app(scenario)
 
 
-def test_small_letters_typed_or_pasted_show_as_capitals_on_the_code_line_only(fake_client):
+def test_a_code_typed_at_a_bank_that_reads_statements_is_not_sent_once_bank_changes_away(
+    fake_client,
+):
     screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
 
     async def scenario(pilot, app):
         await _open(pilot, app, screen)
         await pilot.press("enter")  # TYPE keeps bank
-        await pilot.press("enter")  # BANK takes BCP
+        await enter_values(pilot, "BCP", "5678", "PEN", "", "SIG")
+        _on(screen, "bank")
+        await enter_values(pilot, "IBK")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.posts)
+
+    run_app(scenario)
+    _, body = fake_client.posts[0]
+    assert (body["bank_code"], body["last4"]) == ("IBK", "5678")
+    assert "statement_code" not in body
+
+
+# ---- capitals while typing -------------------------------------------------------------
+
+
+def test_small_letters_typed_or_pasted_show_as_capitals_on_the_bank_and_code_lines_only(
+    fake_client,
+):
+    screen = NewAccountScreen(ENGINE_CURRENCIES, ENGINE_BANKS)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await pilot.press("enter")  # TYPE keeps bank
+        await pilot.press(*"bcp")
+        assert _bar(screen).value == "BCP"  # BANK shows capitals as typed
+        await pilot.press("enter")
         await pilot.press(*"ab 12")
         assert _bar(screen).value == "ab 12"  # LAST 4 takes what is typed
         await pilot.press("enter", *"PEN", "enter", "enter")
@@ -274,6 +318,39 @@ def test_edit_an_emptied_code_is_sent_as_null_with_no_question(fake_client):
     run_app(scenario)
     assert asked == []
     assert fake_client.puts == [("/accounts/acc-sig", {"statement_code": None})]
+
+
+def test_edit_moving_a_coded_account_to_a_bank_that_reads_no_statements_clears_its_code(
+    fake_client,
+):
+    """The line is hidden at the new bank, and the engine refuses the move unless the same
+    request clears the code (contract: PUT /v1/accounts/{account_id}, "`bank_code`")."""
+    screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES, ENGINE_BANKS)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await pilot.press(*["backspace"] * 3, *"ibk")  # BANK, opening on its own code
+        await pilot.press("enter")
+        assert "statement_code" not in screen._sequence()
+        await _save(pilot, screen, fake_client)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/accounts/acc-sig", {"bank_code": "IBK", "statement_code": None})]
+
+
+def test_edit_keeping_the_bank_never_touches_a_code_the_form_hides(fake_client):
+    """An empty `GET /banks` hides the line at the account's own bank: a colour change sends
+    the colour alone, the code is not cleared."""
+    screen = EditAccountScreen(SIGNATURE, ENGINE_CURRENCIES, [])
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        assert "statement_code" not in screen._sequence()
+        _type(screen, "color", "green")
+        await _save(pilot, screen, fake_client)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/accounts/acc-sig", {"color": "#5ab87a"})]
 
 
 def _type(screen, key, text):

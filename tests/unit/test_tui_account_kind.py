@@ -1,7 +1,7 @@
 """`t` on Manage ▸ Accounts turns an account into a person and back.
 
 `t Make person` on a bank account's row asks the person's name and sends
-`POST /accounts/{id}/make-person`, `t Make bank` on a person's asks the bank and sends
+`POST /accounts/{id}/make-person`, `t Make bank` on a person's asks the bank and last 4 and sends
 `POST /accounts/{id}/make-account` (contract: POST /v1/accounts/{account_id}/make-person)
 (contract: POST /v1/accounts/{account_id}/make-account). The question's own tests are in
 `test_tui_account_question.py`. The write goes through the
@@ -121,10 +121,13 @@ async def _open(pilot, app, monkeypatch, cursor: str):
 
 
 async def _answer(pilot, app, route: str) -> None:
-    """Answer `t`'s question: a name for `make-person`, the one bank for `make-account`."""
+    """Answer `t`'s question: a name for `make-person`, a bank and a last 4 for `make-account`."""
     await wait_for(pilot, lambda: isinstance(app.screen, QuestionModal))
     if route == "make-person":
         app.screen.query_one("#line-name").value = "Mamá"
+    else:
+        app.screen.query_one("#line-bank_code").value = "BCP"
+        app.screen.query_one("#line-last4").value = "4321"
     await pilot.press("enter")
 
 
@@ -173,7 +176,7 @@ def test_t_asks_then_turns_the_account_and_the_cursor_follows_it(
     assert sent.call_count == 1
     request = sent.calls.last.request
     assert json.loads(request.content) == (
-        {"name": "Mamá"} if route == "make-person" else {"bank_code": "BCP"}
+        {"name": "Mamá"} if route == "make-person" else {"bank_code": "BCP", "last4": "4321"}
     )
     assert request.headers["X-Idempotency-Key"]
     assert seen["key"] == row

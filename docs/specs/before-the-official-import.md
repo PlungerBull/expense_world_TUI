@@ -154,21 +154,9 @@ account's month.
 ## Tasks
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
-the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. Tasks 7 and 8
-run on contract 3.1, which this client records.
+the answers 15 A and 16 A (2026-11-12), and task 7 on 2026-11-14; task 8 replaces what tasks 2 and 3 built. Task 8 runs on
+contract 3.1, which this client records.
 
-7. **The bank account form, as decision 14 and panes 1, 2 and 7 draw it.** On Manage ▸ Accounts New and Edit, and `t`'s
-   question when it makes a bank account, BANK is a typed code of 3 or 4 letters, capitalised as
-   typed (7 B), with no suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
-   `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words
-   under its line: `INVALID_FORMAT` and, when `t` makes a person that carries a statement code a
-   bank account at a bank `GET /banks` does not list, `BANK_TAKES_NO_STATEMENT_CODE` under BANK.
-   It sets right what 3.1 makes untrue there: docs/tui.md:317-318 (`t`'s optional last 4), :391-395
-   (emptying LAST 4 removes the number) and :397-404 (a statement code on every bank account);
-   expense/reads.py:142-143 (`fetch_bank_codes` as the banks an account may take);
-   expense/tui/screens/create_forms.py:62-63, :447-448, :455-456, :862-864, :903-904 and
-   expense/tui/screens/accounts.py:193, :355, :362 (an optional last 4, BANK picked from
-   `GET /banks`, a numberless account).
 8. **The import's review, as panes 3 B, 4 A, 5 A and 6 A draw it.** Each missing account prefilled
    from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
    `names` pointing at them, and asks with its `created` and counts before the apply; a refusal

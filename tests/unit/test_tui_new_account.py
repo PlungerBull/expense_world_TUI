@@ -71,6 +71,7 @@ def _run(fake_client, screen, values, *, error=None, check=None):
 
 def test_a_bank_account_has_the_lines_of_the_mockup_in_its_order():
     screen = _screen()
+    _fill(screen, {"bank": "BCP"})
     assert screen._sequence() == ["type", "bank", "last4", "currencies", "statement_code", "color"]
     _fill(screen, {"currencies": ["PEN", "USD"]})
     assert screen._sequence() == [
@@ -109,12 +110,11 @@ def test_a_person_has_no_bank_last_4_or_code_and_they_return_holding_what_was_ty
     assert screen._values["last4"] == "5678" and screen._values["statement_code"] == "SIG"
 
 
-def test_bank_offers_the_engines_banks_in_its_order_and_last_4_is_optional():
-    screen = _screen(["BCP", "BBVA", "IBK"])
-    assert screen._field("bank").choices == [("BCP", "BCP"), ("BBVA", "BBVA"), ("IBK", "IBK")]
-    assert screen._field("bank").kind == "choice"
-    assert "bank" in screen._required() and "last4" not in screen._required()
-    assert screen._hint_for("last4") == "optional · the card's last 4 digits · enter to go on"
+def test_bank_is_a_typed_code_with_no_suggestions_and_both_it_and_last_4_are_required():
+    screen = _screen()
+    assert screen._field("bank").kind == "text" and not screen._suggests("bank")
+    assert {"bank", "last4"} <= set(screen._required())
+    assert screen._hint_for("last4") == "the card's last 4 digits · enter to go on"
 
 
 def test_the_pair_lines_are_the_edit_forms_a_day_is_required_once_an_amount_is_typed():
@@ -251,7 +251,7 @@ FULL = {
 @pytest.mark.parametrize(
     ("key", "reason", "status", "line"),
     [
-        ("bank_code", "UNSUPPORTED_VALUE", 422, "bank"),
+        ("bank_code", "INVALID_FORMAT", 422, "bank"),
         ("last4", "INVALID_FORMAT", 422, "last4"),
         ("currencies", "OUT_OF_RANGE", 422, "currencies"),
         ("currencies.1.currency_code", "UNSUPPORTED_VALUE", 422, "currencies"),
@@ -359,7 +359,9 @@ def test_the_bank_codes_are_the_engines_list_in_its_order(configured):
         assert fetch_bank_codes(cfg) == ["BCP"]
 
 
-def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_and_edit_forms(monkeypatch):
+def test_the_accounts_screen_reads_the_statement_banks_and_hands_them_to_the_new_and_edit_forms(
+    monkeypatch,
+):
     monkeypatch.setattr("expense.reads.fetch_bank_codes", lambda cfg, **kw: ["BCP", "IBK"])
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
@@ -368,11 +370,10 @@ def test_the_accounts_screen_reads_the_banks_and_hands_them_to_the_new_and_edit_
         screen = AccountsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        assert screen._banks == ["BCP", "IBK"]
-        form = screen.new_screen()
-        assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
+        assert screen._statement_banks == ["BCP", "IBK"]
+        assert screen.new_screen()._statement_banks == ["BCP", "IBK"]
         form = screen.edit_screen(account_with_currencies(id="acc-bcp", name="BCP-5678"))
-        assert form._field("bank").choices == [("BCP", "BCP"), ("IBK", "IBK")]
+        assert form._statement_banks == ["BCP", "IBK"]
 
     run_app(scenario)
 

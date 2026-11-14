@@ -18,6 +18,7 @@ from expense.quickadd.money import parse_amount
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.typed_input import TypedInput
 
 
 class UnderHead:
@@ -278,15 +279,15 @@ class AmountPromptModal(PromptBox[int | None]):
 @dataclass(frozen=True)
 class QuestionLine:
     """One line of a `QuestionModal`: `key` is the engine field it carries, `label` the word
-    before it. `choices` None makes it a typed line (`note`, dim, after it, as `optional`);
-    otherwise it is the engine's list, a fixed line while it holds one and a pick while it
-    holds more; `start` is the choice the cursor opens on."""
+    before it. `choices` None makes it a typed line, shown as `typed` gives it back
+    (`TypedInput`); otherwise it is the engine's list, a pick; `start` is the choice the
+    cursor opens on."""
 
     key: str
     label: str
     choices: tuple[str, ...] | None = None
-    note: str = ""
     start: int = 0
+    typed: Callable[[str], str] | None = None
 
 
 class QuestionModal(ModalScreen[None]):
@@ -294,9 +295,9 @@ class QuestionModal(ModalScreen[None]):
     hands what the lines hold, as `{key: text}`, to `send` and does nothing more: the
     caller writes, then `dismiss`es the question when the engine took it, or `refuse`s
     a line with the engine's words, which keeps the question open on that line with what
-    was typed. `esc` closes it, sending nothing. `⇥`/`⇧⇥` move between the lines that
-    take input; `↑↓` pick on a choice line holding several choices, and elsewhere move
-    between lines. One send at a time until a refusal frees the question."""
+    was typed. `esc` closes it, sending nothing. `⇥`/`⇧⇥` move between the lines; `↑↓` pick
+    on a choice line, and elsewhere move between lines. One send at a time until a refusal
+    frees the question."""
 
     AUTO_FOCUS = ""  # the first line that takes input is focused by `_focus_line`, a choice's none
     BINDINGS = [
@@ -322,11 +323,7 @@ class QuestionModal(ModalScreen[None]):
         self._send = send
         self._sending = False
         self._picked = {ln.key: ln.start for ln in self._lines if ln.choices}
-        # the lines that take input, in order: typed ones and choices holding several
-        self._reachable = [
-            i for i, ln in enumerate(self._lines) if ln.choices is None or len(ln.choices) > 1
-        ]
-        self._at = 0  # the place in `_reachable`
+        self._at = 0  # the line the cursor is on
         self._label_width = max(len(ln.label) for ln in self._lines) + 2
 
     def compose(self) -> ComposeResult:
@@ -335,17 +332,8 @@ class QuestionModal(ModalScreen[None]):
             if line.choices is None:
                 label = Static(Text(line.label), classes="line-label")
                 label.styles.width = self._label_width
-                field = Input(id=f"line-{line.key}", classes="line-input")
-                if line.note:  # the note sits right after a short input
-                    field.styles.width = 8
-                rows.append(
-                    Horizontal(
-                        label,
-                        field,
-                        Static(Text(line.note, style="dim"), classes="line-note"),
-                        classes="line-row",
-                    )
-                )
+                field = TypedInput(typed=line.typed, id=f"line-{line.key}", classes="line-input")
+                rows.append(Horizontal(label, field, classes="line-row"))
             else:
                 rows.append(Static(self._choice_view(line), id=f"line-{line.key}"))
             refusal = Static("", id=f"refusal-{line.key}", classes="error line-refusal")
@@ -360,16 +348,10 @@ class QuestionModal(ModalScreen[None]):
 
     def _choice_view(self, line: QuestionLine):
         assert line.choices is not None
-        if not line.choices:
-            return Text(line.label)  # the engine lists none: nothing to pick
-        if len(line.choices) == 1:
-            return Text(f"{line.label:<{self._label_width}}{line.choices[0]}")
         return Group(Text(line.label), suggestion_list(line.choices, self._picked[line.key]))
 
     def _focus_line(self) -> None:
-        if not self._reachable:
-            return
-        line = self._lines[self._reachable[self._at]]
+        line = self._lines[self._at]
         if line.choices is None:
             self.query_one(f"#line-{line.key}", Input).focus()
         else:
@@ -382,20 +364,18 @@ class QuestionModal(ModalScreen[None]):
             if line.choices is None:
                 out[line.key] = self.query_one(f"#line-{line.key}", Input).value
             else:
-                out[line.key] = line.choices[self._picked[line.key]] if line.choices else ""
+                out[line.key] = line.choices[self._picked[line.key]]
         return out
 
     def action_line(self, delta: int) -> None:
-        if 0 <= self._at + delta < len(self._reachable):  # stops at either end, as the forms do
+        if 0 <= self._at + delta < len(self._lines):  # stops at either end, as the forms do
             self._at += delta
             self._focus_line()
 
     def action_arrow(self, delta: int) -> None:
-        if not self._reachable:
-            return
-        line = self._lines[self._reachable[self._at]]
+        line = self._lines[self._at]
         if line.choices is None:
-            if 0 <= self._at + delta < len(self._reachable):
+            if 0 <= self._at + delta < len(self._lines):
                 self.action_line(delta)
             return
         self._picked[line.key] = max(0, min(self._picked[line.key] + delta, len(line.choices) - 1))
@@ -425,8 +405,8 @@ class QuestionModal(ModalScreen[None]):
         note = self.query_one(f"#refusal-{key}", Static)
         note.update(Text(message))
         note.display = True
-        for place, index in enumerate(self._reachable):
-            if self._lines[index].key == key:
+        for place, line in enumerate(self._lines):
+            if line.key == key:
                 self._at = place
         self._focus_line()
 

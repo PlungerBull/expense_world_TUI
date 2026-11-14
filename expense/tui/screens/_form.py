@@ -28,6 +28,7 @@ from expense.tui.screens._base import EngineWriteMixin, LeftBehind
 from expense.tui.widgets.footer import FittingFooter
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.typed_input import TypedInput
 
 #: What `⏎` on an empty title says, on every form that edits one.
 TITLE_REQUIRED = "Title is required."
@@ -86,7 +87,7 @@ def form_bindings(submit_desc: str, *, cancel_desc: str = "Cancel") -> list[Bind
     ]
 
 
-class FormBar(Input):
+class FormBar(TypedInput):
     """The bar forms' one input bar. While the field under it is read-only
     (`read_only()`, asked at each key), nothing typed, pasted or deleted
     changes the bar, and `⏎` posts `Passed` in place of `Submitted`: no
@@ -99,9 +100,8 @@ class FormBar(Input):
         """`⏎` on a read-only field."""
 
     def __init__(self, *, read_only, typed=None, touched=None, **kwargs) -> None:
-        super().__init__(**kwargs)
+        super().__init__(typed=typed, **kwargs)
         self._read_only = read_only
-        self._typed = typed or (lambda text: text)
         self._touched = touched or (lambda: None)
 
     def on_key(self, event) -> None:
@@ -109,9 +109,8 @@ class FormBar(Input):
         self._touched()
 
     def replace(self, text: str, start: int, end: int) -> None:
-        # every edit of the bar's text (typing, paste, delete, cut) goes through here
         if not self._read_only():
-            super().replace(self._typed(text), start, end)
+            super().replace(text, start, end)
 
     async def action_submit(self) -> None:
         if self._read_only():

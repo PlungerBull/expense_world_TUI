@@ -59,9 +59,12 @@ NAME_HINT = "free text · enter to go on"
 #: The account's COLOR, New and Edit: `⏎` keeps what the line holds — the
 #: account's own colour on Edit, no colour on New.
 ACCOUNT_COLOR_HINT = "optional · enter keeps it · ↑↓ another swatch"
-#: A bank account's LAST 4 on New: optional, and `⏎` goes on to CURRENCIES.
-LAST4_HINT = "optional · the card's last 4 digits · enter to go on"
-#: The same line on Edit, where emptying it and saving removes the current number.
+#: A bank account's BANK: a code the engine judges, shown in capitals as typed.
+BANK_HINT = "three or four letters, e.g. IBK · enter to go on"
+#: A bank account's LAST 4, required: `⏎` goes on to CURRENCIES.
+LAST4_HINT = "the card's last 4 digits · enter to go on"
+#: The same line on Edit while the account holds two numbers or more: emptying it and
+#: saving removes the current number.
 LAST4_EDIT_HINT = "the card's last 4 digits · empty removes it · enter to go on"
 #: A bank account's SINCE on Edit: the current number's first day.
 SINCE_HINT = "YYYY-MM-DD · this card's first day · enter to go on"
@@ -441,11 +444,13 @@ class NewAccountScreen(BarFormScreen):
     TYPE is **prefilled to `bank`** — `n`, `enter`, … still adds an ordinary account
     without an extra decision (Why: docs/decisions.md "A settled person is folded, never
     hidden"). A bank account's lines are `type`, BANK, LAST 4, CURRENCIES, STATEMENT CODE and
-    COLOR; a person's are `type`, NAME, CURRENCIES and COLOR. BANK, LAST 4 and STATEMENT CODE
-    leave the form with TYPE on person and return holding what was typed. A bank account
-    has no NAME line: the engine builds its name (contract: POST /v1/accounts, "The name").
-    BANK picks from the engine's banks (`GET /banks`, in its order), required; LAST 4 is
-    optional and the engine judges its shape.
+    COLOR; a person's are `type`, NAME, CURRENCIES and COLOR. BANK and LAST 4 leave the form
+    with TYPE on person and return holding what was typed. A bank account has no NAME line:
+    the engine builds its name (contract: POST /v1/accounts, "The name"). BANK is a code typed
+    in capitals, no list of banks and no suggestions, and LAST 4 is typed; both are required
+    and the engine judges their shape (contract: POST /v1/accounts, "Required"). STATEMENT CODE
+    is a line only while BANK is a code `GET /banks` lists (`_takes_code`): it appears when BANK
+    becomes one and leaves when BANK changes to another.
 
     CURRENCIES takes one currency or more, picked as the Edit form's HASHTAGS picks
     hashtags: a typed code and `⏎` add the highlighted one and stay for another, an empty
@@ -453,10 +458,10 @@ class NewAccountScreen(BarFormScreen):
     pick order, as the Edit form has (`PEN opening`, `PEN as of`).
 
     The save is one `POST /accounts` carrying everything: `kind`; on a bank account
-    `bank_code` and `last4` only when typed (never `null`); on a person `name`; `currencies`
+    `bank_code` and `last4`; on a person `name`; `currencies`
     in pick order, each `{currency_code}` and, when its amount was typed, `opening_balance`
     (contract: POST /v1/accounts, "Required") (contract: POST /v1/accounts, "Optional").
-    STATEMENT CODE and COLOR, skipped, are left out of the body.
+    STATEMENT CODE and COLOR, skipped or hidden, are left out of the body.
 
     TYPE always offers `cash`. A cash account's lines are `type`, CURRENCIES and COLOR and the
     pairs; it has no name line, since the engine names it. Its body has
@@ -480,8 +485,8 @@ class NewAccountScreen(BarFormScreen):
             required=True,
             hint="bank, person or cash · enter keeps bank",
         ),
-        Field("bank", "BANK", "choice", required=True),
-        Field("last4", "LAST 4", hint=LAST4_HINT),
+        Field("bank", "BANK", required=True, hint=BANK_HINT),
+        Field("last4", "LAST 4", required=True, hint=LAST4_HINT),
         Field("name", "NAME", required=True, hint=NAME_HINT),
         Field(
             "currencies",
@@ -494,17 +499,18 @@ class NewAccountScreen(BarFormScreen):
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
-    def __init__(self, currencies: list[str], banks: list[str]) -> None:
-        """`currencies`, `banks`: the engine's codes (`GET /currencies`, `GET /banks`), read
-        by the list this form opens from, in the engine's order: what CURRENCIES and BANK
-        offer."""
+    def __init__(self, currencies: list[str], statement_banks: list[str]) -> None:
+        """`currencies`: the engine's codes (`GET /currencies`), in its order, what CURRENCIES
+        offers. `statement_banks`: the banks whose statement PDFs the engine reads
+        (`GET /banks`); STATEMENT CODE is on the form only while BANK is one of them. Both
+        are read by the list this form opens from."""
         super().__init__()
-        offered = {
-            "currencies": [(code, code) for code in currencies],
-            "bank": [(code, code) for code in banks],
-        }
+        self._statement_banks = statement_banks
         self.FIELDS = [
-            _field_with_choices(f, offered[f.key]) if f.key in offered else f for f in self.FIELDS
+            _field_with_choices(f, [(code, code) for code in currencies])
+            if f.key == "currencies"
+            else f
+            for f in self.FIELDS
         ]
         self._values["type"] = "bank"
 
@@ -520,6 +526,12 @@ class NewAccountScreen(BarFormScreen):
     def _is_bank(self) -> bool:
         return not (self._is_person or self._is_cash)
 
+    @property
+    def _takes_code(self) -> bool:
+        """Whether the form has a STATEMENT CODE line: a bank account whose BANK, as typed, is
+        one the engine reads statements for. Hidden, the line sends nothing."""
+        return self._is_bank and self._values.get("bank") in self._statement_banks
+
     def _identity_lines(self) -> list[str]:
         """The lines after TYPE that name the account: a person's NAME, a bank account's BANK
         and LAST 4; a cash account has none."""
@@ -529,7 +541,7 @@ class NewAccountScreen(BarFormScreen):
 
     def _sequence(self) -> list[str]:
         who = self._identity_lines()
-        code = [] if self._is_person or self._is_cash else ["statement_code"]
+        code = ["statement_code"] if self._takes_code else []
         pairs = [
             _pair_key(line, currency)
             for currency in self._values.get("currencies", ())
@@ -551,7 +563,7 @@ class NewAccountScreen(BarFormScreen):
         return tuple(k for k in self._sequence() if self._field_required(self._field(k)))
 
     def _typed(self, key: str, text: str) -> str:
-        return text.upper() if key == "statement_code" else text
+        return text.upper() if key in ("bank", "statement_code") else text
 
     # ---- each currency's two lines -------------------------------------------
     def _summary_label(self, key: str) -> str:
@@ -656,12 +668,11 @@ class NewAccountScreen(BarFormScreen):
             payload["name"] = self._values["name"]
         elif not self._is_cash:
             payload["bank_code"] = self._values["bank"]
-            if self._values.get("last4"):
-                payload["last4"] = self._values["last4"]
+            payload["last4"] = self._values["last4"]
         payload["currencies"] = [self._currency_entry(code) for code in self._values["currencies"]]
         if self._values.get("color"):
             payload["color"] = self._values["color"]
-        if kind == "bank" and self._values.get("statement_code"):
+        if self._takes_code and self._values.get("statement_code"):
             payload["statement_code"] = self._values["statement_code"]
         return payload
 
@@ -831,9 +842,10 @@ class EditAccountScreen(NewAccountScreen):
     reads its name as read, `read-only`, and it has no BANK, LAST 4, STATEMENT CODE or card
     lines: its body holds only the `color` and `opening_balances` that changed
     (contract: PUT /v1/accounts/{account_id}). A person's NAME
-    opens holding its name. A bank account's STATEMENT CODE opens holding its code.
-    Its BANK opens on its bank, picked from the engine's banks as New's is, and its LAST 4
-    on its current number's digits (empty with none); SINCE, only while the account has a
+    opens holding its name. A bank account's STATEMENT CODE opens holding its code, and
+    is on the form only while BANK is a code `GET /banks` lists.
+    Its BANK, typed as New's is, opens on its bank, and its LAST 4 on its current number's
+    digits; SINCE, only while the account has a
     number, holds that number's first day, `first card` while it is the first and has
     none (contract: PUT /v1/accounts/{account_id}, "The numbers"). CARDS BEFORE, read-only
     and only with earlier numbers, reads each as `<last4> until <end_date>`, oldest first.
@@ -858,11 +870,15 @@ class EditAccountScreen(NewAccountScreen):
     only the `amount_cents` and/or `date` that changed; one whose amount was
     emptied gets `null`, after one question naming each currency it deletes, and
     only `y` sends. A bank account's `bank_code` goes when the bank changed, and
-    `current_number` when its digits or first day did: `{last4}` and/or `{start_date}`
-    (the first number of a numberless account sends `last4` alone), `start_date: null` for
-    a SINCE emptied (the engine's refusal shows), and `null` for a LAST 4 emptied, after
-    a question naming the number removed; that question comes before the openings' and
-    only `y` goes on. A NEW CARD typed sends `new_number: {last4, start_date}` as typed,
+    `current_number` when its digits or first day did: `{last4}` and/or `{start_date}`,
+    `start_date: null` for a SINCE emptied (the engine's refusal shows), and `null` for a
+    LAST 4 emptied, after a question naming the number removed; that question comes before
+    the openings' and only `y` goes on. LAST 4 is emptied only while another number stays: on
+    an account with one it is required, as on New (`_field_required`). A coded account moved
+    to a bank the engine reads no statements of sends `statement_code: null` with the move,
+    since it is refused on `bank_code` unless the same request clears the code; a save that
+    keeps the bank never touches a hidden code (contract: PUT /v1/accounts/{account_id},
+    "`bank_code`"). A NEW CARD typed sends `new_number: {last4, start_date}` as typed,
     beside whatever else changed: the engine refuses a request carrying both numbers. A
     form with nothing changed sends `{}`.
 
@@ -877,8 +893,8 @@ class EditAccountScreen(NewAccountScreen):
 
     BINDINGS = form_bindings("Save")
     NOT_DONE = "Not saved"
-    # New's lines, CURRENCIES read-only, LAST 4's and STATEMENT CODE's hints saying that
-    # emptying them removes or clears, and SINCE and the replacement's lines after LAST 4
+    # New's lines, CURRENCIES read-only, STATEMENT CODE's hint saying that emptying it
+    # clears, and SINCE and the replacement's lines after LAST 4
     FIELDS = [
         line
         for f in NewAccountScreen.FIELDS
@@ -888,7 +904,7 @@ class EditAccountScreen(NewAccountScreen):
             else [_field_with_hint(f, STATEMENT_CODE_EDIT_HINT)]
             if f.key == "statement_code"
             else [
-                _field_with_hint(f, LAST4_EDIT_HINT),
+                f,
                 Field("since", "SINCE", hint=SINCE_HINT),
                 Field("cards_before", "CARDS BEFORE"),
                 Field("new_card", "NEW CARD", hint=NEW_CARD_HINT),
@@ -899,10 +915,10 @@ class EditAccountScreen(NewAccountScreen):
         )
     ]
 
-    def __init__(self, record: dict, currencies: list[str], banks: list[str]) -> None:
-        """`currencies`, `banks`: the engine's codes, as New's (`GET /currencies`,
+    def __init__(self, record: dict, currencies: list[str], statement_banks: list[str]) -> None:
+        """`currencies`, `statement_banks`: the engine's codes, as New's (`GET /currencies`,
         `GET /banks`)."""
-        super().__init__(currencies, banks)
+        super().__init__(currencies, statement_banks)
         self._id = record["id"]
         self._name: str = record.get("name") or "—"
         self._was = record.get("name") or ""  # as the list shows it
@@ -929,6 +945,7 @@ class EditAccountScreen(NewAccountScreen):
         # is current again once it is removed
         numbers = record.get("numbers") or []
         self._has_number = bool(numbers) and bank
+        self._removable = len(numbers) > 1  # LAST 4 may be emptied only while another stays
         before = [f"{n['last4']} until {n['end_date']}" for n in numbers[:-1]]
         self._cards_before = " · ".join(before) if bank else ""
         if self._cards_before:
@@ -977,12 +994,12 @@ class EditAccountScreen(NewAccountScreen):
         ]
 
     def _field_required(self, f: Field) -> bool:
-        """The account's bank is already there: BANK is never asked for. NEW CARD FROM is
-        asked for while NEW CARD holds text (it is on the form only then)."""
+        """LAST 4 is asked for unless another number stays after it is emptied. NEW CARD FROM
+        is asked for while NEW CARD holds text (it is on the form only then)."""
         if f.key == "new_card_from":
             return True
-        if f.key == "bank":
-            return False
+        if f.key == "last4":
+            return not self._removable
         if f.key == "name" and self._is_cash:  # the engine's name, shown read-only
             return False
         return super()._field_required(f)
@@ -1008,11 +1025,8 @@ class EditAccountScreen(NewAccountScreen):
             else super()._value_cell(key, value)
         )
 
-    def _recompute(self, text: str) -> None:
-        """As New's; BANK, empty, highlights the account's own bank, so `enter` keeps it."""
-        super()._recompute(text)
-        if self._key == "bank" and not text.strip():
-            self._suggest_idx = self._held_index("bank")
+    def _hint_for(self, key: str) -> str:
+        return LAST4_EDIT_HINT if key == "last4" and self._removable else super()._hint_for(key)
 
     def _blank_cell(self, key: str) -> Text | None:
         """SINCE, empty on the first number, reads `first card`."""
@@ -1142,9 +1156,19 @@ class EditAccountScreen(NewAccountScreen):
                 }
         if self._values.get("color") and self._values["color"] != self._original_color:
             body["color"] = self._values["color"]
-        code = self._values.get("statement_code")
-        if self._is_bank and code != self._original_code:
-            body["statement_code"] = code
+        if self._is_bank:
+            moved = self._values.get("bank") != self._original_bank
+            # a save that keeps the bank leaves a hidden code as it is; a move to a bank
+            # the engine reads no statements of clears it, as the engine requires
+            code = (
+                self._values.get("statement_code")
+                if self._takes_code
+                else None
+                if moved
+                else self._original_code
+            )
+            if code != self._original_code:
+                body["statement_code"] = code
         openings = {
             code: entry for code in self._codes if (entry := self._opening_entry(code)) is not False
         }
@@ -1183,12 +1207,10 @@ class EditAccountScreen(NewAccountScreen):
         self.app.push_screen(ConfirmModal(*questions[0]), answered)
 
     def _removal_question(self) -> tuple[str, str]:
-        """The question before a number is removed: the number goes, the one before it,
-        if any, is the account's number again."""
+        """The question before a number is removed (only while another stays): the number
+        goes, the one before it is the account's number again."""
         gone = str(self._original_last4)
-        words = f"No screen can bring {gone} back."
-        if self._number_before is not None:
-            words = f"{self._number_before} is its number again. {words}"
+        words = f"{self._number_before} is its number again. No screen can bring {gone} back."
         return f"Remove card {gone} from {self._name}?", words
 
     def _deletion_question(self, deleted: list[str]) -> tuple[str, str]:
