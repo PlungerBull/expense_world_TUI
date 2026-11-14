@@ -648,18 +648,35 @@ def sheet_name_use(
     rows: int = 1,
     proposed_id: str | None = None,
     *,
-    ambiguous: bool = False,
+    suggestion: dict | None = None,
     **currencies: list[str],
 ) -> dict:
     """One name a sheet uses, as an import-sheet answer's `names` lists it: an account
-    `{name, currencies, rows, proposed_id}` (pass `currencies=["PEN", "USD"]`, in the
-    engine's order) also saying whether the name `ambiguous`ly fits several accounts, a
-    category or hashtag `{name, rows, proposed_id}`
-    (contract: POST /v1/transactions/import-sheet, "Response")."""
+    `{name, currencies, rows, proposed_id, suggestion}` (pass `currencies=["PEN", "USD"]`,
+    in the engine's order), a category or hashtag `{name, rows, proposed_id}`
+    (contract: POST /v1/transactions/import-sheet, "Response"). An account's
+    `suggestion` is `null` when it has a `proposed_id`, else by default an object with
+    no kind, code or last 4 over the account's currencies: `kind` is `bank` only when a
+    code or last 4 is read (contract: POST /v1/transactions/import-sheet, "Names")."""
     assert set(currencies) <= {"currencies"}, sorted(currencies)
-    ambiguity = {"ambiguous": ambiguous} if currencies else {}
-    assert ambiguous <= bool(currencies), "only an account name can be ambiguous"
-    return {"name": name, **currencies, "rows": rows, "proposed_id": proposed_id, **ambiguity}
+    assert suggestion is None or currencies, "only an account name can carry a suggestion"
+    assert suggestion is None or proposed_id is None, "a proposed account has no suggestion"
+    if not currencies:
+        return {"name": name, "rows": rows, "proposed_id": proposed_id}
+    if proposed_id is None and suggestion is None:
+        suggestion = {
+            "kind": None,
+            "bank_code": None,
+            "last4": None,
+            "currencies": currencies["currencies"],
+        }
+    return {
+        "name": name,
+        **currencies,
+        "rows": rows,
+        "proposed_id": proposed_id,
+        "suggestion": suggestion,
+    }
 
 
 def sheet_row(
@@ -720,8 +737,10 @@ def sheet_import_answer(
     rows: list[dict] | None = None,
     dry_run: bool = True,
     counts: dict | None = None,
+    created: dict | None = None,
 ) -> dict:
-    """`POST /transactions/import-sheet`'s answer: `dry_run` echoed, every name the
+    """`POST /transactions/import-sheet`'s answer: `dry_run` echoed, `created` (the
+    accounts, categories and hashtags made, 0 each by default), every name the
     sheet uses (each a `sheet_name_use`), one row per data row (each a `sheet_row`)
     and `counts` (by default the rows counted)
     (contract: POST /v1/transactions/import-sheet, "Response"). The bare answer holds
@@ -730,6 +749,9 @@ def sheet_import_answer(
         rows = [sheet_row(2)]
     return {
         "dry_run": dry_run,
+        "created": (
+            created if created is not None else {"accounts": 0, "categories": 0, "hashtags": 0}
+        ),
         "names": {
             "accounts": (
                 accounts

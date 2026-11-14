@@ -79,12 +79,8 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 Each task leaves `pytest tests/unit` green and reads the live contract on the practice engine
 before building. Each live test makes its accounts with a last 4 from `next_last4()`, so the
-practice-user clean-up finds them.
+practice-user clean-up finds them. Task 1 is done.
 
-1. **Record contract `3.1`** with the version check's `--record-version`. The sheet import's answer
-   builder (`sheet_import_answer`, `sheet_name_use` in tests/unit/helpers.py) drops `ambiguous`
-   and gains `suggestion` and `created`, until the drift check reports nothing. CHANGELOG's
-   "Upgrading:" line names contract `3.1`.
 2. **The five live tests that fail on `3.1`** follow the new rules: in
    tests/contract/test_account_numbers.py, every account read carrying its bank and numbers, a
    replacement ending the old number, and the kind changes' bodies, which make a bank account or
