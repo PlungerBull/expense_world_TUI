@@ -68,8 +68,7 @@ is ready, run `python3 scripts/release.py` in the live folder
 Asked 2026-11-13 · Blocks: the engine ask "The sheet import suggests the accounts it is missing
 and makes the ones the user confirms, with its names and rows, in one write"
 The engine coders asked for the account names your sheet's `CUENTA` column uses, to pick the
-import's guessing rules. Give them directly, not through this repo: it is public. Hand over the
-two engine asks in [to-engine/](to-engine/) with them.
+import's guessing rules. Give them directly, not through this repo: it is public.
 **Recommended:** none, a step only you can do.
 
 ### Approve "Small screen details"
@@ -77,8 +76,7 @@ Asked 2026-11-13 · Blocks: Small screen details
 Your picks on panes 1–16 of [expense-world-open-questions.html](mockups/expense-world-open-questions.html)
 became [Small screen details](specs/small-screen-details.md): six changes, five of them screens
 only, and the upload going straight to its preview once the engine ask "A statement PDF's
-upload names its account from the card number the paper prints" lands (it waits in
-[to-engine/](to-engine/) for you to hand over). Pane 13 needs nothing: since several cash
+upload names its account from the card number the paper prints" lands. Pane 13 needs nothing: since several cash
 accounts, the engine names each `CASH-0001` and up, skipping a taken name, so no person can hold
 the cash account's name.
 - **A.** Approve it as v1.1, beside closing with leftover lines.
