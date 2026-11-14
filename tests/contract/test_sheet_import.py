@@ -27,11 +27,6 @@ currencies gets each currency's first non-zero `SALDO INICIAL` row as its openin
 Every name is fresh per run, so a second run of the suite still finds every row
 new on its first apply: the practice user's data outlives a reseed. Each test
 hands what it wrote to the `scratch` cleanup. Gating, target and the real-ledger guard: conftest.py.
-
-A sheet name shared by two accounts answers `ambiguous` with no proposal only for accounts made
-before the engine built bank accounts' names; every create and rename route refuses a name in
-use (`NAME_EXISTS`), so the practice engine cannot make one and no test here causes it
-(contract: POST /v1/transactions/import-sheet, "Names").
 """
 
 from datetime import date
@@ -160,15 +155,21 @@ def test_a_made_up_sheet_from_names_to_apply_and_sent_again(client, target, scra
         (HASHTAG, n.home, (), 4, Goes.MISSING, None),
         (HASHTAG, n.work, (), 2, Goes.MISSING, None),
     ]
-    # A sheet name no account holds has no proposal and is not ambiguous
+    # A sheet name no account holds, naming no bank and no last 4, has no proposal and its
+    # suggestion names no kind, bank or last 4
     # (contract: POST /v1/transactions/import-sheet, "Names").
     (listed,) = dry.answer["names"]["accounts"]
-    assert (listed["name"], listed["currencies"], listed["proposed_id"], listed["ambiguous"]) == (
+    assert (listed["name"], listed["currencies"], listed["proposed_id"]) == (
         n.account,
         ["PEN", "USD"],
         None,
-        False,
     )
+    assert listed["suggestion"] == {
+        "kind": None,
+        "bank_code": None,
+        "last4": None,
+        "currencies": ["PEN", "USD"],
+    }
     assert not dry.counted and len(dry.missing) == 4
     assert [(r.row, r.outcome, r.transaction_id) for r in dry.rows] == [
         (row, None, None) for row in range(2, 8)

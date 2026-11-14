@@ -79,14 +79,8 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 Each task leaves `pytest tests/unit` green and reads the live contract on the practice engine
 before building. Each live test makes its accounts with a last 4 from `next_last4()`, so the
-practice-user clean-up finds them. Task 1 is done.
+practice-user clean-up finds them. Tasks 1 and 2 are done.
 
-2. **The five live tests that fail on `3.1`** follow the new rules: in
-   tests/contract/test_account_numbers.py, every account read carrying its bank and numbers, a
-   replacement ending the old number, and the kind changes' bodies, which make a bank account or
-   make an account without a last 4; test_sheet_import.py's made-up sheet, which reads
-   `ambiguous`; and test_statement_numbers.py's account with no number, which can no longer be set
-   up and is cited, not driven, until the engine answers the reply's contract problem.
 3. **Live tests for the account rules of `2.0`:** `IBK` with a last 4 made as `IBK-4321`, a second
    `IBK` with another last 4 made, the same last 4 again `NAME_EXISTS`; `ibk`, `IB`, `IBKXX`,
    ` IBK` and `I8K` each `INVALID_FORMAT` on `bank_code`; no last 4 `REQUIRED` on `POST /accounts`
