@@ -34,10 +34,14 @@ prepares the release (CLAUDE.md "This repo's loop").
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-4. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+4. **v1.1** · [Small screen details](specs/small-screen-details.md): approved 2026-11-13. Task 6
+   waits on the engine ask "A statement PDF's upload names its account from the card number the
+   paper prints".
+5. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
    the owner runs, split out 2026-11-12. The engine shipped what they read in contract 1.1;
    tasks 1 and 2 wait on the owner picking their mockups.
-5. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11.
+6. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11. Nothing past
+   v1.0 is built until v1.0.0 is prepared, so v1.0.0 holds the code the import was rehearsed on.
 
 ---
 
@@ -63,36 +67,6 @@ is ready, run `python3 scripts/release.py` in the live folder
 (`~/Library/Application Support/expense_world/tui`; it needs `gh` logged in and `pipx`). Once
 `expense` opens as v1.0.0, remove the old install: `pipx uninstall expense-cli-menu`.
 **Recommended:** none, steps only you can do.
-
-### Give the engine coders your sheet's account names
-Asked 2026-11-13 · Blocks: the engine ask "The sheet import suggests the accounts it is missing
-and makes the ones the user confirms, with its names and rows, in one write"
-The engine coders asked for the account names your sheet's `CUENTA` column uses, to pick the
-import's guessing rules. Give them directly, not through this repo: it is public.
-**Recommended:** none, a step only you can do.
-
-### Approve "Small screen details"
-Asked 2026-11-13 · Blocks: Small screen details
-Your picks on panes 1–16 of [expense-world-open-questions.html](mockups/expense-world-open-questions.html)
-became [Small screen details](specs/small-screen-details.md): six changes, five of them screens
-only, and the upload going straight to its preview once the engine ask "A statement PDF's
-upload names its account from the card number the paper prints" lands. Pane 13 needs nothing: since several cash
-accounts, the engine names each `CASH-0001` and up, skipping a taken name, so no person can hold
-the cash account's name.
-- **A.** Approve it as v1.1, beside closing with leftover lines.
-- **B.** Approve it into v1.0, before the official import.
-**Recommended:** A, because v1.0 is the import and its release, and none of the six blocks it.
-
-### Build Code conventions B while v1.0 waits?
-Asked 2026-11-13 · Blocks: Code conventions B
-Everything else in the Queue waits on the engine or on you, and v1.0.0 waits on the rehearsal,
-which waits on the engine listing Interbank. Code conventions B (v1.3) could run now, but
-v1.0.0 is prepared from `develop`, so whatever is built there first ships in v1.0.0. B changes
-how every screen reads the engine's answers, nothing you see.
-- **A.** Wait: build nothing past v1.0 until v1.0.0 is prepared.
-- **B.** Build it now; it ships in v1.0.0, and the rehearsal then runs on the reworked code.
-**Recommended:** A, because v1.0.0 should hold the code the import was rehearsed and reviewed
-on, and the wait is only for one engine change.
 
 ---
 

@@ -1,6 +1,6 @@
 # Small screen details
 
-**Status: draft for the owner to approve.** Its answers were picked on 2026-11-13 on panes 1–16
+**Status: approved 2026-11-13 as v1.1.** Its answers were picked on 2026-11-13 on panes 1–16
 of [expense-world-open-questions.html](../mockups/expense-world-open-questions.html); the panes
 picked as built change nothing. When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
