@@ -45,12 +45,10 @@ Each test builds its own accounts and undoes everything (conftest.py `scratch`).
 target and the real-ledger guard: conftest.py.
 """
 
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from expense import http as http_module
 from expense.bank_line_write import kept_part, line_body
 from expense.errors import EngineError
 from expense.formatting import signed_cents
@@ -64,6 +62,7 @@ from tests.contract.conftest import (
     refused,
     refused_keeping,
     refused_line_write,
+    under_key,
 )
 
 APRIL = ("2026-04-01", "2026-04-30")
@@ -537,7 +536,7 @@ def test_a_kept_parts_hashtags_are_written_whenever_sent(client, scratch):
             pass
 
 
-def test_a_replay_answers_the_same_and_writes_once(client, scratch, monkeypatch):
+def test_a_replay_answers_the_same_and_writes_once(client, scratch):
     """A write sent again under the same idempotency key answers exactly as the first
     send did, and the line is written once: the kept part's `version` up by one, the
     new part created once, the dropped part deleted once. The same key with another
@@ -552,14 +551,11 @@ def test_a_replay_answers_the_same_and_writes_once(client, scratch, monkeypatch)
     body = {"parts": [{"id": kept, "amount_cents": -7000}, {"id": added, "amount_cents": -3000}]}
 
     key = uuid4()
-    monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
-    try:
+    with under_key(key):
         first = _write(client, line, body)
         replayed = _write(client, line, body)
         other = {"parts": [{"id": kept, "amount_cents": -10000}]}
         err = refused(lambda: _write(client, line, other))
-    finally:
-        monkeypatch.undo()
 
     assert replayed == first
     assert (first["created_part_ids"], first["deleted_part_ids"]) == ([added], [dropped])

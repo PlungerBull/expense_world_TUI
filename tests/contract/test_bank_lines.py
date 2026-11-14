@@ -97,12 +97,10 @@ target and the real-ledger guard: conftest.py.
 
 from dataclasses import replace
 from datetime import datetime
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from expense import http as http_module
 from expense.formatting import signed_cents
 from expense.reads import count_bank_lines, fetch_bank_line, fetch_bank_lines
 from tests.contract.conftest import (
@@ -117,6 +115,7 @@ from tests.contract.conftest import (
     refused_keeping,
     replace_parts,
     send_download,
+    under_key,
 )
 
 APRIL = ("2026-04-01", "2026-04-30")
@@ -391,7 +390,7 @@ def _assert_parts_read_back(client, answer: dict, named: str) -> None:
             assert part == top
 
 
-def test_a_move_answers_with_every_part_it_changed(client, scratch, monkeypatch):
+def test_a_move_answers_with_every_part_it_changed(client, scratch):
     """`changed_parts` lists each part of the line whose line fields the write changed,
     `left_statement` on each, in the order `?bank_line_id=` lists the line. One part
     of a 60 + 40 line in a draft statement moved to another account with
@@ -431,10 +430,9 @@ def test_a_move_answers_with_every_part_it_changed(client, scratch, monkeypatch)
 
     # A replay under the same key answers exactly as the first send did.
     key = uuid4()
-    monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
-    first = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
-    replayed = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
-    monkeypatch.undo()
+    with under_key(key):
+        first = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
+        replayed = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
     assert _changed(first) == [(tx_id, False) for tx_id in order]
     assert replayed == first
 

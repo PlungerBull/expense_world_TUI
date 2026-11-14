@@ -14,19 +14,22 @@ import io
 import itertools
 import os
 import random
-from collections.abc import Callable, Iterable
-from contextlib import ExitStack
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from functools import cache, partial
+from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
+from unittest.mock import patch
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
 from openpyxl import Workbook
 
 from expense import config as config_module
+from expense import http as http_module
 from expense.bank_import.engine import request_body
 from expense.bank_line_write import line_body, new_part
 from expense.config import Config
@@ -437,6 +440,15 @@ def send_download(
     return client.post(
         "/transactions/import", json_body=download_body(account_id, rows, dry_run=dry_run)
     )
+
+
+@contextmanager
+def under_key(key: UUID) -> Iterator[None]:
+    """Every write the app's client sends inside the block carries `key` as its
+    `X-Idempotency-Key`, which the client otherwise mints afresh for each
+    (contract: "Base Conventions", "Idempotency")."""
+    with patch.object(http_module, "uuid", SimpleNamespace(uuid4=lambda: key)):
+        yield
 
 
 #: The sheet import's header, columns A to L in order

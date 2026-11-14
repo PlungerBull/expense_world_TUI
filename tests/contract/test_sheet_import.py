@@ -24,7 +24,9 @@ every row and writes nothing
 (contract: POST /v1/transactions/import-sheet, "Matching"). An existing person holding two
 currencies gets each currency's first non-zero `SALDO INICIAL` row as its opening balance under
 `@Opening`, and each later one as an ordinary row
-(contract: POST /v1/transactions/import-sheet, "Opening balances").
+(contract: POST /v1/transactions/import-sheet, "Opening balances"). A dry run's key is not
+kept: sent again under it, the dry run is answered afresh, the apply goes through under it, and a
+key an apply used is `409` for a dry run (contract: "Base Conventions", "Idempotency").
 
 Every name is fresh per run, so a second run of the suite still finds every row
 new on its first apply: the practice user's data outlives a reseed. Each test
@@ -63,6 +65,7 @@ from tests.contract.conftest import (
     sheet_file,
     sheet_row,
     transaction_count,
+    under_key,
 )
 
 
@@ -735,3 +738,48 @@ def test_a_suggestion_is_null_beside_a_proposal_and_otherwise_follows_the_rules(
         },
     }
     assert all(listed[name]["proposed_id"] is None for name in suggested)
+
+
+def test_a_dry_runs_key_is_not_kept_and_an_applys_key_stays_used(client, scratch):
+    """A dry run sent again under its key runs again, answered by the ledger as it then stands,
+    not replayed; the apply goes through under its dry run's key; a key an apply used is
+    `409` on `X-Idempotency-Key` (`IDEMPOTENCY_KEY_REUSED`) for a dry run sent under it
+    (contract: POST /v1/transactions/import-sheet, "Response")
+    (contract: "Base Conventions", "Idempotency")."""
+    n = Names()
+    account, category, hashtag = scratch.account(), scratch.category(), scratch.hashtag()
+    names = {
+        "accounts": [{"name": n.account, "account_id": account}],
+        "categories": [{"name": n.food, "category_id": category}],
+        "hashtags": [{"name": n.home, "hashtag_id": hashtag}],
+    }
+
+    def sheet(title: str, day: date) -> bytes:
+        return sheet_file([sheet_row(title, n.home, n.food, day, -9.5, n.account, "PEN")])
+
+    def send(data: bytes, *, dry_run: bool) -> dict:
+        body = request_body(data, dry_run=dry_run, names=names)
+        return client.post("/transactions/import-sheet", json_body=body)
+
+    one, other = sheet("CAFE", date(2026, 3, 14)), sheet("TIENDA", date(2026, 3, 15))
+    again = uuid4()
+    with under_key(again):
+        first = send(one, dry_run=True)
+    scratch.transactions.extend(r["transaction_id"] for r in send(one, dry_run=False)["rows"])
+    with under_key(again):
+        second = send(one, dry_run=True)
+    assert [r["outcome"] for r in first["rows"]] == ["new"]
+    assert [r["outcome"] for r in second["rows"]] == ["matched"]
+
+    key = uuid4()
+    with under_key(key):
+        dry = send(other, dry_run=True)
+        applied = send(other, dry_run=False)
+    scratch.transactions.extend(r["transaction_id"] for r in applied["rows"])
+    assert [r["outcome"] for r in dry["rows"]] == ["new"]
+    assert [r["outcome"] for r in applied["rows"]] == ["new"]
+    assert applied["rows"][0]["transaction_id"] is not None
+    with under_key(key):
+        err = refused(lambda: send(other, dry_run=True))
+    assert_refusal(err, 409, "CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED")
+    assert transaction_count(client, account) == 2

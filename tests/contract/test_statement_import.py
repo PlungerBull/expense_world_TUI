@@ -30,7 +30,10 @@ repo is public. Pinned here:
   · an open month is filled: its days become the paper's, it keeps its name, and a line in
     it the paper does not print is taken out, never deleted, on a card's draft over soles and
     dollars (a soles line out, each purchase matched in its currency) as on a savings account's;
-  · a replay under the same idempotency key answers the stored answer and writes once;
+  · a replay under the same idempotency key answers the stored answer and writes once; a dry
+    run's key is not kept: the dry run sent again under it is answered afresh, the apply goes
+    through under it, and a key an apply used is `409` for a dry run
+    (contract: "Base Conventions", "Idempotency");
   · each refusal a made-up file or account provokes, on the dry run and the apply alike,
     each writing nothing, shown by a full read of the account's transactions, bank lines and
     statements before and after: the body's
@@ -67,12 +70,10 @@ Gating, target and the real-ledger guard: conftest.py.
 
 import base64
 from datetime import date, datetime, timedelta
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from expense import http as http_module
 from expense.reads import pending_hashtag_of
 from tests.contract.conftest import (
     CURRENT_HEADER,
@@ -93,6 +94,7 @@ from tests.contract.conftest import (
     send_statement,
     statement_body,
     transaction_count,
+    under_key,
 )
 
 MARCH = {"start": date(2026, 3, 1), "end": date(2026, 3, 31)}
@@ -477,7 +479,7 @@ def test_an_open_month_is_filled_and_a_line_the_paper_lacks_taken_out(client, sc
     assert [line for line, *_ in _placed(client, draft)] == [kept["bank_line_id"]]
 
 
-def test_a_replay_answers_the_same_and_writes_once(client, scratch, monkeypatch):
+def test_a_replay_answers_the_same_and_writes_once(client, scratch):
     """The same idempotency key answers the stored response, the minted ids included, and
     writes once (contract: POST /v1/statements/import, "Idempotency")
     (contract: "Base Conventions", "Idempotency")."""
@@ -488,14 +490,11 @@ def test_a_replay_answers_the_same_and_writes_once(client, scratch, monkeypatch)
     before = transaction_count(client, account)
 
     key = uuid4()
-    monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
-    try:
+    with under_key(key):
         first = send_statement(client, account, paper, dry_run=False)
         scratch.took(first)
         replayed = send_statement(client, account, paper, dry_run=False)
         scratch.took(replayed)  # cleaned up whatever the checks below find
-    finally:
-        monkeypatch.undo()
 
     assert replayed == first
     assert first["rows"][0]["outcome"] == "new" and first["rows"][0]["transaction_id"]
@@ -1138,3 +1137,40 @@ def test_balances_alone_in_the_draft_make_a_currency_the_paper_lacks_refused(cli
         "ACCOUNT_CURRENCY_NOT_ON_PAPER",
     )
     assert "USD" in err.fields["account_id"]
+
+
+def test_a_dry_runs_key_is_not_kept_and_an_applys_key_stays_used(client, scratch):
+    """A dry run sent again under its key runs again, answered by the ledger as it then stands,
+    not replayed; the apply goes through under its dry run's key; a key an apply used is
+    `409` on `X-Idempotency-Key` (`IDEMPOTENCY_KEY_REUSED`) for a dry run sent under it
+    (contract: POST /v1/statements/import, "Idempotency")
+    (contract: "Base Conventions", "Idempotency")."""
+    paper = savings_paper(
+        [PaperRow(date(2026, 3, 4), "COMPRA LIBRERIA", -4250)], before_cents=10000, **MARCH
+    )
+
+    account, _ = _coded(scratch)
+    again = uuid4()
+    with under_key(again):
+        first = send_statement(client, account, paper, dry_run=True)
+    line = scratch.line(account, "2026-03-04", -4250)
+    with under_key(again):
+        second = send_statement(client, account, paper, dry_run=True)
+    assert [(r["outcome"], r["bank_line_id"]) for r in first["rows"]] == [("new", None)]
+    assert [(r["outcome"], r["bank_line_id"]) for r in second["rows"]] == [("matched", line)]
+
+    april = savings_paper(
+        [PaperRow(date(2026, 4, 6), "COMPRA BODEGA", -1500)], before_cents=5750, **APRIL
+    )
+    key = uuid4()
+    with under_key(key):
+        dry = send_statement(client, account, april, dry_run=True)
+        applied = send_statement(client, account, april, dry_run=False)
+    scratch.took(applied)  # cleaned up whatever the checks below find
+    assert (dry["dry_run"], dry["statement_id"]) == (True, None)
+    assert applied["dry_run"] is False and applied["statement_id"] is not None
+    assert [r["outcome"] for r in applied["rows"]] == ["new"]
+    with under_key(key):
+        err = refused(lambda: send_statement(client, account, april, dry_run=True))
+    assert_refusal(err, 409, "CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED")
+    assert [s["id"] for s in _statements(client, account)] == [applied["statement_id"]]

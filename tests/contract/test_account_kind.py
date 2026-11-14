@@ -36,12 +36,10 @@ suite's range) and removed by the `scratch` fixture.
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
 
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from expense import http as http_module
 from tests.contract.conftest import (
     all_accounts,
     assert_refusal,
@@ -51,6 +49,7 @@ from tests.contract.conftest import (
     refused,
     refused_writing_nothing,
     statement_create_body,
+    under_key,
 )
 
 _ROUTES = ("make-person", "make-account")
@@ -381,7 +380,7 @@ def test_a_person_takes_no_statement(client, scratch):
     assert_refusal(err, 422, "VALIDATION_ERROR", "balances.0.currency_code", "CURRENCY_NOT_HELD")
 
 
-def test_make_person_sent_again_under_its_key_is_replayed(client, scratch, monkeypatch):
+def test_make_person_sent_again_under_its_key_is_replayed(client, scratch):
     """The client mints one key per logical write (expense/http.py); the key is held fixed
     here, so the second send is the same logical write sent again, as a retry sends it. Not
     replayed, it would be `KIND_UNCHANGED`."""
@@ -389,11 +388,10 @@ def test_make_person_sent_again_under_its_key_is_replayed(client, scratch, monke
     version = client.get(f"/accounts/{account_id}")["version"]
 
     key = uuid4()
-    monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
     body = {"name": f"contract-kind-{uuid4().hex[:8]}"}
-    first = client.post(f"/accounts/{account_id}/make-person", json_body=body)
-    again = client.post(f"/accounts/{account_id}/make-person", json_body=body)
-    monkeypatch.undo()
+    with under_key(key):
+        first = client.post(f"/accounts/{account_id}/make-person", json_body=body)
+        again = client.post(f"/accounts/{account_id}/make-person", json_body=body)
 
     assert again == first
     after = client.get(f"/accounts/{account_id}")

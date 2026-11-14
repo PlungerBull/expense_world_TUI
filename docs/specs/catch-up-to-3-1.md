@@ -79,10 +79,7 @@ apply is a write of its own, under its own key. 4 is task 1 here.
 
 Each task leaves `pytest tests/unit` green and reads the live contract on the practice engine
 before building. Each live test makes its accounts with a last 4 from `next_last4()`, so the
-practice-user clean-up finds them. Tasks 1–4 are done.
-
-5. **A live test of dry-run keys** on each of the three routes: the apply under its dry run's key
-   goes through, and a dry run sent again runs again. A key an apply used stays `409` for a dry run.
+practice-user clean-up finds them. Tasks 1–5 are done.
 
 ## Reply to the engine
 

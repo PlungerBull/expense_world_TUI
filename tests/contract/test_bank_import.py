@@ -18,6 +18,9 @@ app's own `answer_rows` and `day_mismatches` where a test names them. Pinned her
     account holding no dollars is `CURRENCY_NOT_HELD` on `rows.<row>.account_id`,
     its message naming the currency, nothing written, on the dry run
     and the apply alike (contract: POST /v1/transactions/import, "Accounts");
+  - a dry run's key is not kept: the dry run sent again under it is answered afresh, the apply
+    goes through under it, and a key an apply used is `409` for a dry run
+    (contract: "Base Conventions", "Idempotency");
   - every answer row and every `day_mismatches` entry reads `account_id` and
     `currency_code`;
   - a row of 0 is `skipped`: read, counted, never written;
@@ -63,6 +66,7 @@ from tests.contract.conftest import (
     replace_parts,
     send_download,
     transaction_count,
+    under_key,
 )
 
 TITLE = "DLC*RIDES LIMA PE"
@@ -463,3 +467,35 @@ def test_a_completed_statement_stops_the_move_and_the_rest_imports(scratch, targ
     # the stopped move is not an error: the file's other row is written
     assert len(made) == 1 and transaction_count(client, account) == 2
     assert read_signed(client, made[0])["amount_cents"] == -1000
+
+
+def test_a_dry_runs_key_is_not_kept_and_an_applys_key_stays_used(client, scratch):
+    """A dry run sent again under its key runs again, answered by the ledger as it then stands,
+    not replayed; the apply goes through under its dry run's key; a key an apply used is
+    `409` on `X-Idempotency-Key` (`IDEMPOTENCY_KEY_REUSED`) for a dry run sent under it
+    (contract: POST /v1/transactions/import, "Response")
+    (contract: "Base Conventions", "Idempotency")."""
+    account = scratch.account()
+    one = [CURRENT_HEADER, ["05/03/2026", TITLE, "S/", -25.9, _code()]]
+    other = [CURRENT_HEADER, ["06/03/2026", "PAGO PLANILLA", "S/", 6519, _code()]]
+
+    again = uuid4()
+    with under_key(again):
+        first = send_download(client, account, one, dry_run=True)
+    scratch.took(send_download(client, account, one, dry_run=False))
+    with under_key(again):
+        second = send_download(client, account, one, dry_run=True)
+    assert [r["outcome"] for r in first["rows"]] == ["new"]
+    assert [r["outcome"] for r in second["rows"]] == ["matched"]
+
+    key = uuid4()
+    with under_key(key):
+        dry = send_download(client, account, other, dry_run=True)
+        applied = send_download(client, account, other, dry_run=False)
+    made = scratch.took(applied)
+    assert [r["outcome"] for r in dry["rows"]] == ["new"]
+    assert [r["outcome"] for r in applied["rows"]] == ["new"] and len(made) == 1
+    with under_key(key):
+        err = refused(lambda: send_download(client, account, other, dry_run=True))
+    assert_refusal(err, 409, "CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED")
+    assert transaction_count(client, account) == 2
