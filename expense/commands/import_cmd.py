@@ -2,6 +2,16 @@
 
 The engine reads the sheet and answers (expense/import_/engine.py); this module
 only prints the answer, and saves the renames `--account-name` gives.
+
+`--json` prints the engine's answer as it sent it. Two documents are the app's
+(docs/commands.md "Sanctioned exceptions"): `--create-names --json` is
+`{"created": {"categories": [...], "hashtags": [...]}}`, beside the `error` that
+stopped it when one did; `--apply --json` with a name or an account missing is
+a `NAMES_MISSING` envelope (`errors.error_envelope`), nothing written.
+
+`SALDO INICIAL` is a category name like any other to the app: listed, created by
+the create step, and an unused category to delete once only opening balances
+use it (contract: POST /v1/transactions/import-sheet, "Opening balances").
 """
 
 import shlex

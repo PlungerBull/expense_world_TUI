@@ -27,7 +27,7 @@ prepares the release (CLAUDE.md "This repo's loop").
 1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
 2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–17
-   answered by 2026-11-13; tasks 1–4 are done; task 5 waits on
+   answered by 2026-11-13; tasks 1–4 and 6 are done; task 5 waits on
    the engine ask "GET /banks lists every bank the owner's accounts were at". v1.0.0 is
    prepared after its rehearsal.
 3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved

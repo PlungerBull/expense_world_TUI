@@ -130,19 +130,15 @@ account's month.
 ## Tasks
 
 On the answers 15 A and 16 A (2026-11-12); each reads the live contract on the practice engine
-before building. Tasks 1–4 are done; a sheet name two accounts share (`ambiguous`) is left out
-of task 4's tests, since every create and rename refuses a taken name and only accounts made
-before built names can share one (contract: POST /v1/transactions/import-sheet, "Names").
+before building. Tasks 1–4 and 6 are done; a sheet name two accounts share (`ambiguous`) is
+left out of task 4's tests, since every create and rename refuses a taken name and only accounts
+made before built names can share one (contract: POST /v1/transactions/import-sheet, "Names").
 Task 5 waits on the engine ask "GET /banks lists every bank the owner's accounts were at", for
 its closed account at a second bank.
 
 5. **The rehearsal on the practice engine:** a made-up sheet with the real sheet's shape (a
    card in two currencies, two savings accounts, people, a split purchase, opening balances, a
    closed account at a second bank) goes through steps 3–8, and every balance matches.
-6. **docs/commands.md's `expense import sheet` section keeps only what the code can't say:**
-   what the import prints and how its engine steps run are said by import_cmd.py and engine.py,
-   so the section names them instead of retelling them (about 1,500 words today; Lean docs'
-   word total, answered A on 2026-11-13).
 
 ## Found along the way
 
