@@ -5,8 +5,8 @@ and a required last 4 (`IBK-4321`), and only a bank the engine reads takes a sta
 (question 18). The import's review makes the accounts, categories, hashtags and rows in one write,
 on a screen the command opens (panes 3 B and 4 A of
 [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
-Tasks 7 and 8 wait on the engine's hand-off for two asks, named in
-"Tasks".** Turning an account into a person is built
+The engine shipped both in contract 3.1, which [the catch-up to 3.1](catch-up-to-3-1.md) takes
+first; tasks 7 and 8 wait on question 19.** Turning an account into a person is built
 ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key"); the
 split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a
 split purchase in as one split transaction"); the sheet import goes through the engine. When the
@@ -105,6 +105,19 @@ account's month.
     draw decision 14. **Picked 2026-11-13: 3 B**, `expense import sheet <file>` opens the review
     as a screen in the app, named "Import sheet"; **4 A**, `⏎` on a row opens the New account form
     filled from the engine's suggestion.
+19. **What the hand-off left open** (panes 5, 6 and 7 of
+    [expense-world-banks-and-import-review.html](../mockups/expense-world-banks-and-import-review.html)).
+    On the owner's sheet the engine suggests a BCP bank account with no last 4 for the five
+    `BCP …` names and nothing for the other 13.
+    - **Pane 5, a row the engine half-suggests:** A, the row asks for the last 4 and `^s` waits
+      for it, as for a kind; or B, the row shows the guess and the engine's refusal comes back on
+      `^s`. **Recommended:** A, so every gap shows before sending.
+    - **Pane 6, a row the engine refuses on `^s`:** A, the review marks the row and shows the
+      engine's words under the table; or B, a question box with the words. **Recommended:** A,
+      so the words stay beside the row while it is fixed.
+    - **Pane 7, BANK typed in small letters:** A, sent as typed and refused in the engine's
+      words; or B, capitals as typed, as STATEMENT CODE already does. **Recommended:** B, so the
+      two code lines behave alike.
 
 ## What the engine settled
 
@@ -140,25 +153,34 @@ account's month.
 ## Tasks
 
 Each reads the live contract on the practice engine before building. Tasks 1–4 and 6 are done, on
-the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. A sheet name two
-accounts share (`ambiguous`) is left out of task 4's tests, since every create and rename refuses
-a taken name (contract: POST /v1/transactions/import-sheet, "Names"). Tasks 7 and 8 start from the
-engine's hand-off, whose catch-up spec takes the contract's side first.
+the answers 15 A and 16 A (2026-11-12); task 8 replaces what tasks 2 and 3 built. Tasks 7 and 8
+run after [the catch-up to 3.1](catch-up-to-3-1.md), which records contract 3.1, and each waits on
+question 19's pick for its panes.
 
-7. **The bank account form, as decision 14 and panes 1 and 2 draw it.** Waits on the ask
-   "A bank account's bank is a 3–4 letter code the user types, its last 4 is required, and only a
-   bank `GET /banks` lists takes a statement code". On Manage ▸ Accounts New and Edit, and `t`'s
+7. **The bank account form, as decision 14 and panes 1, 2 and 7 draw it.** On Manage ▸ Accounts New and Edit, and `t`'s
    question when it makes a bank account, BANK is a typed code of 3 or 4 letters with no
    suggestions and LAST 4 is required; the statement code line shows only while BANK is a code
-   `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words.
-8. **The import's review, as panes 3 B and 4 A draw it.** Waits on the ask
-   "The sheet import suggests the accounts it is missing and makes the ones the user confirms,
-   with its names and rows, in one write". It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
+   `GET /banks` lists. The Edit form removes a number only while another stays. A refusal is the engine's words
+   under its line: `INVALID_FORMAT` and, when `t` makes a person that carries a statement code a
+   bank account at a bank `GET /banks` does not list, `BANK_TAKES_NO_STATEMENT_CODE` under BANK.
+8. **The import's review, as panes 3 B, 4 A, 5 and 6 draw it.** Each missing account prefilled
+   from the engine's `suggestion`; `^s` sends the dry run with `create`, ids generated here and
+   `names` pointing at them, and asks with its `created` and counts before the apply; a refusal
+   keyed `create.<list>.<i>.<field>` shows on its row. It replaces making every account in the app first, `--account-name` and the sheet names it saves, `--create-names`, and archiving
    the closed accounts by hand.
 5. **The rehearsal on the practice engine,** after 7 and 8: a made-up sheet with the real sheet's
    shape (a card in two currencies, two savings accounts, people, a split purchase, opening
    balances, a closed account at a bank the engine doesn't read) goes through steps 3–5, and
    every balance matches.
+
+## Reply to the engine
+
+Part 2 of the reply to the hand-off of 2026-11-14 (part 1 is
+[the catch-up to 3.1](catch-up-to-3-1.md)'s), written once tasks 7, 8 and 5 are done. It reports
+on the hand-off's "Done when" checks for the forms (`IBK-4321` made, `ibk` and a missing last 4
+refused in the engine's words, or `ibk` taken as `IBK` if pane 7 is B) and for the review (each
+missing account prefilled, one apply making them and every row, shown on the rehearsal's made-up
+sheet), and closes the screen side of the two asks part 1 names.
 
 ## Found along the way
 

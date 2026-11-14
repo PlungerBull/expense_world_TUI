@@ -24,23 +24,25 @@ A catch-up spec built from the engine's hand-off goes first once that file is in
 Each line carries its version; a version's specs run in the order listed, and its last spec
 prepares the release (CLAUDE.md "This repo's loop").
 
-1. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
+1. **v1.0** · [The catch-up to contract 3.1](specs/catch-up-to-3-1.md): drafted 2026-11-14, from
+   the engine's hand-off of that day. Blocked: waits on the owner's approval.
+2. **v1.0** · [The app the owner runs](specs/going-live.md): approved 2026-11-11. Every task is
    done; its acceptance check needs the v1.0.0 release installed.
-2. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
+3. **v1.0** · [The official import](specs/before-the-official-import.md): questions 15–18
    answered by 2026-11-13; tasks 1–4 and 6 are done. Task 7 (the bank account form) and task 8
-   (the import's review) wait on the two engine asks the spec's "Tasks" names; the rehearsal,
+   (the import's review) run after the catch-up to 3.1 and wait on question 19; the rehearsal,
    task 5, runs after both. v1.0.0 is prepared after it.
-3. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
+4. **v1.1** · [Closing a month with leftover lines](specs/closing-with-leftover-lines.md): approved
    2026-11-08, its question 4 answered 2026-11-11. Blocked: tasks 3 and 5 wait on the engine
    asks "A loose-lines refusal names the statement it would close" and "A close can be checked
    before it is sent".
-4. **v1.1** · [Small screen details](specs/small-screen-details.md): approved 2026-11-13. Task 6
+5. **v1.1** · [Small screen details](specs/small-screen-details.md): approved 2026-11-13. Task 6
    waits on the engine ask "A statement PDF's upload names its account from the card number the
    paper prints".
-5. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
+6. **v1.2** · [The app checks its engine](specs/engine-checks.md): the old tasks 5–7 of the app
    the owner runs, split out 2026-11-12. The engine shipped what they read in contract 1.1;
    tasks 1 and 2 wait on the owner picking their mockups.
-6. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11. Nothing past
+7. **v1.3** · [Code conventions B](specs/code-conventions-b.md): approved 2026-11-11. Nothing past
    v1.0 is built until v1.0.0 is prepared, so v1.0.0 holds the code the import was rehearsed on.
 
 ---
@@ -58,6 +60,19 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
+
+### Approve the catch-up to 3.1, and pick panes 5, 6 and 7
+Asked 2026-11-14 · Blocks: the catch-up to 3.1; the official import's tasks 7 and 8
+The engine shipped a bank as a typed code with a required last 4, and the sheet import that makes
+the accounts it suggests. [The catch-up to 3.1](specs/catch-up-to-3-1.md) brings the app's
+contract checks and live tests up to it, with no screen change; its tasks are listed in it.
+Three details of the screens are left open, drawn as panes 5, 6 and 7 of
+[mockups/expense-world-banks-and-import-review.html](mockups/expense-world-banks-and-import-review.html)
+(the official import's question 19).
+- **A.** Approve the catch-up as drafted, and answer the panes, e.g. `5A 6A 7B`.
+- **B.** Change something in the catch-up first (say what).
+**Recommended:** A with `5A 6A 7B`: every gap shows before sending, the engine's words stay beside
+the refused row, and BANK capitalises as STATEMENT CODE does.
 
 ### Your first release, then the old install goes
 Asked 2026-11-11 · Blocks: the app the owner runs' acceptance check

@@ -65,8 +65,8 @@
 
 <div class="head">
   <h1>Banks, and the import's review</h1>
-  <p>Drawn for the two engine asks "A bank account's bank is a 3–4 letter code the user types, its last 4 is required, and only a bank <code>GET /banks</code> lists takes a statement code" and "The sheet import suggests the accounts it is missing and makes the ones the user confirms, with its names and rows, in one write". Nothing here is built; the engine's hand-off may still move a detail.</p>
-  <p>Panes 1 and 2 draw what is decided; answer panes 3 and 4 with one letter each, e.g. <code>3B 4A</code>. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
+  <p>Drawn for the engine's contract 3.1: a bank is a 3–4 letter code with a required last 4, and the sheet import suggests the accounts it is missing and makes the ones you confirm, with the names and rows, in one write. Nothing here is built.</p>
+  <p>Panes 1 and 2 draw what is decided; 3 B and 4 A are picked. <b>Answer panes 5, 6 and 7 with one letter each</b>, e.g. <code>5A 6A 7A</code>: the details the engine's hand-off left open. Accounts, numbers, amounts and the engine's words are invented. Drawn at 80 columns.</p>
 </div>
 
 <!-- ================================================================== group 1 -->
@@ -114,12 +114,12 @@
 <!-- ================================================================== group 2 -->
 <div class="grp">
   <h2>The import's review</h2>
-  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> a name holding <code>BCP</code> and four digits gets a BCP account with that last 4; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you set once, here.</p>
+  <p>The ledger is empty. The engine suggests an account for each sheet name it doesn't know, and the review makes them, the categories, the hashtags and the rows in one write. <b>It guesses only from what a name says:</b> a name starting <code>BCP</code> gets a BCP bank account, with its last 4 only when the name holds four digits; <code>VISA Infinite Sapphire</code> names no bank and <code>ALEJO</code> no kind, so those you set once, here. On your sheet, the engine says the five <code>BCP …</code> names get BCP with no last 4, and the other 13 get nothing.</p>
 </div>
 
 <!-- ================================================================== 5 -->
 <div class="pane">
-<div class="lbl">3 · Where the review happens <span>— pick A or B</span></div>
+<div class="lbl">3 · Where the review happens <span>— picked: B</span></div>
 
 <div class="var"><div class="oh">A · <span>questions in the terminal</span></div>
 <div class="opt wide">
@@ -173,7 +173,7 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
 
 <!-- ================================================================== 6 -->
 <div class="pane">
-<div class="lbl">4 · ⏎ on a row of the review <span>— pick A or B · if 3 B</span></div>
+<div class="lbl">4 · ⏎ on a row of the review <span>— picked: A</span></div>
 
 <div class="var"><div class="oh">A · <span>the New account form, filled from the suggestion</span><span class="rec">recommended</span></div>
 <div class="opt wide">
@@ -198,11 +198,110 @@ and 2 rows of zero skipped. Import? Only y imports: y</pre></div></div>
 <p class="cap">A line to add or drop, or other words.</p></div>
 </div>
 
+<!-- ================================================================== 5 -->
+<div class="pane">
+<div class="lbl">5 · A row the engine half-suggests <span>— pick A or B</span></div>
+<p class="blurb">A name like <code>BCP Sueldo Soles</code> gets bank and BCP from the engine, but no last 4, and a bank account needs one.</p>
+
+<div class="var"><div class="oh">A · <span>the row asks for the last 4, as a kind is asked</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx · just opened</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Import sheet</span>  ▸  libro.xlsx
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+  4,191 rows · 18 accounts, 3 categories and 2 hashtags to make
+
+  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+<span class="rev">  BCP Sueldo Soles         PEN         1,203   bank · BCP · ? last 4            </span>
+  BCP Cuenta Digital       USD           312   bank · BCP · <span class="w">? last 4</span>
+  VISA Infinite Sapphire   PEN + USD   1,846   <span class="w">? pick a kind</span>
+  ALEJO                    PEN + USD      58   <span class="w">? pick a kind</span>
+  <span class="d">…</span>
+
+  <span class="w">5 accounts still need a last 4, 13 a kind.</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Edit  <span class="a">a</span> Archive  <span class="a">^s</span> Import  <span class="a">?</span> Keys</pre></div></div>
+</div>
+<p class="cap">The engine's guess is shown and the missing piece says <code>?</code>, so <code>^s</code> waits for it as it waits for a kind (pane 3 B). <code>⏎</code> opens the form on LAST 4.</p></div>
+
+<div class="var"><div class="oh">B · <span>the row shows the guess as it is; the engine asks on ^s</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx · just opened</span></div>
+<div class="app"><pre>  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+<span class="rev">  BCP Sueldo Soles         PEN         1,203   bank · BCP                       </span>
+  BCP Cuenta Digital       USD           312   bank · BCP
+  VISA Infinite Sapphire   PEN + USD   1,846   <span class="w">? pick a kind</span>
+  ALEJO                    PEN + USD      58   <span class="w">? pick a kind</span>
+
+  <span class="w">13 accounts still need a kind.</span></pre></div></div>
+</div>
+<p class="cap">Only a missing kind holds <code>^s</code>. A bank row with no last 4 is sent, and the engine's refusal comes back on that row, as pane 6 draws.</p></div>
+</div>
+
+<!-- ================================================================== 6 -->
+<div class="pane">
+<div class="lbl">6 · The engine refuses one row on ^s <span>— pick A or B</span></div>
+<p class="blurb">Two rows were given the same last 4 at BCP. <code>^s</code> checks everything with the engine first, nothing written, and the engine refuses the second row.</p>
+
+<div class="var"><div class="oh">A · <span>the review marks the row and shows the engine's words under the table</span><span class="rec">recommended</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx · after ^s</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Import sheet</span>  ▸  libro.xlsx
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+  4,191 rows · 18 accounts, 3 categories and 2 hashtags to make
+
+  SHEET NAME               CUR          ROWS   MAKES                    ARCHIVE
+  BCP Sueldo Soles         PEN         1,203   bank · BCP · 1234
+<span class="rev">  BCP Cuenta Digital       USD           312   ! bank · BCP · 1234              </span>
+  VISA Infinite Sapphire   PEN + USD   1,846   bank · BCP · 5678
+  <span class="d">…</span>
+
+  <span class="n">! BCP Cuenta Digital: An account named BCP-1234 already exists.</span>
+  <span class="d">Nothing was written.</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Edit  <span class="a">a</span> Archive  <span class="a">^s</span> Import  <span class="a">?</span> Keys</pre></div></div>
+</div>
+<p class="cap">The cursor lands on the refused row; <code>⏎</code> opens its form with the same words under LAST 4. A refused category or hashtag shows its words under the Categories or Hashtags line the same way.</p></div>
+
+<div class="var"><div class="oh">B · <span>a question box with the engine's words</span></div>
+<div class="opt wide">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet libro.xlsx · after ^s</span></div>
+<div class="app"><pre>        ┌──────────────────────────────────────────────────────────────┐
+        │  BCP Cuenta Digital                                          │
+        │  An account named BCP-1234 already exists.                   │
+        │  Nothing was written.                                        │
+        │                                                  <span class="a">⏎</span> OK       │
+        └──────────────────────────────────────────────────────────────┘</pre></div></div>
+</div>
+<p class="cap"><code>⏎</code> closes the box and puts the cursor on that row; the row itself is not marked.</p></div>
+</div>
+
+<!-- ================================================================== 7 -->
+<div class="pane">
+<div class="lbl">7 · BANK typed in small letters <span>— pick A or B · on New, Edit, t and the review's form</span></div>
+
+<div class="opt">
+<div class="var"><div class="oh">A · <span>sent as typed; the engine's words say why not</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ibk typed, ^s</span></div>
+<div class="app"><pre>   type            bank
+   bank            ibk
+   <span class="n">Must be 3 or 4 capital letters.</span>
+   last 4          4321</pre></div></div>
+<p class="cap">What the engine's own check expects: <code>ibk</code> is refused under BANK, in its words.</p></div>
+
+<div class="var"><div class="oh">B · <span>capitals as you type, as STATEMENT CODE already does</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · ibk typed</span></div>
+<div class="app"><pre>   type            bank
+   bank            IBK
+   last 4          4321</pre></div></div>
+<p class="cap">Typing <code>ibk</code> shows and sends <code>IBK</code>, the way the statement code line takes <code>sig</code> as <code>SIG</code> today. Anything else wrong, like <code>IB</code>, still gets the engine's words.</p></div>
+</div>
+</div>
+
 <div class="pick">
   <b>What happens after you pick</b>
   <ol>
-    <li>You hand both engine asks to the engine; this mockup waits for their hand-off, which may still move a detail.</li>
-    <li>Panes 1 and 2 are the official import's task 7; your picks on 3 and 4 make its task 8, the review, in place of making every account by hand and <code>--account-name</code>.</li>
+    <li>Panes 1, 2 and 7 are the official import's task 7, the bank account form; 3 B, 4 A, 5 and 6 are its task 8, the review, in place of making every account by hand and <code>--account-name</code>.</li>
+    <li>The catch-up to contract 3.1 runs first; it changes no screen.</li>
     <li>Then the rehearsal, the real import, and v1.0.0.</li>
   </ol>
 </div>
